@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Get reCAPTCHA v2 Token</title>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+  </head>
+  <body>
+    <h2>reCAPTCHA v2 Token Generator</h2>
+    <form id="f" action="?" method="POST">
+      <div
+        class="g-recaptcha"
+        data-sitekey="6LejTe8rAAAAADo3ijCRWqJN9rIfS8g3cVueUXBx"
+        data-callback="onRecaptchaSuccess"
+      ></div>
+      <br />
+      <button type="submit">Submit</button>
+    </form>
+
+    <script>
+      function onRecaptchaSuccess() {
+        // token will be in the textarea #g-recaptcha-response
+        const ta = document.getElementById('g-recaptcha-response');
+        const token = ta ? ta.value : null;
+        console.log('reCAPTCHA token:', token);
+
+        // copy to clipboard (browser will ask permission)
+        if (token && navigator.clipboard) {
+          navigator.clipboard.writeText(token).then(
+            () => console.log('Token copied to clipboard'),
+            (err) => console.error('Clipboard copy failed', err)
+          );
+        } else if (token) {
+          alert('Token copied to console. Copy it from there.');
+        }
+      }
+    </script>
+  </body>
+</html>

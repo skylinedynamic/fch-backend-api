@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Common;
+namespace App\Services\Common\Auth;
 
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
@@ -20,6 +20,8 @@ class AuthService
      */
     public function login(array $credentials, Request $request): JsonResponse
     {
+        $authCredentials = collect($credentials)->except('recaptcha')->toArray();
+        
         $email = (string) $credentials['email'];
         $key = 'login:' . $email . $request->ip();
         $maxAttempts = config('app.login_throttle_limit');
@@ -34,7 +36,7 @@ class AuthService
             ]));
         }
         
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $authCredentials['email'])->first();
         
         if (!$user) {
             RateLimiter::hit($key, $decayMinutes * 60);
@@ -44,7 +46,7 @@ class AuthService
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
         }
 
-        if (!Auth::attempt($credentials)) {
+        if (!Auth::attempt($authCredentials)) {
             RateLimiter::hit($key, $decayMinutes * 60);
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
@@ -55,6 +57,8 @@ class AuthService
         RateLimiter::clear($key);
         
         $user = Auth::user();
+        
+        
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         $attempts = RateLimiter::attempts($key);
@@ -65,5 +69,6 @@ class AuthService
             'user' => $user,
         ], __('auth.logged_in'));
     }
+
 
 }
