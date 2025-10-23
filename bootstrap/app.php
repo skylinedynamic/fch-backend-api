@@ -16,10 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class
         );
         
-        // Register 2FA middleware
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
             'check-2fa-status' => \App\Http\Middleware\CheckTwoFactorStatus::class,
+            'partner' => \App\Http\Middleware\PartnerMiddleware::class,
+            'borrower' => \App\Http\Middleware\BorrowerMiddleware::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
