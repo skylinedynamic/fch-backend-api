@@ -14,7 +14,10 @@ use App\Http\Controllers\Api\V1\Admin\Partner\PartnerController;
 |
 */
 
+
+
 Route::prefix('v1/admin')->middleware(['auth:api', 'admin'])->group(function () {
+    Route::get('partners', [PartnerController::class, 'index']);
     Route::post('partners', [PartnerController::class, 'store']);
     Route::put('partners/{id}', [PartnerController::class, 'update']);
 });

@@ -19,7 +19,7 @@ class VerifyTwoFaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'method' => ['required', Rule::in(TwoFaAuthSetting::getMethods())],
+            'method' => ['required', Rule::in([TwoFaAuthSetting::TOTP, TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])],
             'code' => ['required', 'string', 'min:4', 'max:10'],
         ];
     }

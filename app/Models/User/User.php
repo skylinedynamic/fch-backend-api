@@ -3,6 +3,8 @@
 namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use App\Models\Company\Company;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -28,10 +30,14 @@ class User extends Authenticatable implements OAuthenticatable
         'first_name',
         'last_name',
         'email',
+        'phone_number',
+        'city',
+        'state',
+        'postal_code',
+        'country',
         'user_type',
         'image',
         'password',
-        'phone_number',
     ];
 
     /**
@@ -396,5 +402,13 @@ class User extends Authenticatable implements OAuthenticatable
     public function twoFaAuthSetting(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(\App\Models\TwoFaAuth\TwoFaAuthSetting::class);
+    }
+
+    /**
+     * Get the user's company.
+     */
+    public function company(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Company::class);
     }
 }

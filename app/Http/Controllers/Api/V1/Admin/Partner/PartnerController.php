@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\Admin\Partner;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\StorePartnerRequest;
-use App\Http\Requests\Admin\UpdatePartnerRequest;
+use App\Http\Requests\Api\V1\Admin\Partner\StorePartnerRequest;
+use App\Http\Requests\Api\V1\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Resources\Partner\PartnerResource;
 use App\Services\Partner\PartnerService;
 
@@ -19,34 +19,52 @@ class PartnerController extends Controller
     }
 
     /**
-     * Store a newly created partner/company.
+     * Get partners.
+     */
+    public function index()
+    {
+        $partners = $this->partnerService->getAllPartners();
+
+        return ApiResponse::success(
+            PartnerResource::collection($partners),
+            'Partners retrieved successfully'
+        );
+    }
+
+    /**
+     * Store Partner.
      */
     public function store(StorePartnerRequest $request)
     {
-        $company = $this->partnerService->store($request->validated());
+        $user = $this->partnerService->store($request->validated());
 
         return ApiResponse::success(
-            new PartnerResource($company),
+            new PartnerResource($user),
             'Partner created successfully',
             201
         );
     }
 
     /**
-     * Update an existing partner/company.
+     * Update Update.
      */
     public function update(UpdatePartnerRequest $request, int $id)
     {
-        $company = $this->partnerService->findById($id);
+        $partner = $this->partnerService->findById($id);
 
-        if (!$company) {
+        return ApiResponse::success(
+            new PartnerResource($partner),
+            'Partner updated successfully'
+        );
+
+        if (!$partner) {
             return ApiResponse::notFound('Partner not found');
         }
 
-        $updatedCompany = $this->partnerService->update($company, $request->validated());
+        $updatedPartner = $this->partnerService->update($partner, $request->validated());
 
         return ApiResponse::success(
-            new PartnerResource($updatedCompany),
+            new PartnerResource($updatedPartner),
             'Partner updated successfully'
         );
     }

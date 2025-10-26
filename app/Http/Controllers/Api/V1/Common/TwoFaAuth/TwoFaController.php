@@ -45,8 +45,8 @@ class TwoFaController extends Controller
         $validated = $request->validated();
         $result = $this->service->verify($validated['method'], $validated['code']);
         
-        if (($result['verified'] ?? false) === true) {
-            return ApiResponse::success(new TwoFaVerificationResource($result), __('auth.2fa_verified'));
+        if ($result['status'] === true) {
+            return ApiResponse::success(new TwoFaVerificationResource($result['data']), __('auth.2fa_verified'));
         }
         return ApiResponse::error(__('auth.2fa_verification_failed'), 422, new TwoFaVerificationResource($result));
     }

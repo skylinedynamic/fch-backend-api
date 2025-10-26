@@ -30,6 +30,7 @@ class TwoFaAuthSetting extends Model
         'confirmed_at' => 'datetime',
         'code_expires_at' => 'datetime',
         'locked_until' => 'datetime',
+        'recovery_codes' => 'array',
     ];
 
     public const TOTP = 'totp';
