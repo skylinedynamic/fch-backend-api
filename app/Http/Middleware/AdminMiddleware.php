@@ -23,7 +23,7 @@ class AdminMiddleware
         // If user is not authenticated, return unauthorized
         if (!$user) {
             return ApiResponse::error(
-                'Unauthorized. Please login first.',
+                __('auth.unauthorized'),
                 401
             );
         }
@@ -31,7 +31,7 @@ class AdminMiddleware
         // Check if user has admin user type
         if ($user->user_type !== User::USERTYPE['Admin']) {
             return ApiResponse::error(
-                'Access denied. Admin privileges required.',
+                __('auth.access_denied'),
                 403
             );
         }

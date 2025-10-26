@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\Admin\Partner\PartnerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,9 +15,6 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1/admin')->middleware(['auth:api', 'admin'])->group(function () {
-    // Admin-specific routes will be added here
-    // Example:
-    // Route::get('/dashboard', [AdminController::class, 'dashboard']);
-    // Route::get('/users', [AdminUserController::class, 'index']);
-    // Route::post('/users', [AdminUserController::class, 'store']);
+    Route::post('partners', [PartnerController::class, 'store']);
+    Route::put('partners/{id}', [PartnerController::class, 'update']);
 });

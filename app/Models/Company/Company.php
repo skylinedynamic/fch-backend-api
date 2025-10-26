@@ -40,11 +40,14 @@ class Company extends Model
     protected $fillable = [
         'user_id',
         'company_name',
-        'company_code',
+        'company_ein',
         'company_email',
         'company_phone',
         'company_website',
+        'company_entity_type',
+        'company_type',
         'company_description',
+        // Company address
         'address_line_1',
         'address_line_2',
         'city',

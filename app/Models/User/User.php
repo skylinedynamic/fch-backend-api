@@ -64,6 +64,11 @@ class User extends Authenticatable implements OAuthenticatable
         'Borrower' => 'Borrower',
     ];
 
+    public function getFullNameAttribute(): string
+    {
+        return "{$this->first_name} {$this->last_name}";
+    }
+
     /**
      * Send the password reset notification.
      */
@@ -146,13 +151,13 @@ class User extends Authenticatable implements OAuthenticatable
             return false;
         }
 
-        if ($twoFactorSetting->method === 'totp') {
+        if ($twoFactorSetting->method === TwoFaAuthSetting::TOTP) {
             $totp = $this->getTotpInstance();
             return $totp ? $totp->verify($code, null, 1) : false;
         }
 
         // For SMS/Email verification
-        if (in_array($twoFactorSetting->method, ['sms', 'email'])) {
+        if (in_array($twoFactorSetting->method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
             return $twoFactorSetting->code === $code && 
                    !$twoFactorSetting->isCodeExpired();
         }
@@ -181,14 +186,14 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Enable two-factor authentication.
      */
-    public function enableTwoFactorAuthentication(string $method = 'totp'): void
+    public function enableTwoFactorAuthentication(string $method = TwoFaAuthSetting::TOTP): void
     {
         $twoFactorSetting = $this->getOrCreateTwoFactorSetting();
         $twoFactorSetting->enabled = true;
         $twoFactorSetting->method = $method;
         $twoFactorSetting->confirmed_at = now();
         
-        if ($method === 'totp' && !$twoFactorSetting->secret) {
+        if ($method === TwoFaAuthSetting::TOTP && !$twoFactorSetting->secret) {
             $twoFactorSetting->generateSecret();
         }
         

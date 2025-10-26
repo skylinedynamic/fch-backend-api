@@ -6,6 +6,9 @@ return [
     'invalid_password' => 'The password you entered is incorrect',
     'logged_in' => 'Logged in Successfully',
     'token_name' => 'auth_token',
+    'unauthorized' => 'Unauthorized. Please login first',
+    'access_denied' => 'Access denied. Admin privileges required',
+
     
     // Validation messages
     'email_required' => 'Email is required.',

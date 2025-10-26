@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use App\Http\Resources\Auth\UserResource;
 
 class AuthService
 {
@@ -66,7 +67,7 @@ class AuthService
 
         return ApiResponse::success([
             'token' => $token,
-            'user' => $user,
+            'user' => new UserResource($user),
         ], __('auth.logged_in'));
     }
 
