@@ -8,7 +8,6 @@ return [
     'token_name' => 'auth_token',
     'unauthorized' => 'Unauthorized. Please login first',
     'access_denied' => 'Access denied. Admin privileges required',
-
     
     // Validation messages
     'email_required' => 'Email is required.',
@@ -17,6 +16,21 @@ return [
     'password_min' => 'Password must be at least 6 characters.',
     'too_many_login_attempts' => 'Too many login attempts. Please try again after :time minutes.',
     'validation_failed' => 'Validation failed.',
+    
+    // Registration validation messages
+    'signup_id_required' => 'Signup ID is required.',
+    'signup_id_exists' => 'Invalid signup ID provided.',
+    'first_name_required' => 'First name is required.',
+    'last_name_required' => 'Last name is required.',
+    'email_required' => 'Email address is required.',
+    'email_email' => 'Please provide a valid email address.',
+    'email_unique' => 'This email address is already registered.',
+    'phone_number_required' => 'Phone number is required.',
+    'state_required' => 'State is required.',
+    'password_confirmed' => 'Password confirmation does not match.',
+    'image_image' => 'The uploaded file must be an image.',
+    'image_mimes' => 'Image must be a file of type: jpeg, png, jpg, gif.',
+    'image_max' => 'Image size must not exceed 2MB.',
     
     // reCAPTCHA messages
     'recaptcha_required' => 'Please complete the reCAPTCHA verification.',

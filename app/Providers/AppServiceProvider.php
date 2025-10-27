@@ -31,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
+        // Register borrower API module
+        Scramble::registerApi('borrower', [
+            'api_path' => 'api/v1/borrower',
+        ]);
+
         Gate::define('viewApiDocs', function (User $user) {
             $allowed = array_filter(array_map('trim', explode(',', (string) env('SCRAMBLE_ALLOWED_EMAILS', ''))));
             if (empty($allowed)) {

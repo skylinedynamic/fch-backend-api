@@ -19,7 +19,7 @@ class AuthService
      * @param Request $request
      * @return JsonResponse
      */
-    public function login(array $credentials, Request $request): JsonResponse
+    public function login(array $credentials, Request $request,$user_type = null): JsonResponse
     {
         $authCredentials = collect($credentials)->except('recaptcha')->toArray();
         
@@ -37,7 +37,11 @@ class AuthService
             ]));
         }
         
-        $user = User::where('email', $authCredentials['email'])->first();
+        $user = User::where('email', $authCredentials['email'])
+                    ->when($user_type,function($query) use ($user_type){
+                        $query->where('user_type',$user_type);
+                    })
+                    ->first();
         
         if (!$user) {
             RateLimiter::hit($key, $decayMinutes * 60);
@@ -56,10 +60,7 @@ class AuthService
         }
 
         RateLimiter::clear($key);
-        
-        $user = Auth::user();
-        
-        
+        $user = Auth::user();   
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         $attempts = RateLimiter::attempts($key);
