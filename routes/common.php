@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\Common\Auth\AuthController as V1AuthController;
-use App\Http\Controllers\Api\V1\Common\TwoFaAuth\TwoFaController as V1TwoFaController;
+use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
+use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
