@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,6 +22,7 @@ Route::prefix('v1/borrower')->group(function () {
     
     // Protected routes (authentication required)
     Route::middleware(['auth:api', 'borrower'])->group(function () {
-        // Add protected borrower routes here
+        Route::get('/profile', [PersonalController::class, 'index']);
+        Route::put('/profile', [PersonalController::class, 'update']);
     });
 });

@@ -11,8 +11,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Passport\Contracts\OAuthenticatable;
-use App\Services\Common\Notification\NotificationService;
-use App\Services\Common\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
+use App\Services\Global\Notification\NotificationService;
+use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use OTPHP\TOTP;
@@ -31,10 +31,16 @@ class User extends Authenticatable implements OAuthenticatable
         'last_name',
         'email',
         'phone_number',
+        'gender',
+        'date_of_birth',
+        'phone_number_2',
         'city',
         'state',
         'postal_code',
         'country',
+        'ssn',
+        'address_line_1',
+        'address_line_2',
         'user_type',
         'image',
         'password',
@@ -64,10 +70,20 @@ class User extends Authenticatable implements OAuthenticatable
         ];
     }
 
+    public const GENDER = [
+        'male' => 'male',
+        'female' => 'female',
+        'other' => 'other',
+    ];
+
+    public const ADMIN = 'Admin';
+    public const PARTNER = 'Partner';
+    public const BORROWER = 'Borrower';
+
     public const USERTYPE = [
-        'Admin' => 'Admin',
-        'Partner' => 'Partner',
-        'Borrower' => 'Borrower',
+        self::ADMIN => self::ADMIN,
+        self::PARTNER => self::PARTNER,
+        self::BORROWER => self::BORROWER,
     ];
 
     public function getFullNameAttribute(): string
