@@ -2,14 +2,11 @@
 
 namespace App\Http\Requests\Api\V1\Borrower\Auth;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
-use App\Helpers\ApiResponse;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\ReCaptcha;
 
-class BorrowerRegistrationRequest extends FormRequest
+class BorrowerRegistrationRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -27,18 +24,14 @@ class BorrowerRegistrationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signup_id' => [
-                'required',
-                'string',
-                Rule::exists('signup_ids', 'signup_id')
-            ],
+            'signup_id' => ['required','string',Rule::exists('signup_ids', 'signup_id')],
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|string|max:20',
             'state' => 'required|string|max:255',
             'password' => 'required|string|min:8|confirmed',
-             'recaptcha' => ['nullable', new ReCaptcha()],
+            'recaptcha' => ['nullable', new ReCaptcha()],
         ];
     }
 
@@ -64,20 +57,5 @@ class BorrowerRegistrationRequest extends FormRequest
             'password.confirmed' => __('auth.password_confirmed'),
              'recaptcha.required' => __('auth.recaptcha_required'),
         ];
-    }
-
-                /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-    protected function failedValidation(Validator $validator)
-    {
-        throw new HttpResponseException(
-            ApiResponse::validationError($validator->errors(), __('auth.validation_failed'))
-        );
     }
 }

@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,7 +24,18 @@ Route::prefix('v1/borrower')->group(function () {
     
     // Protected routes (authentication required)
     Route::middleware(['auth:api', 'borrower'])->group(function () {
-        Route::get('/profile', [PersonalController::class, 'index']);
-        Route::put('/profile', [PersonalController::class, 'update']);
+
+        Route::post('/logout', [AuthController::class, 'logout']);
+        
+        Route::group(['prefix' => 'profile',], function () {
+            Route::get('/personal-info', [PersonalInfoController::class, 'index']);
+            Route::put('/personal-info', [PersonalInfoController::class, 'update']);
+
+            Route::get('/business-info', [BusinessInfoController::class, 'index']);
+            Route::put('/business-info', [BusinessInfoController::class, 'update']);
+
+            Route::get('/financial-info', [FinancialInfoController::class, 'index']);
+            Route::put('/financial-info', [FinancialInfoController::class, 'update']);
+        });
     });
 });

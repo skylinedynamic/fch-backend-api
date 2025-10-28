@@ -415,15 +415,15 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Get the user's Two-Factor settings.
      */
-    public function twoFaAuthSetting(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function twoFaAuthSetting(): HasOne
     {
-        return $this->hasOne(\App\Models\TwoFaAuth\TwoFaAuthSetting::class);
+        return $this->hasOne(TwoFaAuthSetting::class);
     }
 
     /**
      * Get the user's company.
      */
-    public function company(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function company(): HasOne
     {
         return $this->hasOne(Company::class);
     }

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
+use Illuminate\Support\Facades\Auth;
 
 class BorrowerMiddleware
 {
@@ -18,22 +19,14 @@ class BorrowerMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        // If user is not authenticated, return unauthorized
         if (!$user) {
-            return ApiResponse::error(
-                'Unauthorized. Please login first.',
-                401
-            );
+            return ApiResponse::error(__('auth.unauthorized'), 401);
         }
 
-        // Check if user has borrower user type
-        if ($user->user_type !== User::USERTYPE['Borrower']) {
-            return ApiResponse::error(
-                'Access denied. Borrower privileges required.',
-                403
-            );
+        if ($user->user_type !== User::BORROWER) {
+            return ApiResponse::error(__('auth.access_denied_borrower_privileges_required'), 403);
         }
 
         return $next($request);

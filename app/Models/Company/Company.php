@@ -47,7 +47,6 @@ class Company extends Model
         'company_entity_type',
         'company_type',
         'company_description',
-        // Company address
         'address_line_1',
         'address_line_2',
         'city',
@@ -56,11 +55,15 @@ class Company extends Model
         'country',
         'company_logo',
         'status',
-        'business_registration_number',
+        'company_registration_number',
         'tax_identification_number',
         'assigned_agent_id',
         'additional_data',
         'notes',
+        'currency',
+        'years_in_business',
+        'monthly_revenue',
+        'annual_revenue',
     ];
 
     /**

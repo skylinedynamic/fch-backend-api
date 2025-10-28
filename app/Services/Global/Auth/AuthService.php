@@ -72,5 +72,32 @@ class AuthService
         ], __('auth.logged_in'));
     }
 
+    /**
+     * Handle user logout by revoking the current access token
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function logout(): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return ApiResponse::unauthorized(__('auth.unauthenticated'));
+            }
+
+            // Revoke the current access token
+            $token = $user->token();
+            if ($token) {
+                $token->revoke();
+            }
+
+            return ApiResponse::success([], __('auth.logged_out'));
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('auth.logout_failed'), 500);
+        }
+    }
+
 
 }

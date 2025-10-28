@@ -25,7 +25,7 @@ class AuthController extends Controller
         try {
             // Validate signup ID first
             if (!$borrowerAuthService->validateSignupId($request->signup_id)) {
-                return ApiResponse::error('Invalid signup ID provided.',422);
+                return ApiResponse::error(__('borrower_validation.signup_id_invalid'),422);
             }
 
             // Register the borrower
@@ -50,5 +50,15 @@ class AuthController extends Controller
         $authService = new AuthService();
         $credentials = $request->validated();
         return $authService->login($credentials, $request, User::USERTYPE['Borrower']);
+    }
+
+
+    /**
+     * Logout.
+     */
+    public function logout(): JsonResponse
+    {
+        $authService = new AuthService();
+        return $authService->logout();
     }
 }

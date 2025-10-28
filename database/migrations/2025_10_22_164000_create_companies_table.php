@@ -28,7 +28,7 @@ return new class extends Migration
 
             $table->string('company_logo')->nullable();
             $table->enum('status', Company::STATUSES)->default(Company::STATUS_PENDING);
-            $table->string('business_registration_number')->nullable();
+            $table->string('company_registration_number')->nullable();
             $table->string('tax_identification_number')->nullable();
             $table->foreignId('assigned_agent_id')->nullable()->constrained('users')->onDelete('set null');
 
@@ -44,6 +44,11 @@ return new class extends Migration
             
             $table->json('additional_data')->nullable(); // For flexible data storage
             $table->text('notes')->nullable(); // Internal notes
+
+            $table->string('currency')->nullable();
+            $table->integer('years_in_business')->nullable();
+            $table->decimal('monthly_revenue', 10, 2)->nullable();
+            $table->decimal('annual_revenue', 10, 2)->nullable();
    
             $table->timestamps();
             $table->softDeletes();

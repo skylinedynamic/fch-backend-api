@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 /**
  *  Borrower Profile
  */
-class PersonalController extends Controller
+class PersonalInfoController extends Controller
 {
     protected ProfileService $profileService;
 
@@ -23,31 +23,29 @@ class PersonalController extends Controller
     }
 
     /**
-     * Get Profile.
+     * Get Personal Info.
      */
     public function index(): JsonResponse
     {
         $user = auth()->user();
-        return ApiResponse::success(new PersonalProfileResource($user), __('borrower.index.fetch_personal_profile'));
+        return ApiResponse::success(new PersonalProfileResource($user), __('borrower.fetch_personal_profile'));
     }
 
     /**
-     * Update Profile.
+     * Update Personal Info.
      */
     public function update(UpdatePersonalProfileRequest $request): JsonResponse
     {
         try {
             $user = auth()->user();
-        
             // Update profile using the service
             $updatedUser = $this->profileService->updateProfile($user, $request->validated());
-
             return ApiResponse::success(
                 new PersonalProfileResource($updatedUser),
-                __('borrower.index.update_personal_profile')
+                __('borrower.update_personal_profile')
             );
         } catch (\Exception $e) {
-            return ApiResponse::error('Failed to update profile. Please try again.', 500);
+            return ApiResponse::error(__('borrower.update_personal_profile_failed'), 500);
         }
     }
 }

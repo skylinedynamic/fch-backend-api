@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\ApiResponse;
 use App\Models\User\User;
+use Illuminate\Support\Facades\Auth;
 
 class AdminMiddleware
 {
@@ -18,22 +19,14 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        // If user is not authenticated, return unauthorized
         if (!$user) {
-            return ApiResponse::error(
-                __('auth.unauthorized'),
-                401
-            );
+            return ApiResponse::error(__('auth.unauthorized'), 401);
         }
 
-        // Check if user has admin user type
-        if ($user->user_type !== User::USERTYPE['Admin']) {
-            return ApiResponse::error(
-                __('auth.access_denied'),
-                403
-            );
+        if ($user->user_type !== User::ADMIN) {
+            return ApiResponse::error(__('auth.access_denied'), 403);
         }
 
         return $next($request);

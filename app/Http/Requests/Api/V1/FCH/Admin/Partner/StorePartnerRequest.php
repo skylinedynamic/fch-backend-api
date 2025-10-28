@@ -52,7 +52,7 @@ class StorePartnerRequest extends FormRequest
         ];
     }
 
-        /**
+     /**
      * Handle a failed validation attempt.
      *
      * @param  \Illuminate\Contracts\Validation\Validator  $validator
@@ -60,10 +60,16 @@ class StorePartnerRequest extends FormRequest
      *
      * @throws \Illuminate\Http\Exceptions\HttpResponseException
      */
+
     protected function failedValidation(Validator $validator)
     {
+        $errors = [];
+        foreach ($validator->errors()->messages() as $field => $messages) {
+            $errors[$field] = $messages[0]; 
+        }
         throw new HttpResponseException(
-            ApiResponse::validationError($validator->errors(), __('auth.validation_failed'))
+            ApiResponse::validationError($errors, __('auth.validation_failed'))
         );
     }
+
 }

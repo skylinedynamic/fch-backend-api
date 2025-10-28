@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 
 class RequireTwoFactor
 {
@@ -17,28 +18,21 @@ class RequireTwoFactor
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
-        // If user is not authenticated, let other middleware handle it
         if (!$user) {
             return $next($request);
         }
 
-        // Check if user has 2FA enabled
         if (!$user->hasTwoFactorEnabled()) {
-            return ApiResponse::error(
-                __('auth.2fa_required'),
-                403,
+            return ApiResponse::error(__('auth.2fa_required'),403,
                 ['requires_2fa_setup' => true]
             );
         }
 
-        // Check if user is locked out
         if ($user->isTwoFactorLocked()) {
             $remainingTime = $user->getTwoFactorLockoutTimeRemaining();
-            return ApiResponse::error(
-                __('auth.2fa_locked', ['seconds' => $remainingTime]),
-                423,
+            return ApiResponse::error(__('auth.2fa_locked', ['seconds' => $remainingTime]),423,
                 [
                     'locked_until' => $user->twoFaAuthSetting->locked_until,
                     'remaining_seconds' => $remainingTime,

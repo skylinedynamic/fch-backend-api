@@ -30,7 +30,6 @@ class UpdatePartnerRequest extends FormRequest
             'company_name'   => ['sometimes', 'required', 'string', 'max:255'],
             'email'          => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->user)],
             'phone_number'   => ['sometimes', 'required', 'string', 'max:50'],
-            // Optional fields
             'state'          => ['nullable', 'string', 'max:100'],
             'city'           => ['nullable', 'string', 'max:100'],
             'country'        => ['nullable', 'string', 'max:100'],
@@ -55,7 +54,7 @@ class UpdatePartnerRequest extends FormRequest
         ];
     }
 
-            /**
+    /**
      * Handle a failed validation attempt.
      *
      * @param  \Illuminate\Contracts\Validation\Validator  $validator
@@ -63,10 +62,15 @@ class UpdatePartnerRequest extends FormRequest
      *
      * @throws \Illuminate\Http\Exceptions\HttpResponseException
      */
+
     protected function failedValidation(Validator $validator)
     {
+        $errors = [];
+        foreach ($validator->errors()->messages() as $field => $messages) {
+            $errors[$field] = $messages[0]; 
+        }
         throw new HttpResponseException(
-            ApiResponse::validationError($validator->errors(), __('auth.validation_failed'))
+            ApiResponse::validationError($errors, __('auth.validation_failed'))
         );
     }
 }

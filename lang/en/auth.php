@@ -5,9 +5,14 @@ return [
     'invalid_email' => 'The email you entered does not exist',
     'invalid_password' => 'The password you entered is incorrect',
     'logged_in' => 'Logged in Successfully',
+    'logged_out' => 'Logged out successfully',
+    'logout_failed' => 'Logout failed. Please try again.',
+    'unauthenticated' => 'Unauthenticated. Please login first.',
     'token_name' => 'auth_token',
     'unauthorized' => 'Unauthorized. Please login first',
     'access_denied' => 'Access denied. Admin privileges required',
+    'access_denied_partner_privileges_required' => 'Access denied. Partner privileges required',
+    'access_denied_borrower_privileges_required' => 'Access denied. Borrower privileges required',
     
     // Validation messages
     'email_required' => 'Email is required.',

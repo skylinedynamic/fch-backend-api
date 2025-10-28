@@ -2,13 +2,10 @@
 
 namespace App\Http\Requests\Api\V1\Global\Auth;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\ReCaptcha;
-use App\Helpers\ApiResponse;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
-class LoginRequest extends FormRequest
+class LoginRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -36,18 +33,4 @@ class LoginRequest extends FormRequest
         ];
     }
 
-    /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-    protected function failedValidation(Validator $validator)
-    {
-        throw new HttpResponseException(
-            ApiResponse::validationError($validator->errors(), __('auth.validation_failed'))
-        );
-    }
 }

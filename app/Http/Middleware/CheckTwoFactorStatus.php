@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 
 class CheckTwoFactorStatus
 {
@@ -17,7 +18,7 @@ class CheckTwoFactorStatus
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         // If user is not authenticated, let other middleware handle it
         if (!$user) {
@@ -30,9 +31,7 @@ class CheckTwoFactorStatus
             if (!$user->canAttemptTwoFactorVerification()) {
                 if ($user->isTwoFactorLocked()) {
                     $remainingTime = $user->getTwoFactorLockoutTimeRemaining();
-                    return ApiResponse::error(
-                        __('auth.2fa_locked', ['seconds' => $remainingTime]),
-                        423,
+                    return ApiResponse::error( __('auth.2fa_locked', ['seconds' => $remainingTime]),423,
                         [
                             'locked_until' => $user->twoFaAuthSetting->locked_until,
                             'remaining_seconds' => $remainingTime,
@@ -40,16 +39,12 @@ class CheckTwoFactorStatus
                     );
                 }
 
-                return ApiResponse::error(
-                    __('auth.2fa_setup_required'),
-                    403,
+                return ApiResponse::error(__('auth.2fa_setup_required'),403,
                     ['requires_2fa_setup' => true]
                 );
             }
 
-            return ApiResponse::error(
-                __('auth.2fa_verification_required'),
-                403,
+            return ApiResponse::error(__('auth.2fa_verification_required'),403,
                 [
                     'requires_2fa_verification' => true,
                     'method' => $user->getTwoFactorMethod(),

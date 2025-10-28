@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\Global\Auth;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class ResetPasswordRequest extends FormRequest
+class ResetPasswordRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
