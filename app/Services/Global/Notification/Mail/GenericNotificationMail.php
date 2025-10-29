@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Common\Notification\Mail;
+namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;

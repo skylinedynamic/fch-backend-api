@@ -3,7 +3,8 @@ return [
     'fetch_personal_profile' => 'Fetch Borrower Profile',
     'update_personal_profile' => 'Update Borrower Profile',
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
-    
+    'fetch_profile_completion' => 'Fetch Profile Completion Status',
+
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
     'update_business_info' => 'Update Business Information',

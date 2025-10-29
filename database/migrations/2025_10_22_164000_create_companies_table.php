@@ -50,8 +50,8 @@ return new class extends Migration
             $table->decimal('monthly_revenue', 10, 2)->nullable();
             $table->decimal('annual_revenue', 10, 2)->nullable();
    
-            $table->timestamps();
             $table->softDeletes();
+            $table->timestamps();
             
             // Indexes in separate lines
             $table->index('user_id');

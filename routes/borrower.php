@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,6 +37,8 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::get('/financial-info', [FinancialInfoController::class, 'index']);
             Route::put('/financial-info', [FinancialInfoController::class, 'update']);
+            
+            Route::get('/completion', [ProfileCompletionController::class, 'check']);
         });
     });
 });

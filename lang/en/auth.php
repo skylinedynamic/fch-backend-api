@@ -60,6 +60,4 @@ return [
     '2fa_verification_required' => 'Two-factor authentication verification is required.',
     '2fa_setup_required' => 'Two-factor authentication setup is required.',
     '2fa_totp_qr_scan' => 'Scan the QR code with your TOTP app',
-
-    
 ];

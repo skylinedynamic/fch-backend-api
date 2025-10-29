@@ -14,26 +14,163 @@
         data-callback="onRecaptchaSuccess"
       ></div>
       <br />
-      <button type="submit">Submit</button>
     </form>
 
-    <script>
-      function onRecaptchaSuccess() {
-        // token will be in the textarea #g-recaptcha-response
-        const ta = document.getElementById('g-recaptcha-response');
-        const token = ta ? ta.value : null;
-        console.log('reCAPTCHA token:', token);
+    <div id="token-display" style="width: 500px; margin-top: 20px; word-break: break-all;"></div>
+    <button id="copy-button" style="display: none; margin-top: 10px; padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="copyTokenToClipboard()">📋 Copy Token</button>
+<div id="svg-qr-section" style="margin-top: 30px;">
+  <h3>QR from SVG</h3>
+  <p>Paste your SVG XML below and click "Render".</p>
+  <textarea id="svg-input" rows="8" style="width: 500px; font-family: monospace;" placeholder="Paste SVG XML here..."></textarea>
+  <br />
+  <button id="render-svg-btn" style="margin-top: 10px; padding: 8px 16px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="renderSvg()">Render</button>
+  <div id="qr-display" style="margin-top: 15px; border: 1px solid #ddd; padding: 10px; background: #fff; max-width: 500px; max-height: 320px; overflow: auto;"></div>
+  <div id="svg-error" style="color: #d32f2f; margin-top: 8px; display: none;"></div>
+</div>
 
-        // copy to clipboard (browser will ask permission)
-        if (token && navigator.clipboard) {
-          navigator.clipboard.writeText(token).then(
-            () => console.log('Token copied to clipboard'),
-            (err) => console.error('Clipboard copy failed', err)
-          );
-        } else if (token) {
-          alert('Token copied to console. Copy it from there.');
+    <script>
+      document.getElementById('f').addEventListener('submit', function(event) {
+        event.preventDefault();
+        // Form submission will be handled by reCAPTCHA callback
+      });
+
+      let currentToken = '';
+
+      function onRecaptchaSuccess(token) {
+        console.log('reCAPTCHA token:', token);
+        currentToken = token;
+
+        const tokenDisplay = document.getElementById('token-display');
+        const copyButton = document.getElementById('copy-button');
+        
+        if (token) {
+          tokenDisplay.innerHTML = '<strong>reCAPTCHA Token:</strong><p>' + token + '</p>';
+          copyButton.style.display = 'inline-block';
+        } else {
+          tokenDisplay.innerHTML = 'Failed to get token.';
+          copyButton.style.display = 'none';
         }
       }
+
+      function copyTokenToClipboard() {
+        if (currentToken && navigator.clipboard) {
+          navigator.clipboard.writeText(currentToken).then(
+            () => {
+              const copyButton = document.getElementById('copy-button');
+              const originalText = copyButton.innerHTML;
+              copyButton.innerHTML = '✅ Copied!';
+              copyButton.style.backgroundColor = '#45a049';
+              
+              setTimeout(() => {
+                copyButton.innerHTML = originalText;
+                copyButton.style.backgroundColor = '#4CAF50';
+              }, 2000);
+            },
+            (err) => {
+              console.error('Clipboard copy failed', err);
+              alert('Failed to copy token to clipboard');
+            }
+          );
+        } else if (currentToken) {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = currentToken;
+          document.body.appendChild(textArea);
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            const copyButton = document.getElementById('copy-button');
+            const originalText = copyButton.innerHTML;
+            copyButton.innerHTML = '✅ Copied!';
+            copyButton.style.backgroundColor = '#45a049';
+            
+            setTimeout(() => {
+              copyButton.innerHTML = originalText;
+              copyButton.style.backgroundColor = '#4CAF50';
+            }, 2000);
+          } catch (err) {
+            console.error('Fallback copy failed', err);
+            alert('Failed to copy token to clipboard');
+          }
+          document.body.removeChild(textArea);
+        }
+      }
+
+      // --- SVG QR Helpers ---
+      function normalizeSvg(svgText) {
+        if (!svgText) return '';
+        let t = svgText.replace(/^\uFEFF/, '').trim();
+        // Unescape common JSON/JS-escaped input (e.g., \" and \n pasted from code blocks)
+        t = t.replace(/\\r\\n|\\r|\\n/g, '\n');
+        t = t.replace(/\\t/g, '  ');
+        t = t.replace(/\\(["'])/g, '$1');
+        // Replace smart quotes with normal quotes
+        t = t.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+        // Remove stray backticks that can break XML attributes
+        t = t.replace(/`/g, '');
+        // Remove XML declaration if present
+        t = t.replace(/^\s*<\?xml[^>]*\?>\s*/i, '');
+        // Ensure we start from the first <svg ...> tag
+        const idx = t.toLowerCase().indexOf('<svg');
+        if (idx !== -1) t = t.slice(idx);
+        // Always normalize any xmlns attribute value to the correct URL
+        t = t.replace(/xmlns\s*=\s*["'][^"']*["']/i, 'xmlns="http://www.w3.org/2000/svg"');
+        // Ensure xmlns exists if missing entirely
+        if (/^\s*<svg\b/i.test(t) && !/xmlns\s*=\s*["']http:\/\/www\.w3\.org\/2000\/svg["']/i.test(t)) {
+          t = t.replace(/^\s*<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+        }
+        return t;
+      }
+
+      function isValidSvg(svgText) {
+        try {
+          // Quick HTML-based check
+          const container = document.createElement('div');
+          container.innerHTML = svgText.trim();
+          const el = container.firstElementChild;
+          if (el && el.tagName && el.tagName.toLowerCase() === 'svg') {
+            return true;
+          }
+
+          // Fallback to DOMParser
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(svgText, 'image/svg+xml');
+          const parserError = doc.querySelector('parsererror');
+          return !parserError && doc.documentElement && doc.documentElement.nodeName.toLowerCase() === 'svg';
+        } catch {
+          return false;
+        }
+      }
+
+      function renderSvg() {
+        const inputEl = document.getElementById('svg-input');
+        const displayEl = document.getElementById('qr-display');
+        const errorEl = document.getElementById('svg-error');
+
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+
+        let raw = inputEl.value;
+        raw = normalizeSvg(raw);
+
+        if (!raw || !/^\s*<svg\b/i.test(raw)) {
+          errorEl.textContent = 'Please provide a valid SVG XML starting with <svg>.';
+          errorEl.style.display = 'block';
+          displayEl.innerHTML = '';
+          return;
+        }
+
+        // Render directly; modern browsers will ignore invalid markup.
+        displayEl.innerHTML = raw;
+      }
+
+      // Auto-render if textarea has pre-filled content
+      document.addEventListener('DOMContentLoaded', () => {
+        const inputEl = document.getElementById('svg-input');
+        if (inputEl && inputEl.value.trim()) {
+          renderSvg();
+        }
+      });
     </script>
   </body>
 </html>

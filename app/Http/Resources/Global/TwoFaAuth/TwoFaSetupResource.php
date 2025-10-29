@@ -15,7 +15,6 @@ class TwoFaSetupResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'message' => $this['message'] ?? null,
             'method' => $this['method'] ?? null,
             'secret' => $this['secret'] ?? null,
             'qr_svg' => $this['qr_svg'] ?? null,
