@@ -66,17 +66,17 @@ class AuthService
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);
 
-        // If 2FA is enabled, return token and 2FA details instead of user details
-        $twoFaSetting = $user->twoFaAuthSetting()->first();
-        if ($twoFaSetting && $twoFaSetting->enabled) {
-            return ApiResponse::success([
-                'token' => $token,
-                'two_factor' => [
-                    'enabled' => (bool) $twoFaSetting->enabled,
-                    'method' => $twoFaSetting->method,
-                ],
-            ], __('auth.2fa_verification_required'));
-        }
+        // // If 2FA is enabled, return token and 2FA details instead of user details
+        // $twoFaSetting = $user->twoFaAuthSetting()->first();
+        // if ($twoFaSetting && $twoFaSetting->enabled) {
+        //     return ApiResponse::success([
+        //         'token' => $token,
+        //         'two_factor' => [
+        //             'enabled' => (bool) $twoFaSetting->enabled,
+        //             'method' => $twoFaSetting->method,
+        //         ],
+        //     ], __('auth.2fa_verification_required'));
+        // }
 
         return ApiResponse::success([
             'token' => $token,
