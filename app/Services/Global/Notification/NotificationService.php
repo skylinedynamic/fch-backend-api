@@ -7,6 +7,7 @@ use App\Services\Global\Notification\Channels\SmsChannel;
 use App\Services\Global\Notification\Channels\EmailChannel;
 use App\Services\Global\Notification\Types\NotificationTypeInterface;
 use Illuminate\Support\Facades\Log;
+use App\Services\Global\Notification\Types\TestNotification;
 use Exception;
 
 class NotificationService
@@ -27,19 +28,19 @@ class NotificationService
     {
         try {
             if (!$this->smsChannel->isConfigured()) {
-                Log::error('SMS channel not configured properly');
+                Log::error(__("notification.sms.errors.not_configured"));
                 return false;
             }
 
             if (!$user->phone_number) {
-                Log::error('User does not have a phone number', ['user_id' => $user->id]);
+                Log::error(__("notification.sms.errors.no_phone"), ['user_id' => $user->id]);
                 return false;
             }
 
             $result = $this->smsChannel->send($user, $notification);
             
             if ($result) {
-                Log::info('SMS sent successfully', [
+                Log::info(__("notification.sms.logs.sent_success"), [
                     'user_id' => $user->id,
                     'notification_type' => get_class($notification)
                 ]);
@@ -48,7 +49,7 @@ class NotificationService
             return $result;
 
         } catch (Exception $e) {
-            Log::error('Failed to send SMS', [
+            Log::error(__("notification.sms.errors.send_failed"), [
                 'user_id' => $user->id,
                 'notification_type' => get_class($notification),
                 'error' => $e->getMessage()
@@ -63,16 +64,16 @@ class NotificationService
     public function sendEmail(User $user, NotificationTypeInterface $notification): bool
     {
         try {
-            Log::info('...............Send notification via Email.............');
+            Log::info(__("notification.email.logs.send_attempt"));
             if (!$this->emailChannel->isConfigured()) {
-                Log::error('Email channel not configured properly');
+                Log::error(__("notification.email.errors.not_configured"));
                 return false;
             }
 
             $result = $this->emailChannel->send($user, $notification);
             
             if ($result) {
-                Log::info('Email sent successfully............', [
+                Log::info(__("notification.email.logs.sent_success"), [
                     'user_id' => $user->id,
                     'notification_type' => get_class($notification)
                 ]);
@@ -81,7 +82,7 @@ class NotificationService
             return $result;
 
         } catch (Exception $e) {
-            Log::error('Failed to send email', [
+            Log::error(__("notification.email.errors.send_failed"), [
                 'user_id' => $user->id,
                 'notification_type' => get_class($notification),
                 'error' => $e->getMessage()
@@ -101,7 +102,7 @@ class NotificationService
             case 'email':
                 return $this->sendEmail($user, $notification);
             default:
-                Log::error('Invalid notification channel', ['channel' => $channel]);
+                Log::error(__("notification.invalid_channel"), ['channel' => $channel]);
                 return false;
         }
     }
@@ -113,7 +114,7 @@ class NotificationService
     {
         $twoFactorSetting = $user->twoFactorSetting;
         if (!$twoFactorSetting) {
-            Log::error('User does not have two-factor settings', ['user_id' => $user->id]);
+            Log::error(__("notification.two_factor.errors.no_settings"), ['user_id' => $user->id]);
             return false;
         }
 
@@ -128,7 +129,7 @@ class NotificationService
                 // TOTP doesn't require sending notifications
                 return true;
             default:
-                Log::error('Invalid two-factor method', ['method' => $method]);
+                Log::error(__("notification.two_factor.errors.invalid_method"), ['method' => $method]);
                 return false;
         }
     }
@@ -164,7 +165,7 @@ class NotificationService
      */
     public function sendTestNotification(User $user, string $channel, string $message): bool
     {
-        $testNotification = new \App\Services\Common\Notification\Types\TestNotification($message);
+        $testNotification = new TestNotification($message);
         return $this->send($user, $testNotification, $channel);
     }
 }

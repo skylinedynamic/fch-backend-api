@@ -27,7 +27,11 @@ class TwoFactorCodeNotification implements NotificationTypeInterface
             return $this->customMessage;
         }
 
-        return "Your {$appName} verification code is: {$this->code}. This code expires in {$expiryMinutes} minutes.";
+        return trans('auth.2fa_sms_message', [
+            'appName' => $appName,
+            'code' => $this->code,
+            'minutes' => $expiryMinutes,
+        ]);
     }
 
     /**
@@ -36,7 +40,9 @@ class TwoFactorCodeNotification implements NotificationTypeInterface
     public function getEmailSubject(User $user): string
     {
         $appName = config('app.name');
-        return "Your {$appName} Verification Code";
+        return trans('auth.2fa_email_subject', [
+            'appName' => $appName,
+        ]);
     }
 
     /**
@@ -48,19 +54,19 @@ class TwoFactorCodeNotification implements NotificationTypeInterface
         $expiryMinutes = config('EMAIL_2FA_EXPIRY_MINUTES', 5);
         
         $content = [
-            'greeting' => "Hello {$user->first_name}!",
+            'greeting' => trans('auth.greeting_hello_name', ['name' => $user->first_name]),
             'lines' => [
-                'You are receiving this email because a two-factor authentication code was requested for your account.'
+                trans('auth.2fa_email_lines.line_1')
             ],
-            'salutation' => "Thank you for using our application!<br>Regards,<br>{$appName} Team"
+            'salutation' => trans('auth.salutation_thank_you_regards_team', ['appName' => $appName])
         ];
 
         if ($this->customMessage) {
             $content['lines'][] = $this->customMessage;
         } else {
-            $content['lines'][] = "Your verification code is displayed below:";
-            $content['lines'][] = "This code will expire in {$expiryMinutes} minutes.";
-            $content['lines'][] = 'If you did not request this code, please ignore this email and consider changing your password.';
+            $content['lines'][] = trans('auth.2fa_email_lines.line_2');
+            $content['lines'][] = trans('auth.2fa_email_lines.line_3', ['minutes' => $expiryMinutes]);
+            $content['lines'][] = trans('auth.2fa_email_lines.line_4');
         }
 
         return $content;

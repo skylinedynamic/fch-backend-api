@@ -19,7 +19,10 @@ class TestNotification implements NotificationTypeInterface
     public function getSmsMessage(User $user): string
     {
         $appName = config('app.name');
-        return "Test message from {$appName}: {$this->message}";
+        return trans('notification.test.sms_message', [
+            'appName' => $appName,
+            'message' => $this->message,
+        ]);
     }
 
     /**
@@ -28,7 +31,9 @@ class TestNotification implements NotificationTypeInterface
     public function getEmailSubject(User $user): string
     {
         $appName = config('app.name');
-        return "Test Email from {$appName}";
+        return trans('notification.test.email_subject', [
+            'appName' => $appName,
+        ]);
     }
 
     /**
@@ -39,13 +44,17 @@ class TestNotification implements NotificationTypeInterface
         $appName = config('app.name');
         
         return [
-            'greeting' => "Hello {$user->first_name}!",
+            'greeting' => trans('notification.greeting_hello_name', [
+                'name' => $user->first_name,
+            ]),
             'lines' => [
-                'This is a test email to verify your notification system configuration.',
+                trans('notification.test.email_lines.line_1'),
                 $this->message,
-                'If you received this email, your email service is working correctly.'
+                trans('notification.test.email_lines.line_3'),
             ],
-            'salutation' => "Best regards,<br>{$appName} Team"
+            'salutation' => trans('notification.salutation_best_regards_team', [
+                'appName' => $appName,
+            ]),
         ];
     }
 

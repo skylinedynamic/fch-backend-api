@@ -24,4 +24,8 @@ return [
     'financial_info_not_found' => 'Financial information not found',
     'financial_info_update_failed' => 'Failed to update financial information. Please try again.',
     'financial_info_fetch_failed' => 'Failed to fetch financial information. Please try again.',
+
+    // Pre-Qualification Messages
+    'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
+    'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
 ];

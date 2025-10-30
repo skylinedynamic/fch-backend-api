@@ -17,7 +17,7 @@ class EmailChannel
     public function send(User $user, NotificationTypeInterface $notification): bool
     {
         if (!$this->isConfigured()) {
-            Log::error('Email channel not configured properly');
+            Log::error(__('notification.email.errors.not_configured'));
             return false;
         }
 
@@ -30,14 +30,14 @@ class EmailChannel
                 'data' => $notification->getData()
             ];
 
-            Log::info('...............Email notification sent.............', [
+            Log::info(__('notification.email.logs.sent'), [
                 'user_id' => $user->id,
                 'notification_type' => $notification->getType()
             ]);
 
             Mail::to($user->email)->send(new GenericNotificationMail($mailData));
 
-             Log::info('...............Email notification After Sent.............', [
+            Log::info(__('notification.email.logs.after_sent'), [
                 'user_id' => $user->id,
                 'notification_type' => $notification->getType()
             ]);
@@ -45,7 +45,7 @@ class EmailChannel
             return true;
 
         } catch (Exception $e) {
-            Log::error('Failed to send email', [
+            Log::error(__('notification.email.errors.send_failed'), [
                 'user_id' => $user->id,
                 'error' => $e->getMessage()
             ]);
@@ -94,16 +94,18 @@ class EmailChannel
     {
         try {
             $mailData = [
-                'subject' => 'Test Email - Configuration Verification',
+                'subject' => trans('notification.test_email.subject'),
                 'content' => [
-                    'greeting' => "Hello {$user->first_name}!",
+                    'greeting' => trans('notification.greeting_hello_name', ['name' => $user->first_name]),
                     'lines' => [
-                        'This is a test email to verify your email configuration.',
+                        trans('notification.test_email.lines.line_1'),
                         $message,
-                        'If you received this email, your email service is working correctly.'
+                        trans('notification.test_email.lines.line_3')
                     ],
                     'action' => null,
-                    'salutation' => 'Best regards,<br>' . config('app.name') . ' Team'
+                    'salutation' => trans('notification.salutation_best_regards_team', [
+                        'appName' => config('app.name')
+                    ])
                 ],
                 'user' => $user,
                 'notification_type' => 'test',
@@ -113,7 +115,7 @@ class EmailChannel
             Mail::to($user->email)->send(new GenericNotificationMail($mailData));
             return true;
         } catch (Exception $e) {
-            Log::error('Failed to send test email', ['error' => $e->getMessage()]);
+            Log::error(__('notification.email.errors.test_send_failed'), ['error' => $e->getMessage()]);
             return false;
         }
     }
@@ -145,13 +147,13 @@ class EmailChannel
     public function getSupportedDrivers(): array
     {
         return [
-            'smtp' => 'SMTP',
-            'mailgun' => 'Mailgun',
-            'ses' => 'Amazon SES',
-            'postmark' => 'Postmark',
-            'resend' => 'Resend',
-            'log' => 'Log (Development)',
-            'array' => 'Array (Testing)'
+            'smtp' => trans('notification.email.drivers.smtp'),
+            'mailgun' => trans('notification.email.drivers.mailgun'),
+            'ses' => trans('notification.email.drivers.ses'),
+            'postmark' => trans('notification.email.drivers.postmark'),
+            'resend' => trans('notification.email.drivers.resend'),
+            'log' => trans('notification.email.drivers.log'),
+            'array' => trans('notification.email.drivers.array')
         ];
     }
 }

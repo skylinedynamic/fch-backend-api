@@ -7,6 +7,8 @@ use App\Services\Global\Notification\Types\NotificationTypeInterface;
 use Twilio\Rest\Client;
 use Illuminate\Support\Facades\Log;
 use Exception;
+use Twilio\Http\GuzzleClient as TwilioGuzzleClient;
+use GuzzleHttp\Client as GuzzleHttpClient;
 
 class SmsChannel
 {
@@ -14,11 +16,11 @@ class SmsChannel
 
     public function __construct()
     {
-        $sid = config('TWILIO_SID');
-        $token = config('TWILIO_AUTH_TOKEN');
+        $sid = config('twillo.account_sid');
+        $token = config('twillo.auth_token');
         
         if ($sid && $token) {
-            $this->twilio = new Client($sid, $token);
+            $this->twilio = new Client($sid, $token, null, null, new TwilioGuzzleClient(new GuzzleHttpClient()));
         }
     }
 
@@ -28,12 +30,12 @@ class SmsChannel
     public function send(User $user, NotificationTypeInterface $notification): bool
     {
         if (!$this->isConfigured()) {
-            Log::error('SMS channel not configured properly');
+            Log::error(__("notification.sms.errors.not_configured"));
             return false;
         }
 
         if (!$user->phone_number) {
-            Log::error('User does not have a phone number', ['user_id' => $user->id]);
+            Log::error(__("notification.sms.errors.no_phone"), ['user_id' => $user->id]);
             return false;
         }
 
@@ -43,7 +45,7 @@ class SmsChannel
             $this->twilio->messages->create(
                 $user->phone_number,
                 [
-                    'from' => config('TWILIO_FROM_NUMBER'),
+                    'from' => config('twillo.from'),
                     'body' => $message
                 ]
             );
@@ -51,7 +53,7 @@ class SmsChannel
             return true;
 
         } catch (Exception $e) {
-            Log::error('Failed to send SMS via Twilio', [
+            Log::error(__("notification.sms.errors.twilio_send_failed"), [
                 'user_id' => $user->id,
                 'error' => $e->getMessage()
             ]);
@@ -64,9 +66,10 @@ class SmsChannel
      */
     public function isConfigured(): bool
     {
-        return !empty(config('TWILIO_SID')) &&
-               !empty(config('TWILIO_AUTH_TOKEN')) &&
-               !empty(config('TWILIO_FROM_NUMBER'));
+        return !empty(config('twillo.enabled')) &&
+               !empty(config('twillo.account_sid')) &&
+               !empty(config('twillo.auth_token')) &&
+               !empty(config('twillo.from'));
     }
 
     /**
@@ -95,14 +98,14 @@ class SmsChannel
             $this->twilio->messages->create(
                 $user->phone_number,
                 [
-                    'from' => config('TWILIO_FROM_NUMBER'),
+                    'from' => config('twillo.from'),
                     'body' => $message
                 ]
             );
 
             return true;
         } catch (Exception $e) {
-            Log::error('Failed to send test SMS', ['error' => $e->getMessage()]);
+            Log::error(__("notification.sms.errors.test_send_failed"), ['error' => $e->getMessage()]);
             return false;
         }
     }
@@ -114,9 +117,9 @@ class SmsChannel
     {
         return [
             'configured' => $this->isConfigured(),
-            'provider' => 'Twilio',
-            'from_number' => config('TWILIO_FROM_NUMBER'),
-            'has_credentials' => !empty(config('TWILIO_SID')) && !empty(config('TWILIO_AUTH_TOKEN')),
+            'provider' => trans('notification.sms.provider_name'),
+            'from_number' => config('twillo.from'),
+            'has_credentials' => !empty(config('twillo.account_sid')) && !empty(config('twillo.auth_token')),
         ];
     }
 
@@ -127,7 +130,7 @@ class SmsChannel
     {
         // SMS messages should be concise, typically under 160 characters for single SMS
         if (strlen($message) > 160) {
-            Log::warning('SMS message exceeds 160 characters', ['length' => strlen($message)]);
+            Log::warning(__("notification.sms.warnings.message_too_long"), ['length' => strlen($message)]);
         }
         
         return $message;

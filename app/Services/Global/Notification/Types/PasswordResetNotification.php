@@ -22,7 +22,10 @@ class PasswordResetNotification implements NotificationTypeInterface
         $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
         $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
         
-        return "Your {$appName} password reset link: {$resetUrl}. This link expires in 60 minutes.";
+        return trans('notification.password_reset.sms_message', [
+            'appName' => $appName,
+            'resetUrl' => $resetUrl,
+        ]);
     }
 
     /**
@@ -30,7 +33,7 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getEmailSubject(User $user): string
     {
-        return 'Reset Password Notification';
+        return trans('notification.password_reset.email_subject');
     }
 
     /**
@@ -38,21 +41,26 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getEmailContent(User $user): array
     {
+        $appName = config('app.name');
         $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
         $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
 
         return [
-            'greeting' => "Hello {$user->first_name}!",
+            'greeting' => trans('notification.greeting_hello_name', [
+                'name' => $user->first_name,
+            ]),
             'lines' => [
-                'You are receiving this email because we received a password reset request for your account.',
-                'This password reset link will expire in 60 minutes.',
-                'If you did not request a password reset, no further action is required.'
+                trans('notification.password_reset.email_lines.line_1'),
+                trans('notification.password_reset.email_lines.line_2'),
+                trans('notification.password_reset.email_lines.line_3'),
             ],
             'action' => [
-                'text' => 'Reset Password',
-                'url' => $resetUrl
+                'text' => trans('notification.password_reset.action_text'),
+                'url' => $resetUrl,
             ],
-            'salutation' => "Best regards,<br>" . config('app.name') . " Team"
+            'salutation' => trans('notification.salutation_best_regards_team', [
+                'appName' => $appName,
+            ]),
         ];
     }
 

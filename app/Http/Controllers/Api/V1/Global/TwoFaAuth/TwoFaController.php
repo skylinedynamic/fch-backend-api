@@ -13,6 +13,7 @@ use App\Http\Resources\Global\TwoFaAuth\TwoFaVerificationResource;
 use App\Services\Global\TwoFaAuth\TwoFaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TwoFaController extends Controller
 {
@@ -56,7 +57,7 @@ class TwoFaController extends Controller
      */
     public function disable(Request $request): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $result = $this->service->disable($user);
         
         if($result === false){
@@ -70,7 +71,7 @@ class TwoFaController extends Controller
      */
     public function resend(ResendTwoFaCodeRequest $request): JsonResponse
     {
-        $user = $request->user();
+        $user = Auth::user();
         $method = $request->validated('method');
         $result = $this->service->resend($user, $method);
         
@@ -86,9 +87,9 @@ class TwoFaController extends Controller
      */
     public function status(): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $result = $this->service->status($user);
-        return ApiResponse::success(new TwoFaStatusResource($result), '2FA status');
+        return ApiResponse::success(new TwoFaStatusResource($result), __('auth.2fa_status'));
     }
 
     /**
@@ -96,8 +97,8 @@ class TwoFaController extends Controller
      */
     public function regenerateRecoveryCodes(): JsonResponse
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $result = $this->service->regenerateRecoveryCodes($user);
-        return ApiResponse::success($result, 'Recovery codes regenerated');
+        return ApiResponse::success($result, __('auth.recovery_codes_regenerated'));
     }
 }

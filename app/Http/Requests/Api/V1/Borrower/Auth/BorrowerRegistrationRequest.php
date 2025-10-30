@@ -55,7 +55,7 @@ class BorrowerRegistrationRequest extends BaseApiRequest
             'password.required' => __('auth.password_required'),
             'password.min' => __('auth.password_min'),
             'password.confirmed' => __('auth.password_confirmed'),
-             'recaptcha.required' => __('auth.recaptcha_required'),
+            'recaptcha.required' => __('auth.recaptcha_required'),
         ];
     }
 }

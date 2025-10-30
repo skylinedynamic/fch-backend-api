@@ -28,6 +28,9 @@ Route::prefix('v1/borrower')->group(function () {
 
         Route::post('/logout', [AuthController::class, 'logout']);
         
+        // Pre-Qualification
+        Route::post('/pre-qualification', [\App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController::class, 'store']);
+
         Route::group(['prefix' => 'profile',], function () {
             Route::get('/personal-info', [PersonalInfoController::class, 'index']);
             Route::put('/personal-info', [PersonalInfoController::class, 'update']);

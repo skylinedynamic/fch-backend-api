@@ -22,6 +22,7 @@ return [
     'email_required' => 'Email is required',
     'email_email' => 'Email must be a valid email address',
     'email_unique' => 'Email is already taken',
+    'email_max' => 'Email cannot exceed 255 characters',
     
     // Home Address
     'home_address_required' => 'Home address is required',
@@ -126,4 +127,58 @@ return [
     'annual_revenue_numeric' => 'Annual revenue must be a number',
     'annual_revenue_min' => 'Annual revenue cannot be negative',
     'annual_revenue_max' => 'Annual revenue cannot exceed 999,999,999.99',
+
+    // Pre-Qualification Validation
+    'full_name_required' => 'Full name is required',
+    'full_name_string' => 'Full name must be a string',
+    'full_name_max' => 'Full name cannot exceed 255 characters',
+
+    'email_max' => 'Email cannot exceed 255 characters',
+
+    'phone_required' => 'Phone is required',
+    'phone_string' => 'Phone must be a string',
+    'phone_max' => 'Phone cannot exceed 25 characters',
+
+    'state_of_incorporation_required' => 'State of incorporation is required',
+    'state_of_incorporation_string' => 'State of incorporation must be a string',
+    'state_of_incorporation_max' => 'State of incorporation cannot exceed 255 characters',
+
+    'industry_required' => 'Industry is required',
+    'industry_string' => 'Industry must be a string',
+    'industry_max' => 'Industry cannot exceed 255 characters',
+
+    'business_structure_required' => 'Business structure is required',
+    'business_structure_string' => 'Business structure must be a string',
+    'business_structure_max' => 'Business structure cannot exceed 255 characters',
+
+    'time_in_business_required' => 'Time in business is required',
+    'time_in_business_string' => 'Time in business must be a string',
+    'time_in_business_max' => 'Time in business cannot exceed 255 characters',
+
+    'funding_requested_amount_required' => 'Funding requested amount is required',
+    'funding_requested_amount_numeric' => 'Funding requested amount must be a number',
+    'funding_requested_amount_min' => 'Funding requested amount cannot be negative',
+
+    'funding_urgency_required' => 'Funding urgency is required',
+    'funding_urgency_string' => 'Funding urgency must be a string',
+    'funding_urgency_max' => 'Funding urgency cannot exceed 255 characters',
+
+    'purpose_of_funding_required' => 'Purpose of funding is required',
+    'purpose_of_funding_string' => 'Purpose of funding must be a string',
+    'purpose_of_funding_max' => 'Purpose of funding cannot exceed 255 characters',
+
+    'personal_credit_score_required' => 'Personal credit score is required',
+    'personal_credit_score_string' => 'Personal credit score must be a string',
+    'personal_credit_score_max' => 'Personal credit score cannot exceed 255 characters',
+
+    'estimated_business_credit_score_required' => 'Estimated business credit score is required',
+    'estimated_business_credit_score_string' => 'Estimated business credit score must be a string',
+    'estimated_business_credit_score_max' => 'Estimated business credit score cannot exceed 255 characters',
+
+    'existing_business_debt_required' => 'Existing business debt is required',
+    'existing_business_debt_boolean' => 'Existing business debt must be true or false',
+
+    'debt_balance_required' => 'Debt balance is required when existing business debt is true',
+    'debt_balance_numeric' => 'Debt balance must be a number',
+    'debt_balance_min' => 'Debt balance cannot be negative',
 ];

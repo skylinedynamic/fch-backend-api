@@ -42,7 +42,6 @@ return [
     'recaptcha_invalid' => 'reCAPTCHA verification failed. Please try again.',
     'recaptcha_secret_not_configured' => 'reCAPTCHA secret key is not configured.',
     'recaptcha_verification_failed' => 'reCAPTCHA verification failed. Please try again.',
-
     
     // Two-factor authentication messages
     'method_required' => 'Two-factor authentication method is required.',
@@ -60,4 +59,27 @@ return [
     '2fa_verification_required' => 'Two-factor authentication verification is required.',
     '2fa_setup_required' => 'Two-factor authentication setup is required.',
     '2fa_totp_qr_scan' => 'Scan the QR code with your TOTP app',
+    '2fa_recovery_codes' => 'Two-factor authentication recovery codes',
+    'recovery_codes_regenerated' => 'Two-factor authentication recovery codes regenerated',
+    '2fa_status' => 'Two-factor authentication status',
+    
+    // General reusable (for 2FA emails)
+    'greeting_hello_name' => 'Hello :name!',
+    'salutation_thank_you_regards_team' => 'Thank you for using our application!<br>Regards,<br>:appName Team',
+
+    // 2FA Notification content (SMS/Email)
+    '2fa_sms_message' => 'Your :appName verification code is: :code. This code expires in :minutes minutes.',
+    '2fa_email_subject' => 'Your :appName Verification Code',
+    '2fa_email_lines' => [
+        'line_1' => 'You are receiving this email because a two-factor authentication code was requested for your account.',
+        'line_2' => 'Your verification code is displayed below:',
+        'line_3' => 'This code will expire in :minutes minutes.',
+        'line_4' => 'If you did not request this code, please ignore this email and consider changing your password.',
+    ],
+
+    // 2FA resend/setup messages
+    '2fa_resend_not_applicable' => 'Resend not applicable for this method',
+    '2fa_code_sent' => 'Verification code sent',
+    '2fa_code_resent' => 'Verification code resent',
+    '2fa_code_send_failed' => 'Failed to send verification code',
 ];

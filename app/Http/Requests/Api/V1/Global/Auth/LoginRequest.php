@@ -17,7 +17,7 @@ class LoginRequest extends BaseApiRequest
         return [
             'email' => ['required', 'email'],
             'password' => ['required', 'string','min:6'],
-            'recaptcha' => ['sometimes','nullable', new ReCaptcha()],
+            'recaptcha' => ['nullable', new ReCaptcha()],
         ];
     }
 

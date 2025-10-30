@@ -14,6 +14,7 @@ use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Writer;
+use Illuminate\Support\Facades\Auth;
 use PragmaRX\Google2FA\Google2FA;
 
 class TwoFaService
@@ -30,7 +31,7 @@ class TwoFaService
      */
     public function setup($method = null): array
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $setting = $this->getOrCreateSetting($user);
         $setting->method = $method;
         $setting->enabled = false;
@@ -59,7 +60,7 @@ class TwoFaService
      */
     public function verify(string $method, string $code): array
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $setting = $this->getOrCreateSetting($user);
 
         if ($this->isLocked($setting)) {
@@ -145,7 +146,7 @@ class TwoFaService
         if (!in_array($method, ['sms', 'email'])) {
             return [
                 'status' => false,
-                'message' => 'Resend not applicable for this method',
+                'message' => __('auth.2fa_resend_not_applicable'),
             ];
         }
         return $this->setupSmsOrEmail($user, $setting, $method, true);
@@ -233,8 +234,8 @@ class TwoFaService
         return [
             'status' => $sent ? true : false,
             'message' => $sent
-                ? ($isResend ? 'Verification code resent' : 'Verification code sent')
-                : 'Failed to send verification code',
+                ? ($isResend ? __('auth.2fa_code_resent') : __('auth.2fa_code_sent'))
+                : __('auth.2fa_code_send_failed'),
             'data' => [
                 'method' => $channel,
                 'expires_in_minutes' => $expiresMinutes,
