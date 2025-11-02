@@ -19,4 +19,16 @@ return [
             'url' => 'Please provide a valid website URL.',
         ],
     ],
+
+     /*
+    |--------------------------------------------------------------------------
+    | Success Messages
+    |--------------------------------------------------------------------------
+    */
+    'success' => [
+        'retrieved' => 'Partners retrieved successfully.',
+        'created' => 'Partner created successfully.',
+        'updated' => 'Partner updated successfully.',
+        'deleted' => 'Partner deleted successfully.',
+    ],
 ];

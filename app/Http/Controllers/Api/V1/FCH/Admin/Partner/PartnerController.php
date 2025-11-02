@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Services\FCH\Partner\PartnerService;
+use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
-use App\Http\Resources\FCH\Partner\PartnerResource;
-use App\Services\FCH\Partner\PartnerService;
 
 class PartnerController extends Controller
 {
@@ -21,14 +22,14 @@ class PartnerController extends Controller
     /**
      * Get partners.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $partners = $this->partnerService->getAllPartners();
+        $partnersResponse = $this->partnerService->getAllPartners($request);
 
-        return ApiResponse::success(
-            PartnerResource::collection($partners),
-            'Partners retrieved successfully'
-        );
+        return ApiResponse::success([
+            'partners' => PartnerResource::collection(collect($partnersResponse['data'])),
+            'meta' => $partnersResponse['meta'],
+        ], __('partner.success.retrieved'));
     }
 
     /**
@@ -38,9 +39,10 @@ class PartnerController extends Controller
     {
         $user = $this->partnerService->store($request->validated());
 
+
         return ApiResponse::success(
             new PartnerResource($user),
-            'Partner created successfully',
+            __('partner.success.created'),
             201
         );
     }
@@ -54,7 +56,7 @@ class PartnerController extends Controller
 
         return ApiResponse::success(
             new PartnerResource($partner),
-            'Partner updated successfully'
+            __('partner.success.updated'),
         );
 
         if (!$partner) {
@@ -65,7 +67,7 @@ class PartnerController extends Controller
 
         return ApiResponse::success(
             new PartnerResource($updatedPartner),
-            'Partner updated successfully'
+            __('partner.success.updated'),
         );
     }
 }

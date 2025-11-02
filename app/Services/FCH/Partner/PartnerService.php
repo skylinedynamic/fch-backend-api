@@ -2,12 +2,12 @@
 
 namespace App\Services\FCH\Partner;
 
+use App\Models\User\User;
 use App\Helpers\ApiResponse;
 use App\Models\Company\Company;
-use App\Models\User\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 class PartnerService
 {
     /**
@@ -127,11 +127,41 @@ class PartnerService
     /**
      * Get all partners with their company information.
      */
-    public function getAllPartners()
+    public function getAllPartners(Request $request)
     {
-        return User::with('company')
-        ->where('user_type', User::USERTYPE['Partner'])
-        ->get();
+        $query = User::with('company')
+            ->where('user_type', User::USERTYPE['Partner']);
+
+        // 🔍 Search filter
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'LIKE', "%{$search}%")
+                ->orWhere('last_name', 'LIKE', "%{$search}%")
+                ->orWhere('email', 'LIKE', "%{$search}%")
+                ->orWhereHas('company', function ($companyQuery) use ($search) {
+                    $companyQuery->where('company_name', 'LIKE', "%{$search}%");
+                });
+            });
+        }
+
+        // 📄 Pagination (with links)
+        $partners = $query->orderByDesc('id')->paginate($request->get('per_page', 2));
+
+        // Add pagination metadata (including links)
+        return [
+            'data' => $partners->items(),
+            'meta' => [
+                'current_page' => $partners->currentPage(),
+                'from' => $partners->firstItem(),
+                'to' => $partners->lastItem(),
+                'per_page' => $partners->perPage(),
+                'total' => $partners->total(),
+                'last_page' => $partners->lastPage(),
+                'next_page_url' => $partners->nextPageUrl(),
+                'prev_page_url' => $partners->previousPageUrl(),
+                'links' => $partners->linkCollection(),
+            ],
+        ];
     }
 
     /**
