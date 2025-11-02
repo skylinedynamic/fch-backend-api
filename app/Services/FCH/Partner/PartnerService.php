@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Partner;
+namespace App\Services\FCH\Partner;
 
 use App\Helpers\ApiResponse;
 use App\Models\Company\Company;

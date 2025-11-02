@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Resources\FCH\Partner\PartnerResource;
-use App\Services\Partner\PartnerService;
+use App\Services\FCH\Partner\PartnerService;
 
 class PartnerController extends Controller
 {
