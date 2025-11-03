@@ -13,15 +13,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::create([
-            'first_name' => 'Test',
-            'last_name' => 'User',
-            'email' => 'admin@mail.com',
-            'password' => '12345678', 
-            'phone_number' => '08123456789',
-            'user_type' => User::USERTYPE['Admin'],
+        // Call seeders in proper order to respect foreign key relationships
+        $this->call([
+            UserSeeder::class,          // First: Create users (no dependencies)
+            BusinessSeeder::class,      // Second: Create businesses (no dependencies)
+            EmployeeSeeder::class,      // Third: Create employees (depends on users and businesses)
+            PartnerSeeder::class,       // Fourth: Create partners (depends on users, businesses, employees)
+            BorrowerSeeder::class,      // Fifth: Create borrowers (depends on users, partners, businesses, employees)
         ]);
     }
 }

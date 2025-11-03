@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('pre_qualification_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('company_id')->nullable()->constrained('companies')->nullOnDelete();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('business_id')->nullable()->constrained('businesses')->nullOnDelete();
 
             // Personal Info
             $table->string('full_name')->nullable();
@@ -48,9 +48,9 @@ return new class extends Migration
 
             // Indexes
             $table->index('user_id');
+            $table->index('business_id');
             $table->index('full_name');
             $table->index('business_name');
-            $table->index('company_id');
             $table->index('assign_to');
             $table->index('status');
             $table->index(['user_id', 'status']);

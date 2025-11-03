@@ -15,7 +15,6 @@ class PreQualificationRequest extends Model
 
     protected $fillable = [
         'user_id',
-        'company_id',
         'full_name',
         'business_website',
         'email',

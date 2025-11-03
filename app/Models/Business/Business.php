@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Models\Company;
+namespace App\Models\Business;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
 
-class Company extends Model
+class Business extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -16,7 +16,7 @@ class Company extends Model
      *
      * @var string
      */
-    protected $table = 'companies';
+    protected $table = 'businesses';
 
     // Status constants
     public const STATUS_ACTIVE = 'active';
@@ -38,27 +38,30 @@ class Company extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',
-        'company_name',
-        'company_ein',
-        'company_email',
-        'company_phone',
-        'company_website',
-        'company_entity_type',
-        'company_type',
-        'company_description',
+        'business_no',
+        'business_name',
+        'business_ein',
+        'business_email',
+        'business_phone',
+        'business_website',
+        'business_entity_type',
+        'business_type',
+        'business_description',
+        'business_logo',
+        'status',
+        'business_registration_number',
+        'tax_identification_number',
+        'assign_id',
         'address_line_1',
         'address_line_2',
         'city',
         'state',
         'postal_code',
         'country',
-        'company_logo',
-        'status',
-        'company_registration_number',
-        'tax_identification_number',
-        'assigned_agent_id',
         'additional_data',
+        'duns_number',
+        'state_file_number',
+        'business_start_date',
         'notes',
         'currency',
         'years_in_business',

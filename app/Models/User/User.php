@@ -27,22 +27,12 @@ class User extends Authenticatable implements OAuthenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'first_name',
-        'last_name',
+        'name',
         'email',
         'phone_number',
-        'gender',
-        'date_of_birth',
-        'phone_number_2',
-        'city',
-        'state',
-        'postal_code',
-        'country',
-        'ssn',
-        'address_line_1',
-        'address_line_2',
+        'phone_verified_at',
+        'email_verified_at',
         'user_type',
-        'image',
         'password',
     ];
 

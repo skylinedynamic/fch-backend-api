@@ -14,7 +14,7 @@ class PreQualificationService
 
         $payload = array_merge($data, [
             'user_id' => $userId,
-            'company_id' => $companyId,
+            'business_id' => $companyId,
             'status' => 'pending',
         ]);
 
