@@ -4,7 +4,10 @@ namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use App\Models\Company\Company;
+use App\Models\Business\Business;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -28,23 +31,12 @@ class User extends Authenticatable implements OAuthenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'first_name',
-        'last_name',
+        'name',
         'email',
         'phone_number',
-        'company_id',
-        'gender',
-        'date_of_birth',
-        'phone_number_2',
-        'city',
-        'state',
-        'postal_code',
-        'country',
-        'ssn',
-        'address_line_1',
-        'address_line_2',
+        'phone_verified_at',
+        'email_verified_at',
         'user_type',
-        'image',
         'password',
     ];
 
@@ -423,10 +415,34 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
-     * Get the user's company.
+     * Get the user's partner profile.
      */
-    public function company(): BelongsTo
+    public function partner(): HasOne
     {
-        return $this->belongsTo(Company::class);
+        return $this->hasOne(Partner::class);
+    }
+
+    /**
+     * Get the user's borrower profile.
+     */
+    public function borrower(): HasOne
+    {
+        return $this->hasOne(Borrower::class);
+    }
+
+    /**
+     * Get the user's employee profile.
+     */
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * Get businesses assigned to this user.
+     */
+    public function assignedBusinesses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Business::class, 'assign_id');
     }
 }
