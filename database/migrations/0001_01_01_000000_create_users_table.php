@@ -13,21 +13,31 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('first_name')->nullable();
-            $table->string('last_name')->nullable();
+            $table->string('name')->nullable()->index();
             $table->string('email')->unique();
-            $table->string('phone_number')->nullable();
+            $table->string('phone_number')->nullable()->index();
+            $table->boolean('is_partner')->default(0);
+            $table->foreignId('company_id')->nullable()->index();
             $table->timestamp('phone_verified_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('city')->nullable();
-            $table->string('state')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('country')->nullable();
+            $table->string('city')->nullable()->index();
+            $table->string('state')->nullable()->index();
+            $table->string('postal_code')->nullable()->index();
+            $table->string('country')->nullable()->index();
             $table->string('password');
-            $table->string('user_type')->nullable();
+            $table->string('user_type')->nullable()->index();
             $table->string('image')->nullable();
             $table->rememberToken();
             $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::create('partners', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->string('first_name')->nullable()->index();
+            $table->string('last_name')->nullable()->index();
+            
             $table->timestamps();
         });
 

@@ -13,6 +13,7 @@ return [
     'access_denied' => 'Access denied. Admin privileges required',
     'access_denied_partner_privileges_required' => 'Access denied. Partner privileges required',
     'access_denied_borrower_privileges_required' => 'Access denied. Borrower privileges required',
+    'user_not_found' => 'User not found',
     
     // Validation messages
     'email_required' => 'Email is required.',
@@ -62,6 +63,15 @@ return [
     '2fa_recovery_codes' => 'Two-factor authentication recovery codes',
     'recovery_codes_regenerated' => 'Two-factor authentication recovery codes regenerated',
     '2fa_status' => 'Two-factor authentication status',
+    
+    // Login 2FA confirmation validation messages
+    'login_2fa_user_id_required' => 'User ID is required.',
+    'login_2fa_user_id_integer' => 'User ID must be an integer.',
+    'login_2fa_user_id_exists' => 'The selected user does not exist.',
+    'login_2fa_method_required' => 'Two-factor authentication method is required.',
+    'login_2fa_method_in' => 'Invalid two-factor authentication method selected.',
+    'login_2fa_code_required' => 'Verification code is required.',
+    'login_2fa_code_string' => 'Verification code must be a string.',
     
     // General reusable (for 2FA emails)
     'greeting_hello_name' => 'Hello :name!',

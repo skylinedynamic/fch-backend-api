@@ -143,7 +143,7 @@ class TwoFaService
     {
         $setting = $this->getOrCreateSetting($user);
 
-        if (!in_array($method, ['sms', 'email'])) {
+        if (!in_array($method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
             return [
                 'status' => false,
                 'message' => __('auth.2fa_resend_not_applicable'),
@@ -309,6 +309,25 @@ class TwoFaService
         }
     }
 
+    protected function verifyAndConsumeRecoveryCode(TwoFaAuthSetting $setting, string $code): bool
+    {
+        $input = trim($code);
+        $codes = $this->getDecryptedRecoveryCodes($setting);
+        if (empty($codes)) {
+            return false;
+        }
+        foreach ($codes as $index => $stored) {
+            if (trim($stored) === $input) {
+                unset($codes[$index]);
+                $codes = array_values($codes);
+                $setting->recovery_codes = Crypt::encryptString(json_encode($codes));
+                $setting->save();
+                return true;
+            }
+        }
+        return false;
+    }
+
     protected function generateNumericCode(int $length = 6): string
     {
         return str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
@@ -358,5 +377,96 @@ class TwoFaService
         }
         
         return max(0, now()->diffInSeconds($setting->locked_until, false));
+    }
+
+    public function verifyForLogin(User $user, string $method, string $code): array
+    {
+        $setting = $this->getOrCreateSetting($user);
+
+        if ($this->isLocked($setting)) {
+            return [
+                'status' => false,
+                'message' => __('auth.2fa_locked', ['seconds' => $this->lockoutTime($setting)]),
+                'data' => [
+                    'verified' => false,
+                    'locked_until' => $setting->locked_until,
+                    'remaining_attempts' => $this->remainingAttempts($setting),
+                ],
+            ];
+        }
+
+        $verified = false;
+        $message = __('auth.2fa_verification_failed');
+
+        if ($method === TwoFaAuthSetting::TOTP) {
+            $verified = $this->verifyTotp($user, $setting, $code);
+        } elseif (in_array($method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
+            $verified = $this->verifyCode($setting, $code);
+        } else {
+            $message = __('auth.2fa_invalid_method');
+        }
+
+        if ($verified) {
+            // Successful login verification: reset attempts and clear transient code for SMS/Email
+            $this->resetAttempts($setting);
+            if (in_array($method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
+                $setting->code = null;
+                $setting->code_expires_at = null;
+                $setting->save();
+            }
+
+            return [
+                'status' => true,
+                'message' => __('auth.2fa_verified'),
+                'data' => [
+                    'verified' => true,
+                ],
+            ];
+        }
+
+        $this->incrementAttempts($setting);
+
+        return [
+            'status' => false,
+            'message' => $message,
+            'data' => [
+                'verified' => false,
+                'remaining_attempts' => $this->remainingAttempts($setting),
+            ],
+        ];
+    }
+
+    public function verifyRecoveryCodeForLogin(User $user, string $method, string $code): array
+    {
+        $setting = $this->getOrCreateSetting($user);
+
+        $verified = $this->verifyAndConsumeRecoveryCode($setting, $code);
+
+        if ($verified) {
+            // reset attempts and clear transient code for SMS/Email upon success
+            $this->resetAttempts($setting);
+            if (in_array($method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
+                $setting->code = null;
+                $setting->code_expires_at = null;
+                $setting->save();
+            }
+
+            return [
+                'status' => true,
+                'message' => __('auth.2fa_verified'),
+                'data' => [
+                    'verified' => true,
+                    'recovery_code_used' => true,
+                ],
+            ];
+        }
+
+        return [
+            'status' => false,
+            'message' => __('auth.2fa_verification_failed'),
+            'data' => [
+                'verified' => false,
+            ],
+        ];
     }
 }

@@ -13,9 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('companies', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            
+            $table->id();            
             $table->string('company_no')->nullable();
             $table->string('company_name');
             $table->string('company_ein')->nullable();
@@ -54,7 +52,6 @@ return new class extends Migration
             $table->timestamps();
             
             // Indexes in separate lines
-            $table->index('user_id');
             $table->index('company_name');
             $table->index('company_email');
             $table->index('city');
@@ -63,7 +60,6 @@ return new class extends Migration
             $table->index('status');
             $table->index('assigned_agent_id');
             $table->index('created_at');
-            $table->index(['user_id', 'status']);
             $table->index(['status', 'created_at']);
         });
     }

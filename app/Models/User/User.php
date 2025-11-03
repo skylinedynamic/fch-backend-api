@@ -14,6 +14,7 @@ use Laravel\Passport\Contracts\OAuthenticatable;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use OTPHP\TOTP;
 
@@ -31,6 +32,7 @@ class User extends Authenticatable implements OAuthenticatable
         'last_name',
         'email',
         'phone_number',
+        'company_id',
         'gender',
         'date_of_birth',
         'phone_number_2',
@@ -423,8 +425,8 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Get the user's company.
      */
-    public function company(): HasOne
+    public function company(): BelongsTo
     {
-        return $this->hasOne(Company::class);
+        return $this->belongsTo(Company::class);
     }
 }

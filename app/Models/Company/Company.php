@@ -38,7 +38,6 @@ class Company extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',
         'company_name',
         'company_ein',
         'company_email',
@@ -88,9 +87,9 @@ class Company extends Model
     /**
      * Get the user that owns the company.
      */
-    public function user()
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(User::class);
     }
 
     /**

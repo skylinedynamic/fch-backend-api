@@ -1,11 +1,8 @@
 <?php
 
-namespace App\Services\Partner;
-
-use App\Helpers\ApiResponse;
+namespace App\Services\FCH\Partner;
 use App\Models\Company\Company;
 use App\Models\User\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PartnerService
@@ -43,10 +40,13 @@ class PartnerService
             
             // Create company
             $companyData = $this->mapCompanyData($data);
-            $companyData['user_id'] = $user->id;
             $companyData['status'] = Company::STATUS_PENDING;
-
-            Company::create($companyData);
+            $company = Company::create($companyData);
+            
+            // Assign company to user
+            $user->company()->associate($company);
+            $user->save();
+            
             DB::commit();
             return $user;
 
