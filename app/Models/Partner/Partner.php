@@ -2,6 +2,7 @@
 
 namespace App\Models\Partner;
 
+use App\Models\Business\Business;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -57,7 +58,7 @@ class Partner extends Model
      */
     public function business()
     {
-        return $this->belongsTo(Company::class, 'business_id');
+        return $this->belongsTo(Business::class, 'business_id');
     }
 
     /**

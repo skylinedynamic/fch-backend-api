@@ -4,6 +4,7 @@ namespace App\Services\FCH\Partner;
 
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
+use App\Models\Business\Business;
 use App\Models\Company\Company;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -44,9 +45,9 @@ class PartnerService
             // Create company
             $companyData = $this->mapCompanyData($data);
             $companyData['user_id'] = $user->id;
-            $companyData['status'] = Company::STATUS_PENDING;
+            $companyData['status'] = Business::STATUS_PENDING;
 
-            Company::create($companyData);
+            Business::create($companyData);
             DB::commit();
             return $user;
 
