@@ -10,6 +10,7 @@ use App\Models\Business\Business;
 use App\Models\Employee\Employee;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Borrower extends Model
 {
@@ -91,7 +92,7 @@ class Borrower extends Model
     /**
      * Get pre-qualification requests for this borrower.
      */
-    public function preQualificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function preQualificationRequests(): HasMany
     {
         return $this->hasMany(PreQualificationRequest::class);
     }

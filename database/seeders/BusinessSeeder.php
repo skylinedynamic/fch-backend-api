@@ -127,7 +127,7 @@ class BusinessSeeder extends Seeder
                 'status' => 'pending',
                 'business_registration_number' => 'REG998877',
                 'tax_identification_number' => 'TAX776655',
-                'assign_id' => 1,
+                'assign_id' => null,
                 'address_line_1' => '321 Marketing Street',
                 'address_line_2' => null,
                 'city' => 'Chicago',

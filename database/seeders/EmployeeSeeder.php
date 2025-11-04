@@ -15,6 +15,24 @@ class EmployeeSeeder extends Seeder
     {
         DB::table('employees')->insert([
             [
+                'user_id' => 1, // Admin User
+                'business_id' => 1, // Tech Solutions Inc (assigned to admin)
+                'first_name' => 'Admin',
+                'last_name' => 'User',
+                'email' => 'admin@fch.com',
+                'phone_number' => '+1234567890',
+                'date_of_birth' => '1985-01-01',
+                'gender' => 'other',
+                'city' => 'San Francisco',
+                'sate' => 'CA',
+                'postal_code' => '94105',
+                'country' => 'USA',
+                'ssn' => '000-00-0000',
+                'image' => 'admin_user.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
                 'user_id' => 2, // John Partner
                 'business_id' => 1, // Tech Solutions Inc
                 'first_name' => 'John',
@@ -47,6 +65,60 @@ class EmployeeSeeder extends Seeder
                 'country' => 'USA',
                 'ssn' => '987-65-4321',
                 'image' => 'sarah_wilson.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+                 [
+                'user_id' => 4, // Michael Johnson (Borrower)
+                'business_id' => 1, // Tech Solutions Inc
+                'first_name' => 'Michael',
+                'last_name' => 'Johnson',
+                'email' => 'michael.johnson@example.com',
+                'phone_number' => '+1234567893',
+                'date_of_birth' => '1990-02-15',
+                'gender' => 'male',
+                'city' => 'San Francisco',
+                'sate' => 'CA',
+                'postal_code' => '94105',
+                'country' => 'USA',
+                'ssn' => '111-22-3333',
+                'image' => 'michael_johnson.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => 5, // Emily Davis (Borrower)
+                'business_id' => 2, // Green Energy Solutions LLC
+                'first_name' => 'Emily',
+                'last_name' => 'Davis',
+                'email' => 'emily.davis@example.com',
+                'phone_number' => '+1234567894',
+                'date_of_birth' => '1991-08-10',
+                'gender' => 'female',
+                'city' => 'Austin',
+                'sate' => 'TX',
+                'postal_code' => '78701',
+                'country' => 'USA',
+                'ssn' => '222-33-4444',
+                'image' => 'emily_davis.jpg',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'user_id' => 6, // Robert Brown (Borrower)
+                'business_id' => 3, // Urban Restaurant Group
+                'first_name' => 'Robert',
+                'last_name' => 'Brown',
+                'email' => 'robert.brown@example.com',
+                'phone_number' => '+1234567895',
+                'date_of_birth' => '1989-11-30',
+                'gender' => 'male',
+                'city' => 'New York',
+                'sate' => 'NY',
+                'postal_code' => '10001',
+                'country' => 'USA',
+                'ssn' => '333-44-5555',
+                'image' => 'robert_brown.jpg',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -121,7 +193,7 @@ class EmployeeSeeder extends Seeder
                 'image' => 'amanda_chen.jpg',
                 'created_at' => now(),
                 'updated_at' => now(),
-            ],
+            ]
         ]);
     }
 }

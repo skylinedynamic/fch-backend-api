@@ -18,7 +18,9 @@ use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use OTPHP\TOTP;
 
 class User extends Authenticatable implements OAuthenticatable
@@ -441,8 +443,20 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Get businesses assigned to this user.
      */
-    public function assignedBusinesses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function assignedBusinesses(): HasMany
     {
         return $this->hasMany(Business::class, 'assign_id');
+    }
+
+    public function business()
+    {
+        return $this->hasOneThrough(
+            Business::class,
+            Employee::class,
+            'user_id',
+            'id', 
+            'id',
+            'business_id'
+        );
     }
 }

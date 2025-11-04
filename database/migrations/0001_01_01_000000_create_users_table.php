@@ -27,15 +27,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('partners', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->string('first_name')->nullable()->index();
-            $table->string('last_name')->nullable()->index();
-            
-            $table->timestamps();
-        });
-
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
