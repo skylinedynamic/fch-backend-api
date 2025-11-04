@@ -2,12 +2,15 @@
 
 namespace App\Models\Employee;
 
-use App\Models\Business\Business;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
-use App\Models\Company\Company;
+use App\Models\Business\Business;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Employee extends Model
 {
@@ -55,18 +58,34 @@ class Employee extends Model
     ];
 
     /**
-     * Get the user that owns the employee.
+     * Get the user that owns the employee profile.
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /**
-     * Get the business that owns the employee.
+     * Get the business this employee belongs to.
      */
-    public function business()
+    public function business(): BelongsTo
     {
-        return $this->belongsTo(Business::class, 'business_id');
+        return $this->belongsTo(Business::class);
+    }
+
+    /**
+     * Get partners associated with this employee.
+     */
+    public function partners(): HasMany
+    {
+        return $this->hasMany(Partner::class);
+    }
+
+    /**
+     * Get borrowers associated with this employee.
+     */
+    public function borrowers(): HasMany
+    {
+        return $this->hasMany(Borrower::class);
     }
 }

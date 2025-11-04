@@ -54,11 +54,6 @@ class PartnerController extends Controller
     {
         $partner = $this->partnerService->findById($id);
 
-        return ApiResponse::success(
-            new PartnerResource($partner),
-            __('partner.success.updated'),
-        );
-
         if (!$partner) {
             return ApiResponse::notFound('Partner not found');
         }

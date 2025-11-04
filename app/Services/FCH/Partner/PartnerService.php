@@ -3,11 +3,8 @@
 namespace App\Services\FCH\Partner;
 
 use App\Models\User\User;
-use App\Helpers\ApiResponse;
 use App\Models\Business\Business;
-use App\Models\Company\Company;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 class PartnerService
 {
