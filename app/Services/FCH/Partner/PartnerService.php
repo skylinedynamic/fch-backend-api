@@ -101,7 +101,7 @@ class PartnerService
         
         // Create new user
         $userData['password'] = bcrypt('temporary_password_' . time());
-        $userData['user_type'] = User::USERTYPE['Partner'];
+        $userData['user_type'] = User::PARTNER;
     
         return User::create($userData);
     }
@@ -128,7 +128,7 @@ class PartnerService
     public function getAllPartners(Request $request)
     {
         $query = User::with('company')
-            ->where('user_type', User::USERTYPE['Partner']);
+            ->where('user_type', User::PARTNER);
 
         // 🔍 Search filter
         if ($search = $request->get('search')) {

@@ -32,6 +32,7 @@ class Borrower extends Model
         'user_id',
         'partner_id',
         'business_id',
+        'signup_id',
         'employee_id',
         'assign_to',
         'status',

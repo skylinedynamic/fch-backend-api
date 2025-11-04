@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('business_ein')->nullable();
             $table->string('business_email')->nullable();
             $table->string('business_phone')->nullable();
-            $table->string('business_website')->nullable();
+            $table->string('business_entity_type')->nullable();
             $table->string('business_entity_type')->nullable();
             $table->string('business_type')->nullable();
             $table->longText('business_description')->nullable();

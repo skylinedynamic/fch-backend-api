@@ -6,9 +6,11 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\Profile\UpdatePersonalProfileRequest;
 use App\Http\Resources\Borrower\Profile\PersonalProfileResource;
+use App\Models\User\User;
 use App\Services\Borrower\Profile\ProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 /**
  *  Borrower Profile
@@ -27,7 +29,7 @@ class PersonalInfoController extends Controller
      */
     public function index(): JsonResponse
     {
-        $user = auth()->user();
+        $user = User::with('employee')->where('id', Auth::id())->first();
         return ApiResponse::success(new PersonalProfileResource($user), __('borrower.fetch_personal_profile'));
     }
 
@@ -37,7 +39,7 @@ class PersonalInfoController extends Controller
     public function update(UpdatePersonalProfileRequest $request): JsonResponse
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             // Update profile using the service
             $updatedUser = $this->profileService->updateProfile($user, $request->validated());
             return ApiResponse::success(

@@ -5,6 +5,8 @@ return [
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
     'fetch_profile_completion' => 'Fetch Profile Completion Status',
 
+    'signup_id_not_found' => 'BorrowerAuthService registerBorrower error: Signup ID not found',
+
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
     'update_business_info' => 'Update Business Information',

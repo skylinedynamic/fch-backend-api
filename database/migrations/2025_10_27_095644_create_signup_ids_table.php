@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('signup_ids', function (Blueprint $table) {
             $table->id();
             $table->string('signup_id')->unique();
+            $table->foreignId('partner_id')->constrained('partners')->nullable();
         });
     }
 

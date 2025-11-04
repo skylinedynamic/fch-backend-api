@@ -18,12 +18,14 @@ return new class extends Migration {
             $table->string('last_name')->nullable();
             $table->string('email')->nullable();
             $table->string('phone_number')->nullable();
+            $table->string('phone_number_2')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('gender')->nullable();
             $table->string('city')->nullable();
-            $table->string('sate')->nullable();
+            $table->string('state')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('country')->nullable();
+            $table->string('address')->nullable();
             $table->string('ssn')->nullable();
             $table->string('image')->nullable();
             $table->softDeletes();

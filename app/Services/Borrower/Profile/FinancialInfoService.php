@@ -2,7 +2,7 @@
 
 namespace App\Services\Borrower\Profile;
 
-use App\Models\Company\Company;
+use App\Models\Business\Business;
 use Illuminate\Support\Facades\Auth;
 
 class FinancialInfoService
@@ -10,17 +10,17 @@ class FinancialInfoService
     /**
      * Get financial information for the authenticated borrower
      *
-     * @return Company|null
+     * @return Business|null
      */
-    public function getFinancialInfo(): ?Company
+    public function getFinancialInfo(): ?Business
     {
-        $company = Company::where('user_id', Auth::id())->first();
+        $business = Business::where('user_id', Auth::id())->first();
         
-        if (!$company) {
+        if (!$business) {
             return null;
         }
 
-        return $company;
+        return $business;
     }
 
     /**
@@ -29,15 +29,15 @@ class FinancialInfoService
      * @param array $data
      * @return Company|null
      */
-    public function updateFinancialInfo(array $data): ?Company
+    public function updateFinancialInfo(array $data): ?Business
     {
-        $company = Company::where('user_id', Auth::id())->first();
+        $business = Business::where('user_id', Auth::id())->first();
         
-        if (!$company) {
+        if (!$business) {
             return null;
         }
 
-        $company = Company::updateOrCreate(
+        $business = Business::updateOrCreate(
             ['user_id' => Auth::id()],
             ['currency',
             'years_in_business',
@@ -45,6 +45,6 @@ class FinancialInfoService
             'annual_revenue']
         );
 
-        return $company->fresh();
+        return $business->fresh();
     }
 }

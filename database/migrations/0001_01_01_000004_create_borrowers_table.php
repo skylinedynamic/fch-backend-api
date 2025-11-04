@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->foreignId('partner_id')->nullable()->constrained('partners');
             $table->foreignId('business_id')->nullable()->constrained('businesses');
             $table->foreignId('employee_id')->nullable()->constrained('employees');
+            $table->string('signup_id')->nullable();
             $table->foreignId('assign_to')->nullable()->constrained('users');
             $table->string('status')->nullable();
             $table->longText('notes')->nullable();

@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\Borrower\Profile\UpdateBusinessInfoRequest;
 use App\Http\Resources\Borrower\Profile\BusinessInfoResource;
 use App\Services\Borrower\Profile\BusinessInfoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class BusinessInfoController extends Controller
 {
@@ -26,7 +27,7 @@ class BusinessInfoController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $businessInfo = $this->businessInfoService->getBusinessInfo(auth()->id());
+            $businessInfo = $this->businessInfoService->getBusinessInfo(Auth::id());
             
             if (!$businessInfo) {
                 return ApiResponse::error(__('borrower.business_info_not_found'), 404);
@@ -51,7 +52,7 @@ class BusinessInfoController extends Controller
     public function update(UpdateBusinessInfoRequest $request): JsonResponse
     {
         try {
-            $businessInfo = $this->businessInfoService->updateBusinessInfo(auth()->id(), $request->validated());
+            $businessInfo = $this->businessInfoService->updateBusinessInfo(Auth::id(), $request->validated());
 
             return ApiResponse::success(
                 new BusinessInfoResource($businessInfo),

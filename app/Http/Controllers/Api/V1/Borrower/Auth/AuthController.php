@@ -22,20 +22,20 @@ class AuthController extends Controller
     public function register(BorrowerRegistrationRequest $request): JsonResponse
     {
         $borrowerAuthService = new BorrowerAuthService();
+        $validatedData = $request->validated();
         try {
-            // Validate signup ID first
-            if (!$borrowerAuthService->validateSignupId($request->signup_id)) {
+            if (!$borrowerAuthService->validateSignupId($validatedData['signup_id'])) {
                 return ApiResponse::error(__('borrower_validation.signup_id_invalid'),422);
             }
-
-            // Register the borrower
-            $result = $borrowerAuthService->registerBorrower($request->validated());
-
-            // Return success response
-             return ApiResponse::success([
+            $result = $borrowerAuthService->registerBorrower($validatedData);
+            
+            if (!$result['status']) {
+                return ApiResponse::error($result['message'], 500);
+            }
+            return ApiResponse::success([
                     'token' => $result['token'],
                     'user' => new UserResource($result['user']),
-                ], 'Borrower registered successfully');
+                ], $result['message']);
 
         } catch (\Exception $e) {
             return ApiResponse::error('Registration failed. Please try again.',500);
@@ -49,7 +49,7 @@ class AuthController extends Controller
     {
         $authService = new AuthService();
         $credentials = $request->validated();
-        return $authService->login($credentials, $request, User::USERTYPE['Borrower']);
+        return $authService->login($credentials, $request, User::BORROWER);
     }
 
 

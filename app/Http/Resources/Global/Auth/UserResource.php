@@ -15,14 +15,13 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'name' => $this->full_name,
+            'name' => $this->name,
             'email' => $this->email,
-            'user_type' => $this->user_type,
-            'image' => $this->image,
-            'business' => $this->business,
             'phone_number' => $this->phone_number,
-            'two_factor_enabled' => $this->hasTwoFactorEnabled(),
-            'two_factor_method' => $this->getTwoFactorMethod(),
+            'user_type' => $this->user_type,
+            'business' => $this->business ? $this->business->business_name : null,
+            'status' => $this->status,
+            'image' => $this->image,
         ];
     }
 }

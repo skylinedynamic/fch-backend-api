@@ -39,6 +39,7 @@ class User extends Authenticatable implements OAuthenticatable
         'phone_verified_at',
         'email_verified_at',
         'user_type',
+        'status',
         'password',
     ];
 
@@ -66,6 +67,11 @@ class User extends Authenticatable implements OAuthenticatable
         ];
     }
 
+    public const STATUS = [
+        'active' => 'active',
+        'inactive' => 'inactive',
+    ];
+
     public const GENDER = [
         'male' => 'male',
         'female' => 'female',
@@ -75,17 +81,6 @@ class User extends Authenticatable implements OAuthenticatable
     public const ADMIN = 'Admin';
     public const PARTNER = 'Partner';
     public const BORROWER = 'Borrower';
-
-    public const USERTYPE = [
-        self::ADMIN => self::ADMIN,
-        self::PARTNER => self::PARTNER,
-        self::BORROWER => self::BORROWER,
-    ];
-
-    public function getFullNameAttribute(): string
-    {
-        return "{$this->first_name} {$this->last_name}";
-    }
 
     /**
      * Send the password reset notification.

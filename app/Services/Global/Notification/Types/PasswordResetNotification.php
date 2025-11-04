@@ -90,13 +90,13 @@ class PasswordResetNotification implements NotificationTypeInterface
     {
         // Handle null user type by defaulting to Partner
         if ($userType === null) {
-            $userType = 'Partner';
+            $userType = User::PARTNER;
         }
         
         return match ($userType) {
-            'Admin' => config('app.frontend_admin_url'),
-            'Partner' => config('app.frontend_partner_url'),
-            'Borrower' => config('app.frontend_borrower_url'),
+            User::ADMIN => config('app.frontend_admin_url'),
+            User::PARTNER => config('app.frontend_partner_url'),
+            User::BORROWER => config('app.frontend_borrower_url'),
             default => config('app.frontend_partner_url'), // Default fallback
         };
     }

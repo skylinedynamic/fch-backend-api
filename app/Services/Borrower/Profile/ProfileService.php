@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Models\Employee\Employee;
 use App\Models\User\User;
 use Illuminate\Support\Facades\DB;
 use Exception;
@@ -26,7 +27,7 @@ class ProfileService
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
-                'address_line_1' => $data['home_address'],
+                'address' => $data['home_address'],
                 'city' => $data['city'],
                 'state' => $data['state'],
                 'postal_code' => $data['zip_code'],
@@ -42,9 +43,12 @@ class ProfileService
             }
 
             // Update the user
-            $user->update($updateData);
-
-            DB::commit();
+            Employee::where('user_id', $user->id)->update($updateData);
+            
+            User::where('id', $user->id)->update([
+                'email' => $data['email'],
+                'phone_number' => $data['mobile_phone'],
+            ]);
 
             return $user->fresh();
         } catch (Exception $e) {

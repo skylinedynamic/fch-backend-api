@@ -21,6 +21,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567890',
             'user_type' => User::ADMIN,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
 
@@ -31,6 +32,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567891',
             'user_type' => User::PARTNER,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
 
@@ -40,6 +42,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567892',
             'user_type' => User::PARTNER,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
 
@@ -50,6 +53,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567893',
             'user_type' => User::BORROWER,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
 
@@ -59,6 +63,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567894',
             'user_type' => User::BORROWER,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
 
@@ -68,6 +73,7 @@ class UserSeeder extends Seeder
             'phone_number' => '+1234567895',
             'user_type' => User::BORROWER,
             'password' => Hash::make('12345678'),
+            'status' => User::STATUS['active'],
             'email_verified_at' => now(),
         ]);
     }
