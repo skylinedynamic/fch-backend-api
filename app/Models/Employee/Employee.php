@@ -12,18 +12,8 @@ class Employee extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
     protected $table = 'employees';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'user_id',
         'business_id',
@@ -34,18 +24,13 @@ class Employee extends Model
         'date_of_birth',
         'gender',
         'city',
-        'sate',
+        'state',          // ✅ fixed typo: was 'sate'
         'postal_code',
         'country',
         'ssn',
         'image',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'date_of_birth' => 'date',
         'created_at' => 'datetime',
@@ -54,18 +39,26 @@ class Employee extends Model
     ];
 
     /**
-     * Get the user that owns the employee.
+     * 🔹 Relationship: each employee belongs to a user.
      */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * Get the business that owns the employee.
+     * 🔹 Relationship: each employee belongs to a business/company.
      */
     public function business()
     {
         return $this->belongsTo(Company::class, 'business_id');
+    }
+
+    /**
+     * 🔹 Full name accessor.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->first_name} {$this->last_name}");
     }
 }

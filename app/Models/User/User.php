@@ -4,22 +4,24 @@ namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use App\Models\Company\Company;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use OTPHP\TOTP;
+use App\Models\Employee\Employee;
 use Laravel\Passport\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Notifications\Notifiable;
+use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Passport\Contracts\OAuthenticatable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
-use App\Models\TwoFaAuth\TwoFaAuthSetting;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use OTPHP\TOTP;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable implements OAuthenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -410,11 +412,42 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->hasOne(TwoFaAuthSetting::class);
     }
 
-    /**
-     * Get the user's company.
-     */
-    public function company(): HasOne
-    {
-        return $this->hasOne(Company::class);
-    }
+        public function employee()
+        {
+            return $this->hasOne(Employee::class, 'user_id');
+        }
+
+        public function getBusinessIdAttribute()
+        {
+            return optional($this->employee)->business_id;
+        }
+
+        public function users(): BelongsToMany
+        {
+            return $this->belongsToMany(
+                User::class,                // Related model
+                'model_has_roles',          // Pivot table used by Spatie
+                'role_id',                  // Foreign key on pivot for this model (Role)
+                'model_id'                  // Foreign key on pivot for related model (User)
+            )->where('model_type', User::class); // Filter only User models
+        }
+
+        // ✅ Relationship: Role → Employees
+        public function employees(): BelongsToMany
+        {
+            return $this->belongsToMany(
+                Employee::class,
+                'model_has_roles',
+                'role_id',
+                'model_id'
+            )->where('model_type', Employee::class);
+        }
+
+    // /**
+    //  * Get the user's company.
+    //  */
+    // public function company(): HasOne
+    // {
+    //     return $this->hasOne(Company::class);
+    // }
 }
