@@ -55,3 +55,7 @@ class GenericNotificationMail extends Mailable
         return [];
     }
 }
+
+
+
+
