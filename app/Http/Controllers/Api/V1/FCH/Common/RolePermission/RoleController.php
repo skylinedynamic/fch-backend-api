@@ -6,12 +6,12 @@ use App\Models\Common\Role;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Services\FCH\Common\RolePermission\RoleService;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\StoreRoleRequest;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\UpdateRoleRequest;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\AssignPermissionsRequest;
 
 /**
  * Class RoleController
- *
- * Handles role management, including creating, updating,
- * deleting, and assigning permissions to roles.
  *
  * @package App\Http\Controllers\Api\V1\Global\RolePermission
  */
@@ -42,29 +42,12 @@ class RoleController extends Controller
     /**
      * Store Role
      *
-     * @param Request $request
+     * @param StoreRoleRequest $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request)
+    public function store(StoreRoleRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'permission_ids' => 'array|nullable',
-        ]);
-
         $businessId = $request->user()->business_id;
-
-        // 🔍 Check for duplicate role within the same business
-        $existingRole = Role::where('name', $request->name)
-            ->where('business_id', $businessId)
-            ->first();
-
-        if ($existingRole) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'The role name already exists.',
-            ], 409); // 409 Conflict
-        }
 
         // ✅ Create new role
         $data = $request->only(['name', 'guard_name', 'permission_ids']);
@@ -74,9 +57,9 @@ class RoleController extends Controller
         $role = $this->roleService->create($data);
 
         return response()->json([
-            'status'  => true,
-            'message' => 'Role created successfully',
-            'data'    => $role,
+            'status' => true,
+            'message' => __('role_permission.role_created'),
+            'data' => $role,
         ], 201);
     }
 
@@ -88,41 +71,33 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
-        return response()->json($role->load('permissions'));
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_details'),
+            'data' => $role->load('permissions'),
+        ]);
     }
 
     /**
      * Update Role
      *
-     * @param Request $request
+     * @param UpdateRoleRequest $request
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, int $id)
+    public function update(UpdateRoleRequest $request, int $id)
     {
-        $validated = $request->validate([
-            'name' => 'required|string',
-            'permission_ids' => 'array',
-        ]);
-
         $businessId = auth()->user()->business_id;
 
         $role = Role::where('id', $id)
             ->where('business_id', $businessId)
             ->first();
 
-        if (!$role) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Role not found.',
-            ], 404);
-        }
-
-        $updatedRole = $this->roleService->update($role, $validated, $businessId);
+        $updatedRole = $this->roleService->update($role, $request->validated(), $businessId);
 
         return response()->json([
             'status' => true,
-            'message' => 'Role updated successfully.',
+            'message' => __('role_permission.role_updated'),
             'data' => $updatedRole,
         ]);
     }
@@ -136,25 +111,22 @@ class RoleController extends Controller
     public function destroy(Role $role)
     {
         $this->roleService->delete($role);
+
         return response()->json([
-            'status'  => true,
-            'message' => 'Role deleted successfully.',
+            'status' => true,
+            'message' => __('role_permission.role_deleted'),
         ], 200);
     }
 
     /**
      * Assign permissions
      *
-     * @param Request $request
+     * @param AssignPermissionsRequest $request
      * @param Role $role
      * @return \Illuminate\Http\JsonResponse
      */
-    public function assignPermissions(Request $request, Role $role)
+    public function assignPermissions(AssignPermissionsRequest $request, Role $role)
     {
-        $request->validate([
-            'permission_ids' => 'required|array',
-        ]);
-
         $businessId = $request->user()->business_id;
 
         $role = $this->roleService->assignPermissions(
@@ -165,7 +137,7 @@ class RoleController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Permissions assigned successfully.',
+            'message' => __('role_permission.role_updated'), // You can reuse this for assigning permissions
             'data' => $role,
         ]);
     }

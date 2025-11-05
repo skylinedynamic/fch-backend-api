@@ -56,7 +56,6 @@ class RoleService
 
         if (!empty($data['permission_ids'])) {
             $permissions = Permission::whereIn('id', $data['permission_ids'])
-                ->where('business_id', $data['business_id'])
                 ->where('guard_name', 'api')
                 ->get();
 
