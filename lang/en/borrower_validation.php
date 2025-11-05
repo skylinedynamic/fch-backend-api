@@ -129,6 +129,9 @@ return [
     'annual_revenue_max' => 'Annual revenue cannot exceed 999,999,999.99',
 
     // Pre-Qualification Validation
+    'id_integer' => 'ID must be an integer',
+    'id_exists' => 'Pre-qualification request not found',
+    
     'full_name_required' => 'Full name is required',
     'full_name_string' => 'Full name must be a string',
     'full_name_max' => 'Full name cannot exceed 255 characters',

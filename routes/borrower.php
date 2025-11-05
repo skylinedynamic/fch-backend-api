@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use Illuminate\Support\Facades\Route;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -29,8 +31,9 @@ Route::prefix('v1/borrower')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         
         // Pre-Qualification
-        Route::post('/pre-qualification', [\App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController::class, 'store']);
-
+        Route::get('/pre-qualification', [PreQualificationController::class, 'index']);
+        Route::post('/pre-qualification', [PreQualificationController::class, 'storeOrUpdate']);
+        
         Route::group(['prefix' => 'profile',], function () {
             Route::get('/personal-info', [PersonalInfoController::class, 'index']);
             Route::put('/personal-info', [PersonalInfoController::class, 'update']);

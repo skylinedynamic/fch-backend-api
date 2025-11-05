@@ -7,10 +7,14 @@ use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\Borrower\PreQualification\SubmitPreQualificationRequest;
 use App\Http\Resources\Borrower\PreQualification\PreQualificationResource;
 use App\Services\Borrower\PreQualification\PreQualificationService;
+use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
+use Dedoc\Scramble\Attributes\QueryParameter;
+use App\Http\Requests\Api\V1\Borrower\PreQualification\PreQualificationRequest as QualificationRequest;
 
 class PreQualificationController extends Controller
 {
+    use PaginatesApi;
     protected PreQualificationService $service;
 
     public function __construct(PreQualificationService $service)
@@ -19,13 +23,33 @@ class PreQualificationController extends Controller
     }
 
     /**
-     * Submit Pre-Qualification
+     * Pre-Qualification List
      */
-    public function store(SubmitPreQualificationRequest $request)
+
+    public function index(QualificationRequest $request)
     {
         try {
             $userId = Auth::id();
-            $record = $this->service->submit($userId, $request->validated());
+            $paginator = $this->service->prequalificationList($userId, $request);
+
+            return $this->respondWithPaginationResource(
+                $request,
+                $paginator,
+                PreQualificationResource::class,
+                __('borrower.pre_qualification_list_success')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.pre_qualification_list_failed'), 500);
+        }
+    }
+
+    /**
+     * Submit Pre-Qualification
+     */
+    public function storeOrUpdate(SubmitPreQualificationRequest $request)
+    {
+        try {
+            $record = $this->service->submit($request->validated());
             return ApiResponse::success(
                 new PreQualificationResource($record),
                 __('borrower.pre_qualification_submitted_successfully')

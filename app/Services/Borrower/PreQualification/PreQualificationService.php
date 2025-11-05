@@ -3,21 +3,50 @@
 namespace App\Services\Borrower\PreQualification;
 
 use App\Models\Borrower\PreQualificationRequest;
-use App\Models\Company\Company;
+use App\Models\Business\Business;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Auth;
 
 class PreQualificationService
 {
-    public function submit(int $userId, array $data): PreQualificationRequest
+    use PaginatesApi;
+    
+    public function submit(array $data): PreQualificationRequest
     {
-        // Try to link company if exists
-        $companyId = Company::where('user_id', $userId)->value('id');
+       try{
+        $user = Auth::user();
+        $business = Business::where('id', $user->business->id)->first();
 
         $payload = array_merge($data, [
-            'user_id' => $userId,
-            'business_id' => $companyId,
-            'status' => 'pending',
+            'user_id' => $user->id,
+            'business_id' => $business->id,
         ]);
 
-        return PreQualificationRequest::create($payload);
+        return PreQualificationRequest::updateOrCreate(
+            ['id' => isset($data['id']) ? $data['id'] : null],
+            $payload
+        );
+       }catch(\Exception $e){
+           throw $e;
+       }
+       
+    }
+
+    public function prequalificationList(?int $userId, Request $request): LengthAwarePaginator
+    {
+        $query = PreQualificationRequest::query();
+        if (!is_null($userId)) {
+            $query->where('user_id', $userId);
+        }
+
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+
+        $query->search($request->query('query'));
+
+        return $this->paginateBuilder($request, $query->orderByDesc('created_at'));
     }
 }

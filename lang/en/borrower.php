@@ -30,4 +30,6 @@ return [
     // Pre-Qualification Messages
     'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
     'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
+    'pre_qualification_list_success' => 'Pre-qualification requests fetched successfully',
+    'pre_qualification_list_failed' => 'Failed to fetch pre-qualification requests. Please try again.',
 ];

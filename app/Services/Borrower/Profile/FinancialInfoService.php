@@ -14,7 +14,8 @@ class FinancialInfoService
      */
     public function getFinancialInfo(): ?Business
     {
-        $business = Business::where('user_id', Auth::id())->first();
+        $business = Auth::user()->business;
+        $business = Business::where('id', $business?->id)->first();
         
         if (!$business) {
             return null;
@@ -31,18 +32,19 @@ class FinancialInfoService
      */
     public function updateFinancialInfo(array $data): ?Business
     {
-        $business = Business::where('user_id', Auth::id())->first();
+        $business = Auth::user()->business;
+        $business = Business::where('id', $business?->id)->first();
         
         if (!$business) {
             return null;
         }
 
         $business = Business::updateOrCreate(
-            ['user_id' => Auth::id()],
-            ['currency',
-            'years_in_business',
-            'monthly_revenue',
-            'annual_revenue']
+            ['id' => $business->id],
+            ['currency' => $data['currency'] ?? $business->currency,
+            'years_in_business' => $data['years_in_business'] ?? $business->years_in_business,
+            'monthly_revenue' => $data['monthly_revenue'] ?? $business->monthly_revenue,
+            'annual_revenue' => $data['annual_revenue'] ?? $business->annual_revenue]
         );
 
         return $business->fresh();

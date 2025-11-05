@@ -39,11 +39,20 @@ class ApiResponse
             'status' => true,
             'message' => $message,
             'data' => $paginator->items(),
+            // Standard pagination links
+            'links' => [
+                'first' => $paginator->url(1),
+                'last'  => $paginator->url($paginator->lastPage()),
+                'prev'  => $paginator->previousPageUrl(),
+                'next'  => $paginator->nextPageUrl(),
+            ],
+            // Standard pagination meta/info
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'last_page' => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+                'first_page'   => 1,
+                'last_page'    => $paginator->lastPage(),
+                'total'        => $paginator->total(),
             ],
         ], $code);
     }

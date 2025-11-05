@@ -8,6 +8,8 @@ use App\Models\User\User;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Illuminate\Routing\Route;
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,6 +41,22 @@ class AppServiceProvider extends ServiceProvider
             'api_path' => 'api/v1/borrower',
         ]);
 
+          Scramble::registerApi('borrower')
+            ->routes(function (Route $route) {
+                return Str::startsWith($route->uri, 'api/v1/borrower')
+                    || Str::startsWith($route->uri, 'api/v1/2fa');
+            });
+            
+
+        // Register combined admin docs (admin + partner) under one URL
+        Scramble::registerApi('admin')
+            ->routes(function (Route $route) {
+                return Str::startsWith($route->uri, 'api/v1/admin')
+                    || Str::startsWith($route->uri, 'api/v1/partner')
+                    || Str::startsWith($route->uri, 'api/v1/auth')
+                    || Str::startsWith($route->uri, 'api/v1/notifications')
+                    || Str::startsWith($route->uri, 'api/v1/2fa');
+            });
         Gate::define('viewApiDocs', function (User $user) {
             $allowed = array_filter(array_map('trim', explode(',', (string) env('SCRAMBLE_ALLOWED_EMAILS', ''))));
             if (empty($allowed)) {

@@ -14,6 +14,8 @@ class SubmitPreQualificationRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            'id' => ['nullable','integer','exists:pre_qualification_requests,id'],
+            
             'full_name' => ['required','string','max:255'],
             'business_website' => ['nullable','url','max:255'],
             'email' => ['required','email','max:255'],
@@ -51,6 +53,9 @@ class SubmitPreQualificationRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
+            'id.integer' => __('borrower_validation.id_integer'),
+            'id.exists' => __('borrower_validation.id_exists'),
+
             'full_name.required' => __('borrower_validation.full_name_required'),
             'full_name.string' => __('borrower_validation.full_name_string'),
             'full_name.max' => __('borrower_validation.full_name_max'),

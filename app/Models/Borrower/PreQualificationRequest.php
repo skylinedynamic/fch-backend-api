@@ -3,6 +3,7 @@
 namespace App\Models\Borrower;
 
 use App\Models\Business\Business;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
@@ -16,6 +17,7 @@ class PreQualificationRequest extends Model
 
     protected $fillable = [
         'user_id',
+        'business_id',
         'full_name',
         'business_website',
         'email',
@@ -52,6 +54,13 @@ class PreQualificationRequest extends Model
     public const PROCESSING = 'processing';
     public const DECLINED = 'declined';
 
+    public const STATUS = [
+        self::PENDING => self::PENDING,
+        self::APPROVED => self::APPROVED,
+        self::PROCESSING => self::PROCESSING,
+        self::DECLINED => self::DECLINED,
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -60,5 +69,24 @@ class PreQualificationRequest extends Model
     public function business()
     {
         return $this->belongsTo(Business::class);
+    }
+
+    /**
+     * Scope a query to search across common text fields.
+     */
+    public function scopeSearch(Builder $query, ?string $term): Builder
+    {
+        if (!$term) {
+            return $query;
+        }
+
+        $like = "%{$term}%";
+
+        return $query->where(function (Builder $q) use ($like) {
+            $q->where('full_name', 'like', $like)
+              ->orWhere('business_name', 'like', $like)
+              ->orWhere('email', 'like', $like)
+              ->orWhere('phone', 'like', $like);
+        });
     }
 }
