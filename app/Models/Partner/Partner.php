@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
-use App\Models\Company\Company;
+use App\Models\Business\Business;
 use App\Models\Employee\Employee;
+use App\Models\Borrower\Borrower;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Partner extends Model
 {
@@ -45,34 +48,42 @@ class Partner extends Model
     ];
 
     /**
-     * Get the user that owns the partner.
+     * Get the user that owns the partner profile.
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /**
-     * Get the business that owns the partner.
+     * Get the business associated with this partner.
      */
-    public function business()
+    public function business(): BelongsTo
     {
-        return $this->belongsTo(Company::class, 'business_id');
+        return $this->belongsTo(Business::class);
     }
 
     /**
-     * Get the employee that owns the partner.
+     * Get the employee associated with this partner.
      */
-    public function employee()
+    public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
     }
 
     /**
-     * Get the user assigned to this partner.
+     * Get the user this partner is assigned to.
      */
-    public function assignedTo()
+    public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assign_to');
+    }
+
+    /**
+     * Get borrowers assigned to this partner.
+     */
+    public function borrowers(): HasMany
+    {
+        return $this->hasMany(Borrower::class);
     }
 }

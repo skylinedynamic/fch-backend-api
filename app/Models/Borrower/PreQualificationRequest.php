@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Business\Business;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
@@ -56,8 +57,8 @@ class PreQualificationRequest extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function company()
+    public function business()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsTo(Business::class);
     }
 }

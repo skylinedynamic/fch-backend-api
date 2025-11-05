@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use App\Http\Resources\Global\Auth\UserResource;
+use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use App\Services\Global\TwoFaAuth\TwoFaService;
 
 class AuthService
 {
@@ -42,6 +44,7 @@ class AuthService
                         $query->where('user_type',$user_type);
                     })
                     ->first();
+
         
         if (!$user) {
             RateLimiter::hit($key, $decayMinutes * 60);
@@ -50,6 +53,8 @@ class AuthService
             
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
         }
+
+
 
         if (!Auth::attempt($authCredentials)) {
             RateLimiter::hit($key, $decayMinutes * 60);
@@ -61,23 +66,31 @@ class AuthService
 
         RateLimiter::clear($key);
         $user = Auth::user();   
+
+        // If 2FA is enabled, return token and 2FA details instead of user details
+        $twoFaSetting = $user->twoFaAuthSetting()->first();
+        if ($twoFaSetting && $twoFaSetting->enabled) {
+            $method = $twoFaSetting->method;
+
+            // For SMS/Email methods, trigger a new OTP code via TwoFaService
+            if (in_array($method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
+                $twoFaService = app(TwoFaService::class);
+                $twoFaService->resend($user, $method);
+            }
+
+            return ApiResponse::success([
+                'user_id' => $user->id,
+                'two_factor_enabled' => (bool) $twoFaSetting->enabled,
+                'two_factor_method' => $method,
+            ], __('auth.2fa_verification_required'));
+        }
+
+
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);
-
-        // // If 2FA is enabled, return token and 2FA details instead of user details
-        // $twoFaSetting = $user->twoFaAuthSetting()->first();
-        // if ($twoFaSetting && $twoFaSetting->enabled) {
-        //     return ApiResponse::success([
-        //         'token' => $token,
-        //         'two_factor' => [
-        //             'enabled' => (bool) $twoFaSetting->enabled,
-        //             'method' => $twoFaSetting->method,
-        //         ],
-        //     ], __('auth.2fa_verification_required'));
-        // }
-
+        
         return ApiResponse::success([
             'token' => $token,
             'user' => new UserResource($user),

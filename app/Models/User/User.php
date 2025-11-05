@@ -4,10 +4,12 @@ namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use OTPHP\TOTP;
+use App\Models\Business\Business;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
-use Laravel\Passport\HasApiTokens;
-use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,7 +19,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use OTPHP\TOTP;
 
 class User extends Authenticatable implements OAuthenticatable
 {
@@ -412,42 +419,47 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->hasOne(TwoFaAuthSetting::class);
     }
 
-        public function employee()
-        {
-            return $this->hasOne(Employee::class, 'user_id');
-        }
+    /**
+     * Get the user's partner profile.
+     */
+    public function partner(): HasOne
+    {
+        return $this->hasOne(Partner::class);
+    }
 
-        public function getBusinessIdAttribute()
-        {
-            return optional($this->employee)->business_id;
-        }
+    /**
+     * Get the user's borrower profile.
+     */
+    public function borrower(): HasOne
+    {
+        return $this->hasOne(Borrower::class);
+    }
 
-        public function users(): BelongsToMany
-        {
-            return $this->belongsToMany(
-                User::class,                // Related model
-                'model_has_roles',          // Pivot table used by Spatie
-                'role_id',                  // Foreign key on pivot for this model (Role)
-                'model_id'                  // Foreign key on pivot for related model (User)
-            )->where('model_type', User::class); // Filter only User models
-        }
+    /**
+     * Get the user's employee profile.
+     */
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
 
-        // ✅ Relationship: Role → Employees
-        public function employees(): BelongsToMany
-        {
-            return $this->belongsToMany(
-                Employee::class,
-                'model_has_roles',
-                'role_id',
-                'model_id'
-            )->where('model_type', Employee::class);
-        }
+    /**
+     * Get businesses assigned to this user.
+     */
+    public function assignedBusinesses(): HasMany
+    {
+        return $this->hasMany(Business::class, 'assign_id');
+    }
 
-    // /**
-    //  * Get the user's company.
-    //  */
-    // public function company(): HasOne
-    // {
-    //     return $this->hasOne(Company::class);
-    // }
+    public function business()
+    {
+        return $this->hasOneThrough(
+            Business::class,
+            Employee::class,
+            'user_id',
+            'id', 
+            'id',
+            'business_id'
+        );
+    }
 }

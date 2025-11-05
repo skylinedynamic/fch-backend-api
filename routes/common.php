@@ -10,6 +10,7 @@ Route::prefix('v1')->group(function () {
     // V1 auth routes
     Route::prefix('auth')->group(function () {
         Route::post('/login', [V1AuthController::class, 'login']);
+        Route::post('/login/2fa/confirm', [V1TwoFaController::class, 'login_confirm']);
         Route::post('/forgot', [V1AuthController::class, 'forgot']);
         Route::post('/reset', [V1AuthController::class, 'reset']);
     });

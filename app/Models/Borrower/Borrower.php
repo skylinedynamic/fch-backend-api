@@ -5,10 +5,12 @@ namespace App\Models\Borrower;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User\User;
 use App\Models\Partner\Partner;
-use App\Models\Company\Company;
+use App\Models\Business\Business;
 use App\Models\Employee\Employee;
+use App\Models\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Borrower extends Model
 {
@@ -48,42 +50,50 @@ class Borrower extends Model
     ];
 
     /**
-     * Get the user that owns the borrower.
+     * Get the user that owns the borrower profile.
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
     /**
-     * Get the partner that owns the borrower.
+     * Get the partner associated with this borrower.
      */
-    public function partner()
+    public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
     }
 
     /**
-     * Get the business that owns the borrower.
+     * Get the business associated with this borrower.
      */
-    public function business()
+    public function business(): BelongsTo
     {
-        return $this->belongsTo(Company::class, 'business_id');
+        return $this->belongsTo(Business::class);
     }
 
     /**
-     * Get the employee that owns the borrower.
+     * Get the employee associated with this borrower.
      */
-    public function employee()
+    public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
     }
 
     /**
-     * Get the user assigned to this borrower.
+     * Get the user this borrower is assigned to.
      */
-    public function assignedTo()
+    public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assign_to');
+    }
+
+    /**
+     * Get pre-qualification requests for this borrower.
+     */
+    public function preQualificationRequests(): HasMany
+    {
+        return $this->hasMany(PreQualificationRequest::class);
     }
 }

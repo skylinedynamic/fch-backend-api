@@ -22,7 +22,6 @@ class BorrowerSeeder extends Seeder
                 'assign_to' => 2, // Assigned to John Partner
                 'status' => 'active',
                 'notes' => 'Excellent credit history, looking for business expansion loan.',
-                'new_column' => 'Sample data for new column',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -34,7 +33,6 @@ class BorrowerSeeder extends Seeder
                 'assign_to' => 3, // Assigned to Sarah Wilson
                 'status' => 'pending',
                 'notes' => 'New business owner seeking startup funding for renewable energy project.',
-                'new_column' => 'Additional borrower information',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -46,7 +44,6 @@ class BorrowerSeeder extends Seeder
                 'assign_to' => 2, // Assigned to John Partner
                 'status' => 'active',
                 'notes' => 'Restaurant owner looking to expand to new locations.',
-                'new_column' => 'Restaurant expansion details',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]

@@ -14,6 +14,10 @@ use App\Services\Global\TwoFaAuth\TwoFaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\Api\V1\Global\Auth\LoginTwoFaConfirmRequest;
+use App\Http\Resources\Global\Auth\UserResource;
+use App\Models\User\User;
+use App\Http\Requests\Api\V1\Global\TwoFaAuth\RegenerateRecoveryCodesRequest;
 
 class TwoFaController extends Controller
 {
@@ -22,6 +26,32 @@ class TwoFaController extends Controller
     public function __construct(TwoFaService $service)
     {
         $this->service = $service;
+    }
+
+     /**
+     * 2FA Confirm For Login 
+     */
+
+    public function login_confirm(LoginTwoFaConfirmRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $user = User::find($validated['user_id']);
+        if (!$user) {
+            return ApiResponse::error(__('auth.user_not_found'), 404);
+        }
+
+        $rcResult = $this->service->verifyRecoveryCodeForLogin($user, $validated['method'], $validated['code']);
+        if ($rcResult['status'] === true && (($rcResult['data']['verified'] ?? false) === true)) {
+            return $this->respondWithLoginSuccess($user, ['recovery_code_used' => true]);
+        }
+
+        $result = $this->service->verifyForLogin($user, $validated['method'], $validated['code']);
+        if ($result['status'] === true && (($result['data']['verified'] ?? false) === true)) {
+            return $this->respondWithLoginSuccess($user);
+        }
+
+        return ApiResponse::error($result['message'] ?? __('auth.2fa_verification_failed'), 422, $result['data'] ?? null);
     }
 
     /**
@@ -95,10 +125,37 @@ class TwoFaController extends Controller
     /**
      * Regenerate recovery codes.
      */
-    public function regenerateRecoveryCodes(): JsonResponse
+    public function regenerateRecoveryCodes(RegenerateRecoveryCodesRequest $request): JsonResponse
     {
-        $user = Auth::user();
+        $validated = $request->validated();
+
+        $user = null;
+        if (!empty($validated['user_id'])) {
+            $user = User::find($validated['user_id']);
+            if (!$user) {
+                return ApiResponse::error(__('auth.user_not_found'), 404);
+            }
+        } else {
+            $user = Auth::user();
+            if (!$user) {
+                return ApiResponse::error(__('auth.user_not_found'), 404);
+            }
+        }
+
         $result = $this->service->regenerateRecoveryCodes($user);
-        return ApiResponse::success($result, __('auth.recovery_codes_regenerated'));
+
+        return ApiResponse::success([
+            'recovery_codes' => $result['recovery_codes'] ?? [],
+        ], __('auth.recovery_codes_regenerated'));
+    }
+
+    private function respondWithLoginSuccess(User $user, array $twoFactor = []): JsonResponse
+    {
+        $token = $user->createToken(__('auth.token_name'))->accessToken;
+        $payload = [
+            'token' => $token,
+            'user' => new UserResource($user),
+        ];
+        return ApiResponse::success($payload, __('auth.logged_in'));
     }
 }
