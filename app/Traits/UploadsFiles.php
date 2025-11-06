@@ -50,6 +50,21 @@ trait UploadsFiles
     }
 
     /**
+     * Ensure target directory exists on selected disk.
+     */
+    protected function ensureDirectory(string $directory, ?string $disk = null): void
+    {
+        $disk = $this->resolveDisk($disk);
+        $dir = trim($directory, '/');
+        try {
+            // Safe to call even if directory exists; on S3 it creates a placeholder prefix.
+            Storage::disk($disk)->makeDirectory($dir);
+        } catch (\Throwable $e) {
+            // Ignore; subsequent write will still attempt to create path if supported.
+        }
+    }
+
+    /**
      * Upload a single file to the given directory on selected disk.
      * Returns metadata including path and URL.
      */
@@ -57,13 +72,15 @@ trait UploadsFiles
     {
         $disk = $this->resolveDisk($disk);
         $filename = $this->makeFilename($file, $filename);
+        $dir = trim($directory, '/');
+        $this->ensureDirectory($dir, $disk);
 
         $options = $public ? ['visibility' => 'public'] : [];
-        $path = Storage::disk($disk)->putFileAs(trim($directory, '/'), $file, $filename, $options);
+        $path = Storage::disk($disk)->putFileAs($dir, $file, $filename, $options);
 
         return [
             'disk'          => $disk,
-            'directory'     => trim($directory, '/'),
+            'directory'     => $dir,
             'path'          => $path,
             'url'           => $this->fileUrl($path, $disk),
             'original_name' => $file->getClientOriginalName(),
@@ -79,9 +96,11 @@ trait UploadsFiles
     protected function uploadFiles(array|Collection $files, string $directory = 'uploads', ?string $disk = null, bool $public = true): array
     {
         $results = [];
+        $dir = trim($directory, '/');
+        $this->ensureDirectory($dir, $disk);
         foreach ($files as $file) {
             if ($file instanceof UploadedFile) {
-                $results[] = $this->uploadFile($file, $directory, $disk, null, $public);
+                $results[] = $this->uploadFile($file, $dir, $disk, null, $public);
             }
         }
         return $results;
