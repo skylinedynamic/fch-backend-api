@@ -45,7 +45,6 @@ trait UploadsFiles
                 return asset('storage/' . ltrim($path, '/'));
             }
         }
-
         return null;
     }
 
