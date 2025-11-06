@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
@@ -30,6 +31,9 @@ Route::prefix('v1')->group(function () {
         // 👤 User Role & Permission Assignment
         Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
         Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
+
+        Route::apiResource('employees', EmployeeController::class);
+
     });
 
 });

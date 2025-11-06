@@ -28,11 +28,23 @@ class Employee extends Model
         'date_of_birth',
         'gender',
         'city',
-        'state',          // ✅ fixed typo: was 'sate'
+        'state',
         'postal_code',
         'country',
         'ssn',
         'image',
+        'designation',
+        'department', 
+        'job_status',
+        'joining_date',
+        'identification_number',
+        'blood_group', 
+        'place_of_birth',
+        'emergency_contact',
+        'emergency_phone', 
+        'marital_status', 
+        'no_of_children',
+        'address'
     ];
 
     protected $casts = [

@@ -1,0 +1,55 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee Language Lines
+    |--------------------------------------------------------------------------
+    |
+    | The following language lines are used for employee CRUD operations,
+    | form validation, notifications, and status messages.
+    |
+    */
+
+    // ✅ Validation Messages
+    'first_name_required' => 'The first name field is required.',
+    'first_name_string'   => 'The first name must be a valid string.',
+    'last_name_string'    => 'The last name must be a valid string.',
+    'designation_string'  => 'The designation must be a valid string.',
+    'email_required'      => 'The email field is required.',
+    'email_valid'         => 'Please provide a valid email address.',
+    'email_unique'        => 'The email ":input" is already in use for this business.',
+    'phone_unique'        => 'The phone number ":input" is already in use for this business.',
+    'date_of_birth_before'=> 'The date of birth must be a valid date before today.',
+    'gender_invalid'      => 'The selected gender is invalid. Allowed values: male, female, other.',
+    'role_required_if_create_account' => 'Role is required when creating an account.',
+    'role_exists'         => 'The selected role does not exist.',
+    'image_must_be_image' => 'The uploaded file must be an image.',
+    'image_mime_invalid'  => 'The image must be a file of type: jpeg, jpg, png, webp.',
+    'validation_failed'   => 'Some fields failed validation. Please review the input data.',
+
+    // ✅ CRUD Messages
+    'employee_created' => 'Employee has been created successfully.',
+    'employee_updated' => 'Employee details have been updated successfully.',
+    'employee_deleted' => 'Employee has been deleted successfully.',
+    'employee_listed'  => 'Employees retrieved successfully.',
+    'employee_details' => 'Employee details retrieved successfully.',
+    'employee_not_found' => 'The requested employee could not be found.',
+
+    // ✅ Account Creation
+    'account_created'  => 'User account has been created successfully for this employee.',
+    'account_already_exists' => 'A user account is already linked with this employee.',
+    'account_deleted'  => 'Employee account and linked user deleted successfully.',
+
+    // ✅ Status Messages
+    'unauthorized_action' => 'You are not authorized to perform this action.',
+    'forbidden_access'    => 'Access to this employee record is forbidden.',
+    'unknown_error'       => 'An unexpected error occurred. Please try again later.',
+    'mail_failed'         => 'Failed to send account creation email notification.',
+    'mail_sent'           => 'Account details email has been sent successfully.',
+
+    // ✅ Pagination & Filters
+    'employee_paginated'  => 'Employee list retrieved successfully.',
+    'employee_filtered'   => 'Filtered employee list retrieved successfully.',
+];
