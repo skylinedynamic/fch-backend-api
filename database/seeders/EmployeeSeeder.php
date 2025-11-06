@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -15,8 +14,8 @@ class EmployeeSeeder extends Seeder
     {
         DB::table('employees')->insert([
             [
-                'user_id' => 1, // Admin User
-                'business_id' => 1, // Tech Solutions Inc (assigned to admin)
+                'user_id' => 1,
+                'business_id' => 1,
                 'first_name' => 'Admin',
                 'last_name' => 'User',
                 'email' => 'admin@fch.com',
@@ -25,18 +24,30 @@ class EmployeeSeeder extends Seeder
                 'date_of_birth' => '1985-01-01',
                 'gender' => 'other',
                 'city' => 'San Francisco',
-                'state' => 'CA',
+                'sttate' => 'CA',
                 'postal_code' => '94105',
                 'country' => 'USA',
                 'address' => '123 Main St',
                 'ssn' => '000-00-0000',
                 'image' => 'admin_user.jpg',
+                'department' => 'Administration',
+                'designation' => 'System Administrator',
+                'job_status' => 'Active',
+                'joining_date' => '2020-01-10',
+                'identification_number' => 'EMP-0001',
+                'blood_group' => 'O+',
+                'place_of_birth' => 'San Francisco',
+                'emergency_contact' => 'Jane Doe',
+                'emergency_phone' => '+1234000000',
+                'marital_status' => 'Married',
+                'no_of_children' => 2,
+                'address' => 'Road 2 House 12',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 2, // John Partner
-                'business_id' => 1, // Tech Solutions Inc
+                'user_id' => 2,
+                'business_id' => 1,
                 'first_name' => 'John',
                 'last_name' => 'Partner',
                 'email' => 'john.partner@example.com',
@@ -45,18 +56,30 @@ class EmployeeSeeder extends Seeder
                 'date_of_birth' => '1980-05-20',
                 'gender' => 'male',
                 'city' => 'Los Angeles',
-                'state' => 'CA', // Note: keeping 'sate' as per migration schema
+                'sttate' => 'CA',
                 'postal_code' => '90210',
                 'country' => 'USA',
                 'address' => '456 Oak St',
                 'ssn' => '123-45-6789',
                 'image' => 'john_partner.jpg',
+                'department' => 'Business Development',
+                'designation' => 'Partner Manager',
+                'job_status' => 'Active',
+                'joining_date' => '2021-03-15',
+                'identification_number' => 'EMP-0002',
+                'blood_group' => 'A+',
+                'place_of_birth' => 'Los Angeles',
+                'emergency_contact' => 'Mary Partner',
+                'emergency_phone' => '+1234567899',
+                'marital_status' => 'Married',
+                'no_of_children' => 1,
+                'address' => 'Road 2 House 12',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 3, // Sarah Wilson
-                'business_id' => 2, // Green Energy Solutions LLC
+                'user_id' => 3,
+                'business_id' => 2,
                 'first_name' => 'Sarah',
                 'last_name' => 'Wilson',
                 'email' => 'sarah.wilson@example.com',
@@ -71,12 +94,24 @@ class EmployeeSeeder extends Seeder
                 'address' => '789 Pine St',
                 'ssn' => '987-65-4321',
                 'image' => 'sarah_wilson.jpg',
+                'department' => 'Finance',
+                'designation' => 'Chief Accountant',
+                'job_status' => 'Active',
+                'joining_date' => '2019-09-01',
+                'identification_number' => 'EMP-0003',
+                'blood_group' => 'B+',
+                'place_of_birth' => 'Chicago',
+                'emergency_contact' => 'Tom Wilson',
+                'emergency_phone' => '+1234567800',
+                'marital_status' => 'Married',
+                'no_of_children' => 2,
+                'address' => 'Road 12',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-                 [
-                'user_id' => 4, // Michael Johnson (Borrower)
-                'business_id' => 1, // Tech Solutions Inc
+            [
+                'user_id' => 4,
+                'business_id' => 1,
                 'first_name' => 'Michael',
                 'last_name' => 'Johnson',
                 'email' => 'michael.johnson@example.com',
@@ -91,12 +126,24 @@ class EmployeeSeeder extends Seeder
                 'address' => '101 Maple St',
                 'ssn' => '111-22-3333',
                 'image' => 'michael_johnson.jpg',
+                'department' => 'Engineering',
+                'designation' => 'Software Engineer',
+                'job_status' => 'Active',
+                'joining_date' => '2022-05-10',
+                'identification_number' => 'EMP-0004',
+                'blood_group' => 'AB+',
+                'place_of_birth' => 'San Francisco',
+                'emergency_contact' => 'Laura Johnson',
+                'emergency_phone' => '+1234567001',
+                'marital_status' => 'Single',
+                'no_of_children' => 0,
+                'address' => 'Road 2 House 12',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 5, // Emily Davis (Borrower)
-                'business_id' => 2, // Green Energy Solutions LLC
+                'user_id' => 5,
+                'business_id' => 2,
                 'first_name' => 'Emily',
                 'last_name' => 'Davis',
                 'email' => 'emily.davis@example.com',

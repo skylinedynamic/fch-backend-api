@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
@@ -23,6 +26,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/resend', [V1TwoFaController::class, 'resend']);
         Route::get('/status', [V1TwoFaController::class, 'status']);
         Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
+    });
+    Route::prefix('common')->middleware('auth:api')->group(function () {
+                // 🛡️ Role & Permission Management
+        Route::apiResource('roles', RoleController::class);
+        // 👤 User Role & Permission Assignment
+        Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
+        Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
+
+        Route::apiResource('employees', EmployeeController::class);
+
     });
 
     // V1 Notification routes

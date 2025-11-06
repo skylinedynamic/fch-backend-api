@@ -16,18 +16,8 @@ class Employee extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
     protected $table = 'employees';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'user_id',
         'business_id',
@@ -45,13 +35,20 @@ class Employee extends Model
         'address',
         'ssn',
         'image',
+        'designation',
+        'department', 
+        'job_status',
+        'joining_date',
+        'identification_number',
+        'blood_group', 
+        'place_of_birth',
+        'emergency_contact',
+        'emergency_phone', 
+        'marital_status', 
+        'no_of_children',
+        'address'
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'date_of_birth' => 'date',
         'created_at' => 'datetime',
@@ -60,15 +57,15 @@ class Employee extends Model
     ];
 
     /**
-     * Get the user that owns the employee profile.
+     * 🔹 Relationship: each employee belongs to a user.
      */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**
-     * Get the business this employee belongs to.
+     * 🔹 Relationship: each employee belongs to a business/company.
      */
     public function business(): BelongsTo
     {
@@ -89,5 +86,13 @@ class Employee extends Model
     public function borrowers(): HasMany
     {
         return $this->hasMany(Borrower::class);
+    }
+
+    /**
+     * 🔹 Full name accessor.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->first_name} {$this->last_name}");
     }
 }

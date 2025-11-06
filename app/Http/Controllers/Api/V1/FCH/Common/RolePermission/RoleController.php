@@ -1,0 +1,144 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\FCH\Common\RolePermission;
+
+use App\Models\Common\Role;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Services\FCH\Common\RolePermission\RoleService;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\StoreRoleRequest;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\UpdateRoleRequest;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\AssignPermissionsRequest;
+
+/**
+ * Class RoleController
+ *
+ * @package App\Http\Controllers\Api\V1\Global\RolePermission
+ */
+class RoleController extends Controller
+{
+    /**
+     * RoleController constructor.
+     *
+     * @param RoleService $service
+     */
+    public function __construct(protected RoleService $roleService)
+    {
+    }
+
+    /**
+     * Get List
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(Request $request)
+    {
+        $businessId = $request->user()->business_id;
+
+        return response()->json($this->roleService->list($businessId));
+    }
+
+    /**
+     * Store Role
+     *
+     * @param StoreRoleRequest $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function store(StoreRoleRequest $request)
+    {
+        $businessId = $request->user()->business_id;
+
+        // ✅ Create new role
+        $data = $request->only(['name', 'guard_name', 'permission_ids']);
+        $data['business_id'] = $businessId;
+        $data['guard_name'] = $data['guard_name'] ?? 'api';
+
+        $role = $this->roleService->create($data);
+
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_created'),
+            'data' => $role,
+        ], 201);
+    }
+
+    /**
+     * Details Role
+     *
+     * @param Role $role
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function show(Role $role)
+    {
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_details'),
+            'data' => $role->load('permissions'),
+        ]);
+    }
+
+    /**
+     * Update Role
+     *
+     * @param UpdateRoleRequest $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(UpdateRoleRequest $request, int $id)
+    {
+        $businessId = auth()->user()->business_id;
+
+        $role = Role::where('id', $id)
+            ->where('business_id', $businessId)
+            ->first();
+
+        $updatedRole = $this->roleService->update($role, $request->validated(), $businessId);
+
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_updated'),
+            'data' => $updatedRole,
+        ]);
+    }
+
+    /**
+     * Remove Role
+     *
+     * @param Role $role
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy(Role $role)
+    {
+        $this->roleService->delete($role);
+
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_deleted'),
+        ], 200);
+    }
+
+    /**
+     * Assign permissions
+     *
+     * @param AssignPermissionsRequest $request
+     * @param Role $role
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function assignPermissions(AssignPermissionsRequest $request, Role $role)
+    {
+        $businessId = $request->user()->business_id;
+
+        $role = $this->roleService->assignPermissions(
+            $role,
+            $request->permission_ids,
+            $businessId
+        );
+
+        return response()->json([
+            'status' => true,
+            'message' => __('role_permission.role_updated'), // You can reuse this for assigning permissions
+            'data' => $role,
+        ]);
+    }
+}
