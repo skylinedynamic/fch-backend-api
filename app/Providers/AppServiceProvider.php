@@ -44,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
           Scramble::registerApi('borrower')
             ->routes(function (Route $route) {
                 return Str::startsWith($route->uri, 'api/v1/borrower')
+                    || Str::startsWith($route->uri, 'api/v1/document')
                     || Str::startsWith($route->uri, 'api/v1/2fa');
             });
             
