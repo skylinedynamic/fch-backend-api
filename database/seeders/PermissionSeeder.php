@@ -11,47 +11,45 @@ class PermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 🔄 Clear cached permissions
+        // Clear cached permissions
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // ✅ Collect unique permission names from config
+        // Collect unique permission names from config
         $permissions = collect(config('permissions'))
             ->flatten()
             ->unique()
             ->values();
 
         if ($permissions->isEmpty()) {
-            $this->command->warn('⚠️ No permissions found in config/permissions.php');
+            $this->command->warn('No permissions found in config/permissions.php');
             return;
         }
 
-        // ✅ Fetch all businesses
+        // Fetch all businesses
         $businesses = Business::all();
 
         if ($businesses->isEmpty()) {
-            $this->command->warn('⚠️ No businesses found. Seed businesses first.');
+            $this->command->warn('No businesses found. Seed businesses first.');
             return;
         }
 
-        // ✅ Insert permissions per business
+        // Insert permissions per business
         foreach ($businesses as $business) {
             foreach ($permissions as $name) {
                 Permission::updateOrCreate(
                     [
                         'name' => $name,
                         'business_id' => $business->id,
-                    ],
-                    [
                         'guard_name' => 'api',
                     ]
                 );
             }
 
-            $this->command->info("✅ Permissions synced for Business ID: {$business->id}");
+            $this->command->info("Permissions synced for Business ID: {$business->id}");
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $this->command->info('🎯 All permissions seeded successfully for all businesses.');
+        $this->command->info('All permissions seeded successfully for all businesses.');
     }
 }

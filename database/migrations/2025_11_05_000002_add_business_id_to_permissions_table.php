@@ -14,9 +14,10 @@ return new class extends Migration {
             }
         });
 
-        // Drop old unique index and add new one including business_id
-        DB::statement('ALTER TABLE permissions DROP INDEX permissions_name_guard_name_unique');
-        DB::statement('ALTER TABLE permissions ADD UNIQUE permissions_name_guard_name_business_unique (name, guard_name, business_id)');
+        Schema::table('permissions', function (Blueprint $table) {
+            $table->dropUnique('permissions_name_guard_name_unique');
+            $table->unique(['name', 'guard_name', 'business_id'], 'permissions_name_guard_name_business_unique');
+        });
     }
 
     public function down(): void

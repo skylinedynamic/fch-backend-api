@@ -9,7 +9,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('employees', function (Blueprint $table) {
-            // 🆕 Add designation column after last_name (or wherever fits best)
             if (!Schema::hasColumn('employees', 'designation')) {
                 $table->string('department')->nullable()->after('last_name');
                 $table->string('designation')->nullable()->after('department');
@@ -22,7 +21,6 @@ return new class extends Migration
                 $table->string('emergency_phone')->nullable()->after('emergency_contact');
                 $table->string('marital_status')->nullable()->after('emergency_phone');
                 $table->string('no_of_children')->nullable()->after('marital_status');
-                $table->string('address')->nullable()->after('no_of_children');
             }
         });
     }
@@ -32,7 +30,7 @@ return new class extends Migration
         Schema::table('employees', function (Blueprint $table) {
             if (Schema::hasColumn('employees', 'department', 'designation', 'job_status', 'joining_date',
                 'identification_number', 'blood_group', 'place_of_birth',
-                'emergency_contact', 'emergency_phone', 'marital_status', 'no_of_children','address')) {
+                'emergency_contact', 'emergency_phone', 'marital_status', 'no_of_children')) {
                 $table->dropColumn('department');
                 $table->dropColumn('designation');
                 $table->dropColumn('job_status');
@@ -44,7 +42,6 @@ return new class extends Migration
                 $table->dropColumn('emergency_phone');
                 $table->dropColumn('marital_status');
                 $table->dropColumn('no_of_children');
-                $table->dropColumn('address');
             }
         });
     }
