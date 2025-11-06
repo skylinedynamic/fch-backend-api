@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             EmployeeSeeder::class,      // Third: Create employees (depends on users and businesses)
             PartnerSeeder::class,       // Fourth: Create partners (depends on users, businesses, employees)
             BorrowerSeeder::class,      // Fifth: Create borrowers (depends on users, partners, businesses, employees)
+            BorrowerDocTypesSeeder::class, // Seed borrower document types
         ]);
     }
 }
