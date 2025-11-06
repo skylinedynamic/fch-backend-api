@@ -56,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
                     || Str::startsWith($route->uri, 'api/v1/partner')
                     || Str::startsWith($route->uri, 'api/v1/auth')
                     || Str::startsWith($route->uri, 'api/v1/notifications')
+                    || Str::startsWith($route->uri, 'api/v1/common')
                     || Str::startsWith($route->uri, 'api/v1/2fa');
             });
         Gate::define('viewApiDocs', function (User $user) {

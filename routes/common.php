@@ -18,34 +18,34 @@ Route::prefix('v1')->group(function () {
         Route::post('/reset', [V1AuthController::class, 'reset']);
     });
 
-    // V1 2FA routes
-    Route::prefix('2fa')->middleware('auth:api')->group(function () {
-        Route::post('/setup', [V1TwoFaController::class, 'setup']);
-        Route::post('/verify', [V1TwoFaController::class, 'verify']);
-        Route::post('/disable', [V1TwoFaController::class, 'disable']);
-        Route::post('/resend', [V1TwoFaController::class, 'resend']);
-        Route::get('/status', [V1TwoFaController::class, 'status']);
-        Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
-    });
-    Route::prefix('common')->middleware('auth:api')->group(function () {
-                // 🛡️ Role & Permission Management
-        Route::apiResource('roles', RoleController::class);
-        // 👤 User Role & Permission Assignment
-        Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
-        Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
+    Route::middleware('auth:api')->group(function () {
+        // V1 2FA routes
+        Route::prefix('2fa')->group(function () {
+            Route::post('/setup', [V1TwoFaController::class, 'setup']);
+            Route::post('/verify', [V1TwoFaController::class, 'verify']);
+            Route::post('/disable', [V1TwoFaController::class, 'disable']);
+            Route::post('/resend', [V1TwoFaController::class, 'resend']);
+            Route::get('/status', [V1TwoFaController::class, 'status']);
+            Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
+        });
+        Route::prefix('common')->group(function () {
+            Route::apiResource('roles', RoleController::class);
+            Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
+            Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
-        Route::apiResource('employees', EmployeeController::class);
+            Route::apiResource('employees', EmployeeController::class);
 
-    });
+        });
 
-    // V1 Notification routes
-    Route::prefix('notifications')->middleware('auth:api')->group(function () {
-        Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
-    });
+        // V1 Notification routes
+        Route::prefix('notifications')->group(function () {
+            Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
+        });
 
-    // V1 Document routes
-    Route::prefix('documents')->middleware('auth:api')->group(function () {
-        Route::post('/upload', [V1DocumentController::class, 'store']);
+        // V1 Document routes
+        Route::prefix('documents')->group(function () {
+            Route::post('/upload', [V1DocumentController::class, 'store']);
+        });
     });
 
 });
