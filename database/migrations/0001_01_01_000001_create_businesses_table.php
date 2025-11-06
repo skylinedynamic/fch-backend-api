@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('business_email')->nullable();
             $table->string('business_phone')->nullable();
             $table->string('business_entity_type')->nullable();
-            $table->string('business_entity_type')->nullable();
             $table->string('business_type')->nullable();
             $table->longText('business_description')->nullable();
             $table->string('business_logo')->nullable();
@@ -37,6 +36,7 @@ return new class extends Migration
             $table->string('duns_number')->nullable();
             $table->string('state_file_number')->nullable();
             $table->date('business_start_date')->nullable();
+            $table->string('business_website')->nullable();
             $table->longText('notes')->nullable();
             $table->string('currency')->nullable();
             $table->integer('years_in_business')->nullable();
