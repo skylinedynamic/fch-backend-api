@@ -21,7 +21,7 @@ class UpdateEmployeeRequest extends FormRequest
         $businessId = $this->user()?->business_id;
 
         return [
-            'first_name'     => ['nullable', 'string', 'max:255'],
+            'first_name'     => ['required', 'string', 'max:255'],
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],

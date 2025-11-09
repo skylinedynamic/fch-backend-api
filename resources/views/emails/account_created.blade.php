@@ -108,9 +108,13 @@
 <div class="container">
     <div class="header">
         @if(app()->environment('local'))
-            <img src="{{ $message->embed($business_info['business_logo']) }}" alt="{{ $business_info['business_name'] }} Logo">
+            {{-- Local: embed from filesystem --}}
+            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
+                    alt="{{ $business_info['business_name'] }} Logo">
         @else
-            <img src="{{ $business_info['business_logo'] }}" alt="{{ $business_info['business_name'] }} Logo">
+            {{-- Production: use public URL --}}
+            <img src="{{ $business_info['business_logo_url'] }}" 
+                alt="{{ $business_info['business_name'] }} Logo">
         @endif
         <h1>{{ $business_info['business_name'] }}</h1>
     </div>
@@ -155,10 +159,14 @@
     </div>
 
     <div class="footer">
-        @if(app()->environment('local'))
-            <img src="{{ $message->embed($business_info['business_logo']) }}" alt="{{ $business_info['business_name'] }} Logo">
+       @if(app()->environment('local'))
+            {{-- Local: embed from filesystem --}}
+            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
+                alt="{{ $business_info['business_name'] }} Logo">
         @else
-            <img src="{{ $business_info['business_logo'] }}" alt="{{ $business_info['business_name'] }} Logo">
+            {{-- Production: use public URL --}}
+            <img src="{{ $business_info['business_logo_url'] }}" 
+                alt="{{ $business_info['business_name'] }} Logo">
         @endif
         <p>
             {{ $business_info['business_name'] }} | {{ $business_info['business_phone'] }} | 
