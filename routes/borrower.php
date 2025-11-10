@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
@@ -45,6 +46,13 @@ Route::prefix('v1/borrower')->group(function () {
             Route::put('/financial-info', [FinancialInfoController::class, 'update']);
             
             Route::get('/completion', [ProfileCompletionController::class, 'check']);
+
         });
+
+         Route::prefix('documents')->group(function () {
+                Route::get('/', [DocumentController::class, 'index']);
+                Route::post('/upload', [DocumentController::class, 'store']);
+            });
+
     });
 });

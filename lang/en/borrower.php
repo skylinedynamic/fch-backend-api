@@ -32,4 +32,26 @@ return [
     'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
     'pre_qualification_list_success' => 'Pre-qualification requests fetched successfully',
     'pre_qualification_list_failed' => 'Failed to fetch pre-qualification requests. Please try again.',
+
+    //documents
+    'upload_success' => 'Document uploaded successfully.',
+        'upload_failed' => 'Failed to upload document.',
+        'user_id_required' => 'User ID is required.',
+        'user_not_found' => 'User not found.',
+        'invalid_borrower_doc_type' => 'Invalid borrower document type.',
+        'file_required' => 'File is required.',
+        'file_array' => 'File must be an array of files.',
+        'file_min' => 'At least one file must be provided.',
+        'each_file_must_be_file' => 'Each item in files must be a valid file.',
+        'file_name_required_when_no_type' => 'File name is required when no type is provided.',
+        // Added keys to support UploadDocumentRequest messages
+        'name_required_when_no_type' => 'Name is required when no type is provided.',
+        'files_required' => 'Files are required.',
+        'files_array' => 'Files must be an array.',
+        'files_min' => 'At least one file must be provided.',
+        'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
+        'each_file_too_large' => 'Each file must be 2MB or smaller.',
+        'disk_invalid' => 'Invalid storage disk selected.',
+        'documents_fetched_successfully' => 'Documents fetched successfully.',
+        'documents_fetch_failed' => 'Failed to fetch documents.',
 ];
