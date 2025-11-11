@@ -70,6 +70,14 @@ class DocumentService
         try {
             $id = DB::transaction(function () use ($user, $borrowerDocTypeId, $name, $meta) {
 
+                if ($borrowerDocTypeId) {
+                    $docu_type = DB::table('borrower_doc_types')
+                        ->where('id', $borrowerDocTypeId)
+                        ->first();
+
+                    $name = $docu_type->name;
+                }
+
                 return DB::table('documents')->insertGetId([
                     'user_id' => $user->id,
                     'borrower_doc_type_id' => $borrowerDocTypeId,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Borrower\Document;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Borrower\Document\GetDocuRequest;
 use App\Http\Requests\Api\V1\Borrower\Document\UploadDocumentRequest;
 use App\Models\User\User;
 use App\Services\Borrower\Document\DocumentService;
@@ -23,7 +24,7 @@ class DocumentController extends Controller
     /**
      * Document List
      */
-    public function index(Request $request)
+    public function index(GetDocuRequest $request)
     {
         try {
             $borrowerDocTypeId = $request->query('borrower_doc_type_id');
