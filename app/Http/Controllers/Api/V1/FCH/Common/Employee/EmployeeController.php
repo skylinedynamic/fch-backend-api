@@ -3,51 +3,72 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Employee;
 
 use Throwable;
+use App\Traits\PaginatesApi;
 use Illuminate\Http\Request;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response;
-use App\Http\Controllers\Controller;
-use App\Models\Employee\Employee;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Services\FCH\Common\Employee\EmployeeService;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
-use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
 
 class EmployeeController extends Controller
 {
+    use PaginatesApi;
+
     public function __construct(protected EmployeeService $employeeService)
     {
     }
 
     public function index(Request $request)
     {
-        $businessId = $request->user()->business_id;
+        
+        try {
+            $businessId = $request->user()->business_id;
 
-        $filters = [
-            'search' => $request->get('search'),
-            'status' => $request->get('status'),
-            'department' => $request->get('department'),
-        ];
+            $filters = [
+                'search' => $request->get('search'),
+                'status' => $request->get('status'),
+                'department' => $request->get('department'),
+            ];
 
-        $employees = $this->employeeService->list(
-            $businessId,
-            $request->get('per_page', 10),
-            $filters
-        );
+            $perPage = $request->get('per_page', 10);
 
-        return response()->json([
-            'status' => true,
-            'message' => __('employee.employee_listed'),
-            'data' => EmployeeResource::collection($employees),
-            'meta' => [
-                'current_page' => $employees->currentPage(),
-                'last_page' => $employees->lastPage(),
-                'per_page' => $employees->perPage(),
-                'total' => $employees->total(),
-            ],
-        ]);
+            // Get paginated employees
+            $paginator = $this->employeeService->list($businessId, $perPage, $filters);
+
+            return response()->json([
+                'status' => true,
+                'message' => __('employee.employee_listed'),
+                'data' => [
+                    'data' => EmployeeResource::collection($paginator),
+                    'links' => [
+                        'first' => $paginator->url(1),
+                        'last' => $paginator->url($paginator->lastPage()),
+                        'prev' => $paginator->previousPageUrl(),
+                        'next' => $paginator->nextPageUrl(),
+                    ],
+                    'pagination' => [
+                        'current_page' => $paginator->currentPage(),
+                        'per_page' => $paginator->perPage(),
+                        'first_page' => 1,
+                        'last_page' => $paginator->lastPage(),
+                        'total' => $paginator->total(),
+                    ],
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => __('employee.employee_list_failed'),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
