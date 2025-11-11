@@ -27,4 +27,6 @@ Route::prefix('v1/admin')
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
+        Route::post('demo-requests/store', [DemoRequestController::class, 'store']);
+        // Route::post('demo-requests/update', [DemoRequestController::class, 'update']);
     });
