@@ -2,71 +2,69 @@
 
 namespace App\Services\FCH\Common\Employee;
 
-use App\Models\Employee\Employee;
+use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
+use App\Traits\UploadsFiles;
+use App\Models\Business\Business;
 use App\Models\Common\Permission;
-use App\Traits\UploadsFiles; // ✅ FIXED HERE
+use App\Models\Employee\Employee;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
-use Illuminate\Http\UploadedFile;
-use Exception;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 class EmployeeService
 {
-    use UploadsFiles; // ✅ Must match the actual trait name
+    use UploadsFiles;
 
     /**
-     * Paginate employee list for a given business.
+     * Paginate employees for a business.
      */
-    public function list(int $businessId, int $perPage = 10, ?array $filters = [])
+    public function list(int $businessId, int $perPage = 10, ?array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
-        
         $query = Employee::where('business_id', $businessId)
             ->with(['user', 'user.business']);
 
-        // 🔍 Search filter (first_name, last_name, full name, etc.)
-     
         if (!empty($filters['search'])) {
             $search = trim($filters['search']);
-
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]) // ✅ full name
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone_number', 'like', "%{$search}%")
-                ->orWhere('department', 'like', "%{$search}%")
-                ->orWhere('designation', 'like', "%{$search}%")
-                ->orWhere('address', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone_number', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('designation', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%");
             });
         }
 
-        // ✅ Filter by job status
         if (!empty($filters['status'])) {
             $query->where('job_status', $filters['status']);
         }
 
-        // ✅ Filter by department
-       
         if (!empty($filters['department'])) {
             $query->where('department', $filters['department']);
         }
-        
-        return $query->orderBy('id', 'desc')->paginate($perPage);
+
+        return $query->orderByDesc('id')->paginate($perPage);
     }
 
     /**
-     * Create employee optionally with user account and role.
+     * Create a new employee and optionally a linked user.
      */
-    public function create(array $employeeData, ?array $userData = null, ?int $roleId = null)
+    public function create(array $employeeData, ?array $userData = null, ?int $roleId = null): array
     {
-        return DB::transaction(function () use ($employeeData, $userData, $roleId) {
+        DB::beginTransaction();
+
+        try {
             $user = null;
             $plainPassword = $userData['plain_password'] ?? null;
 
-            /** 1️⃣ Create user (if needed) */
+            // 1️⃣ Create user if needed
             if ($userData) {
                 $user = User::create([
                     'name'         => $userData['name'],
@@ -76,135 +74,174 @@ class EmployeeService
                     'user_type'    => auth()->user()->user_type ?? '',
                 ]);
 
-                // Assign role + permissions
+                Log::info('✅ User created successfully', ['user_id' => $user->id]);
+
                 if ($roleId) {
-                    $role = Role::findOrFail($roleId);
-                    $user->assignRole($role);
-
-                    $permissionIds = DB::table('role_has_permissions')
-                        ->where('role_id', $roleId)
-                        ->pluck('permission_id');
-
-                    $permissions = Permission::whereIn('id', $permissionIds)->get();
-                    $user->syncPermissions($permissions);
-
-                    app(PermissionRegistrar::class)->forgetCachedPermissions();
+                    $this->assignRoleAndPermissions($user, $roleId);
                 }
 
                 $employeeData['user_id'] = $user->id;
             }
 
-            /** 2️⃣ Create employee */
+            // 2️⃣ Create employee
             $employee = Employee::create($employeeData);
+            Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
 
-            /** 3️⃣ Upload image if provided */
+            // 3️⃣ Upload image if provided
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                $upload = $this->uploadFile(
-                    $employeeData['image'],
-                    "employees/{$employee->id}",
-                    'public'
-                );
-
+                $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
                 $employee->update(['image' => $upload['path']]);
+                Log::info('🖼️ Employee image uploaded', ['path' => $upload['path']]);
             }
 
+            DB::commit();
+
             return [
-                'employee' => $employee,
+                'employee' => $employee->fresh(),
                 'user' => $user,
                 'plain_password' => $plainPassword,
             ];
-        });
+        } catch (Throwable $e) {
+            DB::rollBack();
+            Log::error('❌ Employee creation failed', ['error' => $e->getMessage()]);
+            throw $e;
+        }
     }
 
     /**
-     * Update existing employee (and user account if exists)
+     * Update an employee and manage the linked user account.
      */
-    public function update(Employee $employee, array $employeeData, ?array $userData = null, ?int $roleId = null)
+    public function updateWithUserSync(Employee $employee, array $employeeData, bool $createAccount, ?int $roleId, ?Business $business): array
     {
-        return DB::transaction(function () use ($employee, $employeeData, $userData, $roleId) {
+        DB::beginTransaction();
+        try {
             $user = $employee->user;
+            $plainPassword = null;
 
-            /** 1️⃣ Replace image (if new one uploaded) */
+            // 1️⃣ Handle image upload
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
                 if ($employee->image) {
                     $this->deleteFile($employee->image, 'public');
                 }
-
-                $upload = $this->uploadFile(
-                    $employeeData['image'],
-                    "employees/{$employee->id}",
-                    'public'
-                );
-
+                $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
                 $employeeData['image'] = $upload['path'];
             }
 
-            /** 2️⃣ Manage linked user account */
-            if ($userData && !$user) {
+            // 2️⃣ Update employee data
+            $employee->fill($employeeData);
+            $isEmployeeDirty = $employee->isDirty([
+                'first_name', 'last_name', 'email', 'phone_number'
+            ]);
+
+            // 3️⃣ Handle user creation if needed
+            if ($createAccount && !$user) {
+                $plainPassword = bin2hex(random_bytes(4));
+
                 $user = User::create([
-                    'name'         => $userData['name'] ?? ($employee->first_name . ' ' . $employee->last_name),
-                    'email'        => $userData['email'] ?? null,
-                    'phone_number' => $userData['phone_number'] ?? null,
-                    'password'     => Hash::make($userData['plain_password'] ?? bin2hex(random_bytes(4))),
-                    'user_type'    => $userData['user_type'] ?? 'employee',
+                    'name'         => trim($employee->first_name . ' ' . $employee->last_name),
+                    'email'        => $employee->email,
+                    'phone_number' => $employee->phone_number,
+                    'password'     => Hash::make($plainPassword),
+                    'user_type'    => 'employee',
                 ]);
+
                 $employee->user_id = $user->id;
-            } elseif ($user && $userData) {
+                Log::info('✅ New user created for employee', ['employee_id' => $employee->id]);
+
+                // Send welcome mail only for new user
+                app(EmployeeController::class)
+                    ->sendAccountCreatedMail($user, $business, $plainPassword);
+            }
+
+            // 4️⃣ Sync existing user if employee changed
+            if ($user && $isEmployeeDirty) {
                 $user->update([
-                    'name'         => $userData['name'] ?? $user->name,
-                    'email'        => $userData['email'] ?? $user->email,
-                    'phone_number' => $userData['phone_number'] ?? $user->phone_number,
-                    'password'     => isset($userData['password'])
-                        ? Hash::make($userData['password'])
-                        : $user->password,
+                    'name'         => trim($employee->first_name . ' ' . $employee->last_name),
+                    'email'        => $employee->email,
+                    'phone_number' => $employee->phone_number,
+                ]);
+                Log::info('🔁 Existing user synced with employee changes', [
+                    'user_id' => $user->id,
+                    'employee_id' => $employee->id,
                 ]);
             }
 
-            /** 3️⃣ Sync role + permissions */
+            // 5️⃣ Assign or update role
             if ($roleId && $user) {
-                $role = Role::findOrFail($roleId);
-                $user->syncRoles([$role->name]);
-
-                $permissionIds = DB::table('role_has_permissions')
-                    ->where('role_id', $roleId)
-                    ->pluck('permission_id');
-
-                $permissions = Permission::whereIn('id', $permissionIds)->get();
-                $user->syncPermissions($permissions);
-
-                app(PermissionRegistrar::class)->forgetCachedPermissions();
+                $this->assignRoleAndPermissions($user, $roleId);
             }
 
-            /** 4️⃣ Save employee */
-            $employee->fill($employeeData)->save();
-            $employee->refresh();
+            // 6️⃣ Save employee
+            $employee->save();
+
+            DB::commit();
+            Log::info('✅ Employee updated successfully', ['employee_id' => $employee->id]);
 
             return [
-                'employee' => $employee,
+                'employee' => $employee->fresh(),
                 'user' => $user,
             ];
-        });
+        } catch (Throwable $e) {
+            DB::rollBack();
+            Log::error('❌ Employee update failed', [
+                'employee_id' => $employee->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
-     * Delete employee (and optionally linked user)
+     * Delete an employee (and optionally linked user).
      */
-    public function delete(Employee $employee, bool $deleteUser = false)
+    public function delete(Employee $employee, bool $deleteUser = false): bool
     {
-        return DB::transaction(function () use ($employee, $deleteUser) {
+        DB::beginTransaction();
+
+        try {
             if ($employee->image) {
                 $this->deleteFile($employee->image, 'public');
+                Log::info('🗑️ Employee image deleted', ['employee_id' => $employee->id]);
             }
 
             $user = $employee->user;
             $employee->delete();
+            Log::info('✅ Employee record deleted', ['employee_id' => $employee->id]);
 
             if ($deleteUser && $user) {
                 $user->delete();
+                Log::info('🗑️ Linked user deleted', ['user_id' => $user->id]);
             }
 
+            DB::commit();
             return true;
-        });
+        } catch (Throwable $e) {
+            DB::rollBack();
+            Log::error('❌ Employee deletion failed', [
+                'employee_id' => $employee->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Assign role and its permissions to a user.
+     */
+    protected function assignRoleAndPermissions(User $user, int $roleId): void
+    {
+        $role = Role::findOrFail($roleId);
+        $user->syncRoles([$role->name]);
+
+        $permissionIds = DB::table('role_has_permissions')
+            ->where('role_id', $roleId)
+            ->pluck('permission_id');
+
+        $permissions = Permission::whereIn('id', $permissionIds)->get();
+        $user->syncPermissions($permissions);
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Log::info('🔒 User role and permissions synced', ['user_id' => $user->id, 'role_id' => $roleId]);
     }
 
     /**
