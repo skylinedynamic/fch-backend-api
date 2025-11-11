@@ -2,8 +2,10 @@
 
 namespace App\Services\Borrower\Document;
 
+use App\Models\Borrower\Document;
 use App\Models\User\User;
 use App\Traits\UploadsFiles;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,39 +24,21 @@ class DocumentService
                 : ('uploads/documents/' . $user->id));
     }
 
-    public function listForUser(?int $borrowerDocTypeId = null): array
+    public function listForUser(Request $request)
     {
-        
-        $query = DB::table('documents')
-            ->where('user_id', Auth::id())
-            ->when($borrowerDocTypeId, function ($q) use ($borrowerDocTypeId) {
-                $q->where('borrower_doc_type_id', $borrowerDocTypeId);
-            })
-            ->whereNull('deleted_at')
-            ->orderByDesc('created_at');
+    
+        $borrowerDocTypeId = $request->query('borrower_doc_type_id');
+        $fileName = $request->query('file_name');
+        $searchQuery = $request->query('query');
+       
 
-        $rows = $query->get();
-
-        $documents = [];
-        foreach ($rows as $row) {
-            $documents[] = [
-                'id' => $row->id,
-                'user_id' => $row->user_id,
-                'borrower_doc_type_id' => $row->borrower_doc_type_id,
-                'name' => $row->name,
-                'path' => $row->path,
-                'disk' => $row->disk,
-                'url' => $this->fileUrl($row->path, $row->disk),
-                'original_name' => $row->original_name,
-                'extension' => $row->extension,
-                'mime' => $row->mime,
-                'size' => $row->size,
-                'created_at' => $row->created_at,
-                'updated_at' => $row->updated_at,
-            ];
-        }
-
-        return $documents;
+        return Document::query()
+            ->ownedBy(Auth::id())
+            ->type($borrowerDocTypeId)
+            ->fileName($fileName)
+            ->search($searchQuery)
+            ->orderByDesc('created_at')
+            ->get();
     }
 
     private function performUploadAndPersist(
@@ -162,5 +146,49 @@ class DocumentService
         }
 
         return $documents;
+    }
+
+    /**
+     * Remove a document by id for the authenticated borrower.
+     * Returns true on success, false if not found or not owned.
+     */
+    public function removeById(int $id): bool
+    {
+        try {
+            $doc = Document::query()
+                ->ownedBy(Auth::id())
+                ->whereKey($id)
+                ->first();
+
+            if (!$doc) {
+                return false;
+            }
+
+            // Attempt to delete underlying file; ignore failures and proceed to soft delete.
+            try {
+                if ($doc->path) {
+                    $this->deleteFile($doc->path, $doc->disk);
+                }
+            } catch (\Throwable $e) {
+                // log but do not block deletion
+                Log::warning('Failed to delete document file', [
+                    'user_id' => Auth::id(),
+                    'document_id' => $id,
+                    'path' => $doc->path,
+                    'disk' => $doc->disk,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $doc->delete();
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('Document removal failed', [
+                'user_id' => Auth::id(),
+                'document_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            throw new \RuntimeException(__('borrower.document_delete_failed'));
+        }
     }
 }

@@ -22,8 +22,6 @@ class GetDocuRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'page' => 'nullable|integer|min:1',
-            'per_page' => 'nullable|integer|min:1|max:100',
             'borrower_doc_type_id' => 'nullable|integer|exists:borrower_doc_types,id',
             'file_name' => 'nullable|string',
             'query' => 'nullable|string',

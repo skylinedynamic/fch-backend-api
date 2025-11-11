@@ -22,6 +22,7 @@ class UserResource extends JsonResource
             'business' => $this->business ? $this->business->business_name : null,
             'status' => $this->status,
             'image' => $this->image,
+            'role' => 'Super Admin',
         ];
     }
 }

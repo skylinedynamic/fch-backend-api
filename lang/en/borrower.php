@@ -54,4 +54,7 @@ return [
         'disk_invalid' => 'Invalid storage disk selected.',
         'documents_fetched_successfully' => 'Documents fetched successfully.',
         'documents_fetch_failed' => 'Failed to fetch documents.',
+        'document_deleted_successfully' => 'Document deleted successfully.',
+        'document_delete_failed' => 'Failed to delete document.',
+        'document_not_found' => 'Document not found.',
 ];

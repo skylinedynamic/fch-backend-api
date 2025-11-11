@@ -27,13 +27,11 @@ class DocumentController extends Controller
     public function index(GetDocuRequest $request)
     {
         try {
-            $borrowerDocTypeId = $request->query('borrower_doc_type_id');
-            $documents = $this->documentService->listForUser($borrowerDocTypeId ? (int)$borrowerDocTypeId : null);
-            
+            $documents = $this->documentService->listForUser($request);
             $payload = DocumentResource::collection($documents);
             return ApiResponse::success($payload, __('borrower.documents_fetched_successfully'));
-        
-        } catch (\Throwable $e) {
+
+        } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.documents_fetch_failed'));
         }
     }
@@ -57,7 +55,7 @@ class DocumentController extends Controller
                     $data['file_name'] ?? null,
                 );
 
-                $payload = DocumentResource::collection($result);
+                $payload = DocumentResource::collection(collect($result)->map(fn($row) => (object)$row));
                 return ApiResponse::success($payload, __('borrower.upload_success'), 201);
             }
 
@@ -67,9 +65,26 @@ class DocumentController extends Controller
                 $data['file_name'] ?? null,
             );
 
-            return ApiResponse::success(new DocumentResource($document), __('borrower.upload_success'), 201);
+            return ApiResponse::success(new DocumentResource((object)$document), __('borrower.upload_success'), 201);
         } catch (\Throwable $e) {
             return ApiResponse::error(__('borrower.upload_failed'));
         }
     } 
+
+    /**
+     * Document Remove
+     */
+    public function destroy(Request $request)
+    {
+        try {
+            $id = $request->route('id');
+            $deleted = $this->documentService->removeById($id);
+            if (!$deleted) {
+                return ApiResponse::notFound(__('borrower.document_not_found'));
+            }
+            return ApiResponse::success(null, __('borrower.document_deleted_successfully'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error(__('borrower.document_delete_failed'));
+        }
+    }
 }
