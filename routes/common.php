@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
-use App\Http\Controllers\Api\V1\Global\Document\DocumentController as V1DocumentController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -41,11 +40,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('notifications')->group(function () {
             Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
         });
-
-        // V1 Document routes
-        Route::prefix('documents')->group(function () {
-            Route::post('/upload', [V1DocumentController::class, 'store']);
-        });
+       
     });
 
 });
