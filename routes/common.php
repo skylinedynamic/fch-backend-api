@@ -1,9 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
@@ -33,7 +35,8 @@ Route::prefix('v1')->group(function () {
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
             Route::apiResource('employees', EmployeeController::class);
-
+            Route::apiResource('users', UserController::class);
+            Route::get('permissions', [PermissionController::class, 'index']);
         });
 
         // V1 Notification routes
