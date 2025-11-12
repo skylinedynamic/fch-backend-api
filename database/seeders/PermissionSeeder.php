@@ -35,16 +35,14 @@ class PermissionSeeder extends Seeder
             return;
         }
 
-        foreach ($businesses as $business) {
-            // 3a) Seed permissions for this business (guard: api)
-            foreach ($permissionNames as $name) {
+          foreach ($permissionNames as $name) {
                 Permission::updateOrCreate([
                     'name' => $name,
-                    'business_id' => $business->id,
                     'guard_name' => 'api',
                 ]);
             }
 
+        foreach ($businesses as $business) {
             // 3b) Create default roles for this business
             $adminRole = Role::updateOrCreate(
                 ['name' => 'Admin', 'business_id' => $business->id, 'guard_name' => 'api'],
@@ -62,8 +60,7 @@ class PermissionSeeder extends Seeder
             );
 
             // 3c) Fetch permissions for this business to assign to roles
-            $allPerms = Permission::where('business_id', $business->id)
-                ->where('guard_name', 'api')
+            $allPerms = Permission::where('guard_name', 'api')
                 ->get();
 
             $staffPerms = $allPerms->filter(function (Permission $p) {
