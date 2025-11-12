@@ -8,6 +8,7 @@ use App\Models\Business\Business;
 use App\Models\Common\Role;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
+use App\Models\User\User;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionSeeder extends Seeder
@@ -35,12 +36,33 @@ class PermissionSeeder extends Seeder
             return;
         }
 
-          foreach ($permissionNames as $name) {
-                Permission::updateOrCreate([
-                    'name' => $name,
-                    'guard_name' => 'api',
-                ]);
-            }
+        // 3a) Seed global permissions (no business_id)
+        foreach ($permissionNames as $name) {
+            Permission::updateOrCreate([
+                'name' => $name,
+                'guard_name' => 'api',
+            ]);
+        }
+
+        // Resolve full permission set once
+        $allPerms = Permission::where('guard_name', 'api')->get();
+
+        // 3b) Create a global Admin role (no business_id) and assign all permissions
+        $globalAdminRole = Role::updateOrCreate(
+            ['name' => 'Admin', 'guard_name' => 'api', 'business_id' => null],
+            ['name' => 'Admin', 'guard_name' => 'api', 'business_id' => null]
+        );
+        $globalAdminRole->syncPermissions($allPerms);
+
+        // Assign all permissions and the global Admin role to admin users
+        $adminUsers = User::where('user_type', User::ADMIN)->get();
+        foreach ($adminUsers as $adminUser) {
+            $adminUser->syncRoles([$globalAdminRole]);
+            $adminUser->syncPermissions($allPerms);
+        }
+        if ($adminUsers->isNotEmpty()) {
+            $this->command->info("Global Admin role synced and assigned to ".$adminUsers->count()." admin users.");
+        }
 
         foreach ($businesses as $business) {
             // 3b) Create default roles for this business
@@ -58,10 +80,6 @@ class PermissionSeeder extends Seeder
                 ['name' => 'Staff', 'business_id' => $business->id, 'guard_name' => 'api'],
                 ['name' => 'Staff', 'guard_name' => 'api', 'business_id' => $business->id]
             );
-
-            // 3c) Fetch permissions for this business to assign to roles
-            $allPerms = Permission::where('guard_name', 'api')
-                ->get();
 
             $staffPerms = $allPerms->filter(function (Permission $p) {
                 return Str::startsWith($p->name, ['View.', 'List.']);

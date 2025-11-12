@@ -15,9 +15,16 @@ Route::prefix('v1')->group(function () {
         Route::post('/login/2fa/confirm', [V1TwoFaController::class, 'login_confirm']);
         Route::post('/forgot', [V1AuthController::class, 'forgot']);
         Route::post('/reset', [V1AuthController::class, 'reset']);
+
+        Route::middleware('auth:api')->group(function () {
+            // V1 auth routes
+            Route::post('/logout', [V1AuthController::class, 'logout']);
+        });
     });
+    
 
     Route::middleware('auth:api')->group(function () {
+
         // V1 2FA routes
         Route::prefix('2fa')->group(function () {
             Route::post('/setup', [V1TwoFaController::class, 'setup']);

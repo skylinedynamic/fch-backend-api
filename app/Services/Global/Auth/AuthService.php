@@ -27,6 +27,7 @@ class AuthService
         
         $email = (string) $credentials['email'];
         $key = 'login:' . $email . $request->ip();
+        
         $maxAttempts = config('app.login_throttle_limit');
         $decayMinutes = config('app.login_decay_minutes');
         

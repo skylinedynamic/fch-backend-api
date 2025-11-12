@@ -66,4 +66,13 @@ class AuthController extends Controller
 
         return ApiResponse::error(__($status), 400);
     }
+
+    /**
+     * Logout.
+     */
+    public function logout()
+    {
+        $authService = new AuthService();
+        return $authService->logout();
+    }
 }

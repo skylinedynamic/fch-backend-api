@@ -14,10 +14,10 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Derive current business id if the employee relation is loaded (no lazy loads)
-        $businessId = $this->relationLoaded('employee') ? optional($this->employee)->business_id : null;
-        if ($businessId === null && $this->relationLoaded('assignedBusinesses')) {
-            $businessId = optional($this->assignedBusinesses->first())->id;
+        // Derive current business if the employee relation is loaded (no lazy loads)
+        $business = $this->relationLoaded('employee') ? optional($this->employee)->business : null;
+        if ($business === null && $this->relationLoaded('assignedBusinesses')) {
+            $business = optional($this->assignedBusinesses->first());
         }
 
         // Resolve role name from preloaded roles only (no lazy loads)
@@ -37,9 +37,6 @@ class UserResource extends JsonResource
             }
         }
         $allPerms = $directPerms->merge($rolePerms);
-        if ($businessId !== null) {
-            $allPerms = $allPerms->where('business_id', $businessId);
-        }
         $permissionNames = $allPerms->pluck('name')
             ->unique()
             ->values();
@@ -49,12 +46,13 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone_number' => $this->phone_number,
+            'business_id' => $business?->id,
+            'business_name' => $business?->business_name,
             'user_type' => $this->user_type,
             'status' => $this->status,
             'image' => $this->image,
             'role' => $roleName,
             'permissions' => $permissionNames,
-            'business_id' => $businessId,
         ];
     }
 }
