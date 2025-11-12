@@ -57,17 +57,27 @@ class UserService
      */
     public function list(array $filters = [], int $perPage = 10)
     {
-        $query = User::with('employee');
+        // Get the authenticated user's business_id
+        $businessId = auth()->user()->business_id;
 
+        // Get all user_ids from the employee table that belong to this business
+        $employeeUserIds = Employee::where('business_id', $businessId)->pluck('user_id');
+
+        // Start the query for users whose IDs are in $employeeUserIds
+        $query = User::with('employee')
+            ->whereIn('id', $employeeUserIds);
+
+        // Apply search filter
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone_number', 'like', "%{$search}%");
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone_number', 'like', "%{$search}%");
             });
         }
 
+        // Filter by role if provided
         if (!empty($filters['role_id'])) {
             $query->whereHas('roles', function ($q) use ($filters) {
                 $q->where('id', $filters['role_id']);

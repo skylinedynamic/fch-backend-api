@@ -32,15 +32,15 @@ class UserController extends Controller
      */
     public function index()
     {
-        // try {
+        try {
             $users = $this->userService->list(request()->all());
             return ApiResponse::success(
                 UserResource::collection($users),
                 __('user.user_list_retrieved')
             );
-        // } catch (Throwable $e) {
-        //     return ApiResponse::error(__($e->getMessage()), 400);
-        // }
+        } catch (Throwable $e) {
+            return ApiResponse::error(__($e->getMessage()), 400);
+        }
     }
 
     /**
