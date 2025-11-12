@@ -26,8 +26,7 @@ class EmployeeController extends Controller
 
     public function index(Request $request)
     {
-        
-        try {
+         try {
             $businessId = $request->user()->business_id;
 
             $filters = [
@@ -36,30 +35,13 @@ class EmployeeController extends Controller
                 'department' => $request->get('department'),
             ];
 
-            $perPage = $request->get('per_page', 10);
-
-            // Get paginated employees
-            $paginator = $this->employeeService->list($businessId, $perPage, $filters);
+            // Fetch all employees without pagination
+            $employees = $this->employeeService->list($businessId, 0, $filters); // perPage = 0 or large number
 
             return response()->json([
                 'status' => true,
                 'message' => __('employee.employee_listed'),
-                'data' => [
-                    'data' => EmployeeResource::collection($paginator),
-                    'links' => [
-                        'first' => $paginator->url(1),
-                        'last' => $paginator->url($paginator->lastPage()),
-                        'prev' => $paginator->previousPageUrl(),
-                        'next' => $paginator->nextPageUrl(),
-                    ],
-                    'pagination' => [
-                        'current_page' => $paginator->currentPage(),
-                        'per_page' => $paginator->perPage(),
-                        'first_page' => 1,
-                        'last_page' => $paginator->lastPage(),
-                        'total' => $paginator->total(),
-                    ],
-                ],
+                'data' => EmployeeResource::collection($employees),
             ]);
 
         } catch (\Exception $e) {

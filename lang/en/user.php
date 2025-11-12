@@ -1,0 +1,36 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Module Language Lines
+    |--------------------------------------------------------------------------
+    |
+    | Messages for User API requests, validation, and controller responses.
+    |
+    */
+
+    // Validation
+    'validation_failed'      => 'Validation failed.',
+    'name_required'          => 'The name field is required.',
+    'email_required'         => 'The email field is required.',
+    'email_invalid'          => 'The email must be a valid email address.',
+    'email_taken'            => 'The email has already been taken.',
+    'phone_number_taken'     => 'The phone number has already been taken.',
+    'password_required'      => 'The password field is required.',
+    'password_min'           => 'The password must be at least 6 characters.',
+    'role_required'          => 'The role field is required.',
+    'role_not_found'         => 'Selected role not found.',
+    'permission_ids_required'=> 'At least one permission must be selected.',
+
+    // Controller responses
+    'user_created'           => 'User created successfully.',
+    'user_create_failed'     => 'Failed to create user.',
+    'user_updated'           => 'User updated successfully.',
+    'user_update_failed'     => 'Failed to update user.',
+    'user_deleted'           => 'User deleted successfully.',
+    'user_list_retrieved'    => 'User list retrieved successfully.',
+    'failed_to_retrieve_users'=> 'Failed to retrieve users.',
+    'user_retrieved'         => 'User details retrieved successfully.',
+];
