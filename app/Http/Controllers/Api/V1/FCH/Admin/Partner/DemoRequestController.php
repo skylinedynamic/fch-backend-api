@@ -20,6 +20,10 @@ class DemoRequestController extends Controller
         $this->demoRequestService = $demoRequestService;
     }
 
+     /**
+     * Get List.
+     */
+
     public function index(Request $request)
     {
         $demoRequests = $this->demoRequestService->getAllDemoRequests($request);
@@ -39,6 +43,9 @@ class DemoRequestController extends Controller
         );
     }
 
+    /**
+     * Store Demo Request
+     */
     public function store(DemoRequestStoreOrUpdateRequest $request)
     {
         try {
