@@ -21,7 +21,7 @@ class PermissionController extends Controller
     }
 
     /**
-     * Get all permissions (id, name)
+     * Get All
      */
     public function index()
     {

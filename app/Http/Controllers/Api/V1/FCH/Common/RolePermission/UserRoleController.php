@@ -9,6 +9,10 @@ use App\Models\Common\Permission;
 
 class UserRoleController extends Controller
 {
+     /**
+     * Assign Role
+     *
+     */
     public function assignRoles(Request $request, User $user)
     {
         $request->validate(['role_ids' => 'required|array']);
@@ -17,6 +21,11 @@ class UserRoleController extends Controller
         $user->syncRoles($roles);
         return response()->json($user->roles);
     }
+
+    /**
+     * Assign Permissions
+     *
+     */
 
     public function assignPermissions(Request $request, User $user)
     {
