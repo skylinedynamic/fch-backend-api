@@ -20,7 +20,7 @@ class PartnerController extends Controller
     }
 
     /**
-     * Get partners.
+     * Get Partners.
      */
     public function index(Request $request)
     {
