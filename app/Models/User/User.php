@@ -425,49 +425,28 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
-     * Get the user's borrower profile.
-     */
-    public function borrower(): HasOne
-    {
-        return $this->hasOne(Borrower::class);
-    }
-
-    /**
-     * Get the user's employee profile.
-     */
-    public function employee(): HasOne
-    {
-        return $this->hasOne(Employee::class, 'user_id');
-    }
-
-
-
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            User::class,                // Related model
-            'model_has_roles',          // Pivot table used by Spatie
-            'role_id',                  // Foreign key on pivot for this model (Role)
-            'model_id'                  // Foreign key on pivot for related model (User)
-        )->where('model_type', User::class); // Filter only User models
-    }
-
-    // ✅ Relationship: Role → Employees
-    public function employees(): BelongsToMany
-    {
-        return $this->belongsToMany(
-            Employee::class,
-            'model_has_roles',
-            'role_id',
-            'model_id'
-        )->where('model_type', Employee::class);
-    }
-
-    /**
      * Polymorphic relation to the associated entity model.
      */
     public function entity(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
+    }
+
+    /**
+     * Accessor: human-readable entity name (partner/borrower/employee).
+     */
+    public function getEntityNameAttribute(): ?string
+    {
+        if (!$this->entity_type) {
+            return null;
+        }
+
+        $map = [
+            Partner::class => 'Partner',
+            Borrower::class => 'Borrower',
+            Employee::class => 'Employee',
+        ];
+
+        return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
 }

@@ -90,7 +90,7 @@ class AuthService
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         // Eager-load relations needed by UserResource to avoid lazy loading
-        $user->load(['roles.permissions', 'permissions', 'employee', 'assignedBusinesses']);
+        $user->load(['roles.permissions', 'permissions']);
 
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);

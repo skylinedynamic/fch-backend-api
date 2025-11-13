@@ -14,12 +14,6 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Derive current business if the employee relation is loaded (no lazy loads)
-        $business = $this->relationLoaded('employee') ? optional($this->employee)->business : null;
-        if ($business === null && $this->relationLoaded('assignedBusinesses')) {
-            $business = optional($this->assignedBusinesses->first());
-        }
-
         // Resolve role name from preloaded roles only (no lazy loads)
         $roleName = null;
         if ($this->relationLoaded('roles')) {
@@ -46,9 +40,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone_number' => $this->phone_number,
-            'business_id' => $business?->id,
-            'business_name' => $business?->business_name,
             'user_type' => $this->user_type,
+            'entity_type' => $this->entity_name,
             'status' => $this->status,
             'image' => $this->image,
             'role' => $roleName,
