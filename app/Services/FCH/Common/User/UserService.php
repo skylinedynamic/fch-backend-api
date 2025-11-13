@@ -2,20 +2,25 @@
 
 namespace App\Services\FCH\Common\User;
 
+use Throwable;
 use App\Models\User\User;
-use App\Models\Employee\Employee;
 use App\Models\Common\Role;
+use App\Traits\PaginatesApi;
 use App\Models\Common\Permission;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
-use Throwable;
+use Illuminate\Http\Request; // ✅ this is the correct one
 
 class UserService
 {
     /**
      * Create a new user and optionally link to employee
      */
+
+     use PaginatesApi;
+     
     public function create(array $data, ?int $roleId = null): User
     {
         DB::beginTransaction();
@@ -55,34 +60,35 @@ class UserService
     /**
      * Get list of users with optional filters
      */
-    public function list(array $filters = [], int $perPage = 10)
+    public function list(Request $request)
     {
-        // Get the authenticated user's business_id
         $businessId = auth()->user()->business_id;
 
-        // Get all user_ids from the employee table that belong to this business
+        // Get all user IDs for this business
         $employeeUserIds = Employee::where('business_id', $businessId)->pluck('user_id');
 
-        // Start the query for users whose IDs are in $employeeUserIds
-        $query = User::with('employee')
-            ->whereIn('id', $employeeUserIds);
+        // Build query
+        $query = User::with('employee')->whereIn('id', $employeeUserIds);
 
-        // Apply search filter
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
+        // 🔍 Apply search filter
+        if ($request->filled('search')) {
+            $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone_number', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone_number', 'like', "%{$search}%");
             });
         }
 
-        // Filter by role if provided
-        if (!empty($filters['role_id'])) {
-            $query->whereHas('roles', function ($q) use ($filters) {
-                $q->where('id', $filters['role_id']);
+        // 🧩 Filter by role if provided
+        if ($request->filled('role_id')) {
+            $query->whereHas('roles', function ($q) use ($request) {
+                $q->where('id', $request->input('role_id'));
             });
         }
+
+        // 📄 Paginate (defaults to 10 per page)
+        $perPage = (int) $request->query('per_page', 10);
 
         return $query->orderByDesc('id')->paginate($perPage);
     }

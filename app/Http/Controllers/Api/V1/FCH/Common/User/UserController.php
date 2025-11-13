@@ -8,11 +8,12 @@ use App\Helpers\ApiResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Request;
+use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Http\Resources\FCH\User\UserResource;
 use App\Services\FCH\Common\User\UserService;
 use App\Http\Requests\Api\V1\FCH\Common\User\StoreUserRequest;
 use App\Http\Requests\Api\V1\FCH\Common\User\UpdateUserRequest;
+use App\Traits\PaginatesApi;
 
 class UserController extends Controller
 {
@@ -23,28 +24,36 @@ class UserController extends Controller
      *
      * @param UserService $userService
      */
+    use PaginatesApi;
     public function __construct(protected UserService $userService)
     {
     }
 
-    /**
-     * List all users
+     /**
+     * User List
      */
-    public function index()
+
+    public function index(Request $request)
     {
         try {
-            $users = $this->userService->list(request()->all());
-            return ApiResponse::success(
-                UserResource::collection($users),
+            // Paginate users via service (per_page comes from request or defaults to 10)
+            $users = $this->userService->list($request);
+
+            // Respond using pagination resource
+            return $this->respondWithPaginationResource(
+                $request,
+                $users,
+                UserResource::class,
                 __('user.user_list_retrieved')
             );
+
         } catch (Throwable $e) {
-            return ApiResponse::error(__($e->getMessage()), 400);
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 
     /**
-     * Create user
+     * Create User
      */
     public function store(StoreUserRequest $request)
     {
@@ -60,7 +69,7 @@ class UserController extends Controller
     }
 
     /**
-     * Show single user
+     * Show User
      */
     public function show(User $user)
     {
@@ -71,7 +80,7 @@ class UserController extends Controller
     }
 
     /**
-     * Update user
+     * Update User
      */
     public function update(UpdateUserRequest $request, int $id)
     {
@@ -86,7 +95,9 @@ class UserController extends Controller
             return ApiResponse::error(__($e->getMessage()), 400);
         }
     }
-
+    /**
+     * Delete User
+     */
     public function destroy(Request $request, int $id)
     {
           
