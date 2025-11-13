@@ -28,12 +28,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('borrower_id')->constrained('borrowers')->cascadeOnDelete();
             $table->foreignId('borrower_doc_type_id')->nullable()->constrained('borrower_doc_types')->nullOnDelete();
-            $table->string('name', 255)->nullable();
-            $table->string('path', 2048);
-            $table->string('disk', 50)->default('public');
+            $table->string('name')->nullable();
+            $table->string('path');
+            $table->string('disk')->default('public');
             $table->string('original_name')->nullable();
-            $table->string('extension', 20)->nullable();
-            $table->string('mime', 128)->nullable();
+            $table->string('extension')->nullable();
+            $table->string('mime')->nullable();
             $table->unsignedBigInteger('size')->nullable();
             $table->softDeletes();
             $table->timestamps();
