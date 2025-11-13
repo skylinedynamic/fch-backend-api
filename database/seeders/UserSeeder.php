@@ -2,10 +2,13 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\User\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 
 class UserSeeder extends Seeder
 {
@@ -14,67 +17,102 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create Admin User
-        User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@fch.com',
-            'phone_number' => '+1234567890',
-            'user_type' => User::ADMIN,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+        // 1) Link Admin to Host Partner via polymorphic mapping
+        $hostPartner = DB::table('partners')->where('is_host', true)->first();
+        User::updateOrCreate(
+            ['email' => 'admin@fch.com'],
+            [
+                'name' => 'Admin User',
+                'phone_number' => '+1234567890',
+                'user_type' => User::ADMIN,
+                'password' => Hash::make('12345678'),
+                'status' => User::STATUS['active'],
+                'email_verified_at' => now(),
+                'partner_id' => $hostPartner?->id,
+                'entity_type' => Partner::class,
+                'entity_id' => $hostPartner?->id,
+            ]
+        );
 
-        // Create Partner Users
-        User::create([
-            'name' => 'John Partner',
-            'email' => 'john.partner@example.com',
-            'phone_number' => '+1234567891',
-            'user_type' => User::PARTNER,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+        // 2) Create Partner users for non-host partners
+        $partners = DB::table('partners')->where('is_host', false)->get();
+        foreach ($partners as $p) {
+            $name = $p->owner_name ?: $p->company_name;
+            $email = $p->owner_email ?: $p->company_email;
+            $phone = $p->owner_phone_number ?: $p->company_phone_number;
 
-        User::create([
-            'name' => 'Sarah Wilson',
-            'email' => 'sarah.wilson@example.com',
-            'phone_number' => '+1234567892',
-            'user_type' => User::PARTNER,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+            if (!$email) {
+                // Skip if no usable email
+                continue;
+            }
 
-        // Create Borrower Users
-        User::create([
-            'name' => 'Michael Johnson',
-            'email' => 'michael.johnson@example.com',
-            'phone_number' => '+1234567893',
-            'user_type' => User::BORROWER,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+            User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name ?? ('Partner #' . $p->id),
+                    'phone_number' => $phone,
+                    'user_type' => User::PARTNER,
+                    'password' => Hash::make('12345678'),
+                    'status' => User::STATUS['active'],
+                    'email_verified_at' => now(),
+                    'partner_id' => $p->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $p->id,
+                ]
+            );
+        }
 
-        User::create([
-            'name' => 'Emily Davis',
-            'email' => 'emily.davis@example.com',
-            'phone_number' => '+1234567894',
-            'user_type' => User::BORROWER,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+        // 3) Create Borrower users linked to borrowers under partners
+        $borrowers = DB::table('borrowers')->get();
+        foreach ($borrowers as $b) {
+            $email = $b->business_email;
+            if (!$email) {
+                // Ensure a unique placeholder if missing
+                $email = 'borrower_' . $b->id . '@example.com';
+            }
 
-        User::create([
-            'name' => 'Robert Brown',
-            'email' => 'robert.brown@example.com',
-            'phone_number' => '+1234567895',
-            'user_type' => User::BORROWER,
-            'password' => Hash::make('12345678'),
-            'status' => User::STATUS['active'],
-            'email_verified_at' => now(),
-        ]);
+            User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $b->business_name ?? ('Borrower #' . $b->id),
+                    'phone_number' => $b->business_phone,
+                    'user_type' => User::BORROWER,
+                    'password' => Hash::make('12345678'),
+                    'status' => User::STATUS['active'],
+                    'email_verified_at' => now(),
+                    'partner_id' => $b->partner_id,
+                    'entity_type' => Borrower::class,
+                    'entity_id' => $b->id,
+                ]
+            );
+        }
+
+        // 4) Create Employee users linked to employees under partners
+        $employees = DB::table('employees')->get();
+        foreach ($employees as $e) {
+            $email = $e->email;
+            if (!$email) {
+                // Skip creating a user if employee has no email
+                continue;
+            }
+
+            $fullName = trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? ''));
+            $phone = $e->phone_number_1 ?: $e->phone_number_2;
+
+            User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $fullName ?: ('Employee #' . $e->id),
+                    'phone_number' => $phone,
+                    'user_type' => 'Employee', // No constant defined; using explicit string
+                    'password' => Hash::make('12345678'),
+                    'status' => User::STATUS['active'],
+                    'email_verified_at' => now(),
+                    'partner_id' => $e->partner_id,
+                    'entity_type' => Employee::class,
+                    'entity_id' => $e->id,
+                ]
+            );
+        }
     }
 }

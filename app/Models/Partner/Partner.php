@@ -11,6 +11,8 @@ use App\Models\Employee\Employee;
 use App\Models\Borrower\Borrower;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Partner extends Model
 {
@@ -48,42 +50,27 @@ class Partner extends Model
     ];
 
     /**
-     * Get the user that owns the partner profile.
+     * Users that belong to this partner (via users.partner_id).
      */
-    public function user(): BelongsTo
+    public function users(): HasMany
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(User::class, 'partner_id');
     }
 
+    
     /**
-     * Get the business associated with this partner.
+     * Assigned user for this partner (via partners.assign_to).
      */
-    public function business(): BelongsTo
-    {
-        return $this->belongsTo(Business::class);
-    }
-
-    /**
-     * Get the employee associated with this partner.
-     */
-    public function employee(): BelongsTo
-    {
-        return $this->belongsTo(Employee::class);
-    }
-
-    /**
-     * Get the user this partner is assigned to.
-     */
-    public function assignedTo(): BelongsTo
+    public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assign_to');
     }
 
     /**
-     * Get borrowers assigned to this partner.
+     * The user that represents this Partner entity (polymorphic users.entity_type/id).
      */
-    public function borrowers(): HasMany
+    public function partnerUser(): MorphOne
     {
-        return $this->hasMany(Borrower::class);
+        return $this->morphOne(User::class, 'entity');
     }
 }

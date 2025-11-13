@@ -13,36 +13,73 @@ class PartnerSeeder extends Seeder
      */
     public function run(): void
     {
-        // Resolve employee IDs dynamically to avoid dependency on static IDs
-        $johnEmployeeId = DB::table('employees')->where('user_id', 2)->value('id');
-        $sarahEmployeeId = DB::table('employees')->where('user_id', 3)->value('id');
-        $adminEmployeeId = DB::table('employees')->where('user_id', 1)->value('id');
-
         DB::table('partners')->insert([
-                [
-                'user_id' => 1, // Admin User is also a partner
-                'business_id' => 1, // Admin's business
-                'employee_id' => $adminEmployeeId, // Admin as employee
+            [
+                'is_host' => true,
+                'company_name' => 'FCH Host Partner',
+                'company_email' => 'host@fch.com',
+                'company_phone_number' => '+1000000000',
+                'owner_name' => 'Host Admin',
+                'owner_email' => 'admin@fch.com',
+                'owner_phone_number' => '+1000000001',
+                'contact_person' => 'Host Contact',
+                'contact_person_email' => 'contact@fch.com',
+                'contact_person_phone_number' => '+1000000002',
+                'partner_type' => 'host',
                 'status' => 'active',
-                'assign_to' => 1, // Self-assigned or managed by admin
+                'state' => 'CA',
+                'city' => 'San Francisco',
+                'postal_code' => '94105',
+                'address_line_1' => '123 Main St',
+                'address_line_2' => null,
+                'country' => 'USA',
+                'assign_to' => null, // No assignment needed in seed
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 2, // John Partner
-                'business_id' => 1, // Tech Solutions Inc
-                'employee_id' => $johnEmployeeId, // John Partner as employee
+                'is_host' => false,
+                'company_name' => 'Tech Solutions Inc',
+                'company_email' => 'contact@techsolutions.com',
+                'company_phone_number' => '+1234567800',
+                'owner_name' => 'John Partner',
+                'owner_email' => 'john.partner@example.com',
+                'owner_phone_number' => '+1234567891',
+                'contact_person' => 'John P.',
+                'contact_person_email' => 'john.p@example.com',
+                'contact_person_phone_number' => '+1234567892',
+                'partner_type' => 'agency',
                 'status' => 'active',
-                'assign_to' => 1, // Assigned to Admin
+                'state' => 'CA',
+                'city' => 'Los Angeles',
+                'postal_code' => '90001',
+                'address_line_1' => '456 Oak St',
+                'address_line_2' => null,
+                'country' => 'USA',
+                'assign_to' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 3, // Sarah Wilson
-                'business_id' => 2, // Green Energy Solutions LLC
-                'employee_id' => $sarahEmployeeId, // Sarah Wilson as employee
+                'is_host' => false,
+                'company_name' => 'Green Energy Solutions LLC',
+                'company_email' => 'info@greenenergy.com',
+                'company_phone_number' => '+1234567801',
+                'owner_name' => 'Sarah Wilson',
+                'owner_email' => 'sarah.wilson@example.com',
+                'owner_phone_number' => '+1234567892',
+                'contact_person' => 'Sarah W.',
+                'contact_person_email' => 'sarah.w@example.com',
+                'contact_person_phone_number' => '+1234567893',
+                'partner_type' => 'agency',
                 'status' => 'active',
-                'assign_to' => 1, // Assigned to Admin
+                'state' => 'IL',
+                'city' => 'Chicago',
+                'postal_code' => '60601',
+                'address_line_1' => '789 Pine St',
+                'address_line_2' => null,
+                'country' => 'USA',
+                'assign_to' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

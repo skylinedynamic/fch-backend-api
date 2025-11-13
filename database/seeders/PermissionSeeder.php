@@ -4,10 +4,10 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
-use App\Models\Business\Business;
 use App\Models\Common\Role;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -30,13 +30,12 @@ class PermissionSeeder extends Seeder
         }
 
         // 3) Fetch all businesses with owner user eager-loaded to avoid lazy loading
-        $businesses = Business::with('user')->get();
-        if ($businesses->isEmpty()) {
-            $this->command->warn('No businesses found. Seed businesses first.');
+        $partners = Partner::with('partnerUser')->get();
+        if ($partners->isEmpty()) {
+            $this->command->warn('No partners found. Seed partners first.');
             return;
         }
 
-        // 3a) Seed global permissions (no business_id)
         foreach ($permissionNames as $name) {
             Permission::updateOrCreate([
                 'name' => $name,
@@ -47,38 +46,22 @@ class PermissionSeeder extends Seeder
         // Resolve full permission set once
         $allPerms = Permission::where('guard_name', 'api')->get();
 
-        // 3b) Create a global Admin role (no business_id) and assign all permissions
-        $globalAdminRole = Role::updateOrCreate(
-            ['name' => 'Admin', 'guard_name' => 'api', 'business_id' => null],
-            ['name' => 'Admin', 'guard_name' => 'api', 'business_id' => null]
-        );
-        $globalAdminRole->syncPermissions($allPerms);
-
-        // Assign all permissions and the global Admin role to admin users
-        $adminUsers = User::where('user_type', User::ADMIN)->get();
-        foreach ($adminUsers as $adminUser) {
-            $adminUser->syncRoles([$globalAdminRole]);
-            $adminUser->syncPermissions($allPerms);
-        }
-        if ($adminUsers->isNotEmpty()) {
-            $this->command->info("Global Admin role synced and assigned to ".$adminUsers->count()." admin users.");
-        }
-
-        foreach ($businesses as $business) {
+ 
+        foreach ($partners as $partner) {
             // 3b) Create default roles for this business
             $adminRole = Role::updateOrCreate(
-                ['name' => 'Admin', 'business_id' => $business->id, 'guard_name' => 'api'],
-                ['name' => 'Admin', 'guard_name' => 'api', 'business_id' => $business->id]
+                ['name' => 'Admin', 'partner_id' => $partner->id, 'guard_name' => 'api'],
+                ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id]
             );
 
             $managerRole = Role::updateOrCreate(
-                ['name' => 'Manager', 'business_id' => $business->id, 'guard_name' => 'api'],
-                ['name' => 'Manager', 'guard_name' => 'api', 'business_id' => $business->id]
+                ['name' => 'Manager', 'partner_id' => $partner->id, 'guard_name' => 'api'],
+                ['name' => 'Manager', 'guard_name' => 'api', 'partner_id' => $partner->id]
             );
 
             $staffRole = Role::updateOrCreate(
-                ['name' => 'Staff', 'business_id' => $business->id, 'guard_name' => 'api'],
-                ['name' => 'Staff', 'guard_name' => 'api', 'business_id' => $business->id]
+                ['name' => 'Staff', 'partner_id' => $partner->id, 'guard_name' => 'api'],
+                ['name' => 'Staff', 'guard_name' => 'api', 'partner_id' => $partner->id]
             );
 
             $staffPerms = $allPerms->filter(function (Permission $p) {
@@ -97,15 +80,15 @@ class PermissionSeeder extends Seeder
             $staffRole->syncPermissions($staffPerms);
 
             // 3e) Assign roles to users and also copy role permissions to model-based permissions
-            // Owner (business->user) gets Admin
-            $owner = $business->user;
+            // Owner (partner->partnerUser) gets Admin
+            $owner = $partner->partnerUser;
             if ($owner) {
                 $owner->syncRoles([$adminRole->name]);
                 $owner->syncPermissions($allPerms);
             }
 
             // First employee gets Manager, others get Staff
-            $employees = Employee::where('business_id', $business->id)->with('user')->get();
+            $employees = Employee::where('partner_id', $partner->id)->with('user')->get();
             if ($employees->isNotEmpty()) {
                 $firstAssigned = false;
                 foreach ($employees as $employee) {
@@ -125,7 +108,7 @@ class PermissionSeeder extends Seeder
                 }
             }
 
-            $this->command->info("Roles & permissions seeded for Business ID: {$business->id}");
+            $this->command->info("Roles & permissions seeded for Partner ID: {$partner->id}");
         }
 
         // 4) Clear cached permissions after seeding

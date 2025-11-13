@@ -60,15 +60,14 @@ class DatabaseSeeder extends Seeder
             // If oauth tables aren't migrated yet, silently continue; migrate:fresh will run migrations first
         }
 
-        // Call seeders in proper order to respect foreign key relationships
+        // Call seeders in an order that respects new FK relationships
         $this->call([
-            UserSeeder::class,          // First: Create users (no dependencies)
-            BusinessSeeder::class,      // Second: Create businesses (no dependencies)
-            EmployeeSeeder::class,      // Third: Create employees (depends on users and businesses)
-            PartnerSeeder::class,       // Fourth: Create partners (depends on users, businesses, employees)
-            BorrowerSeeder::class,      // Fifth: Create borrowers (depends on users, partners, businesses, employees)
-            BorrowerDocTypesSeeder::class, // Seed borrower document types
-            PermissionSeeder::class,      // Role and Permissions Seeder
+            PartnerSeeder::class,            // Create partners (first is host)
+            BorrowerSeeder::class,           // Create borrowers under partners
+            EmployeeSeeder::class,           // Create employees under partners
+            UserSeeder::class,               // Create users mapped to partner/borrower/employee entities
+            BorrowerDocTypesSeeder::class,   // Seed borrower document types
+            PermissionSeeder::class,         // Role and Permissions seeder
         ]);
     }
 }

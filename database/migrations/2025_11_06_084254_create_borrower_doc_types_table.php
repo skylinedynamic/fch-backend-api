@@ -19,14 +19,14 @@ return new class extends Migration
             $table->integer('sort_order')->default(1);
             $table->softDeletes();
             $table->timestamps();
-
-            $table->index(['name']);
-            $table->index(['sort_order']);
+            // Indexes for common queries
+            $table->index('name');
+            $table->index('sort_order');
         });
     
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('borrower_id')->constrained('borrowers')->cascadeOnDelete();
             $table->foreignId('borrower_doc_type_id')->nullable()->constrained('borrower_doc_types')->nullOnDelete();
             $table->string('name', 255)->nullable();
             $table->string('path', 2048);
@@ -37,9 +37,12 @@ return new class extends Migration
             $table->unsignedBigInteger('size')->nullable();
             $table->softDeletes();
             $table->timestamps();
-            
-            $table->index(['user_id']);
-            $table->index(['borrower_doc_type_id']);
+
+            // Indexes for common queries
+            $table->index('borrower_id');
+            $table->index('borrower_doc_type_id');
+            $table->index('name');
+            $table->index('path');
         });
         
     }

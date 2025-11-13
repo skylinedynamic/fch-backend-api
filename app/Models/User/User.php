@@ -7,7 +7,6 @@ namespace App\Models\User;
 use OTPHP\TOTP;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
-use App\Models\Business\Business;
 use App\Models\Employee\Employee;
 use Laravel\Passport\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
@@ -17,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Services\Global\Notification\NotificationService;
@@ -440,30 +440,7 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->hasOne(Employee::class, 'user_id');
     }
 
-    /**
-     * Get businesses assigned to this user.
-     */
-    public function assignedBusinesses(): HasMany
-    {
-        return $this->hasMany(Business::class, 'assign_id');
-    }
 
-    public function business()
-    {
-        return $this->hasOneThrough(
-            Business::class,
-            Employee::class,
-            'user_id',
-            'id', 
-            'id',
-            'business_id'
-        );
-    }
-
-    public function getBusinessIdAttribute()
-    {
-        return optional($this->employee)->business_id;
-    }
 
     public function users(): BelongsToMany
     {
@@ -484,5 +461,13 @@ class User extends Authenticatable implements OAuthenticatable
             'role_id',
             'model_id'
         )->where('model_type', Employee::class);
+    }
+
+    /**
+     * Polymorphic relation to the associated entity model.
+     */
+    public function entity(): MorphTo
+    {
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 }

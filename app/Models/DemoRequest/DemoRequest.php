@@ -39,6 +39,16 @@ class DemoRequest extends Model
         'demo_end',
     ];
 
+    const PENDING = 'pending';
+    const COMPLETED = 'completed';
+    const CANCELLED = 'cancelled';
+
+    public const STATUS = [
+        self::PENDING => self::PENDING,
+        self::COMPLETED => self::COMPLETED,
+        self::CANCELLED => self::CANCELLED,
+    ];
+
     // Relationships (if needed)
     public function assignedUser()
     {
