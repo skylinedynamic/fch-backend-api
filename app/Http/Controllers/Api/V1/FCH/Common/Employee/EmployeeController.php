@@ -24,6 +24,9 @@ class EmployeeController extends Controller
     {
     }
 
+    /**
+     * Employee List
+     */
     public function index(Request $request)
     {
          try {
@@ -54,7 +57,7 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Store new employee (optionally create user account and assign role)
+     * Store Employee
      */
     public function store(StoreEmployeeRequest $request)
     {
@@ -104,6 +107,9 @@ class EmployeeController extends Controller
         ], Response::HTTP_CREATED);
     }
 
+    /**
+     * Update Employee
+     */
     public function update(UpdateEmployeeRequest $request, int $id)
     {
         $employee = Employee::findOrFail($id);
@@ -144,6 +150,9 @@ class EmployeeController extends Controller
         ]);
     }
 
+    /**
+     * Delete Employee
+     */
     public function destroy(Request $request, Employee $employee)
     {
         $businessId = $request->user()->business_id;
