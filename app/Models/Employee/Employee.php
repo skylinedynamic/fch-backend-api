@@ -95,4 +95,27 @@ class Employee extends Model
     {
         return trim("{$this->first_name} {$this->last_name}");
     }
+
+    /**
+     * Scope: apply text search across common employee fields.
+     */
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('first_name', 'like', "%{$search}%")
+              ->orWhere('last_name', 'like', "%{$search}%")
+              ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('phone_number_1', 'like', "%{$search}%")
+              ->orWhere('department', 'like', "%{$search}%")
+              ->orWhere('designation', 'like', "%{$search}%")
+              ->orWhere('address', 'like', "%{$search}%");
+        });
+    }
 }

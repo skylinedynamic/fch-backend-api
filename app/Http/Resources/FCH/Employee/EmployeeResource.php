@@ -16,7 +16,7 @@ class EmployeeResource extends JsonResource
         return [
             'id' => $this->id,
             'full_name' => trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? '')),
-            'phone_number' => $this->phone_number,
+            'phone_number' => $this->phone_number_1,
             'email' => $this->email,
             'department' => $this->department,
             'designation' => $this->designation,

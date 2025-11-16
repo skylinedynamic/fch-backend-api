@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\Employee\FetchEmployee;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response;
 use App\Http\Resources\FCH\Employee\EmployeeResource;
@@ -15,6 +16,7 @@ use App\Services\FCH\Common\Employee\EmployeeService;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Helpers\ApiResponse;
 
 class EmployeeController extends Controller
 {
@@ -27,25 +29,30 @@ class EmployeeController extends Controller
     /**
      * Employee List
      */
-    public function index(Request $request)
+    public function index(FetchEmployee $request)
     {
          try {
             $partnerId = $request->user()->partner_id;
 
             $filters = [
+                'per_page' => $request->get('per_page'),
+                'page' => $request->get('page', 1),
                 'search' => $request->get('search'),
-                'status' => $request->get('status'),
+                'job_status' => $request->get('job_status'),
                 'department' => $request->get('department'),
+                'filter' => $request->get('filter'),
+                'sort_field' => $request->get('sort_field'),
+                'sort_order' => $request->get('sort_order'),
             ];
 
             // Fetch all employees without pagination
-            $employees = $this->employeeService->list($partnerId, 0, $filters);
-
-            return response()->json([
-                'status' => true,
-                'message' => __('employee.employee_listed'),
-                'data' => EmployeeResource::collection($employees),
-            ]);
+            $employees = $this->employeeService->list($partnerId, $filters);
+            
+            return ApiResponse::success([
+                    'employees' => EmployeeResource::collection(collect($employees['data'])),
+                    'meta' => $employees['meta'],
+                ], __('employee.success.retrieved'));   
+        
 
         } catch (\Exception $e) {
             return response()->json([
