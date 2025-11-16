@@ -21,13 +21,13 @@ class RoleService
     /**
      * List all roles for a specific business.
      *
-     * @param int|string $businessId
+     * @param int|string $partnerId
      * @param int $perPage
      * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
      */
-    public function list($businessId, int $perPage = 15)
+    public function list($partnerId, int $perPage = 15)
     {
-        return Role::where('business_id', $businessId)
+        return Role::where('partner_id', $partnerId)
             ->with('permissions')
             ->paginate($perPage);
     }
@@ -42,8 +42,8 @@ class RoleService
      */
     public function create(array $data): Role
     {
-        if (empty($data['business_id'])) {
-            throw new \InvalidArgumentException('Business ID is required to create a role.');
+        if (empty($data['partner_id'])) {
+            throw new \InvalidArgumentException('Partner ID is required to create a role.');
         }
 
         $data['guard_name'] = 'api';
@@ -51,7 +51,7 @@ class RoleService
         $role = Role::create([
             'name' => $data['name'],
             'guard_name' => $data['guard_name'],
-            'business_id' => $data['business_id'],
+            'partner_id' => $data['partner_id'],
         ]);
 
         if (!empty($data['permission_ids'])) {
@@ -75,12 +75,12 @@ class RoleService
      *
      * @param Role $role
      * @param array $data
-     * @param int|string $businessId
+     * @param int|string $partnerId
      * @return Role
      */
-    public function update(Role $role, array $data, $businessId): Role
+    public function update(Role $role, array $data, $partnerId): Role
     {
-        return DB::transaction(function () use ($role, $data, $businessId) {
+        return DB::transaction(function () use ($role, $data, $partnerId) {
             // Step 1: Update role information
             $role->update([
                 'name' => $data['name'] ?? $role->name,
@@ -92,7 +92,7 @@ class RoleService
 
             if (!empty($data['permission_ids'])) {
                 $permissions = Permission::whereIn('id', $data['permission_ids'])
-                    ->where('business_id', $businessId)
+                    ->where('partner_id', $partnerId)
                     ->where('guard_name', 'api')
                     ->get();
 
@@ -159,14 +159,14 @@ class RoleService
      *
      * @param Role $role
      * @param array $permissionIds
-     * @param int|string $businessId
+     * @param int|string $partnerId
      * @return Role
      */
-    public function assignPermissions(Role $role, array $permissionIds, $businessId): Role
+    public function assignPermissions(Role $role, array $permissionIds, $partnerId): Role
     {
-        return DB::transaction(function () use ($role, $permissionIds, $businessId) {
+        return DB::transaction(function () use ($role, $permissionIds, $partnerId) {
             $permissions = Permission::whereIn('id', $permissionIds)
-                ->where('business_id', $businessId)
+                ->where('partner_id', $partnerId)
                 ->where('guard_name', 'api')
                 ->get();
 

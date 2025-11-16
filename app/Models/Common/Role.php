@@ -2,19 +2,19 @@
 
 namespace App\Models\Common;
 
-use App\Models\Business\Business;
 use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Role extends SpatieRole
 {
-    protected $fillable = ['name', 'guard_name', 'business_id'];
+    protected $fillable = ['name', 'guard_name', 'partner_id'];
 
-    public function business(): BelongsTo
+    public function partner(): BelongsTo
     {
-        return $this->belongsTo(Business::class);
+        return $this->belongsTo(Partner::class);
     }
 
       /**
