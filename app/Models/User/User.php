@@ -15,12 +15,10 @@ use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Services\Global\Notification\NotificationService;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 
 class User extends Authenticatable implements OAuthenticatable

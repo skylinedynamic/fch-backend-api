@@ -20,7 +20,7 @@ class PasswordResetNotification implements NotificationTypeInterface
     {
         $appName = config('app.name');
         $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
-        $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
+        $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
         
         return trans('notification.password_reset.sms_message', [
             'appName' => $appName,
@@ -43,22 +43,22 @@ class PasswordResetNotification implements NotificationTypeInterface
     {
         $appName = config('app.name');
         $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
-        $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
+        $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
 
         return [
-            'greeting' => trans('notification.greeting_hello_name', [
+            'greeting' => __('notification.greeting_hello_name', [
                 'name' => $user->first_name,
             ]),
             'lines' => [
-                trans('notification.password_reset.email_lines.line_1'),
-                trans('notification.password_reset.email_lines.line_2'),
-                trans('notification.password_reset.email_lines.line_3'),
+                __('notification.password_reset.email_lines.line_1'),
+                __('notification.password_reset.email_lines.line_2'),
+                __('notification.password_reset.email_lines.line_3'),
             ],
             'action' => [
-                'text' => trans('notification.password_reset.action_text'),
+                'text' => __('notification.password_reset.action_text'),
                 'url' => $resetUrl,
             ],
-            'salutation' => trans('notification.salutation_best_regards_team', [
+            'salutation' => __('notification.salutation_best_regards_team', [
                 'appName' => $appName,
             ]),
         ];
