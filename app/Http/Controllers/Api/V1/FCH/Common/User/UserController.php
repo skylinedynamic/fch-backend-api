@@ -33,13 +33,11 @@ class UserController extends Controller
      * User List
      */
 
-    public function index(Request $request)
+    public function allUsers(Request $request)
     {
         try {
-            // Paginate users via service (per_page comes from request or defaults to 10)
             $users = $this->userService->list($request);
-
-            // Respond using pagination resource
+        
             return $this->respondWithPaginationResource(
                 $request,
                 $users,
@@ -74,7 +72,7 @@ class UserController extends Controller
     public function show(User $user)
     {
         return ApiResponse::success(
-            new UserResource($user->load(['employee', 'roles', 'permissions'])),
+            new UserResource($user->load([ 'roles', 'permissions'])),
             __('user.user_retrieved')
         );
     }
@@ -101,15 +99,12 @@ class UserController extends Controller
     public function destroy(Request $request, int $id)
     {
           
-        $user = User::with('employee')->find($id);
+        $user = User::find($id);
 
         try {
-            $this->userService->delete($user, true);
+            $this->userService->delete($user);
 
-            return response()->json([
-                'status' => true,
-                'message' => __('user.user_deleted'),
-            ]);
+           return ApiResponse::success(null, __('user.user_deleted'));
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,

@@ -16,8 +16,8 @@ class UserRoleController extends Controller
     public function assignRoles(Request $request, User $user)
     {
         $request->validate(['role_ids' => 'required|array']);
-        $businessId = $request->user()->business_id;
-        $roles = Role::whereIn('id', $request->role_ids)->where('business_id', $businessId)->get();
+        $partnerId = $request->user()->partner_id;
+        $roles = Role::whereIn('id', $request->role_ids)->where('partner_id', $partnerId)->get();
         $user->syncRoles($roles);
         return response()->json($user->roles);
     }
@@ -30,8 +30,7 @@ class UserRoleController extends Controller
     public function assignPermissions(Request $request, User $user)
     {
         $request->validate(['permission_ids' => 'required|array']);
-        $businessId = $request->user()->business_id;
-        $perms = Permission::whereIn('id', $request->permission_ids)->where('business_id', $businessId)->get();
+        $perms = Permission::whereIn('id', $request->permission_ids)->get();
         $user->syncPermissions($perms);
         return response()->json($user->permissions);
     }

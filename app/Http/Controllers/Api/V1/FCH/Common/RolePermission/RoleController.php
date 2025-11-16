@@ -34,9 +34,9 @@ class RoleController extends Controller
      */
     public function index(Request $request)
     {
-        $businessId = $request->user()->business_id;
+        $partnerId = $request->user()->partner_id;
 
-        return response()->json($this->roleService->list($businessId));
+        return response()->json($this->roleService->list($partnerId));
     }
 
     /**
@@ -47,11 +47,11 @@ class RoleController extends Controller
      */
     public function store(StoreRoleRequest $request)
     {
-        $businessId = $request->user()->business_id;
+        $partnerId = $request->user()->partner_id;
 
         // ✅ Create new role
         $data = $request->only(['name', 'guard_name', 'permission_ids']);
-        $data['business_id'] = $businessId;
+        $data['partner_id'] = $partnerId;
         $data['guard_name'] = $data['guard_name'] ?? 'api';
 
         $role = $this->roleService->create($data);
@@ -87,13 +87,13 @@ class RoleController extends Controller
      */
     public function update(UpdateRoleRequest $request, int $id)
     {
-        $businessId = auth()->user()->business_id;
+        $partnerId = auth()->user()->partner_id;
 
         $role = Role::where('id', $id)
-            ->where('business_id', $businessId)
+            ->where('partner_id', $partnerId)
             ->first();
 
-        $updatedRole = $this->roleService->update($role, $request->validated(), $businessId);
+        $updatedRole = $this->roleService->update($role, $request->validated(), $partnerId);
 
         return response()->json([
             'status' => true,
@@ -127,12 +127,12 @@ class RoleController extends Controller
      */
     public function assignPermissions(AssignPermissionsRequest $request, Role $role)
     {
-        $businessId = $request->user()->business_id;
+        $partnerId = $request->user()->partner_id;
 
         $role = $this->roleService->assignPermissions(
             $role,
             $request->permission_ids,
-            $businessId
+            $partnerId
         );
 
         return response()->json([

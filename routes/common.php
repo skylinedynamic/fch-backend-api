@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
 
             Route::apiResource('employees', EmployeeController::class);
             Route::apiResource('users', UserController::class);
+            Route::post('all-users', [UserController::class, 'allUsers']);
             Route::get('permissions', [PermissionController::class, 'index']);
         });
 
