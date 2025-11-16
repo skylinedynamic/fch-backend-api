@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to {{ $business_info['business_name'] }}</title>
+    <title>Welcome to {{ $business_info['company_name'] }}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;

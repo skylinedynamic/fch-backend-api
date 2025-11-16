@@ -44,6 +44,7 @@ class User extends Authenticatable implements OAuthenticatable
         'user_type',
         'status',
         'password',
+        'partner_id',
     ];
 
     /**
@@ -417,9 +418,9 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Get the user's partner profile.
      */
-    public function partner(): HasOne
+    public function partner()
     {
-        return $this->hasOne(Partner::class);
+        return $this->belongsTo(Partner::class, 'partner_id', 'id');
     }
 
     /**

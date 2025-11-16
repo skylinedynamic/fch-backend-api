@@ -30,7 +30,7 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
          try {
-            $businessId = $request->user()->business_id;
+            $partnerId = $request->user()->partner_id;
 
             $filters = [
                 'search' => $request->get('search'),
@@ -39,7 +39,7 @@ class EmployeeController extends Controller
             ];
 
             // Fetch all employees without pagination
-            $employees = $this->employeeService->list($businessId, 0, $filters); // perPage = 0 or large number
+            $employees = $this->employeeService->list($partnerId, 0, $filters);
 
             return response()->json([
                 'status' => true,
@@ -62,7 +62,7 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request)
     {
         $businessId = $request->user()->business_id;
-        $businessInfo = $request->user()->business;
+        $partnerInfo = $request->user()->partner;
 
         // ✅ Include all extended employee fields
         $employeeData = $request->only([
@@ -94,7 +94,7 @@ class EmployeeController extends Controller
         $result = $this->employeeService->create($employeeData, $userData, $request->role_id ?? null);
 
         if (!empty($result['user'])) {
-            $this->sendAccountCreatedMail($result['user'], $businessInfo, $plainPassword);
+            $this->sendAccountCreatedMail($result['user'], $partnerInfo, $plainPassword);
         }
 
         return response()->json([
@@ -113,9 +113,9 @@ class EmployeeController extends Controller
     public function update(UpdateEmployeeRequest $request, int $id)
     {
         $employee = Employee::findOrFail($id);
-        $businessId = $request->user()->business_id;
+        $businessId = $request->user()->partner_id;
 
-        if ($employee->business_id !== $businessId) {
+        if ($employee->partner_id !== $businessId) {
             return response()->json([
                 'status' => false,
                 'message' => __('employee.unauthorized'),
@@ -155,9 +155,9 @@ class EmployeeController extends Controller
      */
     public function destroy(Request $request, Employee $employee)
     {
-        $businessId = $request->user()->business_id;
+        $businessId = $request->user()->partnet_id;
 
-        if ($employee->business_id !== $businessId) {
+        if ($employee->partnet_id !== $businessId) {
             return response()->json([
                 'status' => false,
                 'message' => __('employee.unauthorized'),
@@ -175,14 +175,14 @@ class EmployeeController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->business_name,
+            'subject' => 'Welcome to ' . $businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
-                'business_name' => $businessInfo->business_name,
-                'business_logo' => asset($businessInfo->business_logo),
-                'business_email' => $businessInfo->business_email,
-                'business_phone' => $businessInfo->business_phone,
+                'company_name' => $businessInfo->company_name,
+                // 'business_logo' => asset($businessInfo->business_logo),
+                'company_email' => $businessInfo->company_email,
+                'company_phone_number' => $businessInfo->company_phone_number,
                 'address_line_1' => $businessInfo->address_line_1,
             ],
         ];
