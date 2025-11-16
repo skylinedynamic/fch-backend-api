@@ -3,6 +3,7 @@
 namespace App\Services\Global\Notification\Types;
 
 use App\Models\User\User;
+use Illuminate\Support\Facades\Log;
 
 class AccountCreatedNotification implements NotificationTypeInterface
 {
@@ -30,7 +31,7 @@ class AccountCreatedNotification implements NotificationTypeInterface
 
     public function getEmailContent(User $user): array
     {
-        \Log::info('Mail aaaa');
+        Log::info('Mail aaaa');
         return [
             'view' => 'emails.account_created',
             'data' => [
