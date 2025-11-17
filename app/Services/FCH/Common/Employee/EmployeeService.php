@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Services\Global\Datatable\QueryFilter;
 
 class EmployeeService
 {
@@ -25,96 +26,44 @@ class EmployeeService
      */
     public function list(int $partnerId, array $filters)
     {
-        $query = Employee::where('partner_id', $partnerId)
-            ->with(['user']);
+        $query = Employee::query()->where('partner_id', $partnerId)->with(['user']);
 
-        // Global search using model scope
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
 
-        // Quick equals filters
         if (!empty($filters['job_status'])) {
             $query->where('job_status', $filters['job_status']);
         }
+
         if (!empty($filters['department'])) {
             $query->where('department', $filters['department']);
         }
 
-        // Column filters (PrimeReact style or simple):
-        // - PrimeReact: { field: { operator: 'and'|'or', constraints: [{ value, matchMode }] } }
-        // - Simple: { field: { value } }
-        $rawFilters = $filters['filters'] ?? ($filters['filter'] ?? null);
-        if (is_string($rawFilters)) {
-            $decoded = json_decode($rawFilters, true);
-            $rawFilters = is_array($decoded) ? $decoded : [];
-        }
-
-        if (is_array($rawFilters) && !empty($rawFilters)) {
-            $hasConstraints = false;
-            foreach ($rawFilters as $def) {
-                if (is_array($def) && array_key_exists('constraints', $def)) {
-                    $hasConstraints = true;
-                    break;
-                }
-            }
-
-            if ($hasConstraints) {
-                foreach ($rawFilters as $field => $filterData) {
-                    if (!isset($filterData['constraints']) || !is_array($filterData['constraints'])) {
-                        continue;
-                    }
-
-                    $operator = strtolower($filterData['operator'] ?? 'and'); // and/or
-                    $constraints = $filterData['constraints'];
-
-                    $query->where(function ($q) use ($constraints, $field, $operator) {
-                        foreach ($constraints as $index => $c) {
-                            $value = $c['value'] ?? null;
-                            $mode = $c['matchMode'] ?? null;
-                            if ($value === null || $value === '') continue;
-
-                            $method = ($operator === 'or' && $index > 0) ? 'orWhere' : 'where';
-
-                            // Special field mapping
-                            if ($field === 'full_name') {
-                                $this->applyFullNameConstraint($q, $method, $mode, (string) $value);
-                                continue;
-                            }
-                            $column = $field === 'phone_number' ? 'phone_number_1' : $field;
-
-                            $this->applyConstraint($q, $column, $method, $mode, (string) $value);
-                        }
-                    });
-                }
-            } else {
-                // Simple filters: { field: { value } }
-                foreach ($rawFilters as $field => $def) {
-                    if (!is_array($def) || empty($def['value'])) continue;
-                    $value = trim((string) $def['value']);
-                    if ($value === '') continue;
-
-                    if ($field === 'full_name') {
-                        $query->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$value}%"]);
-                    } elseif ($field === 'phone_number') {
-                        $query->where('phone_number_1', 'like', "%{$value}%");
-                    } else {
-                        $query->where($field, 'like', "%{$value}%");
-                    }
-                }
-            }
-        }
-
-        // Sorting & pagination
-       
+        //Sorting
         $sortField = $filters['sort_field']  ? ($filters['sort_field'] == 'full_name' ? 'first_name'  : $filters['sort_field']) : 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+        // Apply global query filters (ignores operator; supports constraints and simple formats)
+        $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters'], [
+            'aliases' => [
+                'phone_number' => 'phone_number_1',
+                // add more aliases as needed: 'external_field' => 'db_column'
+            ],
+            'concat_fields' => [
+                'full_name' => ['first_name', 'last_name'],
+                // you can add more concatenated fields:
+                // 'another_concat' => ['col_a', 'col_b', 'col_c'],
+            ],
+        ]);
+    
+       
+
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        
-        $employees = $query->orderBy($sortField, $sortOrder)
-            ->paginate($perPage, ['*'], 'page', $page);
+    
+        $employees = $query->paginate($perPage, ['*'], 'page', $page);
 
         return [
             'data' => $employees->items(),
@@ -133,94 +82,7 @@ class EmployeeService
 
     }
 
-    /**
-     * Apply a single constraint for a given column and mode.
-     */
-    protected function applyConstraint($q, string $column, string $method, ?string $mode, string $value): void
-    {
-        $likeContains = "%{$value}%";
-        $likeStarts = "{$value}%";
-        $likeEnds = "%{$value}";
-
-        switch ($mode) {
-            case 'contains':
-                $q->{$method}($column, 'like', $likeContains);
-                break;
-            case 'startsWith':
-                $q->{$method}($column, 'like', $likeStarts);
-                break;
-            case 'endsWith':
-                $q->{$method}($column, 'like', $likeEnds);
-                break;
-            case 'equals':
-                $q->{$method}($column, '=', $value);
-                break;
-            case 'notEquals':
-                $q->{$method}($column, '!=', $value);
-                break;
-            case 'in':
-                $vals = is_array($value) ? $value : explode(',', $value);
-                if ($method === 'orWhere') {
-                    $q->orWhereIn($column, $vals);
-                } else {
-                    $q->whereIn($column, $vals);
-                }
-                break;
-            case 'lt':
-                $q->{$method}($column, '<', $value);
-                break;
-            case 'lte':
-                $q->{$method}($column, '<=', $value);
-                break;
-            case 'gt':
-                $q->{$method}($column, '>', $value);
-                break;
-            case 'gte':
-                $q->{$method}($column, '>=', $value);
-                break;
-            default:
-                // Fallback to contains
-                $q->{$method}($column, 'like', $likeContains);
-        }
-    }
-
-    /**
-     * Apply constraint for full_name (CONCAT first and last).
-     */
-    protected function applyFullNameConstraint($q, string $method, ?string $mode, string $value): void
-    {
-        $likeContains = "%{$value}%";
-        $likeStarts = "{$value}%";
-        $likeEnds = "%{$value}";
-
-        $callback = function ($builder) use ($mode, $likeContains, $likeStarts, $likeEnds, $value) {
-            switch ($mode) {
-                case 'contains':
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$likeContains]);
-                    break;
-                case 'startsWith':
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$likeStarts]);
-                    break;
-                case 'endsWith':
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$likeEnds]);
-                    break;
-                case 'equals':
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) = ?", [$value]);
-                    break;
-                case 'notEquals':
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) != ?", [$value]);
-                    break;
-                default:
-                    $builder->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$likeContains]);
-            }
-        };
-
-        if ($method === 'orWhere') {
-            $q->orWhere(function ($builder) use ($callback) { $callback($builder); });
-        } else {
-            $q->where(function ($builder) use ($callback) { $callback($builder); });
-        }
-    }
+    
 
     /**
      * Create a new employee and optionally a linked user.

@@ -31,29 +31,31 @@ class EmployeeController extends Controller
      */
     public function index(FetchEmployee $request)
     {
-         try {
+        try {
             $partnerId = $request->user()->partner_id;
+            $input = $request->validated();
+
+            // Sanitize and cap pagination to avoid heavy payloads
+            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
+            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
 
             $filters = [
-                'per_page' => $request->get('per_page'),
-                'page' => $request->get('page', 1),
-                'search' => $request->get('search'),
-                'job_status' => $request->get('job_status'),
-                'department' => $request->get('department'),
-                'filter' => $request->get('filter'),
-                'sort_field' => $request->get('sort_field'),
-                'sort_order' => $request->get('sort_order'),
+                'per_page'   => $perPage,
+                'page'       => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search'     => isset($input['search']) ? trim((string) $input['search']) : null,
+                'job_status' => $input['job_status'] ?? null,
+                'department' => $input['department'] ?? null,
+                'filters'    => $input['filters'] ?? null, // array expected per request rules
+                'sort_field' => $input['sort_field'] ?? null,
+                'sort_order' => $input['sort_order'] ?? null,
             ];
 
-            // Fetch all employees without pagination
             $employees = $this->employeeService->list($partnerId, $filters);
-            
-            return ApiResponse::success([
-                    'employees' => EmployeeResource::collection(collect($employees['data'])),
-                    'meta' => $employees['meta'],
-                ], __('employee.success.retrieved'));   
-        
 
+            return ApiResponse::success([
+                'employees' => EmployeeResource::collection($employees['data']),
+                'meta'      => $employees['meta'],
+            ], __('employee.success.retrieved'));
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
