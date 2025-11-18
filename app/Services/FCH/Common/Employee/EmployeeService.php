@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Services\Global\Datatable\QueryFilter;
 
 class EmployeeService
 {
@@ -23,35 +24,65 @@ class EmployeeService
     /**
      * Paginate employees for a business.
      */
-    public function list(int $businessId, int $perPage = 10, ?array $filters = []): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    public function list(int $partnerId, array $filters)
     {
-        $query = Employee::where('business_id', $businessId)
-            ->with(['user', 'user.business']);
+        $query = Employee::query()->where('partner_id', $partnerId)->with(['user']);
 
         if (!empty($filters['search'])) {
-            $search = trim($filters['search']);
-            $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone_number', 'like', "%{$search}%")
-                    ->orWhere('department', 'like', "%{$search}%")
-                    ->orWhere('designation', 'like', "%{$search}%")
-                    ->orWhere('address', 'like', "%{$search}%");
-            });
+            $query->search(trim((string) $filters['search']));
         }
 
-        if (!empty($filters['status'])) {
-            $query->where('job_status', $filters['status']);
+        if (!empty($filters['job_status'])) {
+            $query->where('job_status', $filters['job_status']);
         }
 
         if (!empty($filters['department'])) {
             $query->where('department', $filters['department']);
         }
 
-        return $query->orderByDesc('id')->paginate($perPage);
+        //Sorting
+        $sortField = $filters['sort_field']  ? ($filters['sort_field'] == 'full_name' ? 'first_name'  : $filters['sort_field']) : 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+        // Apply global query filters (ignores operator; supports constraints and simple formats)
+        $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters'], [
+            'aliases' => [
+                'phone_number' => 'phone_number_1',
+                // add more aliases as needed: 'external_field' => 'db_column'
+            ],
+            'concat_fields' => [
+                'full_name' => ['first_name', 'last_name'],
+                // you can add more concatenated fields:
+                // 'another_concat' => ['col_a', 'col_b', 'col_c'],
+            ],
+        ]);
+    
+       
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+    
+        $employees = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return [
+            'data' => $employees->items(),
+            'meta' => [
+                'current_page' => $employees->currentPage(),
+                'from' => $employees->firstItem(),
+                'to' => $employees->lastItem(),
+                'per_page' => $employees->perPage(),
+                'total' => $employees->total(),
+                'last_page' => $employees->lastPage(),
+                'next_page_url' => $employees->nextPageUrl(),
+                'prev_page_url' => $employees->previousPageUrl(),
+                'links' => $employees->linkCollection(),
+            ],
+        ];
+
     }
+
+    
 
     /**
      * Create a new employee and optionally a linked user.
