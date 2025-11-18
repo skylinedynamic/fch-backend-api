@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Dedoc\Scramble\Scramble;
 
 Route::get('/', function () {
-    return redirect()->route('docs.admin');
+    return redirect()->url('/docs/admin');
 });
 
 Route::get('/testing', function () {
