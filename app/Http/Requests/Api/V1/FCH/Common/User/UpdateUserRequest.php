@@ -27,8 +27,8 @@ class UpdateUserRequest extends FormRequest
                 'max:50'
             ],
             'user_id'      => ['nullable', 'string', 'max:255'],
-            'password'     => ['nullable', 'string', 'min:6'],
-            'role_id'      => ['sometimes', 'exists:roles,id'],
+            'password'     => ['nullable'],
+            'role_id'      => ['nullable'],
             'status'      => ['nullable'],
         ];
     }
@@ -39,7 +39,6 @@ class UpdateUserRequest extends FormRequest
             'email.unique'      => __('user.email_taken'),
             'phone_number.unique' => __('user.phone_number_taken'),
             'password.min'      => __('user.password_min'),
-            'role_id.exists'    => __('user.role_not_found'),
         ];
     }
 

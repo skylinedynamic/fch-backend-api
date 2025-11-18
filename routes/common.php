@@ -48,6 +48,7 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('employees', EmployeeController::class);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
+            Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
             Route::apiResource('users', UserController::class);
             
             Route::get('permissions', [PermissionController::class, 'index']);
