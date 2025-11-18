@@ -18,6 +18,9 @@ class QueryFilter
      */
     public static function apply(Builder $query, $sortField, $sortOrder, $rawFilters, array $options = []): Builder
     {
+        // Apply sorting
+        $query->orderBy('id', 'desc');
+        
         if (is_string($rawFilters)) {
             $decoded = json_decode($rawFilters, true);
             $rawFilters = is_array($decoded) ? $decoded : [];
@@ -91,8 +94,7 @@ class QueryFilter
             }
         }
 
-        // Apply sorting
-        $query->orderBy($sortField, $sortOrder);
+        
 
         return $query;
     }
