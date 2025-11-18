@@ -47,6 +47,6 @@ class PreQualificationService
 
         $query->search($request->query('query'));
 
-        return $this->paginateBuilder($request, $query->orderByDesc('created_at'));
+        return $this->paginateBuilder($query->orderByDesc('created_at'),$request);
     }
 }

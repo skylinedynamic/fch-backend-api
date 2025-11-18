@@ -7,6 +7,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Auth;
 
 class StoreRoleRequest extends FormRequest
 {
@@ -25,18 +26,18 @@ class StoreRoleRequest extends FormRequest
      */
     public function rules(): array
     {
-        $businessId = $this->user()?->business_id;
+        $partnerId = Auth::user()->partner_id;
 
         return [
             'name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('roles')->where(function ($query) use ($businessId) {
-                    return $query->where('business_id', $businessId);
+                Rule::unique('roles')->where(function ($query) use ($partnerId) {
+                    return $query->where('partner_id', $partnerId);
                 }),
             ],
-            'permission_ids' => 'required|array',
+            'permission_ids' => 'required|array|exists:permissions,id',
         ];
     }
 

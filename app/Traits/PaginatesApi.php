@@ -26,7 +26,7 @@ trait PaginatesApi
         return $page > 0 ? $page : 1;
     }
 
-    protected function paginateBuilder(Request $request, EloquentBuilder|QueryBuilder $query): LengthAwarePaginator
+    protected function paginateBuilder(EloquentBuilder|QueryBuilder $query,Request $request): LengthAwarePaginator
     {
         $perPage = $this->normalizePerPage($request);
         $page = $this->resolvePage($request);

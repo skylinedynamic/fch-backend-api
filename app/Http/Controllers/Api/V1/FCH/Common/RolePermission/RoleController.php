@@ -32,7 +32,7 @@ class RoleController extends Controller
      * Get List
      *
      * @param FetchRoleRequest $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Http\JsonResponse 
      */
     public function index(FetchRoleRequest $request)
     {
