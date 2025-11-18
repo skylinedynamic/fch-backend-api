@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\User;
 
 use Throwable;
 use App\Models\User\User;
+use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\User\UserResource;
 use App\Services\FCH\Common\User\UserService;
@@ -108,9 +110,17 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, int $id)
     {
+        $roleId = Role::where('name',$request->role_id)->first()->id ?? null;
+        
+        $data = $request->validated();
+
+        if (empty($data['password'] ?? null)) {
+            unset($data['password']);
+        }
+
         $user = User::findOrFail($id);
         try {
-            $updated = $this->userService->update($user, $request->validated(), $request->role_id);
+            $updated = $this->userService->update($user, $data, $roleId);
             return ApiResponse::success(
                 new UserResource($updated),
                 __('user.user_updated')
@@ -122,16 +132,12 @@ class UserController extends Controller
     /**
      * Delete User
      */
-    public function destroy(Request $request, int $id)
+    public function multipleDelete(Request $request)
     {
-          
-        $user = User::find($id);
-
         try {
-            $this->userService->delete($user);
-
+           User::whereIn('id', $request->ids)->delete();
            return ApiResponse::success(
-             new UserResource($user),
+             [],
             __('user.user_deleted')
            );
         } catch (\Throwable $e) {

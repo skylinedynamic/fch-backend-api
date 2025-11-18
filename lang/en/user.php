@@ -29,6 +29,7 @@ return [
     'user_create_failed'     => 'Failed to create user.',
     'user_updated'           => 'User updated successfully.',
     'user_update_failed'     => 'Failed to update user.',
+    'user_delete_failed'     => 'Failed to delete user.',
     'user_deleted'           => 'User deleted successfully.',
     'user_list_retrieved'    => 'User list retrieved successfully.',
     'failed_to_retrieve_users'=> 'Failed to retrieve users.',
