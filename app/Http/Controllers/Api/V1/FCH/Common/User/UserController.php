@@ -5,15 +5,15 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\User;
 use Throwable;
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
+use App\Traits\PaginatesApi;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Http\Resources\FCH\User\UserResource;
 use App\Services\FCH\Common\User\UserService;
+use App\Http\Requests\Api\V1\FCH\Common\User\FetchUser;
+use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Http\Requests\Api\V1\FCH\Common\User\StoreUserRequest;
 use App\Http\Requests\Api\V1\FCH\Common\User\UpdateUserRequest;
-use App\Traits\PaginatesApi;
 
 class UserController extends Controller
 {
@@ -33,20 +33,38 @@ class UserController extends Controller
      * User List
      */
 
-    public function allUsers(Request $request)
+    public function allUsers(FetchUser $request)
     {
         try {
-            $users = $this->userService->list($request);
-        
-            return $this->respondWithPaginationResource(
-                $request,
-                $users,
-                UserResource::class,
-                __('user.user_list_retrieved')
-            );
+
+            $partnerId = $request->user()->partner_id;
+            $input = $request->validated();
+
+            // Sanitize and cap pagination to avoid heavy payloads
+            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
+            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null;
+
+            $filters = [
+                'per_page'   => $perPage,
+                'page'       => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search'     => isset($input['search']) ? trim((string) $input['search']) : null,
+                'status' => $input['status'] ?? null,
+                'role_id' => $input['role'] ?? null,
+                'filters'    => $input['filters'] ?? null,
+                'sort_field' => $input['sort_field'] ?? null,
+                'sort_order' => $input['sort_order'] ?? null,
+            ];
+
+            $users = $this->userService->list($partnerId, $filters);
+
+            return ApiResponse::successWithPagination(UserResource::collection($users->items()), $users, __('user.user_list_retrieved'));
 
         } catch (Throwable $e) {
-            return ApiResponse::error($e->getMessage(), 400);
+            return response()->json([
+                'status' => false,
+                'message' => __('user.failed_to_retrieve_users'),
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -58,7 +76,7 @@ class UserController extends Controller
         try {
             $user = $this->userService->create($request->validated(), $request->role_id);
             return ApiResponse::success(
-                new UserResource($user),
+                (new UserResource($user))->toArray($request), // convert resource to array
                 __('user.user_created')
             );
         } catch (Throwable $e) {
@@ -104,7 +122,11 @@ class UserController extends Controller
         try {
             $this->userService->delete($user);
 
-           return ApiResponse::success(null, __('user.user_deleted'));
+          return response()->json([
+            'status' => true,
+            'message' => __('user.user_deleted'),
+            'data' => new UserResource($user),
+        ], Response::HTTP_OK);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,

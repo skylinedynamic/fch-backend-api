@@ -448,4 +448,21 @@ class User extends Authenticatable implements OAuthenticatable
 
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
+
+        public function scopeSearch($query, ?string $search)
+        {
+            if (!is_string($search) || trim($search) === '') {
+                return $query;
+            }
+
+            $search = trim($search);
+
+            return $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone_number', 'like', "%{$search}%")
+                ->orWhere('role', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
 }
