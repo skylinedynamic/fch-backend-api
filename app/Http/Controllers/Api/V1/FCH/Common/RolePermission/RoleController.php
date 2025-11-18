@@ -9,6 +9,8 @@ use App\Services\FCH\Common\RolePermission\RoleService;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\StoreRoleRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\UpdateRoleRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\AssignPermissionsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\FetchRoleRequest;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Class RoleController
@@ -29,12 +31,12 @@ class RoleController extends Controller
     /**
      * Get List
      *
-     * @param Request $request
+     * @param FetchRoleRequest $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
+    public function index(FetchRoleRequest $request)
     {
-        $partnerId = $request->user()->partner_id;
+        $partnerId = Auth::user()->partner_id;
         return $this->roleService->list($partnerId, $request);
     }
 
