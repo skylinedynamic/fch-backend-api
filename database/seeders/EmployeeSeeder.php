@@ -134,5 +134,39 @@ class EmployeeSeeder extends Seeder
                 'updated_at' => now(),
             ],
         ]);
+
+        // Generate 50 employees for partner 1 and 50 employees for partner 2
+        $departments = ['Operations', 'Finance', 'IT', 'HR', 'Sales', 'Support'];
+        $designations = ['Staff', 'Manager', 'Lead', 'Analyst', 'Coordinator', 'Specialist'];
+
+        $bulk = [];
+        foreach ([1, 2] as $partnerId) {
+            for ($i = 1; $i <= 50; $i++) {
+                $firstName = "Employee{$partnerId}{$i}";
+                $lastName = "User";
+                $department = $departments[$i % count($departments)];
+                $designation = $designations[$i % count($designations)];
+                $email = "partner{$partnerId}.employee{$i}@example.com";
+                $phone1 = '+100000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
+                $phone2 = '+200000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
+
+                $bulk[] = [
+                    'partner_id' => $partnerId,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'email' => $email,
+                    'phone_number_1' => $phone1,
+                    'phone_number_2' => $phone2,
+                    'department' => $department,
+                    'designation' => $designation,
+                    'job_status' => 'Active',
+                    'identification_number' => sprintf('EMP-P%d-%03d', $partnerId, $i),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        DB::table('employees')->insert($bulk);
     }
 }

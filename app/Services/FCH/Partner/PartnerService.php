@@ -143,7 +143,7 @@ class PartnerService
         }
 
         // 📄 Pagination (with links)
-        $partners = $query->orderByDesc('id')->paginate($request->get('per_page', 2));
+        $partners = $query->orderByDesc('id')->paginate($request->get('per_page', 1));
 
         // Add pagination metadata (including links)
         return [

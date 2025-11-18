@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\Employee\FetchEmployee;
 use Illuminate\Support\Facades\Mail;
 use Symfony\Component\HttpFoundation\Response;
 use App\Http\Resources\FCH\Employee\EmployeeResource;
@@ -15,6 +16,7 @@ use App\Services\FCH\Common\Employee\EmployeeService;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Helpers\ApiResponse;
 
 class EmployeeController extends Controller
 {
@@ -27,26 +29,33 @@ class EmployeeController extends Controller
     /**
      * Employee List
      */
-    public function index(Request $request)
+    public function index(FetchEmployee $request)
     {
-         try {
+        try {
             $partnerId = $request->user()->partner_id;
+            $input = $request->validated();
+
+            // Sanitize and cap pagination to avoid heavy payloads
+            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
+            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
 
             $filters = [
-                'search' => $request->get('search'),
-                'status' => $request->get('status'),
-                'department' => $request->get('department'),
+                'per_page'   => $perPage,
+                'page'       => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search'     => isset($input['search']) ? trim((string) $input['search']) : null,
+                'job_status' => $input['job_status'] ?? null,
+                'department' => $input['department'] ?? null,
+                'filters'    => $input['filters'] ?? null, // array expected per request rules
+                'sort_field' => $input['sort_field'] ?? null,
+                'sort_order' => $input['sort_order'] ?? null,
             ];
 
-            // Fetch all employees without pagination
-            $employees = $this->employeeService->list($partnerId, 0, $filters);
+            $employees = $this->employeeService->list($partnerId, $filters);
 
-            return response()->json([
-                'status' => true,
-                'message' => __('employee.employee_listed'),
-                'data' => EmployeeResource::collection($employees),
-            ]);
-
+            return ApiResponse::success([
+                'employees' => EmployeeResource::collection($employees['data']),
+                'meta'      => $employees['meta'],
+            ], __('employee.success.retrieved'));
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,

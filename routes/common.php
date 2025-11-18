@@ -41,7 +41,10 @@ Route::prefix('v1')->group(function () {
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
-            Route::apiResource('employees', EmployeeController::class);
+            Route::post('get-employees',[EmployeeController::class,'index']);
+            Route::apiResource('employees', EmployeeController::class)->except(['index']);
+
+
             Route::apiResource('users', UserController::class);
             Route::post('all-users', [UserController::class, 'allUsers']);
             Route::get('permissions', [PermissionController::class, 'index']);
