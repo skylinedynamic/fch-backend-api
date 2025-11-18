@@ -4,6 +4,10 @@ use Illuminate\Support\Facades\Route;
 use Dedoc\Scramble\Scramble;
 
 Route::get('/', function () {
+    return redirect()->route('docs.admin');
+});
+
+Route::get('/testing', function () {
     return view('recaptcha');
 });
 
