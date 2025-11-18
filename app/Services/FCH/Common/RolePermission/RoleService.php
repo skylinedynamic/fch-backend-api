@@ -28,14 +28,21 @@ class RoleService
 
     public function getAll($partnerId)
     {
-        $query = Role::where('partner_id', $partnerId)->orderByDesc('id')->with('permissions')->get();
+        $query = Role::where('partner_id', $partnerId)
+            ->orderByDesc('id')
+            ->with(['permissions'])
+            ->withCount('users')
+            ->get();
         return ApiResponse::success(RoleResource::collection($query), __('role_permission.role_list_retrieved'));
         
     }
 
     public function list($partnerId, Request $request)
     {
-        $query = Role::where('partner_id', $partnerId)->orderByDesc('id')->with('permissions');
+        $query = Role::where('partner_id', $partnerId)
+            ->orderByDesc('id')
+            ->with(['permissions'])
+            ->withCount('users');
         $paginator = $this->paginateBuilder($query, $request);
         return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }

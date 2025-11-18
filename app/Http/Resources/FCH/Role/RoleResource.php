@@ -17,6 +17,7 @@ class RoleResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'permissions' => $permissionNames,
+            'users_count' => (int) ($this->users_count ?? ($this->relationLoaded('users') ? $this->users->count() : 0)),
         ];
     }
 }
