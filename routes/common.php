@@ -37,6 +37,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
         Route::prefix('common')->group(function () {
+            
             Route::apiResource('roles', RoleController::class);
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);

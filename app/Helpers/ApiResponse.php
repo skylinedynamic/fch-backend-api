@@ -24,6 +24,7 @@ class ApiResponse
         ], $code);
     }
 
+    
     /**
      * Return a successful response.
      *

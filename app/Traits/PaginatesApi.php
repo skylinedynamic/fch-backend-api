@@ -11,31 +11,28 @@ use Illuminate\Support\Collection;
 
 trait PaginatesApi
 {
-    /**
-     * Normalize per_page from request with defaults and max cap.
-     */
     protected function normalizePerPage(Request $request, int $default = 15, int $max = 100): int
     {
-        $perPage = (int) $request->query('per_page', $default);
+        $perPage = (int) ($request->input('per_page', $request->query('per_page', $default)));
         if ($perPage <= 0) {
             $perPage = $default;
         }
         return min($perPage, $max);
     }
 
-    /**
-     * Paginate an Eloquent or Query builder using normalized per_page.
-     */
+    protected function resolvePage(Request $request): int
+    {
+        $page = (int) ($request->input('page', $request->query('page', 1)));
+        return $page > 0 ? $page : 1;
+    }
+
     protected function paginateBuilder(Request $request, EloquentBuilder|QueryBuilder $query): LengthAwarePaginator
     {
         $perPage = $this->normalizePerPage($request);
-        return $query->paginate($perPage);
+        $page = $this->resolvePage($request);
+        return $query->paginate($perPage, ['*'], 'page', $page);
     }
 
-    /**
-     * Map paginator items through a transformer to produce a new paginator.
-     * Useful when you want to apply a Resource transformation before responding.
-     */
     protected function mapPaginatorItems(LengthAwarePaginator $paginator, callable $mapper, ?Request $request = null): LengthAwarePaginator
     {
         $items = $paginator->items();
@@ -57,17 +54,30 @@ trait PaginatesApi
         );
     }
 
-    /**
-     * Respond with standardized pagination using ApiResponse helper.
-     */
     protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200)
     {
-        return ApiResponse::successWithPagination($paginator, $message, $code);
+        $meta = [
+            'current_page' => $paginator->currentPage(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'last_page' => $paginator->lastPage(),
+            'next_page_url' => $paginator->nextPageUrl(),
+            'prev_page_url' => $paginator->previousPageUrl(),
+            'links' => $this->buildLinks($paginator),
+        ];
+
+        return ApiResponse::success()
+
+        return response()->json([
+            'status' => true,
+            'message' => $message,
+            'data' => $paginator->items(),
+            'meta' => $meta,
+        ], $code);
     }
 
-    /**
-     * Respond with standardized pagination, applying a Resource class to items.
-     */
     protected function respondWithPaginationResource(Request $request, LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200)
     {
         $mapped = $this->mapPaginatorItems(
@@ -79,5 +89,35 @@ trait PaginatesApi
         );
 
         return $this->respondWithPagination($mapped, $message, $code);
+    }
+
+    protected function buildLinks(LengthAwarePaginator $paginator): array
+    {
+        $links = [];
+
+        $links[] = [
+            'url' => $paginator->previousPageUrl(),
+            'label' => '« Previous',
+            'page' => $paginator->currentPage() > 1 ? $paginator->currentPage() - 1 : null,
+            'active' => false,
+        ];
+
+        for ($i = 1; $i <= $paginator->lastPage(); $i++) {
+            $links[] = [
+                'url' => $paginator->url($i),
+                'label' => (string) $i,
+                'page' => $i,
+                'active' => $i === $paginator->currentPage(),
+            ];
+        }
+
+        $links[] = [
+            'url' => $paginator->nextPageUrl(),
+            'label' => 'Next »',
+            'page' => $paginator->currentPage() < $paginator->lastPage() ? $paginator->currentPage() + 1 : null,
+            'active' => false,
+        ];
+
+        return $links;
     }
 }
