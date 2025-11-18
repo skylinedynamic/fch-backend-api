@@ -38,18 +38,18 @@ Route::prefix('v1')->group(function () {
         });
         Route::prefix('common')->group(function () {
             
-            Route::post('get-roles',[RoleController::class,'index']);
-            Route::apiResource('roles', RoleController::class)->except(['index']);
+            Route::post('roles/fetch-roles',[RoleController::class,'fetchRoles']);
+            Route::apiResource('roles', RoleController::class);
 
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
-            Route::post('get-employees',[EmployeeController::class,'index']);
-            Route::apiResource('employees', EmployeeController::class)->except(['index']);
+            Route::post('employees/fetch-employees',[EmployeeController::class,'fetchEmployees']);
+            Route::apiResource('employees', EmployeeController::class);
 
-
-            Route::apiResource('users', UserController::class)->except(['index']);
-            Route::post('all-users', [UserController::class, 'allUsers']);
+            Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
+            Route::apiResource('users', UserController::class);
+            
             Route::get('permissions', [PermissionController::class, 'index']);
         });
 

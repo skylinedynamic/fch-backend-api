@@ -52,4 +52,5 @@ return [
     // ✅ Pagination & Filters
     'employee_paginated'  => 'Employee list retrieved successfully.',
     'employee_filtered'   => 'Filtered employee list retrieved successfully.',
+    'employee_list_failed' => 'Failed to retrieve employee list.',
 ];

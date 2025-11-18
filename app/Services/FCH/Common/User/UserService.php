@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\User;
 
+use App\Helpers\ApiResponse;
 use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Resources\Global\Auth\UserResource;
+use Illuminate\Support\Facades\Auth;
 
 class UserService
 {
@@ -131,6 +133,14 @@ class UserService
     /**
      * Paginate Users
      */
+
+    public function getAll()
+    {
+         $users = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles'])->orderBy('id', 'desc')->get();
+         return ApiResponse::success(UserResource::collection($users),__('user.user_list_retrieved'));
+
+    }
+
     public function list(int $partnerId, array $filters)
     {
         $query = User::query()->where('partner_id', $partnerId)->with(['roles']);

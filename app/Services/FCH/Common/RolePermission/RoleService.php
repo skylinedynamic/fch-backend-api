@@ -2,9 +2,11 @@
 
 namespace App\Services\FCH\Common\RolePermission;
 
+use App\Helpers\ApiResponse;
 use App\Models\Common\Role;
 use App\Models\Common\Permission;
 use App\Http\Resources\FCH\Role\RoleResource;
+use App\Http\Resources\FCH\User\UserResource;
 use App\Traits\PaginatesApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,9 +26,16 @@ class RoleService
 
     use PaginatesApi;
 
+    public function getAll($partnerId)
+    {
+        $query = Role::where('partner_id', $partnerId)->orderByDesc('id')->with('permissions')->get();
+        return ApiResponse::success(RoleResource::collection($query), __('role_permission.role_list_retrieved'));
+        
+    }
+
     public function list($partnerId, Request $request)
     {
-        $query = Role::where('partner_id', $partnerId)->with('permissions');
+        $query = Role::where('partner_id', $partnerId)->orderByDesc('id')->with('permissions');
         $paginator = $this->paginateBuilder($query, $request);
         return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }

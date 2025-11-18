@@ -25,15 +25,29 @@ class UserController extends Controller
      * @param UserService $userService
      */
     use PaginatesApi;
+
     public function __construct(protected UserService $userService)
     {
+        
     }
 
      /**
-     * User List
+     * All User
      */
 
-    public function allUsers(FetchUser $request)
+    public function index()
+    {
+        try {
+            return $this->userService->getAll();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('user.user_list_failed'));
+        }
+    }
+     /**
+     * User with Pagination
+     */
+
+    public function fetchUsers(FetchUser $request)
     {
         try {
 

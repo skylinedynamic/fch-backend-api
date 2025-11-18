@@ -29,12 +29,21 @@ class RoleController extends Controller
     }
 
     /**
-     * Get List
+     * Get All Roles
      *
-     * @param FetchRoleRequest $request
-     * @return \Illuminate\Http\JsonResponse 
      */
-    public function index(FetchRoleRequest $request)
+    public function index()
+    {
+        $partnerId = Auth::user()->partner_id;
+        return $this->roleService->getAll($partnerId);
+    }
+
+
+    /**
+     * Roles with Pagination
+     *
+     */
+    public function fetchRoles(FetchRoleRequest $request)
     {
         $partnerId = Auth::user()->partner_id;
         return $this->roleService->list($partnerId, $request);

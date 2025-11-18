@@ -26,10 +26,24 @@ class EmployeeController extends Controller
     {
     }
 
+
     /**
-     * Employee List
+     * All Employee
      */
-    public function index(FetchEmployee $request)
+    public function index()
+    {
+        try {
+            return $this->employeeService->getAll();
+
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
+        }
+    }
+
+    /**
+     * Employee With Pagination
+     */
+    public function fetchEmployees(FetchEmployee $request)
     {
         try {
             $partnerId = $request->user()->partner_id;
@@ -57,11 +71,7 @@ class EmployeeController extends Controller
                 'meta'      => $employees['meta'],
             ], __('employee.success.retrieved'));
         } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => __('employee.employee_list_failed'),
-                'error' => $e->getMessage(),
-            ], 500);
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
         }
     }
 

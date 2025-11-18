@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Employee;
 
+use App\Helpers\ApiResponse;
 use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
@@ -15,11 +16,18 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Services\Global\Datatable\QueryFilter;
+use Illuminate\Support\Facades\Auth;
 
 class EmployeeService
 {
     use UploadsFiles;
+
+    public function getAll(){
+        $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
+        return ApiResponse::success(EmployeeResource::collection($employees),__('employee.success.retrieved'));
+    }
 
     /**
      * Paginate employees for a business.
