@@ -38,7 +38,9 @@ Route::prefix('v1')->group(function () {
         });
         Route::prefix('common')->group(function () {
             
-            Route::apiResource('roles', RoleController::class);
+            Route::post('get-roles',[RoleController::class,'index']);
+            Route::apiResource('roles', RoleController::class)->except(['index']);
+
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 

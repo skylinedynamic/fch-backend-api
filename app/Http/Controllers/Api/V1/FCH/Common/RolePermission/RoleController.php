@@ -35,8 +35,7 @@ class RoleController extends Controller
     public function index(Request $request)
     {
         $partnerId = $request->user()->partner_id;
-
-        return response()->json($this->roleService->list($partnerId));
+        return $this->roleService->list($partnerId, $request);
     }
 
     /**

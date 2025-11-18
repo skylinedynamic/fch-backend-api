@@ -54,7 +54,7 @@ trait PaginatesApi
         );
     }
 
-    protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200)
+    protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200, ?string $resourceClass = null)
     {
         $meta = [
             'current_page' => $paginator->currentPage(),
@@ -67,28 +67,20 @@ trait PaginatesApi
             'prev_page_url' => $paginator->previousPageUrl(),
             'links' => $this->buildLinks($paginator),
         ];
+        
+        $items = $paginator->items();
+        if ($resourceClass) {
+            $items = array_map(function ($item) use ($resourceClass) {
+                return (new $resourceClass($item))->toArray(request());
+            }, $items);
+        }
 
-        return ApiResponse::success()
-
-        return response()->json([
-            'status' => true,
-            'message' => $message,
-            'data' => $paginator->items(),
-            'meta' => $meta,
-        ], $code);
+        return ApiResponse::successWithPagination($items, $meta, $message, $code);
     }
 
     protected function respondWithPaginationResource(Request $request, LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200)
     {
-        $mapped = $this->mapPaginatorItems(
-            $paginator,
-            function ($item, $req) use ($resourceClass) {
-                return (new $resourceClass($item))->toArray($req ?? request());
-            },
-            $request
-        );
-
-        return $this->respondWithPagination($mapped, $message, $code);
+        return $this->respondWithPagination($paginator, $message, $code, $resourceClass);
     }
 
     protected function buildLinks(LengthAwarePaginator $paginator): array

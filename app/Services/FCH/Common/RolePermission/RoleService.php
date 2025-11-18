@@ -4,6 +4,9 @@ namespace App\Services\FCH\Common\RolePermission;
 
 use App\Models\Common\Role;
 use App\Models\Common\Permission;
+use App\Http\Resources\FCH\Role\RoleResource;
+use App\Traits\PaginatesApi;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -18,18 +21,14 @@ use Spatie\Permission\PermissionRegistrar;
  */
 class RoleService
 {
-    /**
-     * List all roles for a specific business.
-     *
-     * @param int|string $partnerId
-     * @param int $perPage
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
-     */
-    public function list($partnerId, int $perPage = 15)
+
+    use PaginatesApi;
+
+    public function list($partnerId, Request $request)
     {
-        return Role::where('partner_id', $partnerId)
-            ->with('permissions')
-            ->paginate($perPage);
+        $query = Role::where('partner_id', $partnerId)->with('permissions');
+        $paginator = $this->paginateBuilder($request, $query);
+        return $this->respondWithPaginationResource($request, $paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }
 
     /**

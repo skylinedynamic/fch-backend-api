@@ -15,4 +15,5 @@ return [
     'role_updated' => 'Role updated successfully.',
     'role_deleted' => 'Role deleted successfully.',
     'role_details' => 'Role details fetched successfully.',
+    'role_list_retrieved' => 'Role list retrieved successfully.',
 ];
