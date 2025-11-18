@@ -33,26 +33,11 @@ trait PaginatesApi
         return $query->paginate($perPage, ['*'], 'page', $page);
     }
 
-    protected function mapPaginatorItems(LengthAwarePaginator $paginator, callable $mapper, ?Request $request = null): LengthAwarePaginator
+    protected function paginateBuilderWith(EloquentBuilder|QueryBuilder $query, int $perPage = 15, int $page = 1): LengthAwarePaginator
     {
-        $items = $paginator->items();
-        $transformed = [];
-
-        foreach ($items as $item) {
-            $transformed[] = $mapper($item, $request);
-        }
-
-        return new LengthAwarePaginator(
-            $transformed,
-            $paginator->total(),
-            $paginator->perPage(),
-            $paginator->currentPage(),
-            [
-                'path' => $request ? $request->url() : request()->url(),
-                'query' => $request ? $request->query() : request()->query(),
-            ]
-        );
+        return $query->paginate($perPage, ['*'], 'page', $page);
     }
+
 
     protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200, ?string $resourceClass = null)
     {
