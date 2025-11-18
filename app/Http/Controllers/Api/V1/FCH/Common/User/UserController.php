@@ -110,8 +110,6 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, int $id)
     {
-        $roleId = Role::where('name',$request->role_id)->first()->id ?? null;
-        
         $data = $request->validated();
 
         if (empty($data['password'] ?? null)) {
@@ -120,7 +118,7 @@ class UserController extends Controller
 
         $user = User::findOrFail($id);
         try {
-            $updated = $this->userService->update($user, $data, $roleId);
+            $updated = $this->userService->update($user, $data, $request->role_id);
             return ApiResponse::success(
                 new UserResource($updated),
                 __('user.user_updated')
