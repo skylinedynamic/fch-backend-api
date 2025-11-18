@@ -28,7 +28,7 @@ class RoleService
     {
         $query = Role::where('partner_id', $partnerId)->with('permissions');
         $paginator = $this->paginateBuilder($request, $query);
-        return $this->respondWithPaginationResource($request, $paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
+        return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }
 
     /**

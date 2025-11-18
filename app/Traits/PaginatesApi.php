@@ -63,7 +63,7 @@ trait PaginatesApi
         return ApiResponse::successWithPagination($items, $meta, $message, $code);
     }
 
-    protected function respondWithPaginationResource(Request $request, LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200)
+    protected function respondWithPaginationResource(LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200)
     {
         return $this->respondWithPagination($paginator, $message, $code, $resourceClass);
     }
