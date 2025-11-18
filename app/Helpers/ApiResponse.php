@@ -2,8 +2,8 @@
 
 namespace App\Helpers;
 
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ApiResponse
 {
@@ -34,26 +34,23 @@ class ApiResponse
      * @return JsonResponse
      */
 
-    public static function successWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200): JsonResponse
+    public static function successWithPagination($data = [],LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200): JsonResponse
     {
         return response()->json([
             'status' => true,
             'message' => $message,
-            'data' => $paginator->items(),
+            'data' => $data,
             // Standard pagination links
-            'links' => [
-                'first' => $paginator->url(1),
-                'last'  => $paginator->url($paginator->lastPage()),
-                'prev'  => $paginator->previousPageUrl(),
-                'next'  => $paginator->nextPageUrl(),
-            ],
-            // Standard pagination meta/info
-            'pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'first_page'   => 1,
-                'last_page'    => $paginator->lastPage(),
-                'total'        => $paginator->total(),
+            'meta' => [
+                 'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'next_page_url' => $paginator->nextPageUrl(),
+                'prev_page_url' => $paginator->previousPageUrl(),
+                'links' => $paginator->linkCollection(),
             ],
         ], $code);
     }

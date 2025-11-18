@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
+use App\Services\Global\Datatable\QueryFilter;
 use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
@@ -66,64 +67,105 @@ class UserService
     /**
      * Get List
      */
-    public function list(Request $request)
+    // public function list(Request $request)
+    // {
+    //     $partnerId = auth()->user()->partner_id;
+
+    //     $query = User::with('roles')
+    //         ->where('partner_id', $partnerId);
+
+    //     if ($request->filled('search')) {
+    //         $search = $request->input('search');
+    //         $query->where(function ($q) use ($search) {
+    //             $q->where('name', 'like', "%{$search}%")
+    //             ->orWhere('email', 'like', "%{$search}%")
+    //             ->orWhere('phone_number', 'like', "%{$search}%")
+    //             ->orWhereHas('roles', function ($roleQuery) use ($search) {
+    //                 $roleQuery->where('name', 'like', "%{$search}%");
+    //             });
+    //         });
+    //     }
+
+    //     if ($request->filled('role_id')) {
+    //         $roleId = $request->input('role_id');
+    //         $query->whereHas('roles', function ($q) use ($roleId) {
+    //             $q->where('id', $roleId);
+    //         });
+    //     }
+
+    //     if ($request->filled('filters')) {
+    //         $filtersInput = $request->input('filters');
+    //         $filters = is_array($filtersInput) ? $filtersInput : json_decode($filtersInput, true);
+
+    //         if (!empty($filters['email']['value'])) {
+    //             $email = $filters['email']['value'];
+    //             $query->where('email', 'like', "%{$email}%");
+    //         }
+
+    //         if (!empty($filters['status']['value'])) {
+    //             $status = $filters['status']['value'];
+    //             $query->where('status', $status);
+    //         }
+    //     }
+
+    //     $allowedSortFields = ['id', 'name', 'email', 'status'];
+    //     $sortField = $request->input('sort_field', 'id');
+    //     $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+    //     if (!in_array($sortField, $allowedSortFields)) {
+    //         $sortField = 'id';
+    //     }
+
+    //     $query->orderBy($sortField, $sortOrder);
+
+    //     $perPage = $request->input('per_page')
+    //         ? (int) $request->input('per_page')
+    //         : config('pagination.per_page', 10);
+
+    //     $page = $request->input('page', 1);
+
+    //     return $query->paginate($perPage, ['*'], 'page', $page);
+    // }
+
+    /**
+     * Paginate Users
+     */
+    public function list(int $partnerId, array $filters)
     {
-        $partnerId = auth()->user()->partner_id;
+        $query = User::query()->where('partner_id', $partnerId)->with(['roles']);
 
-        $query = User::with('roles')
-            ->where('partner_id', $partnerId);
-
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone_number', 'like', "%{$search}%")
-                ->orWhereHas('roles', function ($roleQuery) use ($search) {
-                    $roleQuery->where('name', 'like', "%{$search}%");
-                });
-            });
+        if (!empty($filters['search'])) {
+            $query->search(trim((string) $filters['search']));
         }
 
-        if ($request->filled('role_id')) {
-            $roleId = $request->input('role_id');
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        // if (!empty($filters['role'])) {
+        //     $query->where('role', $filters['role']);
+        // }
+
+        if (!empty($filters['role_id'])) {
+            $roleId = $filters['role_id'];
             $query->whereHas('roles', function ($q) use ($roleId) {
                 $q->where('id', $roleId);
             });
         }
 
-        if ($request->filled('filters')) {
-            $filtersInput = $request->input('filters');
-            $filters = is_array($filtersInput) ? $filtersInput : json_decode($filtersInput, true);
+        //Sorting
+        $sortField = $filters['sort_field']  ?? 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
-            if (!empty($filters['email']['value'])) {
-                $email = $filters['email']['value'];
-                $query->where('email', 'like', "%{$email}%");
-            }
+        $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
 
-            if (!empty($filters['status']['value'])) {
-                $status = $filters['status']['value'];
-                $query->where('status', $status);
-            }
-        }
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-        $allowedSortFields = ['id', 'name', 'email', 'status'];
-        $sortField = $request->input('sort_field', 'id');
-        $sortOrder = strtolower($request->input('sort_order', 'desc')) === 'asc' ? 'asc' : 'desc';
+    
+        return $query->orderBy('id','desc')->paginate($perPage, ['*'], 'page', $page);
+        // return $query->paginate($perPage, ['*'], 'page', $page);
 
-        if (!in_array($sortField, $allowedSortFields)) {
-            $sortField = 'id';
-        }
-
-        $query->orderBy($sortField, $sortOrder);
-
-        $perPage = $request->input('per_page')
-            ? (int) $request->input('per_page')
-            : config('pagination.per_page', 10);
-
-        $page = $request->input('page', 1);
-
-        return $query->paginate($perPage, ['*'], 'page', $page);
     }
 
     /**
