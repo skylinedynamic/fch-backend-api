@@ -18,6 +18,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Resources\Global\Auth\UserResource;
 
 class UserService
 {
@@ -157,15 +158,20 @@ class UserService
         $sortField = $filters['sort_field']  ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
+       // dd($sortField,$sortOrder,$filters['filters']);
         $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
     
-        return $query->orderBy('id','desc')->paginate($perPage, ['*'], 'page', $page);
-        // return $query->paginate($perPage, ['*'], 'page', $page);
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
+        return $this->respondWithPaginationResource(
+            $paginator,
+            UserResource::class,
+            __('user.user_list_retrieved')
+        );
     }
 
     /**

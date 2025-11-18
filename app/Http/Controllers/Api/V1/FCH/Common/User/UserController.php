@@ -55,16 +55,10 @@ class UserController extends Controller
                 'sort_order' => $input['sort_order'] ?? null,
             ];
 
-            $users = $this->userService->list($partnerId, $filters);
-
-            return ApiResponse::successWithPagination(UserResource::collection($users->items()), $users, __('user.user_list_retrieved'));
+            return $this->userService->list($partnerId, $filters);
 
         } catch (Throwable $e) {
-            return response()->json([
-                'status' => false,
-                'message' => __('user.failed_to_retrieve_users'),
-                'error' => $e->getMessage(),
-            ], 500);
+            return ApiResponse::serverError(__('user.failed_to_retrieve_users'), 500);
         }
     }
 
@@ -122,17 +116,12 @@ class UserController extends Controller
         try {
             $this->userService->delete($user);
 
-          return response()->json([
-            'status' => true,
-            'message' => __('user.user_deleted'),
-            'data' => new UserResource($user),
-        ], Response::HTTP_OK);
+           return ApiResponse::success(
+             new UserResource($user),
+            __('user.user_deleted')
+           );
         } catch (\Throwable $e) {
-            return response()->json([
-                'status' => false,
-                'message' => __('user.user_delete_failed'),
-                'error' => $e->getMessage(),
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return ApiResponse::serverError(__('user.user_delete_failed'), 500);
         }
     }
 }
