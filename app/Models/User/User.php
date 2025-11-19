@@ -5,6 +5,7 @@ namespace App\Models\User;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use OTPHP\TOTP;
+use App\Models\Common\Role;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Services\Global\Notification\NotificationService;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 
 class User extends Authenticatable implements OAuthenticatable
@@ -449,20 +451,28 @@ class User extends Authenticatable implements OAuthenticatable
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
 
-        public function scopeSearch($query, ?string $search)
-        {
-            if (!is_string($search) || trim($search) === '') {
-                return $query;
-            }
-
-            $search = trim($search);
-
-            return $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone_number', 'like', "%{$search}%")
-                ->orWhere('role', 'like', "%{$search}%")
-                ->orWhere('status', 'like', "%{$search}%");
-            });
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
         }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+            ->orWhere('email', 'like', "%{$search}%")
+            ->orWhere('phone_number', 'like', "%{$search}%");
+        });
+    }
+
+    public function getRoleNamesListAttribute(): string
+    {
+        return $this->roles->pluck('name')->implode(', ');
+    }
+
+    public function getFirstRoleAttribute()
+    {
+        return $this->roles->first()?->name;
+    }
 }

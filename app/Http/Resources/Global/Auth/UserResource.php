@@ -16,8 +16,10 @@ class UserResource extends JsonResource
     {
         // Resolve role name from preloaded roles only (no lazy loads)
         $roleName = null;
+        $roleId = null;
         if ($this->relationLoaded('roles')) {
             $roleName = optional($this->roles->first())->name;
+            $roleId = optional($this->roles->first())->id;
         }
 
         // Resolve permissions from preloaded relations only (no lazy loads)
@@ -44,7 +46,8 @@ class UserResource extends JsonResource
             'entity_type' => $this->entity_name,
             'status' => $this->status,
             'image' => $this->image,
-            'role' => $roleName,
+            'role_id' => $roleId,
+            'role_name' => $roleName,
             'permissions' => $permissionNames,
         ];
     }
