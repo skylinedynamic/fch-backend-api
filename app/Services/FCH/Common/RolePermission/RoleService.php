@@ -85,53 +85,23 @@ class RoleService
     }
 
 
-    public function update(Role $role, array $data, $partnerId)
+    public function update(Role $role, array $data)
     {
-        return DB::transaction(function () use ($role, $data, $partnerId) {
-            // Step 1: Update role information
+        return DB::transaction(function () use ($role, $data) {
             $role->update([
                 'name' => $data['name'] ?? $role->name,
-                'guard_name' => 'api',
             ]);
+            $permissionIds = $data['permission_ids'] ?? [];
+            $permissions = Permission::query()
+                ->whereIn('id', $permissionIds)
+                ->get();
 
-            // Step 2: Sync permissions
-            $permissions = collect();
+            $role->syncPermissions($permissions);
 
-            if (!empty($data['permission_ids'])) {
-                $permissions = Permission::whereIn('id', $data['permission_ids'])
-                    ->where('partner_id', $partnerId)
-                    ->where('guard_name', 'api')
-                    ->get();
-
-                $role->syncPermissions($permissions);
-            }
-
-            // Step 3: Sync users under this role
-            $userIds = DB::table('model_has_roles')
-                ->where('role_id', $role->id)
-                ->where('model_type', \App\Models\User\User::class)
-                ->pluck('model_id');
-
-            if ($userIds->isNotEmpty() && $permissions->isNotEmpty()) {
-                // Remove existing user permissions
-                DB::table('model_has_permissions')
-                    ->whereIn('model_id', $userIds)
-                    ->where('model_type', \App\Models\User\User::class)
-                    ->delete();
-
-                // Assign updated permissions to each user
-                $insertData = [];
-                foreach ($userIds as $userId) {
-                    foreach ($permissions as $permission) {
-                        $insertData[] = [
-                            'permission_id' => $permission->id,
-                            'model_type'    => \App\Models\User\User::class,
-                            'model_id'      => $userId,
-                        ];
-                    }
-                }
-
-                DB::table('model_has_permissions')->insert($insertData);
+            $role->load('users');
+            
+            foreach ($role->users as $user) {
+                $user->syncPermissions($permissions);
             }
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();

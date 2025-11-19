@@ -22,8 +22,8 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'admin@fch.com'],
             [
-                'name' => 'Admin User',
-                'phone_number' => '+1234567890',
+                'name' => $hostPartner?->owner_name ?: $hostPartner?->company_name,
+                'phone_number' => $hostPartner?->owner_phone_number ?: $hostPartner?->company_phone_number,
                 'user_type' => User::ADMIN,
                 'password' => Hash::make('12345678'),
                 'status' => User::STATUS['active'],
@@ -87,32 +87,31 @@ class UserSeeder extends Seeder
             );
         }
 
-        // 4) Create Employee users linked to employees under partners
-        $employees = DB::table('employees')->get();
-        foreach ($employees as $e) {
-            $email = $e->email;
-            if (!$email) {
-                // Skip creating a user if employee has no email
-                continue;
+       
+
+        // 5) Add 10 generic users per partner (idempotent)
+        $partners = DB::table('partners')->get();
+        foreach ($partners as $p) {
+            for ($i = 1; $i <= 10; $i++) {
+                $email = "user{$i}.partner{$p->id}@example.test";
+                $name = "Partner {$p->id} User {$i}";
+                $phone = $p->phone_number ?? ('555' . str_pad($p->id . $i, 7, '0', STR_PAD_LEFT));
+
+                User::updateOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $name,
+                        'phone_number' => $phone,
+                        'user_type' => $p->is_host ? User::ADMIN : User::PARTNER,
+                        'password' => Hash::make('12345678'),
+                        'status' => User::STATUS['active'],
+                        'email_verified_at' => now(),
+                        'partner_id' => $p->id,
+                        'entity_type' => null,
+                        'entity_id' => null,
+                    ]
+                );
             }
-
-            $fullName = trim(($e->first_name ?? '') . ' ' . ($e->last_name ?? ''));
-            $phone = $e->phone_number_1 ?: $e->phone_number_2;
-
-            User::updateOrCreate(
-                ['email' => $email],
-                [
-                    'name' => $fullName ?: ('Employee #' . $e->id),
-                    'phone_number' => $phone,
-                    'user_type' => 'Employee', // No constant defined; using explicit string
-                    'password' => Hash::make('12345678'),
-                    'status' => User::STATUS['active'],
-                    'email_verified_at' => now(),
-                    'partner_id' => $e->partner_id,
-                    'entity_type' => Employee::class,
-                    'entity_id' => $e->id,
-                ]
-            );
         }
     }
 }

@@ -68,6 +68,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,               // Create users mapped to partner/borrower/employee entities
             BorrowerDocTypesSeeder::class,   // Seed borrower document types
             PermissionSeeder::class,         // Role and Permissions seeder
+            RoleSeeder::class,               // Create roles under partners
+            UserRoleSeeder::class,           // Assign roles to users and sync permissions
         ]);
     }
 }

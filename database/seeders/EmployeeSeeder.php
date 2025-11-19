@@ -12,136 +12,22 @@ class EmployeeSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('employees')->insert([
-            [
-                'partner_id' => 2, // Tech Solutions Inc
-                'first_name' => 'John',
-                'last_name' => 'Partner',
-                'email' => 'john.partner.employee@example.com',
-                'phone_number_1' => '+1234567891',
-                'phone_number_2' => '+1234567892',
-                'date_of_birth' => '1980-05-20',
-                'gender' => 'male',
-                'city' => 'Los Angeles',
-                'state' => 'CA',
-                'postal_code' => '90210',
-                'country' => 'USA',
-                'address' => '456 Oak St',
-                'ssn' => '123-45-6789',
-                'image' => 'john_partner.jpg',
-                'department' => 'Business Development',
-                'designation' => 'Partner Manager',
-                'job_status' => 'Active',
-                'joining_date' => '2021-03-15',
-                'identification_number' => 'EMP-0002',
-                'blood_group' => 'A+',
-                'place_of_birth' => 'Los Angeles',
-                'emergency_contact' => 'Mary Partner',
-                'emergency_phone' => '+1234567899',
-                'marital_status' => 'Married',
-                'no_of_children' => '1',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'partner_id' => 3, // Green Energy Solutions LLC
-                'first_name' => 'Sarah',
-                'last_name' => 'Wilson',
-                'email' => 'sarah.wilson.employee@example.com',
-                'phone_number_1' => '+1234567892',
-                'phone_number_2' => '+1234567893',
-                'date_of_birth' => '1988-03-12',
-                'gender' => 'female',
-                'city' => 'Chicago',
-                'state' => 'IL',
-                'postal_code' => '60601',
-                'country' => 'USA',
-                'address' => '789 Pine St',
-                'ssn' => '987-65-4321',
-                'image' => 'sarah_wilson.jpg',
-                'department' => 'Finance',
-                'designation' => 'Chief Accountant',
-                'job_status' => 'Active',
-                'joining_date' => '2019-09-01',
-                'identification_number' => 'EMP-0003',
-                'blood_group' => 'B+',
-                'place_of_birth' => 'Chicago',
-                'emergency_contact' => 'Tom Wilson',
-                'emergency_phone' => '+1234567800',
-                'marital_status' => 'Married',
-                'no_of_children' => '2',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'partner_id' => 2, // Tech Solutions Inc
-                'first_name' => 'David',
-                'last_name' => 'Thompson',
-                'email' => 'david.thompson@techsolutions.com',
-                'phone_number_1' => '+1234567896',
-                'phone_number_2' => '+1234567897',
-                'date_of_birth' => '1985-11-08',
-                'gender' => 'male',
-                'city' => 'San Francisco',
-                'state' => 'CA',
-                'postal_code' => '94105',
-                'country' => 'USA',
-                'address' => '404 Elm St',
-                'ssn' => '456-78-9012',
-                'image' => 'david_thompson.jpg',
-                'department' => 'IT Support',
-                'designation' => 'IT Specialist',
-                'job_status' => 'Active',
-                'joining_date' => '2022-08-01',
-                'identification_number' => 'EMP-0007',
-                'blood_group' => 'B-',
-                'place_of_birth' => 'San Diego',
-                'emergency_contact' => 'Maria Thompson',
-                'emergency_phone' => '+1234567004',
-                'marital_status' => 'Married',
-                'no_of_children' => '0',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'partner_id' => 3, // Green Energy Solutions LLC
-                'first_name' => 'Lisa',
-                'last_name' => 'Martinez',
-                'email' => 'lisa.martinez@greenenergy.com',
-                'phone_number_1' => '+1234567897',
-                'phone_number_2' => '+1234567898',
-                'date_of_birth' => '1990-07-22',
-                'gender' => 'female',
-                'city' => 'Austin',
-                'state' => 'TX',
-                'postal_code' => '78701',
-                'country' => 'USA',
-                'address' => '505 Oak St',
-                'ssn' => '789-01-2345',
-                'image' => 'lisa_martinez.jpg',
-                'department' => 'Human Resources',
-                'designation' => 'HR Manager',
-                'job_status' => 'Active',
-                'joining_date' => '2021-01-10',
-                'identification_number' => 'EMP-0008',
-                'blood_group' => 'A-',
-                'place_of_birth' => 'Austin',
-                'emergency_contact' => 'Mike Martinez',
-                'emergency_phone' => '+1234567005',
-                'marital_status' => 'Single',
-                'no_of_children' => '0',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ]);
-
-        // Generate 50 employees for partner 1 and 50 employees for partner 2
+        // Generate 10 employees for every partner (with full random profile fields)
         $departments = ['Operations', 'Finance', 'IT', 'HR', 'Sales', 'Support'];
         $designations = ['Staff', 'Manager', 'Lead', 'Analyst', 'Coordinator', 'Specialist'];
+        $citiesStates = [
+            ['Los Angeles', 'CA'], ['San Francisco', 'CA'], ['Austin', 'TX'], ['Chicago', 'IL'],
+            ['New York', 'NY'], ['Miami', 'FL'], ['Seattle', 'WA'], ['Denver', 'CO'],
+            ['Phoenix', 'AZ'], ['Atlanta', 'GA'], ['Charlotte', 'NC']
+        ];
+        $streets = ['Oak', 'Pine', 'Elm', 'Maple', 'Cedar', 'Walnut', 'Birch', 'Ash', 'Cherry', 'Willow'];
+        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+        $genders = ['male', 'female'];
+        $maritalStatuses = ['Single', 'Married'];
 
         $bulk = [];
-        foreach ([1, 2] as $partnerId) {
-            for ($i = 1; $i <= 50; $i++) {
+        foreach (DB::table('partners')->pluck('id') as $partnerId) {
+            for ($i = 1; $i <= 10; $i++) {
                 $firstName = "Employee{$partnerId}{$i}";
                 $lastName = "User";
                 $department = $departments[$i % count($departments)];
@@ -150,6 +36,27 @@ class EmployeeSeeder extends Seeder
                 $phone1 = '+100000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
                 $phone2 = '+200000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
 
+                // Random profile fields
+                $gender = $genders[array_rand($genders)];
+                $cs = $citiesStates[array_rand($citiesStates)];
+                $city = $cs[0];
+                $state = $cs[1];
+                $postal = str_pad((string) mt_rand(10000, 99999), 5, '0', STR_PAD_LEFT);
+                $country = 'USA';
+                $address = mt_rand(100, 999) . ' ' . $streets[array_rand($streets)] . ' St';
+                $ssn = sprintf('%03d-%02d-%04d', mt_rand(100, 999), mt_rand(10, 99), mt_rand(1000, 9999));
+                $image = "employee_{$partnerId}_{$i}.jpg";
+                $dobTs = mt_rand(strtotime('1970-01-01'), strtotime('2002-12-31'));
+                $dateOfBirth = date('Y-m-d', $dobTs);
+                $joinTs = mt_rand(strtotime('2018-01-01'), strtotime('2024-12-31'));
+                $joiningDate = date('Y-m-d', $joinTs);
+                $bloodGroup = $bloodGroups[array_rand($bloodGroups)];
+                $placeOfBirth = $city;
+                $emergencyContact = $firstName . ' ' . $lastName . ' Contact';
+                $emergencyPhone = '+300000' . str_pad((string) ($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
+                $maritalStatus = $maritalStatuses[array_rand($maritalStatuses)];
+                $noOfChildren = (string) mt_rand(0, 3);
+
                 $bulk[] = [
                     'partner_id' => $partnerId,
                     'first_name' => $firstName,
@@ -157,10 +64,26 @@ class EmployeeSeeder extends Seeder
                     'email' => $email,
                     'phone_number_1' => $phone1,
                     'phone_number_2' => $phone2,
+                    'date_of_birth' => $dateOfBirth,
+                    'gender' => $gender,
+                    'city' => $city,
+                    'state' => $state,
+                    'postal_code' => $postal,
+                    'country' => $country,
+                    'address' => $address,
+                    'ssn' => $ssn,
+                    'image' => $image,
                     'department' => $department,
                     'designation' => $designation,
                     'job_status' => 'Active',
+                    'joining_date' => $joiningDate,
                     'identification_number' => sprintf('EMP-P%d-%03d', $partnerId, $i),
+                    'blood_group' => $bloodGroup,
+                    'place_of_birth' => $placeOfBirth,
+                    'emergency_contact' => $emergencyContact,
+                    'emergency_phone' => $emergencyPhone,
+                    'marital_status' => $maritalStatus,
+                    'no_of_children' => $noOfChildren,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];

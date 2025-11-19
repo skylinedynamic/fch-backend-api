@@ -20,16 +20,17 @@ class UpdateRoleRequest extends FormRequest
     {
         $partnerId = Auth::user()->partner_id;
         $roleId = $this->route('role');
+
         return [
             'name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('roles')->where(function ($query) use ($partnerId, $roleId) {
-                    return $query->where('partner_id', $partnerId)
-                                ->where('id', '!=', $roleId);
-                }),
+                Rule::unique('roles')
+                    ->where(fn($query) => $query->where('partner_id', $partnerId))
+                    ->ignore($roleId), 
             ],
+
             'permission_ids' => 'required|array|exists:permissions,id',
         ];
     }
