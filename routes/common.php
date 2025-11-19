@@ -45,6 +45,7 @@ Route::prefix('v1')->group(function () {
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
             Route::post('employees/fetch-employees',[EmployeeController::class,'fetchEmployees']);
+            Route::post('employees/fetch-department-status',[EmployeeController::class,'fetchDepartmentStatus']);
             Route::apiResource('employees', EmployeeController::class);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
