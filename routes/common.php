@@ -51,7 +51,7 @@ Route::prefix('v1')->group(function () {
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
             Route::apiResource('users', UserController::class);
             
-            Route::get('permissions', [PermissionController::class, 'index']);
+            Route::post('permissions', [PermissionController::class, 'index']);
         });
 
         // V1 Notification routes

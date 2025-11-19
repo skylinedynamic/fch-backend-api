@@ -47,53 +47,45 @@ class RoleService
         return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }
 
-    /**
-     * Create a new role and optionally assign permissions.
-     *
-     * @param array $data
-     * @return Role
-     *
-     * @throws \InvalidArgumentException
-     */
-    public function create(array $data): Role
+ 
+    public function create(array $data)
     {
-        if (empty($data['partner_id'])) {
-            throw new \InvalidArgumentException('Partner ID is required to create a role.');
+        DB::beginTransaction();
+        try {
+            if (empty($data['partner_id'])) {
+                throw ApiResponse::error(__('role_permission.partner_id_required'));
+            }
+
+            $data['guard_name'] = 'api';
+            $data['name'] = trim((string) ($data['name'] ?? ''));
+            $permissionIds = array_values(array_unique(array_filter(array_map('intval', $data['permission_ids'] ?? []), function ($id) { return $id > 0; })));
+            $role = Role::create([
+                'name' => $data['name'],
+                'guard_name' => $data['guard_name'],
+                'partner_id' => $data['partner_id'],
+            ]);
+
+            if (!empty($permissionIds)) {
+                $permissions = Permission::whereIn('id', $permissionIds)
+                    ->where('guard_name', 'api')
+                    ->get();
+                if ($permissions->isNotEmpty()) {
+                    $role->syncPermissions($permissions);
+                }
+            }
+
+            DB::commit();
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            return ApiResponse::success($role, __('role_permission.role_created'), 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return ApiResponse::error(__('role_permission.role_create_error'), 400);
         }
-
-        $data['guard_name'] = 'api';
-
-        $role = Role::create([
-            'name' => $data['name'],
-            'guard_name' => $data['guard_name'],
-            'partner_id' => $data['partner_id'],
-        ]);
-
-        if (!empty($data['permission_ids'])) {
-            $permissions = Permission::whereIn('id', $data['permission_ids'])
-                ->where('guard_name', 'api')
-                ->get();
-
-            $role->syncPermissions($permissions);
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        return $role->load('permissions');
     }
 
-    /**
-     * Update an existing role and synchronize its permissions.
-     *
-     * Updates both the role and all users assigned to it
-     * to ensure permission consistency.
-     *
-     * @param Role $role
-     * @param array $data
-     * @param int|string $partnerId
-     * @return Role
-     */
-    public function update(Role $role, array $data, $partnerId): Role
+
+    public function update(Role $role, array $data, $partnerId)
     {
         return DB::transaction(function () use ($role, $data, $partnerId) {
             // Step 1: Update role information

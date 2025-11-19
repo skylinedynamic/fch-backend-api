@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\RolePermission;
 
 use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
+use App\Http\Resources\FCH\User\UserResource;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Services\FCH\Common\RolePermission\RoleService;
@@ -52,59 +54,44 @@ class RoleController extends Controller
     /**
      * Store Role
      *
-     * @param StoreRoleRequest $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function store(StoreRoleRequest $request)
     {
         $partnerId = $request->user()->partner_id;
 
-        // ✅ Create new role
-        $data = $request->only(['name', 'guard_name', 'permission_ids']);
+        $data = $request->only(['name', 'permission_ids']);
         $data['partner_id'] = $partnerId;
-        $data['guard_name'] = $data['guard_name'] ?? 'api';
 
-        $role = $this->roleService->create($data);
+        return $this->roleService->create($data);
 
-        return response()->json([
-            'status' => true,
-            'message' => __('role_permission.role_created'),
-            'data' => $role,
-        ], 201);
     }
 
     /**
      * Details Role
      *
-     * @param Role $role
-     * @return \Illuminate\Http\JsonResponse
      */
     public function show(Role $role)
     {
-        return response()->json([
-            'status' => true,
-            'message' => __('role_permission.role_details'),
-            'data' => $role->load('permissions'),
-        ]);
+        $role->load(['permissions', 'users']);
+
+        $payload = [
+            'id' => $role->id,
+            'name' => $role->name,
+            'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
+            'users' => UserResource::collection($role->users)->toArray(request()),
+        ];
+
+        return ApiResponse::success($payload, __('role_permission.role_details'));
     }
 
     /**
      * Update Role
      *
-     * @param UpdateRoleRequest $request
-     * @param int $id
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function update(UpdateRoleRequest $request, int $id)
+    public function update(UpdateRoleRequest $request, Role $role)
     {
         $partnerId = auth()->user()->partner_id;
-
-        $role = Role::where('id', $id)
-            ->where('partner_id', $partnerId)
-            ->first();
-
         $updatedRole = $this->roleService->update($role, $request->validated(), $partnerId);
-
         return response()->json([
             'status' => true,
             'message' => __('role_permission.role_updated'),

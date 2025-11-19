@@ -37,10 +37,20 @@ class PermissionSeeder extends Seeder
         }
 
         foreach ($permissionNames as $name) {
-            Permission::updateOrCreate([
-                'name' => $name,
-                'guard_name' => 'api',
-            ]);
+            $module = '';
+            if (Str::contains($name, ' ')) {
+                $module = (string) Str::of($name)->after(' ')->trim();
+            }
+
+            Permission::updateOrCreate(
+                [
+                    'name' => $name,
+                    'guard_name' => 'api',
+                ],
+                [
+                    'module' => $module,
+                ]
+            );
         }
 
         // Resolve full permission set once
@@ -65,12 +75,12 @@ class PermissionSeeder extends Seeder
             );
 
             $staffPerms = $allPerms->filter(function (Permission $p) {
-                return Str::startsWith($p->name, ['View.', 'List.']);
+                return Str::startsWith($p->name, ['view ']);
             });
 
             $managerPerms = $allPerms->filter(function (Permission $p) {
-                $startsAllowed = Str::startsWith($p->name, ['View.', 'List.', 'Create.', 'Edit.', 'Export.']);
-                $startsExcluded = Str::startsWith($p->name, ['Delete.', 'Manage.']);
+                $startsAllowed = Str::startsWith($p->name, ['view ', 'create ', 'update ']);
+                $startsExcluded = Str::startsWith($p->name, ['delete ']);
                 return $startsAllowed && !$startsExcluded;
             });
 

@@ -16,4 +16,6 @@ return [
     'role_deleted' => 'Role deleted successfully.',
     'role_details' => 'Role details fetched successfully.',
     'role_list_retrieved' => 'Role list retrieved successfully.',
+    'role_create_error' => 'Role creation failed.',
+    'partner_id_required' => 'Partner ID is required to create a role.',
 ];

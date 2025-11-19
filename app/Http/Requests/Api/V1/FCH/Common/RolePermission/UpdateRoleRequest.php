@@ -7,6 +7,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 use App\Helpers\ApiResponse;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateRoleRequest extends FormRequest
 {
@@ -17,18 +18,19 @@ class UpdateRoleRequest extends FormRequest
 
     public function rules()
     {
-        $roleId = $this->route('id'); // Get role ID from route
-        $businessId = $this->user()?->business_id;
-
+        $partnerId = Auth::user()->partner_id;
+        $roleId = $this->route('role');
         return [
             'name' => [
                 'required',
                 'string',
                 'max:255',
-                // ✅ Ensure unique name within same business, ignoring current role
-                Rule::unique('roles')->ignore($this->route('role')),
+                Rule::unique('roles')->where(function ($query) use ($partnerId, $roleId) {
+                    return $query->where('partner_id', $partnerId)
+                                ->where('id', '!=', $roleId);
+                }),
             ],
-            'permission_ids' => 'required|array',
+            'permission_ids' => 'required|array|exists:permissions,id',
         ];
     }
 
