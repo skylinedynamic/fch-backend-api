@@ -16,71 +16,88 @@ class QueryFilter
      * - full_name_field: logical field name for concatenated name (default 'full_name')
      * - full_name_columns: columns used for concatenation (default ['first_name','last_name'])
      */
-    public static function apply(Builder $query, string $sortField = 'id', string $sortOrder = 'desc', $rawFilters = [], array $options = []): Builder
+    public static function apply(Builder $query, $sortField, $sortOrder, $rawFilters, array $options = []): Builder
     {
-        // Decode JSON filters if needed
+        // Apply sorting
+         if (!($options['skip_sorting'] ?? false)) {
+            $query->orderBy($sortField, $sortOrder);
+        }
+        $query->orderBy($sortField, $sortOrder);
+        
         if (is_string($rawFilters)) {
             $decoded = json_decode($rawFilters, true);
             $rawFilters = is_array($decoded) ? $decoded : [];
         }
 
-        if (!is_array($rawFilters)) {
-            $rawFilters = [];
+        if (!is_array($rawFilters) || empty($rawFilters)) {
+            return $query;
         }
 
         $aliases = $options['aliases'] ?? [];
-
-        // Handle concatenated fields (like full_name)
+        // Support multiple concatenated fields. Backward compatible with full_name_field/full_name_columns.
         $concatFields = $options['concat_fields'] ?? [];
         if (isset($options['full_name_field'])) {
             $concatFields[$options['full_name_field']] = $options['full_name_columns'] ?? ['first_name', 'last_name'];
         }
 
-        // Apply filters
-        foreach ($rawFilters as $field => $def) {
-            if (is_array($def) && isset($def['constraints'])) {
-                // PrimeReact style constraints
-                $constraints = $def['constraints'];
+        // Check if using constraints format
+        $hasConstraints = false;
+        foreach ($rawFilters as $def) {
+            if (is_array($def) && array_key_exists('constraints', $def)) {
+                $hasConstraints = true;
+                break;
+            }
+        }
+
+        if ($hasConstraints) {
+            foreach ($rawFilters as $field => $filterData) {
+                if (!isset($filterData['constraints']) || !is_array($filterData['constraints'])) {
+                    continue;
+                }
+
+                $constraints = $filterData['constraints'];
+
                 $query->where(function ($q) use ($constraints, $field, $aliases, $concatFields) {
                     foreach ($constraints as $c) {
                         $value = $c['value'] ?? null;
-                        $mode = $c['matchMode'] ?? 'contains';
+                        $mode = $c['matchMode'] ?? null;
                         if ($value === null || $value === '') continue;
 
+                        // Concatenated logical fields
                         if (array_key_exists($field, $concatFields)) {
-                            $columns = $concatFields[$field];
-                            self::applyConcatConstraint($q, $mode, (string)$value, $columns);
+                            $def = $concatFields[$field];
+                            $columns = is_array($def) && isset($def['columns']) ? (array) $def['columns'] : (array) $def;
+                            $glue = is_array($def) && isset($def['glue']) ? (string) $def['glue'] : ' ';
+                            self::applyConcatConstraint($q, $mode, (string) $value, $columns, $glue);
                             continue;
                         }
 
                         $column = $aliases[$field] ?? $field;
-                        self::applyConstraint($q, $column, $mode, (string)$value);
+                        self::applyConstraint($q, $column, $mode, (string) $value);
                     }
                 });
-            } elseif (is_array($def) && isset($def['value']) && trim((string)$def['value']) !== '') {
-                // Simple filter
-                $value = trim((string)$def['value']);
+            }
+        } else {
+            // Simple filters: { field: { value } }
+            foreach ($rawFilters as $field => $def) {
+                if (!is_array($def) || empty($def['value'])) continue;
+                $value = trim((string) $def['value']);
+                if ($value === '') continue;
+
+                // Concatenated logical fields
                 if (array_key_exists($field, $concatFields)) {
-                    $columns = $concatFields[$field];
-                    self::applyConcatConstraint($query, 'contains', $value, $columns);
-                    continue;
+                    $defn = $concatFields[$field];
+                    $columns = is_array($defn) && isset($defn['columns']) ? (array) $defn['columns'] : (array) $defn;
+                    $glue = is_array($defn) && isset($defn['glue']) ? (string) $defn['glue'] : ' ';
+                    self::applyConcatConstraint($query, 'contains', $value, $columns, $glue);
+                } else {
+                    $column = $aliases[$field] ?? $field;
+                    $query->where($column, 'like', "%{$value}%");
                 }
-                $column = $aliases[$field] ?? $field;
-                $query->where($column, 'like', "%{$value}%");
             }
         }
 
-        // Apply sorting
-        $sortOrder = strtolower($sortOrder) === 'desc' ? 'desc' : 'asc';
-        if (array_key_exists($sortField, $concatFields)) {
-            // Sorting by concatenated field
-            $columns = $concatFields[$sortField];
-            $expr = self::buildConcatExpr($columns);
-            $query->orderByRaw("{$expr} {$sortOrder}");
-        } else {
-            $column = $aliases[$sortField] ?? $sortField;
-            $query->orderBy($column, $sortOrder);
-        }
+        
 
         return $query;
     }
@@ -165,12 +182,9 @@ class QueryFilter
             }
         };
 
-        $q->where($callback);
+        $q->where(function ($builder) use ($callback) { $callback($builder); });
     }
 
-    /**
-     * Build CONCAT_WS expression for MySQL.
-     */
     protected static function buildConcatExpr(array $columns, string $glue = ' '): string
     {
         // Use CONCAT_WS for flexible concatenation with a glue across N columns

@@ -153,10 +153,6 @@ class UserService
             $query->where('status', $filters['status']);
         }
 
-        // if (!empty($filters['role'])) {
-        //     $query->where('role', $filters['role']);
-        // }
-
         if (!empty($filters['role_id'])) {
             $roleId = $filters['role_id'];
             $query->whereHas('roles', function ($q) use ($roleId) {
@@ -168,8 +164,18 @@ class UserService
         $sortField = $filters['sort_field']  ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
-       // dd($sortField,$sortOrder,$filters['filters']);
-        $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
+       if( $filters['sort_field'] === 'role_name' ){
+             $query = User::query()
+            ->select('users.*')
+            ->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+            ->leftJoin('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->where('model_has_roles.model_type', User::class)
+            ->orderBy('roles.name', $filters['sort_order'])
+            ->with('roles');
+        }
+        else {
+            $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
+        }
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
