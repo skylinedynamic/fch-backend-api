@@ -51,7 +51,7 @@ class EmployeeService
 
         //Sorting
         $sortField = $filters['sort_field']  ? ($filters['sort_field'] == 'full_name' ? 'first_name'  : $filters['sort_field']) : 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
 
         
         if ($sortField === 'phone_number') {
@@ -86,21 +86,6 @@ class EmployeeService
             __('employee.employee_listed')
         );
 
-
-        return [
-            'data' => $employees->items(),
-            'meta' => [
-                'current_page' => $employees->currentPage(),
-                'from' => $employees->firstItem(),
-                'to' => $employees->lastItem(),
-                'per_page' => $employees->perPage(),
-                'total' => $employees->total(),
-                'last_page' => $employees->lastPage(),
-                'next_page_url' => $employees->nextPageUrl(),
-                'prev_page_url' => $employees->previousPageUrl(),
-                'links' => $employees->linkCollection(),
-            ],
-        ];
 
     }
 
