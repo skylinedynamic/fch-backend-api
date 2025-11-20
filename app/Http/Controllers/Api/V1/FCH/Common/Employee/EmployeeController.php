@@ -232,4 +232,16 @@ class EmployeeController extends Controller
             return ApiResponse::serverError(__('employee.fetch_failed'));
         }
     }
+
+     /**
+     * Multiple Delete
+     */
+    public function multipleDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if ($this->employeeService->deleteMultiple($ids)) {
+             return ApiResponse::success([], __('employee.employee_deleted'));
+        }
+        return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
+    }
 }

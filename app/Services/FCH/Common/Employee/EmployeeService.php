@@ -332,4 +332,28 @@ class EmployeeService
 
             return $result;
         }
+
+    /**
+     * Delete Multiple
+     *
+     * @param array $ids
+     * @return bool
+     */
+    public function deleteMultiple(array $ids): bool
+    {
+        if (empty($ids)) {
+            return false;
+        }
+
+        DB::transaction(function () use ($ids) {
+            User::where('entity_type', Employee::class)
+                ->where('partner_id', auth()->user()->partner_id)
+                ->whereIn('entity_id', $ids)
+                ->delete();
+
+            Employee::where('partner_id', auth()->user()->partner_id)->whereIn('id', $ids)->delete();
+        });
+
+        return true;
+    }
 }
