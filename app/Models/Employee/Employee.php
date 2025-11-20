@@ -2,15 +2,16 @@
 
 namespace App\Models\Employee;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User\User;
-use App\Models\Business\Business;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Business\Business;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Employee extends Model
 {
@@ -60,9 +61,10 @@ class Employee extends Model
     /**
      * 🔹 Relationship: each employee belongs to a user.
      */
-    public function user(): BelongsTo
+    public function user(): HasOne
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->hasOne(User::class, 'entity_id')
+            ->where('entity_type', Employee::class);
     }
 
     /**
