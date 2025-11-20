@@ -439,7 +439,7 @@ class User extends Authenticatable implements OAuthenticatable
     public function getEntityNameAttribute(): ?string
     {
         if (!$this->entity_type) {
-            return null;
+            return 'User';
         }
 
         $map = [
