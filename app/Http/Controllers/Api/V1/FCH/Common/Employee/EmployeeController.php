@@ -86,7 +86,7 @@ class EmployeeController extends Controller
             'identification_number', 'blood_group', 'place_of_birth',
             'emergency_contact', 'emergency_phone', 'marital_status',
             'no_of_children', 'address', 'date_of_birth', 'gender',
-            'city', 'state', 'postal_code', 'country', 'ssn', 'image',
+            'city', 'state', 'postal_code', 'country', 'ssn', 'image','employee_code'
         ]);
         $employeeData['business_id'] = $businessId;
 
@@ -143,7 +143,7 @@ class EmployeeController extends Controller
             'identification_number', 'blood_group', 'place_of_birth',
             'emergency_contact', 'address', 'emergency_phone', 'marital_status',
             'no_of_children', 'date_of_birth', 'gender', 'city', 'state',
-            'postal_code', 'country', 'ssn', 'image',
+            'postal_code', 'country', 'ssn', 'image','employee_code'
         ]);
 
         if ($request->hasFile('image')) {

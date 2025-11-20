@@ -34,6 +34,7 @@ class UpdateEmployeeRequest extends FormRequest
             'emergency_phone' => ['nullable', 'string', 'max:50'],
             'marital_status' => ['nullable', 'string', 'max:50'],
             'no_of_children' => ['nullable', 'integer', 'min:0'],
+            'employee_code' => ['nullable'],
             'phone_number'   => [
                 'nullable',
                 'string',

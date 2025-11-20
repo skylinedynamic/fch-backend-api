@@ -29,7 +29,7 @@ class RoleService
     public function getAll($partnerId)
     {
         $query = Role::where('partner_id', $partnerId)
-            ->orderByDesc('id')
+            ->orderBy('id', 'asc')
             ->with(['permissions'])
             ->withCount('users')
             ->get();
@@ -40,7 +40,7 @@ class RoleService
     public function list($partnerId, Request $request)
     {
         $query = Role::where('partner_id', $partnerId)
-            ->orderByDesc('id')
+            ->orderBy('id', 'asc')
             ->with(['permissions'])
             ->withCount('users');
         $paginator = $this->paginateBuilder($query, $request);

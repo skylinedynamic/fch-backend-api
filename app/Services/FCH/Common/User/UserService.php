@@ -35,6 +35,7 @@ class UserService
      */
     public function create(array $data, ?int $roleId = null): User
     {
+    //   $role =  Role::where('partner_id', Auth::user()->partner_id)->where('name',$roleId)->first();
         DB::beginTransaction();
         try {
             $plainPassword = $data['password'] ?? bin2hex(random_bytes(4));
@@ -54,9 +55,11 @@ class UserService
             $partnerInfo = Partner::find(auth()->user()->partner_id);
             $this->sendCreatedMail($user, $partnerInfo, $plainPassword);
 
+            $roleId = $data['role_id'] ?? null;
+           
             // Assign role & permissions
             if ($roleId) {
-                $this->assignRoleAndPermissions($user, $roleId);
+                $this->assignRoleAndPermissions($user, $data['role_id']);
             }
 
             DB::commit();
@@ -163,13 +166,13 @@ class UserService
      */
     protected function assignRoleAndPermissions(User $user, int $roleId)
     {
-        $role = Role::findOrFail($roleId);
-        $user->syncRoles([$role->name]);
+        $role = Role::where('partner_id', auth()->user()->partner_id)->findOrFail($roleId);
+       
+        $user->syncRoles([$role->id]);
 
         $permissionIds = DB::table('role_has_permissions')
             ->where('role_id', $roleId)
             ->pluck('permission_id');
-
         $permissions = Permission::whereIn('id', $permissionIds)->get();
         $user->syncPermissions($permissions);
 
