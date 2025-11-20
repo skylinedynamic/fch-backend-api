@@ -76,19 +76,19 @@ class EmployeeController extends Controller
      */
     public function store(StoreEmployeeRequest $request)
     {
-        $businessId = $request->user()->business_id;
+        $partnerId = $request->user()->partnet_id;
         $partnerInfo = $request->user()->partner;
 
         // ✅ Include all extended employee fields
         $employeeData = $request->only([
-            'first_name', 'last_name', 'email', 'phone_number',
+            'partnet_id','first_name', 'last_name', 'email', 'phone_number',
             'designation', 'department', 'job_status', 'joining_date',
             'identification_number', 'blood_group', 'place_of_birth',
             'emergency_contact', 'emergency_phone', 'marital_status',
             'no_of_children', 'address', 'date_of_birth', 'gender',
             'city', 'state', 'postal_code', 'country', 'ssn', 'image','employee_code'
         ]);
-        $employeeData['business_id'] = $businessId;
+        $employeeData['partner_id'] = $partnerId;
 
         $createAccount = $request->boolean('create_account', false);
         $userData = null;
