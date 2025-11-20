@@ -9,6 +9,7 @@ use App\Http\Resources\FCH\Role\RoleResource;
 use App\Http\Resources\FCH\User\UserResource;
 use App\Traits\PaginatesApi;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -29,7 +30,7 @@ class RoleService
     public function getAll($partnerId)
     {
         $query = Role::where('partner_id', $partnerId)
-            ->orderByDesc('id')
+            ->orderBy('id')
             ->with(['permissions'])
             ->withCount('users')
             ->get();
@@ -40,7 +41,7 @@ class RoleService
     public function list($partnerId, Request $request)
     {
         $query = Role::where('partner_id', $partnerId)
-            ->orderByDesc('id')
+            ->orderBy('id')
             ->with(['permissions'])
             ->withCount('users');
         $paginator = $this->paginateBuilder($query, $request);
@@ -110,25 +111,37 @@ class RoleService
         });
     }
 
-    /**
-     * Delete a role and its related permissions and user assignments.
-     *
-     * @param Role $role
-     * @return void
-     */
-    public function delete(Role $role): void
+
+    public function deleteMany(array $ids)
     {
-        DB::transaction(function () use ($role) {
-            // Remove related records
-            DB::table('role_has_permissions')->where('role_id', $role->id)->delete();
-            DB::table('model_has_roles')->where('role_id', $role->id)->delete();
+        $roles = Role::whereIn('id', $ids)->where('partner_id', Auth::user()->partner_id)->get();
 
-            // Delete the role
-            $role->delete();
+        if ($roles->isEmpty()) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
 
-            // Clear Spatie permission cache
+        $static = $roles->firstWhere('is_static', true);
+        if ($static) {
+            return ApiResponse::error(__('role_permission.role_static_cannot_delete'), 400);
+        }
+
+        $hasUsers = $roles->first(function ($role) {
+            return $role->users()->exists();
+        });
+        if ($hasUsers) {
+            return ApiResponse::error(__('role_permission.role_has_users_cannot_delete'), 400);
+        }
+
+        DB::transaction(function () use ($roles) {
+            foreach ($roles as $role) {
+                $role->syncPermissions([]);
+                DB::table('model_has_roles')->where('role_id', $role->id)->delete();
+                $role->delete();
+            }
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         });
+
+        return ApiResponse::success(null, __('role_permission.role_deleted'));
     }
 
     /**

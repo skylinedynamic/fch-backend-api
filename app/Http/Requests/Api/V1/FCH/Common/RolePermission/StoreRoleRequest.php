@@ -5,11 +5,10 @@ namespace App\Http\Requests\Api\V1\FCH\Common\RolePermission;
 use App\Helpers\ApiResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class StoreRoleRequest extends FormRequest
+class StoreRoleRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -58,23 +57,4 @@ class StoreRoleRequest extends FormRequest
         ];
     }
 
-    /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0]; 
-        }
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
-    }
 }

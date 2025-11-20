@@ -2,14 +2,11 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\RolePermission;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
-use App\Helpers\ApiResponse;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Support\Facades\Auth;
 
-class UpdateRoleRequest extends FormRequest
+class UpdateRoleRequest extends BaseApiRequest
 {
     public function authorize()
     {
@@ -47,15 +44,4 @@ class UpdateRoleRequest extends FormRequest
         ];
     }
 
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
-    }
 }

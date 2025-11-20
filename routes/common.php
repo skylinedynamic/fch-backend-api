@@ -39,7 +39,8 @@ Route::prefix('v1')->group(function () {
         Route::prefix('common')->group(function () {
             
             Route::post('roles/fetch-roles',[RoleController::class,'fetchRoles']);
-            Route::apiResource('roles', RoleController::class);
+            Route::post('roles/destroy', [RoleController::class, 'destroy']);
+            Route::apiResource('roles', RoleController::class)->except(['destroy']);
 
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);

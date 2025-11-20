@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\RolePermission;
 
 use App\Models\Common\Role;
+use App\Http\Requests\Api\V1\FCH\Common\RolePermission\DeleteRolesRequest;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\User\UserResource;
 use Illuminate\Http\Request;
@@ -102,16 +103,10 @@ class RoleController extends Controller
      * Remove Role
      *
      * @param Role $role
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(Role $role)
+    public function destroy(DeleteRolesRequest $request)
     {
-        $this->roleService->delete($role);
-
-        return response()->json([
-            'status' => true,
-            'message' => __('role_permission.role_deleted'),
-        ], 200);
+        return $this->roleService->deleteMany($request->ids);
     }
 
     /**
