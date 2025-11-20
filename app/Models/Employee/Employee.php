@@ -20,12 +20,11 @@ class Employee extends Model
     protected $table = 'employees';
 
     protected $fillable = [
-        'user_id',
-        'business_id',
+        'partner_id',
         'first_name',   
         'last_name',
         'email',
-        'phone_number',
+        'phone_number_1',
         'phone_number_2',
         'date_of_birth',
         'gender',

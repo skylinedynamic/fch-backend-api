@@ -288,7 +288,7 @@ class EmployeeService
     public function find(int $id, int $businessId): Employee
     {
         return Employee::where('id', $id)
-            ->where('business_id', $businessId)
+            ->where('partner_id', auth()->user()->partner_id)
             ->with('user')
             ->firstOrFail();
     }

@@ -18,7 +18,7 @@ class UpdateEmployeeRequest extends FormRequest
     public function rules(): array
     {
         $employeeId = $this->route('employee');
-        $businessId = $this->user()?->business_id;
+        $partnerId = $this->user()?->partner_id;
 
         return [
             'first_name'     => ['required', 'string', 'max:255'],
@@ -40,14 +40,14 @@ class UpdateEmployeeRequest extends FormRequest
                 'string',
                 'max:50',
                 Rule::unique('employees')->ignore($employeeId)
-                    ->where(fn($q) => $q->where('business_id', $businessId)),
+                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'email' => [
                 'nullable',
                 'email',
                 'max:255',
                 Rule::unique('employees')->ignore($employeeId)
-                    ->where(fn($q) => $q->where('business_id', $businessId)),
+                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
             'gender'         => ['nullable', 'in:male,female,other'],

@@ -32,7 +32,6 @@ class Partner extends Model
      */
     protected $fillable = [
         'user_id',
-        'business_id',
         'employee_id',
         'status',
         'assign_to',

@@ -15,12 +15,29 @@ class StoreEmployeeRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Prepare data before validation.
+     */
+    protected function prepareForValidation()
+    {
+        // If you want full_name = first_name only
+        $this->merge([
+            'full_name' => $this->first_name, 
+        ]);
+
+        // If you want full_name = first_name + last_name
+        // $this->merge([
+        //     'full_name' => trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? '')),
+        // ]);
+    }
+
     public function rules(): array
     {
-        $businessId = $this->user()?->business_id;
+        $partnerId = $this->user()?->partner_id;
 
         return [
             'first_name'     => ['required', 'string', 'max:255'],
+            'full_name'      => ['nullable', 'string', 'max:255'], // <-- add this rule
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
@@ -34,18 +51,18 @@ class StoreEmployeeRequest extends FormRequest
             'marital_status' => ['nullable', 'string', 'max:50'],
             'no_of_children' => ['nullable', 'integer', 'min:0'],
             'employee_code' => ['nullable'],
-            'phone_number'   => [
+            'phone_number_1'   => [
                 'nullable',
                 'string',
                 'max:50',
-                Rule::unique('employees')->where(fn($q) => $q->where('business_id', $businessId)),
+                Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'email' => [
                 'required_if:create_account,true',
                 'nullable',
                 'email',
                 'max:255',
-                Rule::unique('employees')->where(fn($q) => $q->where('business_id', $businessId)),
+                Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
             'gender'         => ['nullable', 'in:male,female,other'],
@@ -57,7 +74,7 @@ class StoreEmployeeRequest extends FormRequest
             'image'          => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,true', 'exists:roles,id'],
-            'address'        => ['nullable']
+            'address'        => ['nullable'],
         ];
     }
 
