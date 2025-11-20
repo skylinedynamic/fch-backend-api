@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Role extends SpatieRole
 {
-    protected $fillable = ['name', 'guard_name', 'partner_id'];
+    protected $fillable = ['name', 'guard_name', 'partner_id', 'code', 'is_static'];
 
     public function partner(): BelongsTo
     {

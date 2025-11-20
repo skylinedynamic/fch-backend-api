@@ -37,17 +37,17 @@ class RoleSeeder extends Seeder
             // Create three roles per partner: Admin, Manager, Sales
             $adminRole = Role::updateOrCreate(
                 ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id],
-                ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id]
+                ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'admin','is_static' => true]
             );
 
             $managerRole = Role::updateOrCreate(
                 ['name' => 'Manager', 'guard_name' => 'api', 'partner_id' => $partner->id],
-                ['name' => 'Manager', 'guard_name' => 'api', 'partner_id' => $partner->id]
+                ['name' => 'Manager', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'manager','is_static' => false]
             );
 
             $salesRole = Role::updateOrCreate(
                 ['name' => 'Sales', 'guard_name' => 'api', 'partner_id' => $partner->id],
-                ['name' => 'Sales', 'guard_name' => 'api', 'partner_id' => $partner->id]
+                ['name' => 'Sales', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'sales','is_static' => false]
             );
 
             // Manager: assign a random subset (~40% of all permissions, min 5)

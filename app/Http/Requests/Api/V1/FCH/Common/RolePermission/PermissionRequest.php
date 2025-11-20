@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\RolePermission;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class PermissionRequest extends FormRequest
+class PermissionRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
