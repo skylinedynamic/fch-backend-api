@@ -30,6 +30,7 @@ class EmployeeSeeder extends Seeder
             for ($i = 1; $i <= 10; $i++) {
                 $firstName = "Employee{$partnerId}{$i}";
                 $lastName = "User";
+                $empCode = "Emp-{$i}";
                 $department = $departments[$i % count($departments)];
                 $designation = $designations[$i % count($designations)];
                 $email = "partner{$partnerId}.employee{$i}@example.com";
@@ -61,6 +62,7 @@ class EmployeeSeeder extends Seeder
                     'partner_id' => $partnerId,
                     'first_name' => $firstName,
                     'last_name' => $lastName,
+                    'employee_code' => $empCode,
                     'email' => $email,
                     'phone_number_1' => $phone1,
                     'phone_number_2' => $phone2,

@@ -64,12 +64,8 @@ class EmployeeController extends Controller
                 'sort_order' => $input['sort_order'] ?? null,
             ];
 
-            $employees = $this->employeeService->list($partnerId, $filters);
+            return $this->employeeService->list($partnerId, $filters);
 
-            return ApiResponse::success([
-                'employees' => EmployeeResource::collection($employees['data']),
-                'meta'      => $employees['meta'],
-            ], __('employee.success.retrieved'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('employee.employee_list_failed'));
         }
@@ -90,7 +86,7 @@ class EmployeeController extends Controller
             'identification_number', 'blood_group', 'place_of_birth',
             'emergency_contact', 'emergency_phone', 'marital_status',
             'no_of_children', 'address', 'date_of_birth', 'gender',
-            'city', 'state', 'postal_code', 'country', 'ssn', 'image',
+            'city', 'state', 'postal_code', 'country', 'ssn', 'image','employee_code'
         ]);
         $employeeData['business_id'] = $businessId;
 
@@ -147,7 +143,7 @@ class EmployeeController extends Controller
             'identification_number', 'blood_group', 'place_of_birth',
             'emergency_contact', 'address', 'emergency_phone', 'marital_status',
             'no_of_children', 'date_of_birth', 'gender', 'city', 'state',
-            'postal_code', 'country', 'ssn', 'image',
+            'postal_code', 'country', 'ssn', 'image','employee_code'
         ]);
 
         if ($request->hasFile('image')) {
@@ -213,6 +209,27 @@ class EmployeeController extends Controller
                 'user_id' => $user->id ?? null,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+   /**
+     * Fetch employees by department and job status
+     */
+    public function fetchDepartmentStatus(Request $request)
+    {
+        $type = $request->input('type'); // department or status
+        $partnerId = $request->user()->partner_id;
+
+        try {
+            if (!in_array($type, ['department', 'status'])) {
+                return ApiResponse::error(__('Invalid type parameter. Must be "department" or "status".'));
+            }
+
+            $data = $this->employeeService->getTypeData($partnerId, $type);
+
+            return ApiResponse::success($data, __('employee.department_status'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('employee.fetch_failed'));
         }
     }
 }

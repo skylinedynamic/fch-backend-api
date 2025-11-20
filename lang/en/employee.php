@@ -36,6 +36,7 @@ return [
     'employee_listed'  => 'Employees retrieved successfully.',
     'employee_details' => 'Employee details retrieved successfully.',
     'employee_not_found' => 'The requested employee could not be found.',
+    'department_status' => 'Fecth department status successfully.',
 
     // ✅ Account Creation
     'account_created'  => 'User account has been created successfully for this employee.',

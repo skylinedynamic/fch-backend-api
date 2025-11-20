@@ -2,10 +2,11 @@
 
 namespace App\Services\FCH\Common\Employee;
 
-use App\Helpers\ApiResponse;
 use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
+use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use App\Models\Business\Business;
 use App\Models\Common\Permission;
@@ -13,16 +14,16 @@ use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
-use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
-use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Services\Global\Datatable\QueryFilter;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 class EmployeeService
 {
-    use UploadsFiles;
+    use UploadsFiles, PaginatesApi;
 
     public function getAll(){
         $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
@@ -50,43 +51,41 @@ class EmployeeService
 
         //Sorting
         $sortField = $filters['sort_field']  ? ($filters['sort_field'] == 'full_name' ? 'first_name'  : $filters['sort_field']) : 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
 
-        // Apply global query filters (ignores operator; supports constraints and simple formats)
-        $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters'], [
-            'aliases' => [
-                'phone_number' => 'phone_number_1',
-                // add more aliases as needed: 'external_field' => 'db_column'
-            ],
-            'concat_fields' => [
-                'full_name' => ['first_name', 'last_name'],
-                // you can add more concatenated fields:
-                // 'another_concat' => ['col_a', 'col_b', 'col_c'],
-            ],
-        ]);
-    
+        
+        if ($sortField === 'phone_number') {
+            $sortField = 'phone_number_1';
+        }
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [
+                    'phone_number' => 'phone_number_1',
+                ],
+                'concat_fields' => [
+                    'full_name' => ['first_name', 'last_name'],
+                ],
+            ]
+        );
        
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
     
-        $employees = $query->paginate($perPage, ['*'], 'page', $page);
+         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
-        return [
-            'data' => $employees->items(),
-            'meta' => [
-                'current_page' => $employees->currentPage(),
-                'from' => $employees->firstItem(),
-                'to' => $employees->lastItem(),
-                'per_page' => $employees->perPage(),
-                'total' => $employees->total(),
-                'last_page' => $employees->lastPage(),
-                'next_page_url' => $employees->nextPageUrl(),
-                'prev_page_url' => $employees->previousPageUrl(),
-                'links' => $employees->linkCollection(),
-            ],
-        ];
+        return $this->respondWithPaginationResource(
+            $paginator,
+            EmployeeResource::class,
+            __('employee.employee_listed')
+        );
+
 
     }
 
@@ -293,4 +292,44 @@ class EmployeeService
             ->with('user')
             ->firstOrFail();
     }
+
+     /**
+     * Get employees filtered by department and job_status
+     */
+        public function getTypeData(int $partnerId, string $type): array
+        {
+            $query = Employee::query()->where('partner_id', $partnerId);
+
+            if ($type === 'status') {
+                // Get distinct job_status
+                $result = $query->select('id', 'job_status as status')
+                                ->whereNotNull('job_status')
+                                ->get()
+                                ->unique('status') // remove duplicates by status
+                                ->values()
+                                ->map(function ($item) {
+                                    return [
+                                        'id' => $item->id,
+                                        'status' => $item->status
+                                    ];
+                                })
+                                ->toArray();
+            } else { // department
+                // Get distinct departments
+                $result = $query->select('id', 'department')
+                                ->whereNotNull('department')
+                                ->get()
+                                ->unique('department') // remove duplicates by department
+                                ->values()
+                                ->map(function ($item) {
+                                    return [
+                                        'id' => $item->id,
+                                        'department' => $item->department
+                                    ];
+                                })
+                                ->toArray();
+            }
+
+            return $result;
+        }
 }
