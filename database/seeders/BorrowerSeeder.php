@@ -23,7 +23,7 @@ class BorrowerSeeder extends Seeder
                 'business_no' => 'BN-TS-001',
                 'business_name' => 'Alpha Tech Startup',
                 'business_ein' => '12-3456789',
-                'business_email' => 'alpha@techstartup.com',
+                'business_email' => 'craig-borrower@fourcornerholdings.com',
                 'business_phone' => '+1234000100',
                 'business_entity_type' => 'LLC',
                 'business_type' => 'Software',

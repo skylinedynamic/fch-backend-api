@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
         // 1) Link Admin to Host Partner via polymorphic mapping
         $hostPartner = DB::table('partners')->where('is_host', true)->first();
         User::updateOrCreate(
-            ['email' => 'admin@fch.com'],
+            ['email' => 'craig@fourcornerholdings.com'],
             [
                 'name' => $hostPartner?->owner_name ?: $hostPartner?->company_name,
                 'phone_number' => $hostPartner?->owner_phone_number ?: $hostPartner?->company_phone_number,
@@ -90,28 +90,28 @@ class UserSeeder extends Seeder
        
 
         // 5) Add 10 generic users per partner (idempotent)
-        $partners = DB::table('partners')->get();
-        foreach ($partners as $p) {
-            for ($i = 1; $i <= 10; $i++) {
-                $email = "user{$i}.partner{$p->id}@example.test";
-                $name = "Partner {$p->id} User {$i}";
-                $phone = $p->phone_number ?? ('555' . str_pad($p->id . $i, 7, '0', STR_PAD_LEFT));
+        // $partners = DB::table('partners')->get();
+        // foreach ($partners as $p) {
+        //     for ($i = 1; $i <= 10; $i++) {
+        //         $email = "user{$i}.partner{$p->id}@example.test";
+        //         $name = "Partner {$p->id} User {$i}";
+        //         $phone = $p->phone_number ?? ('555' . str_pad($p->id . $i, 7, '0', STR_PAD_LEFT));
 
-                User::updateOrCreate(
-                    ['email' => $email],
-                    [
-                        'name' => $name,
-                        'phone_number' => $phone,
-                        'user_type' => $p->is_host ? User::ADMIN : User::PARTNER,
-                        'password' => Hash::make('12345678'),
-                        'status' => User::STATUS['active'],
-                        'email_verified_at' => now(),
-                        'partner_id' => $p->id,
-                        'entity_type' => null,
-                        'entity_id' => null,
-                    ]
-                );
-            }
-        }
+        //         User::updateOrCreate(
+        //             ['email' => $email],
+        //             [
+        //                 'name' => $name,
+        //                 'phone_number' => $phone,
+        //                 'user_type' => $p->is_host ? User::ADMIN : User::PARTNER,
+        //                 'password' => Hash::make('12345678'),
+        //                 'status' => User::STATUS['active'],
+        //                 'email_verified_at' => now(),
+        //                 'partner_id' => $p->id,
+        //                 'entity_type' => null,
+        //                 'entity_id' => null,
+        //             ]
+        //         );
+        //     }
+        // }
     }
 }
