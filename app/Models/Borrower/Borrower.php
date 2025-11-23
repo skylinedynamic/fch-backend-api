@@ -5,12 +5,7 @@ namespace App\Models\Borrower;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Partner\Partner;
-use App\Models\Business\Business;
-use App\Models\Employee\Employee;
-use App\Models\User\User;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+
 
 class Borrower extends Model
 {
@@ -28,16 +23,7 @@ class Borrower extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = [
-        'user_id',
-        'partner_id',
-        'business_id',
-        'signup_id',
-        'employee_id',
-        'assign_to',
-        'status',
-        'notes',
-    ];
+    protected $guarded = [];
 
     /**
      * The attributes that should be cast.

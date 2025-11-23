@@ -9,19 +9,13 @@ use Illuminate\Validation\Rules\Password;
 
 class BorrowerRegistrationRequest extends BaseApiRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+ 
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
+   
     public function rules(): array
     {
         return [
@@ -31,22 +25,18 @@ class BorrowerRegistrationRequest extends BaseApiRequest
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|string|max:20',
             'state' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'country_code' => 'required|string|max:255',
             'password' => [
                 'required',
                 'string',
                 Password::min(8)->mixedCase()->numbers(),
                 'confirmed',
             ],
-            'password_confirmation' => ['required', 'string', 'min:8'],
-            'recaptcha' => ['nullable', new ReCaptcha()],
+             'recaptcha' => ['nullable', new ReCaptcha()],
         ];
     }
 
-    /**
-     * Get custom messages for validator errors.
-     *
-     * @return array<string, string>
-     */
     public function messages(): array
     {
         return [
