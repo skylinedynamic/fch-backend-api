@@ -30,25 +30,24 @@ class BorrowerAuthService
                 ];
             }
 
-            $user = User::create([
+            $borrower = Borrower::create([
+                'signup_id' => $signup->signup_id,
+                'partner_id' => $signup->partner_id,
+                'business_email' => $data['email'],
+                'state' => $data['state'],
+                'country' => $data['country'],
+                'business_phone' => $data['country_code'] . $data['phone_number'],
+            ]);
+
+             $user = User::create([
                 'name' => $data['first_name']. ' ' .$data['last_name'],
                 'email' => $data['email'],
-                'phone_number' => $data['phone_number'],
+                'phone_number' => $data['country_code'] . $data['phone_number'],
                 'password' => Hash::make($data['password']),
                 'user_type' => User::BORROWER,
                 'status' => User::STATUS['active'],
-            ]);
-
-            $employee = Employee::create([
-                'user_id' => $user->id,
-                'state' => $data['state'],
-            ]);
-
-            Borrower::create([
-                'user_id' => $user->id,
-                'signup_id' => $signup->signup_id,
-                'partner_id' => $signup->partner_id,
-                'employee_id' => $employee->id,
+                'entity_type' => Borrower::class,
+                'entity_id' => $borrower->id,
             ]);
 
             $signup->delete();

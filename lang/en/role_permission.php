@@ -7,6 +7,9 @@ return [
     'name_string' => 'The role name must be a string.',
     'name_max' => 'The role name may not be greater than 255 characters.',
     'name_unique' => 'The role name already exists.',
+    'description_required' => 'The role description is required.',
+    'description_string' => 'The role description must be a string.',
+    'description_max' => 'The role description may not be greater than 255 characters.',
     'permission_ids_required' => 'Permissions are required.',
     'permission_ids_array' => 'Permissions must be an array.',
 
