@@ -60,7 +60,7 @@ class RoleController extends Controller
     {
         $partnerId = $request->user()->partner_id;
 
-        $data = $request->only(['name', 'permission_ids']);
+        $data = $request->only(['name','description', 'permission_ids']);
         $data['partner_id'] = $partnerId;
 
         return $this->roleService->create($data);
@@ -78,6 +78,7 @@ class RoleController extends Controller
         $payload = [
             'id' => $role->id,
             'name' => $role->name,
+            'description' => $role->description,
             'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
             'users' => UserResource::collection($role->users)->toArray(request()),
         ];

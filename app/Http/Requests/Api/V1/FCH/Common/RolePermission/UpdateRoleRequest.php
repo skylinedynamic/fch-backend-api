@@ -22,12 +22,13 @@ class UpdateRoleRequest extends BaseApiRequest
             'name' => [
                 'required',
                 'string',
-                'max:255',
+                'max:20',
                 Rule::unique('roles')
                     ->where(fn($query) => $query->where('partner_id', $partnerId))
                     ->ignore($roleId), 
             ],
 
+            'description' => 'nullable|string|max:100',
             'permission_ids' => 'required|array|exists:permissions,id',
         ];
     }
@@ -39,6 +40,9 @@ class UpdateRoleRequest extends BaseApiRequest
             'name.string' => __('role_permission.name_string'),
             'name.max' => __('role_permission.name_max'),
             'name.unique' => __('role_permission.name_unique'),
+            'description.required' => __('role_permission.description_required'),
+            'description.string' => __('role_permission.description_string'),
+            'description.max' => __('role_permission.description_max'),
             'permission_ids.required' => __('role_permission.permission_ids_required'),
             'permission_ids.array' => __('role_permission.permission_ids_array'),
         ];

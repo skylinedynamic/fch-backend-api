@@ -11,6 +11,7 @@ class Borrower extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected string $guard_name = 'api';
     /**
      * The table associated with the model.
      *

@@ -45,6 +45,8 @@ class User extends Authenticatable implements OAuthenticatable
         'email_verified_at',
         'user_type',
         'status',
+        'entity_type',
+        'entity_id',
         'password',
         'partner_id',
     ];

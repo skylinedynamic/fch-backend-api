@@ -62,6 +62,7 @@ class RoleService
             $permissionIds = array_values(array_unique(array_filter(array_map('intval', $data['permission_ids'] ?? []), function ($id) { return $id > 0; })));
             $role = Role::create([
                 'name' => $data['name'],
+                'description' => $data['description'],
                 'guard_name' => $data['guard_name'],
                 'partner_id' => $data['partner_id'],
             ]);
@@ -91,6 +92,7 @@ class RoleService
         return DB::transaction(function () use ($role, $data) {
             $role->update([
                 'name' => $data['name'] ?? $role->name,
+                'description' => $data['description'] ?? $role->description,
             ]);
             $permissionIds = $data['permission_ids'] ?? [];
             $permissions = Permission::query()
