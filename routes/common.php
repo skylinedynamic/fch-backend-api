@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -55,6 +56,10 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('users', UserController::class);
             
             Route::post('permissions', [PermissionController::class, 'index']);
+
+            Route::post('departments', [DepartmentController::class, 'store']);
+            Route::post('departments/fetch-departments', [DepartmentController::class, 'fetchDepartments']);
+            Route::get('departments/{id}', [DepartmentController::class, 'show']);
         });
 
         // V1 Notification routes

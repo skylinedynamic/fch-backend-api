@@ -41,6 +41,20 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Employee Details
+     */
+    public function show($id)
+    {
+        try {
+            $partnerId = auth()->user()->partner_id;
+            $employee = $this->employeeService->find($id, $partnerId);
+            return ApiResponse::success(new EmployeeResource($employee), __('employee.employee_details'));
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('employee.employee_not_found'));
+        }
+    }
+
+    /**
      * Employee With Pagination
      */
     public function fetchEmployees(FetchEmployee $request)
@@ -80,14 +94,7 @@ class EmployeeController extends Controller
         $partnerInfo = $request->user()->partner;
 
         // ✅ Include all extended employee fields
-        $employeeData = $request->only([
-            'partnet_id','first_name', 'last_name', 'email', 'phone_number',
-            'designation', 'department', 'job_status', 'joining_date',
-            'identification_number', 'blood_group', 'place_of_birth',
-            'emergency_contact', 'emergency_phone', 'marital_status',
-            'no_of_children', 'address', 'date_of_birth', 'gender',
-            'city', 'state', 'postal_code', 'country', 'ssn', 'image','employee_code'
-        ]);
+        $employeeData = $request->all();
         $employeeData['partner_id'] = $partnerId;
 
         $createAccount = $request->boolean('create_account', false);
@@ -137,14 +144,7 @@ class EmployeeController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $employeeData = $request->only([
-            'first_name', 'last_name', 'email', 'phone_number',
-            'designation', 'department', 'job_status', 'joining_date',
-            'identification_number', 'blood_group', 'place_of_birth',
-            'emergency_contact', 'address', 'emergency_phone', 'marital_status',
-            'no_of_children', 'date_of_birth', 'gender', 'city', 'state',
-            'postal_code', 'country', 'ssn', 'image','employee_code'
-        ]);
+        $employeeData = $request->all();
 
         if ($request->hasFile('image')) {
             $employeeData['image'] = $request->file('image');

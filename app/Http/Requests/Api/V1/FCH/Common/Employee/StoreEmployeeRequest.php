@@ -20,15 +20,9 @@ class StoreEmployeeRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
-        // If you want full_name = first_name only
         $this->merge([
             'full_name' => $this->first_name, 
         ]);
-
-        // If you want full_name = first_name + last_name
-        // $this->merge([
-        //     'full_name' => trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? '')),
-        // ]);
     }
 
     public function rules(): array
@@ -37,7 +31,7 @@ class StoreEmployeeRequest extends FormRequest
 
         return [
             'first_name'     => ['required', 'string', 'max:255'],
-            'full_name'      => ['nullable', 'string', 'max:255'], // <-- add this rule
+            'full_name'     => ['nullable', 'string', 'max:255'],
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
@@ -51,6 +45,8 @@ class StoreEmployeeRequest extends FormRequest
             'marital_status' => ['nullable', 'string', 'max:50'],
             'no_of_children' => ['nullable', 'integer', 'min:0'],
             'employee_code' => ['nullable'],
+            'phone_number_2' => ['nullable'],
+            'passport_number' => ['nullable'],
             'phone_number_1'   => [
                 'nullable',
                 'string',
@@ -65,13 +61,13 @@ class StoreEmployeeRequest extends FormRequest
                 Rule::unique('employees')->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
-            'gender'         => ['nullable', 'in:male,female,other'],
+            'gender'         => ['nullable'],
             'city'           => ['nullable', 'string', 'max:255'],
             'state'          => ['nullable', 'string', 'max:255'],
             'postal_code'    => ['nullable', 'string', 'max:50'],
             'country'        => ['nullable', 'string', 'max:255'],
             'ssn'            => ['nullable', 'string', 'max:255'],
-            'image'          => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
+            'image'          => ['nullable'],
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,true', 'exists:roles,id'],
             'address'        => ['nullable'],

@@ -80,6 +80,7 @@ class EmployeeSeeder extends Seeder
                     'job_status' => 'Active',
                     'joining_date' => $joiningDate,
                     'identification_number' => sprintf('EMP-P%d-%03d', $partnerId, $i),
+                    'passport_number' => 'P-'.str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT),
                     'blood_group' => $bloodGroup,
                     'place_of_birth' => $placeOfBirth,
                     'emergency_contact' => $emergencyContact,

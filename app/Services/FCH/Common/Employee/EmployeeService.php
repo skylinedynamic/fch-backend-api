@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 use Spatie\Permission\PermissionRegistrar;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Employee\EmployeeResource;
@@ -99,7 +100,23 @@ class EmployeeService
         DB::beginTransaction();
 
         try {
+            
+            // 2️⃣ Create employee
+            $employeeData['partner_id'] = auth()->user()->partner_id;
+            
+            // Format dates if present
+            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
+                $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
+            }
+            
+            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
+                $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
+            }
+            
+            $employee = Employee::create($employeeData);
+            Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
             $user = null;
+
             $plainPassword = $userData['plain_password'] ?? null;
 
             // 1️⃣ Create user if needed
@@ -107,6 +124,9 @@ class EmployeeService
                 $user = User::create([
                     'name'         => $userData['name'],
                     'email'        => $userData['email'],
+                    'partner_id'   => auth()->user()->partner_id,
+                    'entity_type'  => Employee::class,
+                    'entity_id'    => $employee->id,
                     'phone_number' => $userData['phone_number'] ?? null,
                     'password'     => Hash::make($plainPassword),
                     'user_type'    => auth()->user()->user_type ?? '',
@@ -120,10 +140,6 @@ class EmployeeService
 
                 $employeeData['user_id'] = $user->id;
             }
-
-            // 2️⃣ Create employee
-            $employee = Employee::create($employeeData);
-            Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
 
             // 3️⃣ Upload image if provided
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
@@ -155,6 +171,15 @@ class EmployeeService
         try {
             $user = $employee->user;
             $plainPassword = null;
+
+            // Format dates if present
+            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
+                $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
+            }
+            
+            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
+                $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
+            }
 
             // 1️⃣ Handle image upload
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
@@ -268,8 +293,9 @@ class EmployeeService
      */
     protected function assignRoleAndPermissions(User $user, int $roleId): void
     {
-        $role = Role::findOrFail($roleId);
-        $user->syncRoles([$role->name]);
+        $role = Role::where('partner_id', auth()->user()->partner_id)->where('id',$roleId)->first();
+        Log::info($roleId);
+        $user->syncRoles($role);
 
         $permissionIds = DB::table('role_has_permissions')
             ->where('role_id', $roleId)
@@ -285,7 +311,7 @@ class EmployeeService
     /**
      * Find employee by ID and business ID.
      */
-    public function find(int $id, int $businessId): Employee
+    public function find(int $id, int $partnerId): Employee
     {
         return Employee::where('id', $id)
             ->where('partner_id', auth()->user()->partner_id)

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::table('employees', function (Blueprint $table) {
             $table->string('employee_code')->nullable()->after('last_name')->index();
+            $table->string('passport_number')->nullable()->after('identification_number')->index();
         });
     }
 
@@ -23,6 +24,7 @@ return new class extends Migration
     {
         Schema::table('employees', function (Blueprint $table) {
             $table->dropColumn('employee_code');
+            $table->dropColumn('passport_number');
         });
     }
 };

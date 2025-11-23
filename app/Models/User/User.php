@@ -47,6 +47,8 @@ class User extends Authenticatable implements OAuthenticatable
         'status',
         'password',
         'partner_id',
+        'entity_type',
+        'entity_id',
     ];
 
     /**
@@ -469,6 +471,11 @@ class User extends Authenticatable implements OAuthenticatable
     public function getRoleNamesListAttribute(): string
     {
         return $this->roles->pluck('name')->implode(', ');
+    }
+
+    public function getRoleIdsListAttribute(): string
+    {
+        return $this->roles->pluck('id')->implode(', ');
     }
 
     public function getFirstRoleAttribute()

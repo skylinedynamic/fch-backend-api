@@ -47,7 +47,8 @@ class Employee extends Model
         'marital_status', 
         'no_of_children',
         'address',
-        'employee_code'
+        'employee_code',
+        'passport_number'
     ];
 
     protected $casts = [
