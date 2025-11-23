@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Auth;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Rules\ReCaptcha;
+use Illuminate\Validation\Rules\Password;
 
 class BorrowerRegistrationRequest extends BaseApiRequest
 {
@@ -30,7 +31,13 @@ class BorrowerRegistrationRequest extends BaseApiRequest
             'email' => 'required|email|unique:users,email',
             'phone_number' => 'required|string|max:20',
             'state' => 'required|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => [
+                'required',
+                'string',
+                Password::min(8)->mixedCase()->numbers(),
+                'confirmed',
+            ],
+            'password_confirmation' => ['required', 'string', 'min:8'],
             'recaptcha' => ['nullable', new ReCaptcha()],
         ];
     }
