@@ -91,10 +91,41 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request)
     {
         $partnerId = $request->user()->partnet_id;
-        $partnerInfo = $request->user()->partner;
-
+        $partnerInfo = auth()->user()->partner;       
         // ✅ Include all extended employee fields
-        $employeeData = $request->all();
+        $fields = [
+            'first_name',
+            'last_name',
+            'designation',
+            'department',
+            'job_status',
+            'joining_date',
+            'identification_number',
+            'blood_group',
+            'place_of_birth',
+            'emergency_contact',
+            'emergency_phone',
+            'marital_status',
+            'no_of_children',
+            'employee_code',
+            'phone_number_1',
+            'phone_number_2',
+            'passport_number',
+            'email',
+            'date_of_birth',
+            'gender',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'ssn',
+            'image',
+            'create_account',
+            'role_id',
+            'address',
+        ];
+
+        $employeeData = $request->only($fields);
         $employeeData['partner_id'] = $partnerId;
 
         $createAccount = $request->boolean('create_account', false);
@@ -135,16 +166,48 @@ class EmployeeController extends Controller
     public function update(UpdateEmployeeRequest $request, int $id)
     {
         $employee = Employee::findOrFail($id);
-        $businessId = $request->user()->partner_id;
+        $partnerId = $request->user()->partner_id;
 
-        if ($employee->partner_id !== $businessId) {
+        if ($employee->partner_id !== $partnerId) {
             return response()->json([
                 'status' => false,
                 'message' => __('employee.unauthorized'),
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $employeeData = $request->all();
+        $fields = [
+            'first_name',
+            'last_name',
+            'designation',
+            'department',
+            'job_status',
+            'joining_date',
+            'identification_number',
+            'blood_group',
+            'place_of_birth',
+            'emergency_contact',
+            'emergency_phone',
+            'marital_status',
+            'no_of_children',
+            'employee_code',
+            'phone_number_1',
+            'phone_number_2',
+            'passport_number',
+            'email',
+            'date_of_birth',
+            'gender',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'ssn',
+            'image',
+            'create_account',
+            'role_id',
+            'address',
+        ];
+
+        $employeeData = $request->only($fields);
 
         if ($request->hasFile('image')) {
             $employeeData['image'] = $request->file('image');
@@ -153,7 +216,7 @@ class EmployeeController extends Controller
         $createAccount = $request->boolean('create_account', false);
         $roleId = $request->role_id ?? null;
 
-        $result = $this->employeeService->updateWithUserSync($employee, $employeeData, $createAccount, $roleId, $request->user()->business);
+        $result = $this->employeeService->updateWithUserSync($employee, $employeeData, $createAccount, $roleId, $request->user()->partner);
 
         return response()->json([
             'status' => true,
@@ -206,7 +269,6 @@ class EmployeeController extends Controller
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
-                'user_id' => $user->id ?? null,
                 'error' => $e->getMessage(),
             ]);
         }

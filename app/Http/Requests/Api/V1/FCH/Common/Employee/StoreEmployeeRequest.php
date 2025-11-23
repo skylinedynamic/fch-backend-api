@@ -69,7 +69,7 @@ class StoreEmployeeRequest extends FormRequest
             'ssn'            => ['nullable', 'string', 'max:255'],
             'image'          => ['nullable'],
             'create_account' => ['sometimes', 'boolean'],
-            'role_id'        => ['required_if:create_account,true', 'exists:roles,id'],
+            'role_id'        => ['nullable'],
             'address'        => ['nullable'],
         ];
     }

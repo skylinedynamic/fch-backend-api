@@ -18,16 +18,16 @@ class UpdateEmployeeRequest extends FormRequest
     /**
      * Prepare data before validation.
      */
-    protected function prepareForValidation()
+ protected function prepareForValidation()
     {
         $this->merge([
-            'full_name' => $this->first_name, 
+            'full_name' => $this->first_name,
         ]);
     }
 
     public function rules(): array
     {
-        $employeeId = $this->route('employee');
+        $employeeId = $this->route('employee'); // Current employee id
         $partnerId = $this->user()?->partner_id;
 
         return [
@@ -42,29 +42,33 @@ class UpdateEmployeeRequest extends FormRequest
             'blood_group'    => ['nullable', 'string', 'max:20'],
             'place_of_birth' => ['nullable', 'string', 'max:255'],
             'emergency_contact' => ['nullable', 'string', 'max:255'],
-            'emergency_phone' => ['nullable', 'string', 'max:50'],
+            'emergency_phone'   => ['nullable', 'string', 'max:50'],
             'marital_status' => ['nullable', 'string', 'max:50'],
             'no_of_children' => ['nullable', 'integer', 'min:0'],
-            'employee_code' => ['nullable'],
-            'phone_number_2' => ['nullable'],
-            'passport_number' => ['nullable'],
-            'phone_number_1'   => [
+            'employee_code'  => ['nullable', 'string', 'max:255'],
+            'phone_number_1' => [
                 'nullable',
                 'string',
-                'max:50',
-                Rule::unique('employees')->ignore($employeeId)
-                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
+                'max:20',
+                // Rule::unique('employees')
+                //     ->ignore($employeeId)
+                //     ->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
-            'email' => [
-                'nullable',
-                'email',
-                'max:255',
-               Rule::unique('employees')
-            ->ignore($employeeId)
-            ->where(fn($q) => $q->where('partner_id', $partnerId)),
+            'phone_number_2' => ['nullable', 'string', 'max:20'],
+            'passport_number'=> ['nullable', 'string', 'max:255'],
+            // 'email' => [
+            //     'nullable',
+            //     'email',
+            //     'max:255',
+            //     Rule::unique('employees')
+            //         ->ignore($employeeId)
+            //         ->where(fn($q) => $q->where('partner_id', $partnerId)),
+            // ],
+             'email' => [
+                'nullable'
             ],
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
-            'gender'         => ['nullable'],
+            'gender'         => ['nullable', 'string'],
             'city'           => ['nullable', 'string', 'max:255'],
             'state'          => ['nullable', 'string', 'max:255'],
             'postal_code'    => ['nullable', 'string', 'max:50'],
@@ -72,8 +76,8 @@ class UpdateEmployeeRequest extends FormRequest
             'ssn'            => ['nullable', 'string', 'max:255'],
             'image'          => ['nullable'],
             'create_account' => ['sometimes', 'boolean'],
-            'role_id'        => ['required_if:create_account,true', 'exists:roles,id'],
-            'address'        => ['nullable'],
+            'role_id'        => ['nullable', 'exists:roles,id'],
+            'address'        => ['nullable', 'string', 'max:500'],
         ];
     }
 

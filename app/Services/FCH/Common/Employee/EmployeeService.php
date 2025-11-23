@@ -127,7 +127,7 @@ class EmployeeService
                     'partner_id'   => auth()->user()->partner_id,
                     'entity_type'  => Employee::class,
                     'entity_id'    => $employee->id,
-                    'phone_number' => $userData['phone_number'] ?? null,
+                    'phone_number' => $userData['phone_number_1'] ?? null,
                     'password'     => Hash::make($plainPassword),
                     'user_type'    => auth()->user()->user_type ?? '',
                 ]);
@@ -137,8 +137,6 @@ class EmployeeService
                 if ($roleId) {
                     $this->assignRoleAndPermissions($user, $roleId);
                 }
-
-                $employeeData['user_id'] = $user->id;
             }
 
             // 3️⃣ Upload image if provided
@@ -165,7 +163,7 @@ class EmployeeService
     /**
      * Update an employee and manage the linked user account.
      */
-    public function updateWithUserSync(Employee $employee, array $employeeData, bool $createAccount, ?int $roleId, ?Business $business): array
+    public function updateWithUserSync(Employee $employee, array $employeeData, bool $createAccount, ?int $roleId, $partner): array
     {
         DB::beginTransaction();
         try {
@@ -203,17 +201,18 @@ class EmployeeService
                 $user = User::create([
                     'name'         => trim($employee->first_name . ' ' . $employee->last_name),
                     'email'        => $employee->email,
-                    'phone_number' => $employee->phone_number,
+                    'phone_number' => $employee->phone_number_1,
                     'password'     => Hash::make($plainPassword),
-                    'user_type'    => 'employee',
+                    'user_type'    => auth()->user()->user_type ?? '',
+                    'entity_type'  => Employee::class,
+                    'entity_id'    => $employee->id,
                 ]);
 
-                $employee->user_id = $user->id;
                 Log::info('✅ New user created for employee', ['employee_id' => $employee->id]);
 
                 // Send welcome mail only for new user
                 app(EmployeeController::class)
-                    ->sendAccountCreatedMail($user, $business, $plainPassword);
+                    ->sendAccountCreatedMail($user, $partner, $plainPassword);
             }
 
             // 4️⃣ Sync existing user if employee changed
@@ -224,7 +223,6 @@ class EmployeeService
                     'phone_number' => $employee->phone_number,
                 ]);
                 Log::info('🔁 Existing user synced with employee changes', [
-                    'user_id' => $user->id,
                     'employee_id' => $employee->id,
                 ]);
             }
@@ -294,7 +292,6 @@ class EmployeeService
     protected function assignRoleAndPermissions(User $user, int $roleId): void
     {
         $role = Role::where('partner_id', auth()->user()->partner_id)->where('id',$roleId)->first();
-        Log::info($roleId);
         $user->syncRoles($role);
 
         $permissionIds = DB::table('role_has_permissions')
