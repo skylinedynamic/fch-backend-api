@@ -15,24 +15,14 @@ class UpdateEmployeeRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Prepare data before validation.
-     */
- protected function prepareForValidation()
-    {
-        $this->merge([
-            'full_name' => $this->first_name,
-        ]);
-    }
-
     public function rules(): array
     {
         $employeeId = $this->route('employee'); // Current employee id
         $partnerId = $this->user()?->partner_id;
 
         return [
-            'first_name'     => ['required', 'string', 'max:255'],
-            'full_name'      => ['nullable', 'string', 'max:255'],
+            'first_name'     => ['nullable', 'string', 'max:255'],
+            // 'full_name'      => ['nullable', 'string', 'max:255'],
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],
@@ -49,23 +39,20 @@ class UpdateEmployeeRequest extends FormRequest
             'phone_number_1' => [
                 'nullable',
                 'string',
-                'max:20',
-                // Rule::unique('employees')
-                //     ->ignore($employeeId)
-                //     ->where(fn($q) => $q->where('partner_id', $partnerId)),
+                'max:50',
+                Rule::unique('employees')
+                    ->ignore($employeeId)
+                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'phone_number_2' => ['nullable', 'string', 'max:20'],
             'passport_number'=> ['nullable', 'string', 'max:255'],
-            // 'email' => [
-            //     'nullable',
-            //     'email',
-            //     'max:255',
-            //     Rule::unique('employees')
-            //         ->ignore($employeeId)
-            //         ->where(fn($q) => $q->where('partner_id', $partnerId)),
-            // ],
-             'email' => [
-                'nullable'
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+                Rule::unique('employees')
+                    ->ignore($employeeId)
+                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
             ],
             'date_of_birth'  => ['nullable', 'date', 'before:today'],
             'gender'         => ['nullable', 'string'],

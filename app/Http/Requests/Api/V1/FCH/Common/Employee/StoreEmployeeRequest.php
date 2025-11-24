@@ -15,23 +15,12 @@ class StoreEmployeeRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Prepare data before validation.
-     */
-    protected function prepareForValidation()
-    {
-        $this->merge([
-            'full_name' => $this->first_name, 
-        ]);
-    }
-
     public function rules(): array
     {
         $partnerId = $this->user()?->partner_id;
 
         return [
-            'first_name'     => ['required', 'string', 'max:255'],
-            'full_name'     => ['nullable', 'string', 'max:255'],
+            'first_name'     => ['nullable', 'string', 'max:255'],
             'last_name'      => ['nullable', 'string', 'max:255'],
             'designation'    => ['nullable', 'string', 'max:255'],
             'department'     => ['nullable', 'string', 'max:255'],

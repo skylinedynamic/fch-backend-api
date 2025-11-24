@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to {{ $business_info->company_name }}</title>
+    <title>Welcome to {{ $business_info['company_name'] }}</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -109,20 +109,20 @@
     <div class="header">
         @if(app()->environment('local'))
             {{-- Local: embed from filesystem --}}
-            <img src="{{ $message->embed($business_info->business_logo_path) }}" 
-                    alt="{{ $business_info->business_name }} Logo">
+            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
+                    alt="{{ $business_info['company_name'] }} Logo">
         @else
             {{-- Production: use public URL --}}
-            <img src="{{ $business_info->business_logo_url }}" 
-                alt="{{ $business_info->business_name }} Logo">
+            <img src="{{ $business_info['business_logo_url'] }}" 
+                alt="{{ $business_info['company_name'] }} Logo">
         @endif
-        <h1>{{ $business_info->business_name }}</h1>
+        <h1>{{ $business_info['company_name'] }}</h1>
     </div>
 
     <div class="content">
         <h2>Hello {{ $user->name }}!</h2>
         <p>
-            Welcome to <strong>{{ $business_info->business_name }}</strong>. 
+            Welcome to <strong>{{ $business_info['company_name'] }}</strong>. 
             Your account has been successfully created. Below are your login details:
         </p>
 
@@ -161,19 +161,19 @@
     <div class="footer">
        @if(app()->environment('local'))
             {{-- Local: embed from filesystem --}}
-            <img src="{{ $message->embed($business_info->business_logo_path) }}" 
-                alt="{{ $business_info->business_name }} Logo">
+            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
+                alt="{{ $business_info['company_name'] }} Logo">
         @else
             {{-- Production: use public URL --}}
-            <img src="{{ $business_info->business_logo_url }}" 
-                alt="{{ $business_info->business_name }} Logo">
+            <img src="{{ $business_info['business_logo_url'] }}" 
+                alt="{{ $business_info['company_name'] }} Logo">
         @endif
         <p>
-            {{ $business_info->business_name }} | {{ $business_info->business_phone }} | 
-            <a href="mailto:{{ $business_info->business_email }}">{{ $business_info->business_email }}</a><br>
-            {{ $business_info->address_line_1 }}
+            {{ $business_info['company_name'] }} | {{ $business_info['company_phone_number'] }} | 
+            <a href="mailto:{{ $business_info['company_email'] }}">{{ $business_info['company_email'] }}</a><br>
+            {{ $business_info['address_line_1'] }}
         </p>
-        <small>© {{ date('Y') }} {{ $business_info->business_name }}. All rights reserved.</small>
+        <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>
     </div>
 </div>
 </body>

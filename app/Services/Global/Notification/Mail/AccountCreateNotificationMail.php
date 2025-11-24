@@ -19,7 +19,7 @@ class AccountCreateNotificationMail extends Mailable
     {
         return new Envelope(
             subject: $this->mailData['subject']
-                ?? 'Welcome to ' . ($this->mailData['business_info']['business_name'] ?? 'Our Company'),
+                ?? 'Welcome to ' . ($this->mailData['business_info']['company_name'] ?? 'Our Company'),
         );
     }
 
@@ -36,7 +36,7 @@ class AccountCreateNotificationMail extends Mailable
         };
 
         // ✅ Handle business logo properly
-        $businessLogo = $this->mailData['business_info']['business_logo'] ?? 'logo.png';
+        $businessLogo = $this->mailData['business_info']['company_logo'] ?? 'logo.png';
 
         // If full URL was provided, convert to filename
         if (str_starts_with($businessLogo, 'http')) {
@@ -60,9 +60,9 @@ class AccountCreateNotificationMail extends Mailable
                 'loginUrl' => $loginUrl,
 
                 'business_info' => [
-                    'business_name'   => $this->mailData['business_info']['business_name'] ?? '',
-                    'business_email'  => $this->mailData['business_info']['business_email'] ?? '',
-                    'business_phone'  => $this->mailData['business_info']['business_phone'] ?? '',
+                    'company_name'   => $this->mailData['business_info']['company_name'] ?? '',
+                    'company_email'  => $this->mailData['business_info']['company_email'] ?? '',
+                    'company_phone_number'  => $this->mailData['business_info']['company_phone_number'] ?? '',
                     'address_line_1'  => $this->mailData['business_info']['address_line_1'] ?? '',
                     'business_logo_url'  => $businessLogoUrl,  // For production (external)
                     'business_logo_path' => $businessLogoPath, // For local embed

@@ -127,7 +127,7 @@ class EmployeeService
                     'partner_id'   => auth()->user()->partner_id,
                     'entity_type'  => Employee::class,
                     'entity_id'    => $employee->id,
-                    'phone_number' => $userData['phone_number_1'] ?? null,
+                    'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password'     => Hash::make($plainPassword),
                     'user_type'    => auth()->user()->user_type ?? '',
                 ]);

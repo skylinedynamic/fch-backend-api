@@ -70,6 +70,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,         // Role and Permissions seeder
             RoleSeeder::class,               // Create roles under partners
             UserRoleSeeder::class,           // Assign roles to users and sync permissions
+            DepartmentSeeder::class,         // Create departments under partners
         ]);
     }
 }

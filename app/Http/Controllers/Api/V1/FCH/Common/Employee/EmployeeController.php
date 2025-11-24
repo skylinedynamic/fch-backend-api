@@ -91,7 +91,7 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request)
     {
         $partnerId = $request->user()->partnet_id;
-        $partnerInfo = auth()->user()->partner;       
+        $partnerInfo = auth()->user()->partner;   
         // ✅ Include all extended employee fields
         $fields = [
             'first_name',
@@ -258,7 +258,7 @@ class EmployeeController extends Controller
             'plain_password' => $plainPassword,
             'business_info' => [
                 'company_name' => $businessInfo->company_name,
-                // 'business_logo' => asset($businessInfo->business_logo),
+                'company_logo' => $businessInfo->company_logo,
                 'company_email' => $businessInfo->company_email,
                 'company_phone_number' => $businessInfo->company_phone_number,
                 'address_line_1' => $businessInfo->address_line_1,
