@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Partner;
 
 use App\Models\User\User;
+use App\Models\Partner\Partner;
 use App\Models\Business\Business;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -123,41 +124,89 @@ class PartnerService
     }
 
     /**
-     * Get all partners with their company information.
+     * Get all partners with their user information.
      */
     public function getAllPartners(Request $request)
     {
-        $query = User::with('company')
-            ->where('user_type', User::PARTNER);
+        // Get authenticated user to determine filter logic
+        $authUser = auth()->user();
+        
+        // Base query: Start from Partner model with User eager loading
+        $query = Partner::query()
+            ->with(['partnerUser' => function ($userQuery) {
+                $userQuery->select('id', 'name', 'email', 'entity_type', 'entity_id');
+            }])
+            ->select(
+                'partners.id',
+                'partners.company_name',
+                'partners.owner_name',
+                'partners.owner_email',
+                'partners.owner_phone_number',
+                'partners.contact_person',
+                'partners.contact_person_email',
+                'partners.contact_person_phone_number',
+                'partners.company_email',
+                'partners.company_phone_number',
+                'partners.partner_type',
+                'partners.is_host'
+            );
 
-        // 🔍 Search filter
+        // Filter based on authenticated user's host status
+        if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
+            // If logged-in user is a host, show only non-host partners
+            $query->where('is_host', '!=', 1);
+        } else {
+            // Otherwise, show only host partners
+            $query->where('is_host', 1);
+        }
+
+        // 🔍 Search filter (searches partner and user fields)
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'LIKE', "%{$search}%")
-                ->orWhere('last_name', 'LIKE', "%{$search}%")
-                ->orWhere('email', 'LIKE', "%{$search}%")
-                ->orWhereHas('company', function ($companyQuery) use ($search) {
-                    $companyQuery->where('company_name', 'LIKE', "%{$search}%");
-                });
+                $q->where('company_name', 'LIKE', "%{$search}%")
+                  ->orWhere('company_email', 'LIKE', "%{$search}%")
+                  ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
+                  ->orWhereHas('partnerUser', function ($userQ) use ($search) {
+                      $userQ->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('email', 'LIKE', "%{$search}%");
+                  });
             });
         }
 
-        // 📄 Pagination (with links)
-        $partners = $query->orderByDesc('id')->paginate($request->get('per_page', 1));
+        // 📄 Pagination (default 15 per page)
+        $partners = $query->orderByDesc('partners.id')->paginate($request->get('per_page', 15));
 
-        // Add pagination metadata (including links)
+        // Transform to the required flat structure
+        $data = $partners->map(function ($partner) {
+            $user = $partner->partnerUser;
+            return [
+                'id'                   => $partner->id,
+                'company_name'         => $partner->company_name,
+                'owner_name'           => $partner->owner_name,
+                'owner_email'          => $partner->owner_email,
+                'owner_phone'          => $partner->owner_phone_number,
+                'contact_person'       => $partner->contact_person,
+                'contact_person_email' => $partner->contact_person_email ?? $user->email ?? null,
+                'contact_person_phone' => $partner->contact_person_phone_number,
+                'company_email'        => $partner->company_email,
+                'company_phone'        => $partner->company_phone_number,
+                'partner_type'         => $partner->partner_type,
+            ];
+        })->all();
+
+        // Return data with pagination meta
         return [
-            'data' => $partners->items(),
+            'data' => $data,
             'meta' => [
-                'current_page' => $partners->currentPage(),
-                'from' => $partners->firstItem(),
-                'to' => $partners->lastItem(),
-                'per_page' => $partners->perPage(),
-                'total' => $partners->total(),
-                'last_page' => $partners->lastPage(),
+                'current_page'  => $partners->currentPage(),
+                'from'          => $partners->firstItem(),
+                'to'            => $partners->lastItem(),
+                'per_page'      => $partners->perPage(),
+                'total'         => $partners->total(),
+                'last_page'     => $partners->lastPage(),
                 'next_page_url' => $partners->nextPageUrl(),
                 'prev_page_url' => $partners->previousPageUrl(),
-                'links' => $partners->linkCollection(),
+                'links'         => $partners->linkCollection(),
             ],
         ];
     }
