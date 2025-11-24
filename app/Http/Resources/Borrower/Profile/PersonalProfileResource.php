@@ -15,18 +15,18 @@ class PersonalProfileResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'first_name' => $this->employee->first_name,
-            'last_name' => $this->employee->last_name,
+            'first_name' => $this->entity->first_name,
+            'last_name' => $this->entity->last_name,
             'email' => $this->email,
-            'home_address' => $this->employee->address,
-            'city' => $this->employee->city,
-            'state' => $this->employee->state,
-            'zip_code' => $this->employee->postal_code,
-            'country' => $this->employee->country,
-            'home_phone' => $this->employee->phone_number_2,
-            'mobile_phone' => $this->employee->phone_number,
-            'last_4_ssn' => $this->employee->ssn ? substr($this->employee->ssn, -4) : null,
-            'date_of_birth' => $this->employee->date_of_birth,
+            'home_address' => $this->entity->address,
+            'city' => $this->entity->city,
+            'state' => $this->entity->state,
+            'zip_code' => $this->entity->postal_code,
+            'country' => $this->entity->country,
+            'home_phone' => $this->entity->phone_number_2,
+            'phone_number' => $this->entity->phone_number,
+            'last_4_ssn' => $this->entity->ssn ? substr($this->entity->ssn, -4) : null,
+            'date_of_birth' => $this->entity->date_of_birth,
         ];
     }
 }

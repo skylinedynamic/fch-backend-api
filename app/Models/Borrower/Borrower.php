@@ -37,4 +37,11 @@ class Borrower extends Model
         'deleted_at' => 'datetime',
     ];
 
+    /**
+     * Get the user that owns the borrower.
+     */
+    public function user(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(\App\Models\User\User::class, 'entity');
+    }
 }

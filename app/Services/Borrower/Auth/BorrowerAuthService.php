@@ -33,6 +33,8 @@ class BorrowerAuthService
             $borrower = Borrower::create([
                 'signup_id' => $signup->signup_id,
                 'partner_id' => $signup->partner_id,
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
                 'business_email' => $data['email'],
                 'state' => $data['state'],
                 'country' => $data['country'],

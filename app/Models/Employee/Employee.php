@@ -66,29 +66,6 @@ class Employee extends Model
             ->where('entity_type', Employee::class);
     }
 
-    /**
-     * 🔹 Relationship: each employee belongs to a business/company.
-     */
-    public function business(): BelongsTo
-    {
-        return $this->belongsTo(Business::class);
-    }
-
-    /**
-     * Get partners associated with this employee.
-     */
-    public function partners(): HasMany
-    {
-        return $this->hasMany(Partner::class);
-    }
-
-    /**
-     * Get borrowers associated with this employee.
-     */
-    public function borrowers(): HasMany
-    {
-        return $this->hasMany(Borrower::class);
-    }
 
     /**
      * 🔹 Full name accessor.

@@ -72,4 +72,8 @@ class Partner extends Model
     {
         return $this->morphOne(User::class, 'entity');
     }
+    public function user(): MorphOne
+    {
+        return $this->morphOne(User::class, 'entity');
+    }
 }
