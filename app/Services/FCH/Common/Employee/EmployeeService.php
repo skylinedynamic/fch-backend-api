@@ -206,6 +206,7 @@ class EmployeeService
                     'user_type'    => auth()->user()->user_type ?? '',
                     'entity_type'  => Employee::class,
                     'entity_id'    => $employee->id,
+                    'partner_id'   => $employee->partner_id,
                 ]);
 
                 Log::info('✅ New user created for employee', ['employee_id' => $employee->id]);
