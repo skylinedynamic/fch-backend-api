@@ -23,4 +23,13 @@ class DepartmentService
             ->with('employees')
             ->firstOrFail();
     }
+
+    public function destroy($id, $partnerId)
+    {
+        $department = Department::where('id', $id)
+            ->where('partner_id', $partnerId)
+            ->firstOrFail();
+        
+        return $department->delete();
+    }
 }

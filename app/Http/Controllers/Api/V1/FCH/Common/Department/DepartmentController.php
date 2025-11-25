@@ -59,4 +59,18 @@ class DepartmentController extends Controller
             return ApiResponse::error(__('employee.employee_not_found'));
         }
     }
+
+    /**
+     * Delete Department
+     */
+    public function destroy($id)
+    {
+        try {
+            $partnerId = Auth::user()->partner_id;
+            $this->departmentService->destroy($id, $partnerId);
+            return ApiResponse::success([], 'Department deleted successfully');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Department not found or unauthorized');
+        }
+    }
 }

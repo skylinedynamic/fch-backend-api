@@ -60,6 +60,7 @@ Route::prefix('v1')->group(function () {
             Route::post('departments', [DepartmentController::class, 'store']);
             Route::post('departments/fetch-departments', [DepartmentController::class, 'fetchDepartments']);
             Route::get('departments/{id}', [DepartmentController::class, 'show']);
+            Route::delete('departments/{id}', [DepartmentController::class, 'destroy']);
         });
 
         // V1 Notification routes

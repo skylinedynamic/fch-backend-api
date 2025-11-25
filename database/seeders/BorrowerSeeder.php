@@ -19,7 +19,7 @@ class BorrowerSeeder extends Seeder
         DB::table('borrowers')->insert([
             [
                 'signup_id' => 'SIGN-1001',
-                'partner_id' => 2, // Tech Solutions Inc
+                'partner_id' => 1, 
                 'business_no' => 'BN-TS-001',
                 'business_name' => 'Alpha Tech Startup',
                 'business_ein' => '12-3456789',
