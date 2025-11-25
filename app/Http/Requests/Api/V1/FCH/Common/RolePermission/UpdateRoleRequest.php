@@ -22,7 +22,7 @@ class UpdateRoleRequest extends BaseApiRequest
             'name' => [
                 'required',
                 'string',
-                'max:20',
+                'max:50',
                 Rule::unique('roles')
                     ->where(fn($query) => $query->where('partner_id', $partnerId))
                     ->ignore($roleId), 

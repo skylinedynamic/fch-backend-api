@@ -27,7 +27,7 @@ class StoreRoleRequest extends BaseApiRequest
             'name' => [
                 'required',
                 'string',
-                'max:20',
+                'max:50',
                 Rule::unique('roles')->where(function ($query) use ($partnerId) {
                     return $query->where('partner_id', $partnerId);
                 }),

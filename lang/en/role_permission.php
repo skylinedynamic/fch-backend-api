@@ -5,7 +5,7 @@ return [
     'role_not_found' => 'The specified role does not exist.',
     'name_required' => 'The role name is required.',
     'name_string' => 'The role name must be a string.',
-    'name_max' => 'The role name may not be greater than 20 characters.',
+    'name_max' => 'The role name may not be greater than 50 characters.',
     'name_unique' => 'The role name already exists.',
     'description_required' => 'The role description is required.',
     'description_string' => 'The role description must be a string.',
