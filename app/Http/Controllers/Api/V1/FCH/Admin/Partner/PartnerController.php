@@ -26,9 +26,10 @@ class PartnerController extends Controller
     {
         $partnersResponse = $this->partnerService->getAllPartners($request);
 
-        return ApiResponse::successWithPagination(
+        return ApiResponse::successWithPaginationAdditional(
             $partnersResponse['data'],
             $partnersResponse['meta'],
+            ['statistics' => $partnersResponse['statistics'] ?? []],
             __('partner.success.retrieved')
         );
     }

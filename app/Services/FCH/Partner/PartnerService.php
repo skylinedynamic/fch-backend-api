@@ -148,30 +148,73 @@ class PartnerService
                 'partners.company_email',
                 'partners.company_phone_number',
                 'partners.partner_type',
-                'partners.is_host'
+                'partners.is_host',
+                'partners.status',
+                'partners.created_at'
             );
 
         // Filter based on authenticated user's host status
+        $hostFilter = null;
         if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
             // If logged-in user is a host, show only non-host partners
             $query->where('is_host', '!=', 1);
+            $hostFilter = ['is_host', '!=', 1];
         } else {
             // Otherwise, show only host partners
             $query->where('is_host', 1);
+            $hostFilter = ['is_host', '=', 1];
         }
 
-        // 🔍 Search filter (searches partner and user fields)
+        // 🔍 Filter by partner_id (exact match)
+        if ($partnerId = $request->get('partner_id')) {
+            $query->where('partners.id', $partnerId);
+        }
+
+        // 🔍 Filter by user_id (exact match)
+        if ($userId = $request->get('user_id')) {
+            $query->whereHas('partnerUser', function ($userQ) use ($userId) {
+                $userQ->where('id', $userId);
+            });
+        }
+
+        // 🔍 Search filter (searches all partner and user fields)
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('company_name', 'LIKE', "%{$search}%")
                   ->orWhere('company_email', 'LIKE', "%{$search}%")
                   ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
+                  ->orWhere('owner_name', 'LIKE', "%{$search}%")
+                  ->orWhere('contact_person', 'LIKE', "%{$search}%")
+                  ->orWhere('partner_type', 'LIKE', "%{$search}%")
                   ->orWhereHas('partnerUser', function ($userQ) use ($search) {
                       $userQ->where('name', 'LIKE', "%{$search}%")
-                            ->orWhere('email', 'LIKE', "%{$search}%");
+                            ->orWhere('email', 'LIKE', "%{$search}%")
+                            ->orWhere('id', 'LIKE', "%{$search}%");
                   });
             });
         }
+
+        // Calculate statistics counts (before pagination)
+        $statsQuery = Partner::query()->where($hostFilter[0], $hostFilter[1], $hostFilter[2]);
+        
+        // Active partners count (Approved status)
+        $activePartnersCount = (clone $statsQuery)->where('status', Partner::STATUS_APPROVED)->count();
+        
+        // Inactive partners count (On Hold + Declined statuses)
+        $inactivePartnersCount = (clone $statsQuery)
+            ->whereIn('status', [Partner::STATUS_ON_HOLD, Partner::STATUS_DECLINED])
+            ->count();
+        
+        // Pending partners count
+        $pendingPartnersCount = (clone $statsQuery)->where('status', Partner::STATUS_PENDING)->count();
+        
+        // Current month partners count (Pending + Approved created in current month)
+        $currentMonthStart = now()->startOfMonth();
+        $currentMonthEnd = now()->endOfMonth();
+        $currentMonthPartnersCount = (clone $statsQuery)
+            ->whereIn('status', [Partner::STATUS_PENDING, Partner::STATUS_APPROVED])
+            ->whereBetween('created_at', [$currentMonthStart, $currentMonthEnd])
+            ->count();
 
         // 📄 Pagination (default 15 per page)
         $partners = $query->orderByDesc('partners.id')->paginate($request->get('per_page', 15));
@@ -181,6 +224,8 @@ class PartnerService
             $user = $partner->partnerUser;
             return [
                 'id'                   => $partner->id,
+                'user_id'              => $user->id ?? null,
+                'user_name'            => $user->name ?? null,
                 'company_name'         => $partner->company_name,
                 'owner_name'           => $partner->owner_name,
                 'owner_email'          => $partner->owner_email,
@@ -191,10 +236,11 @@ class PartnerService
                 'company_email'        => $partner->company_email,
                 'company_phone'        => $partner->company_phone_number,
                 'partner_type'         => $partner->partner_type,
+                'status'               => $partner->status,
             ];
         })->all();
 
-        // Return data with pagination meta
+        // Return data with pagination meta and statistics
         return [
             'data' => $data,
             'meta' => [
@@ -207,6 +253,12 @@ class PartnerService
                 'next_page_url' => $partners->nextPageUrl(),
                 'prev_page_url' => $partners->previousPageUrl(),
                 'links'         => $partners->linkCollection(),
+            ],
+            'statistics' => [
+                'active_partners_count'         => $activePartnersCount,
+                'inactive_partners_count'       => $inactivePartnersCount,
+                'pending_partners_count'        => $pendingPartnersCount,
+                'current_month_partners_count'  => $currentMonthPartnersCount,
             ],
         ];
     }

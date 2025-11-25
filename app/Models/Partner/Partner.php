@@ -19,6 +19,14 @@ class Partner extends Model
     use HasFactory, SoftDeletes;
 
     /**
+     * Partner Status Constants
+     */
+    const STATUS_APPROVED = 'Approved';
+    const STATUS_PENDING = 'Pending';
+    const STATUS_ON_HOLD = 'On Hold';
+    const STATUS_DECLINED = 'Declined';
+
+    /**
      * The table associated with the model.
      *
      * @var string
@@ -35,6 +43,17 @@ class Partner extends Model
         'employee_id',
         'status',
         'assign_to',
+        'company_name',
+        'company_email',
+        'company_phone_number',
+        'owner_name',
+        'owner_email',
+        'owner_phone_number',
+        'contact_person',
+        'contact_person_email',
+        'contact_person_phone_number',
+        'partner_type',
+        'is_host',
     ];
 
     /**
