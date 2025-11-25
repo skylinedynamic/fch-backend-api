@@ -2,12 +2,12 @@
 
 namespace App\Http\Resources\FCH\Partner;
 
-use App\Models\User\User;
+use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin User */
+/** @mixin Partner */
 class PartnerResource extends JsonResource
 {
     /**
@@ -16,27 +16,23 @@ class PartnerResource extends JsonResource
      public function toArray(Request $request): array
         {
             return [
-                'id' => $this->id,
-                'partner_name' => trim($this->full_name ?? '') ?: null,
-                'company_name' => $this->company->company_name ?? null,
-                'company_logo' => $this->company->company_logo 
-                    ? asset('storage/' . $this->company->company_logo) 
+                'id'                           => $this->id,
+                'assigned_user_id'             => $this->assignedUser->id ?? null,
+                'assigned_user_name'           => $this->assignedUser->name ?? null,
+                'company_name'                 => $this->company_name,
+                'company_email'                => $this->company_email,
+                'company_phone_number'         => $this->company_phone_number,
+                'owner_name'                   => $this->owner_name,
+                'owner_email'                  => $this->owner_email,
+                'owner_phone_number'           => $this->owner_phone_number,
+                'contact_person'               => $this->contact_person,
+                'contact_person_email'         => $this->contact_person_email,
+                'contact_person_phone_number'  => $this->contact_person_phone_number,
+                'partner_type'                 => $this->partner_type,
+                'is_host'                      => $this->is_host,
+                'created_at'                   => $this->created_at 
+                    ? Carbon::parse($this->created_at)->format('M j, Y') 
                     : null,
-                'created_at' => $this->company->created_at 
-                    ? Carbon::parse($this->company->created_at)->format('M j, Y') 
-                    : null,
-                'email' => $this->email,
-                'phone_number' => $this->phone_number,
-                'website' => $this->company->company_website ?? null,
-                'state' => $this->state,
-                'city' => $this->city,
-                'country' => $this->country,
-                'zip_code' => $this->postal_code,
-                'tax_id' => $this->tax_identification_number ?? null,
-                'level' => 'Gold Level',  // #TODO: dynamic later
-                'deals' => '12',   // #TODO: dynamic later
-                'agent' => 'New User',   // #TODO
-                // 'agent' => $this->roles->contains('role_name', 'agent') ? 'Agent' : null,
             ];
         }
 }
