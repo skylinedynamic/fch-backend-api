@@ -21,7 +21,8 @@ Route::prefix('v1/admin')
     ->group(function () {
 
         // 🧭 Partner routes
-        Route::get('partners', [PartnerController::class, 'index']);
+        Route::post('partners/fetch-partners', [PartnerController::class, 'index']);
+        Route::post('partners/get-all-users', [PartnerController::class, 'getAllUsers']);
         Route::post('partners', [PartnerController::class, 'store']);
         Route::put('partners/{id}', [PartnerController::class, 'update']);
 

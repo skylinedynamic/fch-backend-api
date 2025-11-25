@@ -18,6 +18,8 @@ class Partner extends Model
 {
     use HasFactory, SoftDeletes;
 
+
+
     /**
      * The table associated with the model.
      *
@@ -33,8 +35,18 @@ class Partner extends Model
     protected $fillable = [
         'user_id',
         'employee_id',
-        'status',
         'assign_to',
+        'company_name',
+        'company_email',
+        'company_phone_number',
+        'owner_name',
+        'owner_email',
+        'owner_phone_number',
+        'contact_person',
+        'contact_person_email',
+        'contact_person_phone_number',
+        'partner_type',
+        'is_host',
     ];
 
     /**
@@ -73,8 +85,32 @@ class Partner extends Model
         return $this->morphOne(User::class, 'entity');
     }
 
-    public function user(): MorphOne
+    /**
+     * Scope: apply text search across common partner fields.
+     */
+    public function scopeSearch($query, ?string $search)
     {
-        return $this->morphOne(User::class, 'entity');
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('company_name', 'LIKE', "%{$search}%")
+              ->orWhere('company_email', 'LIKE', "%{$search}%")
+              ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
+              ->orWhere('owner_name', 'LIKE', "%{$search}%")
+              ->orWhere('owner_email', 'LIKE', "%{$search}%")
+              ->orWhere('owner_phone_number', 'LIKE', "%{$search}%")
+              ->orWhere('contact_person', 'LIKE', "%{$search}%")
+              ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
+              ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
+              ->orWhere('partner_type', 'LIKE', "%{$search}%")
+              ->orWhereHas('assignedUser', function ($userQ) use ($search) {
+                  $userQ->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%");
+              });
+        });
     }
 }

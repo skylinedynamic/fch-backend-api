@@ -36,6 +36,23 @@ class ApiResponse
         ], $code);
     }
 
+    public static function successWithPaginationAdditional($data = [], $meta = [], array $additionalData = [], string $message = 'Success', int $code = 200): JsonResponse
+    {
+        $response = [
+            'status' => true,
+            'message' => $message,
+            'data' => $data,
+            'meta' => $meta,
+        ];
+
+        // Merge any additional data (like statistics)
+        if (!empty($additionalData)) {
+            $response = array_merge($response, $additionalData);
+        }
+
+        return response()->json($response, $code);
+    }
+
     /**
      * Generate an error response.
      *

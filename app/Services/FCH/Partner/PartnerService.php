@@ -3,11 +3,17 @@
 namespace App\Services\FCH\Partner;
 
 use App\Models\User\User;
+use App\Models\Partner\Partner;
 use App\Models\Business\Business;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use App\Traits\PaginatesApi;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\FCH\Partner\PartnerResource;
+
 class PartnerService
 {
+    use PaginatesApi;
     /**
      * Field mapping for user table fields.
      */
@@ -42,7 +48,6 @@ class PartnerService
             // Create company
             $companyData = $this->mapCompanyData($data);
             $companyData['user_id'] = $user->id;
-            $companyData['status'] = Business::STATUS_PENDING;
 
             Business::create($companyData);
             DB::commit();
@@ -123,43 +128,207 @@ class PartnerService
     }
 
     /**
-     * Get all partners with their company information.
+     * List partners with pagination, search, filtering and sorting.
+     * Follows the Employee service pattern.
+     */
+    public function list(array $filters)
+    {
+        // Get authenticated user to determine filter logic
+        $authUser = auth()->user();
+        
+        // Base query: Start from Partner model with assignedUser eager loading
+        $query = Partner::query()
+            ->with(['assignedUser' => function ($userQuery) {
+                $userQuery->select('id', 'name');
+            }]);
+
+        // Filter based on authenticated user's host status
+        if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
+            // If logged-in user is a host, show only non-host partners
+            $query->where('is_host', '!=', 1);
+        } else {
+            // Otherwise, show only host partners
+            $query->where('is_host', 1);
+        }
+
+        // 🔍 Filter by exact partner_id
+        if (!empty($filters['partner_id'])) {
+            $query->where('partners.id', $filters['partner_id']);
+        }
+
+        // 🔍 Filter by exact assigned_user_id
+        if (!empty($filters['assigned_user_id'])) {
+            $query->where('partners.assign_to', $filters['assigned_user_id']);
+        }
+
+        // 🔍 Search filter (uses scopeSearch from Partner model)
+        if (!empty($filters['search'])) {
+            $query->search(trim((string) $filters['search']));
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ? $filters['sort_field'] : 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        // Handle special field aliases
+        if ($sortField === 'assigned_user_name') {
+            $sortField = 'assign_to';
+        }
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [
+                    'assigned_user_name' => 'assign_to',
+                ],
+            ]
+        );
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            PartnerResource::class,
+            __('partner.success.retrieved')
+        );
+    }
+
+    /**
+     * Get all partners with their user information (legacy method with statistics).
      */
     public function getAllPartners(Request $request)
     {
-        $query = User::with('company')
-            ->where('user_type', User::PARTNER);
+        // Get authenticated user to determine filter logic
+        $authUser = auth()->user();
+        
+        // Base query: Start from Partner model with User eager loading
+        $query = Partner::query()
+            ->with(['assignedUser' => function ($userQuery) {
+                $userQuery->select('id', 'name');
+            }])
+            ->select(
+                'partners.id',
+                'partners.company_name',
+                'partners.owner_name',
+                'partners.owner_email',
+                'partners.owner_phone_number',
+                'partners.contact_person',
+                'partners.contact_person_email',
+                'partners.contact_person_phone_number',
+                'partners.company_email',
+                'partners.company_phone_number',
+                'partners.partner_type',
+                'partners.is_host',
+                'partners.assign_to',
+                'partners.created_at'
+            );
 
-        // 🔍 Search filter
+        // Filter based on authenticated user's host status
+        $hostFilter = null;
+        if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
+            // If logged-in user is a host, show only non-host partners
+            $query->where('is_host', '!=', 1);
+            $hostFilter = ['is_host', '!=', 1];
+        } else {
+            // Otherwise, show only host partners
+            $query->where('is_host', 1);
+            $hostFilter = ['is_host', '=', 1];
+        }
+
+        // 🔍 Filter by partner_id (exact match)
+        if ($partnerId = $request->get('partner_id')) {
+            $query->where('partners.id', $partnerId);
+        }
+
+
+
+        // 🔍 Filter by assigned_user_id (exact match)
+        if ($assignedUserId = $request->get('assigned_user_id')) {
+            $query->where('partners.assign_to', $assignedUserId);
+        }
+
+        // 🔍 Search filter (searches all partner and user fields)
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'LIKE', "%{$search}%")
-                ->orWhere('last_name', 'LIKE', "%{$search}%")
-                ->orWhere('email', 'LIKE', "%{$search}%")
-                ->orWhereHas('company', function ($companyQuery) use ($search) {
-                    $companyQuery->where('company_name', 'LIKE', "%{$search}%");
-                });
+                $q->where('company_name', 'LIKE', "%{$search}%")
+                  ->orWhere('company_email', 'LIKE', "%{$search}%")
+                  ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
+                  ->orWhere('owner_name', 'LIKE', "%{$search}%")
+                  ->orWhere('contact_person', 'LIKE', "%{$search}%")
+                  ->orWhere('partner_type', 'LIKE', "%{$search}%")
+
+                  ->orWhereHas('assignedUser', function ($userQ) use ($search) {
+                      $userQ->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('email', 'LIKE', "%{$search}%");
+                  });
             });
         }
 
-        // 📄 Pagination (with links)
-        $partners = $query->orderByDesc('id')->paginate($request->get('per_page', 1));
 
-        // Add pagination metadata (including links)
+
+        // 📄 Pagination (default 15 per page)
+        $partners = $query->orderByDesc('partners.id')->paginate($request->get('per_page', 15));
+
+        // Transform to the required flat structure
+        $data = $partners->map(function ($partner) {
+            $assignedUser = $partner->assignedUser;
+            return [
+                'id'                   => $partner->id,
+                'assigned_user_id'     => $assignedUser->id ?? null,
+                'assigned_user_name'   => $assignedUser->name ?? null,
+                'company_name'         => $partner->company_name,
+                'owner_name'           => $partner->owner_name,
+                'owner_email'          => $partner->owner_email,
+                'owner_phone'          => $partner->owner_phone_number,
+                'contact_person'       => $partner->contact_person,
+                'contact_person_email' => $partner->contact_person_email,
+                'contact_person_phone' => $partner->contact_person_phone_number,
+                'company_email'        => $partner->company_email,
+                'company_phone'        => $partner->company_phone_number,
+                'partner_type'         => $partner->partner_type,
+            ];
+        })->all();
+
+        // Return data with pagination meta and statistics
         return [
-            'data' => $partners->items(),
+            'data' => $data,
             'meta' => [
-                'current_page' => $partners->currentPage(),
-                'from' => $partners->firstItem(),
-                'to' => $partners->lastItem(),
-                'per_page' => $partners->perPage(),
-                'total' => $partners->total(),
-                'last_page' => $partners->lastPage(),
+                'current_page'  => $partners->currentPage(),
+                'from'          => $partners->firstItem(),
+                'to'            => $partners->lastItem(),
+                'per_page'      => $partners->perPage(),
+                'total'         => $partners->total(),
+                'last_page'     => $partners->lastPage(),
                 'next_page_url' => $partners->nextPageUrl(),
                 'prev_page_url' => $partners->previousPageUrl(),
-                'links' => $partners->linkCollection(),
+                'links'         => $partners->linkCollection(),
             ],
+
         ];
+    }
+
+    /**
+     * Get all users where entity_type is Employee or NULL.
+     * Returns only id and name.
+     */
+    public function getAllUsers()
+    {
+        $users = User::query()
+            ->where(function ($query) {
+                $query->where('entity_type', 'App\\Models\\Employee\\Employee')
+                      ->orWhereNull('entity_type');
+            })
+            ->select('id', 'name')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return $users;
     }
 
     /**

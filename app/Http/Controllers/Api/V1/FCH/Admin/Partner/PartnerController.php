@@ -9,6 +9,7 @@ use App\Services\FCH\Partner\PartnerService;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 
 class PartnerController extends Controller
 {
@@ -22,14 +23,31 @@ class PartnerController extends Controller
     /**
      * Get Partners.
      */
-    public function index(Request $request)
+    public function index(FetchPartner $request)
     {
-        $partnersResponse = $this->partnerService->getAllPartners($request);
+        try {
+            $input = $request->validated();
 
-        return ApiResponse::success([
-            'partners' => PartnerResource::collection(collect($partnersResponse['data'])),
-            'meta' => $partnersResponse['meta'],
-        ], __('partner.success.retrieved'));
+            // Sanitize and cap pagination to avoid heavy payloads
+            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
+            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
+
+            $filters = [
+                'per_page'          => $perPage,
+                'page'              => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search'            => isset($input['search']) ? trim((string) $input['search']) : null,
+                'partner_id'        => $input['partner_id'] ?? null,
+                'assigned_user_id'  => $input['assigned_user_id'] ?? null,
+                'filters'           => $input['filters'] ?? null, // array expected per request rules
+                'sort_field'        => $input['sort_field'] ?? null,
+                'sort_order'        => $input['sort_order'] ?? null,
+            ];
+
+            return $this->partnerService->list($filters);
+
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('partner.error.list_failed'));
+        }
     }
 
     /**
@@ -63,6 +81,19 @@ class PartnerController extends Controller
         return ApiResponse::success(
             new PartnerResource($updatedPartner),
             __('partner.success.updated'),
+        );
+    }
+
+    /**
+     * Get all users with entity_type = Employee or NULL.
+     */
+    public function getAllUsers(Request $request)
+    {
+        $users = $this->partnerService->getAllUsers();
+
+        return ApiResponse::success(
+            $users,
+            'Users retrieved successfully'
         );
     }
 }
