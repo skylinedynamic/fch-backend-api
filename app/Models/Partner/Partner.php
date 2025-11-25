@@ -18,13 +18,7 @@ class Partner extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * Partner Status Constants
-     */
-    const STATUS_APPROVED = 'Approved';
-    const STATUS_PENDING = 'Pending';
-    const STATUS_ON_HOLD = 'On Hold';
-    const STATUS_DECLINED = 'Declined';
+
 
     /**
      * The table associated with the model.
@@ -41,7 +35,6 @@ class Partner extends Model
     protected $fillable = [
         'user_id',
         'employee_id',
-        'status',
         'assign_to',
         'company_name',
         'company_email',

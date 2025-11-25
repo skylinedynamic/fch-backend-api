@@ -67,4 +67,17 @@ class PartnerController extends Controller
             __('partner.success.updated'),
         );
     }
+
+    /**
+     * Get all users with entity_type = Employee or NULL.
+     */
+    public function getAllUsers(Request $request)
+    {
+        $users = $this->partnerService->getAllUsers();
+
+        return ApiResponse::success(
+            $users,
+            'Users retrieved successfully'
+        );
+    }
 }

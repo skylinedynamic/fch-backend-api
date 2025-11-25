@@ -33,7 +33,6 @@ class PartnerResource extends JsonResource
                 'country' => $this->country,
                 'zip_code' => $this->postal_code,
                 'tax_id' => $this->tax_identification_number ?? null,
-                'status' => $this->company->status ?? null,
                 'level' => 'Gold Level',  // #TODO: dynamic later
                 'deals' => '12',   // #TODO: dynamic later
                 'agent' => 'New User',   // #TODO
