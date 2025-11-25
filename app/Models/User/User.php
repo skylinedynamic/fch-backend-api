@@ -45,8 +45,6 @@ class User extends Authenticatable implements OAuthenticatable
         'email_verified_at',
         'user_type',
         'status',
-        'entity_type',
-        'entity_id',
         'password',
         'partner_id',
         'entity_type',
@@ -443,7 +441,7 @@ class User extends Authenticatable implements OAuthenticatable
     public function getEntityNameAttribute(): ?string
     {
         if (!$this->entity_type) {
-            return 'User';
+            return null;
         }
 
         $map = [
@@ -484,4 +482,5 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return $this->roles->first()?->name;
     }
+    
 }
