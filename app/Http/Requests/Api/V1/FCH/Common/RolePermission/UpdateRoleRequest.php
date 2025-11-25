@@ -28,7 +28,7 @@ class UpdateRoleRequest extends BaseApiRequest
                     ->ignore($roleId), 
             ],
 
-            'description' => 'nullable|string|max:100',
+            'description' => 'nullable|string|max:255',
             'permission_ids' => 'required|array|exists:permissions,id',
         ];
     }

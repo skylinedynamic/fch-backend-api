@@ -32,7 +32,7 @@ class StoreRoleRequest extends BaseApiRequest
                     return $query->where('partner_id', $partnerId);
                 }),
             ],
-            'description' => 'nullable|string|max:100',
+            'description' => 'nullable|string|max:255',
             'permission_ids' => ['required', 'array', 'exists:permissions,id'],
         ];
     }
