@@ -65,11 +65,12 @@ class UserController extends Controller
                 'page'       => isset($input['page']) ? max(1, (int) $input['page']) : 1,
                 'search'     => isset($input['search']) ? trim((string) $input['search']) : null,
                 'status' => $input['status'] ?? null,
-                'role_id' => $input['role'] ?? null,
+                'role_id' => isset($input['role']) ? (int) $input['role'] : null,
                 'filters'    => $input['filters'] ?? null,
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,
             ];
+      
 
             return $this->userService->list($partnerId, $filters);
 

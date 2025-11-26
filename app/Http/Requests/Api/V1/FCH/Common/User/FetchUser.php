@@ -22,7 +22,7 @@ class FetchUser extends FormRequest
     public function rules(): array
     {
         return [
-            'role'   => ['nullable', 'string'],
+            'role'   => ['nullable', 'integer'],
             'search'       => ['nullable', 'string'],
             'status'   => ['nullable', 'string'],
             'filters'      => ['nullable', 'array'],

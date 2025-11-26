@@ -108,13 +108,11 @@ class UserService
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
        if( $filters['sort_field'] === 'role_name' ){
-             $query = User::query()
-            ->select('users.*')
+            $query->select('users.*')
             ->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
             ->leftJoin('roles', 'model_has_roles.role_id', '=', 'roles.id')
             ->where('model_has_roles.model_type', User::class)
-            ->orderBy('roles.name', $filters['sort_order'])
-            ->with('roles');
+            ->orderBy('roles.name', $filters['sort_order']);
         }
         else {
             $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
