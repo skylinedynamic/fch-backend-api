@@ -169,8 +169,8 @@
                 alt="{{ $business_info['company_name'] }} Logo">
         @endif
         <p>
-            {{ $business_info['company_name'] }} | {{ $business_info['company_phone_number'] }} | 
-            <a href="mailto:{{ $business_info['company_email'] }}">{{ $business_info['company_email'] }}</a><br>
+            {{ $business_info['company_name'] }} | {{ $business_info['phone_number'] }} | 
+            <a href="mailto:{{ $business_info['email'] }}">{{ $business_info['email'] }}</a><br>
             {{ $business_info['address_line_1'] }}
         </p>
         <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>

@@ -44,7 +44,7 @@ class AccountCreatedNotification implements NotificationTypeInterface
                 'login_url'      => $this->data['login_url'] ?? url('/'),
                 'company_name'   => $this->data['company_name'] ?? 'Skyline Dynamics',
                 'company_logo'   => $this->data['company_logo'] ?? 'https://skylinedynamic.dev/admin-portal/assets/images/logo.png',
-                'company_email'  => $this->data['company_email'] ?? 'support@skylinedynamic.dev',
+                'email'  => $this->data['email'] ?? 'support@skylinedynamic.dev',
                 'company_phone'  => $this->data['company_phone'] ?? '+880 1234-567890',
             ],
         ];

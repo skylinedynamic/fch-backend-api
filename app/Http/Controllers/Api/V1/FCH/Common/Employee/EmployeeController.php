@@ -259,8 +259,8 @@ class EmployeeController extends Controller
             'business_info' => [
                 'company_name' => $businessInfo->company_name,
                 'company_logo' => $businessInfo->company_logo,
-                'company_email' => $businessInfo->company_email,
-                'company_phone_number' => $businessInfo->company_phone_number,
+                'email' => $businessInfo->email,
+                'phone_number' => $businessInfo->phone_number,
                 'address_line_1' => $businessInfo->address_line_1,
             ],
         ];

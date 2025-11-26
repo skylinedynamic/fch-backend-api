@@ -44,8 +44,8 @@ class UserCreateNotificationMail extends Mailable
 
                 'business_info' => [
                     'company_name'   => $this->mailData['business_info']['company_name'] ?? '',
-                    'company_email'  => $this->mailData['business_info']['company_email'] ?? '',
-                    'company_phone_number'  => $this->mailData['business_info']['company_phone_number'] ?? '',
+                    'email'  => $this->mailData['business_info']['email'] ?? '',
+                    'phone_number'  => $this->mailData['business_info']['phone_number'] ?? '',
                     'address_line_1'  => $this->mailData['business_info']['address_line_1'] ?? '',
                 ],
             ]

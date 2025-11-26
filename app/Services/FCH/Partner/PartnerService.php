@@ -286,8 +286,8 @@ class PartnerService
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('company_name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%") // Changed from company_email
-                  ->orWhere('phone_number', 'LIKE', "%{$search}%") // Changed from company_phone_number
+                  ->orWhere('email', 'LIKE', "%{$search}%") // Changed from email
+                  ->orWhere('phone_number', 'LIKE', "%{$search}%") // Changed from phone_number
                   ->orWhere('full_name', 'LIKE', "%{$search}%") // Changed from owner_name
                   ->orWhere('contact_person', 'LIKE', "%{$search}%")
                   ->orWhere('partner_type', 'LIKE', "%{$search}%")
