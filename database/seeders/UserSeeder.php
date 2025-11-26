@@ -22,8 +22,8 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'craig@fourcornerholdings.com'],
             [
-                'name' => $hostPartner?->owner_name ?: $hostPartner?->company_name,
-                'phone_number' => $hostPartner?->owner_phone_number ?: $hostPartner?->company_phone_number,
+                'name' => $hostPartner?->full_name ?: $hostPartner?->company_name,
+                'phone_number' => $hostPartner?->phone_number,
                 'user_type' => User::ADMIN,
                 'password' => Hash::make('12345678'),
                 'status' => User::STATUS['active'],
@@ -37,9 +37,9 @@ class UserSeeder extends Seeder
         // 2) Create Partner users for non-host partners
         $partners = DB::table('partners')->where('is_host', false)->get();
         foreach ($partners as $p) {
-            $name = $p->owner_name ?: $p->company_name;
-            $email = $p->owner_email ?: $p->company_email;
-            $phone = $p->owner_phone_number ?: $p->company_phone_number;
+            $name = $p->full_name ?: $p->company_name;
+            $email = $p->email;
+            $phone = $p->phone_number;
 
             if (!$email) {
                 // Skip if no usable email

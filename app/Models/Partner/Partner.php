@@ -33,20 +33,26 @@ class Partner extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',
-        'employee_id',
-        'assign_to',
+        'is_host',
+        'full_name',
         'company_name',
-        'company_email',
-        'company_phone_number',
-        'owner_name',
-        'owner_email',
-        'owner_phone_number',
+        'email',
+        'phone_number',
         'contact_person',
         'contact_person_email',
         'contact_person_phone_number',
+        'contact_person_relation',
         'partner_type',
-        'is_host',
+        'status',
+        'state',
+        'city',
+        'postal_code',
+        'address_line_1',
+        'address_line_2',
+        'country',
+        'joining_date',
+        'company_logo',
+        'assign_to',
     ];
 
     /**
@@ -98,11 +104,9 @@ class Partner extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('company_name', 'LIKE', "%{$search}%")
-              ->orWhere('company_email', 'LIKE', "%{$search}%")
-              ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
-              ->orWhere('owner_name', 'LIKE', "%{$search}%")
-              ->orWhere('owner_email', 'LIKE', "%{$search}%")
-              ->orWhere('owner_phone_number', 'LIKE', "%{$search}%")
+              ->orWhere('email', 'LIKE', "%{$search}%")
+              ->orWhere('phone_number', 'LIKE', "%{$search}%")
+              ->orWhere('full_name', 'LIKE', "%{$search}%")
               ->orWhere('contact_person', 'LIKE', "%{$search}%")
               ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
               ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")

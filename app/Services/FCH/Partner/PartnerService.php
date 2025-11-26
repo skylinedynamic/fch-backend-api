@@ -18,40 +18,67 @@ class PartnerService
      * Field mapping for user table fields.
      */
     private array $userFieldMapping = [
-        'partner_name'   => 'first_name',
+        'full_name'      => 'name',
         'email'          => 'email',
         'phone_number'   => 'phone_number',
         'city'           => 'city',
         'state'          => 'state',
         'zip_code'       => 'postal_code',
         'country'        => 'country',
+        'address_line_1' => 'address_line_1',
+        'address_line_2' => 'address_line_2',
     ];
 
     /**
-     * Field mapping for company table fields.
+     * Field mapping for partner table fields.
      */
-    private array $companyFieldMapping = [
-        'company_name'   => 'company_name',
-        'website'        => 'company_website',
+    private array $partnerFieldMapping = [
+        'full_name'                   => 'full_name',
+        'company_name'                => 'company_name',
+        'email'                       => 'email',
+        'phone_number'                => 'phone_number',
+        'contact_person'              => 'contact_person',
+        'contact_person_email'        => 'contact_person_email',
+        'contact_person_phone_number' => 'contact_person_phone_number',
+        'contact_person_relation'     => 'contact_person_relation',
+        'partner_type'                => 'partner_type',
+        'status'                      => 'status',
+        'state'                       => 'state',
+        'city'                        => 'city',
+        'postal_code'                 => 'postal_code',
+        'address_line_1'              => 'address_line_1',
+        'address_line_2'              => 'address_line_2',
+        'country'                     => 'country',
+        'joining_date'                => 'joining_date',
+        'company_logo'                => 'company_logo',
+        'tax_id'                      => 'tax_id', // Assuming added to model fillable/migration if needed, or handled via additional_data if not
+        'website'                     => 'website', // Same assumption
+        'partner_image'               => 'partner_image',
     ];
 
     /**
-     * Create a new partner/company.
+     * Create a new partner.
      */
-    public function store(array $data): User
+    public function store(array $data): Partner
     {
         DB::beginTransaction();
          try{
             // Create or update user
             $user = $this->createOrUpdateUser($data);
             
-            // Create company
-            $companyData = $this->mapCompanyData($data);
-            $companyData['user_id'] = $user->id;
+            // Create partner
+            $partnerData = $this->mapPartnerData($data);
+            
+            $partner = Partner::create($partnerData);
+            
+            // Update user with partner link
+            $user->partner_id = $partner->id;
+            $user->entity_type = Partner::class;
+            $user->entity_id = $partner->id;
+            $user->save();
 
-            Business::create($companyData);
             DB::commit();
-            return $user;
+            return $partner;
 
          }catch(\Exception $e){
             DB::rollBack();
@@ -60,28 +87,33 @@ class PartnerService
     }
 
     /**
-     * Update an existing partner/company.
+     * Update an existing partner.
      */
-    public function update(User $partner, array $data): User
+    public function update(Partner $partner, array $data): Partner
     {
         return DB::transaction(function () use ($partner, $data) {
             // Update user
-            $this->createOrUpdateUser($data, $partner);
+            // Assuming the partner has a linked user via polymorphic relation or we find by email
+            $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
             
-            // Update company
-            $companyData = $this->mapCompanyData($data);
-            $partner->update($companyData);
+            if ($user) {
+                $this->createOrUpdateUser($data, $user);
+            }
+            
+            // Update partner
+            $partnerData = $this->mapPartnerData($data);
+            $partner->update($partnerData);
             
             return $partner->fresh();
         });
     }
 
     /**
-     * Find a partner/company by ID.
+     * Find a partner by ID.
      */
-    public function findById(int $id): ?User
+    public function findById(int $id): ?Partner
     {
-        return User::find($id);
+        return Partner::with('partnerUser')->find($id);
     }
 
     /**
@@ -129,14 +161,13 @@ class PartnerService
 
     /**
      * List partners with pagination, search, filtering and sorting.
-     * Follows the Employee service pattern.
      */
     public function list(array $filters)
     {
         // Get authenticated user to determine filter logic
         $authUser = auth()->user();
         
-        // Base query: Start from Partner model with assignedUser eager loading
+        // Base query: Start from Partner model with User eager loading
         $query = Partner::query()
             ->with(['assignedUser' => function ($userQuery) {
                 $userQuery->select('id', 'name');
@@ -151,12 +182,12 @@ class PartnerService
             $query->where('is_host', 1);
         }
 
-        // 🔍 Filter by exact partner_id
+        // 🔍 Filter by partner_id (exact match)
         if (!empty($filters['partner_id'])) {
             $query->where('partners.id', $filters['partner_id']);
         }
 
-        // 🔍 Filter by exact assigned_user_id
+        // 🔍 Filter by assigned_user_id (exact match)
         if (!empty($filters['assigned_user_id'])) {
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
@@ -167,7 +198,7 @@ class PartnerService
         }
 
         // Sorting
-        $sortField = $filters['sort_field'] ? $filters['sort_field'] : 'id';
+        $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         // Handle special field aliases
@@ -215,14 +246,12 @@ class PartnerService
             ->select(
                 'partners.id',
                 'partners.company_name',
-                'partners.owner_name',
-                'partners.owner_email',
-                'partners.owner_phone_number',
+                'partners.full_name',
                 'partners.contact_person',
                 'partners.contact_person_email',
                 'partners.contact_person_phone_number',
-                'partners.company_email',
-                'partners.company_phone_number',
+                'partners.email',
+                'partners.phone_number',
                 'partners.partner_type',
                 'partners.is_host',
                 'partners.assign_to',
@@ -257,9 +286,9 @@ class PartnerService
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('company_name', 'LIKE', "%{$search}%")
-                  ->orWhere('company_email', 'LIKE', "%{$search}%")
-                  ->orWhere('company_phone_number', 'LIKE', "%{$search}%")
-                  ->orWhere('owner_name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%") // Changed from company_email
+                  ->orWhere('phone_number', 'LIKE', "%{$search}%") // Changed from company_phone_number
+                  ->orWhere('full_name', 'LIKE', "%{$search}%") // Changed from owner_name
                   ->orWhere('contact_person', 'LIKE', "%{$search}%")
                   ->orWhere('partner_type', 'LIKE', "%{$search}%")
 
@@ -282,16 +311,16 @@ class PartnerService
                 'id'                   => $partner->id,
                 'assigned_user_id'     => $assignedUser->id ?? null,
                 'assigned_user_name'   => $assignedUser->name ?? null,
+                'full_name'            => $partner->full_name,
                 'company_name'         => $partner->company_name,
-                'owner_name'           => $partner->owner_name,
-                'owner_email'          => $partner->owner_email,
-                'owner_phone'          => $partner->owner_phone_number,
+                'email'                => $partner->email,
+                'phone_number'         => $partner->phone_number,
                 'contact_person'       => $partner->contact_person,
                 'contact_person_email' => $partner->contact_person_email,
                 'contact_person_phone' => $partner->contact_person_phone_number,
-                'company_email'        => $partner->company_email,
-                'company_phone'        => $partner->company_phone_number,
                 'partner_type'         => $partner->partner_type,
+                'status'               => $partner->status,
+                'joining_date'         => $partner->joining_date,
             ];
         })->all();
 
@@ -321,10 +350,10 @@ class PartnerService
     {
         $users = User::query()
             ->where(function ($query) {
-                $query->where('entity_type', 'App\\Models\\Employee\\Employee')
+                $query->where('user_type', 'App\\Models\\Employee\\Employee')
                       ->orWhereNull('entity_type');
             })
-            ->select('id', 'name')
+            ->select('id', 'name','email','phone_number')
             ->orderBy('name', 'asc')
             ->get();
 
@@ -332,18 +361,18 @@ class PartnerService
     }
 
     /**
-     * Map request data to company model attributes.
+     * Map request data to partner model attributes.
      */
-    private function mapCompanyData(array $data): array
+    private function mapPartnerData(array $data): array
     {
-        $companyData = [];
+        $partnerData = [];
 
-        foreach ($this->companyFieldMapping as $requestField => $companyField) {
+        foreach ($this->partnerFieldMapping as $requestField => $partnerField) {
             if (array_key_exists($requestField, $data)) {
-                $companyData[$companyField] = $data[$requestField];
+                $partnerData[$partnerField] = $data[$requestField];
             }
         }
 
-        return $companyData;
+        return $partnerData;
     }
 }

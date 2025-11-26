@@ -48,7 +48,7 @@ class UserService
                 'user_type' => auth()->user()->user_type ?? null,
                 'password' => Hash::make($plainPassword),
                 'partner_id' => auth()->user()->partner_id,
-                'sattus' => User::STATUS['active'],
+                'status' => User::STATUS['active'],
                 'entity_type' => NULL,
                 'entity_id' => NULL,
             ]);
@@ -205,8 +205,8 @@ class UserService
             'plain_password' => $plainPassword,
             'business_info' => [
                 'company_name' => $businessInfo->company_name,
-                'company_email' => $businessInfo->company_email,
-                'company_phone_number' => $businessInfo->company_phone_number,
+                'email' => $businessInfo->email,
+                'phone_number' => $businessInfo->phone_number,
                 'address_line_1' => $businessInfo->address_line_1,
             ],
         ];

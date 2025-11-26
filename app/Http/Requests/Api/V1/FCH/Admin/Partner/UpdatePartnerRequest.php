@@ -26,16 +26,27 @@ class UpdatePartnerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'partner_name'   => ['sometimes', 'required', 'string', 'max:255'],
-            'company_name'   => ['sometimes', 'required', 'string', 'max:255'],
-            'email'          => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->user)],
-            'phone_number'   => ['sometimes', 'required', 'string', 'max:50'],
-            'state'          => ['nullable', 'string', 'max:100'],
-            'city'           => ['nullable', 'string', 'max:100'],
-            'country'        => ['nullable', 'string', 'max:100'],
-            'zip_code'       => ['nullable', 'string', 'max:20'],
-            'tax_id'         => ['nullable', 'string', 'max:100'],
-            'website'        => ['nullable', 'url'],
+            'full_name'                   => ['sometimes', 'required', 'string', 'max:255'],
+            'company_name'                => ['sometimes', 'required', 'string', 'max:255'],
+            'email'                       => ['sometimes', 'required', 'email', 'max:255', Rule::unique('partners', 'email')->ignore($this->partner), Rule::unique('users', 'email')->ignore($this->user)],
+            'phone_number'                => ['sometimes', 'required', 'string', 'max:50'],
+            'status'                      => ['nullable', 'string', 'max:255'],
+            'contact_person'              => ['nullable', 'string', 'max:255'],
+            'contact_person_phone_number' => ['nullable', 'string', 'max:50'],
+            'contact_person_email'        => ['nullable', 'email', 'max:255'],
+            'contact_person_relation'     => ['nullable', 'string', 'max:255'],
+            'partner_type'                => ['nullable', 'string', 'max:255'],
+            'state'                       => ['nullable', 'string', 'max:100'],
+            'city'                        => ['nullable', 'string', 'max:100'],
+            'country'                     => ['nullable', 'string', 'max:100'],
+            'zip_code'                    => ['nullable', 'string', 'max:20'],
+            'address_line_1'              => ['nullable', 'string', 'max:255'],
+            'address_line_2'              => ['nullable', 'string', 'max:255'],
+            'tax_id'                      => ['nullable', 'string', 'max:100'],
+            'website'                     => ['nullable', 'url'],
+            'joining_date'                => ['nullable', 'date'],
+            'company_logo'                => ['nullable', 'string'],
+            'partner_image'               => ['nullable', 'string'],     
         ];
     }
 
@@ -45,7 +56,7 @@ class UpdatePartnerRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'partner_name.required' => __('partner.validation.partner_name.required'),
+            'full_name.required' => __('partner.validation.full_name.required'),
             'company_name.required' => __('partner.validation.company_name.required'),
             'email.required' => __('partner.validation.email.required'),
             'email.email' => __('partner.validation.email.email'),

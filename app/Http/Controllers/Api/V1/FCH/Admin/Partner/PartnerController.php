@@ -55,11 +55,11 @@ class PartnerController extends Controller
      */
     public function store(StorePartnerRequest $request)
     {
-        $user = $this->partnerService->store($request->validated());
+        $partner = $this->partnerService->store($request->validated());
 
 
         return ApiResponse::success(
-            new PartnerResource($user),
+            new PartnerResource($partner),
             __('partner.success.created'),
             201
         );
