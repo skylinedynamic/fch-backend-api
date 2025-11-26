@@ -22,8 +22,6 @@ return new class extends Migration
             $table->string('business_zip_code')->nullable()->after('business_state');
             $table->string('business_country')->nullable()->after('business_zip_code');
             $table->string('business_address')->nullable()->after('business_country');
-            $table->string('business_entity_type')->nullable()->after('business_address');
-            $table->string('business_industry_type')->nullable()->after('business_entity_type');
         });
     }
 
@@ -42,8 +40,6 @@ return new class extends Migration
             $table->dropColumn('business_zip_code');
             $table->dropColumn('business_country');
             $table->dropColumn('business_address');
-            $table->dropColumn('business_entity_type');
-            $table->dropColumn('business_industry_type');
         });
     }
 };
