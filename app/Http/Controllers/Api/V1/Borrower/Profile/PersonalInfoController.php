@@ -47,7 +47,7 @@ class PersonalInfoController extends Controller
                 __('borrower.update_personal_profile')
             );
         } catch (\Exception $e) {
-            return ApiResponse::error(__('borrower.update_personal_profile_failed'), 500);
+            return ApiResponse::error(__($e->getMessage()), 500);
         }
     }
 }

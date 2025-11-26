@@ -48,6 +48,11 @@ return [
     'country_required' => 'Country is required',
     'country_string' => 'Country must be a string',
     'country_max' => 'Country cannot exceed 255 characters',
+
+    // Country Code
+    'country_code_required' => 'Country code is required',
+    'country_code_string' => 'Country code must be a string',
+    'country_code_max' => 'Country code cannot exceed 5 characters',
     
     // Home Phone (optional)
     'home_phone_string' => 'Home phone must be a string',
