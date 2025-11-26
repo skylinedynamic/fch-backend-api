@@ -20,15 +20,14 @@ return new class extends Migration {
             $table->string('business_email')->nullable();
             $table->string('business_phone')->nullable();
             $table->string('business_entity_type')->nullable();
-            $table->string('business_type')->nullable();
+            $table->string('business_industry_type')->nullable();
             $table->longText('business_description')->nullable();
             $table->string('business_logo')->nullable();
             $table->string('status')->nullable();
             $table->string('business_registration_number')->nullable();
             $table->string('tax_identification_number')->nullable();
             $table->foreignId('assign_id')->nullable()->constrained('users');
-            $table->string('address_line_1')->nullable();
-            $table->string('address_line_2')->nullable();
+            $table->string('home_address')->nullable();
             $table->string('city')->nullable();
             $table->string('state')->nullable();
             $table->string('postal_code')->nullable();
