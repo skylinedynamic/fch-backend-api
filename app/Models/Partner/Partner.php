@@ -120,4 +120,11 @@ class Partner extends Model
               });
         });
     }
+    /**
+     * Get the borrowers for the partner.
+     */
+    public function borrowers(): HasMany
+    {
+        return $this->hasMany(Borrower::class, 'partner_id');
+    }
 }

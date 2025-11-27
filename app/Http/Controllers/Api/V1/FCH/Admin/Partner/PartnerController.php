@@ -135,4 +135,26 @@ class PartnerController extends Controller
             'Users retrieved successfully'
         );
     }
+
+    /**
+     * Get Borrowers List.
+     */
+    public function getBorrowers(Request $request)
+    {
+        try {
+            $filters = [
+                'per_page'   => $request->input('per_page'),
+                'page'       => $request->input('page'),
+                'search'     => $request->input('search'),
+                'partner_id' => $request->input('partner_id'),
+                'sort_field' => $request->input('sort_field'),
+                'sort_order' => $request->input('sort_order'),
+            ];
+
+            return $this->partnerService->getBorrowers($filters);
+
+        } catch (\Exception $e) {
+            return ApiResponse::serverError('Failed to fetch borrowers');
+        }
+    }
 }

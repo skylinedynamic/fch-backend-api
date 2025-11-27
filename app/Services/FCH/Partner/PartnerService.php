@@ -13,6 +13,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Models\Borrower\Borrower;
+use App\Http\Resources\FCH\Borrower\BorrowerResource;
 
 class PartnerService
 {
@@ -435,5 +437,44 @@ class PartnerService
         }
 
         return $partnerData;
+    }
+    /**
+     * Get Borrowers list.
+     */
+    public function getBorrowers(array $filters)
+    {
+        $query = Borrower::query()->with('partner');
+
+        if (!empty($filters['partner_id'])) {
+            $query->where('partner_id', $filters['partner_id']);
+        }
+
+        if (!empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'LIKE', "%{$search}%")
+                  ->orWhere('last_name', 'LIKE', "%{$search}%")
+                  ->orWhere('business_name', 'LIKE', "%{$search}%")
+                  ->orWhere('business_email', 'LIKE', "%{$search}%")
+                  ->orWhere('business_phone', 'LIKE', "%{$search}%");
+            });
+        }
+        
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'id';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        
+        $query->orderBy($sortField, $sortOrder);
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            BorrowerResource::class,
+            'Borrowers retrieved successfully'
+        );
     }
 }

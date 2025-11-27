@@ -26,6 +26,7 @@ Route::prefix('v1/admin')
         Route::post('partners', [PartnerController::class, 'store']);
         Route::put('partners/{id}', [PartnerController::class, 'update']);
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
+        Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);

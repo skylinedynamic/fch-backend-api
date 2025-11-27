@@ -44,4 +44,20 @@ class Borrower extends Model
     {
         return $this->morphOne(\App\Models\User\User::class, 'entity');
     }
+
+    /**
+     * Get the partner that owns the borrower.
+     */
+    public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
+    }
+
+    /**
+     * Get the borrower's full name.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->first_name} {$this->last_name}");
+    }
 }
