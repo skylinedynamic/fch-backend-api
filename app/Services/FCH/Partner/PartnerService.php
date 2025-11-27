@@ -8,12 +8,15 @@ use App\Models\Business\Business;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use App\Traits\PaginatesApi;
+use App\Traits\UploadsFiles;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 
 class PartnerService
 {
-    use PaginatesApi;
+    use PaginatesApi, UploadsFiles;
     /**
      * Field mapping for user table fields.
      */
@@ -51,9 +54,10 @@ class PartnerService
         'country'                     => 'country',
         'joining_date'                => 'joining_date',
         'company_logo'                => 'company_logo',
-        'tax_id'                      => 'tax_id', // Assuming added to model fillable/migration if needed, or handled via additional_data if not
-        'website'                     => 'website', // Same assumption
+        'tax_id'                      => 'tax_id',
+        'website'                     => 'website',
         'partner_image'               => 'partner_image',
+        'assign_to'                   => 'assign_to', // Assigned agent/user
     ];
 
     /**
@@ -71,6 +75,20 @@ class PartnerService
             
             $partner = Partner::create($partnerData);
             
+            // Handle partner_image upload
+            if (isset($data['partner_image']) && $data['partner_image'] instanceof UploadedFile) {
+                $upload = $this->uploadFile($data['partner_image'], "partners/{$partner->id}", 'public');
+                $partner->update(['partner_image' => $upload['path']]);
+                Log::info('🖼️ Partner image uploaded', ['path' => $upload['path']]);
+            }
+
+            // Handle company_logo upload
+            if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
+                $upload = $this->uploadFile($data['company_logo'], "partners/{$partner->id}", 'public');
+                $partner->update(['company_logo' => $upload['path']]);
+                Log::info('🏢 Company logo uploaded', ['path' => $upload['path']]);
+            }
+            
             // Update user with partner link
             $user->partner_id = $partner->id;
             $user->entity_type = Partner::class;
@@ -78,10 +96,11 @@ class PartnerService
             $user->save();
 
             DB::commit();
-            return $partner;
+            return $partner->fresh();
 
          }catch(\Exception $e){
             DB::rollBack();
+            Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
             throw $e;
          }
     }
@@ -91,7 +110,30 @@ class PartnerService
      */
     public function update(Partner $partner, array $data): Partner
     {
-        return DB::transaction(function () use ($partner, $data) {
+        DB::beginTransaction();
+        try {
+            // Handle partner_image upload
+            if (isset($data['partner_image']) && $data['partner_image'] instanceof UploadedFile) {
+                // Delete old image if exists
+                if ($partner->partner_image) {
+                    $this->deleteFile($partner->partner_image, 'public');
+                }
+                $upload = $this->uploadFile($data['partner_image'], "partners/{$partner->id}", 'public');
+                $data['partner_image'] = $upload['path'];
+                Log::info('🖼️ Partner image updated', ['path' => $upload['path']]);
+            }
+
+            // Handle company_logo upload
+            if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
+                // Delete old logo if exists
+                if ($partner->company_logo) {
+                    $this->deleteFile($partner->company_logo, 'public');
+                }
+                $upload = $this->uploadFile($data['company_logo'], "partners/{$partner->id}", 'public');
+                $data['company_logo'] = $upload['path'];
+                Log::info('🏢 Company logo updated', ['path' => $upload['path']]);
+            }
+
             // Update user
             // Assuming the partner has a linked user via polymorphic relation or we find by email
             $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
@@ -104,8 +146,18 @@ class PartnerService
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
             
+            DB::commit();
+            Log::info('✅ Partner updated successfully', ['partner_id' => $partner->id]);
+            
             return $partner->fresh();
-        });
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('❌ Partner update failed', [
+                'partner_id' => $partner->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -114,6 +166,15 @@ class PartnerService
     public function findById(int $id): ?Partner
     {
         return Partner::with('partnerUser')->find($id);
+    }
+
+    /**
+     * Get partner details by ID with all relationships.
+     */
+    public function getDetails(int $id): ?Partner
+    {
+        return Partner::with(['assignedUser', 'partnerUser'])
+            ->find($id);
     }
 
     /**

@@ -25,10 +25,17 @@ class UpdatePartnerRequest extends FormRequest
      */
     public function rules(): array
     {
+       
         return [
             'full_name'                   => ['sometimes', 'required', 'string', 'max:255'],
             'company_name'                => ['sometimes', 'required', 'string', 'max:255'],
-            'email'                       => ['sometimes', 'required', 'email', 'max:255', Rule::unique('partners', 'email')->ignore($this->partner), Rule::unique('users', 'email')->ignore($this->user)],
+            'email' => [
+                'sometimes',
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('partners', 'email')->ignore($this->id)
+            ],
             'phone_number'                => ['sometimes', 'required', 'string', 'max:50'],
             'status'                      => ['nullable', 'string', 'max:255'],
             'contact_person'              => ['nullable', 'string', 'max:255'],
@@ -43,10 +50,11 @@ class UpdatePartnerRequest extends FormRequest
             'address_line_1'              => ['nullable', 'string', 'max:255'],
             'address_line_2'              => ['nullable', 'string', 'max:255'],
             'tax_id'                      => ['nullable', 'string', 'max:100'],
-            'website'                     => ['nullable', 'url'],
+            'website'                     => ['nullable', 'string'],
             'joining_date'                => ['nullable', 'date'],
-            'company_logo'                => ['nullable', 'string'],
-            'partner_image'               => ['nullable', 'string'],     
+            'company_logo'                => ['nullable'], // 2MB max
+            'partner_image'               => ['nullable'], // 2MB max
+            'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
         ];
     }
 
@@ -60,8 +68,7 @@ class UpdatePartnerRequest extends FormRequest
             'company_name.required' => __('partner.validation.company_name.required'),
             'email.required' => __('partner.validation.email.required'),
             'email.email' => __('partner.validation.email.email'),
-            'phone_number.required' => __('partner.validation.phone_number.required'),
-            'website.url' => __('partner.validation.website.url'),
+            'phone_number.required' => __('partner.validation.phone_number.required')
         ];
     }
 

@@ -53,6 +53,9 @@ class Partner extends Model
         'joining_date',
         'company_logo',
         'assign_to',
+        'partner_image',
+        'tax_id',
+        'website'
     ];
 
     /**

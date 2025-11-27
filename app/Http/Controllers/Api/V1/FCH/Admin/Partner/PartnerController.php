@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
 use App\Services\FCH\Partner\PartnerService;
 use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
-use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 
 class PartnerController extends Controller
 {
@@ -55,8 +56,18 @@ class PartnerController extends Controller
      */
     public function store(StorePartnerRequest $request)
     {
-        $partner = $this->partnerService->store($request->validated());
+        $data = $request->validated();
 
+        // Handle file uploads
+        if ($request->hasFile('partner_image')) {
+            $data['partner_image'] = $request->file('partner_image');
+        }
+
+        if ($request->hasFile('company_logo')) {
+            $data['company_logo'] = $request->file('company_logo');
+        }
+
+        $partner = $this->partnerService->store($data);
 
         return ApiResponse::success(
             new PartnerResource($partner),
@@ -66,7 +77,7 @@ class PartnerController extends Controller
     }
 
     /**
-     * Update Update.
+     * Update Partner.
      */
     public function update(UpdatePartnerRequest $request, int $id)
     {
@@ -76,11 +87,39 @@ class PartnerController extends Controller
             return ApiResponse::notFound('Partner not found');
         }
 
-        $updatedPartner = $this->partnerService->update($partner, $request->validated());
+        $data = $request->validated();
+
+        // Handle file uploads
+        if ($request->hasFile('partner_image')) {
+            $data['partner_image'] = $request->file('partner_image');
+        }
+
+        if ($request->hasFile('company_logo')) {
+            $data['company_logo'] = $request->file('company_logo');
+        }
+
+        $updatedPartner = $this->partnerService->update($partner, $data);
 
         return ApiResponse::success(
             new PartnerResource($updatedPartner),
             __('partner.success.updated'),
+        );
+    }
+
+    /**
+     * Get Partner Details.
+     */
+    public function details(int $id)
+    {
+        $partner = $this->partnerService->getDetails($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        return ApiResponse::success(
+            new PartnerResource($partner),
+            __('partner.success.retrieved')
         );
     }
 

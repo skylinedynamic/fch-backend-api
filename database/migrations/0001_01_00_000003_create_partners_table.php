@@ -26,6 +26,8 @@ return new class extends Migration {
             $table->string('state')->nullable();
             $table->string('city')->nullable();
             $table->string('postal_code')->nullable();
+            $table->string('tax_id')->nullable();
+            $table->string('website')->nullable();
             $table->string('address_line_1')->nullable();
             $table->string('address_line_2')->nullable();
             $table->string('country')->nullable();
