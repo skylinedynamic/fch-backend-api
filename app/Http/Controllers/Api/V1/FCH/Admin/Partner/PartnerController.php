@@ -9,6 +9,9 @@ use App\Http\Controllers\Controller;
 use App\Services\FCH\Partner\PartnerService;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
+use Illuminate\Support\Facades\Mail;
+use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use Throwable;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 
@@ -67,7 +70,16 @@ class PartnerController extends Controller
             $data['company_logo'] = $request->file('company_logo');
         }
 
-        $partner = $this->partnerService->store($data);
+        $result = $this->partnerService->store($data);
+        $partner = $result['partner'];
+        
+        // Send email if new user created
+        if (!empty($result['plain_password'])) {
+            $partnerInfo = auth()->user()->partner;
+            if ($partnerInfo) {
+                $this->sendAccountCreatedMail($result['user'], $partnerInfo, $result['plain_password']);
+            }
+        }
 
         return ApiResponse::success(
             new PartnerResource($partner),
@@ -155,6 +167,33 @@ class PartnerController extends Controller
 
         } catch (\Exception $e) {
             return ApiResponse::serverError('Failed to fetch borrowers');
+        }
+    }
+
+    /**
+     * Send account created email.
+     */
+    public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
+    {
+        $data = [
+            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'user' => $user,
+            'plain_password' => $plainPassword,
+            'business_info' => [
+                'company_name' => $businessInfo->company_name,
+                'company_logo' => $businessInfo->company_logo,
+                'email' => $businessInfo->email,
+                'phone_number' => $businessInfo->phone_number,
+                'address_line_1' => $businessInfo->address_line_1,
+            ],
+        ];
+
+        try {
+            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+        } catch (Throwable $e) {
+            Log::error('📧 AccountCreatedNotificationMail failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
