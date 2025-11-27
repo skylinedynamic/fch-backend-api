@@ -46,7 +46,7 @@ class UpdatePartnerRequest extends FormRequest
             'state'                       => ['nullable', 'string', 'max:100'],
             'city'                        => ['nullable', 'string', 'max:100'],
             'country'                     => ['nullable', 'string', 'max:100'],
-            'zip_code'                    => ['nullable', 'string', 'max:20'],
+            'postal_code'                    => ['nullable', 'string', 'max:20'],
             'address_line_1'              => ['nullable', 'string', 'max:255'],
             'address_line_2'              => ['nullable', 'string', 'max:255'],
             'tax_id'                      => ['nullable', 'string', 'max:100'],
