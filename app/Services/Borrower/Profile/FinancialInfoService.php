@@ -2,51 +2,38 @@
 
 namespace App\Services\Borrower\Profile;
 
-use App\Models\Business\Business;
+use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\Auth;
 
 class FinancialInfoService
 {
-    /**
-     * Get financial information for the authenticated borrower
-     *
-     * @return Business|null
-     */
-    public function getFinancialInfo(): ?Business
+
+    public function getFinancialInfo()
     {
-        $business = Auth::user()->business;
-        $business = Business::where('id', $business?->id)->first();
+        $borrower = Auth::user()->entity;
         
-        if (!$business) {
+        if (!$borrower) {
             return null;
         }
 
-        return $business;
+        return $borrower;
     }
 
-    /**
-     * Update financial information for the authenticated borrower
-     *
-     * @param array $data
-     * @return Company|null
-     */
-    public function updateFinancialInfo(array $data): ?Business
+    public function updateFinancialInfo(array $data)
     {
-        $business = Auth::user()->business;
-        $business = Business::where('id', $business?->id)->first();
+        $borrower = Auth::user()->entity;
         
-        if (!$business) {
+        if (!$borrower) {
             return null;
         }
 
-        $business = Business::updateOrCreate(
-            ['id' => $business->id],
-            ['currency' => $data['currency'] ?? $business->currency,
-            'years_in_business' => $data['years_in_business'] ?? $business->years_in_business,
-            'monthly_revenue' => $data['monthly_revenue'] ?? $business->monthly_revenue,
-            'annual_revenue' => $data['annual_revenue'] ?? $business->annual_revenue]
+        $borrower->update(
+            ['currency' => $data['currency'] ?? $borrower->currency,
+            'years_in_business' => $data['years_in_business'] ?? $borrower->years_in_business,
+            'monthly_revenue' => $data['monthly_revenue'] ?? $borrower->monthly_revenue,
+            'annual_revenue' => $data['annual_revenue'] ?? $borrower->annual_revenue]
         );
 
-        return $business->fresh();
-    }
-}
+        return $borrower->fresh();
+    }   
+}   

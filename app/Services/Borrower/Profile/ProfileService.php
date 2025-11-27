@@ -27,30 +27,27 @@ class ProfileService
             $updateData = [
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
-                'address_line_1' => $data['home_address'],
-                'city' => $data['city'],
-                'state' => $data['state'],
-                'postal_code' => $data['zip_code'],
+                'email' => $data['email'],
+                'phone_number' => $data['phone_number'],
                 'country' => $data['country'],
                 'country_code' => $data['country_code'],
-                'date_of_birth' => $data['date_of_birth'],
+                'state' => $data['state'],
+                'city' => $data['city'],
+                'postal_code' => $data['zip_code'],
+                'home_address' => $data['home_address'],
                 'home_phone' => $data['home_phone'],
+                'date_of_birth' => $data['date_of_birth'],
                 'last_4_ssn' => $data['last_4_ssn'],
             ];
 
             // Update the user
             Borrower::where('id', $user->entity_id)->update($updateData);
             
-            User::where('id', $user->id)->update([
-                'email' => $data['email'],
-                'phone_number' => $data['mobile_phone'],
-            ]);
-
             DB::commit();
             return $user->fresh();
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception('Failed to update profile: ' . $e->getMessage());
+            throw new Exception(__('borrower.failed_to_update_profile: ' . $e->getMessage()));
         }
     }
 

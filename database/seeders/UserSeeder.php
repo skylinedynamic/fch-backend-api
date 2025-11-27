@@ -65,7 +65,7 @@ class UserSeeder extends Seeder
         // 3) Create Borrower users linked to borrowers under partners
         $borrowers = DB::table('borrowers')->get();
         foreach ($borrowers as $b) {
-            $email = $b->business_email;
+            $email = $b->email;
             if (!$email) {
                 // Ensure a unique placeholder if missing
                 $email = 'borrower_' . $b->id . '@example.com';
@@ -74,8 +74,8 @@ class UserSeeder extends Seeder
             User::updateOrCreate(
                 ['email' => $email],
                 [
-                    'name' => $b->business_name ?? ('Borrower #' . $b->id),
-                    'phone_number' => $b->business_phone,
+                    'name' => $b->first_name . ' ' . $b->last_name ?? ('Borrower #' . $b->id),
+                    'phone_number' => $b->phone_number,
                     'user_type' => User::BORROWER,
                     'password' => Hash::make('12345678'),
                     'status' => User::STATUS['active'],
