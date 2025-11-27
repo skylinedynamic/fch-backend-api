@@ -58,10 +58,10 @@ return [
     'home_phone_string' => 'Home phone must be a string',
     'home_phone_max' => 'Home phone cannot exceed 20 characters',
     
-    // Mobile Phone
-    'mobile_phone_required' => 'Mobile phone is required',
-    'mobile_phone_string' => 'Mobile phone must be a string',
-    'mobile_phone_max' => 'Mobile phone cannot exceed 20 characters',
+    // Phone Number
+    'phone_number_required' => 'Phone number is required',
+    'phone_number_string' => 'Phone number must be a string',
+    'phone_number_max' => 'Phone number cannot exceed 20 characters',
     
     // Last 4 SSN
     'last_4_ssn_required' => 'Last 4 digits of SSN is required',
@@ -91,28 +91,28 @@ return [
     'business_address_string' => 'Business address must be a string',
     'business_address_max' => 'Business address cannot exceed 255 characters',
     
-    'city_required' => 'City is required',
-    'city_string' => 'City must be a string',
-    'city_max' => 'City cannot exceed 255 characters',
+    'business_city_required' => 'Business city is required',
+    'business_city_string' => 'Business city must be a string',
+    'business_city_max' => 'Business city cannot exceed 255 characters',
     
-    'state_required' => 'State is required',
-    'state_string' => 'State must be a string',
-    'state_max' => 'State cannot exceed 255 characters',
+    'business_state_required' => 'Business state is required',
+    'business_state_string' => 'Business state must be a string',
+    'business_state_max' => 'Business state cannot exceed 255 characters',
     
-    'zip_code_required' => 'Zip code is required',
-    'zip_code_string' => 'Zip code must be a string',
-    'zip_code_max' => 'Zip code cannot exceed 20 characters',
+    'business_zip_code_required' => 'Business zip code is required',
+    'business_zip_code_string' => 'Business zip code must be a string',
+    'business_zip_code_max' => 'Business zip code cannot exceed 20 characters',
     
-    'entity_type_required' => 'Entity type is required',
-    'entity_type_string' => 'Entity type must be a string',
-    'entity_type_max' => 'Entity type cannot exceed 255 characters',
+    'business_entity_type_required' => 'Business entity type is required',
+    'business_entity_type_string' => 'Business entity type must be a string',
+    'business_entity_type_max' => 'Business entity type cannot exceed 255 characters',
     
     'business_website_url' => 'Business website must be a valid URL',
     'business_website_max' => 'Business website cannot exceed 255 characters',
     
-    'industry_type_required' => 'Industry type is required',
-    'industry_type_string' => 'Industry type must be a string',
-    'industry_type_max' => 'Industry type cannot exceed 255 characters',
+    'business_industry_type_required' => 'Business industry type is required',
+    'business_industry_type_string' => 'Business industry type must be a string',
+    'business_industry_type_max' => 'Business industry type cannot exceed 255 characters',
     
     // Financial Info Validation
     'currency_required' => 'Currency is required',
@@ -189,4 +189,7 @@ return [
     'debt_balance_required' => 'Debt balance is required when existing business debt is true',
     'debt_balance_numeric' => 'Debt balance must be a number',
     'debt_balance_min' => 'Debt balance cannot be negative',
+
+
+    
 ];

@@ -45,11 +45,8 @@ class BusinessInfoController extends Controller
 
     /**
      * Update Business Info.
-     *
-     * @param UpdateBusinessInfoRequest $request
-     * @return JsonResponse
      */
-    public function update(UpdateBusinessInfoRequest $request): JsonResponse
+    public function update(UpdateBusinessInfoRequest $request)
     {
         try {
             $businessInfo = $this->businessInfoService->updateBusinessInfo(Auth::id(), $request->validated());
