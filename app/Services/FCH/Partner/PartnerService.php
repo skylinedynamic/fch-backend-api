@@ -65,12 +65,17 @@ class PartnerService
     /**
      * Create a new partner.
      */
-    public function store(array $data): Partner
+    /**
+     * Create a new partner.
+     */
+    public function store(array $data): array
     {
         DB::beginTransaction();
          try{
             // Create or update user
-            $user = $this->createOrUpdateUser($data);
+            $userResult = $this->createOrUpdateUser($data);
+            $user = $userResult['user'];
+            $plainPassword = $userResult['plain_password'];
             
             // Create partner
             $partnerData = $this->mapPartnerData($data);
@@ -98,7 +103,11 @@ class PartnerService
             $user->save();
 
             DB::commit();
-            return $partner->fresh();
+            return [
+                'partner' => $partner->fresh(),
+                'user' => $user,
+                'plain_password' => $plainPassword
+            ];
 
          }catch(\Exception $e){
             DB::rollBack();
@@ -182,13 +191,14 @@ class PartnerService
     /**
      * Create or update user based on email.
      */
-    private function createOrUpdateUser(array $data, ?User $existingUser = null): User
+    private function createOrUpdateUser(array $data, ?User $existingUser = null): array
     {
         $userData = $this->mapUserData($data);
+        $plainPassword = null;
         
         if ($existingUser) {
             $existingUser->update($userData);
-            return $existingUser;
+            return ['user' => $existingUser, 'plain_password' => null];
         }
         
         // Check if user exists by email
@@ -196,14 +206,16 @@ class PartnerService
         
         if ($user) {
             $user->update($userData);
-            return $user;
+            return ['user' => $user, 'plain_password' => null];
         }
         
         // Create new user
-        $userData['password'] = bcrypt('temporary_password_' . time());
+        $plainPassword = bin2hex(random_bytes(4));
+        $userData['password'] = bcrypt($plainPassword);
         $userData['user_type'] = User::PARTNER;
     
-        return User::create($userData);
+        $user = User::create($userData);
+        return ['user' => $user, 'plain_password' => $plainPassword];
     }
 
     /**
