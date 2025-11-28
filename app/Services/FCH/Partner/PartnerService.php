@@ -28,7 +28,7 @@ class PartnerService
         'phone_number'   => 'phone_number',
         'city'           => 'city',
         'state'          => 'state',
-        'zip_code'       => 'postal_code',
+        'postal_code'       => 'postal_code',
         'country'        => 'country',
         'address_line_1' => 'address_line_1',
         'address_line_2' => 'address_line_2',
@@ -50,8 +50,8 @@ class PartnerService
         'status'                      => 'status',
         'state'                       => 'state',
         'city'                        => 'city',
-        'postal_code'                 => 'postal_code',
         'address_line_1'              => 'address_line_1',
+        'postal_code'                 => 'postal_code',
         'address_line_2'              => 'address_line_2',
         'country'                     => 'country',
         'joining_date'                => 'joining_date',
@@ -79,7 +79,7 @@ class PartnerService
             
             // Create partner
             $partnerData = $this->mapPartnerData($data);
-            
+
             $partner = Partner::create($partnerData);
             
             // Handle partner_image upload
@@ -442,12 +442,13 @@ class PartnerService
     {
         $partnerData = [];
 
+ 
         foreach ($this->partnerFieldMapping as $requestField => $partnerField) {
+                 
             if (array_key_exists($requestField, $data)) {
                 $partnerData[$partnerField] = $data[$requestField];
             }
         }
-
         return $partnerData;
     }
     /**

@@ -59,7 +59,7 @@ class PartnerController extends Controller
      */
     public function store(StorePartnerRequest $request)
     {
-        $data = $request->validated();
+        $data = $request->all();
 
         // Handle file uploads
         if ($request->hasFile('partner_image')) {
