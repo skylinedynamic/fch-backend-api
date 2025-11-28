@@ -83,15 +83,15 @@ class PartnerService
             $partner = Partner::create($partnerData);
             
             // Handle partner_image upload
-            if (isset($data['partner_image']) && $data['partner_image'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($data['partner_image'], "partners/{$partner->id}", 'public');
+            if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
+                $upload = $this->uploadFile($partnerData['partner_image'], "partners/{$partner->id}", 'public');
                 $partner->update(['partner_image' => $upload['path']]);
                 Log::info('🖼️ Partner image uploaded', ['path' => $upload['path']]);
             }
 
             // Handle company_logo upload
-            if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($data['company_logo'], "partners/{$partner->id}", 'public');
+            if (isset($partnerData['company_logo']) && $partnerData['company_logo'] instanceof UploadedFile) {
+                $upload = $this->uploadFile($partnerData['company_logo'], "partners/{$partner->id}", 'public');
                 $partner->update(['company_logo' => $upload['path']]);
                 Log::info('🏢 Company logo uploaded', ['path' => $upload['path']]);
             }
