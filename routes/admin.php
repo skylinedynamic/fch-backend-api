@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 // ✅ Import Role & Permission Controllers
 
@@ -28,7 +29,13 @@ Route::prefix('v1/admin')
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
 
-        // 📅 Demo requests
+        // � Partner Documents
+        Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);
+        Route::post('partners/documents', [PartnerDocumentController::class, 'store']);
+        Route::post('partners/documents/{id}', [PartnerDocumentController::class, 'update']); // Using POST for file upload update
+        Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
+
+        // �📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
         Route::post('demo-requests/store', [DemoRequestController::class, 'store']);
         // Route::post('demo-requests/update', [DemoRequestController::class, 'update']);
