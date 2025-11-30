@@ -54,14 +54,17 @@ return [
     'country_code_string' => 'Country code must be a string',
     'country_code_max' => 'Country code cannot exceed 5 characters',
     
-    // Home Phone (optional)
+    // Home Phone
+    'home_phone_required' => 'Home phone is required',
     'home_phone_string' => 'Home phone must be a string',
     'home_phone_max' => 'Home phone cannot exceed 20 characters',
+    'home_phone_regex' => 'Home phone must be a valid phone number',
     
     // Phone Number
     'phone_number_required' => 'Phone number is required',
     'phone_number_string' => 'Phone number must be a string',
     'phone_number_max' => 'Phone number cannot exceed 20 characters',
+    'phone_number_regex' => 'Phone number must be a valid phone number',
     
     // Last 4 SSN
     'last_4_ssn_required' => 'Last 4 digits of SSN is required',
@@ -73,7 +76,7 @@ return [
     'date_of_birth_required' => 'Date of birth is required',
     'date_of_birth_date' => 'Date of birth must be a valid date',
     'date_of_birth_before' => 'Date of birth must be before today',
-    'date_of_birth_date_format' => 'Date of birth must be in the format Y-m-d',
+    'date_of_birth_date_format' => 'Date of birth must be in the format m-d-Y',
     
     
     // Business Info Validation

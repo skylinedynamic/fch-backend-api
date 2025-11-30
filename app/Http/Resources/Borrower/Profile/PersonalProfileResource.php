@@ -18,7 +18,7 @@ class PersonalProfileResource extends JsonResource
             'first_name' => $this->entity->first_name,
             'last_name' => $this->entity->last_name,
             'email' => $this->email,
-            'phone_number' => $this->phone_number, 
+            'phone_number' => $this->entity->phone_number, 
             'country' => $this->entity->country,
             'country_code' => $this->entity->country_code,
             'state' => $this->entity->state,
