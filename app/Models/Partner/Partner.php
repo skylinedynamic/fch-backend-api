@@ -127,4 +127,12 @@ class Partner extends Model
     {
         return $this->hasMany(Borrower::class, 'partner_id');
     }
+
+    /**
+     * Get the documents for the partner.
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(PartnerDocument::class, 'partner_id');
+    }
 }

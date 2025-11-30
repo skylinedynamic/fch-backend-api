@@ -15,6 +15,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Models\Borrower\Borrower;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Models\Employee\Employee;
 
 class PartnerService
 {
@@ -423,14 +424,14 @@ class PartnerService
      */
     public function getAllUsers()
     {
-        $users = User::query()
-            ->where(function ($query) {
-                $query->where('user_type', 'App\\Models\\Employee\\Employee')
-                      ->orWhereNull('entity_type');
-            })
-            ->select('id', 'name','email','phone_number')
-            ->orderBy('name', 'asc')
-            ->get();
+       $users = User::query()
+        ->where(function ($query) {
+            $query->where('entity_type', Employee::class)
+                ->orWhereNull('entity_type');
+        })
+        ->select('id', 'name', 'email', 'phone_number')
+        ->orderBy('name', 'asc')
+        ->get();
 
         return $users;
     }
