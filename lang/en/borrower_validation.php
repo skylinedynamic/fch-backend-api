@@ -76,7 +76,7 @@ return [
     'date_of_birth_required' => 'Date of birth is required',
     'date_of_birth_date' => 'Date of birth must be a valid date',
     'date_of_birth_before' => 'Date of birth must be before today',
-    'date_of_birth_date_format' => 'Date of birth must be in the format m-d-Y',
+    'date_of_birth_date_format' => 'Date of birth must be in the format Y-m-d',
     
     
     // Business Info Validation

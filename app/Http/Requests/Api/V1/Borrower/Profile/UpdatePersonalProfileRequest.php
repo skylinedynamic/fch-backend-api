@@ -41,7 +41,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'home_address' => 'required|string|max:500',
             'home_phone' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'last_4_ssn' => 'required|string|size:4',
-            'date_of_birth' => 'required|date_format:m-d-Y|before:today',
+            'date_of_birth' => 'required|date_format:Y-m-d|before:today',
         ];
     }
 
