@@ -2,12 +2,16 @@
 
 namespace App\Services\Borrower\PreQualification;
 
+use App\Helpers\ApiResponse;
+use App\Http\Resources\Borrower\PreQualification\BorrowerDetailsProfile;
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Business\Business;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
+use Twilio\Rest\Api;
 
 class PreQualificationService
 {
@@ -48,5 +52,12 @@ class PreQualificationService
         $query->search($request->query('query'));
 
         return $this->paginateBuilder($query->orderByDesc('created_at'),$request);
+    }
+
+
+    public function prequalificationRequest(){
+        $user = Auth::user();
+        $borrower = Borrower::where('id',$user->entity_id)->first();
+        return ApiResponse::success(new BorrowerDetailsProfile($borrower),__('borrower.pre_qualification_request_success'));
     }
 }
