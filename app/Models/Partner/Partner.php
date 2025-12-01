@@ -69,6 +69,11 @@ class Partner extends Model
         'deleted_at' => 'datetime',
     ];
 
+    public const STATUS = [
+        'active' => 'active',
+        'inactive' => 'inactive',
+    ];
+
     /**
      * Users that belong to this partner (via users.partner_id).
      */
@@ -134,5 +139,13 @@ class Partner extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(PartnerDocument::class, 'partner_id');
+    }
+
+    /**
+     * Get the subscription for the partner.
+     */
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PartnerSubscription::class, 'partner_id');
     }
 }
