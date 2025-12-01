@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('file_path');
             $table->string('link_share')->nullable();
             $table->string('size')->nullable(); // Size in KB or MB as string or integer
+            $table->softDeletes();
             $table->timestamps();
         });
     }
