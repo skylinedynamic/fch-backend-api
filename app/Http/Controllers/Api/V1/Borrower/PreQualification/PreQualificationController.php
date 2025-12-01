@@ -23,21 +23,13 @@ class PreQualificationController extends Controller
     }
 
     /**
-     * Pre-Qualification List
+     * Pre-Qualification
      */
 
-    public function index(QualificationRequest $request)
+    public function index()
     {
         try {
-            $userId = Auth::id();
-            $paginator = $this->service->prequalificationList($userId, $request);
-
-            return $this->respondWithPaginationResource(
-                $request,
-                $paginator,
-                PreQualificationResource::class,
-                __('borrower.pre_qualification_list_success')
-            );
+            return $this->service->prequalificationRequest();
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.pre_qualification_list_failed'), 500);
         }

@@ -51,7 +51,7 @@ return new class extends Migration {
 
             //financial info
             $table->string('currency')->nullable();
-            $table->integer('years_in_business')->nullable();
+            $table->string('years_in_business')->nullable();
             $table->decimal('monthly_revenue', 23, 2)->nullable();
             $table->decimal('annual_revenue', 23, 2)->nullable();
 

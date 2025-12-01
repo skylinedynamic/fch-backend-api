@@ -22,8 +22,7 @@ class ProfileCompletionController extends Controller
      */
     public function check(): JsonResponse
     {
-        $user = Auth::user();
-        $result = $this->service->checkCompletion($user);
+        $result = $this->service->checkCompletion();
         return ApiResponse::success($result, __('borrower.fetch_profile_completion'));
     }
 }

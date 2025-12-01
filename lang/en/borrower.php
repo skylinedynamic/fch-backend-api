@@ -32,6 +32,8 @@ return [
     'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
     'pre_qualification_list_success' => 'Pre-qualification requests fetched successfully',
     'pre_qualification_list_failed' => 'Failed to fetch pre-qualification requests. Please try again.',
+    'pre_qualification_request_success' => 'Pre-qualification request fetched successfully',
+    'pre_qualification_request_failed' => 'Failed to fetch pre-qualification request. Please try again.',
 
     //documents
     'upload_success' => 'Document uploaded successfully.',

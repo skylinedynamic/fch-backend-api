@@ -123,9 +123,7 @@ return [
     'currency_max' => 'Currency cannot exceed 10 characters',
     
     'years_in_business_required' => 'Years in business is required',
-    'years_in_business_integer' => 'Years in business must be an integer',
-    'years_in_business_min' => 'Years in business cannot be negative',
-    'years_in_business_max' => 'Years in business cannot exceed 100 years',
+    'years_in_business_string' => 'Years in business must be a string',
     
     'monthly_revenue_required' => 'Monthly revenue is required',
     'monthly_revenue_numeric' => 'Monthly revenue must be a number',
