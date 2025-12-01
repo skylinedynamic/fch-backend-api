@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('partner_id')->constrained('partners')->onDelete('cascade');
             $table->string('document_name');
             $table->string('file_path');
+            $table->string('link_share')->nullable();
             $table->string('size')->nullable(); // Size in KB or MB as string or integer
             $table->timestamps();
         });
