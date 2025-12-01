@@ -78,6 +78,7 @@ return [
         'document_uploaded' => 'Document uploaded successfully.',
         'document_updated' => 'Document updated successfully.',
         'documents_retrieved' => 'Documents retrieved successfully.',
+        'document_deleted' => 'Document deleted successfully.',
     ],
 
     'subscription_saved' => 'Subscription saved successfully.',

@@ -22,7 +22,7 @@ class PartnerDocumentController extends Controller
     }
 
     /**
-     * Get all documents for a specific partner.
+     * Get Partner Documents.
      */
     public function index(Request $request)
     {
@@ -39,7 +39,7 @@ class PartnerDocumentController extends Controller
     }
 
     /**
-     * Store a new partner document.
+     * Store Partner Document.
      */
     public function store(StorePartnerDocumentRequest $request)
     {
@@ -53,7 +53,7 @@ class PartnerDocumentController extends Controller
     }
 
     /**
-     * Update an existing partner document.
+     * Update Partner Document.
      */
     public function update(UpdatePartnerDocumentRequest $request, int $id)
     {
@@ -72,8 +72,7 @@ class PartnerDocumentController extends Controller
     }
 
     /**
-     * Download a partner document.
-     * Supports: images, videos, PDFs, Excel, ZIP, audio, and other file types.
+     * Download Partner Document.
      */
     public function download(int $id)
     {
@@ -103,5 +102,21 @@ class PartnerDocumentController extends Controller
                 'Content-Disposition' => 'attachment; filename="' . $document->document_name . '"',
             ]
         );
+    }
+
+    /**
+     * Delete Partner Document.
+     */
+    public function delete(int $id)
+    {
+        $document = PartnerDocument::find($id);
+
+        if (!$document) {
+            return ApiResponse::notFound('Document not found');
+        }
+
+        $this->partnerDocumentService->delete($document);
+
+        return ApiResponse::success(null, __('partner.success.document_deleted'));
     }
 }
