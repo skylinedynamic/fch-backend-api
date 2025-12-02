@@ -55,6 +55,7 @@ class StoreEmployeeRequest extends FormRequest
             'state'          => ['nullable', 'string', 'max:255'],
             'postal_code'    => ['nullable', 'string', 'max:50'],
             'country'        => ['nullable', 'string', 'max:255'],
+            'country_code'   => ['nullable'],
             'ssn'            => ['nullable', 'string', 'max:255'],
             'image'          => ['nullable'],
             'create_account' => ['sometimes', 'boolean'],
