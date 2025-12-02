@@ -16,14 +16,15 @@ class SubmitPreQualificationRequest extends BaseApiRequest
         return [
             'id' => ['nullable','integer','exists:pre_qualification_requests,id'],
             
-            'full_name' => ['required','string','max:255'],
+            'first_name' => ['required','string','max:255'],
+            'last_name' => ['required','string','max:255'],
             'business_website' => ['nullable','url','max:255'],
             'email' => ['required','email','max:255'],
             'phone' => ['required','string','max:25'],
             'state_of_incorporation' => ['required','string','max:255'],
 
             'business_name' => ['required','string','max:255'],
-            'industry' => ['required','string','max:255'],
+            'industry_type' => ['required','string','max:255'],
             'business_structure' => ['required','string','max:255'],
             'monthly_revenue' => ['required','numeric','min:0'],
             'annual_revenue' => ['nullable','numeric','min:0'],
@@ -56,9 +57,13 @@ class SubmitPreQualificationRequest extends BaseApiRequest
             'id.integer' => __('borrower_validation.id_integer'),
             'id.exists' => __('borrower_validation.id_exists'),
 
-            'full_name.required' => __('borrower_validation.full_name_required'),
-            'full_name.string' => __('borrower_validation.full_name_string'),
-            'full_name.max' => __('borrower_validation.full_name_max'),
+            'first_name.required' => __('borrower_validation.first_name_required'),
+            'first_name.string' => __('borrower_validation.first_name_string'),
+            'first_name.max' => __('borrower_validation.first_name_max'),
+
+            'last_name.required' => __('borrower_validation.last_name_required'),
+            'last_name.string' => __('borrower_validation.last_name_string'),
+            'last_name.max' => __('borrower_validation.last_name_max'),
 
             'business_website.url' => __('borrower_validation.business_website_url'),
             'business_website.max' => __('borrower_validation.business_website_max'),

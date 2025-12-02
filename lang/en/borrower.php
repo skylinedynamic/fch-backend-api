@@ -34,6 +34,12 @@ return [
     'pre_qualification_list_failed' => 'Failed to fetch pre-qualification requests. Please try again.',
     'pre_qualification_request_success' => 'Pre-qualification request fetched successfully',
     'pre_qualification_request_failed' => 'Failed to fetch pre-qualification request. Please try again.',
+    'pre_qualification_personal_info_successfully' => 'Pre-qualification personal information updated successfully',
+    'pre_qualification_personal_info_failed' => 'Failed to update pre-qualification personal information. Please try again.',
+    'pre_qualification_business_info_successfully' => 'Pre-qualification business information updated successfully',
+    'pre_qualification_business_info_failed' => 'Failed to update pre-qualification business information. Please try again.',
+    'pre_qualification_funding_info_successfully' => 'Pre-qualification funding information updated successfully',
+    'pre_qualification_funding_info_failed' => 'Failed to update pre-qualification funding information. Please try again.',
 
     //documents
     'upload_success' => 'Document uploaded successfully.',

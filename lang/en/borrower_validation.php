@@ -8,7 +8,7 @@ return [
     'signup_id_max' => 'Signup ID cannot exceed 255 characters',
     'signup_id_invalid' => 'Invalid signup ID provided',
 
-    // Validation Profile
+    // First Name
     'first_name_required' => 'First name is required',
     'first_name_string' => 'First name must be a string',
     'first_name_max' => 'First name cannot exceed 255 characters',
@@ -116,6 +116,23 @@ return [
     'business_industry_type_required' => 'Business industry type is required',
     'business_industry_type_string' => 'Business industry type must be a string',
     'business_industry_type_max' => 'Business industry type cannot exceed 255 characters',
+
+    'business_structure_required' => 'Business structure is required',
+    'business_structure_string' => 'Business structure must be a string',
+    'business_structure_max' => 'Business structure cannot exceed 255 characters',
+
+    'business_industry_type_required' => 'Business industry type is required',
+    'business_industry_type_string' => 'Business industry type must be a string',
+    'business_industry_type_max' => 'Business industry type cannot exceed 255 characters',
+
+    'business_structure_required' => 'Business structure is required',
+    'business_structure_string' => 'Business structure must be a string',
+    'business_structure_max' => 'Business structure cannot exceed 255 characters',
+
+    'annual_revenue_required' => 'Annual revenue is required',
+    'annual_revenue_numeric' => 'Annual revenue must be a number',
+    'annual_revenue_min' => 'Annual revenue cannot be negative',
+    
     
     // Financial Info Validation
     'currency_required' => 'Currency is required',
@@ -192,5 +209,16 @@ return [
     'debt_balance_min' => 'Debt balance cannot be negative',
 
 
+    'funding_amount_required' => 'Funding amount is required',
+    'funding_amount_numeric' => 'Funding amount must be a number',
+    'funding_amount_min' => 'Funding amount cannot be negative',
+
+    'funding_term_required' => 'Funding term is required',
+    'funding_term_string' => 'Funding term must be a string',
+    'funding_term_max' => 'Funding term cannot exceed 255 characters',
+
+    'funding_purpose_required' => 'Funding purpose is required',
+    'funding_purpose_string' => 'Funding purpose must be a string',
+    'funding_purpose_max' => 'Funding purpose cannot exceed 255 characters',
     
 ];

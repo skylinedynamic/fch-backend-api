@@ -42,7 +42,8 @@ return new class extends Migration
 
             // Indexes for common queries
             $table->index('borrower_id');
-            $table->index('full_name');
+            $table->index('first_name');
+            $table->index('last_name');
             $table->index('email');
             $table->index('phone');
             $table->index('status');

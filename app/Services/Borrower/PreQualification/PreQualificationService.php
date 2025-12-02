@@ -60,4 +60,62 @@ class PreQualificationService
         $borrower = Borrower::where('id',$user->entity_id)->first();
         return ApiResponse::success(new BorrowerDetailsProfile($borrower),__('borrower.pre_qualification_request_success'));
     }
+
+
+    public function personalInfo(array $data)
+    {
+       try{
+        $user = Auth::user();
+        $payload = array_merge($data, [
+            'borrower_id' => $user->entity_id,
+            'status' => PreQualificationRequest::ON_HOLD,
+        ]);
+
+        return PreQualificationRequest::updateOrCreate(
+            ['id' => isset($data['id']) ? $data['id'] : null],
+            $payload
+        );
+       }catch(\Exception $e){
+           throw $e;
+       }
+       
+    }
+
+    public function businessInfo(array $data)
+    {
+       try{
+        $user = Auth::user();
+        $payload = array_merge($data, [
+            'borrower_id' => $user->entity_id,
+            'status' => PreQualificationRequest::ON_HOLD,
+        ]);
+
+        return PreQualificationRequest::updateOrCreate(
+            ['id' => isset($data['id']) ? $data['id'] : null],
+            $payload
+        );
+       }catch(\Exception $e){
+           throw $e;
+       }
+       
+    }
+
+    public function fundingInfo(array $data)
+    {
+       try{
+        $user = Auth::user();
+        $payload = array_merge($data, [
+            'borrower_id' => $user->entity_id,
+            'status' => PreQualificationRequest::ON_HOLD,
+        ]);
+
+        return PreQualificationRequest::updateOrCreate(
+            ['id' => isset($data['id']) ? $data['id'] : null],
+            $payload
+        );
+       }catch(\Exception $e){
+           throw $e;
+       }
+       
+    }
 }
