@@ -35,6 +35,7 @@ class PartnerResource extends JsonResource
                 'address_line_1'               => $this->address_line_1,
                 'address_line_2'               => $this->address_line_2,
                 'country'                      => $this->country,
+                'country_code'                 => $this->country_code,
                 'joining_date'                 => $this->joining_date,
                 'company_logo'                 => $this->company_logo ? asset('storage/' . $this->company_logo) : null,
                 'partner_image'                => $this->partner_image ? asset('storage/' . $this->partner_image) : null,

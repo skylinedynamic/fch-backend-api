@@ -34,6 +34,7 @@ class PartnerSeeder extends Seeder
                 'address_line_1' => '123 Main St',
                 'address_line_2' => null,
                 'country' => 'USA',
+                'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null, // No assignment needed in seed
                 'joining_date' => '2025-11-26',
@@ -60,6 +61,7 @@ class PartnerSeeder extends Seeder
                 'address_line_1' => '456 Oak St',
                 'address_line_2' => null,
                 'country' => 'USA',
+                'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null,
                 'joining_date' => '2025-11-26',
@@ -86,6 +88,7 @@ class PartnerSeeder extends Seeder
                 'address_line_1' => '789 Pine St',
                 'address_line_2' => null,
                 'country' => 'USA',
+                'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null,
                 'joining_date' => '2025-11-26',

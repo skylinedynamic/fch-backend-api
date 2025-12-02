@@ -161,6 +161,7 @@ class PartnerController extends Controller
                 'partner_id' => $request->input('partner_id'),
                 'sort_field' => $request->input('sort_field'),
                 'sort_order' => $request->input('sort_order'),
+                'filters'    =>  $request->input('filters') ?? null,
             ];
 
             return $this->partnerService->getBorrowers($filters);
@@ -194,6 +195,18 @@ class PartnerController extends Controller
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Delete Partner
+     */
+    public function partnerDelete(Request $request)
+    {
+        try {
+           return $this->partnerService->delete($request->ids);
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
         }
     }
 }
