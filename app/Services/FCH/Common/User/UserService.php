@@ -107,15 +107,60 @@ class UserService
         $sortField = $filters['sort_field']  ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
-       if( $filters['sort_field'] === 'role_name' ){
-            $query->select('users.*')
-            ->leftJoin('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
-            ->leftJoin('roles', 'model_has_roles.role_id', '=', 'roles.id')
-            ->where('model_has_roles.model_type', User::class)
-            ->orderBy('roles.name', $filters['sort_order']);
+       // Handle custom filters manually
+        $rawFilters = $filters['filters'] ?? [];
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true) ?? [];
         }
-        else {
-            $query = QueryFilter::apply($query,$sortField,$sortOrder, $filters['filters']);
+
+        // 1. Filter by Role Name
+        if (isset($rawFilters['role_name'])) {
+            $roleConstraints = $rawFilters['role_name']['constraints'] ?? [];
+            foreach ($roleConstraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('roles', function ($q) use ($value) {
+                        $q->where('name', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['role_name']); // Remove so QueryFilter doesn't process it
+        }
+
+        // 2. Filter by Entity Type
+        if (isset($rawFilters['entity_type'])) {
+            $entityConstraints = $rawFilters['entity_type']['constraints'] ?? [];
+            foreach ($entityConstraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                
+                // Map frontend values to backend class names
+                $map = [
+                    'Employee' => Employee::class,
+                    'Partner'  => Partner::class,
+                    'Borrower' => \App\Models\Borrower\Borrower::class,
+                    'Admin'    => null, // Admin usually has no entity_type
+                ];
+
+                if (array_key_exists($value, $map)) {
+                    $mappedValue = $map[$value];
+                    if ($mappedValue === null) {
+                        $query->whereNull('entity_type');
+                    } else {
+                        $query->where('entity_type', $mappedValue);
+                    }
+                } elseif ($value) {
+                     // Fallback for direct search
+                    $query->where('entity_type', 'like', "%{$value}%");
+                }
+            }
+            unset($rawFilters['entity_type']); // Remove so QueryFilter doesn't process it
+        }
+
+        if ($filters['sort_field'] === 'role_name') {
+            $query->withMin('roles', 'name')
+                  ->orderBy('roles_min_name', $sortOrder);
+        } else {
+            $query = QueryFilter::apply($query, $sortField, $sortOrder, $rawFilters);
         }
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
