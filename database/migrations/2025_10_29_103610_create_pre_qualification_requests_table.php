@@ -16,13 +16,14 @@ return new class extends Migration
         Schema::create('pre_qualification_requests', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('borrower_id')->nullable();
-            $table->string('full_name')->nullable();
+            $table->string('first_name')->nullable();
+            $table->string('last_name')->nullable();
             $table->string('business_website')->nullable();
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('state_of_incorporation')->nullable();
             $table->string('business_name')->nullable();
-            $table->string('industry')->nullable();
+            $table->string('industry_type')->nullable();
             $table->string('business_structure')->nullable();
             $table->decimal('monthly_revenue', 15, 2)->nullable();
             $table->decimal('annual_revenue', 15, 2)->nullable();
