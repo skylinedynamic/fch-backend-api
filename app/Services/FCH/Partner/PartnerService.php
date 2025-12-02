@@ -16,6 +16,7 @@ use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Models\Borrower\Borrower;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Models\Employee\Employee;
+use App\Helpers\ApiResponse;
 
 class PartnerService
 {
@@ -55,6 +56,7 @@ class PartnerService
         'postal_code'                 => 'postal_code',
         'address_line_2'              => 'address_line_2',
         'country'                     => 'country',
+        'country_code'                => 'country_code',
         'joining_date'                => 'joining_date',
         'company_logo'                => 'company_logo',
         'tax_id'                      => 'tax_id',
@@ -459,27 +461,55 @@ class PartnerService
     {
         $query = Borrower::query()->with('partner');
 
+        // Filter by partner_id
         if (!empty($filters['partner_id'])) {
             $query->where('partner_id', $filters['partner_id']);
         }
 
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'id';
+        
+        // Handle full_name sorting by using first_name as proxy
+        if ($sortField === 'full_name') {
+            $sortField = 'first_name';
+        }
+
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        // Apply QueryFilter
+                // Search across multiple fields
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'LIKE', "%{$search}%")
-                  ->orWhere('last_name', 'LIKE', "%{$search}%")
-                  ->orWhere('business_name', 'LIKE', "%{$search}%")
-                  ->orWhere('business_email', 'LIKE', "%{$search}%")
-                  ->orWhere('business_phone', 'LIKE', "%{$search}%");
+                ->orWhere('last_name', 'LIKE', "%{$search}%")
+                ->orWhere('business_name', 'LIKE', "%{$search}%")
+                ->orWhere('business_email', 'LIKE', "%{$search}%")
+                ->orWhere('business_phone', 'LIKE', "%{$search}%")
+                ->orWhere('business_start_date', 'LIKE', "%{$search}%")
+                // Search concatenated full_name (first_name + last_name)
+                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);   
             });
         }
         
-        // Sorting
-        $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = $filters['sort_order'] ?? 'desc';
-        
-        $query->orderBy($sortField, $sortOrder);
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [
+                    'company_name' => 'business_name',
+                ],
+                'concat_fields' => [
+                    'full_name' => ['first_name', 'last_name'],
+                ],
+            ]
+        );
 
+
+
+        // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -488,7 +518,24 @@ class PartnerService
         return $this->respondWithPaginationResource(
             $paginator,
             BorrowerResource::class,
-            'Borrowers retrieved successfully'
+            __('partner.borrowers_retrieved_data')
         );
+    }
+
+    /**
+     * Delete Partner
+     */
+    public function delete(array $ids)
+    {
+        try {
+            User::whereIn('partner_id', $ids)->delete();
+            Partner::whereIn('id', $ids)->delete();
+            return ApiResponse::success(
+                [],
+                __('partner.success.deleted')
+            );
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
+        }
     }
 }

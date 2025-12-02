@@ -29,6 +29,7 @@ Route::prefix('v1/admin')
         Route::put('partners/{id}', [PartnerController::class, 'update']);
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
+        Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);

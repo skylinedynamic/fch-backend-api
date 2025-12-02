@@ -31,6 +31,7 @@ return new class extends Migration {
             $table->string('address_line_1')->nullable();
             $table->string('address_line_2')->nullable();
             $table->string('country')->nullable();
+            $table->string('country_code')->nullable();
             $table->string('joining_date')->nullable();
             $table->string('company_logo')->nullable();
             $table->string('partner_image')->nullable();

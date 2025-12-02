@@ -50,6 +50,7 @@ class Partner extends Model
         'address_line_1',
         'address_line_2',
         'country',
+        'country_code',
         'joining_date',
         'company_logo',
         'assign_to',
