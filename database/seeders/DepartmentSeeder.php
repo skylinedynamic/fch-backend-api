@@ -14,32 +14,29 @@ class DepartmentSeeder extends Seeder
     {
         // Common department names to choose from
         $allDepartments = [
-            'Operations',
-            'Finance',
-            'IT',
-            'HR',
+            'DepartmentSeeder',
+            'Credit Analysis',
             'Sales',
-            'Customer Support',
-            'Marketing',
-            'Research & Development',
+            'HR',
+            'Support',
+            'Partner Success',
+            'Compliance',
+            'Administration',
             'Quality Assurance',
             'Legal',
             'Administration',
-            'Procurement',
-            'Logistics',
-            'Business Development',
-            'Product Management',
+            'Document Processing',
         ];
 
         $bulk = [];
-        
+
         // Get all partners
         $partners = DB::table('partners')->pluck('id');
 
         foreach ($partners as $partnerId) {
             // Randomly select 5-7 departments for each partner
             $numberOfDepartments = rand(5, 7);
-            
+
             // Shuffle and take the required number of departments
             $shuffledDepartments = $allDepartments;
             shuffle($shuffledDepartments);
