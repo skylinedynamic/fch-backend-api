@@ -30,8 +30,8 @@ Route::prefix('v1/admin')
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
-        Route::get('partners/stats', [PartnerController::class, 'stats']);
-        Route::get('partners/profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
+        Route::post('partners-stats', [PartnerController::class, 'stats']);
+        Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);
