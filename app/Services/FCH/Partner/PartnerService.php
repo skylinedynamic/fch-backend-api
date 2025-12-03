@@ -74,7 +74,7 @@ class PartnerService
     public function store(array $data): array
     {
         DB::beginTransaction();
-         try{
+        try {
             // Create or update user
             $userResult = $this->createOrUpdateUser($data);
             $user = $userResult['user'];
@@ -112,7 +112,7 @@ class PartnerService
                 'plain_password' => $plainPassword
             ];
 
-         }catch(\Exception $e){
+        } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
             throw $e;
@@ -299,31 +299,41 @@ class PartnerService
             $assignedUserFilter = $filters['filters']['assigned_user_name'];
             // Check if it has constraints
             if (isset($assignedUserFilter['constraints']) && is_array($assignedUserFilter['constraints'])) {
-                $query->whereHas('assignedUser', function ($q) use ($assignedUserFilter) {
-                    $q->where(function ($subQ) use ($assignedUserFilter) {
-                        foreach ($assignedUserFilter['constraints'] as $constraint) {
-                            $value = $constraint['value'] ?? null;
-                            $matchMode = $constraint['matchMode'] ?? 'contains';
+                $hasActiveConstraint = false;
+                foreach ($assignedUserFilter['constraints'] as $c) {
+                    if (! empty($c['value'])) {
+                        $hasActiveConstraint = true;
+                        break;
+                    }
+                }
 
-                            if ($value) {
-                                // Apply logic based on matchMode
-                                $likeContains = "%{$value}%";
-                                $likeStarts = "{$value}%";
-                                $likeEnds = "%{$value}";
+                if ($hasActiveConstraint) {
+                    $query->whereHas('assignedUser', function ($q) use ($assignedUserFilter) {
+                        $q->where(function ($subQ) use ($assignedUserFilter) {
+                            foreach ($assignedUserFilter['constraints'] as $constraint) {
+                                $value = $constraint['value'] ?? null;
+                                $matchMode = $constraint['matchMode'] ?? 'contains';
 
-                                if ($matchMode === 'contains') {
-                                    $subQ->where('name', 'like', $likeContains);
-                                } elseif ($matchMode === 'startsWith') {
-                                    $subQ->where('name', 'like', $likeStarts);
-                                } elseif ($matchMode === 'endsWith') {
-                                    $subQ->where('name', 'like', $likeEnds);
-                                } else {
-                                    $subQ->where('name', '=', $value);
+                                if ($value) {
+                                    // Apply logic based on matchMode
+                                    $likeContains = "%{$value}%";
+                                    $likeStarts = "{$value}%";
+                                    $likeEnds = "%{$value}";
+
+                                    if ($matchMode === 'contains') {
+                                        $subQ->where('name', 'like', $likeContains);
+                                    } elseif ($matchMode === 'startsWith') {
+                                        $subQ->where('name', 'like', $likeStarts);
+                                    } elseif ($matchMode === 'endsWith') {
+                                        $subQ->where('name', 'like', $likeEnds);
+                                    } else {
+                                        $subQ->where('name', '=', $value);
+                                    }
                                 }
                             }
-                        }
+                        });
                     });
-                });
+                }
             }
             // Unset to prevent QueryFilter from processing it incorrectly
             unset($filters['filters']['assigned_user_name']);
