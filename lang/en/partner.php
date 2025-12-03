@@ -65,7 +65,7 @@ return [
         ],
     ],
 
-     /*
+    /*
     |--------------------------------------------------------------------------
     | Success Messages
     |--------------------------------------------------------------------------
@@ -80,7 +80,9 @@ return [
         'documents_retrieved' => 'Documents retrieved successfully.',
         'document_deleted' => 'Document deleted successfully.',
     ],
-    
+
+    'partner_stats_retrieved' => 'Partner statistics retrieved successfully.',
+    'partner_stats_retrieved_failed' => 'Failed to retrieve partner statistics.',
     'borrowers_retrieved_data' => 'Borrowers retrieved successfully.',
 
     'subscription_saved' => 'Subscription saved successfully.',

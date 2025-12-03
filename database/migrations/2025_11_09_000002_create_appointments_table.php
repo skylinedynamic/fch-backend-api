@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->string('appointment_code', 50)->unique();
-   
+
             $table->foreignId('scheduled_by')->constrained('users');
             $table->foreignId('assigned_for')->nullable()->constrained('users');
 

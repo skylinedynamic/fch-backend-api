@@ -79,12 +79,12 @@ class PartnerService
             $userResult = $this->createOrUpdateUser($data);
             $user = $userResult['user'];
             $plainPassword = $userResult['plain_password'];
-            
+
             // Create partner
             $partnerData = $this->mapPartnerData($data);
 
             $partner = Partner::create($partnerData);
-            
+
             // Handle partner_image upload
             if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
                 $upload = $this->uploadFile($partnerData['partner_image'], "partners/{$partner->id}", 'public');
@@ -98,7 +98,7 @@ class PartnerService
                 $partner->update(['company_logo' => $upload['path']]);
                 Log::info('🏢 Company logo uploaded', ['path' => $upload['path']]);
             }
-            
+
             // Update user with partner link
             $user->partner_id = $partner->id;
             $user->entity_type = Partner::class;
@@ -116,7 +116,7 @@ class PartnerService
             DB::rollBack();
             Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
             throw $e;
-         }
+        }
     }
 
     /**
@@ -151,18 +151,18 @@ class PartnerService
             // Update user
             // Assuming the partner has a linked user via polymorphic relation or we find by email
             $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
-            
+
             if ($user) {
                 $this->createOrUpdateUser($data, $user);
             }
-            
+
             // Update partner
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
-            
+
             DB::commit();
             Log::info('✅ Partner updated successfully', ['partner_id' => $partner->id]);
-            
+
             return $partner->fresh();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -198,26 +198,29 @@ class PartnerService
     {
         $userData = $this->mapUserData($data);
         $plainPassword = null;
-        
+
         if ($existingUser) {
             $existingUser->update($userData);
+
             return ['user' => $existingUser, 'plain_password' => null];
         }
-        
+
         // Check if user exists by email
         $user = User::where('email', $data['email'])->first();
-        
+
         if ($user) {
             $user->update($userData);
+
             return ['user' => $user, 'plain_password' => null];
         }
-        
+
         // Create new user
         $plainPassword = bin2hex(random_bytes(4));
         $userData['password'] = bcrypt($plainPassword);
         $userData['user_type'] = User::PARTNER;
-    
+
         $user = User::create($userData);
+
         return ['user' => $user, 'plain_password' => $plainPassword];
     }
 
@@ -244,7 +247,7 @@ class PartnerService
     {
         // Get authenticated user to determine filter logic
         $authUser = auth()->user();
-        
+
         // Base query: Start from Partner model with User eager loading
         $query = Partner::query()
             ->with(['assignedUser' => function ($userQuery) {
@@ -261,17 +264,17 @@ class PartnerService
         }
 
         // 🔍 Filter by partner_id (exact match)
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->where('partners.id', $filters['partner_id']);
         }
 
         // 🔍 Filter by assigned_user_id (exact match)
-        if (!empty($filters['assigned_user_id'])) {
+        if (! empty($filters['assigned_user_id'])) {
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
 
         // 🔍 Search filter (uses scopeSearch from Partner model)
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
 
@@ -279,9 +282,51 @@ class PartnerService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
+        $skipSorting = false;
+
         // Handle special field aliases
         if ($sortField === 'assigned_user_name') {
-            $sortField = 'assign_to';
+            // Join users table to sort by name
+            $query->leftJoin('users as assigned_users', 'partners.assign_to', '=', 'assigned_users.id')
+                ->orderBy('assigned_users.name', $sortOrder)
+                ->select('partners.*'); // Ensure we still only select partner fields
+
+            $skipSorting = true;
+        }
+
+        // 🔍 Filter by assigned_user_name (related user name)
+        if (isset($filters['filters']['assigned_user_name'])) {
+            $assignedUserFilter = $filters['filters']['assigned_user_name'];
+            // Check if it has constraints
+            if (isset($assignedUserFilter['constraints']) && is_array($assignedUserFilter['constraints'])) {
+                $query->whereHas('assignedUser', function ($q) use ($assignedUserFilter) {
+                    $q->where(function ($subQ) use ($assignedUserFilter) {
+                        foreach ($assignedUserFilter['constraints'] as $constraint) {
+                            $value = $constraint['value'] ?? null;
+                            $matchMode = $constraint['matchMode'] ?? 'contains';
+
+                            if ($value) {
+                                // Apply logic based on matchMode
+                                $likeContains = "%{$value}%";
+                                $likeStarts = "{$value}%";
+                                $likeEnds = "%{$value}";
+
+                                if ($matchMode === 'contains') {
+                                    $subQ->where('name', 'like', $likeContains);
+                                } elseif ($matchMode === 'startsWith') {
+                                    $subQ->where('name', 'like', $likeStarts);
+                                } elseif ($matchMode === 'endsWith') {
+                                    $subQ->where('name', 'like', $likeEnds);
+                                } else {
+                                    $subQ->where('name', '=', $value);
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+            // Unset to prevent QueryFilter from processing it incorrectly
+            unset($filters['filters']['assigned_user_name']);
         }
 
         $query = QueryFilter::apply(
@@ -290,9 +335,8 @@ class PartnerService
             $sortOrder,
             $filters['filters'] ?? [],
             [
-                'aliases' => [
-                    'assigned_user_name' => 'assign_to',
-                ],
+                'aliases' => [],
+                'skip_sorting' => $skipSorting,
             ]
         );
 
@@ -315,7 +359,7 @@ class PartnerService
     {
         // Get authenticated user to determine filter logic
         $authUser = auth()->user();
-        
+
         // Base query: Start from Partner model with User eager loading
         $query = Partner::query()
             ->with(['assignedUser' => function ($userQuery) {
@@ -353,8 +397,6 @@ class PartnerService
             $query->where('partners.id', $partnerId);
         }
 
-
-
         // 🔍 Filter by assigned_user_id (exact match)
         if ($assignedUserId = $request->get('assigned_user_id')) {
             $query->where('partners.assign_to', $assignedUserId);
@@ -364,16 +406,15 @@ class PartnerService
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('company_name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%") // Changed from email
-                  ->orWhere('phone_number', 'LIKE', "%{$search}%") // Changed from phone_number
-                  ->orWhere('full_name', 'LIKE', "%{$search}%") // Changed from owner_name
-                  ->orWhere('contact_person', 'LIKE', "%{$search}%")
-                  ->orWhere('partner_type', 'LIKE', "%{$search}%")
-
-                  ->orWhereHas('assignedUser', function ($userQ) use ($search) {
-                      $userQ->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%") // Changed from email
+                    ->orWhere('phone_number', 'LIKE', "%{$search}%") // Changed from phone_number
+                    ->orWhere('full_name', 'LIKE', "%{$search}%") // Changed from owner_name
+                    ->orWhere('contact_person', 'LIKE', "%{$search}%")
+                    ->orWhere('partner_type', 'LIKE', "%{$search}%")
+                    ->orWhereHas('assignedUser', function ($userQ) use ($search) {
+                        $userQ->where('name', 'LIKE', "%{$search}%")
                             ->orWhere('email', 'LIKE', "%{$search}%");
-                  });
+                    });
             });
         }
 
@@ -426,14 +467,14 @@ class PartnerService
      */
     public function getAllUsers()
     {
-       $users = User::query()
-        ->where(function ($query) {
-            $query->where('entity_type', Employee::class)
-                ->orWhereNull('entity_type');
-        })
-        ->select('id', 'name', 'email', 'phone_number')
-        ->orderBy('name', 'asc')
-        ->get();
+        $users = User::query()
+            ->where(function ($query) {
+                $query->where('entity_type', Employee::class)
+                    ->orWhereNull('entity_type');
+            })
+            ->select('id', 'name', 'email', 'phone_number')
+            ->orderBy('name', 'asc')
+            ->get();
 
         return $users;
     }
@@ -445,9 +486,9 @@ class PartnerService
     {
         $partnerData = [];
 
- 
+
         foreach ($this->partnerFieldMapping as $requestField => $partnerField) {
-                 
+
             if (array_key_exists($requestField, $data)) {
                 $partnerData[$partnerField] = $data[$requestField];
             }
@@ -468,7 +509,7 @@ class PartnerService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
-        
+
         // Handle full_name sorting by using first_name as proxy
         if ($sortField === 'full_name') {
             $sortField = 'first_name';
@@ -477,21 +518,21 @@ class PartnerService
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         // Apply QueryFilter
-                // Search across multiple fields
+        // Search across multiple fields
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'LIKE', "%{$search}%")
-                ->orWhere('last_name', 'LIKE', "%{$search}%")
-                ->orWhere('business_name', 'LIKE', "%{$search}%")
-                ->orWhere('business_email', 'LIKE', "%{$search}%")
-                ->orWhere('business_phone', 'LIKE', "%{$search}%")
-                ->orWhere('business_start_date', 'LIKE', "%{$search}%")
+                    ->orWhere('last_name', 'LIKE', "%{$search}%")
+                    ->orWhere('business_name', 'LIKE', "%{$search}%")
+                    ->orWhere('business_email', 'LIKE', "%{$search}%")
+                    ->orWhere('business_phone', 'LIKE', "%{$search}%")
+                    ->orWhere('business_start_date', 'LIKE', "%{$search}%")
                 // Search concatenated full_name (first_name + last_name)
-                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);   
+                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
             });
         }
-        
+
         $query = QueryFilter::apply(
             $query,
             $sortField,
@@ -537,5 +578,42 @@ class PartnerService
         } catch (\Throwable $e) {
             return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
         }
+    }
+
+    /**
+     * Get Partner Statistics Counts.
+     */
+    public function getPartnerStats(): array
+    {
+        $today = now();
+        $startOfMonth = $today->copy()->startOfMonth();
+        $endOfMonth = $today->copy()->endOfMonth();
+
+        return [
+            'active_count' => Partner::where('status', 'active')->count(),
+            'new_this_month' => Partner::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count(),
+            'total_partners' => Partner::count(),
+            'inactive_count' => Partner::where('status', 'inactive')->count(),
+        ];
+    }
+
+    public function getPartnerProfileStats(int $id)
+    {
+        $stats = DB::table('partners as p')
+            ->select(
+                'p.id',
+                DB::raw('(SELECT COUNT(*) FROM appointments WHERE partner_id = '.$id.') as total_meetings'),
+                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = '.$id.') as total_clients'),
+                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = '.$id.') as total_invoice'),
+                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = '.$id.') as total_tickets'),
+                DB::raw('(SELECT billing_term FROM partner_subscriptions 
+                      WHERE partner_id = '.$id.' 
+                      ORDER BY id DESC 
+                      LIMIT 1) as billing_term')
+            )
+            ->where('p.id', $id)
+            ->first();
+
+        return $stats;
     }
 }
