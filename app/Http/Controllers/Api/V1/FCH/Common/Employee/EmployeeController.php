@@ -123,6 +123,7 @@ class EmployeeController extends Controller
             'create_account',
             'role_id',
             'address',
+            'country_code',
         ];
 
         $employeeData = $request->only($fields);
@@ -205,6 +206,7 @@ class EmployeeController extends Controller
             'create_account',
             'role_id',
             'address',
+            'country_code',
         ];
 
         $employeeData = $request->only($fields);

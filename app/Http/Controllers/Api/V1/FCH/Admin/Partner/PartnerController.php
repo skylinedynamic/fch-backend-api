@@ -3,17 +3,17 @@
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use App\Services\FCH\Partner\PartnerService;
-use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
-use Illuminate\Support\Facades\Mail;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
-use Throwable;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
+use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Services\FCH\Partner\PartnerService;
+use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class PartnerController extends Controller
 {
@@ -37,14 +37,14 @@ class PartnerController extends Controller
             $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
 
             $filters = [
-                'per_page'          => $perPage,
-                'page'              => isset($input['page']) ? max(1, (int) $input['page']) : 1,
-                'search'            => isset($input['search']) ? trim((string) $input['search']) : null,
-                'partner_id'        => $input['partner_id'] ?? null,
-                'assigned_user_id'  => $input['assigned_user_id'] ?? null,
-                'filters'           => $input['filters'] ?? null, // array expected per request rules
-                'sort_field'        => $input['sort_field'] ?? null,
-                'sort_order'        => $input['sort_order'] ?? null,
+                'per_page' => $perPage,
+                'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search' => isset($input['search']) ? trim((string) $input['search']) : null,
+                'partner_id' => $input['partner_id'] ?? null,
+                'assigned_user_id' => $input['assigned_user_id'] ?? null,
+                'filters' => $input['filters'] ?? null, // array expected per request rules
+                'sort_field' => $input['sort_field'] ?? null,
+                'sort_order' => $input['sort_order'] ?? null,
             ];
 
             return $this->partnerService->list($filters);
@@ -72,9 +72,9 @@ class PartnerController extends Controller
 
         $result = $this->partnerService->store($data);
         $partner = $result['partner'];
-        
+
         // Send email if new user created
-        if (!empty($result['plain_password'])) {
+        if (! empty($result['plain_password'])) {
             $partnerInfo = auth()->user()->partner;
             if ($partnerInfo) {
                 $this->sendAccountCreatedMail($result['user'], $partnerInfo, $result['plain_password']);
@@ -95,7 +95,7 @@ class PartnerController extends Controller
     {
         $partner = $this->partnerService->findById($id);
 
-        if (!$partner) {
+        if (! $partner) {
             return ApiResponse::notFound('Partner not found');
         }
 
@@ -125,7 +125,7 @@ class PartnerController extends Controller
     {
         $partner = $this->partnerService->getDetails($id);
 
-        if (!$partner) {
+        if (! $partner) {
             return ApiResponse::notFound(__('partner.error.not_found'));
         }
 
@@ -155,12 +155,13 @@ class PartnerController extends Controller
     {
         try {
             $filters = [
-                'per_page'   => $request->input('per_page'),
-                'page'       => $request->input('page'),
-                'search'     => $request->input('search'),
+                'per_page' => $request->input('per_page'),
+                'page' => $request->input('page'),
+                'search' => $request->input('search'),
                 'partner_id' => $request->input('partner_id'),
                 'sort_field' => $request->input('sort_field'),
                 'sort_order' => $request->input('sort_order'),
+                'filters' => $request->input('filters') ?? null,
             ];
 
             return $this->partnerService->getBorrowers($filters);
@@ -176,7 +177,7 @@ class PartnerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'subject' => 'Welcome to '.$businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -194,6 +195,45 @@ class PartnerController extends Controller
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Delete Partner
+     */
+    public function partnerDelete(Request $request)
+    {
+        try {
+            return $this->partnerService->delete($request->ids);
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
+        }
+    }
+
+    /**
+     * Get Partner Count Statistics.
+     */
+    public function stats()
+    {
+        try {
+            $data = $this->partnerService->getPartnerStats();
+
+            return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('partner.partner_stats_retrieved_failed'), 500);
+        }
+    }
+
+    /**
+     * Profile States Count
+     */
+    public function profileStatsCount(int $id)
+    {
+        try {
+            $data = $this->partnerService->getPartnerProfileStats($id);
+            return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('partner.partner_stats_retrieved_failed'), 500);
         }
     }
 }

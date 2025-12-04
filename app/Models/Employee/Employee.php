@@ -48,7 +48,8 @@ class Employee extends Model
         'no_of_children',
         'address',
         'employee_code',
-        'passport_number'
+        'passport_number',
+        'country_code',
     ];
 
     protected $casts = [

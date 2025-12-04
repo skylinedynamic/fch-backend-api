@@ -65,7 +65,7 @@ return [
         ],
     ],
 
-     /*
+    /*
     |--------------------------------------------------------------------------
     | Success Messages
     |--------------------------------------------------------------------------
@@ -81,11 +81,17 @@ return [
         'document_deleted' => 'Document deleted successfully.',
     ],
 
+    'partner_stats_retrieved' => 'Partner statistics retrieved successfully.',
+    'partner_stats_retrieved_failed' => 'Failed to retrieve partner statistics.',
+    'borrowers_retrieved_data' => 'Borrowers retrieved successfully.',
+
     'subscription_saved' => 'Subscription saved successfully.',
     'subscription_save_failed' => 'Failed to save subscription.',
     'subscription_list' => 'Subscription list retrieved successfully.',
     'subscription_list_failed' => 'Failed to retrieve subscription list.',
+    'partner_delete_failed' => 'Failed to delete partner.',
     'subscription_details' => 'Subscription details retrieved successfully.',
     'subscription_not_found' => 'Subscription not found.',
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
+
 ];

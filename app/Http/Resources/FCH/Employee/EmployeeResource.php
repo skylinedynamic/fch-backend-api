@@ -38,7 +38,7 @@ class EmployeeResource extends JsonResource
             'state' => $this->state,
             'postal_code' => $this->postal_code,
             'country' => $this->country,
-            
+            'country_code' => $this->country_code, 
             'designation' => $this->designation,
             'department' => $this->department,
             'job_status' => $this->job_status,
