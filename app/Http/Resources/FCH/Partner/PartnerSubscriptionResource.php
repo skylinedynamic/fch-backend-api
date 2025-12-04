@@ -17,8 +17,11 @@ class PartnerSubscriptionResource extends JsonResource
         return [
             'id' => $this->id,
             'partner_id' => $this->partner_id,
+            'partner_type' => $this->partner_type,
+            'payment_type' => $this->payment_type,
             'partner_url' => $this->partner_url,
             'billing_term' => $this->billing_term,
+            'subscription_term_months' => $this->subscription_term_months,
             'first_reg_date' => $this->first_reg_date?->format('Y-m-d'),
             'first_reg_amount' => $this->first_reg_amount,
             'first_payment_amount' => $this->first_payment_amount,

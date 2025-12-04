@@ -42,7 +42,7 @@ Route::prefix('v1/admin')
 
         // 💳 Partner Subscriptions
         Route::post('partners/subscription', [PartnerSubscriptionController::class, 'store']);
-        Route::get('partners/subscription/{partnerId}', [PartnerSubscriptionController::class, 'show']);
+        Route::post('partner-subscriptions/{partnerId}', [PartnerSubscriptionController::class, 'details']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);

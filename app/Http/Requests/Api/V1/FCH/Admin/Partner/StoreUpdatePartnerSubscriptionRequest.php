@@ -4,8 +4,6 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use App\Helpers\ApiResponse;
 
 class StoreUpdatePartnerSubscriptionRequest extends BaseApiRequest
 {
@@ -24,21 +22,33 @@ class StoreUpdatePartnerSubscriptionRequest extends BaseApiRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'partner_id' => 'required|exists:partners,id',
+            'partner_type' => 'nullable|string|in:Referral,Founding Partner,Executive Partner (White-Label)',
+            'payment_type' => 'nullable|string|in:One-Time Payment,Payment Plan (10-month plan)',
             'partner_url' => 'nullable|string',
             'billing_term' => 'nullable|string|in:monthly,annual',
+            'subscription_term_months' => 'nullable|integer|min:1',
             'first_reg_date' => 'nullable|date',
             'first_reg_amount' => 'nullable|numeric',
             'first_payment_amount' => 'nullable|numeric',
             'first_reg_amount_2' => 'nullable|numeric',
-            'recurring_amount' => 'nullable|numeric',
             'total_amount' => 'nullable|numeric',
             'subscription_start_date' => 'nullable|date',
             'subscription_end_date' => 'nullable|date',
             'expiry_date' => 'nullable|date',
             'termination_date' => 'nullable|date',
         ];
+
+        // Conditional validation for recurring_amount (monthly platform fee)
+        // Required for Payment Plan, optional for One-Time Payment
+        if ($this->input('payment_type') === 'Payment Plan (10-month plan)') {
+            $rules['recurring_amount'] = 'required|numeric|min:0';
+        } else {
+            $rules['recurring_amount'] = 'nullable|numeric|min:0';
+        }
+
+        return $rules;
     }
 
     /**
