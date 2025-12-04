@@ -183,7 +183,7 @@ return [
 
     'funding_requested_amount_required' => 'Funding requested amount is required',
     'funding_requested_amount_numeric' => 'Funding requested amount must be a number',
-    'funding_requested_amount_min' => 'Funding requested amount cannot be negative',
+    'funding_requested_amount_gt' => 'Funding requested amount must be greater than 1',
 
     'funding_urgency_required' => 'Funding urgency is required',
     'funding_urgency_string' => 'Funding urgency must be a string',
@@ -206,12 +206,12 @@ return [
 
     'debt_balance_required' => 'Debt balance is required when existing business debt is true',
     'debt_balance_numeric' => 'Debt balance must be a number',
-    'debt_balance_min' => 'Debt balance cannot be negative',
+    'debt_balance_gt' => 'Debt balance must be greater than 1',
 
 
     'funding_amount_required' => 'Funding amount is required',
     'funding_amount_numeric' => 'Funding amount must be a number',
-    'funding_amount_min' => 'Funding amount cannot be negative',
+    'funding_amount_gt' => 'Funding amount must be greater than 1',
 
     'funding_term_required' => 'Funding term is required',
     'funding_term_string' => 'Funding term must be a string',

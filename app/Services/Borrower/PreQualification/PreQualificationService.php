@@ -4,6 +4,7 @@ namespace App\Services\Borrower\PreQualification;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\PreQualification\BorrowerDetailsProfile;
+use App\Http\Resources\Borrower\PreQualification\PreQualificationResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Business\Business;
@@ -55,10 +56,42 @@ class PreQualificationService
     }
 
 
-    public function prequalificationRequest(){
+
+    public function prequalificationRequest()
+    {
         $user = Auth::user();
-        $borrower = Borrower::where('id',$user->entity_id)->first();
-        return ApiResponse::success(new BorrowerDetailsProfile($borrower),__('borrower.pre_qualification_request_success'));
+        $borrower = Borrower::where('id', $user->entity_id)->first();
+
+        $prequalificationRequest = PreQualificationRequest::where('borrower_id', $borrower->id)
+            ->where('status', PreQualificationRequest::ON_HOLD)
+            ->first();
+
+        $mergedData = $borrower->toArray();
+        $prequalificationId = null;
+
+        if ($prequalificationRequest) {
+            $prequalificationId = $prequalificationRequest->id;
+            
+            foreach ($prequalificationRequest->toArray() as $key => $value) {
+                if ($this->hasValue($value)) {
+                    $mergedData[$key] = $value;
+                }
+            }
+        }
+
+        $mergedData['id'] = $prequalificationId;
+
+        $dataObject = (object) $mergedData;
+
+        return ApiResponse::success(
+            new PreQualificationResource($dataObject),
+            __('borrower.pre_qualification_request_success')
+        );
+    }
+
+    private function hasValue($value): bool
+    {
+        return !empty($value) || $value === 0 || $value === false;
     }
 
 

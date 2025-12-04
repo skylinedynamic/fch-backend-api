@@ -11,6 +11,7 @@ class PreQualificationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'borrower_id' => $this->borrower_id,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
             'business_website' => $this->business_website,
@@ -18,7 +19,7 @@ class PreQualificationResource extends JsonResource
             'phone' => $this->phone,
             'state_of_incorporation' => $this->state_of_incorporation,
             'business_name' => $this->business_name,
-            'industry' => $this->industry,
+            'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,
             'monthly_revenue' => $this->monthly_revenue,
             'annual_revenue' => $this->annual_revenue,
@@ -28,7 +29,7 @@ class PreQualificationResource extends JsonResource
             'purpose_of_funding' => $this->purpose_of_funding,
             'personal_credit_score' => $this->personal_credit_score,
             'estimated_business_credit_score' => $this->estimated_business_credit_score,
-            'existing_business_debt' => (bool) $this->existing_business_debt,
+            'existing_business_debt' => $this->existing_business_debt,
             'debt_balance' => $this->debt_balance,
             'notes' => $this->notes,
             'status' => $this->status,
