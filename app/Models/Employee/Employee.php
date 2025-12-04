@@ -3,15 +3,10 @@
 namespace App\Models\Employee;
 
 use App\Models\User\User;
-use App\Models\Partner\Partner;
-use App\Models\Borrower\Borrower;
-use App\Models\Business\Business;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
@@ -21,7 +16,7 @@ class Employee extends Model
 
     protected $fillable = [
         'partner_id',
-        'first_name',   
+        'first_name',
         'last_name',
         'email',
         'phone_number_1',
@@ -33,22 +28,14 @@ class Employee extends Model
         'postal_code',
         'country',
         'address',
-        'ssn',
         'image',
         'designation',
-        'department', 
+        'department',
         'job_status',
         'joining_date',
-        'identification_number',
-        'blood_group', 
-        'place_of_birth',
         'emergency_contact',
-        'emergency_phone', 
-        'marital_status', 
-        'no_of_children',
-        'address',
+        'emergency_phone',
         'employee_code',
-        'passport_number',
         'country_code',
     ];
 
@@ -68,7 +55,6 @@ class Employee extends Model
             ->where('entity_type', Employee::class);
     }
 
-
     /**
      * 🔹 Full name accessor.
      */
@@ -82,7 +68,7 @@ class Employee extends Model
      */
     public function scopeSearch($query, ?string $search)
     {
-        if (!is_string($search) || trim($search) === '') {
+        if (! is_string($search) || trim($search) === '') {
             return $query;
         }
 
@@ -90,13 +76,28 @@ class Employee extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('phone_number_1', 'like', "%{$search}%")
-              ->orWhere('department', 'like', "%{$search}%")
-              ->orWhere('designation', 'like', "%{$search}%")
-              ->orWhere('address', 'like', "%{$search}%");
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone_number_1', 'like', "%{$search}%")
+                ->orWhere('department', 'like', "%{$search}%")
+                ->orWhere('designation', 'like', "%{$search}%")
+                ->orWhere('address', 'like', "%{$search}%");
         });
+    }
+
+    public static function generateCode($partnerId)
+    {
+        $lastEmployee = self::where('partner_id', $partnerId)
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        if (! $lastEmployee || empty($lastEmployee->employee_code)) {
+            return 'EMP-00001';
+        }
+
+        $number = (int) str_replace('EMP-', '', $lastEmployee->employee_code);
+
+        return 'EMP-'.str_pad($number + 1, 5, '0', STR_PAD_LEFT);
     }
 }
