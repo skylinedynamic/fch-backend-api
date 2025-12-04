@@ -112,6 +112,13 @@ class EmployeeService
             if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
+
+            // Set default job_status if not provided
+            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+                $employeeData['job_status'] = 'Active';
+            }
+
+            $employeeData['country_code'] = $employeeData['country_code'] ?? null;
             
             $employee = Employee::create($employeeData);
             Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
@@ -178,6 +185,12 @@ class EmployeeService
             if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
+
+            // Set default job_status if not provided
+            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+                $employeeData['job_status'] = 'Active';
+            }
+            
 
             // 1️⃣ Handle image upload
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {

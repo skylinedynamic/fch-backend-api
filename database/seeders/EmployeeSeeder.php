@@ -57,7 +57,7 @@ class EmployeeSeeder extends Seeder
                 $emergencyPhone = '+300000' . str_pad((string) ($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
                 $maritalStatus = $maritalStatuses[array_rand($maritalStatuses)];
                 $noOfChildren = (string) mt_rand(0, 3);
-
+                $countryCode = '+1';
                 $bulk[] = [
                     'partner_id' => $partnerId,
                     'first_name' => $firstName,
@@ -72,6 +72,7 @@ class EmployeeSeeder extends Seeder
                     'state' => $state,
                     'postal_code' => $postal,
                     'country' => $country,
+                    'country_code' => $countryCode,
                     'address' => $address,
                     'ssn' => $ssn,
                     'image' => $image,

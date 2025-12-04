@@ -1,18 +1,18 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
-// ✅ Import Role & Permission Controllers
+use Illuminate\Support\Facades\Route;
 
+// ✅ Import Role & Permission Controllers
 
 /*
 |--------------------------------------------------------------------------
 | Admin API Routes
 |--------------------------------------------------------------------------
-| All admin API endpoints are loaded here. 
+| All admin API endpoints are loaded here.
 | Protected by Passport (auth:api) and Admin middleware.
 | We also include set.current.business for business-wise data scoping.
 |--------------------------------------------------------------------------
@@ -29,6 +29,9 @@ Route::prefix('v1/admin')
         Route::put('partners/{id}', [PartnerController::class, 'update']);
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
+        Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
+        Route::post('partners-stats', [PartnerController::class, 'stats']);
+        Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);
@@ -40,7 +43,6 @@ Route::prefix('v1/admin')
         // 💳 Partner Subscriptions
         Route::post('partners/subscription', [PartnerSubscriptionController::class, 'store']);
         Route::get('partners/subscription/{partnerId}', [PartnerSubscriptionController::class, 'show']);
-
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
