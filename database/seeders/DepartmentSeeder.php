@@ -14,16 +14,13 @@ class DepartmentSeeder extends Seeder
     {
         // Common department names to choose from
         $allDepartments = [
-            'DepartmentSeeder',
+            'Underwriting',
             'Credit Analysis',
+            'Funding Operations',
             'Sales',
-            'HR',
             'Support',
             'Partner Success',
             'Compliance',
-            'Administration',
-            'Quality Assurance',
-            'Legal',
             'Administration',
             'Document Processing',
         ];

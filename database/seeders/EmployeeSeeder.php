@@ -2,8 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\Common\Role;
+use App\Models\Employee\Employee;
+use App\Models\User\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class EmployeeSeeder extends Seeder
 {
@@ -18,24 +22,38 @@ class EmployeeSeeder extends Seeder
         $citiesStates = [
             ['Los Angeles', 'CA'], ['San Francisco', 'CA'], ['Austin', 'TX'], ['Chicago', 'IL'],
             ['New York', 'NY'], ['Miami', 'FL'], ['Seattle', 'WA'], ['Denver', 'CO'],
-            ['Phoenix', 'AZ'], ['Atlanta', 'GA'], ['Charlotte', 'NC']
+            ['Phoenix', 'AZ'], ['Atlanta', 'GA'], ['Charlotte', 'NC'],
         ];
         $streets = ['Oak', 'Pine', 'Elm', 'Maple', 'Cedar', 'Walnut', 'Birch', 'Ash', 'Cherry', 'Willow'];
-        $bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
         $genders = ['male', 'female'];
-        $maritalStatuses = ['Single', 'Married'];
 
-        $bulk = [];
-        foreach (DB::table('partners')->pluck('id') as $partnerId) {
+        // Get all partners
+        $partners = DB::table('partners')->pluck('id');
+
+        foreach ($partners as $partnerId) {
+            // Get the Sales role for this partner
+            $salesRole = Role::where('name', 'Sales')
+                ->where('partner_id', $partnerId)
+                ->where('guard_name', 'api')
+                ->first();
+
+            if (! $salesRole) {
+                $this->command?->warn("Sales role not found for Partner ID {$partnerId}. Skipping employees for this partner.");
+
+                continue;
+            }
+
             for ($i = 1; $i <= 10; $i++) {
                 $firstName = "Employee{$partnerId}{$i}";
-                $lastName = "User";
-                $empCode = "Emp-{$i}";
+                $lastName = 'User';
+                $empCode = "Emp-0000{$i}";
                 $department = $departments[$i % count($departments)];
                 $designation = $designations[$i % count($designations)];
                 $email = "partner{$partnerId}.employee{$i}@example.com";
-                $phone1 = '+100000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
-                $phone2 = '+200000' . str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
+                $number = $partnerId * 1000 + $i;
+
+                $phone1 = str_pad($number, 10, '0', STR_PAD_LEFT);
+                $phone2 = str_pad($number, 10, '0', STR_PAD_LEFT);
 
                 // Random profile fields
                 $gender = $genders[array_rand($genders)];
@@ -44,21 +62,18 @@ class EmployeeSeeder extends Seeder
                 $state = $cs[1];
                 $postal = str_pad((string) mt_rand(10000, 99999), 5, '0', STR_PAD_LEFT);
                 $country = 'USA';
-                $address = mt_rand(100, 999) . ' ' . $streets[array_rand($streets)] . ' St';
-                $ssn = sprintf('%03d-%02d-%04d', mt_rand(100, 999), mt_rand(10, 99), mt_rand(1000, 9999));
+                $address = mt_rand(100, 999).' '.$streets[array_rand($streets)].' St';
                 $image = "employee_{$partnerId}_{$i}.jpg";
                 $dobTs = mt_rand(strtotime('1970-01-01'), strtotime('2002-12-31'));
                 $dateOfBirth = date('Y-m-d', $dobTs);
                 $joinTs = mt_rand(strtotime('2018-01-01'), strtotime('2024-12-31'));
                 $joiningDate = date('Y-m-d', $joinTs);
-                $bloodGroup = $bloodGroups[array_rand($bloodGroups)];
-                $placeOfBirth = $city;
-                $emergencyContact = $firstName . ' ' . $lastName . ' Contact';
-                $emergencyPhone = '+300000' . str_pad((string) ($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT);
-                $maritalStatus = $maritalStatuses[array_rand($maritalStatuses)];
-                $noOfChildren = (string) mt_rand(0, 3);
+                $emergencyContact = $firstName.' '.$lastName.' Contact';
+                $emergencyPhone = str_pad($number, 10, '0', STR_PAD_LEFT);
                 $countryCode = '+1';
-                $bulk[] = [
+
+                // Create employee
+                $employee = Employee::create([
                     'partner_id' => $partnerId,
                     'first_name' => $firstName,
                     'last_name' => $lastName,
@@ -74,26 +89,35 @@ class EmployeeSeeder extends Seeder
                     'country' => $country,
                     'country_code' => $countryCode,
                     'address' => $address,
-                    'ssn' => $ssn,
                     'image' => $image,
                     'department' => $department,
                     'designation' => $designation,
                     'job_status' => 'Active',
                     'joining_date' => $joiningDate,
-                    'identification_number' => sprintf('EMP-P%d-%03d', $partnerId, $i),
-                    'passport_number' => 'P-'.str_pad((string)($partnerId * 1000 + $i), 4, '0', STR_PAD_LEFT),
-                    'blood_group' => $bloodGroup,
-                    'place_of_birth' => $placeOfBirth,
                     'emergency_contact' => $emergencyContact,
                     'emergency_phone' => $emergencyPhone,
-                    'marital_status' => $maritalStatus,
-                    'no_of_children' => $noOfChildren,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+                ]);
+
+                // Create user for the employee
+                $user = User::create([
+                    'name' => $firstName.' '.$lastName,
+                    'email' => $email,
+                    'phone_number' => $phone1,
+                    'phone_verified_at' => null,
+                    'email_verified_at' => now(),
+                    'user_type' => 'Admin',
+                    'status' => 'active',
+                    'password' => Hash::make('12345678'),
+                    'partner_id' => $partnerId,
+                    'entity_type' => 'App\Models\Employee\Employee',
+                    'entity_id' => $employee->id,
+                ]);
+
+                // Assign Sales role to the user
+                $user->assignRole($salesRole);
             }
         }
 
-        DB::table('employees')->insert($bulk);
+        $this->command?->info('EmployeeSeeder completed successfully.');
     }
 }

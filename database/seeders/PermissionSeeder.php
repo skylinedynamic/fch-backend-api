@@ -2,13 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Common\Permission;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
-use App\Models\Common\Role;
-use App\Models\Common\Permission;
-use App\Models\Employee\Employee;
-use App\Models\Partner\Partner;
-use App\Models\User\User;
 use Spatie\Permission\PermissionRegistrar;
 
 class PermissionSeeder extends Seeder
@@ -18,34 +14,50 @@ class PermissionSeeder extends Seeder
         // 1) Clear cached permissions before seeding
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // 2) Collect unique permission names from config
-        $permissionNames = collect(config('permissions'))
-            ->flatten()
-            ->unique()
-            ->values();
+        // 2) Get all modules from config
+        $permissionModules = config('permissions');
 
-        if ($permissionNames->isEmpty()) {
+        if (empty($permissionModules)) {
             $this->command->warn('No permissions found in config/permissions.php');
+
             return;
         }
 
-        foreach ($permissionNames as $name) {
-            $module = '';
-            if (Str::contains($name, ' ')) {
-                $module = (string) Str::of($name)->after(' ')->trim();
+        // 3) Loop through each module and create permissions
+        foreach ($permissionModules as $moduleName => $moduleData) {
+            // Get is_host flag (default to 0 if not set)
+            $isHost = $moduleData['is_host'] ?? 0;
+
+            // Get permissions array
+            $permissions = $moduleData['permissions'] ?? [];
+
+            if (empty($permissions)) {
+                $this->command->warn("No permissions found for module: {$moduleName}");
+
+                continue;
             }
 
-            Permission::updateOrCreate(
-                [
-                    'name' => $name,
-                    'guard_name' => 'api',
-                ],
-                [
-                    'module' => $module,
-                ]
-            );
+            // Create each permission
+            foreach ($permissions as $permissionName) {
+                $module = '';
+                if (Str::contains($permissionName, ' ')) {
+                    $module = (string) Str::of($permissionName)->after(' ')->trim();
+                }
+
+                Permission::updateOrCreate(
+                    [
+                        'name' => $permissionName,
+                        'guard_name' => 'api',
+                    ],
+                    [
+                        'module' => $module,
+                        'is_host' => $isHost,
+                    ]
+                );
+            }
         }
 
+        $this->command->info('✅ All permissions seeded successfully!');
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

@@ -136,7 +136,7 @@ class PartnerController extends Controller
     }
 
     /**
-     * Get all users with entity_type = Employee or NULL.
+     * Get All Users
      */
     public function getAllUsers(Request $request)
     {
@@ -172,7 +172,7 @@ class PartnerController extends Controller
     }
 
     /**
-     * Send account created email.
+     * Account Ceated Email.
      */
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
@@ -231,6 +231,7 @@ class PartnerController extends Controller
     {
         try {
             $data = $this->partnerService->getPartnerProfileStats($id);
+
             return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
         } catch (\Throwable $e) {
             return ApiResponse::serverError(__('partner.partner_stats_retrieved_failed'), 500);
