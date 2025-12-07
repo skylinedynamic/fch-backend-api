@@ -2,33 +2,35 @@
 
 namespace App\Services\FCH\Common\Employee;
 
-use Throwable;
-use App\Models\User\User;
-use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
-use App\Traits\PaginatesApi;
-use App\Traits\UploadsFiles;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Models\Business\Business;
 use App\Models\Common\Permission;
+use App\Models\Common\Role;
 use App\Models\Employee\Employee;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
-use Spatie\Permission\PermissionRegistrar;
+use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\FCH\Employee\EmployeeResource;
-use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Traits\PaginatesApi;
+use App\Traits\UploadsFiles;
+use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Spatie\Permission\PermissionRegistrar;
+use Throwable;
 
 class EmployeeService
 {
-    use UploadsFiles, PaginatesApi;
+    use PaginatesApi, UploadsFiles;
 
-    public function getAll(){
+    public function getAll()
+    {
         $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
-        return ApiResponse::success(EmployeeResource::collection($employees),__('employee.success.retrieved'));
+
+        return ApiResponse::success(EmployeeResource::collection($employees), __('employee.success.retrieved'));
     }
 
     /**
@@ -38,23 +40,22 @@ class EmployeeService
     {
         $query = Employee::query()->where('partner_id', $partnerId)->with(['user']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
 
-        if (!empty($filters['job_status'])) {
+        if (! empty($filters['job_status'])) {
             $query->where('job_status', $filters['job_status']);
         }
 
-        if (!empty($filters['department'])) {
+        if (! empty($filters['department'])) {
             $query->where('department', $filters['department']);
         }
 
-        //Sorting
-        $sortField = $filters['sort_field']  ? ($filters['sort_field'] == 'full_name' ? 'first_name'  : $filters['sort_field']) : 'id';
+        // Sorting
+        $sortField = $filters['sort_field'] ? ($filters['sort_field'] == 'full_name' ? 'first_name' : $filters['sort_field']) : 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
 
-        
         if ($sortField === 'phone_number') {
             $sortField = 'phone_number_1';
         }
@@ -73,13 +74,11 @@ class EmployeeService
                 ],
             ]
         );
-       
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-    
-         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         return $this->respondWithPaginationResource(
             $paginator,
@@ -87,10 +86,7 @@ class EmployeeService
             __('employee.employee_listed')
         );
 
-
     }
-
-    
 
     /**
      * Create a new employee and optionally a linked user.
@@ -100,26 +96,26 @@ class EmployeeService
         DB::beginTransaction();
 
         try {
-            
+
             // 2️⃣ Create employee
             $employeeData['partner_id'] = auth()->user()->partner_id;
-            
+
             // Format dates if present
-            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
+            if (isset($employeeData['joining_date']) && ! empty($employeeData['joining_date'])) {
                 $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
             }
-            
-            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
+
+            if (isset($employeeData['date_of_birth']) && ! empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
 
             // Set default job_status if not provided
-            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+            if (! isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
 
-            $employeeData['country_code'] = $employeeData['country_code'] ?? null;
-            
+            $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
+
             $employee = Employee::create($employeeData);
             Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
             $user = null;
@@ -129,14 +125,14 @@ class EmployeeService
             // 1️⃣ Create user if needed
             if ($userData) {
                 $user = User::create([
-                    'name'         => $userData['name'],
-                    'email'        => $userData['email'],
-                    'partner_id'   => auth()->user()->partner_id,
-                    'entity_type'  => Employee::class,
-                    'entity_id'    => $employee->id,
+                    'name' => $userData['name'],
+                    'email' => $userData['email'],
+                    'partner_id' => auth()->user()->partner_id,
+                    'entity_type' => Employee::class,
+                    'entity_id' => $employee->id,
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
-                    'password'     => Hash::make($plainPassword),
-                    'user_type'    => auth()->user()->user_type ?? '',
+                    'password' => Hash::make($plainPassword),
+                    'user_type' => auth()->user()->user_type ?? '',
                 ]);
 
                 Log::info('✅ User created successfully', ['user_id' => $user->id]);
@@ -178,19 +174,18 @@ class EmployeeService
             $plainPassword = null;
 
             // Format dates if present
-            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
+            if (isset($employeeData['joining_date']) && ! empty($employeeData['joining_date'])) {
                 $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
             }
-            
-            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
+
+            if (isset($employeeData['date_of_birth']) && ! empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
 
             // Set default job_status if not provided
-            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+            if (! isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
-            
 
             // 1️⃣ Handle image upload
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
@@ -204,22 +199,22 @@ class EmployeeService
             // 2️⃣ Update employee data
             $employee->fill($employeeData);
             $isEmployeeDirty = $employee->isDirty([
-                'first_name', 'last_name', 'email', 'phone_number'
+                'first_name', 'last_name', 'email', 'phone_number',
             ]);
 
             // 3️⃣ Handle user creation if needed
-            if ($createAccount && !$user) {
+            if ($createAccount && ! $user) {
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
-                    'name'         => trim($employee->first_name . ' ' . $employee->last_name),
-                    'email'        => $employee->email,
+                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1,
-                    'password'     => Hash::make($plainPassword),
-                    'user_type'    => auth()->user()->user_type ?? '',
-                    'entity_type'  => Employee::class,
-                    'entity_id'    => $employee->id,
-                    'partner_id'   => $employee->partner_id,
+                    'password' => Hash::make($plainPassword),
+                    'user_type' => auth()->user()->user_type ?? '',
+                    'entity_type' => Employee::class,
+                    'entity_id' => $employee->id,
+                    'partner_id' => $employee->partner_id,
                 ]);
 
                 Log::info('✅ New user created for employee', ['employee_id' => $employee->id]);
@@ -232,8 +227,8 @@ class EmployeeService
             // 4️⃣ Sync existing user if employee changed
             if ($user && $isEmployeeDirty) {
                 $user->update([
-                    'name'         => trim($employee->first_name . ' ' . $employee->last_name),
-                    'email'        => $employee->email,
+                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'email' => $employee->email,
                     'phone_number' => $employee->phone_number,
                 ]);
                 Log::info('🔁 Existing user synced with employee changes', [
@@ -289,6 +284,7 @@ class EmployeeService
             }
 
             DB::commit();
+
             return true;
         } catch (Throwable $e) {
             DB::rollBack();
@@ -305,7 +301,7 @@ class EmployeeService
      */
     protected function assignRoleAndPermissions(User $user, int $roleId): void
     {
-        $role = Role::where('partner_id', auth()->user()->partner_id)->where('id',$roleId)->first();
+        $role = Role::where('partner_id', auth()->user()->partner_id)->where('id', $roleId)->first();
         $user->syncRoles($role);
 
         $permissionIds = DB::table('role_has_permissions')
@@ -330,51 +326,48 @@ class EmployeeService
             ->firstOrFail();
     }
 
-     /**
+    /**
      * Get employees filtered by department and job_status
      */
-        public function getTypeData(int $partnerId, string $type): array
-        {
-            $query = Employee::query()->where('partner_id', $partnerId);
+    public function getTypeData(int $partnerId, string $type): array
+    {
+        $query = Employee::query()->where('partner_id', $partnerId);
 
-            if ($type === 'status') {
-                // Get distinct job_status
-                $result = $query->select('id', 'job_status as status')
-                                ->whereNotNull('job_status')
-                                ->get()
-                                ->unique('status') // remove duplicates by status
-                                ->values()
-                                ->map(function ($item) {
-                                    return [
-                                        'id' => $item->id,
-                                        'status' => $item->status
-                                    ];
-                                })
-                                ->toArray();
-            } else { // department
-                // Get distinct departments
-                $result = $query->select('id', 'department')
-                                ->whereNotNull('department')
-                                ->get()
-                                ->unique('department') // remove duplicates by department
-                                ->values()
-                                ->map(function ($item) {
-                                    return [
-                                        'id' => $item->id,
-                                        'department' => $item->department
-                                    ];
-                                })
-                                ->toArray();
-            }
-
-            return $result;
+        if ($type === 'status') {
+            // Get distinct job_status
+            $result = $query->select('id', 'job_status as status')
+                ->whereNotNull('job_status')
+                ->get()
+                ->unique('status') // remove duplicates by status
+                ->values()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'status' => $item->status,
+                    ];
+                })
+                ->toArray();
+        } else { // department
+            // Get distinct departments
+            $result = $query->select('id', 'department')
+                ->whereNotNull('department')
+                ->get()
+                ->unique('department') // remove duplicates by department
+                ->values()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'department' => $item->department,
+                    ];
+                })
+                ->toArray();
         }
+
+        return $result;
+    }
 
     /**
      * Delete Multiple
-     *
-     * @param array $ids
-     * @return bool
      */
     public function deleteMultiple(array $ids): bool
     {

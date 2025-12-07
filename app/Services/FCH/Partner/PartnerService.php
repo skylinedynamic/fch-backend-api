@@ -2,36 +2,39 @@
 
 namespace App\Services\FCH\Partner;
 
-use App\Models\User\User;
-use App\Models\Partner\Partner;
-use App\Models\Business\Business;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
-use App\Traits\PaginatesApi;
-use App\Traits\UploadsFiles;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
-use App\Services\Global\Datatable\QueryFilter;
+use App\Helpers\ApiResponse;
+use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Models\Borrower\Borrower;
-use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Models\Common\Permission;
+use App\Models\Common\Role;
 use App\Models\Employee\Employee;
-use App\Helpers\ApiResponse;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use App\Traits\UploadsFiles;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Spatie\Permission\PermissionRegistrar;
 
 class PartnerService
 {
     use PaginatesApi, UploadsFiles;
+
     /**
      * Field mapping for user table fields.
      */
     private array $userFieldMapping = [
-        'full_name'      => 'name',
-        'email'          => 'email',
-        'phone_number'   => 'phone_number',
-        'city'           => 'city',
-        'state'          => 'state',
-        'postal_code'       => 'postal_code',
-        'country'        => 'country',
+        'full_name' => 'name',
+        'email' => 'email',
+        'phone_number' => 'phone_number',
+        'city' => 'city',
+        'state' => 'state',
+        'postal_code' => 'postal_code',
+        'country' => 'country',
         'address_line_1' => 'address_line_1',
         'address_line_2' => 'address_line_2',
     ];
@@ -40,29 +43,29 @@ class PartnerService
      * Field mapping for partner table fields.
      */
     private array $partnerFieldMapping = [
-        'full_name'                   => 'full_name',
-        'company_name'                => 'company_name',
-        'email'                       => 'email',
-        'phone_number'                => 'phone_number',
-        'contact_person'              => 'contact_person',
-        'contact_person_email'        => 'contact_person_email',
+        'full_name' => 'full_name',
+        'company_name' => 'company_name',
+        'email' => 'email',
+        'phone_number' => 'phone_number',
+        'contact_person' => 'contact_person',
+        'contact_person_email' => 'contact_person_email',
         'contact_person_phone_number' => 'contact_person_phone_number',
-        'contact_person_relation'     => 'contact_person_relation',
-        'partner_type'                => 'partner_type',
-        'status'                      => 'status',
-        'state'                       => 'state',
-        'city'                        => 'city',
-        'address_line_1'              => 'address_line_1',
-        'postal_code'                 => 'postal_code',
-        'address_line_2'              => 'address_line_2',
-        'country'                     => 'country',
-        'country_code'                => 'country_code',
-        'joining_date'                => 'joining_date',
-        'company_logo'                => 'company_logo',
-        'tax_id'                      => 'tax_id',
-        'website'                     => 'website',
-        'partner_image'               => 'partner_image',
-        'assign_to'                   => 'assign_to', // Assigned agent/user
+        'contact_person_relation' => 'contact_person_relation',
+        'partner_type' => 'partner_type',
+        'status' => 'status',
+        'state' => 'state',
+        'city' => 'city',
+        'address_line_1' => 'address_line_1',
+        'postal_code' => 'postal_code',
+        'address_line_2' => 'address_line_2',
+        'country' => 'country',
+        'country_code' => 'country_code',
+        'joining_date' => 'joining_date',
+        'company_logo' => 'company_logo',
+        'tax_id' => 'tax_id',
+        'website' => 'website',
+        'partner_image' => 'partner_image',
+        'assign_to' => 'assign_to', // Assigned agent/user
     ];
 
     /**
@@ -105,16 +108,112 @@ class PartnerService
             $user->entity_id = $partner->id;
             $user->save();
 
+            // Create default roles for the partner and assign Admin role to user
+            $this->createPartnerRoles($partner->id, $user);
+
             DB::commit();
+
             return [
                 'partner' => $partner->fresh(),
-                'user' => $user,
-                'plain_password' => $plainPassword
+                'user' => $user->fresh(),
+                'plain_password' => $plainPassword,
             ];
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create default roles (Admin and Borrower) for a new partner.
+     * Assigns the Admin role to the partner's user.
+     * Permissions are filtered based on partner's is_host status.
+     */
+    private function createPartnerRoles(int $partnerId, User $user): void
+    {
+        try {
+            // Clear cached permissions before creating roles
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            // Get partner to check is_host status
+            $partner = Partner::find($partnerId);
+
+            if (! $partner) {
+                throw new \Exception("Partner with ID {$partnerId} not found");
+            }
+
+            // Filter permissions based on is_host status
+            // Host partners (is_host = 1) get ALL permissions
+            // Regular partners (is_host = 0) only get permissions where is_host = 0
+            $allowedPermissions = Permission::where('guard_name', 'api')
+                ->where('is_host', 0)
+                ->get();
+
+            if ($allowedPermissions->isEmpty()) {
+                Log::warning('⚠️ No API permissions found. Roles will be created without permissions.');
+            }
+
+            // Create or update Admin role with filtered permissions
+            // Using updateOrCreate to avoid duplicate role name errors (partner-wise roles)
+            $adminRole = Role::updateOrCreate(
+                ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partnerId],
+                [
+                    'name' => 'Admin',
+                    'guard_name' => 'api',
+                    'partner_id' => $partnerId,
+                    'code' => 'admin',
+                    'is_static' => true,
+                ]
+            );
+
+            // Assign Admin role to the partner's user
+            $user->assignRole($adminRole);
+
+            // Also sync permissions directly to user (like EmployeeService)
+            if ($allowedPermissions->isNotEmpty()) {
+                $user->syncPermissions($allowedPermissions);
+            }
+
+            Log::info('✅ Admin role and permissions assigned to user', [
+                'user_id' => $user->id,
+                'role_id' => $adminRole->id,
+            ]);
+
+            // Create or update Borrower role with no permissions
+            $borrowerRole = Role::updateOrCreate(
+                ['name' => 'Borrower', 'guard_name' => 'api', 'partner_id' => $partnerId],
+                [
+                    'name' => 'Borrower',
+                    'guard_name' => 'api',
+                    'partner_id' => $partnerId,
+                    'code' => 'borrower',
+                    'is_static' => false,
+                ]
+            );
+
+            // Borrower role gets no permissions (empty sync)
+            $borrowerRole->syncPermissions([]);
+
+            Log::info('✅ Partner roles created successfully', [
+                'partner_id' => $partnerId,
+                'admin_role_id' => $adminRole->id,
+                'borrower_role_id' => $borrowerRole->id,
+                'user_id' => $user->id,
+                'permissions_assigned' => $allowedPermissions->count(),
+                'is_host' => $partner->is_host,
+            ]);
+
+            // Clear cached permissions after role creation
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to create partner roles', [
+                'partner_id' => $partnerId,
+                'user_id' => $user->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
             throw $e;
         }
     }
@@ -428,28 +527,27 @@ class PartnerService
             });
         }
 
-
-
         // 📄 Pagination (default 15 per page)
         $partners = $query->orderByDesc('partners.id')->paginate($request->get('per_page', 15));
 
         // Transform to the required flat structure
         $data = $partners->map(function ($partner) {
             $assignedUser = $partner->assignedUser;
+
             return [
-                'id'                   => $partner->id,
-                'assigned_user_id'     => $assignedUser->id ?? null,
-                'assigned_user_name'   => $assignedUser->name ?? null,
-                'full_name'            => $partner->full_name,
-                'company_name'         => $partner->company_name,
-                'email'                => $partner->email,
-                'phone_number'         => $partner->phone_number,
-                'contact_person'       => $partner->contact_person,
+                'id' => $partner->id,
+                'assigned_user_id' => $assignedUser->id ?? null,
+                'assigned_user_name' => $assignedUser->name ?? null,
+                'full_name' => $partner->full_name,
+                'company_name' => $partner->company_name,
+                'email' => $partner->email,
+                'phone_number' => $partner->phone_number,
+                'contact_person' => $partner->contact_person,
                 'contact_person_email' => $partner->contact_person_email,
                 'contact_person_phone' => $partner->contact_person_phone_number,
-                'partner_type'         => $partner->partner_type,
-                'status'               => $partner->status,
-                'joining_date'         => $partner->joining_date,
+                'partner_type' => $partner->partner_type,
+                'status' => $partner->status,
+                'joining_date' => $partner->joining_date,
             ];
         })->all();
 
@@ -457,15 +555,15 @@ class PartnerService
         return [
             'data' => $data,
             'meta' => [
-                'current_page'  => $partners->currentPage(),
-                'from'          => $partners->firstItem(),
-                'to'            => $partners->lastItem(),
-                'per_page'      => $partners->perPage(),
-                'total'         => $partners->total(),
-                'last_page'     => $partners->lastPage(),
+                'current_page' => $partners->currentPage(),
+                'from' => $partners->firstItem(),
+                'to' => $partners->lastItem(),
+                'per_page' => $partners->perPage(),
+                'total' => $partners->total(),
+                'last_page' => $partners->lastPage(),
                 'next_page_url' => $partners->nextPageUrl(),
                 'prev_page_url' => $partners->previousPageUrl(),
-                'links'         => $partners->linkCollection(),
+                'links' => $partners->linkCollection(),
             ],
 
         ];
@@ -496,15 +594,16 @@ class PartnerService
     {
         $partnerData = [];
 
-
         foreach ($this->partnerFieldMapping as $requestField => $partnerField) {
 
             if (array_key_exists($requestField, $data)) {
                 $partnerData[$partnerField] = $data[$requestField];
             }
         }
+
         return $partnerData;
     }
+
     /**
      * Get Borrowers list.
      */
@@ -513,7 +612,7 @@ class PartnerService
         $query = Borrower::query()->with('partner');
 
         // Filter by partner_id
-        if (!empty($filters['partner_id'])) {
+        if (! empty($filters['partner_id'])) {
             $query->where('partner_id', $filters['partner_id']);
         }
 
@@ -529,7 +628,7 @@ class PartnerService
 
         // Apply QueryFilter
         // Search across multiple fields
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'LIKE', "%{$search}%")
@@ -558,8 +657,6 @@ class PartnerService
             ]
         );
 
-
-
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
@@ -581,6 +678,7 @@ class PartnerService
         try {
             User::whereIn('partner_id', $ids)->delete();
             Partner::whereIn('id', $ids)->delete();
+
             return ApiResponse::success(
                 [],
                 __('partner.success.deleted')
@@ -616,10 +714,10 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = '.$id.') as total_clients'),
                 DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = '.$id.') as total_invoice'),
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = '.$id.') as total_tickets'),
-                DB::raw('(SELECT billing_term FROM partner_subscriptions 
+                DB::raw('(SELECT enrollment_type FROM partner_subscriptions 
                       WHERE partner_id = '.$id.' 
                       ORDER BY id DESC 
-                      LIMIT 1) as billing_term')
+                      LIMIT 1) as enrollment_type')
             )
             ->where('p.id', $id)
             ->first();

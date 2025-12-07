@@ -22,46 +22,65 @@ return [
             'required' => 'Partner ID is required.',
             'exists' => 'Selected partner does not exist.',
         ],
+        'partner_type' => [
+            'string' => 'Partner type must be a string.',
+            'max' => 'Partner type must not exceed 255 characters.',
+        ],
+        'enrollment_type' => [
+            'string' => 'Enrollment type must be a string.',
+            'max' => 'Enrollment type must not exceed 255 characters.',
+        ],
+        'monthly_platform_fee' => [
+            'numeric' => 'Monthly platform fee must be a number.',
+            'min' => 'Monthly platform fee must be greater than or equal to 0.',
+        ],
         'document_file' => [
             'required' => 'Document file is required.',
             'max' => 'Document file size must not exceed 50MB.',
         ],
         'partner_url' => [
             'string' => 'Partner URL must be a string.',
-        ],
-        'billing_term' => [
-            'string' => 'Billing term must be a string.',
-            'in' => 'Billing term must be either monthly or annual.',
+            'max' => 'Partner URL must not exceed 255 characters.',
         ],
         'first_reg_date' => [
             'date' => 'First registration date must be a valid date.',
         ],
         'first_reg_amount' => [
             'numeric' => 'First registration amount must be a number.',
+            'min' => 'First registration amount must be greater than or equal to 0.',
         ],
-        'first_payment_amount' => [
-            'numeric' => 'First payment amount must be a number.',
+        'installment_type' => [
+            'numeric' => 'Installment type must be a number.',
+            'min' => 'Installment type must be greater than or equal to 0.',
         ],
-        'first_reg_amount_2' => [
-            'numeric' => 'Second registration amount must be a number.',
+        'first_reg_payment' => [
+            'numeric' => 'First registration payment must be a number.',
+            'min' => 'First registration payment must be greater than or equal to 0.',
         ],
-        'recurring_amount' => [
-            'numeric' => 'Recurring amount must be a number.',
+        'first_reg_payment_2' => [
+            'numeric' => 'Second registration payment must be a number.',
+            'min' => 'Second registration payment must be greater than or equal to 0.',
         ],
-        'total_amount' => [
-            'numeric' => 'Total amount must be a number.',
+        'total_paid_amount' => [
+            'numeric' => 'Total paid amount must be a number.',
+            'min' => 'Total paid amount must be greater than or equal to 0.',
         ],
         'subscription_start_date' => [
             'date' => 'Subscription start date must be a valid date.',
         ],
         'subscription_end_date' => [
             'date' => 'Subscription end date must be a valid date.',
+            'after_or_equal' => 'Subscription end date must be on or after the subscription start date.',
         ],
         'expiry_date' => [
             'date' => 'Expiry date must be a valid date.',
         ],
         'termination_date' => [
             'date' => 'Termination date must be a valid date.',
+        ],
+        'status' => [
+            'string' => 'Status must be a string.',
+            'in' => 'Status must be one of: active, inactive, suspended, or expired.',
         ],
     ],
 

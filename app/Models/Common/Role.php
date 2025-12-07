@@ -4,20 +4,20 @@ namespace App\Models\Common;
 
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
-use Spatie\Permission\Models\Role as SpatieRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Permission\Models\Role as SpatieRole;
 
 class Role extends SpatieRole
 {
-    protected $fillable = ['name','description' ,'guard_name', 'partner_id', 'code', 'is_static'];
+    protected $fillable = ['name', 'description', 'guard_name', 'partner_id', 'code', 'is_static'];
 
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
     }
 
-      /**
+    /**
      * 🔹 All Users attached to this Role
      */
     public function users(): BelongsToMany

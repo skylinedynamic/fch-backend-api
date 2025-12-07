@@ -2,30 +2,27 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Employee;
 
-use Throwable;
-use App\Traits\PaginatesApi;
-use Illuminate\Http\Request;
-use App\Models\Employee\Employee;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\FetchEmployee;
-use Illuminate\Support\Facades\Mail;
-use Symfony\Component\HttpFoundation\Response;
-use App\Http\Resources\FCH\Employee\EmployeeResource;
-use App\Services\FCH\Common\Employee\EmployeeService;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
+use App\Models\Employee\Employee;
+use App\Services\FCH\Common\Employee\EmployeeService;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
-use App\Helpers\ApiResponse;
+use App\Traits\PaginatesApi;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class EmployeeController extends Controller
 {
     use PaginatesApi;
 
-    public function __construct(protected EmployeeService $employeeService)
-    {
-    }
-
+    public function __construct(protected EmployeeService $employeeService) {}
 
     /**
      * All Employee
@@ -48,6 +45,7 @@ class EmployeeController extends Controller
         try {
             $partnerId = auth()->user()->partner_id;
             $employee = $this->employeeService->find($id, $partnerId);
+
             return ApiResponse::success(new EmployeeResource($employee), __('employee.employee_details'));
         } catch (\Exception $e) {
             return ApiResponse::error(__('employee.employee_not_found'));
@@ -68,12 +66,12 @@ class EmployeeController extends Controller
             $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
 
             $filters = [
-                'per_page'   => $perPage,
-                'page'       => isset($input['page']) ? max(1, (int) $input['page']) : 1,
-                'search'     => isset($input['search']) ? trim((string) $input['search']) : null,
+                'per_page' => $perPage,
+                'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search' => isset($input['search']) ? trim((string) $input['search']) : null,
                 'job_status' => $input['job_status'] ?? null,
                 'department' => $input['department'] ?? null,
-                'filters'    => $input['filters'] ?? null, // array expected per request rules
+                'filters' => $input['filters'] ?? null, // array expected per request rules
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,
             ];
@@ -91,7 +89,7 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request)
     {
         $partnerId = $request->user()->partnet_id;
-        $partnerInfo = auth()->user()->partner;   
+        $partnerInfo = auth()->user()->partner;
         // ✅ Include all extended employee fields
         $fields = [
             'first_name',
@@ -100,17 +98,11 @@ class EmployeeController extends Controller
             'department',
             'job_status',
             'joining_date',
-            'identification_number',
-            'blood_group',
-            'place_of_birth',
             'emergency_contact',
             'emergency_phone',
-            'marital_status',
-            'no_of_children',
             'employee_code',
             'phone_number_1',
             'phone_number_2',
-            'passport_number',
             'email',
             'date_of_birth',
             'gender',
@@ -118,7 +110,6 @@ class EmployeeController extends Controller
             'state',
             'postal_code',
             'country',
-            'ssn',
             'image',
             'create_account',
             'role_id',
@@ -137,7 +128,7 @@ class EmployeeController extends Controller
             $plainPassword = bin2hex(random_bytes(4));
 
             $userData = [
-                'name' => trim($request->first_name . ' ' . $request->last_name) ?: $request->email,
+                'name' => trim($request->first_name.' '.$request->last_name) ?: $request->email,
                 'email' => $request->email,
                 'phone_number' => $request->phone_number,
                 'plain_password' => $plainPassword,
@@ -147,7 +138,7 @@ class EmployeeController extends Controller
 
         $result = $this->employeeService->create($employeeData, $userData, $request->role_id ?? null);
 
-        if (!empty($result['user'])) {
+        if (! empty($result['user'])) {
             $this->sendAccountCreatedMail($result['user'], $partnerInfo, $plainPassword);
         }
 
@@ -183,17 +174,11 @@ class EmployeeController extends Controller
             'department',
             'job_status',
             'joining_date',
-            'identification_number',
-            'blood_group',
-            'place_of_birth',
             'emergency_contact',
             'emergency_phone',
-            'marital_status',
-            'no_of_children',
             'employee_code',
             'phone_number_1',
             'phone_number_2',
-            'passport_number',
             'email',
             'date_of_birth',
             'gender',
@@ -201,7 +186,6 @@ class EmployeeController extends Controller
             'state',
             'postal_code',
             'country',
-            'ssn',
             'image',
             'create_account',
             'role_id',
@@ -255,7 +239,7 @@ class EmployeeController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'subject' => 'Welcome to '.$businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -276,7 +260,7 @@ class EmployeeController extends Controller
         }
     }
 
-   /**
+    /**
      * Fetch employees by department and job status
      */
     public function fetchDepartmentStatus(Request $request)
@@ -285,7 +269,7 @@ class EmployeeController extends Controller
         $partnerId = $request->user()->partner_id;
 
         try {
-            if (!in_array($type, ['department', 'status'])) {
+            if (! in_array($type, ['department', 'status'])) {
                 return ApiResponse::error(__('Invalid type parameter. Must be "department" or "status".'));
             }
 
@@ -297,15 +281,16 @@ class EmployeeController extends Controller
         }
     }
 
-     /**
+    /**
      * Multiple Delete
      */
     public function multipleDelete(Request $request)
     {
         $ids = $request->input('ids', []);
         if ($this->employeeService->deleteMultiple($ids)) {
-             return ApiResponse::success([], __('employee.employee_deleted'));
+            return ApiResponse::success([], __('employee.employee_deleted'));
         }
+
         return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
     }
 }

@@ -16,6 +16,17 @@ class PartnerSubscriptionService
      */
     public function createOrUpdate(int $partnerId, array $data)
     {
+        // Handle installment_type logic
+        $installmentType = $data['installment_type'] ?? 0;
+        if ($installmentType != 1) {
+            $data['first_reg_payment_2'] = null;
+        }
+
+        // Handle enrollment_type logic
+        if (isset($data['enrollment_type']) && $data['enrollment_type'] === 'One-Time Payment') {
+            $data['monthly_platform_fee'] = null;
+        }
+
         return PartnerSubscription::updateOrCreate(
             ['partner_id' => $partnerId],
             $data
