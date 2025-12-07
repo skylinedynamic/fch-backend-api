@@ -14,19 +14,20 @@ return new class extends Migration
         Schema::create('partner_subscriptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('partner_id')->constrained('partners')->onDelete('cascade');
-            $table->string('partner_url')->nullable();
-            $table->string('billing_term')->nullable();
-            $table->date('first_reg_date')->nullable();
+            $table->string('partner_type')->nullable();
+            $table->string('enrollment_type')->nullable();
+            $table->decimal('monthly_platform_fee', 10, 2)->nullable();
             $table->decimal('first_reg_amount', 10, 2)->nullable();
-            $table->decimal('first_payment_amount', 10, 2)->nullable();
-            $table->decimal('first_reg_amount_2', 10, 2)->nullable();
-            $table->decimal('recurring_amount', 10, 2)->nullable();
-            $table->decimal('total_amount', 10, 2)->nullable();
+            $table->date('first_reg_date')->nullable();
+            $table->tinyInteger('installment_type')->nullable()->comment('0 = No, 1 = Yes');
+            $table->decimal('first_reg_payment', 10, 2)->nullable();
+            $table->decimal('first_reg_payment_2', 10, 2)->nullable();
+            $table->decimal('total_paid_amount', 10, 2)->nullable();
             $table->date('subscription_start_date')->nullable();
             $table->date('subscription_end_date')->nullable();
             $table->date('expiry_date')->nullable();
             $table->date('termination_date')->nullable();
-            $table->string('status')->default('active');
+            $table->string('status')->default('Active');
             $table->softDeletes();
             $table->timestamps();
         });

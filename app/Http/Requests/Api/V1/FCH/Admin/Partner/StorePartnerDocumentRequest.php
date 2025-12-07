@@ -26,7 +26,8 @@ class StorePartnerDocumentRequest extends FormRequest
     {
         return [
             'partner_id' => ['required', 'integer', 'exists:partners,id'],
-            'file_path' => ['required', 'file', 'max:51200'], // 50MB max
+            'share_link' => ['nullable'],
+            'file_path' => ['nullable', 'file', 'max:20480'], // 20MB max
             'document_name' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -39,7 +40,6 @@ class StorePartnerDocumentRequest extends FormRequest
         return [
             'partner_id.required' => __('partner.validation.partner_id.required'),
             'partner_id.exists' => __('partner.validation.partner_id.exists'),
-            'file_path.required' => __('partner.validation.document_file.required'),
             'file_path.max' => __('partner.validation.document_file.max'),
         ];
     }

@@ -28,19 +28,27 @@ class PartnerDocumentService
     public function store(array $data): PartnerDocument
     {
         try {
-            $file = $data['file_path'];
             $partnerId = $data['partner_id'];
             $documentName = $data['document_name'];
+            $share_link = $data['share_link'] ?? null;
+            $filePath = null;
+            $fileSize = null;
 
-            // Upload file
-            $upload = $this->uploadFile($file, "partners/{$partnerId}/documents", 'public');
+            // Upload file if present
+            if (isset($data['file_path']) && $data['file_path'] instanceof UploadedFile) {
+                $file = $data['file_path'];
+                $upload = $this->uploadFile($file, "partners/{$partnerId}/documents", 'public');
+                $filePath = $upload['path'];
+                $fileSize = $this->formatSize($file->getSize());
+            }
 
             // Create record
             $document = PartnerDocument::create([
                 'partner_id' => $partnerId,
                 'document_name' => $documentName,
-                'file_path' => $upload['path'],
-                'size' => $this->formatSize($file->getSize()),
+                'share_link' => $share_link,
+                'file_path' => $filePath,
+                'size' => $fileSize,
             ]);
 
             Log::info('📄 Partner document uploaded', ['id' => $document->id, 'partner_id' => $partnerId]);
