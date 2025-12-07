@@ -24,29 +24,21 @@ class StoreUpdatePartnerSubscriptionRequest extends BaseApiRequest
     {
         $rules = [
             'partner_id' => 'required|exists:partners,id',
-            'partner_type' => 'nullable|string|in:Referral,Founding Partner,Executive Partner (White-Label)',
-            'payment_type' => 'nullable|string|in:One-Time Payment,Payment Plan (10-month plan)',
-            'partner_url' => 'nullable|string',
-            'billing_term' => 'nullable|string|in:monthly,annual',
-            'subscription_term_months' => 'nullable|integer|min:1',
+            'partner_type' => 'nullable|string|max:255',
+            'enrollment_type' => 'nullable|string|max:255',
+            'monthly_platform_fee' => 'nullable|numeric|min:0',
+            'first_reg_amount' => 'nullable|numeric|min:0',
             'first_reg_date' => 'nullable|date',
-            'first_reg_amount' => 'nullable|numeric',
-            'first_payment_amount' => 'nullable|numeric',
-            'first_reg_amount_2' => 'nullable|numeric',
-            'total_amount' => 'nullable|numeric',
+            'installment_type' => 'nullable|in:0,1',
+            'first_reg_payment' => 'nullable|numeric|min:0',
+            'first_reg_payment_2' => 'nullable|numeric|min:0',
+            'total_paid_amount' => 'nullable|numeric|min:0',
             'subscription_start_date' => 'nullable|date',
-            'subscription_end_date' => 'nullable|date',
+            'subscription_end_date' => 'nullable|date|after_or_equal:subscription_start_date',
             'expiry_date' => 'nullable|date',
             'termination_date' => 'nullable|date',
+            'status' => 'nullable|string',
         ];
-
-        // Conditional validation for recurring_amount (monthly platform fee)
-        // Required for Payment Plan, optional for One-Time Payment
-        if ($this->input('payment_type') === 'Payment Plan (10-month plan)') {
-            $rules['recurring_amount'] = 'required|numeric|min:0';
-        } else {
-            $rules['recurring_amount'] = 'nullable|numeric|min:0';
-        }
 
         return $rules;
     }
@@ -59,19 +51,41 @@ class StoreUpdatePartnerSubscriptionRequest extends BaseApiRequest
         return [
             'partner_id.required' => __('partner.validation.partner_id.required'),
             'partner_id.exists' => __('partner.validation.partner_id.exists'),
-            'partner_url.string' => __('partner.validation.partner_url.string'),
-            'billing_term.string' => __('partner.validation.billing_term.string'),
-            'billing_term.in' => __('partner.validation.billing_term.in'),
-            'first_reg_date.date' => __('partner.validation.first_reg_date.date'),
+
+            'partner_type.string' => __('partner.validation.partner_type.string'),
+            'partner_type.max' => __('partner.validation.partner_type.max'),
+
+            'enrollment_type.string' => __('partner.validation.enrollment_type.string'),
+            'enrollment_type.max' => __('partner.validation.enrollment_type.max'),
+
+            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee.numeric'),
+            'monthly_platform_fee.min' => __('partner.validation.monthly_platform_fee.min'),
+
             'first_reg_amount.numeric' => __('partner.validation.first_reg_amount.numeric'),
-            'first_payment_amount.numeric' => __('partner.validation.first_payment_amount.numeric'),
-            'first_reg_amount_2.numeric' => __('partner.validation.first_reg_amount_2.numeric'),
-            'recurring_amount.numeric' => __('partner.validation.recurring_amount.numeric'),
-            'total_amount.numeric' => __('partner.validation.total_amount.numeric'),
+            'first_reg_amount.min' => __('partner.validation.first_reg_amount.min'),
+
+            'first_reg_date.date' => __('partner.validation.first_reg_date.date'),
+
+            'installment_type.numeric' => __('partner.validation.installment_type.numeric'),
+
+            'first_reg_payment.numeric' => __('partner.validation.first_reg_payment.numeric'),
+            'first_reg_payment.min' => __('partner.validation.first_reg_payment.min'),
+
+            'first_reg_payment_2.numeric' => __('partner.validation.first_reg_payment_2.numeric'),
+            'first_reg_payment_2.min' => __('partner.validation.first_reg_payment_2.min'),
+
+            'total_paid_amount.numeric' => __('partner.validation.total_paid_amount.numeric'),
+            'total_paid_amount.min' => __('partner.validation.total_paid_amount.min'),
+
             'subscription_start_date.date' => __('partner.validation.subscription_start_date.date'),
+
             'subscription_end_date.date' => __('partner.validation.subscription_end_date.date'),
+            'subscription_end_date.after_or_equal' => __('partner.validation.subscription_end_date.after_or_equal'),
+
             'expiry_date.date' => __('partner.validation.expiry_date.date'),
             'termination_date.date' => __('partner.validation.termination_date.date'),
+
+            'status.string' => __('partner.validation.status.string'),
         ];
     }
 }

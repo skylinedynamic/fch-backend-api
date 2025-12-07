@@ -17,6 +17,7 @@ class PartnerDocument extends Model
         'partner_id',
         'document_name',
         'file_path',
+        'share_link',
         'size',
     ];
 

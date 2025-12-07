@@ -19,6 +19,7 @@ class PartnerDocumentResource extends JsonResource
             'document_name' => $this->document_name,
             'file_path' => $this->file_path ? asset('storage/' . $this->file_path) : null,
             'size' => $this->size,
+            'share_link' => $this->share_link,
             'created_at' => $this->created_at->toDateTimeString(),
             'updated_at' => $this->updated_at->toDateTimeString(),
         ];

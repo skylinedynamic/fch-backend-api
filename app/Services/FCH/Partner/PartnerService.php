@@ -714,10 +714,10 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = '.$id.') as total_clients'),
                 DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = '.$id.') as total_invoice'),
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = '.$id.') as total_tickets'),
-                DB::raw('(SELECT billing_term FROM partner_subscriptions 
+                DB::raw('(SELECT enrollment_type FROM partner_subscriptions 
                       WHERE partner_id = '.$id.' 
                       ORDER BY id DESC 
-                      LIMIT 1) as billing_term')
+                      LIMIT 1) as enrollment_type')
             )
             ->where('p.id', $id)
             ->first();
