@@ -40,6 +40,9 @@ return [
     'pre_qualification_business_info_failed' => 'Failed to update pre-qualification business information. Please try again.',
     'pre_qualification_funding_info_successfully' => 'Pre-qualification funding information updated successfully',
     'pre_qualification_funding_info_failed' => 'Failed to update pre-qualification funding information. Please try again.',
+    'pre_qualification_request_not_found' => 'Pre-qualification request not found',
+    'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
+    'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
 
     //documents
     'upload_success' => 'Document uploaded successfully.',

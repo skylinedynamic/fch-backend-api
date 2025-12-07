@@ -22,11 +22,12 @@ class PersonalInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            'id' => ['nullable','exists:pre_qualification_requests,id'],
             'first_name' => ['required','string','max:255'],
             'last_name' => ['required','string','max:255'],
             'business_website' => ['nullable','url','max:255'],
             'email' => ['required','email','max:255'],
-            'phone' => ['required','string','max:25'],
+            'phone_number' => ['required','string','max:25'],
             'state_of_incorporation' => ['required','string','max:255'],
         ];
     }
@@ -49,9 +50,9 @@ class PersonalInfoRequest extends BaseApiRequest
             'email.email' => __('borrower_validation.email_email'),
             'email.max' => __('borrower_validation.email_max'),
 
-            'phone.required' => __('borrower_validation.phone_required'),
-            'phone.string' => __('borrower_validation.phone_string'),
-            'phone.max' => __('borrower_validation.phone_max'),
+            'phone_number.required' => __('borrower_validation.phone_required'),
+            'phone_number.string' => __('borrower_validation.phone_string'),
+            'phone_number.max' => __('borrower_validation.phone_max'),
 
             'state_of_incorporation.required' => __('borrower_validation.state_of_incorporation_required'),
             'state_of_incorporation.string' => __('borrower_validation.state_of_incorporation_string'),

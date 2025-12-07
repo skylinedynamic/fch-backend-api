@@ -208,6 +208,7 @@ return [
     'debt_balance_numeric' => 'Debt balance must be a number',
     'debt_balance_gt' => 'Debt balance must be greater than 1',
 
+    'notes_max' => 'Notes cannot exceed 1000 characters',
 
     'funding_amount_required' => 'Funding amount is required',
     'funding_amount_numeric' => 'Funding amount must be a number',

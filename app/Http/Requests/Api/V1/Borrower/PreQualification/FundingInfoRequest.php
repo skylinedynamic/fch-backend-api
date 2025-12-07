@@ -22,6 +22,7 @@ class FundingInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            'id' => ['nullable','exists:pre_qualification_requests,id'],
             'funding_requested_amount' => ['required','numeric','gt:0'],
             'funding_urgency' => ['required','string','max:255'],
             'purpose_of_funding' => ['required','string','max:255'],
@@ -29,7 +30,7 @@ class FundingInfoRequest extends BaseApiRequest
             'estimated_business_credit_score' => ['required','string','max:255'],
             'existing_business_debt' => ['required','boolean'],
             'debt_balance' => ['nullable','numeric','gt:0','required_if:existing_business_debt,true'],
-            'notes' => ['nullable','string'],
+            'notes' => ['nullable','string','max:1000'],
         ];
     }
 
@@ -62,6 +63,8 @@ class FundingInfoRequest extends BaseApiRequest
 
             'debt_balance.numeric' => __('borrower_validation.debt_balance_numeric'),
             'debt_balance.gt' => __('borrower_validation.debt_balance_gt'),
+
+            'notes.max' => __('borrower_validation.notes_max'), 
         ];
     }
 }

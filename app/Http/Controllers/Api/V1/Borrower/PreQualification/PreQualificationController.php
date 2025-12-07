@@ -14,6 +14,7 @@ use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
 use Dedoc\Scramble\Attributes\QueryParameter;
 use App\Http\Requests\Api\V1\Borrower\PreQualification\PreQualificationRequest as QualificationRequest;
+use Illuminate\Http\Request;
 
 class PreQualificationController extends Controller
 {
@@ -47,7 +48,7 @@ class PreQualificationController extends Controller
         try {
             $record = $this->service->personalInfo($request->validated());
             return ApiResponse::success(
-                new PreQualificationResource($record),
+            [],
                 __('borrower.pre_qualification_personal_info_successfully')
             );
         } catch (\Exception $e) {
@@ -63,7 +64,7 @@ class PreQualificationController extends Controller
         try {
             $record = $this->service->businessInfo($request->validated());
             return ApiResponse::success(
-                new PreQualificationResource($record),
+            [],
                 __('borrower.pre_qualification_business_info_successfully')
             );
         } catch (\Exception $e) {
@@ -80,7 +81,7 @@ class PreQualificationController extends Controller
         try {
             $record = $this->service->fundingInfo($request->validated());
             return ApiResponse::success(
-                new PreQualificationResource($record),
+            [],
                 __('borrower.pre_qualification_funding_info_successfully')
             );
         } catch (\Exception $e) {
@@ -94,11 +95,8 @@ class PreQualificationController extends Controller
     public function submit(SubmitPreQualificationRequest $request)
     {
         try {
-            $record = $this->service->submit($request->validated());
-            return ApiResponse::success(
-                new PreQualificationResource($record),
-                __('borrower.pre_qualification_submitted_successfully')
-            );
+            return $this->service->submit($request->validated());
+
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.pre_qualification_submission_failed'), 500);
         }
