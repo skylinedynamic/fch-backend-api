@@ -45,7 +45,7 @@ return new class extends Migration
             $table->index('first_name');
             $table->index('last_name');
             $table->index('email');
-            $table->index('phone');
+            $table->index('phone_number');
             $table->index('status');
         });
     }
