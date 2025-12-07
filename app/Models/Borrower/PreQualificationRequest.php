@@ -16,15 +16,16 @@ class PreQualificationRequest extends Model
     protected $table = 'pre_qualification_requests';
 
     protected $fillable = [
-        'user_id',
+        'borrower_id',
         'business_id',
-        'full_name',
+        'first_name',
+        'last_name',
         'business_website',
         'email',
-        'phone',
+        'phone_number',
         'state_of_incorporation',
         'business_name',
-        'industry',
+        'industry_type',
         'business_structure',
         'monthly_revenue',
         'annual_revenue',
@@ -49,6 +50,7 @@ class PreQualificationRequest extends Model
         'existing_business_debt' => 'boolean',
     ];
 
+    public const ON_HOLD = 'on_hold';
     public const PENDING = 'pending';
     public const APPROVED = 'approved';
     public const PROCESSING = 'processing';

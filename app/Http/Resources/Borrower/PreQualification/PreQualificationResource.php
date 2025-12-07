@@ -11,26 +11,36 @@ class PreQualificationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'full_name' => $this->full_name,
-            'business_website' => $this->business_website,
+
+            // Personal Info
+            'first_name' => $this->first_name,
+            'last_name' => $this->last_name,
             'email' => $this->email,
-            'phone' => $this->phone,
+            'phone_number' => $this->phone_number,
+            'business_website' => $this->business_website,
             'state_of_incorporation' => $this->state_of_incorporation,
+
+            // Business Info
             'business_name' => $this->business_name,
-            'industry' => $this->industry,
+            'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,
+            'time_in_business' => $this->time_in_business,
             'monthly_revenue' => $this->monthly_revenue,
             'annual_revenue' => $this->annual_revenue,
-            'time_in_business' => $this->time_in_business,
+
+            // Financial Info
             'funding_requested_amount' => $this->funding_requested_amount,
             'funding_urgency' => $this->funding_urgency,
             'purpose_of_funding' => $this->purpose_of_funding,
             'personal_credit_score' => $this->personal_credit_score,
-            'estimated_business_credit_score' => $this->estimated_business_credit_score,
-            'existing_business_debt' => (bool) $this->existing_business_debt,
+            'estimated_business_credit_score' =>$this->estimated_business_credit_score,
+            'existing_business_debt' => $this->existing_business_debt,
             'debt_balance' => $this->debt_balance,
+
+            //others
             'notes' => $this->notes,
             'status' => $this->status,
-        ];
+            
+         ];
     }
 }
