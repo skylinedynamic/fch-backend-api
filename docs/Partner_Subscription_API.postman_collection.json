@@ -1,0 +1,181 @@
+{
+    "info": {
+        "_postman_id": "partner-subscription-api",
+        "name": "Partner Subscription API",
+        "description": "API endpoints for managing partner subscriptions in FCH Backend",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Create/Update Partner Subscription",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"partner_id\": 1,\n    \"partner_type\": \"Founding Partner\",\n    \"enrollment_type\": \"Standard Enrollment\",\n    \"monthly_platform_fee\": 597.00,\n    \"first_reg_amount\": 5970.00,\n    \"first_reg_date\": \"2025-12-01\",\n    \"installment_type\": 10.00,\n    \"first_reg_payment\": 597.00,\n    \"first_reg_payment_2\": 0.00,\n    \"total_paid_amount\": 597.00,\n    \"subscription_start_date\": \"2025-12-01\",\n    \"subscription_end_date\": \"2026-09-30\",\n    \"expiry_date\": \"2026-09-30\",\n    \"termination_date\": null,\n    \"status\": \"active\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/partners/subscription",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "partners",
+                        "subscription"
+                    ]
+                },
+                "description": "Create a new partner subscription or update an existing one based on partner_id."
+            },
+            "response": []
+        },
+        {
+            "name": "Create Minimal Subscription",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"partner_id\": 2,\n    \"partner_type\": \"Referral\",\n    \"enrollment_type\": null,\n    \"monthly_platform_fee\": null,\n    \"first_reg_amount\": null,\n    \"first_reg_date\": null,\n    \"installment_type\": null,\n    \"first_reg_payment\": null,\n    \"first_reg_payment_2\": null,\n    \"total_paid_amount\": null,\n    \"subscription_start_date\": null,\n    \"subscription_end_date\": null,\n    \"expiry_date\": null,\n    \"termination_date\": null,\n    \"status\": \"active\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/partners/subscription",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "partners",
+                        "subscription"
+                    ]
+                },
+                "description": "Example of creating a minimal partner subscription with mostly null values."
+            },
+            "response": []
+        },
+        {
+            "name": "Get Partner Subscription Details",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{access_token}}",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/v1/admin/partner-subscriptions/:partnerId",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "v1",
+                        "admin",
+                        "partner-subscriptions",
+                        ":partnerId"
+                    ],
+                    "variable": [
+                        {
+                            "key": "partnerId",
+                            "value": "1",
+                            "description": "Partner ID to fetch subscription for"
+                        }
+                    ]
+                },
+                "description": "Retrieve subscription details for a specific partner by their ID."
+            },
+            "response": []
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "your_bearer_token_here",
+            "type": "string"
+        }
+    ]
+}
