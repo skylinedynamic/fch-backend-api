@@ -375,13 +375,24 @@ class EmployeeService
             return false;
         }
 
+        // Get employees to delete their images
+        $employees = Employee::whereIn('id', $ids)->get();
+        foreach ($employees as $employee) {
+            if ($employee->image) {
+                $this->deleteFile($employee->image, 'public');
+            }
+        }
+
+        // Delete employee records and associated users
         DB::transaction(function () use ($ids) {
             User::where('entity_type', Employee::class)
                 ->where('partner_id', auth()->user()->partner_id)
                 ->whereIn('entity_id', $ids)
                 ->delete();
 
-            Employee::where('partner_id', auth()->user()->partner_id)->whereIn('id', $ids)->delete();
+            Employee::where('partner_id', auth()->user()->partner_id)
+                ->whereIn('id', $ids)
+                ->delete();
         });
 
         return true;

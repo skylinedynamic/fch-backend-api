@@ -60,4 +60,12 @@ class Borrower extends Model
     {
         return trim("{$this->first_name} {$this->last_name}");
     }
+
+    /**
+     * Get the assigned user for the borrower.
+     */
+    public function assignedUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User\User::class, 'assign_id');
+    }
 }

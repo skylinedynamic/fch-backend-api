@@ -3,7 +3,7 @@
 namespace App\Services\FCH\Partner;
 
 use App\Helpers\ApiResponse;
-use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
@@ -609,6 +609,7 @@ class PartnerService
      */
     public function getBorrowers(array $filters)
     {
+        
         $query = Borrower::query()->with('partner');
 
         // Filter by partner_id
@@ -634,8 +635,8 @@ class PartnerService
                 $q->where('first_name', 'LIKE', "%{$search}%")
                     ->orWhere('last_name', 'LIKE', "%{$search}%")
                     ->orWhere('business_name', 'LIKE', "%{$search}%")
-                    ->orWhere('business_email', 'LIKE', "%{$search}%")
-                    ->orWhere('business_phone', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('phone_number', 'LIKE', "%{$search}%")
                     ->orWhere('business_start_date', 'LIKE', "%{$search}%")
                 // Search concatenated full_name (first_name + last_name)
                     ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
@@ -662,10 +663,10 @@ class PartnerService
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
+       
         return $this->respondWithPaginationResource(
             $paginator,
-            BorrowerResource::class,
+            BorrowerPartnerResource::class,
             __('partner.borrowers_retrieved_data')
         );
     }
@@ -676,6 +677,15 @@ class PartnerService
     public function delete(array $ids)
     {
         try {
+            // Get partners to delete their images
+            $partners = Partner::whereIn('id', $ids)->get();
+            foreach ($partners as $partner) {
+                if ($partner->partner_image) {
+                    $this->deleteFile($partner->partner_image, 'public');
+                }
+            }
+
+            // Delete partner records and associated users
             User::whereIn('partner_id', $ids)->delete();
             Partner::whereIn('id', $ids)->delete();
 
