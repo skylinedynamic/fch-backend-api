@@ -45,6 +45,7 @@ class AppServiceProvider extends ServiceProvider
             ->routes(function (Route $route) {
                 return Str::startsWith($route->uri, 'api/v1/borrower')
                     || Str::startsWith($route->uri, 'api/v1/document')
+                    || Str::startsWith($route->uri, 'api/v1/filemanager')
                     || Str::startsWith($route->uri, 'api/v1/2fa');
             });
             
@@ -57,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
                     || Str::startsWith($route->uri, 'api/v1/auth')
                     || Str::startsWith($route->uri, 'api/v1/notifications')
                     || Str::startsWith($route->uri, 'api/v1/common')
+                    || Str::startsWith($route->uri, 'api/v1/filemanager')
                     || Str::startsWith($route->uri, 'api/v1/2fa');
             });
         Gate::define('viewApiDocs', function (User $user) {

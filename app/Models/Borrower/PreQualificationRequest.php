@@ -51,15 +51,19 @@ class PreQualificationRequest extends Model
     ];
 
     public const ON_HOLD = 'on_hold';
-    public const PENDING = 'pending';
+    public const SUBMITTED = 'submitted';
+    public const INTAKE_RECEIVED = 'intake_received';
+    public const IN_REVIEW = 'in_review';
     public const APPROVED = 'approved';
-    public const PROCESSING = 'processing';
     public const DECLINED = 'declined';
+    
 
     public const STATUS = [
-        self::PENDING => self::PENDING,
+        self::ON_HOLD => self::ON_HOLD,
+        self::SUBMITTED => self::SUBMITTED,
+        self::INTAKE_RECEIVED => self::INTAKE_RECEIVED,
+        self::IN_REVIEW => self::IN_REVIEW,
         self::APPROVED => self::APPROVED,
-        self::PROCESSING => self::PROCESSING,
         self::DECLINED => self::DECLINED,
     ];
 

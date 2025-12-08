@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
+use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
@@ -54,6 +55,11 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/completion', [ProfileCompletionController::class, 'check']);
 
         });
+
+
+          Route::group(['prefix' => 'myapplication',], function () {
+              Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
+          });
 
          Route::prefix('documents')->group(function () {
                 Route::get('/', [DocumentController::class, 'index']);
