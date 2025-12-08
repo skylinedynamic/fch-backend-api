@@ -59,4 +59,60 @@ return [
         'document_deleted_successfully' => 'Document deleted successfully.',
         'document_delete_failed' => 'Failed to delete document.',
         'document_not_found' => 'Document not found.',
+
+    // CRUD Operations
+    'success' => [
+        'retrieved' => 'Borrowers retrieved successfully.',
+        'retrieved_details' => 'Borrower details retrieved successfully.',
+        'created' => 'Borrower created successfully.',
+        'updated' => 'Borrower updated successfully.',
+        'deleted' => 'Borrower(s) deleted successfully.',
+        'users_retrieved' => 'Users retrieved successfully.',
+    ],
+
+    'error' => [
+        'list_failed' => 'Failed to retrieve borrowers.',
+        'not_found' => 'Borrower not found.',
+        'create_failed' => 'Failed to create borrower.',
+        'update_failed' => 'Failed to update borrower.',
+        'delete_failed' => 'Failed to delete borrower(s).',
+        'fetch_failed' => 'Failed to fetch borrower details.',
+        'users_fetch_failed' => 'Failed to retrieve users.',
+    ],
+
+    // Validation Messages
+    'validation' => [
+        'first_name' => [
+            'required' => 'First name is required.',
+        ],
+        'last_name' => [
+            'required' => 'Last name is required.',
+        ],
+        'email' => [
+            'required' => 'Email address is required.',
+            'email' => 'Please provide a valid email address.',
+        ],
+        'business_email' => [
+            'email' => 'Please provide a valid business email address.',
+        ],
+        'business_website' => [
+            'url' => 'Please provide a valid website URL.',
+        ],
+        'business_logo' => [
+            'mimes' => 'Business logo must be a file of type: jpg, jpeg, png, svg.',
+            'max' => 'Business logo size must not exceed 5MB.',
+        ],
+        'monthly_revenue' => [
+            'numeric' => 'Monthly revenue must be a number.',
+        ],
+        'annual_revenue' => [
+            'numeric' => 'Annual revenue must be a number.',
+        ],
+        'partner_id' => [
+            'exists' => 'Selected partner does not exist.',
+        ],
+        'assign_id' => [
+            'exists' => 'Selected assigned user does not exist.',
+        ],
+    ],
 ];

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthControll
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -61,6 +62,14 @@ Route::prefix('v1')->group(function () {
             Route::post('departments/fetch-departments', [DepartmentController::class, 'fetchDepartments']);
             Route::get('departments/{id}', [DepartmentController::class, 'show']);
             Route::delete('departments/{id}', [DepartmentController::class, 'destroy']);
+
+            // Borrower routes
+            Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
+            Route::post('borrowers', [BorrowerController::class, 'store']);
+            Route::put('borrowers/{id}', [BorrowerController::class, 'update']);
+            Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
+            Route::post('borrowers/multiple-delete', [BorrowerController::class, 'destroy']);
+            Route::post('borrowers/get-all-users', [BorrowerController::class, 'getAllUsers']);
         });
 
         // V1 Notification routes

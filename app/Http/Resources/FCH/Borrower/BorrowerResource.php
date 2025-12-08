@@ -15,14 +15,17 @@ class BorrowerResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id'                  => $this->id,
-            'full_name'           => $this->full_name,
-            'business_name'       => $this->business_name,
-            'business_email'      => $this->business_email,
-            'business_phone'      => $this->business_phone,
-            'company_name'        => optional($this->partner)->company_name, // Partner's company name
-            'partner_id'          => $this->partner_id,
-            'business_start_date' => $this->business_start_date ? $this->business_start_date : null,
+            'id'            => $this->id,
+            'first_name'    => $this->first_name,
+            'last_name'     => $this->last_name,
+            'full_name'     => $this->full_name,
+            'email'         => $this->email,
+            'phone_number'  => $this->phone_number,
+            'assign_id'     => $this->assign_id,
+            'assign_name'   => $this->assignedUser?->name,
+            'partner_name'  => $this->partner?->full_name,
+            'partner_id'    => $this->partner?->id,
+            'current_tier'  => $this->current_tier,
         ];
     }
 }
