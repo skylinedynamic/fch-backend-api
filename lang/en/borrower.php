@@ -44,6 +44,9 @@ return [
     'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
     'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
 
+    //my application
+    'get_myapplication' => 'My Applications retrieved successfully',
+
     //documents
     'upload_success' => 'Document uploaded successfully.',
         'upload_failed' => 'Failed to upload document.',

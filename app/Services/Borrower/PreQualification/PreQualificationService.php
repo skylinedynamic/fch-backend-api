@@ -30,9 +30,10 @@ class PreQualificationService
             throw new \Exception(__('borrower.pre_qualification_request_not_found'));
         }
 
-        // $record->update(['status' => PreQualificationRequest::PENDING]);
-
         $zapierResponse = $this->sendToZapier($record);
+
+        $record->update(['status' => PreQualificationRequest::SUBMITTED]);
+        
 
         return ApiResponse::success(
             $zapierResponse,
