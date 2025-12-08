@@ -36,7 +36,7 @@ return new class extends Migration
             $table->boolean('existing_business_debt')->default(false);
             $table->decimal('debt_balance', 15, 2)->nullable();
             $table->text('notes')->nullable();
-            $table->string('status')->default(PreQualificationRequest::PENDING)->nullable();
+            $table->string('status')->default(PreQualificationRequest::ON_HOLD)->nullable();
             $table->softDeletes();
             $table->timestamps();
 
