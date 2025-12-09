@@ -126,5 +126,22 @@ return [
         'assign_id' => [
             'exists' => 'Selected assigned user does not exist.',
         ],
+        'phone_number' => [
+            'required' => 'Phone number is required.',
+        ],
+        'signup_id' => [
+            'required' => 'Signup ID is required.',
+            'unique' => 'The signup ID has already been taken.',
+            'exists' => 'The selected signup ID is invalid or does not match the partner.',
+        ],
+        'country' => [
+            'required' => 'Country is required.',
+        ],
+        'state' => [
+            'required' => 'State is required.',
+        ],
+        'city' => [
+            'required' => 'City is required.',
+        ],
     ],
 ];

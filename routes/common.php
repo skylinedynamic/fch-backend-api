@@ -66,7 +66,7 @@ Route::prefix('v1')->group(function () {
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
-            Route::put('borrowers/{id}', [BorrowerController::class, 'update']);
+            Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::post('borrowers/multiple-delete', [BorrowerController::class, 'destroy']);
             Route::post('borrowers/get-all-users', [BorrowerController::class, 'getAllUsers']);

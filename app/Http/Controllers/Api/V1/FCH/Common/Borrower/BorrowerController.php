@@ -10,6 +10,8 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
+use App\Services\FCH\Common\Borrower\Mail\BorrowerAccountCreatedMail;
+use Illuminate\Support\Facades\Mail;
 
 class BorrowerController extends Controller
 {
@@ -58,7 +60,19 @@ class BorrowerController extends Controller
     {
         try {
             $data = $request->validated();
-            $borrower = $this->borrowerService->store($data);
+            $result = $this->borrowerService->store($data);
+
+            $borrower = $result['borrower'];
+            $user = $result['user'] ?? null;
+            $plainPassword = $result['plain_password'] ?? null;
+
+            if ($user && $plainPassword) {
+                // Get partner info for the email
+                $partnerInfo = auth()->user()->partner;
+                if ($partnerInfo) {
+                    $this->sendAccountCreatedMail($user, $partnerInfo, $plainPassword);
+                }
+            }
 
             return ApiResponse::success(
                 new BorrowerResource($borrower),
@@ -141,6 +155,33 @@ class BorrowerController extends Controller
             );
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.error.users_fetch_failed'));
+        }
+    }
+
+    /**
+     * Send Account Created Mail
+     */
+    public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
+    {
+        $data = [
+            'subject' => 'Welcome to '.$businessInfo->company_name,
+            'user' => $user,
+            'plain_password' => $plainPassword,
+            'business_info' => [
+                'company_name' => $businessInfo->company_name,
+                'company_logo' => $businessInfo->company_logo,
+                'email' => $businessInfo->email,
+                'phone_number' => $businessInfo->phone_number,
+                'address_line_1' => $businessInfo->address_line_1,
+            ],
+        ];
+
+        try {
+            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($data));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('📧 BorrowerAccountCreatedMail failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\Borrower;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerSignupId;
 use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
@@ -190,14 +191,27 @@ class BorrowerService
                 $borrower->update(['business_logo' => $upload['path']]);
             }
 
-            // Create associated User if needed (optional, based on requirements)
-            // Assuming we might want to create a user login for the borrower
+            // Remove used signup_id
+            if (!empty($data['signup_id']) && !empty($data['partner_id'])) {
+                BorrowerSignupId::where('signup_id', $data['signup_id'])
+                    ->where('partner_id', $data['partner_id'])
+                    ->delete();
+            }
+
+            // Create associated User if needed
+            $userDataResult = null;
             if (!empty($data['email'])) {
-                $this->createOrUpdateUser($data, $borrower);
+                Log::info('Email send');
+                $userDataResult = $this->createOrUpdateUser($data, $borrower);
             }
 
             DB::commit();
-            return $borrower->fresh();
+            
+            return [
+                'borrower' => $borrower->fresh(),
+                'user' => $userDataResult['user'] ?? null,
+                'plain_password' => $userDataResult['plain_password'] ?? null,
+            ];
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -232,6 +246,9 @@ class BorrowerService
             }
 
             DB::commit();
+            
+            // Return consistent format or just borrower? Controller expects resource.
+            // Keeping it simple as controller will be updated to handle array for store, but update often doesn't need email.
             return $borrower->fresh();
 
         } catch (\Exception $e) {
@@ -282,18 +299,22 @@ class BorrowerService
 
         if ($existingUser) {
             $existingUser->update($userData);
-            return $existingUser;
+            return ['user' => $existingUser, 'plain_password' => null];
         }
 
         // Check if user exists by email to avoid duplicates if not linked
         $user = User::where('email', $data['email'])->first();
         if ($user) {
              $user->update($userData);
-             return $user;
+             return ['user' => $user, 'plain_password' => null];
         }
 
-        $userData['password'] = bcrypt(bin2hex(random_bytes(8))); // Random password
-        return User::create($userData);
+        $plainPassword = bin2hex(random_bytes(8));
+        $userData['password'] = bcrypt($plainPassword);
+        
+        $newUser = User::create($userData);
+
+        return ['user' => $newUser, 'plain_password' => $plainPassword];
     }
 
     /**

@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
-use App\Http\Requests\BaseApiRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -18,7 +18,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'first_name'                => ['sometimes', 'required', 'string', 'max:255'],
             'last_name'                 => ['sometimes', 'required', 'string', 'max:255'],
             'email'                     => ['sometimes', 'required', 'email', 'max:255'],
-            'phone_number'              => ['nullable', 'string', 'max:255'],
+            'phone_number'              => ['sometimes', 'required', 'string', 'max:255'],
+            // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
             'country'                   => ['nullable', 'string', 'max:255'],
             'country_code'              => ['nullable', 'string', 'max:255'],
             'state'                     => ['nullable', 'string', 'max:255'],
@@ -54,6 +55,15 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'years_in_business'         => ['nullable', 'string', 'max:255'],
             'monthly_revenue'           => ['nullable', 'numeric', 'min:0'],
             'annual_revenue'            => ['nullable', 'numeric', 'min:0'],
+            'avg_bank_balance'          => ['nullable', 'numeric', 'min:0'],
+            'profit_margin'             => ['nullable', 'numeric'],
+            'current_business_debt'     => ['nullable', 'numeric', 'min:0'],
+            'fico_score'                => ['nullable', 'integer', 'min:0'],
+            'paydex_score'              => ['nullable', 'integer', 'min:0'],
+            'number_of_employees'       => ['nullable', 'integer', 'min:0'],
+            'nsf_days'                  => ['nullable', 'integer', 'min:0'],
+            'time_in_business'          => ['nullable', 'string', 'max:255'],
+            'funding_urgency'           => ['nullable', 'string', 'max:255'],
 
             // Other
             'partner_id'                => ['nullable', 'integer', 'exists:partners,id'],
@@ -72,6 +82,12 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'last_name.required'        => __('borrower.validation.last_name.required'),
             'email.required'            => __('borrower.validation.email.required'),
             'email.email'               => __('borrower.validation.email.email'),
+            'phone_number.required'     => __('borrower.validation.phone_number.required'),
+            'signup_id.required'        => __('borrower.validation.signup_id.required'),
+            'signup_id.unique'          => __('borrower.validation.signup_id.unique'),
+            'country.required'          => __('borrower.validation.country.required'),
+            'state.required'            => __('borrower.validation.state.required'),
+            'city.required'             => __('borrower.validation.city.required'),
             'business_email.email'      => __('borrower.validation.business_email.email'),
             'business_website.url'      => __('borrower.validation.business_website.url'),
             'business_logo.mimes'       => __('borrower.validation.business_logo.mimes'),
