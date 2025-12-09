@@ -115,7 +115,7 @@ class PreQualificationService
                 // Business Info
                 'business_name' => $borrower->business_name,
                 'industry_type' => $borrower->business_industry_type,
-                'business_structure' => $borrower->business_structure,
+                'business_structure' => $borrower->business_entity_type,
                 'time_in_business' => $borrower->years_in_business,
                 'monthly_revenue' => $borrower->monthly_revenue,
                 'annual_revenue' => $borrower->annual_revenue,

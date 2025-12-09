@@ -22,9 +22,9 @@ class GetMyApplicationRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'per_page.min' => 'The per page must be at least 1.',
-            'per_page.max' => 'The per page must be at most 100.',
-            'page.min' => 'The page must be at least 1.',
+            'per_page.min' => __('borrower_validation.per_page_min'),
+            'per_page.max' => __('borrower_validation.per_page_max'),
+            'page.min' => __('borrower_validation.page_min'),
         ];
     }
 }

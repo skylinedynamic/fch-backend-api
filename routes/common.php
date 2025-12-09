@@ -63,6 +63,9 @@ Route::prefix('v1')->group(function () {
             Route::get('departments/{id}', [DepartmentController::class, 'show']);
             Route::delete('departments/{id}', [DepartmentController::class, 'destroy']);
 
+            //Borrower document types
+            Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
+
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);

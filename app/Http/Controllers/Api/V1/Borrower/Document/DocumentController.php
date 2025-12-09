@@ -87,4 +87,20 @@ class DocumentController extends Controller
             return ApiResponse::error(__('borrower.document_delete_failed'));
         }
     }
+
+
+    /**
+     * Get Document Types
+     */
+    public function documentTypes()
+    {
+        try {
+            return $this->documentService->documentTypes();
+
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.document_types_fetch_failed'));
+        }
+    }
+
+    
 }
