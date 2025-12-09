@@ -15,7 +15,6 @@ class UploadFileRequest extends BaseApiRequest
     {
         return [
             'file' => ['required', 'file'],
-            'section' => ['required', 'string'],
             'path' => ['required', 'string'],
         ];
     }
@@ -24,7 +23,6 @@ class UploadFileRequest extends BaseApiRequest
     {
         return [
             'file.required' => __('filemanager.file_required'),
-            'section.required' => __('filemanager.section_required'),
             'path.required' => __('filemanager.path_required'),
         ];
     }

@@ -16,7 +16,6 @@ class DeleteItemsRequest extends BaseApiRequest
         return [
             'paths' => ['required', 'array'],
             'paths.*' => ['required', 'string'],
-            'section' => ['required', 'string'],
         ];
     }
 
@@ -25,7 +24,6 @@ class DeleteItemsRequest extends BaseApiRequest
         return [
             'paths.required' => __('filemanager.paths_required'),
             'paths.*.required' => __('filemanager.paths_required'),
-            'section.required' => __('filemanager.section_required'),
         ];
     }
 }

@@ -56,6 +56,13 @@ return [
     'file_required' => 'File is required.',
     'file_array' => 'File must be an array of files.',
     'file_min' => 'At least one file must be provided.',
+    'assign_id_exists' => 'Selected assigned user does not exist.',
+
+    // Advisor
+    'borrower_not_found' => 'Borrower not found.',
+    'advisor_not_assigned' => 'No advisor assigned.',
+    'advisor_not_found' => 'Advisor not found.',
+    'advisor_retrieved' => 'Advisor details retrieved successfully.',
     'each_file_must_be_file' => 'Each item in files must be a valid file.',
     'file_name_required_when_no_type' => 'File name is required when no type is provided.',
     'name_required_when_no_type' => 'Name is required when no type is provided.',

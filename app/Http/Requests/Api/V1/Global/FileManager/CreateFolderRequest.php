@@ -15,7 +15,6 @@ class CreateFolderRequest extends BaseApiRequest
     {
         return [
             'name' => ['required', 'string'],
-            'section' => ['required', 'string'],
             'path' => ['required', 'string'],
         ];
     }
@@ -24,7 +23,6 @@ class CreateFolderRequest extends BaseApiRequest
     {
         return [
             'name.required' => __('filemanager.name_required'),
-            'section.required' => __('filemanager.section_required'),
             'path.required' => __('filemanager.path_required'),
         ];
     }

@@ -12,11 +12,11 @@ class FileManagerService
         return Storage::disk('public');
     }
 
-    private function getFullPath($section, $path)
+    private function getFullPath($path)
     {
         // Sanitize path to prevent directory traversal
         $path = str_replace('..', '', $path);
-        return trim($section . '/' . ltrim($path, '/'), '/');
+        return trim(ltrim($path, '/'), '/');
     }
 
     private function getEncodedUrl($disk, $path)
@@ -25,14 +25,20 @@ class FileManagerService
         return str_replace(' ', '%20', $url);
     }
 
-    public function listDocuments($section, $path = '/')
+    public function listDocuments($path = '/')
     {
-        $fullPath = $this->getFullPath($section, $path);
+        $fullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
-             if ($path === '/' && !$disk->exists($section)) {
-                 $disk->makeDirectory($section);
+             // If path is root and doesn't exist, we don't need to create it as it's the root of the disk
+             // But if it's a subfolder that doesn't exist, we might want to handle it or return empty
+             // For now, let's just proceed, files() and directories() will return empty arrays if path doesn't exist (or throw error depending on driver)
+             // Actually, Storage::files throws if directory doesn't exist.
+             if ($fullPath !== '' && !$disk->exists($fullPath)) {
+                  // Optional: Create if not exists or return empty
+                  // $disk->makeDirectory($fullPath);
+                  return []; 
              }
         }
         
@@ -46,7 +52,7 @@ class FileManagerService
             $data[] = [
                 'name' => $name,
                 'isDirectory' => true,
-                'path' => '/' . $name,
+                'path' => '/' . $name, // This might need adjustment if we want relative path from root
                 'updatedAt' => date('c', $disk->lastModified($directory)),
             ];
         }
@@ -64,15 +70,24 @@ class FileManagerService
             ];
         }
         
+        // Adjust paths to be relative to the requested path if needed, or just absolute from root
+        // The previous logic was appending to $path. 
+        // If $path is /folder, and item is /folder/sub, basename is sub. 
+        // We want the returned path to be /folder/sub.
+        
         return array_map(function ($item) use ($path) {
-            $item['path'] = rtrim($path, '/') . $item['path'];
+            // Ensure path starts with /
+            $basePath = '/' . trim($path, '/');
+            if ($basePath === '/') $basePath = '';
+            
+            $item['path'] = $basePath . $item['path'];
             return $item;
         }, $data);
     }
 
-    public function uploadFile($section, $path, UploadedFile $file)
+    public function uploadFile($path, UploadedFile $file)
     {
-        $fullPath = $this->getFullPath($section, $path);
+        $fullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         $filename = $file->getClientOriginalName();
@@ -89,9 +104,9 @@ class FileManagerService
         ];
     }
 
-    public function createFolder($section, $path, $name)
+    public function createFolder($path, $name)
     {
-        $fullPath = $this->getFullPath($section, $path . '/' . $name);
+        $fullPath = $this->getFullPath($path . '/' . $name);
         $disk = $this->getDisk();
 
         if ($disk->exists($fullPath)) {
@@ -108,9 +123,9 @@ class FileManagerService
         ];
     }
 
-    public function renameItem($section, $path, $newName)
+    public function renameItem($path, $newName)
     {
-        $oldFullPath = $this->getFullPath($section, $path);
+        $oldFullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         if (!$disk->exists($oldFullPath)) {
@@ -118,8 +133,14 @@ class FileManagerService
         }
 
         $directory = dirname($path);
+        // Fix for dirname returning . or / when at root
+        if ($directory === '.' || $directory === '\\') $directory = '';
+        
         $newPath = $directory . '/' . $newName;
-        $newFullPath = $this->getFullPath($section, $newPath);
+        // Clean up double slashes
+        $newPath = str_replace('//', '/', $newPath);
+        
+        $newFullPath = $this->getFullPath($newPath);
 
         if ($disk->exists($newFullPath)) {
              throw new \Exception('Item with new name already exists', 422);
@@ -128,7 +149,6 @@ class FileManagerService
         $disk->move($oldFullPath, $newFullPath);
         
         // Determine if directory or file
-        // Fallback: try to get mime type. If it fails, it might be a directory.
         try {
             $type = $disk->mimeType($newFullPath);
             $isDir = false;
@@ -153,12 +173,12 @@ class FileManagerService
         return $data;
     }
 
-    public function deleteItems($section, array $paths)
+    public function deleteItems(array $paths)
     {
         $disk = $this->getDisk();
 
         foreach ($paths as $path) {
-            $fullPath = $this->getFullPath($section, $path);
+            $fullPath = $this->getFullPath($path);
             if ($disk->exists($fullPath)) {
                 if (!$disk->delete($fullPath)) {
                     $disk->deleteDirectory($fullPath);
@@ -168,18 +188,18 @@ class FileManagerService
         return true;
     }
 
-    public function pasteItems($section, array $files, $destinationPath, $operation)
+    public function pasteItems(array $files, $destinationPath, $operation)
     {
         $disk = $this->getDisk();
         $results = [];
 
         foreach ($files as $file) {
             $sourcePath = $file['path'];
-            $sourceFullPath = $this->getFullPath($section, $sourcePath);
+            $sourceFullPath = $this->getFullPath($sourcePath);
             
             $name = basename($sourcePath);
             $destPath = rtrim($destinationPath, '/') . '/' . $name;
-            $destFullPath = $this->getFullPath($section, $destPath);
+            $destFullPath = $this->getFullPath($destPath);
 
             if ($disk->exists($destFullPath)) {
                 $nameWithoutExt = pathinfo($name, PATHINFO_FILENAME);
@@ -188,7 +208,7 @@ class FileManagerService
                 if ($ext == '') $newName = $nameWithoutExt . ' - Copy';
                 
                 $destPath = rtrim($destinationPath, '/') . '/' . $newName;
-                $destFullPath = $this->getFullPath($section, $destPath);
+                $destFullPath = $this->getFullPath($destPath);
             }
 
             if ($operation === 'copy') {
