@@ -15,7 +15,7 @@ class CreateFolderRequest extends BaseApiRequest
     {
         return [
             'name' => ['required', 'string'],
-            'path' => ['required', 'string'],
+            'path' => ['nullable', 'string'],
         ];
     }
 

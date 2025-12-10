@@ -31,13 +31,7 @@ class FileManagerService
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
-             // If path is root and doesn't exist, we don't need to create it as it's the root of the disk
-             // But if it's a subfolder that doesn't exist, we might want to handle it or return empty
-             // For now, let's just proceed, files() and directories() will return empty arrays if path doesn't exist (or throw error depending on driver)
-             // Actually, Storage::files throws if directory doesn't exist.
              if ($fullPath !== '' && !$disk->exists($fullPath)) {
-                  // Optional: Create if not exists or return empty
-                  // $disk->makeDirectory($fullPath);
                   return []; 
              }
         }
@@ -47,12 +41,18 @@ class FileManagerService
 
         $data = [];
 
+        // Normalize the path - ensure it starts with / and doesn't end with /
+        $normalizedPath = '/' . trim($path, '/');
+        if ($normalizedPath === '/') {
+            $normalizedPath = '';
+        }
+
         foreach ($directories as $directory) {
             $name = basename($directory);
             $data[] = [
                 'name' => $name,
                 'isDirectory' => true,
-                'path' => '/' . $name, // This might need adjustment if we want relative path from root
+                'path' => $normalizedPath . '/' . $name,
                 'updatedAt' => date('c', $disk->lastModified($directory)),
             ];
         }
@@ -62,7 +62,7 @@ class FileManagerService
             $data[] = [
                 'name' => $name,
                 'isDirectory' => false,
-                'path' => '/' . $name,
+                'path' => $normalizedPath . '/' . $name,
                 'url' => $this->getEncodedUrl($disk, $file),
                 'updatedAt' => date('c', $disk->lastModified($file)),
                 'size' => $disk->size($file),
@@ -70,19 +70,7 @@ class FileManagerService
             ];
         }
         
-        // Adjust paths to be relative to the requested path if needed, or just absolute from root
-        // The previous logic was appending to $path. 
-        // If $path is /folder, and item is /folder/sub, basename is sub. 
-        // We want the returned path to be /folder/sub.
-        
-        return array_map(function ($item) use ($path) {
-            // Ensure path starts with /
-            $basePath = '/' . trim($path, '/');
-            if ($basePath === '/') $basePath = '';
-            
-            $item['path'] = $basePath . $item['path'];
-            return $item;
-        }, $data);
+        return $data;
     }
 
     public function uploadFile($path, UploadedFile $file)
@@ -201,48 +189,47 @@ class FileManagerService
             $destPath = rtrim($destinationPath, '/') . '/' . $name;
             $destFullPath = $this->getFullPath($destPath);
 
+            // Handle duplicate names
             if ($disk->exists($destFullPath)) {
                 $nameWithoutExt = pathinfo($name, PATHINFO_FILENAME);
                 $ext = pathinfo($name, PATHINFO_EXTENSION);
-                $newName = $nameWithoutExt . ' - Copy.' . $ext;
-                if ($ext == '') $newName = $nameWithoutExt . ' - Copy';
+                $newName = $nameWithoutExt . ' - Copy' . ($ext ? '.' . $ext : '');
                 
                 $destPath = rtrim($destinationPath, '/') . '/' . $newName;
                 $destFullPath = $this->getFullPath($destPath);
             }
 
-            if ($operation === 'copy') {
-                try {
-                    $disk->mimeType($sourceFullPath);
-                    $isDir = false;
-                } catch (\Exception $e) {
-                    $isDir = true;
-                }
+            // Determine if source is directory
+            $isDirectory = false;
+            try {
+                $disk->mimeType($sourceFullPath);
+            } catch (\Exception $e) {
+                $isDirectory = true;
+            }
 
-                if ($isDir) {
+            // Perform operation
+            if ($operation === 'copy') {
+                if ($isDirectory) {
                     $this->copyDirectory($disk, $sourceFullPath, $destFullPath);
                 } else {
                     $disk->copy($sourceFullPath, $destFullPath);
                 }
-                
             } elseif ($operation === 'move') {
-                 $disk->move($sourceFullPath, $destFullPath);
+                $disk->move($sourceFullPath, $destFullPath);
             }
             
+            // Build complete item data with all metadata
             $itemData = [
                 'name' => basename($destPath),
+                'isDirectory' => $isDirectory,
                 'path' => $destPath,
+                'updatedAt' => date('c', $disk->lastModified($destFullPath)),
             ];
 
-            // Check if it's a file to add URL
-            $isDestDir = false;
-            try {
-                $disk->mimeType($destFullPath);
-            } catch (\Exception $e) {
-                $isDestDir = true;
-            }
-
-            if (!$isDestDir) {
+            // Add file-specific metadata
+            if (!$isDirectory) {
+                $itemData['size'] = $disk->size($destFullPath);
+                $itemData['type'] = $disk->mimeType($destFullPath);
                 $itemData['url'] = $this->getEncodedUrl($disk, $destFullPath);
             }
 
@@ -265,5 +252,69 @@ class FileManagerService
         foreach ($directories as $directory) {
             $this->copyDirectory($disk, $directory, $destination . '/' . basename($directory));
         }
+    }
+
+    /**
+     * Download a file
+     */
+    public function downloadFile($path)
+    {
+        $fullPath = $this->getFullPath($path);
+        $disk = $this->getDisk();
+
+        if (!$disk->exists($fullPath)) {
+            throw new \Exception('File not found', 404);
+        }
+
+        // Check if it's a directory
+        try {
+            $disk->mimeType($fullPath);
+        } catch (\Exception $e) {
+            throw new \Exception('Cannot download a directory', 400);
+        }
+
+        $filename = basename($path);
+        $filePath = $disk->path($fullPath);
+
+        return response()->download($filePath, $filename);
+    }
+
+    /**
+     * Get folder tree recursively
+     */
+    public function getFolderTree($path = '/')
+    {
+        $fullPath = $this->getFullPath($path);
+        $disk = $this->getDisk();
+
+        if (!$disk->exists($fullPath) && $fullPath !== '') {
+            return [];
+        }
+
+        $directories = $disk->directories($fullPath);
+        $tree = [];
+
+        // Normalize the path
+        $normalizedPath = '/' . trim($path, '/');
+        if ($normalizedPath === '/') {
+            $normalizedPath = '';
+        }
+
+        foreach ($directories as $directory) {
+            $name = basename($directory);
+            $dirPath = $normalizedPath . '/' . $name;
+            
+            $node = [
+                'name' => $name,
+                'isDirectory' => true,
+                'path' => $dirPath,
+                'updatedAt' => date('c', $disk->lastModified($directory)),
+                'children' => $this->getFolderTree($dirPath), // Recursive call
+            ];
+            
+            $tree[] = $node;
+        }
+
+        return $tree;
     }
 }
