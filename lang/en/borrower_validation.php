@@ -227,4 +227,12 @@ return [
     'per_page_max' => 'The per page must be at most 100.',
     'page_min' => 'The page must be at least 1.',
     
+    // Additional Validations
+    'business_email_email' => 'Business email must be a valid email address',
+    'business_logo_mimes' => 'Business logo must be a file of type: jpg, jpeg, png, svg',
+    'business_logo_max' => 'Business logo size must not exceed 5MB',
+    'signup_id_unique' => 'The signup ID has already been taken',
+    'signup_id_exists' => 'The selected signup ID is invalid or does not match the partner',
+    'partner_id_exists' => 'Selected partner does not exist',
+    'assign_id_exists' => 'Selected assigned user does not exist',
 ];

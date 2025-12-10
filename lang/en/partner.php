@@ -5,6 +5,9 @@ return [
         'partner_name' => [
             'required' => 'Partner name is required.',
         ],
+        'full_name' => [
+            'required' => 'Full name is required.',
+        ],
         'company_name' => [
             'required' => 'Company name is required.',
         ],
