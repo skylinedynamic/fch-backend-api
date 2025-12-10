@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Borrower;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerSignupId;
+use App\Models\Common\Role;
 use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
@@ -183,20 +184,16 @@ class BorrowerService
         try {
             // Handle file uploads if any (e.g., business_logo)
             // Note: The migration has 'business_logo' string column.
-            
+            $data['partner_id'] = auth()->user()->partner_id;
+            Log::info('Partner ID: ' . auth()->user()->partner_id);
             $borrower = Borrower::create($data);
 
-            if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
-                $borrower->update(['business_logo' => $upload['path']]);
-            }
-
             // Remove used signup_id
-            if (!empty($data['signup_id']) && !empty($data['partner_id'])) {
-                BorrowerSignupId::where('signup_id', $data['signup_id'])
-                    ->where('partner_id', $data['partner_id'])
-                    ->delete();
-            }
+            // if (!empty($data['signup_id']) && !empty($data['partner_id'])) {
+            //     BorrowerSignupId::where('signup_id', $data['signup_id'])
+            //         ->where('partner_id', $data['partner_id'])
+            //         ->delete();
+            // }
 
             // Create associated User if needed
             $userDataResult = null;
@@ -313,6 +310,15 @@ class BorrowerService
         $userData['password'] = bcrypt($plainPassword);
         
         $newUser = User::create($userData);
+
+        // Assign 'Borrower' role based on partner_id
+        $role = Role::where('name', 'Borrower')
+                    ->where('partner_id', $borrower->partner_id)
+                    ->first();
+        
+        if ($role) {
+            $newUser->assignRole($role);
+        }
 
         return ['user' => $newUser, 'plain_password' => $plainPassword];
     }

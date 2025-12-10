@@ -144,4 +144,11 @@ return [
             'required' => 'City is required.',
         ],
     ],
+    // Document Checklist
+    'checklist' => [
+        'retrieved_success' => 'Document checklist retrieved successfully.',
+        'retrieved_failed' => 'Failed to retrieve document checklist.',
+        'saved_success' => 'Document checklist saved successfully.',
+        'save_failed' => 'Failed to save document checklist.',
+    ],
 ];

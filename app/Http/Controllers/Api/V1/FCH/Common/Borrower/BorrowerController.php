@@ -10,7 +10,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
-use App\Services\FCH\Common\Borrower\Mail\BorrowerAccountCreatedMail;
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Mail;
 
 class BorrowerController extends Controller
@@ -87,10 +87,10 @@ class BorrowerController extends Controller
     /**
      * Update Borrower.
      */
-    public function update(UpdateBorrowerRequest $request, int $id)
+    public function update(UpdateBorrowerRequest $request, string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails($id);
+            $borrower = $this->borrowerService->getDetails((int)$id);
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.error.not_found'));
             }
@@ -110,10 +110,10 @@ class BorrowerController extends Controller
     /**
      * Get Borrower Details.
      */
-    public function show(int $id)
+    public function show(string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails($id);
+            $borrower = $this->borrowerService->getDetails((int)$id);
 
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.error.not_found'));
@@ -131,7 +131,7 @@ class BorrowerController extends Controller
     /**
      * Delete Borrowers.
      */
-    public function destroy(Request $request)
+    public function multipleDelete(Request $request)
     {
         $request->validate([
             'ids' => 'required|array',

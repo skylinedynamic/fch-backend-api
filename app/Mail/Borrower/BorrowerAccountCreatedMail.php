@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\FCH\Common\Borrower\Mail;
+namespace App\Mail\Borrower;
 
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
