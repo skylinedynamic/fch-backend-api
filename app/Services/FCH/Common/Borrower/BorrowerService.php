@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
 use App\Helpers\ApiResponse;
+use App\Models\Borrower\BorrowerDocType;
+use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
+use Dom\DocumentType;
 
 class BorrowerService
 {
@@ -359,4 +362,5 @@ class BorrowerService
 
         return $users;
     }
+
 }

@@ -19,7 +19,6 @@ class PasteItemsRequest extends BaseApiRequest
             'files.*.path' => ['required', 'string'], // At least path is needed
             'destinationPath' => ['required', 'string'],
             'operation' => ['required', 'in:copy,move'],
-            'section' => ['required', 'string'],
         ];
     }
 
@@ -30,7 +29,6 @@ class PasteItemsRequest extends BaseApiRequest
             'files.*.required' => __('filemanager.files_required'),
             'destinationPath.required' => __('filemanager.destination_path_required'),
             'operation.required' => __('filemanager.operation_required'),
-            'section.required' => __('filemanager.section_required'),
         ];
     }
 }

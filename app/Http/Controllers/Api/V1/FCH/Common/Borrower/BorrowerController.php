@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
+use App\Services\Borrower\Document\DocumentService;
 use Illuminate\Http\Request;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Mail;
@@ -157,6 +158,22 @@ class BorrowerController extends Controller
             return ApiResponse::serverError(__('borrower.error.users_fetch_failed'));
         }
     }
+
+    /**
+     * Get Document Types
+     */
+    public function documentTypes()
+    {
+        try {
+            $documentService = new DocumentService();
+            return $documentService->documentTypes();
+
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.document_types_fetch_failed'));
+        }
+    }
+
+    
 
     /**
      * Send Account Created Mail

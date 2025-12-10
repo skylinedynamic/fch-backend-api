@@ -12,11 +12,11 @@ class FileManagerService
         return Storage::disk('public');
     }
 
-    private function getFullPath($section, $path)
+    private function getFullPath($path)
     {
         // Sanitize path to prevent directory traversal
         $path = str_replace('..', '', $path);
-        return trim($section . '/' . ltrim($path, '/'), '/');
+        return trim(ltrim($path, '/'), '/');
     }
 
     private function getEncodedUrl($disk, $path)
@@ -25,14 +25,14 @@ class FileManagerService
         return str_replace(' ', '%20', $url);
     }
 
-    public function listDocuments($section, $path = '/')
+    public function listDocuments($path = '/')
     {
-        $fullPath = $this->getFullPath($section, $path);
+        $fullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
-             if ($path === '/' && !$disk->exists($section)) {
-                 $disk->makeDirectory($section);
+             if ($fullPath !== '' && !$disk->exists($fullPath)) {
+                  return []; 
              }
         }
         
@@ -41,12 +41,18 @@ class FileManagerService
 
         $data = [];
 
+        // Normalize the path - ensure it starts with / and doesn't end with /
+        $normalizedPath = '/' . trim($path, '/');
+        if ($normalizedPath === '/') {
+            $normalizedPath = '';
+        }
+
         foreach ($directories as $directory) {
             $name = basename($directory);
             $data[] = [
                 'name' => $name,
                 'isDirectory' => true,
-                'path' => '/' . $name,
+                'path' => $normalizedPath . '/' . $name,
                 'updatedAt' => date('c', $disk->lastModified($directory)),
             ];
         }
@@ -56,7 +62,7 @@ class FileManagerService
             $data[] = [
                 'name' => $name,
                 'isDirectory' => false,
-                'path' => '/' . $name,
+                'path' => $normalizedPath . '/' . $name,
                 'url' => $this->getEncodedUrl($disk, $file),
                 'updatedAt' => date('c', $disk->lastModified($file)),
                 'size' => $disk->size($file),
@@ -64,15 +70,12 @@ class FileManagerService
             ];
         }
         
-        return array_map(function ($item) use ($path) {
-            $item['path'] = rtrim($path, '/') . $item['path'];
-            return $item;
-        }, $data);
+        return $data;
     }
 
-    public function uploadFile($section, $path, UploadedFile $file)
+    public function uploadFile($path, UploadedFile $file)
     {
-        $fullPath = $this->getFullPath($section, $path);
+        $fullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         $filename = $file->getClientOriginalName();
@@ -89,9 +92,9 @@ class FileManagerService
         ];
     }
 
-    public function createFolder($section, $path, $name)
+    public function createFolder($path, $name)
     {
-        $fullPath = $this->getFullPath($section, $path . '/' . $name);
+        $fullPath = $this->getFullPath($path . '/' . $name);
         $disk = $this->getDisk();
 
         if ($disk->exists($fullPath)) {
@@ -108,9 +111,9 @@ class FileManagerService
         ];
     }
 
-    public function renameItem($section, $path, $newName)
+    public function renameItem($path, $newName)
     {
-        $oldFullPath = $this->getFullPath($section, $path);
+        $oldFullPath = $this->getFullPath($path);
         $disk = $this->getDisk();
 
         if (!$disk->exists($oldFullPath)) {
@@ -118,8 +121,14 @@ class FileManagerService
         }
 
         $directory = dirname($path);
+        // Fix for dirname returning . or / when at root
+        if ($directory === '.' || $directory === '\\') $directory = '';
+        
         $newPath = $directory . '/' . $newName;
-        $newFullPath = $this->getFullPath($section, $newPath);
+        // Clean up double slashes
+        $newPath = str_replace('//', '/', $newPath);
+        
+        $newFullPath = $this->getFullPath($newPath);
 
         if ($disk->exists($newFullPath)) {
              throw new \Exception('Item with new name already exists', 422);
@@ -128,7 +137,6 @@ class FileManagerService
         $disk->move($oldFullPath, $newFullPath);
         
         // Determine if directory or file
-        // Fallback: try to get mime type. If it fails, it might be a directory.
         try {
             $type = $disk->mimeType($newFullPath);
             $isDir = false;
@@ -153,12 +161,12 @@ class FileManagerService
         return $data;
     }
 
-    public function deleteItems($section, array $paths)
+    public function deleteItems(array $paths)
     {
         $disk = $this->getDisk();
 
         foreach ($paths as $path) {
-            $fullPath = $this->getFullPath($section, $path);
+            $fullPath = $this->getFullPath($path);
             if ($disk->exists($fullPath)) {
                 if (!$disk->delete($fullPath)) {
                     $disk->deleteDirectory($fullPath);
@@ -168,61 +176,60 @@ class FileManagerService
         return true;
     }
 
-    public function pasteItems($section, array $files, $destinationPath, $operation)
+    public function pasteItems(array $files, $destinationPath, $operation)
     {
         $disk = $this->getDisk();
         $results = [];
 
         foreach ($files as $file) {
             $sourcePath = $file['path'];
-            $sourceFullPath = $this->getFullPath($section, $sourcePath);
+            $sourceFullPath = $this->getFullPath($sourcePath);
             
             $name = basename($sourcePath);
             $destPath = rtrim($destinationPath, '/') . '/' . $name;
-            $destFullPath = $this->getFullPath($section, $destPath);
+            $destFullPath = $this->getFullPath($destPath);
 
+            // Handle duplicate names
             if ($disk->exists($destFullPath)) {
                 $nameWithoutExt = pathinfo($name, PATHINFO_FILENAME);
                 $ext = pathinfo($name, PATHINFO_EXTENSION);
-                $newName = $nameWithoutExt . ' - Copy.' . $ext;
-                if ($ext == '') $newName = $nameWithoutExt . ' - Copy';
+                $newName = $nameWithoutExt . ' - Copy' . ($ext ? '.' . $ext : '');
                 
                 $destPath = rtrim($destinationPath, '/') . '/' . $newName;
-                $destFullPath = $this->getFullPath($section, $destPath);
+                $destFullPath = $this->getFullPath($destPath);
             }
 
-            if ($operation === 'copy') {
-                try {
-                    $disk->mimeType($sourceFullPath);
-                    $isDir = false;
-                } catch (\Exception $e) {
-                    $isDir = true;
-                }
+            // Determine if source is directory
+            $isDirectory = false;
+            try {
+                $disk->mimeType($sourceFullPath);
+            } catch (\Exception $e) {
+                $isDirectory = true;
+            }
 
-                if ($isDir) {
+            // Perform operation
+            if ($operation === 'copy') {
+                if ($isDirectory) {
                     $this->copyDirectory($disk, $sourceFullPath, $destFullPath);
                 } else {
                     $disk->copy($sourceFullPath, $destFullPath);
                 }
-                
             } elseif ($operation === 'move') {
-                 $disk->move($sourceFullPath, $destFullPath);
+                $disk->move($sourceFullPath, $destFullPath);
             }
             
+            // Build complete item data with all metadata
             $itemData = [
                 'name' => basename($destPath),
+                'isDirectory' => $isDirectory,
                 'path' => $destPath,
+                'updatedAt' => date('c', $disk->lastModified($destFullPath)),
             ];
 
-            // Check if it's a file to add URL
-            $isDestDir = false;
-            try {
-                $disk->mimeType($destFullPath);
-            } catch (\Exception $e) {
-                $isDestDir = true;
-            }
-
-            if (!$isDestDir) {
+            // Add file-specific metadata
+            if (!$isDirectory) {
+                $itemData['size'] = $disk->size($destFullPath);
+                $itemData['type'] = $disk->mimeType($destFullPath);
                 $itemData['url'] = $this->getEncodedUrl($disk, $destFullPath);
             }
 
@@ -245,5 +252,69 @@ class FileManagerService
         foreach ($directories as $directory) {
             $this->copyDirectory($disk, $directory, $destination . '/' . basename($directory));
         }
+    }
+
+    /**
+     * Download a file
+     */
+    public function downloadFile($path)
+    {
+        $fullPath = $this->getFullPath($path);
+        $disk = $this->getDisk();
+
+        if (!$disk->exists($fullPath)) {
+            throw new \Exception('File not found', 404);
+        }
+
+        // Check if it's a directory
+        try {
+            $disk->mimeType($fullPath);
+        } catch (\Exception $e) {
+            throw new \Exception('Cannot download a directory', 400);
+        }
+
+        $filename = basename($path);
+        $filePath = $disk->path($fullPath);
+
+        return response()->download($filePath, $filename);
+    }
+
+    /**
+     * Get folder tree recursively
+     */
+    public function getFolderTree($path = '/')
+    {
+        $fullPath = $this->getFullPath($path);
+        $disk = $this->getDisk();
+
+        if (!$disk->exists($fullPath) && $fullPath !== '') {
+            return [];
+        }
+
+        $directories = $disk->directories($fullPath);
+        $tree = [];
+
+        // Normalize the path
+        $normalizedPath = '/' . trim($path, '/');
+        if ($normalizedPath === '/') {
+            $normalizedPath = '';
+        }
+
+        foreach ($directories as $directory) {
+            $name = basename($directory);
+            $dirPath = $normalizedPath . '/' . $name;
+            
+            $node = [
+                'name' => $name,
+                'isDirectory' => true,
+                'path' => $dirPath,
+                'updatedAt' => date('c', $disk->lastModified($directory)),
+                'children' => $this->getFolderTree($dirPath), // Recursive call
+            ];
+            
+            $tree[] = $node;
+        }
+
+        return $tree;
     }
 }

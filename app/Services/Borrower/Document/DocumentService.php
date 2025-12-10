@@ -2,6 +2,9 @@
 
 namespace App\Services\Borrower\Document;
 
+use App\Helpers\ApiResponse;
+use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
+use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\Document;
 use App\Models\User\User;
 use App\Traits\UploadsFiles;
@@ -191,4 +194,23 @@ class DocumentService
             throw new \RuntimeException(__('borrower.document_delete_failed'));
         }
     }
+
+
+    /**
+     * Get Document Types
+     */
+    public function documentTypes()
+    {
+        try {
+            $documentTypes = BorrowerDocType::orderBy('sort_order', 'asc')->get();
+
+            return ApiResponse::success(
+                BorrowerDocTypeResource::collection($documentTypes),
+                __('borrower.document_types_retrieved')
+            );
+        } catch (\Exception $e) {
+            throw new \RuntimeException(__('borrower.document_types_fetch_failed'));
+        }
+    }
+    
 }

@@ -221,5 +221,10 @@ return [
     'funding_purpose_required' => 'Funding purpose is required',
     'funding_purpose_string' => 'Funding purpose must be a string',
     'funding_purpose_max' => 'Funding purpose cannot exceed 255 characters',
+
+    // Pagination
+    'per_page_min' => 'The per page must be at least 1.',
+    'per_page_max' => 'The per page must be at most 100.',
+    'page_min' => 'The page must be at least 1.',
     
 ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Global\FileManager;
 
 use App\Http\Requests\Api\V1\Global\FileManager\CreateFolderRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\DeleteItemsRequest;
+use App\Http\Requests\Api\V1\Global\FileManager\DownloadFileRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\ListDocumentsRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\PasteItemsRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\RenameItemRequest;
@@ -11,6 +12,8 @@ use App\Http\Requests\Api\V1\Global\FileManager\UploadFileRequest;
 use App\Services\Global\FileManager\FileManagerService;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
+use App\Helpers\ApiResponse;
+use App\Http\Resources\Global\FileManager\FileManagerResource;
 
 class FileManagerController extends Controller
 {
@@ -26,12 +29,11 @@ class FileManagerController extends Controller
      */
     public function index(ListDocumentsRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $path = $request->input('path', '/');
 
-        $data = $this->fileManagerService->listDocuments($section, $path);
+        $data = $this->fileManagerService->listDocuments($path);
 
-        return response()->json(['data' => $data]);
+        return ApiResponse::success(FileManagerResource::collection($data), 'Files retrieved successfully.');
     }
 
     /**
@@ -39,13 +41,12 @@ class FileManagerController extends Controller
      */
     public function upload(UploadFileRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $path = $request->input('path');
         $file = $request->file('file');
 
-        $data = $this->fileManagerService->uploadFile($section, $path, $file);
+        $data = $this->fileManagerService->uploadFile($path, $file);
 
-        return response()->json(['data' => $data]);
+        return ApiResponse::success(new FileManagerResource($data), 'File uploaded successfully.');
     }
 
     /**
@@ -53,15 +54,14 @@ class FileManagerController extends Controller
      */
     public function createFolder(CreateFolderRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $path = $request->input('path');
         $name = $request->input('name');
 
         try {
-            $data = $this->fileManagerService->createFolder($section, $path, $name);
-            return response()->json(['data' => $data]);
+            $data = $this->fileManagerService->createFolder($path, $name);
+            return ApiResponse::success(new FileManagerResource($data), 'Folder created successfully.');
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 400);
+            return ApiResponse::error($e->getMessage(), $e->getCode() ?: 400);
         }
     }
 
@@ -70,15 +70,14 @@ class FileManagerController extends Controller
      */
     public function rename(RenameItemRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $path = $request->input('path');
         $newName = $request->input('newName');
 
         try {
-            $data = $this->fileManagerService->renameItem($section, $path, $newName);
-            return response()->json(['data' => $data]);
+            $data = $this->fileManagerService->renameItem($path, $newName);
+            return ApiResponse::success(new FileManagerResource($data), 'Item renamed successfully.');
         } catch (\Exception $e) {
-            return response()->json(['message' => $e->getMessage()], $e->getCode() ?: 400);
+            return ApiResponse::error($e->getMessage(), $e->getCode() ?: 400);
         }
     }
 
@@ -87,12 +86,15 @@ class FileManagerController extends Controller
      */
     public function delete(DeleteItemsRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $paths = $request->input('paths');
 
-        $this->fileManagerService->deleteItems($section, $paths);
+        $this->fileManagerService->deleteItems($paths);
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'status' => true,
+            'message' => 'Items deleted successfully.',
+            'success' => true
+        ]);
     }
 
     /**
@@ -100,13 +102,34 @@ class FileManagerController extends Controller
      */
     public function paste(PasteItemsRequest $request): JsonResponse
     {
-        $section = $request->input('section');
         $files = $request->input('files');
         $destinationPath = $request->input('destinationPath');
         $operation = $request->input('operation');
 
-        $results = $this->fileManagerService->pasteItems($section, $files, $destinationPath, $operation);
+        $results = $this->fileManagerService->pasteItems($files, $destinationPath, $operation);
 
-        return response()->json(['data' => $results]);
+        return ApiResponse::success(FileManagerResource::collection($results), 'Items pasted successfully.');
+    }
+
+    /**
+     * Download file
+     */
+    public function download(DownloadFileRequest $request)
+    {
+        $path = $request->input('path');
+
+        return $this->fileManagerService->downloadFile($path);
+    }
+
+    /**
+     * Get folder tree
+     */
+    public function tree(ListDocumentsRequest $request): JsonResponse
+    {
+        $path = $request->input('path', '/');
+
+        $data = $this->fileManagerService->getFolderTree($path);
+
+        return ApiResponse::success($data, 'Folder tree retrieved successfully.');
     }
 }

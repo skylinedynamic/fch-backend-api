@@ -49,106 +49,53 @@ return [
 
     //documents
     'upload_success' => 'Document uploaded successfully.',
-        'upload_failed' => 'Failed to upload document.',
-        'user_id_required' => 'User ID is required.',
-        'user_not_found' => 'User not found.',
-        'invalid_borrower_doc_type' => 'Invalid borrower document type.',
-        'file_required' => 'File is required.',
-        'file_array' => 'File must be an array of files.',
-        'file_min' => 'At least one file must be provided.',
-        'each_file_must_be_file' => 'Each item in files must be a valid file.',
-        'file_name_required_when_no_type' => 'File name is required when no type is provided.',
-        // Added keys to support UploadDocumentRequest messages
-        'name_required_when_no_type' => 'Name is required when no type is provided.',
-        'files_required' => 'Files are required.',
-        'files_array' => 'Files must be an array.',
-        'files_min' => 'At least one file must be provided.',
-        'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
-        'each_file_too_large' => 'Each file must be 2MB or smaller.',
-        'disk_invalid' => 'Invalid storage disk selected.',
-        'documents_fetched_successfully' => 'Documents fetched successfully.',
-        'documents_fetch_failed' => 'Failed to fetch documents.',
-        'document_deleted_successfully' => 'Document deleted successfully.',
-        'document_delete_failed' => 'Failed to delete document.',
-        'document_not_found' => 'Document not found.',
+    'upload_failed' => 'Failed to upload document.',
+    'user_id_required' => 'User ID is required.',
+    'user_not_found' => 'User not found.',
+    'invalid_borrower_doc_type' => 'Invalid borrower document type.',
+    'file_required' => 'File is required.',
+    'file_array' => 'File must be an array of files.',
+    'file_min' => 'At least one file must be provided.',
+    'assign_id_exists' => 'Selected assigned user does not exist.',
 
-    // CRUD Operations
-    'success' => [
-        'retrieved' => 'Borrowers retrieved successfully.',
-        'retrieved_details' => 'Borrower details retrieved successfully.',
-        'created' => 'Borrower created successfully.',
-        'updated' => 'Borrower updated successfully.',
-        'deleted' => 'Borrower(s) deleted successfully.',
-        'users_retrieved' => 'Users retrieved successfully.',
-    ],
+    // Advisor
+    'borrower_not_found' => 'Borrower not found.',
+    'advisor_not_assigned' => 'No advisor assigned.',
+    'advisor_not_found' => 'Advisor not found.',
+    'advisor_retrieved' => 'Advisor details retrieved successfully.',
+    'each_file_must_be_file' => 'Each item in files must be a valid file.',
+    'file_name_required_when_no_type' => 'File name is required when no type is provided.',
+    'name_required_when_no_type' => 'Name is required when no type is provided.',
+    'files_required' => 'Files are required.',
+    'files_array' => 'Files must be an array.',
+    'files_min' => 'At least one file must be provided.',
+    'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
+    'each_file_too_large' => 'Each file must be 2MB or smaller.',
+    'disk_invalid' => 'Invalid storage disk selected.',
+    'documents_fetched_successfully' => 'Documents fetched successfully.',
+    'documents_fetch_failed' => 'Failed to fetch documents.',
+    'document_deleted_successfully' => 'Document deleted successfully.',
+    'document_delete_failed' => 'Failed to delete document.',
+    'document_not_found' => 'Document not found.',
 
-    'error' => [
-        'list_failed' => 'Failed to retrieve borrowers.',
-        'not_found' => 'Borrower not found.',
-        'create_failed' => 'Failed to create borrower.',
-        'update_failed' => 'Failed to update borrower.',
-        'delete_failed' => 'Failed to delete borrower(s).',
-        'fetch_failed' => 'Failed to fetch borrower details.',
-        'users_fetch_failed' => 'Failed to retrieve users.',
-    ],
 
-    // Validation Messages
-    'validation' => [
-        'first_name' => [
-            'required' => 'First name is required.',
-        ],
-        'last_name' => [
-            'required' => 'Last name is required.',
-        ],
-        'email' => [
-            'required' => 'Email address is required.',
-            'email' => 'Please provide a valid email address.',
-        ],
-        'business_email' => [
-            'email' => 'Please provide a valid business email address.',
-        ],
-        'business_website' => [
-            'url' => 'Please provide a valid website URL.',
-        ],
-        'business_logo' => [
-            'mimes' => 'Business logo must be a file of type: jpg, jpeg, png, svg.',
-            'max' => 'Business logo size must not exceed 5MB.',
-        ],
-        'monthly_revenue' => [
-            'numeric' => 'Monthly revenue must be a number.',
-        ],
-        'annual_revenue' => [
-            'numeric' => 'Annual revenue must be a number.',
-        ],
-        'partner_id' => [
-            'exists' => 'Selected partner does not exist.',
-        ],
-        'assign_id' => [
-            'exists' => 'Selected assigned user does not exist.',
-        ],
-        'phone_number' => [
-            'required' => 'Phone number is required.',
-        ],
-        'signup_id' => [
-            'required' => 'Signup ID is required.',
-            'unique' => 'The signup ID has already been taken.',
-            'exists' => 'The selected signup ID is invalid or does not match the partner.',
-        ],
-        'country' => [
-            'required' => 'Country is required.',
-        ],
-        'state' => [
-            'required' => 'State is required.',
-        ],
-        'city' => [
-            'required' => 'City is required.',
-        ],
-    ],
-    // Document Checklist
-    'checklist' => [
-        'retrieved_success' => 'Document checklist retrieved successfully.',
-        'retrieved_failed' => 'Failed to retrieve document checklist.',
-        'saved_success' => 'Document checklist saved successfully.',
-        'save_failed' => 'Failed to save document checklist.',
-    ],
+    'retrieved' => 'Borrowers retrieved successfully.',
+    'retrieved_details' => 'Borrower details retrieved successfully.',
+    'created' => 'Borrower created successfully.',
+    'updated' => 'Borrower updated successfully.',
+    'deleted' => 'Borrower(s) deleted successfully.',
+    'users_retrieved' => 'Users retrieved successfully.',
+    'document_types_retrieved' => 'Document types retrieved successfully.',
+
+
+
+    'list_failed' => 'Failed to retrieve borrowers.',
+    'not_found' => 'Borrower not found.',
+    'create_failed' => 'Failed to create borrower.',
+    'update_failed' => 'Failed to update borrower.',
+    'delete_failed' => 'Failed to delete borrower(s).',
+    'fetch_failed' => 'Failed to fetch borrower details.',
+    'users_fetch_failed' => 'Failed to retrieve users.',
+    'document_types_fetch_failed' => 'Failed to fetch document types.',
+
 ];

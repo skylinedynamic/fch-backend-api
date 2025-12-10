@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
+use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -56,12 +57,14 @@ Route::prefix('v1/borrower')->group(function () {
 
         });
 
+        Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
 
-          Route::group(['prefix' => 'myapplication',], function () {
-              Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
-          });
+        Route::group(['prefix' => 'myapplication',], function () {
+            Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
+        });
 
          Route::prefix('documents')->group(function () {
+                Route::get('borrower-document-types', [DocumentController::class, 'documentTypes']);
                 Route::get('/', [DocumentController::class, 'index']);
                 Route::post('/upload', [DocumentController::class, 'store']);
                 Route::delete('/{id}', [DocumentController::class, 'destroy']);

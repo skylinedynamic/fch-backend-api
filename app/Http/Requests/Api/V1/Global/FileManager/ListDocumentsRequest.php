@@ -14,7 +14,6 @@ class ListDocumentsRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'section' => ['nullable', 'string'],
             'path' => ['nullable', 'string'],
         ];
     }
@@ -22,7 +21,6 @@ class ListDocumentsRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'section.required' => __('filemanager.section_required'),
             'path.required' => __('filemanager.path_required'),
         ];
     }
