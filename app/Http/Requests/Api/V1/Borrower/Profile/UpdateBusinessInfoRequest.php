@@ -24,7 +24,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
     {
         return [
             'business_name' => 'required|string|max:255',
-            'business_ein' => 'nullable|string|max:255',
+            'business_ein' => 'required|string|max:255',
             'business_phone' => 'nullable|string|max:20',
             'business_address' => 'required|string|max:255',
             'business_city' => 'required|string|max:255',
@@ -47,6 +47,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_name.required' => __('borrower_validation.business_name_required'),
             'business_name.string' => __('borrower_validation.business_name_string'),
             'business_name.max' => __('borrower_validation.business_name_max'),
+            'business_ein.required' => __('borrower_validation.business_ein_required'),
             'business_ein.string' => __('borrower_validation.business_ein_string'),
             'business_ein.max' => __('borrower_validation.business_ein_max'),
             'business_phone.string' => __('borrower_validation.business_phone_string'),

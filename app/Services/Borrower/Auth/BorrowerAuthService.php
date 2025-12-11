@@ -35,10 +35,15 @@ class BorrowerAuthService
                 'partner_id' => $signup->partner_id,
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
+                'email' => $data['email'],
                 'business_email' => $data['email'],
+                'phone_number' => $data['phone_number'],
+                'home_phone' => $data['phone_number'],
                 'state' => $data['state'],
                 'country' => $data['country'],
-                'business_phone' => $data['country_code'] . $data['phone_number'],
+                'country_code' => $data['country_code'],
+                'business_phone' => $data['phone_number'],
+                'business_state' => $data['state'],
             ]);
 
              $user = User::create([

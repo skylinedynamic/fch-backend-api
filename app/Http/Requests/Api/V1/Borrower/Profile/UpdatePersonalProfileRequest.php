@@ -39,7 +39,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'city' => 'required|string|max:255',
             'zip_code' => 'required|string|max:20',
             'home_address' => 'required|string|max:500',
-            'home_phone' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'last_4_ssn' => 'required|string|size:4',
             'date_of_birth' => 'required|date_format:Y-m-d|before:today',
         ];
@@ -80,7 +80,6 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'country_code.required' => __('borrower_validation.country_code_required'),
             'country_code.string' => __('borrower_validation.country_code_string'),
             'country_code.max' => __('borrower_validation.country_code_max'),
-            'home_phone.required' => __('borrower_validation.home_phone_required'),
             'home_phone.string' => __('borrower_validation.home_phone_string'),
             'home_phone.max' => __('borrower_validation.home_phone_max'),
             'home_phone.regex' => __('borrower_validation.home_phone_regex'),

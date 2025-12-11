@@ -16,7 +16,8 @@ return new class extends Migration
             $table->unsignedBigInteger('document_type_id')->nullable();
             $table->unsignedBigInteger('borrower_id')->nullable();
             $table->unsignedBigInteger('application_id')->nullable();
-            $table->string('document')->nullable();
+            $table->string('file_name')->nullable();
+            $table->string('file_path')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
             $table->softDeletes();

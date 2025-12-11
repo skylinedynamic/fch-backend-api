@@ -21,8 +21,7 @@ class FileManagerService
 
     private function getEncodedUrl($disk, $path)
     {
-        $url = $disk->url($path);
-        return str_replace(' ', '%20', $url);
+        return encodeUrl($disk->url($path));
     }
 
     public function listDocuments($path = '/')
@@ -137,9 +136,10 @@ class FileManagerService
         $disk->move($oldFullPath, $newFullPath);
         
         // Determine if directory or file
+        // Determine if directory or file
         try {
             $type = $disk->mimeType($newFullPath);
-            $isDir = false;
+            $isDir = $type === 'directory' || $type === false;
         } catch (\Exception $e) {
             $isDir = true;
             $type = null;
@@ -168,8 +168,20 @@ class FileManagerService
         foreach ($paths as $path) {
             $fullPath = $this->getFullPath($path);
             if ($disk->exists($fullPath)) {
-                if (!$disk->delete($fullPath)) {
+                
+                // Determine if directory or file using robust check
+                $isDir = false;
+                try {
+                    $type = $disk->mimeType($fullPath);
+                    $isDir = $type === 'directory' || $type === false;
+                } catch (\Exception $e) {
+                    $isDir = true;
+                }
+
+                if ($isDir) {
                     $disk->deleteDirectory($fullPath);
+                } else {
+                    $disk->delete($fullPath);
                 }
             }
         }
@@ -202,7 +214,10 @@ class FileManagerService
             // Determine if source is directory
             $isDirectory = false;
             try {
-                $disk->mimeType($sourceFullPath);
+                $mime = $disk->mimeType($sourceFullPath);
+                if ($mime === 'directory' || $mime === false) {
+                    $isDirectory = true;
+                }
             } catch (\Exception $e) {
                 $isDirectory = true;
             }

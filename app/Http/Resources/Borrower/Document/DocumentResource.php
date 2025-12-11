@@ -14,16 +14,11 @@ class DocumentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'user_id' => $this->user_id,
-            'borrower_doc_type_id' => $this->borrower_doc_type_id,
-            'name' => $this->name,
-            'path' => $this->path,
-            'disk' => $this->disk,
+            'borrower_id' => $this->borrower_id,
+            'document_type_id' => $this->document_type_id,
+            'file_name' => $this->file_name,
+            'file_path' => $this->file_path,
             'url' => $this->url,
-            'original_name' => $this->original_name,
-            'extension' => $this->extension,
-            'mime' => $this->mime,
-            'size' => $this->size,
         ];
     }
 }

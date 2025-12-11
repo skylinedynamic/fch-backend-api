@@ -4,9 +4,7 @@ namespace App\Http\Controllers\Api\V1\Borrower\Document;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\Borrower\Document\GetDocuRequest;
 use App\Http\Requests\Api\V1\Borrower\Document\UploadDocumentRequest;
-use App\Models\User\User;
 use App\Services\Borrower\Document\DocumentService;
 use App\Http\Resources\Borrower\Document\DocumentResource;
 use Illuminate\Http\Request;
@@ -24,15 +22,20 @@ class DocumentController extends Controller
     /**
      * Document List
      */
-    public function index(GetDocuRequest $request)
+    public function index(Request $request)
     {
         try {
             $documents = $this->documentService->listForUser($request);
-            $payload = DocumentResource::collection($documents);
+            
+            // groupBy returns a collection of collections, so we need to flatten or map it
+            $payload = $documents->map(function ($group) {
+                return DocumentResource::collection($group);
+            });
+            
             return ApiResponse::success($payload, __('borrower.documents_fetched_successfully'));
 
         } catch (\Exception $e) {
-            return ApiResponse::error(__('borrower.documents_fetch_failed'));
+            return ApiResponse::error($e->getMessage());
         }
     }
 
@@ -41,31 +44,8 @@ class DocumentController extends Controller
      */
     public function store(UploadDocumentRequest $request)
     {
-        $data = $request->validated();
-
-        $authUser = Auth::user();
-        $user = User::with('employee')->find($authUser->id);
-
         try {
-            $fileInput = $request->file('files');
-            if (is_array($fileInput)) {
-                $result = $this->documentService->uploadManyAndCreate(
-                    $fileInput,
-                    $data['borrower_doc_type_id'] ?? null,
-                    $data['file_name'] ?? null,
-                );
-
-                $payload = DocumentResource::collection(collect($result)->map(fn($row) => (object)$row));
-                return ApiResponse::success($payload, __('borrower.upload_success'), 201);
-            }
-
-            $document = $this->documentService->uploadAndCreate(
-                $fileInput,
-                $data['borrower_doc_type_id'] ?? null,
-                $data['file_name'] ?? null,
-            );
-
-            return ApiResponse::success(new DocumentResource((object)$document), __('borrower.upload_success'), 201);
+            return $this->documentService->createBorrowerDocuments($request->validated());
         } catch (\Throwable $e) {
             return ApiResponse::error(__('borrower.upload_failed'));
         }

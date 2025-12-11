@@ -84,6 +84,7 @@ return [
     'business_name_string' => 'Business name must be a string',
     'business_name_max' => 'Business name cannot exceed 255 characters',
     
+    'business_ein_required' => 'Business EIN is required',
     'business_ein_string' => 'Business EIN must be a string',
     'business_ein_max' => 'Business EIN cannot exceed 255 characters',
     
@@ -226,5 +227,13 @@ return [
     'per_page_min' => 'The per page must be at least 1.',
     'per_page_max' => 'The per page must be at most 100.',
     'page_min' => 'The page must be at least 1.',
+
+
+    //Documents
+    'invalid_borrower_doc_type' => 'Invalid borrower document type',
+    'files_required' => 'Files are required',
+    'files_array' => 'Files must be an array',
+    'files_min' => 'At least one file is required',
+    'upload_failed' => 'Failed to upload document',
     
 ];
