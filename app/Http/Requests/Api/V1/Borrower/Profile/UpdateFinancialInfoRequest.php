@@ -25,7 +25,7 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'currency' => 'required|string|max:10',
             'years_in_business' => 'required|string',
             'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
-            'annual_revenue' => 'nullable|numeric|min:0|max:999999999.99',
+            'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
         ];
     }
 
@@ -53,6 +53,7 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'annual_revenue.numeric' => __('borrower_validation.annual_revenue_numeric'),
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
             'annual_revenue.max' => __('borrower_validation.annual_revenue_max'),
+            'annual_revenue.required' => __('borrower_validation.annual_revenue_required'),
         ];
     }
 }

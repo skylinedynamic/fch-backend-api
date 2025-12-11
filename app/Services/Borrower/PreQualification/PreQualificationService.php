@@ -102,8 +102,6 @@ class PreQualificationService
 
         if (!$prequalificationRequest) {
             $mergedData = [
-                'id' => null,
-                
                 // Personal Info
                 'first_name' => $borrower->first_name,
                 'last_name' => $borrower->last_name,
@@ -132,7 +130,11 @@ class PreQualificationService
                 //others
                 'notes' => null,
                 'status' => PreQualificationRequest::ON_HOLD,
+                'borrower_id' => $borrower->id,
                 ];
+
+                $prequalificationRequest = PreQualificationRequest::create($mergedData)->toArray();
+
         }else{
             $mergedData['id'] = $prequalificationRequest->id;
              foreach ($prequalificationRequest->toArray() as $key => $value) {
@@ -143,6 +145,7 @@ class PreQualificationService
                 }
             }
         }
+
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;
 
