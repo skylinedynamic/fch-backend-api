@@ -78,6 +78,7 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
             Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
+            Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
 
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);

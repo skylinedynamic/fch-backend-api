@@ -102,4 +102,6 @@ return [
     'document_types_fetch_failed' => 'Failed to fetch document types.',
     'stats_retrieved' => 'Stats retrieved successfully.',
     'stats_retrieved_failed' => 'Failed to retrieve stats.',
+    'tiers_retrieved' => 'Tiers retrieved successfully.',
+    'tiers_fetch_failed' => 'Failed to retrieve tiers.',
 ];

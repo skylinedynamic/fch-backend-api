@@ -176,6 +176,22 @@ class BorrowerController extends Controller
     }
 
     
+    /**
+     * Get Tiers List
+     * TODO: When tiers table is created, modify to fetch from database
+     */
+    public function getTiers()
+    {
+        try {
+            // Get tiers from config file
+            // In the future, this can be modified to fetch from database
+            $tiers = config('tiers.list', []);
+
+            return ApiResponse::success($tiers, __('borrower.tiers_retrieved'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.tiers_fetch_failed'));
+        }
+    }
 
     /**
      * Send Account Created Mail
