@@ -18,6 +18,18 @@ return [
         'phone_number' => [
             'required' => 'Phone number is required.',
         ],
+        'state' => [
+            'required' => 'State is required.',
+        ],
+        'city' => [
+            'required' => 'City is required.',
+        ],
+        'country' => [
+            'required' => 'Country is required.',
+        ],
+        'address_line_1' => [
+            'required' => 'Address is required.',
+        ],
         'website' => [
             'url' => 'Please provide a valid website URL.',
         ],
@@ -26,6 +38,7 @@ return [
             'exists' => 'Selected partner does not exist.',
         ],
         'partner_type' => [
+            'required' => 'Partner type is required.',
             'string' => 'Partner type must be a string.',
             'max' => 'Partner type must not exceed 255 characters.',
         ],

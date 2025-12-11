@@ -32,12 +32,12 @@ class StorePartnerRequest extends FormRequest
             'contact_person_phone_number' => ['nullable', 'string', 'max:50'],
             'contact_person_email'        => ['nullable', 'email', 'max:255'],
             'contact_person_relation'     => ['nullable', 'string', 'max:255'],
-            'partner_type'                => ['nullable', 'string', 'max:255'],
-            'state'                       => ['nullable', 'string', 'max:100'],
-            'city'                        => ['nullable', 'string', 'max:100'],
-            'country'                     => ['nullable', 'string', 'max:100'],
+            'partner_type'                => ['required', 'string', 'max:255'],
+            'state'                       => ['required', 'string', 'max:100'],
+            'city'                        => ['required', 'string', 'max:100'],
+            'country'                     => ['required', 'string', 'max:100'],
             'zip_code'                    => ['nullable', 'string', 'max:20'],
-            'address_line_1'              => ['nullable', 'string', 'max:255'],
+            'address_line_1'              => ['required', 'string', 'max:255'],
             'address_line_2'              => ['nullable', 'string', 'max:255'],
             'tax_id'                      => ['nullable', 'string', 'max:100'],
             'website'                     => ['nullable', 'string'],
@@ -58,7 +58,12 @@ class StorePartnerRequest extends FormRequest
             'company_name.required' => __('partner.validation.company_name.required'),
             'email.required' => __('partner.validation.email.required'),
             'email.email' => __('partner.validation.email.email'),
-            'phone_number.required' => __('partner.validation.phone_number.required')
+            'phone_number.required' => __('partner.validation.phone_number.required'),
+            'partner_type.required' => __('partner.validation.partner_type.required'),
+            'state.required' => __('partner.validation.state.required'),
+            'city.required' => __('partner.validation.city.required'),
+            'country.required' => __('partner.validation.country.required'),
+            'address_line_1.required' => __('partner.validation.address_line_1.required'),
         ];
     }
 
