@@ -79,23 +79,27 @@ return [
     'document_not_found' => 'Document not found.',
 
 
-    'retrieved' => 'Borrowers retrieved successfully.',
-    'retrieved_details' => 'Borrower details retrieved successfully.',
-    'created' => 'Borrower created successfully.',
-    'updated' => 'Borrower updated successfully.',
-    'deleted' => 'Borrower(s) deleted successfully.',
-    'users_retrieved' => 'Users retrieved successfully.',
+    'success' => [
+        'retrieved' => 'Borrowers retrieved successfully.',
+        'retrieved_details' => 'Borrower details retrieved successfully.',
+        'created' => 'Borrower created successfully.',
+        'updated' => 'Borrower updated successfully.',
+        'deleted' => 'Borrower(s) deleted successfully.',
+        'users_retrieved' => 'Users retrieved successfully.',
+    ],
+
+    'error' => [
+        'list_failed' => 'Failed to retrieve borrowers.',
+        'not_found' => 'Borrower not found.',
+        'create_failed' => 'Failed to create borrower.',
+        'update_failed' => 'Failed to update borrower.',
+        'delete_failed' => 'Failed to delete borrower(s).',
+        'fetch_failed' => 'Failed to fetch borrower details.',
+        'users_fetch_failed' => 'Failed to retrieve users.',
+    ],
+
     'document_types_retrieved' => 'Document types retrieved successfully.',
-
-
-
-    'list_failed' => 'Failed to retrieve borrowers.',
-    'not_found' => 'Borrower not found.',
-    'create_failed' => 'Failed to create borrower.',
-    'update_failed' => 'Failed to update borrower.',
-    'delete_failed' => 'Failed to delete borrower(s).',
-    'fetch_failed' => 'Failed to fetch borrower details.',
-    'users_fetch_failed' => 'Failed to retrieve users.',
     'document_types_fetch_failed' => 'Failed to fetch document types.',
-
+    'stats_retrieved' => 'Stats retrieved successfully.',
+    'stats_retrieved_failed' => 'Failed to retrieve stats.',
 ];

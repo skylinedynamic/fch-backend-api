@@ -13,6 +13,8 @@ use App\Services\Borrower\Document\DocumentService;
 use Illuminate\Http\Request;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Mail;
+use App\Models\Borrower\BorrowerDocument;
+use Illuminate\Support\Facades\Storage;
 
 class BorrowerController extends Controller
 {
@@ -199,6 +201,109 @@ class BorrowerController extends Controller
             \Illuminate\Support\Facades\Log::error('📧 BorrowerAccountCreatedMail failed', [
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+    /**
+     * Get Borrower Count Statistics.
+     * Automatically filtered based on authenticated user type:
+     * - Borrower: Returns zeros
+     * - Partner: Returns counts for their partner_id
+     * - Admin: Returns all counts
+     */
+    public function stats()
+    {
+        try {
+            // Service automatically handles filtering based on auth user type
+            $data = $this->borrowerService->getBorrowerStats();
+
+            return ApiResponse::success($data, __('borrower.stats_retrieved') ?? 'Stats retrieved successfully');
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('borrower.stats_retrieved_failed') ?? 'Failed to retrieve stats', 500);
+        }
+    }
+
+    /**
+     * Profile States Count
+     */
+    public function profileStatsCount(int $borrowerId)
+    {
+ 
+        try {
+            $data = $this->borrowerService->getBorrowerProfileStats($borrowerId);
+
+            return ApiResponse::success($data, __('borrower.stats_retrieved') ?? 'Stats retrieved successfully');
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('borrower.stats_retrieved_failed') ?? 'Failed to retrieve stats', 500);
+        }
+    }
+
+    /**
+     * Fetch Borrower Documents List
+     */
+    public function fetchBorrowerDocuments($borrowerId)
+    {
+        try {
+            $documents = $this->borrowerService->getBorrowerDocuments($borrowerId);
+            return ApiResponse::success($documents, 'Documents retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponse::serverError('Failed to retrieve documents');
+        }
+    }
+
+    /**
+     * Download Borrower Document.
+     */
+    public function downloadDocument(int $documentId)
+    {
+       
+        try {
+            // Note: Route parameter is named {borrowerId}, but for download it likely refers to the Document ID.
+            $document = BorrowerDocument::where('id', $documentId)->first();
+            if (!$document) {
+                return ApiResponse::notFound('Document not found');
+            }
+
+            // Prefer file_path, fallback to document column if file_path is empty
+            $urlPath = $document->file_path ?: $document->document;
+
+            // If still empty
+            if (!$urlPath) {
+                 return ApiResponse::notFound('File path not found in record');
+            }
+
+            // Extract relative path from full URL if needed
+            // e.g., "http://127.0.0.1:8000/storage/borrowers/documents/aa.png" -> "borrowers/documents/aa.png"
+            $relativePath = $urlPath;
+            if (str_contains($relativePath, '/storage/')) {
+                $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+            }
+
+            // Get the full path to the file
+            $filePath = storage_path('app/public/' . $relativePath);
+
+            // Check if file exists
+            if (!file_exists($filePath)) {
+                return ApiResponse::notFound('File not found on server');
+            }
+
+            // Get MIME type
+            $mimeType = mime_content_type($filePath);
+            
+            // Determine filename (use file_name if available, else basename)
+            $fileName = $document->file_name ?: basename($relativePath);
+
+            // Return file download with proper headers
+            return response()->download(
+                $filePath,
+                $fileName,
+                [
+                    'Content-Type' => $mimeType,
+                    'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                ]
+            );
+
+        } catch (\Exception $e) {
+             return ApiResponse::serverError('Download failed');
         }
     }
 }

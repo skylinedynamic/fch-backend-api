@@ -73,7 +73,11 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
-            Route::post('borrowers/get-all-users', [BorrowerController::class, 'getAllUsers']);
+            Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
+            Route::post('borrowers-stats', [BorrowerController::class, 'stats']);
+            Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
+            Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
+            Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
 
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);

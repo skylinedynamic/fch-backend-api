@@ -15,7 +15,14 @@ class BorrowerDocument extends Model
         'borrower_id',
         'application_id',
         'document',
+        'file_path',
+        'file_name',
         'created_by',
         'deleted_by',
     ];
+
+    public function documentType()
+    {
+        return $this->belongsTo(BorrowerDocType::class, 'document_type_id');
+    }
 }

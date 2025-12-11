@@ -17,6 +17,8 @@ use App\Helpers\ApiResponse;
 use App\Models\Borrower\BorrowerDocType;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 use Dom\DocumentType;
+use App\Models\Borrower\BorrowerDocument;
+use Illuminate\Support\Facades\Storage;
 
 class BorrowerService
 {
@@ -363,4 +365,155 @@ class BorrowerService
         return $users;
     }
 
+    /**
+     * Get Borrower Statistics Counts.
+     */
+    public function getBorrowerStats($partnerId = null): array
+    {
+        $today = now();
+        $startOfMonth = $today->copy()->startOfMonth();
+        $endOfMonth = $today->copy()->endOfMonth();
+
+        // Base query
+        $query = Borrower::query();
+        
+        // Check user type
+        $user = auth()->user();
+        
+        // If user is a Borrower, they should only see their own data (return zeros for counts)
+        if ($user && $user->user_type === 'Borrower') {
+            return [
+                'total_borrowers' => 0,
+                'new_this_month' => 0,
+                'active_count' => 0,
+                'inactive_count' => 0,
+            ];
+        }
+        
+        // If user is Partner, use their partner_id
+        if ($user && $user->user_type === 'Partner' && !$partnerId) {
+            // Get partner_id from user's entity
+            if ($user->entity_type === 'App\\Models\\Partner\\Partner' && $user->entity_id) {
+                $partnerId = $user->entity_id;
+            }
+        }
+        
+        // Filter by partner_id if provided
+        if ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        }
+
+        // Clone query for different counts
+        $totalBorrowers = (clone $query)->count();
+        $newThisMonth = (clone $query)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
+        
+        // Active count: borrowers with at least one document or application
+        // You can adjust this logic based on your definition of "active"
+        $activeCount = (clone $query)->whereHas('user')->count();
+        
+        return [
+            'total_borrowers' => $totalBorrowers,
+            'new_this_month' => $newThisMonth,
+            'active_count' => $activeCount,
+            'inactive_count' => $totalBorrowers - $activeCount,
+        ];
+    }
+
+    /**
+     * Get Borrower Profile Statistics.
+     */
+    /**
+     * Get Borrower Profile Statistics.
+     */
+    public function getBorrowerProfileStats(int $id)
+    {
+        // Use addslashes to properly escape backslashes for the SQL string literal
+        $entityType = addslashes(Borrower::class);
+
+        $stats = DB::table('borrowers as b')
+            ->select(
+                'b.id',
+                // Meetings: linked via User (assigned_for).
+                DB::raw("(SELECT COUNT(*) FROM appointments WHERE assigned_for IN (SELECT id FROM users WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id)) as total_meetings"),
+                
+                // Invoices: linked via entity_type and entity_id
+                DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id) as total_invoices"),
+                
+                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM partner_subscriptions 
+                          WHERE partner_id = b.partner_id 
+                          ORDER BY id DESC 
+                          LIMIT 1), 'N/A')) as enrollment_type"),
+
+                // Prequalification Requests
+                DB::raw('(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification'),
+                
+                // Tickets: Placeholder for future support tickets implementation
+                DB::raw('0 as total_tickets'),
+
+                // Documents
+                DB::raw('(SELECT COUNT(*) FROM borrower_documents WHERE borrower_id = b.id) as total_documents')
+            )
+            ->where('b.id', $id)
+            ->first();
+
+        return $stats;
+    }
+
+    /**
+     * Get Borrower Documents.
+     */
+    public function getBorrowerDocuments(int $borrowerId)
+    {
+        $documents = BorrowerDocument::with('documentType')
+            ->where('borrower_id', $borrowerId)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($doc) {
+                $size = '0 KB';
+                
+                // Extract relative path from full URL if needed
+                // e.g., "http://127.0.0.1:8000/storage/borrowers/documents/aa.png" -> "borrowers/documents/aa.png"
+                $relativePath = $doc->file_path;
+                if ($relativePath && str_contains($relativePath, '/storage/')) {
+                    $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+                }
+                
+                // Use relative path for storage operations
+                if ($relativePath && Storage::disk('public')->exists($relativePath)) {
+                    $sizeBytes = Storage::disk('public')->size($relativePath);
+                    $size = $this->formatSizeUnits($sizeBytes);
+                }
+
+                return [
+                    'id' => $doc->id,
+                    // Use file_name if available, otherwise extract from file_path
+                    'document_name' => $doc->file_name ?: ($doc->file_path ? basename($doc->file_path) : 'N/A'),
+                    'type' => $doc->documentType->name ?? 'Other',
+                    'size' => $size,
+                    'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
+                    'document_url' => $doc->file_path, // Keep original full URL for frontend
+                ];
+            });
+
+        return $documents;
+    }
+
+    private function formatSizeUnits($bytes)
+    {
+        if ($bytes >= 1073741824) {
+            $bytes = number_format($bytes / 1073741824, 2) . ' GB';
+        } elseif ($bytes >= 1048576) {
+            $bytes = number_format($bytes / 1048576, 2) . ' MB';
+        } elseif ($bytes >= 1024) {
+            $bytes = number_format($bytes / 1024, 2) . ' KB';
+        } elseif ($bytes > 1) {
+            $bytes = $bytes . ' bytes';
+        } elseif ($bytes == 1) {
+            $bytes = $bytes . ' byte';
+        } else {
+            $bytes = '0 bytes';
+        }
+
+        return $bytes;
+    }
 }
