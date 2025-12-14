@@ -16,6 +16,8 @@ class CreateFolderRequest extends BaseApiRequest
         return [
             'name' => ['required', 'string'],
             'path' => ['nullable', 'string'],
+            'entity_type' => ['required', 'string'],
+            'entity_id' => ['required', 'integer'],
         ];
     }
 
@@ -24,6 +26,8 @@ class CreateFolderRequest extends BaseApiRequest
         return [
             'name.required' => __('filemanager.name_required'),
             'path.required' => __('filemanager.path_required'),
+            'entity_type.required' => __('filemanager.entity_type_required'),
+            'entity_id.required' => __('filemanager.entity_id_required'),
         ];
     }
 }

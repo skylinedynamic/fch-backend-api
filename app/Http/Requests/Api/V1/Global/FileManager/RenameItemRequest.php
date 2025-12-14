@@ -16,6 +16,8 @@ class RenameItemRequest extends BaseApiRequest
         return [
             'path' => ['required', 'string'],
             'newName' => ['required', 'string'],
+            'entity_type' => ['required', 'string'],
+            'entity_id' => ['required', 'integer'],
         ];
     }
 
@@ -24,6 +26,8 @@ class RenameItemRequest extends BaseApiRequest
         return [
             'path.required' => __('filemanager.path_required'),
             'newName.required' => __('filemanager.new_name_required'),
+            'entity_type.required' => __('filemanager.entity_type_required'),
+            'entity_id.required' => __('filemanager.entity_id_required'),
         ];
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Services\Global\FileManager;
 
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\UploadedFile;
 
 class FileManagerService
@@ -26,43 +25,13 @@ class FileManagerService
     }
 
     /**
-     * Get base path based on authenticated user's entity type and ID
+     * Get base path from request entity type and ID
      * Creates the directory if it doesn't exist
      */
-    private function getBasePath()
+    private function getBasePath($request)
     {
-        $user = Auth::user();
-        
-        if (!$user) {
-            throw new \Exception('Unauthenticated', 401);
-        }
-        
-        // Get entity_type from user, default to null
-        $entityType = $user->entity_type;
-        $entityId = $user->entity_id ?? $user->id;
-        
-        // Determine base path based on entity type
-        // entity_type stores full class name like "App\Models\Borrower\Borrower"
-        if ($entityType) {
-            switch ($entityType) {
-                case 'App\Models\Borrower\Borrower':
-                    $basePath = "borrowers/{$entityId}";
-                    break;
-                case 'App\Models\Partner\Partner':
-                    $basePath = "partners/{$entityId}";
-                    break;
-                case 'App\Models\Employee\Employee':
-                    $basePath = "employees/{$entityId}";
-                    break;
-                default:
-                    // Fallback to users for any other entity type
-                    $basePath = "users/{$entityId}";
-                    break;
-            }
-        } else {
-            // No entity_type, default to users
-            $basePath = "users/{$entityId}";
-        }
+        // Construct base path directly from request
+        $basePath = $request->entity_type . "/" . $request->entity_id;
         
         // Ensure the base path exists
         $disk = $this->getDisk();
@@ -73,10 +42,10 @@ class FileManagerService
         return $basePath;
     }
 
-    public function listDocuments($path = '/')
+    public function listDocuments($path, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
         
         $fullPath = $this->getFullPath($completePath);
@@ -125,10 +94,10 @@ class FileManagerService
         return $data;
     }
 
-    public function uploadFile($path, UploadedFile $file)
+    public function uploadFile($path, UploadedFile $file, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
         
         $fullPath = $this->getFullPath($completePath);
@@ -148,10 +117,10 @@ class FileManagerService
         ];
     }
 
-    public function createFolder($path, $name)
+    public function createFolder($path, $name, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path . '/' . $name;
         
         $fullPath = $this->getFullPath($completePath);
@@ -171,10 +140,10 @@ class FileManagerService
         ];
     }
 
-    public function renameItem($path, $newName)
+    public function renameItem($path, $newName, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
         
         $oldFullPath = $this->getFullPath($completePath);
@@ -228,12 +197,12 @@ class FileManagerService
         return $data;
     }
 
-    public function deleteItems(array $paths)
+    public function deleteItems(array $paths, $request)
     {
         $disk = $this->getDisk();
         
-        // Get base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Get base path based on request entity
+        $basePath = $this->getBasePath($request);
 
         foreach ($paths as $path) {
             $completePath = $basePath . $path;
@@ -259,13 +228,13 @@ class FileManagerService
         return true;
     }
 
-    public function pasteItems(array $files, $destinationPath, $operation)
+    public function pasteItems(array $files, $destinationPath, $operation, $request)
     {
         $disk = $this->getDisk();
         $results = [];
         
-        // Get base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Get base path based on request entity
+        $basePath = $this->getBasePath($request);
 
         foreach ($files as $file) {
             $sourcePath = $file['path'];
@@ -349,10 +318,10 @@ class FileManagerService
     /**
      * Download a file
      */
-    public function downloadFile($path)
+    public function downloadFile($path, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
         
         $fullPath = $this->getFullPath($completePath);
@@ -378,10 +347,10 @@ class FileManagerService
     /**
      * Get folder tree recursively
      */
-    public function getFolderTree($path = '/')
+    public function getFolderTree($path, $request)
     {
-        // Prepend base path based on authenticated user's entity
-        $basePath = $this->getBasePath();
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
         
         $fullPath = $this->getFullPath($completePath);
@@ -409,7 +378,7 @@ class FileManagerService
                 'isDirectory' => true,
                 'path' => $dirPath,
                 'updatedAt' => date('c', $disk->lastModified($directory)),
-                'children' => $this->getFolderTree($dirPath), // Recursive call
+                'children' => $this->getFolderTree($dirPath, $request), // Recursive call
             ];
             
             $tree[] = $node;
