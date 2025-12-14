@@ -3,6 +3,7 @@
 namespace App\Services\Global\FileManager;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\UploadedFile;
 
 class FileManagerService
@@ -24,9 +25,61 @@ class FileManagerService
         return encodeUrl($disk->url($path));
     }
 
+    /**
+     * Get base path based on authenticated user's entity type and ID
+     * Creates the directory if it doesn't exist
+     */
+    private function getBasePath()
+    {
+        $user = Auth::user();
+        
+        if (!$user) {
+            throw new \Exception('Unauthenticated', 401);
+        }
+        
+        // Get entity_type from user, default to null
+        $entityType = $user->entity_type;
+        $entityId = $user->entity_id ?? $user->id;
+        
+        // Determine base path based on entity type
+        // entity_type stores full class name like "App\Models\Borrower\Borrower"
+        if ($entityType) {
+            switch ($entityType) {
+                case 'App\Models\Borrower\Borrower':
+                    $basePath = "borrowers/{$entityId}";
+                    break;
+                case 'App\Models\Partner\Partner':
+                    $basePath = "partners/{$entityId}";
+                    break;
+                case 'App\Models\Employee\Employee':
+                    $basePath = "employees/{$entityId}";
+                    break;
+                default:
+                    // Fallback to users for any other entity type
+                    $basePath = "users/{$entityId}";
+                    break;
+            }
+        } else {
+            // No entity_type, default to users
+            $basePath = "users/{$entityId}";
+        }
+        
+        // Ensure the base path exists
+        $disk = $this->getDisk();
+        if (!$disk->exists($basePath)) {
+            $disk->makeDirectory($basePath);
+        }
+        
+        return $basePath;
+    }
+
     public function listDocuments($path = '/')
     {
-        $fullPath = $this->getFullPath($path);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
@@ -74,7 +127,11 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file)
     {
-        $fullPath = $this->getFullPath($path);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         $filename = $file->getClientOriginalName();
@@ -93,7 +150,11 @@ class FileManagerService
 
     public function createFolder($path, $name)
     {
-        $fullPath = $this->getFullPath($path . '/' . $name);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path . '/' . $name;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if ($disk->exists($fullPath)) {
@@ -112,7 +173,11 @@ class FileManagerService
 
     public function renameItem($path, $newName)
     {
-        $oldFullPath = $this->getFullPath($path);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path;
+        
+        $oldFullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if (!$disk->exists($oldFullPath)) {
@@ -127,7 +192,9 @@ class FileManagerService
         // Clean up double slashes
         $newPath = str_replace('//', '/', $newPath);
         
-        $newFullPath = $this->getFullPath($newPath);
+        // Prepend base path to new path
+        $newCompletePath = $basePath . $newPath;
+        $newFullPath = $this->getFullPath($newCompletePath);
 
         if ($disk->exists($newFullPath)) {
              throw new \Exception('Item with new name already exists', 422);
@@ -164,9 +231,13 @@ class FileManagerService
     public function deleteItems(array $paths)
     {
         $disk = $this->getDisk();
+        
+        // Get base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
 
         foreach ($paths as $path) {
-            $fullPath = $this->getFullPath($path);
+            $completePath = $basePath . $path;
+            $fullPath = $this->getFullPath($completePath);
             if ($disk->exists($fullPath)) {
                 
                 // Determine if directory or file using robust check
@@ -192,14 +263,19 @@ class FileManagerService
     {
         $disk = $this->getDisk();
         $results = [];
+        
+        // Get base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
 
         foreach ($files as $file) {
             $sourcePath = $file['path'];
-            $sourceFullPath = $this->getFullPath($sourcePath);
+            $sourceCompletePath = $basePath . $sourcePath;
+            $sourceFullPath = $this->getFullPath($sourceCompletePath);
             
             $name = basename($sourcePath);
             $destPath = rtrim($destinationPath, '/') . '/' . $name;
-            $destFullPath = $this->getFullPath($destPath);
+            $destCompletePath = $basePath . $destPath;
+            $destFullPath = $this->getFullPath($destCompletePath);
 
             // Handle duplicate names
             if ($disk->exists($destFullPath)) {
@@ -208,7 +284,8 @@ class FileManagerService
                 $newName = $nameWithoutExt . ' - Copy' . ($ext ? '.' . $ext : '');
                 
                 $destPath = rtrim($destinationPath, '/') . '/' . $newName;
-                $destFullPath = $this->getFullPath($destPath);
+                $destCompletePath = $basePath . $destPath;
+                $destFullPath = $this->getFullPath($destCompletePath);
             }
 
             // Determine if source is directory
@@ -274,7 +351,11 @@ class FileManagerService
      */
     public function downloadFile($path)
     {
-        $fullPath = $this->getFullPath($path);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
@@ -299,7 +380,11 @@ class FileManagerService
      */
     public function getFolderTree($path = '/')
     {
-        $fullPath = $this->getFullPath($path);
+        // Prepend base path based on authenticated user's entity
+        $basePath = $this->getBasePath();
+        $completePath = $basePath . $path;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath) && $fullPath !== '') {
