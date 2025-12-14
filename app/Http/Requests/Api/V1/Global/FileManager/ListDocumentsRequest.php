@@ -15,13 +15,13 @@ class ListDocumentsRequest extends BaseApiRequest
     {
         return [
             'path' => ['nullable', 'string'],
-        ];
+        ];  
     }
 
     public function messages(): array
     {
         return [
             'path.required' => __('filemanager.path_required'),
-        ];
+            ];
     }
 }

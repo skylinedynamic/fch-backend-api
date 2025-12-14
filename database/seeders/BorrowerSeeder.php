@@ -57,7 +57,7 @@ class BorrowerSeeder extends Seeder
 
                 // Financial Info
                 'currency' => 'USD',
-                'years_in_business' => 6,
+                'years_in_business' => '6–12 months',
                 'monthly_revenue' => 150000.00,
                 'annual_revenue' => 1800000.00,
 
