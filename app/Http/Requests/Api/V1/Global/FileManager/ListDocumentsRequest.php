@@ -15,13 +15,17 @@ class ListDocumentsRequest extends BaseApiRequest
     {
         return [
             'path' => ['nullable', 'string'],
-        ];  
+            'entity_type' => ['required', 'string'],
+            'entity_id' => ['required', 'integer'],
+        ];
     }
 
     public function messages(): array
     {
         return [
             'path.required' => __('filemanager.path_required'),
-            ];
+            'entity_type.required' => __('filemanager.entity_type_required'),
+            'entity_id.required' => __('filemanager.entity_id_required'),
+        ];
     }
 }

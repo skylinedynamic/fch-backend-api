@@ -157,6 +157,27 @@ class PreQualificationService
         );
     }
 
+    /**
+     * Get a specific pre-qualification application by ID
+     */
+    public function getPreQualificationById($id)
+    {
+        $user = Auth::user();
+        $borrower = Borrower::where('id', $user->entity_id)->first();
+
+        if (!$borrower) {
+            throw new \Exception(__('borrower.borrower_not_found'));
+        }
+
+        // Get pre-qualification request that belongs to this borrower
+        $preQualification = PreQualificationRequest::where('id', $id)
+            ->where('borrower_id', $borrower->id)
+            ->where('status', '!=', PreQualificationRequest::ON_HOLD)
+            ->first();
+
+        return $preQualification;
+    }
+
     private function hasValue($value): bool
     {
         return !empty($value) || $value === false;

@@ -10,4 +10,6 @@ return [
     'operation_required' => 'The operation is required.',
     'new_name_required' => 'The new name is required.',
     'file_required' => 'The file is required.',
+    'entity_type_required' => 'The entity type is required.',
+    'entity_id_required' => 'The entity id is required.',
 ];

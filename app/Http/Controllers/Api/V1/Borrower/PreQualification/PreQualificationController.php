@@ -39,6 +39,27 @@ class PreQualificationController extends Controller
         }
     }
 
+    /**
+     * Get specific Pre-Qualification application
+     */
+    public function show($id)
+    {
+        try {
+            $preQualification = $this->service->getPreQualificationById($id);
+            
+            if (!$preQualification) {
+                return ApiResponse::error(__('borrower.pre_qualification_not_found'), 404);
+            }
+            
+            return ApiResponse::success(
+                new PreQualificationResource($preQualification),
+                __('borrower.pre_qualification_retrieved_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.pre_qualification_retrieval_failed'), 500);
+        }
+    }
+
 
     /**
      * Personal Info

@@ -35,11 +35,11 @@ Route::prefix('v1/borrower')->group(function () {
         
         // Pre-Qualification
         Route::get('/pre-qualification', [PreQualificationController::class, 'index']);
+        Route::get('/pre-qualification/{id}', [PreQualificationController::class, 'show']);
 
         Route::post('/pre-qualification/personal-info', [PreQualificationController::class, 'personalInfo']);
         Route::post('/pre-qualification/business-info', [PreQualificationController::class, 'businessInfo']);
         Route::post('/pre-qualification/funding-info', [PreQualificationController::class, 'fundingInfo']);
-        
         Route::post('/pre-qualification/submit', [PreQualificationController::class, 'submit']);
 
         
