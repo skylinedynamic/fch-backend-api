@@ -86,8 +86,7 @@ class UserService
      */
     public function list(int $partnerId, array $filters)
     {
-        $query = User::query()->where('partner_id', $partnerId)->with(['roles']);
-
+        $query = User::query()->where('partner_id', $partnerId)->with(['roles','partner']);
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }

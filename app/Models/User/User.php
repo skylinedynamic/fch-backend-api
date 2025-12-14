@@ -464,7 +464,12 @@ class User extends Authenticatable implements OAuthenticatable
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'like', "%{$search}%")
             ->orWhere('email', 'like', "%{$search}%")
-            ->orWhere('phone_number', 'like', "%{$search}%");
+            ->orWhere('phone_number', 'like', "%{$search}%")
+            ->orWhere('entity_type', 'like', "%{$search}%")
+            ->orWhere('status', 'like', "%{$search}%")
+            ->orWhereHas('roles', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%");
+            });
         });
     }
 
