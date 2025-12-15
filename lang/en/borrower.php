@@ -81,25 +81,20 @@ return [
     'document_delete_failed' => 'Failed to delete document.',
     'document_not_found' => 'Document not found.',
 
-
-    'success' => [
-        'retrieved' => 'Borrowers retrieved successfully.',
-        'retrieved_details' => 'Borrower details retrieved successfully.',
-        'created' => 'Borrower created successfully.',
-        'updated' => 'Borrower updated successfully.',
-        'deleted' => 'Borrower(s) deleted successfully.',
-        'users_retrieved' => 'Users retrieved successfully.',
-    ],
-
-    'error' => [
-        'list_failed' => 'Failed to retrieve borrowers.',
-        'not_found' => 'Borrower not found.',
-        'create_failed' => 'Failed to create borrower.',
-        'update_failed' => 'Failed to update borrower.',
-        'delete_failed' => 'Failed to delete borrower(s).',
-        'fetch_failed' => 'Failed to fetch borrower details.',
-        'users_fetch_failed' => 'Failed to retrieve users.',
-    ],
+    'success_retrieved' => 'Borrowers retrieved successfully.',
+    'success_retrieved_details' => 'Borrower details retrieved successfully.',
+    'success_created' => 'Borrower created successfully.',
+    'success_updated' => 'Borrower updated successfully.',
+    'success_deleted' => 'Borrower(s) deleted successfully.',
+    'success_users_retrieved' => 'Users retrieved successfully.',
+    
+    'error_list_failed' => 'Failed to retrieve borrowers.',
+    'error_not_found' => 'Borrower not found.',
+    'error_create_failed' => 'Failed to create borrower.',
+    'error_update_failed' => 'Failed to update borrower.',
+    'error_delete_failed' => 'Failed to delete borrower(s).',
+    'error_fetch_failed' => 'Failed to fetch borrower details.',
+    'error_users_fetch_failed' => 'Failed to retrieve users.',
 
     'document_types_retrieved' => 'Document types retrieved successfully.',
     'document_types_fetch_failed' => 'Failed to fetch document types.',
@@ -107,4 +102,8 @@ return [
     'stats_retrieved_failed' => 'Failed to retrieve stats.',
     'tiers_retrieved' => 'Tiers retrieved successfully.',
     'tiers_fetch_failed' => 'Failed to retrieve tiers.',
+
+
+    //credit builder
+    'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
 ];

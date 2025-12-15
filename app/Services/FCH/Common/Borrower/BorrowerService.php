@@ -18,6 +18,7 @@ use App\Models\Borrower\BorrowerDocType;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 use Dom\DocumentType;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\CreditBuilder\Tier;
 use Illuminate\Support\Facades\Storage;
 
 class BorrowerService
@@ -190,6 +191,7 @@ class BorrowerService
             // Handle file uploads if any (e.g., business_logo)
             // Note: The migration has 'business_logo' string column.
             $data['partner_id'] = auth()->user()->partner_id;
+            $data['current_tier'] = Tier::where('order', 1)->first()?->id;
             Log::info('Partner ID: ' . auth()->user()->partner_id);
             $borrower = Borrower::create($data);
 

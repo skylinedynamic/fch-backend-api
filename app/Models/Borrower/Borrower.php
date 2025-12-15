@@ -2,8 +2,10 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\CreditBuilder\Tier;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 
@@ -64,8 +66,13 @@ class Borrower extends Model
     /**
      * Get the assigned user for the borrower.
      */
-    public function assignedUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(\App\Models\User\User::class, 'assign_id');
+    }
+
+    public function tier(): BelongsTo
+    {
+        return $this->belongsTo(Tier::class, 'current_tier');
     }
 }
