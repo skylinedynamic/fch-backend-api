@@ -19,6 +19,7 @@ class PartnerDocument extends Model
         'file_path',
         'share_link',
         'size',
+        // optional metadata (only persisted if DB has these columns)
     ];
 
     /**
@@ -27,5 +28,13 @@ class PartnerDocument extends Model
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class, 'partner_id');
+    }
+
+    /**
+     * Get the file path with storage prefix.
+     */
+    public function getFilePathAttribute($value)
+    {
+        return $value ? asset("storage/partners/{$this->partner_id}/{$value}") : null;
     }
 }

@@ -26,9 +26,8 @@ class StorePartnerDocumentRequest extends FormRequest
     {
         return [
             'partner_id' => ['required', 'integer', 'exists:partners,id'],
-            'share_link' => ['nullable'],
-            'file_path' => ['nullable', 'file', 'max:20480'], // 20MB max
-            'document_name' => ['nullable', 'string', 'max:255'],
+            'file_path' => ['nullable'],
+            'file_path.*' => ['nullable'],
         ];
     }
 

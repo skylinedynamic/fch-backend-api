@@ -210,7 +210,8 @@ class UserService
     {
         $role = Role::where('partner_id', auth()->user()->partner_id)->findOrFail($roleId);
        
-        $user->syncRoles([$role->id]);
+        // Use assignRole to ensure model_type is populated correctly in polymorphic pivot
+        $user->assignRole($role);
 
         $permissionIds = DB::table('role_has_permissions')
             ->where('role_id', $roleId)

@@ -302,7 +302,8 @@ class EmployeeService
     protected function assignRoleAndPermissions(User $user, int $roleId): void
     {
         $role = Role::where('partner_id', auth()->user()->partner_id)->where('id', $roleId)->first();
-        $user->syncRoles($role);
+        // Use assignRole to ensure model_type is set correctly on the pivot
+        $user->assignRole($role);
 
         $permissionIds = DB::table('role_has_permissions')
             ->where('role_id', $roleId)

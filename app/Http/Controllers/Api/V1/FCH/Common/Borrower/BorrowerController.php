@@ -42,6 +42,7 @@ class BorrowerController extends Controller
                 'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
                 'search' => isset($input['search']) ? trim((string) $input['search']) : null,
                 'partner_id' => $input['partner_id'] ?? null,
+                'partner_name' => $input['partner_name'] ?? null,
                 'current_tier' => $input['current_tier'] ?? null,
                 'assign_id' => $input['assign_id'] ?? null,
                 'filters' => $input['filters'] ?? null,

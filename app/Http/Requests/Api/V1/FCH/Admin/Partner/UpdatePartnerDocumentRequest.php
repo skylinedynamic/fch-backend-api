@@ -27,6 +27,10 @@ class UpdatePartnerDocumentRequest extends FormRequest
         return [
             'document_name' => ['nullable', 'string', 'max:255'],
             'file_path' => ['nullable', 'file', 'max:51200'], // 50MB max
+            // support replacing with files array (uploaded files or path strings)
+            'files' => ['nullable', 'array'],
+            'files.*' => ['nullable'],
+            'document_type' => ['nullable', 'string', 'max:255']
         ];
     }
 

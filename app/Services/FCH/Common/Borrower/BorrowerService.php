@@ -107,6 +107,9 @@ class BorrowerService
                     ->orWhere('email', 'LIKE', "%{$search}%")
                     ->orWhere('phone_number', 'LIKE', "%{$search}%")
                     ->orWhere('current_tier', 'LIKE', "%{$search}%")
+                    ->orWhereHas('partner', function ($q) use ($search) {
+                        $q->where('full_name', 'LIKE', "%{$search}%");
+                    })
                 // Search concatenated full_name (first_name + last_name)
                     ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
             });
