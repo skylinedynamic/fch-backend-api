@@ -106,4 +106,5 @@ return [
 
     //credit builder
     'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
+    'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
 ];

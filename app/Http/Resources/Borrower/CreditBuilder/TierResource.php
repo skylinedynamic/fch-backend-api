@@ -20,8 +20,10 @@ class TierResource extends JsonResource
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'description' => $this->description,
+            'estimated_completion_time' => $this->estimated_completion_time,
             'status' => $this->status,
             'order' => $this->order,
+            'tasks' => TierTaskResource::collection($this->whenLoaded('tasks')),
         ];
     }
 }

@@ -8,7 +8,7 @@ use App\Http\Resources\Borrower\CreditBuilder\MyProgressResource;
 use App\Services\Borrower\CreditBuilder\OverviewService;
 use Illuminate\Http\Request;
 
-class OverviewController extends Controller
+class CreditBuilderOverviewController extends Controller
 {
     protected $overviewService;
 
@@ -29,4 +29,6 @@ class OverviewController extends Controller
             __('borrower.credit_builder_progress_retrieved'),
         );
     }
+
+
 }

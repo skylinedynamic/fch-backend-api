@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
-use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\OverviewController;
+use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -75,7 +75,8 @@ Route::prefix('v1/borrower')->group(function () {
         });
 
         Route::prefix('credit-builder')->group(function () {
-            Route::get('/my-progress', [OverviewController::class, 'index']);
+            Route::get('/my-progress', [CreditBuilderOverviewController::class, 'index']);
+            Route::get('/tier-wise-tasklist', [\App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController::class, 'index']);
         });    
 
     });

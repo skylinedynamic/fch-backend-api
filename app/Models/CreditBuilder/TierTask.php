@@ -16,6 +16,9 @@ class TierTask extends Model
         'subtitle',
         'description',
         'status',
+        'url',
+        'button_title',
+        'order',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -24,5 +27,10 @@ class TierTask extends Model
     public function tier()
     {
         return $this->belongsTo(Tier::class);
+    }
+
+    public function borrowerTierTasks()
+    {
+        return $this->hasMany(BorrowerTierTask::class);
     }
 }
