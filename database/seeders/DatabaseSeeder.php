@@ -62,8 +62,10 @@ class DatabaseSeeder extends Seeder
 
         // Call seeders in an order that respects new FK relationships
         $this->call([
+            TierSeeder::class,               // Create tiers and tier tasks
             PartnerSeeder::class,            // Create partners (first is host)
             BorrowerSeeder::class,           // Create borrowers under partners
+            BorrowerTierTaskSeeder::class,   // Create borrower tier tasks
             UserSeeder::class,               // Create users mapped to partner/borrower/employee entities
             BorrowerDocTypesSeeder::class,   // Seed borrower document types
             PermissionSeeder::class,         // Role and Permissions seeder
@@ -74,6 +76,7 @@ class DatabaseSeeder extends Seeder
             AppointmentSeeder::class,        // Create appointments for partners
             InvoiceSeeder::class,            // Create invoices for partners
             SupportTicketSeeder::class,      // Create support tickets for partners
+            BorrowerTierTaskSeeder::class,   // Create borrower tier tasks
         ]);
     }
 }

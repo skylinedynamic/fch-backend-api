@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('borrowers', function (Blueprint $table) {
-            $table->string('current_tier')->nullable()->after('status');
+            $table->unsignedBigInteger('current_tier')->nullable()->after('status');
         });
     }
 

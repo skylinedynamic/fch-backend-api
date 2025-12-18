@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
+use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -46,15 +47,11 @@ Route::prefix('v1/borrower')->group(function () {
         Route::group(['prefix' => 'profile',], function () {
             Route::get('/personal-info', [PersonalInfoController::class, 'index']);
             Route::post('/personal-info', [PersonalInfoController::class, 'update']);
-
             Route::get('/business-info', [BusinessInfoController::class, 'index']);
             Route::post('/business-info', [BusinessInfoController::class, 'update']);
-
             Route::get('/financial-info', [FinancialInfoController::class, 'index']);
             Route::post('/financial-info', [FinancialInfoController::class, 'update']);
-            
             Route::get('/completion', [ProfileCompletionController::class, 'check']);
-
         });
 
         Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
@@ -65,11 +62,22 @@ Route::prefix('v1/borrower')->group(function () {
 
          Route::prefix('documents')->group(function () {
                 Route::get('borrower-document-types', [DocumentController::class, 'documentTypes']);
-                
                 Route::get('/', [DocumentController::class, 'index']);
                 Route::post('/upload', [DocumentController::class, 'store']);
                 Route::delete('/{id}', [DocumentController::class, 'destroy']);
             });
+
+        Route::prefix('documents')->group(function () {
+            Route::get('borrower-document-types', [DocumentController::class, 'documentTypes']);
+            Route::get('/', [DocumentController::class, 'index']);
+            Route::post('/upload', [DocumentController::class, 'store']);
+            Route::delete('/{id}', [DocumentController::class, 'destroy']);
+        });
+
+        Route::prefix('credit-builder')->group(function () {
+            Route::get('/my-progress', [CreditBuilderOverviewController::class, 'index']);
+            Route::get('/tier-wise-tasklist', [\App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController::class, 'index']);
+        });    
 
     });
 });
