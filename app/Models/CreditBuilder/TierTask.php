@@ -22,6 +22,7 @@ class TierTask extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'estimated_completion_days',
     ];
 
     public function tier()

@@ -18,7 +18,6 @@ return new class extends Migration
             $table->string('title');
             $table->text('subtitle')->nullable();
             $table->longText('description')->nullable();
-            $table->string('estimated_completion_time')->nullable();
             $table->string('status')->nullable();
             $table->integer('order')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
@@ -38,6 +37,7 @@ return new class extends Migration
             $table->string('url')->nullable();
             $table->string('button_title')->nullable();
             $table->string('status')->nullable();
+            $table->integer('estimated_completion_days')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();
