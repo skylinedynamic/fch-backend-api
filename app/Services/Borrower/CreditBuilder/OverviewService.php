@@ -18,26 +18,43 @@ class OverviewService
     {
         $borrower = Borrower::with('tier')->where('id',auth()->user()->entity_id)->first();
         $currentTier = $borrower->tier; 
-        $tiers = Tier::orderBy('order', 'asc')->get();
+        $tiers = Tier::orderBy('order', 'asc')->withCount('tasks')->get();
 
+        // Total Program Stats
+        $totalProgramTasks = $tiers->sum('tasks_count');
+        $totalCompletedTasks = BorrowerTierTask::where('borrower_id', $borrower->id)
+            ->where('status', BorrowerTierTask::COMPLETED)
+            ->count();
+
+        $totalTasksRemaining = max(0, $totalProgramTasks - $totalCompletedTasks);
+        $totalCompletePercentage = $totalProgramTasks > 0 ? round(($totalCompletedTasks / $totalProgramTasks) * 100) : 0; // If 0 tasks, 0% complete usually makes more sense unless "done" context
+
+        // Current Tier Stats
         $tasksRemaining = 0;
         $taskCompletePercentage = 0;
+        $currentTierEstimatedDays = 0;
 
         if ($currentTier) {
-            $totalTasks = $currentTier->tasks()->count();
+            $currentTierTotalTasks = $currentTier->tasks()->count();
             
-            // Count completed tasks for this borrower in this tier
-            $completedTasks = BorrowerTierTask::where('borrower_id', $borrower->id)
+            // Get completed tasks IDs for this borrower in this tier
+            $completedTaskIds = BorrowerTierTask::where('borrower_id', $borrower->id)
                 ->where('tier_id', $currentTier->id)
                 ->where('status', BorrowerTierTask::COMPLETED)
-                ->count();
+                ->pluck('tier_task_id');
 
-            $tasksRemaining = max(0, $totalTasks - $completedTasks);
+            $currentTierCompletedTasks = $completedTaskIds->count();
+
+            $tasksRemaining = max(0, $currentTierTotalTasks - $currentTierCompletedTasks);
             
-            if ($totalTasks > 0) {
-                $taskCompletePercentage = round(($completedTasks / $totalTasks) * 100);
+            $currentTierEstimatedDays = $currentTier->tasks()
+                ->whereNotIn('id', $completedTaskIds)
+                ->sum('estimated_completion_days');
+            
+            if ($currentTierTotalTasks > 0) {
+                $taskCompletePercentage = round(($currentTierCompletedTasks / $currentTierTotalTasks) * 100);
             } else {
-                $taskCompletePercentage = 100; // If no tasks, technically 100% done? Or 0? Usually 100 implies tier complete.
+                $taskCompletePercentage = 100; // If current tier has no tasks, it is effectively complete
             }
         }
 
@@ -46,6 +63,11 @@ class OverviewService
             'tiers' => $tiers,
             'tasks_remaining_count' => $tasksRemaining,
             'task_complete_percentage' => $taskCompletePercentage,
+            'total_tasks_remaining' => $totalTasksRemaining,
+            'total_complete_percentage' => $totalCompletePercentage,
+            'current_tier_estimated_completion_days' => (int) $currentTierEstimatedDays,
+            'current_tier_completed_tasks' => $currentTierCompletedTasks ?? 0,
+            'total_completed_tasks' => $totalCompletedTasks,
         ];
     }
 

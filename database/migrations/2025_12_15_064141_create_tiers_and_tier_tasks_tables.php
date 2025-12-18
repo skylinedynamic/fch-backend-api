@@ -38,6 +38,7 @@ return new class extends Migration
             $table->string('button_title')->nullable();
             $table->string('status')->nullable();
             $table->integer('estimated_completion_days')->nullable();
+            $table->boolean('is_mandatory')->default(true);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

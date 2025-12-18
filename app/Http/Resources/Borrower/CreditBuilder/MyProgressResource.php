@@ -22,9 +22,13 @@ class MyProgressResource extends JsonResource
             'title' => $currentTier?->title,
             'subtitle' => $currentTier?->subtitle,
             'description' => $currentTier?->description,
-            'estimated_completion_time' => $currentTier?->estimated_completion_time,
-            'tasks_remaining_count' => $this->resource['tasks_remaining_count'] ?? 0,
-            'task_complete_percentage' => $this->resource['task_complete_percentage'] ?? 0,
+            'current_tier_estimated_completion_days' => $this->resource['current_tier_estimated_completion_days'] ?? 0,
+            'current_tier_tasks_remaining' => $this->resource['tasks_remaining_count'] ?? 0,
+            'current_tier_complete_task' => $this->resource['current_tier_completed_tasks'] ?? 0,
+            'current_tier_complete_percentage' => $this->resource['task_complete_percentage'] ?? 0,
+            'total_tasks_remaining' => $this->resource['total_tasks_remaining'] ?? 0,
+            'total_complete_task' => $this->resource['total_completed_tasks'] ?? 0,
+            'total_complete_percentage' => $this->resource['total_complete_percentage'] ?? 0,
             'tiers' => TierResource::collection($this->resource['tiers']),
         ];
     }

@@ -19,10 +19,11 @@ class TierTask extends Model
         'url',
         'button_title',
         'order',
+        'is_mandatory',
+        'estimated_completion_days',
         'created_by',
         'updated_by',
         'deleted_by',
-        'estimated_completion_days',
     ];
 
     public function tier()

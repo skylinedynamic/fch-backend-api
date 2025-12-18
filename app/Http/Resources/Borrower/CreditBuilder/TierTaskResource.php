@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Borrower\CreditBuilder;
 
+use App\Models\CreditBuilder\BorrowerTierTask;
+use App\Models\CreditBuilder\TierTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,14 +17,15 @@ class TierTaskResource extends JsonResource
     public function toArray(Request $request): array
     {
         // Get status from the eager loaded relationship, default to pending
-        $status = $this->borrowerTierTasks->first()?->status ?? 'pending';
+        $borrower_task = $this->borrowerTierTasks->where('borrower_id', auth()->user()->entity_id)->first();
 
         return [
             'id' => $this->id,
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'description' => $this->description,
-            'status' => $status,
+            'status' => $borrower_task ? $borrower_task->status : BorrowerTierTask::PENDING,
+            'completed_at' => $borrower_task ? date('d M Y', strtotime($borrower_task->completed_at)) : null,
             'url' => $this->url,
             'button_title' => $this->button_title,
         ];
