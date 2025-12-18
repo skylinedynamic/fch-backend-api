@@ -189,4 +189,14 @@ return [
             'delete settings',
         ],
     ],
+
+    'tiers' => [
+        'is_host' => 1,
+        'permissions' => [
+            'view tiers',
+            'add tiers',
+            'edit tiers',
+            'delete tiers',
+        ],
+    ],
 ];

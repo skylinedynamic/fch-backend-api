@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
 use Illuminate\Support\Facades\Route;
 
 // ✅ Import Role & Permission Controllers
@@ -48,4 +49,14 @@ Route::prefix('v1/admin')
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
         Route::post('demo-requests/store', [DemoRequestController::class, 'store']);
         // Route::post('demo-requests/update', [DemoRequestController::class, 'update']);
+        
+        // 🏆 Credit Builder
+        Route::prefix('credit-builder')->group(function () {
+            // Tiers
+            Route::post('tiers/fetch-tiers', [TierController::class, 'index']);
+            Route::post('tiers', [TierController::class, 'store']);
+            Route::get('tiers/{id}', [TierController::class, 'show']);
+            Route::put('tiers/{id}', [TierController::class, 'update']);
+            Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
+        });
     });
