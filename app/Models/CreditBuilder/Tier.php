@@ -26,4 +26,9 @@ class Tier extends Model
     {
         return $this->hasMany(TierTask::class);
     }
+
+    public function borrowers()
+    {
+        return $this->hasMany(\App\Models\Borrower\Borrower::class, 'current_tier');
+    }
 }

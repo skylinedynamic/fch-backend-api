@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use Illuminate\Support\Facades\Route;
 
 // ✅ Import Role & Permission Controllers
@@ -58,5 +59,12 @@ Route::prefix('v1/admin')
             Route::get('tiers/{id}', [TierController::class, 'show']);
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
+
+            // Tier Tasks
+            Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
+            Route::post('tier-tasks', [TierTaskController::class, 'store']);
+            Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
+            Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
+            Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
         });
     });

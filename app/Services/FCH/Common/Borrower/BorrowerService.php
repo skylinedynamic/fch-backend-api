@@ -34,17 +34,8 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['partner:id,full_name', 'assignedUser:id,name'])
-            ->select([
-                'borrowers.id',
-                'borrowers.first_name',
-                'borrowers.last_name',
-                'borrowers.email',
-                'borrowers.phone_number',
-                'borrowers.assign_id',
-                'borrowers.partner_id',
-                'borrowers.current_tier',
-            ]);
+            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name'])
+            ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
         if ($authUser && $authUser->partner) {
@@ -60,9 +51,16 @@ class BorrowerService
             }
         }
 
-        // Filter by current_tier
+        // Filter by current_tier (supports ID or Name)
         if (! empty($filters['current_tier'])) {
-            $query->where('borrowers.current_tier', $filters['current_tier']);
+            $currentTier = $filters['current_tier'];
+            if (is_numeric($currentTier)) {
+                $query->where('borrowers.current_tier', $currentTier);
+            } else {
+                $query->whereHas('tier', function ($q) use ($currentTier) {
+                    $q->where('name', 'like', "%{$currentTier}%");
+                });
+            }
         }
 
         // Filter by assign_id
@@ -70,49 +68,60 @@ class BorrowerService
             $query->where('borrowers.assign_id', $filters['assign_id']);
         }
 
-        // Sorting
+        // Determine sorting and joins
         $sortField = $filters['sort_field'] ?? 'id';
-
-        // Handle full_name sorting by using first_name as proxy
-        if ($sortField === 'full_name') {
-            $sortField = 'first_name';
-        }
-
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        if ($sortField === 'full_name') { $sortField = 'first_name'; }
 
         $skipSorting = false;
+        $rawFilters = $filters['filters'] ?? [];
 
-        // Handle assign_name sorting
-        if ($sortField === 'assign_name') {
+        // Join Tiers if sorting or filtering by current_tier_name
+        if ($sortField === 'current_tier_name' || isset($rawFilters['current_tier_name'])) {
+            $query->leftJoin('tiers', 'borrowers.current_tier', '=', 'tiers.id')
+                  ->addSelect('tiers.name as current_tier_name');
+            if ($sortField === 'current_tier_name') {
+                $query->orderBy('tiers.name', $sortOrder);
+                $skipSorting = true;
+            }
+        }
+
+        // Join Partners if sorting or filtering by partner_name
+        if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
+            $query->leftJoin('partners', 'borrowers.partner_id', '=', 'partners.id')
+                  ->addSelect('partners.full_name as partner_name');
+            if ($sortField === 'partner_name') {
+                $query->orderBy('partners.full_name', $sortOrder);
+                $skipSorting = true;
+            }
+        }
+
+        // Join Users if sorting or filtering by assign_name
+        if ($sortField === 'assign_name' || isset($rawFilters['assign_name'])) {
             $query->leftJoin('users as assigned_users', 'borrowers.assign_id', '=', 'assigned_users.id')
-                ->orderBy('assigned_users.name', $sortOrder)
-                ->select([
-                    'borrowers.id',
-                    'borrowers.first_name',
-                    'borrowers.last_name',
-                    'borrowers.email',
-                    'borrowers.phone_number',
-                    'borrowers.assign_id',
-                    'borrowers.partner_id',
-                    'borrowers.current_tier',
-                ]);
-            $skipSorting = true;
+                  ->addSelect('assigned_users.name as assign_name');
+            if ($sortField === 'assign_name') {
+                $query->orderBy('assigned_users.name', $sortOrder);
+                $skipSorting = true;
+            }
         }
 
         // Search across multiple fields
         if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'LIKE', "%{$search}%")
-                    ->orWhere('last_name', 'LIKE', "%{$search}%")
-                    ->orWhere('email', 'LIKE', "%{$search}%")
-                    ->orWhere('phone_number', 'LIKE', "%{$search}%")
-                    ->orWhere('current_tier', 'LIKE', "%{$search}%")
+                $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
+                    ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
+                    ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
+                    ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
                     ->orWhereHas('partner', function ($q) use ($search) {
                         $q->where('full_name', 'LIKE', "%{$search}%");
                     })
+                    ->orWhereHas('tier', function ($q) use ($search) {
+                        $q->where('name', 'LIKE', "%{$search}%");
+                    })
                 // Search concatenated full_name (first_name + last_name)
-                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                    ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
             });
         }
 
@@ -165,7 +174,11 @@ class BorrowerService
             $filters['filters'] ?? [],
             [
                 'concat_fields' => [
-                    'full_name' => ['first_name', 'last_name'],
+                    'full_name' => ['borrowers.first_name', 'borrowers.last_name'],
+                ],
+                'aliases' => [
+                    'current_tier_name' => 'tiers.name',
+                    'partner_name' => 'partners.full_name',
                 ],
                 'skip_sorting' => $skipSorting,
             ]

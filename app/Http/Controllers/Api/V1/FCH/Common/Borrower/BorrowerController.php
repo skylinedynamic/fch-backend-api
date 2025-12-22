@@ -10,6 +10,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
 use App\Services\Borrower\Document\DocumentService;
+use App\Services\FCH\Common\Tier\TierService;
 use Illuminate\Http\Request;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Mail;
@@ -181,13 +182,10 @@ class BorrowerController extends Controller
      * Get Tiers List
      * TODO: When tiers table is created, modify to fetch from database
      */
-    public function getTiers()
+    public function getTiers(TierService $tierService)
     {
         try {
-            // Get tiers from config file
-            // In the future, this can be modified to fetch from database
-            $tiers = config('tiers.list', []);
-
+            $tiers = $tierService->list();
             return ApiResponse::success($tiers, __('borrower.tiers_retrieved'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.tiers_fetch_failed'));
