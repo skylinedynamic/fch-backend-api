@@ -34,6 +34,7 @@ Route::prefix('v1/admin')
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners-stats', [PartnerController::class, 'stats']);
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
+        Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);

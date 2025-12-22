@@ -734,4 +734,12 @@ class PartnerService
 
         return $stats;
     }
+
+    /**
+     * Get the next partner ID (last partner ID plus 1).
+     */
+    public function getNextPartnerId(): int
+    {
+        return (Partner::max('id') ?? 0) + 1;
+    }
 }
