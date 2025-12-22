@@ -99,6 +99,11 @@ return [
     'business_zip_code_required' => 'Business zip code is required',
     'business_zip_code_string' => 'Business zip code must be a string',
     'business_zip_code_max' => 'Business zip code cannot exceed 20 characters',
+    'business_email_required' => 'Business email is required',
+    'business_email_email' => 'Business email must be a valid email address',
+    'business_email_max' => 'Business email cannot exceed 255 characters',
+    'duns_number_string' => 'DUNS number must be a string',
+    'duns_number_max' => 'DUNS number cannot exceed 255 characters',
     
     // Business Categorization
     'business_entity_type_required' => 'Business entity type is required',

@@ -43,4 +43,14 @@ return [
         'sharepoint_site_id' => env('MS_SHAREPOINT_SITE_ID'),
     ],
 
+    'microbilt' => [
+        'base_url' => env('MICROBILT_BASE_URL', 'https://api.microbilt.com/'), // Default to prod or sandbox URL
+        'client_id' => env('MICROBILT_CLIENT_ID'),
+        'client_secret' => env('MICROBILT_CLIENT_SECRET'),
+    ],
+
+    'opencorporates' => [
+        'api_token' => env('OPENCORPORATES_API_TOKEN'),
+    ],
+
 ];

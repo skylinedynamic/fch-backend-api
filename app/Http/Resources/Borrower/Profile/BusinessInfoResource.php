@@ -19,6 +19,8 @@ class BusinessInfoResource extends JsonResource
             'business_ein' => $this->business_ein ?? null,
             'business_phone' => $this->business_phone ?? null,
             'business_address' => $this->business_address ?? null,
+            'business_email' => $this->business_email ?? null,
+            'duns_number' => $this->duns_number ?? null,
             'country' => $this->country ?? null,
             'country_code' => $this->country_code ?? null,
             'business_state' => $this->business_state ?? null,
