@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
+use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
+use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -83,6 +85,9 @@ Route::prefix('v1')->group(function () {
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);
             Route::post('borrower-documents-checklist/save/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'saveChecklist']);
+
+            Route::post('tiers/fetch-all-tiers', [CommonTierController::class, 'index']);
+            Route::post('tier-tasks/fetch-all-tasks', [CommonTierTaskController::class, 'index']);
         });
 
         // V1 Notification routes

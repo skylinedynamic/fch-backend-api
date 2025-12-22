@@ -90,15 +90,15 @@ class PartnerService
 
             // Handle partner_image upload
             if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($partnerData['partner_image'], "partners/{$partner->id}", 'public');
-                $partner->update(['partner_image' => $upload['path']]);
+                // $upload = $this->uploadFile($partnerData['partner_image'], "partners/{$partner->id}", 'public');
+                $partner->update(['partner_image' => basename($partnerData['partner_image'])]);
                 Log::info('🖼️ Partner image uploaded', ['path' => $upload['path']]);
             }
 
             // Handle company_logo upload
             if (isset($partnerData['company_logo']) && $partnerData['company_logo'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($partnerData['company_logo'], "partners/{$partner->id}", 'public');
-                $partner->update(['company_logo' => $upload['path']]);
+                // $upload = $this->uploadFile($partnerData['company_logo'], "partners/{$partner->id}", 'public');
+                $partner->update(['company_logo' => basename($partnerData['company_logo'])]);
                 Log::info('🏢 Company logo uploaded', ['path' => $upload['path']]);
             }
 
@@ -228,22 +228,22 @@ class PartnerService
             // Handle partner_image upload
             if (isset($data['partner_image']) && $data['partner_image'] instanceof UploadedFile) {
                 // Delete old image if exists
-                if ($partner->partner_image) {
-                    $this->deleteFile($partner->partner_image, 'public');
+                if ($partner->getRawOriginal('partner_image')) {
+                    $this->deleteFile("partners/{$partner->id}/" . $partner->getRawOriginal('partner_image'), 'public');
                 }
                 $upload = $this->uploadFile($data['partner_image'], "partners/{$partner->id}", 'public');
-                $data['partner_image'] = $upload['path'];
+                $data['partner_image'] = basename($upload['path']);
                 Log::info('🖼️ Partner image updated', ['path' => $upload['path']]);
             }
 
             // Handle company_logo upload
             if (isset($data['company_logo']) && $data['company_logo'] instanceof UploadedFile) {
                 // Delete old logo if exists
-                if ($partner->company_logo) {
-                    $this->deleteFile($partner->company_logo, 'public');
+                if ($partner->getRawOriginal('company_logo')) {
+                    $this->deleteFile("partners/{$partner->id}/" . $partner->getRawOriginal('company_logo'), 'public');
                 }
                 $upload = $this->uploadFile($data['company_logo'], "partners/{$partner->id}", 'public');
-                $data['company_logo'] = $upload['path'];
+                $data['company_logo'] = basename($upload['path']);
                 Log::info('🏢 Company logo updated', ['path' => $upload['path']]);
             }
 
@@ -733,5 +733,13 @@ class PartnerService
             ->first();
 
         return $stats;
+    }
+
+    /**
+     * Get the next partner ID (last partner ID plus 1).
+     */
+    public function getNextPartnerId(): int
+    {
+        return (Partner::max('id') ?? 0) + 1;
     }
 }

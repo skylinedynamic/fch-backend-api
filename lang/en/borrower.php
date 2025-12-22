@@ -1,11 +1,12 @@
 <?php
+
 return [
     'fetch_personal_profile' => 'Fetch Borrower Profile',
     'update_personal_profile' => 'Update Borrower Profile',
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
     'fetch_profile_completion' => 'Fetch Profile Completion Status',
     'failed_to_update_profile' => 'Failed to update profile',   
-    'signup_id_not_found' => 'BorrowerAuthService registerBorrower error: Signup ID not found',
+    'signup_id_not_found' => 'Signup ID not found',
 
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
@@ -44,15 +45,44 @@ return [
     'pre_qualification_not_found' => 'Pre-qualification application not found',
     'pre_qualification_retrieved_successfully' => 'Pre-qualification application retrieved successfully',
     'pre_qualification_retrieval_failed' => 'Failed to retrieve pre-qualification application. Please try again.',
-    'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
     'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
 
-    //my application
-    'get_myapplication' => 'My Applications retrieved successfully',
+    // Success Messages
+    'success' => [
+        'list' => 'Borrowers retrieved successfully.',
+        'retrieved' => 'Borrowers retrieved successfully.',
+        'retrieved_details' => 'Borrower details retrieved successfully.',
+        'created' => 'Borrower created successfully.',
+        'updated' => 'Borrower updated successfully.',
+        'deleted' => 'Borrower(s) deleted successfully.',
+        'users_retrieved' => 'Users retrieved successfully.',
+        'document_types_retrieved' => 'Document types retrieved successfully.',
+        'stats_retrieved' => 'Stats retrieved successfully.',
+        'tiers_retrieved' => 'Tiers retrieved successfully.',
+        'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
+        'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
+        'upload_success' => 'Document uploaded successfully.',
+        'document_deleted_successfully' => 'Document deleted successfully.',
+    ],
 
-    //documents
-    'upload_success' => 'Document uploaded successfully.',
-    'upload_failed' => 'Failed to upload document.',
+    // Error Messages
+    'error' => [
+        'list_failed' => 'Failed to retrieve borrowers.',
+        'not_found' => 'Borrower not found.',
+        'create_failed' => 'Failed to create borrower.',
+        'update_failed' => 'Failed to update borrower.',
+        'delete_failed' => 'Failed to delete borrower(s).',
+        'fetch_failed' => 'Failed to fetch borrower details.',
+        'users_fetch_failed' => 'Failed to retrieve users.',
+        'document_types_fetch_failed' => 'Failed to fetch document types.',
+        'stats_retrieved_failed' => 'Failed to retrieve stats.',
+        'tiers_fetch_failed' => 'Failed to retrieve tiers.',
+        'upload_failed' => 'Failed to upload document.',
+        'document_delete_failed' => 'Failed to delete document.',
+        'document_not_found' => 'Document not found.',
+    ],
+
+    // Miscellaneous
     'user_id_required' => 'User ID is required.',
     'user_not_found' => 'User not found.',
     'invalid_borrower_doc_type' => 'Invalid borrower document type.',
@@ -60,9 +90,6 @@ return [
     'file_array' => 'File must be an array of files.',
     'file_min' => 'At least one file must be provided.',
     'assign_id_exists' => 'Selected assigned user does not exist.',
-
-    // Advisor
-    'borrower_not_found' => 'Borrower not found.',
     'advisor_not_assigned' => 'No advisor assigned.',
     'advisor_not_found' => 'Advisor not found.',
     'advisor_retrieved' => 'Advisor details retrieved successfully.',
@@ -74,37 +101,4 @@ return [
     'files_min' => 'At least one file must be provided.',
     'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
     'each_file_too_large' => 'Each file must be 2MB or smaller.',
-    'disk_invalid' => 'Invalid storage disk selected.',
-    'documents_fetched_successfully' => 'Documents fetched successfully.',
-    'documents_fetch_failed' => 'Failed to fetch documents.',
-    'document_deleted_successfully' => 'Document deleted successfully.',
-    'document_delete_failed' => 'Failed to delete document.',
-    'document_not_found' => 'Document not found.',
-
-    'success_retrieved' => 'Borrowers retrieved successfully.',
-    'success_retrieved_details' => 'Borrower details retrieved successfully.',
-    'success_created' => 'Borrower created successfully.',
-    'success_updated' => 'Borrower updated successfully.',
-    'success_deleted' => 'Borrower(s) deleted successfully.',
-    'success_users_retrieved' => 'Users retrieved successfully.',
-    
-    'error_list_failed' => 'Failed to retrieve borrowers.',
-    'error_not_found' => 'Borrower not found.',
-    'error_create_failed' => 'Failed to create borrower.',
-    'error_update_failed' => 'Failed to update borrower.',
-    'error_delete_failed' => 'Failed to delete borrower(s).',
-    'error_fetch_failed' => 'Failed to fetch borrower details.',
-    'error_users_fetch_failed' => 'Failed to retrieve users.',
-
-    'document_types_retrieved' => 'Document types retrieved successfully.',
-    'document_types_fetch_failed' => 'Failed to fetch document types.',
-    'stats_retrieved' => 'Stats retrieved successfully.',
-    'stats_retrieved_failed' => 'Failed to retrieve stats.',
-    'tiers_retrieved' => 'Tiers retrieved successfully.',
-    'tiers_fetch_failed' => 'Failed to retrieve tiers.',
-
-
-    //credit builder
-    'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
-    'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
 ];

@@ -237,4 +237,18 @@ class PartnerController extends Controller
             return ApiResponse::serverError(__('partner.partner_stats_retrieved_failed'), 500);
         }
     }
+
+    /**
+     * Get Next Id
+     */
+    public function getNextId()
+    {
+        try {
+            $nextId = $this->partnerService->getNextPartnerId();
+
+            return ApiResponse::success(['next_id' => $nextId], 'Next partner ID retrieved');
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError('Failed to retrieve next partner ID', 500);
+        }
+    }
 }

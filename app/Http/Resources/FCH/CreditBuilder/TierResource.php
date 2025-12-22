@@ -23,7 +23,6 @@ class TierResource extends JsonResource
             'status' => $this->status,
             'order' => $this->order,
             'estimated_completion_days' => $this->estimated_completion_days,
-            // 'tasks' => TierTaskResource::collection($this->whenLoaded('tasks')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

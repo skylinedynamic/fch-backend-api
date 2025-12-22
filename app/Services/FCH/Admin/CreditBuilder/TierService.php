@@ -22,6 +22,7 @@ class TierService
     {
         $query = Tier::query();
 
+
         // 🔍 Search filter
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
@@ -34,7 +35,7 @@ class TierService
                   ->orWhere('status', 'like', "%{$search}%");
             });
         }
-
+ 
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
         }
@@ -53,7 +54,6 @@ class TierService
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
         return $this->respondWithPaginationResource(
             $paginator,
             TierResource::class,

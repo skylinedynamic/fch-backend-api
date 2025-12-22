@@ -149,4 +149,20 @@ class Partner extends Model
     {
         return $this->hasOne(PartnerSubscription::class, 'partner_id');
     }
+
+    /**
+     * Get the company logo URL.
+     */
+    public function getCompanyLogoAttribute($value)
+    {
+        return $value ? asset("storage/partners/{$this->id}/{$value}") : null;
+    }
+
+    /**
+     * Get the partner image URL.
+     */
+    public function getPartnerImageAttribute($value)
+    {
+        return $value ? asset("storage/partners/{$this->id}/{$value}") : null;
+    }
 }
