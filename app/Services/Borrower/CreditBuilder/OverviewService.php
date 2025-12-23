@@ -3,7 +3,7 @@
 namespace App\Services\Borrower\CreditBuilder;
 
 use App\Models\Borrower\Borrower;
-use App\Models\CreditBuilder\BorrowerTierTask;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
 use App\Models\Limit\CreditLine;
 
@@ -22,8 +22,8 @@ class OverviewService
 
         // Total Program Stats
         $totalProgramTasks = $tiers->sum('tasks_count');
-        $totalCompletedTasks = BorrowerTierTask::where('borrower_id', $borrower->id)
-            ->where('status', BorrowerTierTask::COMPLETED)
+        $totalCompletedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
+            ->where('status', BorrowerTaskVerificationRequest::APPROVED)
             ->count();
 
         $totalTasksRemaining = max(0, $totalProgramTasks - $totalCompletedTasks);
@@ -38,10 +38,10 @@ class OverviewService
             $currentTierTotalTasks = $currentTier->tasks()->count();
             
             // Get completed tasks IDs for this borrower in this tier
-            $completedTaskIds = BorrowerTierTask::where('borrower_id', $borrower->id)
+            $completedTaskIds = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
                 ->where('tier_id', $currentTier->id)
-                ->where('status', BorrowerTierTask::COMPLETED)
-                ->pluck('tier_task_id');
+                ->where('status', BorrowerTaskVerificationRequest::APPROVED)
+                ->pluck('task_id');
 
             $currentTierCompletedTasks = $completedTaskIds->count();
 

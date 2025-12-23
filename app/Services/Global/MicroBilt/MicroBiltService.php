@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Borrower\Borrower;
-use App\Models\CreditBuilder\BorrowerTierTask;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\TierTask;
 use Exception;
 
@@ -126,15 +126,16 @@ class MicroBiltService
            $task = TierTask::where('title', 'like', '%700+ Credit Score%')->first();
            
            if ($task) {
-               BorrowerTierTask::updateOrCreate(
+               BorrowerTaskVerificationRequest::updateOrCreate(
                    [
                        'borrower_id' => $borrowerId,
                        'tier_id' => $task->tier_id,
-                       'tier_task_id' => $task->id,
+                       'task_id' => $task->id,
                    ],
                    [
-                       'status' => 'completed',
-                       'completed_at' => now(),
+                       'status' => BorrowerTaskVerificationRequest::APPROVED,
+                       'verified_at' => now(),
+                       'partner_id' => Borrower::find($borrowerId)->partner_id,
                    ]
                );
                Log::info("Marked task {$task->id} as complete for borrower $borrowerId based on MicroBilt score.");

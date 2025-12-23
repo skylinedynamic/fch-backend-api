@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources\Borrower\CreditBuilder;
 
-use App\Models\CreditBuilder\BorrowerTierTask;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -24,8 +24,8 @@ class TierTaskResource extends JsonResource
             'title' => $this->title,
             'subtitle' => $this->subtitle,
             'description' => $this->description,
-            'status' => $borrower_task ? $borrower_task->status : BorrowerTierTask::PENDING,
-            'completed_at' => $borrower_task ? date('d M Y', strtotime($borrower_task->completed_at)) : null,
+            'status' => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
+            'completed_at' => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
             'url' => $this->url,
             'button_title' => $this->button_title,
             'estimated_completion_days' => $this->estimated_completion_days,

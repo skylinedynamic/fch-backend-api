@@ -33,6 +33,6 @@ class TierTask extends Model
 
     public function borrowerTierTasks()
     {
-        return $this->hasMany(BorrowerTierTask::class);
+        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'task_id', 'id');
     }
 }

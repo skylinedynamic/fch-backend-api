@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\CreditBuilder\BorrowerTierTask;
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -45,17 +45,6 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
         });
-
-        Schema::create('borrower_tier_tasks', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tier_id')->nullable()->constrained('tiers')->nullOnDelete();
-            $table->foreignId('tier_task_id')->nullable()->constrained('tier_tasks')->nullOnDelete();
-            $table->foreignId('borrower_id')->nullable()->constrained('borrowers')->nullOnDelete();
-            $table->string('status')->default(BorrowerTierTask::PENDING);
-            $table->timestamp('completed_at')->nullable();
-            $table->softDeletes();
-            $table->timestamps();
-        });
     }
 
     /**
@@ -63,7 +52,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('borrower_tier_tasks');
         Schema::dropIfExists('tier_tasks');
         Schema::dropIfExists('tiers');
     }

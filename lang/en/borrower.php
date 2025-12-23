@@ -48,39 +48,38 @@ return [
     'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
 
     // Success Messages
-    'success' => [
-        'list' => 'Borrowers retrieved successfully.',
-        'retrieved' => 'Borrowers retrieved successfully.',
-        'retrieved_details' => 'Borrower details retrieved successfully.',
-        'created' => 'Borrower created successfully.',
-        'updated' => 'Borrower updated successfully.',
-        'deleted' => 'Borrower(s) deleted successfully.',
-        'users_retrieved' => 'Users retrieved successfully.',
-        'document_types_retrieved' => 'Document types retrieved successfully.',
-        'stats_retrieved' => 'Stats retrieved successfully.',
-        'tiers_retrieved' => 'Tiers retrieved successfully.',
-        'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
-        'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
-        'upload_success' => 'Document uploaded successfully.',
-        'document_deleted_successfully' => 'Document deleted successfully.',
-    ],
+    
+    'list' => 'Borrowers retrieved successfully.',
+    'retrieved' => 'Borrowers retrieved successfully.',
+    'retrieved_details' => 'Borrower details retrieved successfully.',
+    'created' => 'Borrower created successfully.',
+    'updated' => 'Borrower updated successfully.',
+    'deleted' => 'Borrower(s) deleted successfully.',
+    'users_retrieved' => 'Users retrieved successfully.',
+    'document_types_retrieved' => 'Document types retrieved successfully.',
+    'stats_retrieved' => 'Stats retrieved successfully.',
+    'tiers_retrieved' => 'Tiers retrieved successfully.',
+    'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
+    'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
+    'upload_success' => 'Document uploaded successfully.',
+    'document_deleted_successfully' => 'Document deleted successfully.',
 
     // Error Messages
-    'error' => [
-        'list_failed' => 'Failed to retrieve borrowers.',
-        'not_found' => 'Borrower not found.',
-        'create_failed' => 'Failed to create borrower.',
-        'update_failed' => 'Failed to update borrower.',
-        'delete_failed' => 'Failed to delete borrower(s).',
-        'fetch_failed' => 'Failed to fetch borrower details.',
-        'users_fetch_failed' => 'Failed to retrieve users.',
-        'document_types_fetch_failed' => 'Failed to fetch document types.',
-        'stats_retrieved_failed' => 'Failed to retrieve stats.',
-        'tiers_fetch_failed' => 'Failed to retrieve tiers.',
-        'upload_failed' => 'Failed to upload document.',
-        'document_delete_failed' => 'Failed to delete document.',
-        'document_not_found' => 'Document not found.',
-    ],
+    
+    'list_failed' => 'Failed to retrieve borrowers.',
+    'not_found' => 'Borrower not found.',
+    'create_failed' => 'Failed to create borrower.',
+    'update_failed' => 'Failed to update borrower.',
+    'delete_failed' => 'Failed to delete borrower(s).',
+    'fetch_failed' => 'Failed to fetch borrower details.',
+    'users_fetch_failed' => 'Failed to retrieve users.',
+    'document_types_fetch_failed' => 'Failed to fetch document types.',
+    'stats_retrieved_failed' => 'Failed to retrieve stats.',
+    'tiers_fetch_failed' => 'Failed to retrieve tiers.',
+    'upload_failed' => 'Failed to upload document.',
+    'document_delete_failed' => 'Failed to delete document.',
+    'document_not_found' => 'Document not found.',
+   
 
     // Miscellaneous
     'user_id_required' => 'User ID is required.',
@@ -101,4 +100,10 @@ return [
     'files_min' => 'At least one file must be provided.',
     'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
     'each_file_too_large' => 'Each file must be 2MB or smaller.',
+
+
+    // Credit Builder Messages
+    'task_verify_request_success' => 'Task verify request submitted successfully',
+    'task_verify_request_failed' => 'Failed to submit task verify request. Please try again.',
+    'tier_task_list_retrieved' => 'Tier task list retrieved successfully',
 ];

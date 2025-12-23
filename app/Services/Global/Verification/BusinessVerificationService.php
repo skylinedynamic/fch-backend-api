@@ -3,7 +3,7 @@
 namespace App\Services\Global\Verification;
 
 use App\Models\Borrower\Borrower;
-use App\Models\CreditBuilder\BorrowerTierTask;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\TierTask;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Services\Global\OpenCorporates\OpenCorporatesService;
@@ -117,7 +117,7 @@ class BusinessVerificationService
     }
 
     /**
-     * Helper to update BorrowerTierTask status.
+     * Helper to update BorrowerTaskVerificationRequest status.
      *
      * @param int $borrowerId
      * @param string $taskTitle
@@ -129,15 +129,16 @@ class BusinessVerificationService
 
         $task = TierTask::where('title', $taskTitle)->first();
         if ($task) {
-            BorrowerTierTask::updateOrCreate(
+            BorrowerTaskVerificationRequest::updateOrCreate(
                 [
                     'borrower_id' => $borrowerId,
                     'tier_id' => $task->tier_id,
-                    'tier_task_id' => $task->id,
+                    'task_id' => $task->id,
                 ],
                 [
-                    'status' => 'completed',
-                    'completed_at' => now(),
+                    'status' => BorrowerTaskVerificationRequest::APPROVED,
+                    'verified_at' => now(),
+                    'partner_id' => Borrower::find($borrowerId)->partner_id, // Ensure partner_id is set
                 ]
             );
             Log::info("Auto-completed task '{$taskTitle}' for borrower {$borrowerId}");

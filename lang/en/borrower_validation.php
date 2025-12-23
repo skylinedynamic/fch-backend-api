@@ -191,4 +191,12 @@ return [
     'files_array' => 'Files must be an array',
     'files_min' => 'At least one file is required',
     'upload_failed' => 'Failed to upload document',
+
+    // Task Verification
+    'task_ids_required' => 'Task IDs are required',
+    'task_ids_must_be_array' => 'Task IDs must be an array',
+    'task_ids_min' => 'At least one task ID is required',
+    'task_id_required' => 'Task ID is required',
+    'task_id_must_be_integer' => 'Task ID must be an integer',
+    'task_id_not_found' => 'The selected task ID does not exist',
 ];
