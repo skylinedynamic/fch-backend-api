@@ -32,9 +32,14 @@ class RoleService
         $query = Role::where('partner_id', $partnerId)
             ->orderBy('id')
             ->with(['permissions'])
-            ->withCount('users')
-            ->get();
-        return ApiResponse::success(RoleResource::collection($query), __('role_permission.role_list_retrieved'));
+            ->withCount('users');
+
+        if (!Auth::user()->hasRole('Developer')) {
+            $query->where('code', '!=', 'developer');
+        }
+
+        $roles = $query->get();
+        return ApiResponse::success(RoleResource::collection($roles), __('role_permission.role_list_retrieved'));
         
     }
 
@@ -44,6 +49,10 @@ class RoleService
             ->orderBy('id')
             ->with(['permissions'])
             ->withCount('users');
+
+        if (!Auth::user()->hasRole('Developer')) {
+            $query->where('code', '!=', 'developer');
+        }
         $paginator = $this->paginateBuilder($query, $request);
         return $this->respondWithPaginationResource($paginator, RoleResource::class, __('role_permission.role_list_retrieved'));
     }
@@ -89,6 +98,10 @@ class RoleService
 
     public function update(Role $role, array $data)
     {
+        if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
+            throw ApiResponse::error(__('role_permission.not_authorized_to_update_developer_role'), 403);
+        }
+
         return DB::transaction(function () use ($role, $data) {
             $role->update([
                 'name' => $data['name'] ?? $role->name,
@@ -120,6 +133,13 @@ class RoleService
 
         if ($roles->isEmpty()) {
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
+        if (!Auth::user()->hasRole('Developer')) {
+            $hasDeveloper = $roles->firstWhere('code', 'developer');
+            if ($hasDeveloper) {
+                 return ApiResponse::error(__('role_permission.not_authorized_to_delete_developer_role'), 403);
+            }
         }
 
         $static = $roles->firstWhere('is_static', true);

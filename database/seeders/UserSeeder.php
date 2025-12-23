@@ -34,6 +34,22 @@ class UserSeeder extends Seeder
             ]
         );
 
+        // 1.1) Create Developer user linked to Host Partner
+        User::updateOrCreate(
+            ['email' => 'developer@fch.com'],
+            [
+                'name' => 'Developer',
+                'phone_number' => $hostPartner?->phone_number,
+                'user_type' => User::ADMIN,
+                'password' => Hash::make('12345678'),
+                'status' => User::STATUS['active'],
+                'email_verified_at' => now(),
+                'partner_id' => $hostPartner?->id,
+                'entity_type' => Partner::class,
+                'entity_id' => $hostPartner?->id,
+            ]
+        );
+
         // 2) Create Partner users for non-host partners
         $partners = DB::table('partners')->where('is_host', false)->get();
         foreach ($partners as $p) {

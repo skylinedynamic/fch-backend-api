@@ -34,7 +34,12 @@ class RoleSeeder extends Seeder
         }
 
         foreach ($partners as $partner) {
-            // Create three roles per partner: Admin, Manager, Sales
+            // Create four roles per partner: Developer, Admin, Manager, Sales
+            $developerRole = Role::updateOrCreate(
+                ['name' => 'Developer', 'guard_name' => 'api', 'partner_id' => $partner->id],
+                ['name' => 'Developer', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'developer','is_static' => true]
+            );
+
             $adminRole = Role::updateOrCreate(
                 ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id],
                 ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id, 'code' => 'admin','is_static' => true]
@@ -60,13 +65,14 @@ class RoleSeeder extends Seeder
             $salesCount = min($salesCount, $allPerms->count());
             $salesPerms = $allPerms->shuffle()->take($salesCount);
 
-            // Admin: all permissions
+            // Developer & Admin: all permissions
+            $developerRole->syncPermissions($allPerms);
             $adminRole->syncPermissions($allPerms);
             $managerRole->syncPermissions($managerPerms);
             $salesRole->syncPermissions($salesPerms);
 
             $this->command?->info(
-                "Seeded roles for Partner ID {$partner->id}: Admin (all), Manager (subset), Sales (random)"
+                "Seeded roles for Partner ID {$partner->id}: Developer (all), Admin (all), Manager (subset), Sales (random)"
             );
         }
 

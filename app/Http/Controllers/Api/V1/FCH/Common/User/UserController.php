@@ -100,6 +100,10 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
+        if ($user->hasRole('Developer') && !Auth::user()->hasRole('Developer')) {
+            return ApiResponse::error(__('user.user_not_found'), 404);
+        }
+
         return ApiResponse::success(
             new UserResource($user->load([ 'roles', 'permissions'])),
             __('user.user_retrieved')
@@ -134,7 +138,15 @@ class UserController extends Controller
     public function multipleDelete(Request $request)
     {
         try {
-           User::whereIn('id', $request->ids)->delete();
+           $query = User::whereIn('id', $request->ids);
+           
+           if (!Auth::user()->hasRole('Developer')) {
+               $query->whereDoesntHave('roles', function ($q) {
+                   $q->where('code', 'developer');
+               });
+           }
+
+           $query->delete();
            return ApiResponse::success(
              [],
             __('user.user_deleted')

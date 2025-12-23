@@ -27,4 +27,6 @@ return [
     'role_list_retrieved' => 'Role list retrieved successfully.',
     'role_create_error' => 'Role creation failed.',
     'partner_id_required' => 'Partner ID is required to create a role.',
+    'not_authorized_to_update_developer_role' => 'You are not authorized to update developer roles.',
+    'not_authorized_to_delete_developer_role' => 'You are not authorized to delete developer roles.',
 ];

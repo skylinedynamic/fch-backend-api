@@ -12,6 +12,6 @@ class TierService
      */
     public function list()
     {
-        return Tier::select('id', 'name')->orderBy('id', 'asc')->get();
+        return Tier::select('id', 'name')->orderBy('order', 'asc')->get();
     }
 }

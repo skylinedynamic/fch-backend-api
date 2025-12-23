@@ -28,6 +28,8 @@ class TierTaskResource extends JsonResource
             'completed_at' => $borrower_task ? date('d M Y', strtotime($borrower_task->completed_at)) : null,
             'url' => $this->url,
             'button_title' => $this->button_title,
+            'estimated_completion_days' => $this->estimated_completion_days,
+            'order' => $this->order,
         ];
     }
 }
