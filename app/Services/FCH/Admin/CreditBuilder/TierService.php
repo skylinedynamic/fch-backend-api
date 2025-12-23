@@ -47,7 +47,17 @@ class TierService
             $query,
             $sortField,
             $sortOrder,
-            $filters['filters'] ?? []
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [
+                    'name' => 'tiers.name',
+                    'title' => 'tiers.title',
+                    'subtitle' => 'tiers.subtitle',
+                    'order' => 'tiers.order',
+                    'status' => 'tiers.status',
+                    'description' => 'tiers.description',
+                ],
+            ]
         );
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;

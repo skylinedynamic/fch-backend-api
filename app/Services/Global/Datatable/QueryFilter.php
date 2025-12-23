@@ -22,7 +22,6 @@ class QueryFilter
          if (!($options['skip_sorting'] ?? false)) {
             $query->orderBy($sortField, $sortOrder);
         }
-        $query->orderBy($sortField, $sortOrder);
         
         if (is_string($rawFilters)) {
             $decoded = json_decode($rawFilters, true);

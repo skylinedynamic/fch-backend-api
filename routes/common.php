@@ -53,6 +53,7 @@ Route::prefix('v1')->group(function () {
             Route::post('employees/fetch-employees',[EmployeeController::class,'fetchEmployees']);
             Route::post('employees/fetch-department-status',[EmployeeController::class,'fetchDepartmentStatus']);
             Route::post('employees/multiple-delete', [EmployeeController::class, 'multipleDelete']);
+            Route::get('employees-next-id', [EmployeeController::class, 'nextId']);
             Route::apiResource('employees', EmployeeController::class);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
