@@ -67,8 +67,16 @@ class TierTaskService
             $filters['filters'] ?? [],
             [
                 'aliases' => [
+                    'title' => 'tier_tasks.title',
+                    'subtitle' => 'tier_tasks.subtitle',
+                    'estimated_completion_days' => 'tier_tasks.estimated_completion_days',
+                    'order' => 'tier_tasks.order',
+                    'description' => 'tier_tasks.description',
+                    'url' => 'tier_tasks.url',
+                    'button_title' => 'tier_tasks.button_title',
+                    'status' => 'tier_tasks.status',
                     'tier_name' => 'tiers.name',
-                ]
+                ],
             ]
         );
 

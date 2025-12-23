@@ -197,6 +197,10 @@ return [
             'add tiers',
             'edit tiers',
             'delete tiers',
+            'view verification center',
+            'add verification center',
+            'edit verification center',
+            'delete verification center',
         ],
     ],
 ];

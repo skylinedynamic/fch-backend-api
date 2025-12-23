@@ -41,7 +41,7 @@ class EmployeeResource extends JsonResource
             'emergency_contact' => $this->emergency_contact,
             'emergency_phone' => $this->emergency_phone,
 
-            'image' => $this->image ? url('storage/'.$this->image) : null,
+            'image' => $this->image,
 
             'user' => $this->whenLoaded('user', function () {
 

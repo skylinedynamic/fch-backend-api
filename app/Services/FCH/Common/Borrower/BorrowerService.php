@@ -30,6 +30,7 @@ class BorrowerService
      */
     public function list(array $filters)
     {
+
         // Get authenticated user to determine filter logic
         $authUser = auth()->user();
 
@@ -67,7 +68,7 @@ class BorrowerService
         if (! empty($filters['assign_id'])) {
             $query->where('borrowers.assign_id', $filters['assign_id']);
         }
-
+   
         // Determine sorting and joins
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
@@ -167,6 +168,25 @@ class BorrowerService
             unset($filters['filters']['assign_name']);
         }
 
+        // Build aliases dynamically based on which joins are present
+        $aliases = [
+            'email' => 'borrowers.email',
+            'phone_number' => 'borrowers.phone_number',
+            'first_name' => 'borrowers.first_name',
+            'last_name' => 'borrowers.last_name',
+        ];
+
+        // Add join-dependent aliases only when those joins exist
+        if ($sortField === 'current_tier_name' || isset($rawFilters['current_tier_name'])) {
+            $aliases['current_tier_name'] = 'tiers.name';
+        }
+        if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
+            $aliases['partner_name'] = 'partners.full_name';
+        }
+        if ($sortField === 'assign_name' || isset($rawFilters['assign_name'])) {
+            $aliases['assign_name'] = 'assigned_users.name';
+        }
+
         $query = QueryFilter::apply(
             $query,
             $sortField,
@@ -176,20 +196,17 @@ class BorrowerService
                 'concat_fields' => [
                     'full_name' => ['borrowers.first_name', 'borrowers.last_name'],
                 ],
-                'aliases' => [
-                    'current_tier_name' => 'tiers.name',
-                    'partner_name' => 'partners.full_name',
-                ],
+                'aliases' => $aliases,
                 'skip_sorting' => $skipSorting,
             ]
         );
+
 
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
         return $this->respondWithPaginationResource(
             $paginator,
             BorrowerResource::class,
