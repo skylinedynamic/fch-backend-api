@@ -23,7 +23,7 @@ class OverviewService
         // Total Program Stats
         $totalProgramTasks = $tiers->sum('tasks_count');
         $totalCompletedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
-            ->where('status', BorrowerTaskVerificationRequest::APPROVED)
+            ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
             ->count();
 
         $totalTasksRemaining = max(0, $totalProgramTasks - $totalCompletedTasks);
@@ -40,7 +40,7 @@ class OverviewService
             // Get completed tasks IDs for this borrower in this tier
             $completedTaskIds = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
                 ->where('tier_id', $currentTier->id)
-                ->where('status', BorrowerTaskVerificationRequest::APPROVED)
+                ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
                 ->pluck('task_id');
 
             $currentTierCompletedTasks = $completedTaskIds->count();

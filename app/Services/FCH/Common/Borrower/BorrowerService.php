@@ -210,7 +210,6 @@ class BorrowerService
             $data['current_tier'] = Tier::where('order', 1)->first()?->id;
             Log::info('Partner ID: ' . auth()->user()->partner_id);
             $borrower = Borrower::create($data);
-            
 
             // Remove used signup_id
             // if (!empty($data['signup_id']) && !empty($data['partner_id'])) {

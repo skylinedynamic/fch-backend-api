@@ -30,14 +30,12 @@ class BorrowerTaskVerificationRequest extends Model
 
     public const PENDING = 'pending';
     public const PROCESSING = 'processing';
-    public const APPROVED = 'approved';
-    public const REJECTED = 'rejected';
+    public const COMPLETED = 'completed';
 
     public const STATUS = [
         self::PENDING => self::PENDING,
         self::PROCESSING => self::PROCESSING,
-        self::APPROVED => self::APPROVED,
-        self::REJECTED => self::REJECTED,
+        self::COMPLETED => self::COMPLETED,
     ];
 
     public function borrower(): BelongsTo
