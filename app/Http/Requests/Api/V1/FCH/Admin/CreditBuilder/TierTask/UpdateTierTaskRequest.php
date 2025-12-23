@@ -29,6 +29,7 @@ class UpdateTierTaskRequest extends BaseApiRequest
             'status' => 'nullable|string|max:50',
             'url' => 'nullable|string|url',
             'button_title' => 'nullable|string|max:255',
+            'order' => 'nullable|integer',
             'estimated_completion_days' => 'nullable|integer|min:0',
         ];
     }

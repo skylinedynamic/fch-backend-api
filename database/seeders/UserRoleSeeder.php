@@ -23,6 +23,12 @@ class UserRoleSeeder extends Seeder
 
             $guard = 'api';
 
+            $developerRole = Role::query()
+                ->where('code', 'developer')
+                ->where('guard_name', $guard)
+                ->where('partner_id', $user->partner_id)
+                ->first();
+
             $adminRole = Role::query()
                 ->where('name', 'Admin')
                 ->where('guard_name', $guard)
@@ -41,16 +47,19 @@ class UserRoleSeeder extends Seeder
                 ->where('partner_id', $user->partner_id)
                 ->first();
 
-            if (!$adminRole || !$managerRole || !$salesRole) {
+            if (!$adminRole || !$managerRole || !$salesRole || !$developerRole) {
                 continue;
             }
 
-     
             $isPartnerEntity = $user->entity_type === Partner::class;
-
-            $rolesToAssign = $isPartnerEntity
-                ? [$adminRole]
-                : [$managerRole, $salesRole];
+            
+            if ($user->email === 'developer@fch.com') {
+                $rolesToAssign = [$developerRole];
+            } else {
+                $rolesToAssign = $isPartnerEntity
+                    ? [$adminRole]
+                    : [$managerRole, $salesRole];
+            }
 
             $user->syncRoles($rolesToAssign);
 

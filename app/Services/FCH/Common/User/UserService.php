@@ -76,7 +76,15 @@ class UserService
 
     public function getAll()
     {
-         $users = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles'])->orderBy('id', 'desc')->get();
+         $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles'])->orderBy('id', 'desc');
+         
+         if (!Auth::user()->hasRole('Developer')) {
+             $query->whereDoesntHave('roles', function ($q) {
+                 $q->where('code', 'developer');
+             });
+         }
+
+         $users = $query->get();
          return ApiResponse::success(UserResource::collection($users),__('user.user_list_retrieved'));
 
     }
@@ -87,6 +95,12 @@ class UserService
     public function list(int $partnerId, array $filters)
     {
         $query = User::query()->where('partner_id', $partnerId)->with(['roles','partner']);
+
+        if (!Auth::user()->hasRole('Developer')) {
+            $query->whereDoesntHave('roles', function ($q) {
+                $q->where('code', 'developer');
+            });
+        }
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
@@ -180,6 +194,10 @@ class UserService
      */
     public function update(User $user, array $data, ?int $roleId = null): User
     {
+        if ($user->hasRole('Developer') && !Auth::user()->hasRole('Developer')) {
+            throw new \Exception(__('user.not_authorized_to_update_developer'));
+        }
+
         DB::beginTransaction();
 
         try {

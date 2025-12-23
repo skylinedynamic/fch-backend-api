@@ -25,6 +25,8 @@ class TierTaskResource extends JsonResource
             'status' => $status,
             'url' => $this->url,
             'button_title' => $this->button_title,
+            'estimated_completion_days' => $this->estimated_completion_days,
+            'order' => $this->order,
         ];
     }
 }

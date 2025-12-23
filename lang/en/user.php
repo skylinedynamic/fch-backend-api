@@ -34,4 +34,6 @@ return [
     'user_list_retrieved'    => 'User list retrieved successfully.',
     'failed_to_retrieve_users'=> 'Failed to retrieve users.',
     'user_retrieved'         => 'User details retrieved successfully.',
+    'not_authorized_to_update_developer' => 'You are not authorized to update developer accounts.',
+    'user_not_found'         => 'The specified user does not exist.',
 ];

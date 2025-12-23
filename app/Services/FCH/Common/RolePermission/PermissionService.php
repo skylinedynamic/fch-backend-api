@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\RolePermission;
 use App\Helpers\ApiResponse;
 use App\Models\Common\Permission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\FCH\Permission\PermissionResource;
 
 class PermissionService
@@ -15,10 +16,19 @@ class PermissionService
     public function getAll(Request $request)
     {
         $isGroupBy = $request->boolean('is_groupby');
+        $user = Auth::user();
+        $isDeveloper = $user->hasRole('Developer');
+        $isHostPartner = $user->partner?->is_host ?? false;
 
-        $permissions = Permission::select('id', 'name', 'module')
-            ->orderBy('id', 'asc')
-            ->get();
+        $query = Permission::query()
+            ->select('id', 'name', 'module')
+            ->orderBy('id', 'asc');
+
+        if (!$isDeveloper && !$isHostPartner) {
+            $query->where('is_host', 0);
+        }
+
+        $permissions = $query->get();
 
         if ($isGroupBy) {
             $grouped = $permissions

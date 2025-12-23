@@ -73,6 +73,10 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
+        if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
         $role->load(['permissions', 'users']);
 
         $payload = [
@@ -80,7 +84,11 @@ class RoleController extends Controller
             'name' => $role->name,
             'description' => $role->description,
             'permission' => $role->permissions->pluck('name','id')->unique()->toArray(),
-            'users' => UserResource::collection($role->users)->toArray(request()),
+            'users' => UserResource::collection(
+                $role->users->reject(function ($user) {
+                    return $user->hasRole('Developer') && !Auth::user()->hasRole('Developer');
+                })
+            )->toArray(request()),
         ];
 
         return ApiResponse::success($payload, __('role_permission.role_details'));
