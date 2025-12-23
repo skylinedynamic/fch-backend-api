@@ -100,4 +100,12 @@ class Employee extends Model
 
         return 'EMP-'.str_pad($number + 1, 5, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * Get the employee image URL.
+     */
+    public function getImageAttribute($value)
+    {
+         return $value ? asset("storage/employees/{$this->id}/{$value}") : null;
+    }
 }

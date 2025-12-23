@@ -144,8 +144,7 @@ class EmployeeService
 
             // 3️⃣ Upload image if provided
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
-                $employee->update(['image' => $upload['path']]);
+                $employee->update(['image' => $employeeData['image']]);
                 Log::info('🖼️ Employee image uploaded', ['path' => $upload['path']]);
             }
 
@@ -189,11 +188,11 @@ class EmployeeService
 
             // 1️⃣ Handle image upload
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                if ($employee->image) {
-                    $this->deleteFile($employee->image, 'public');
-                }
-                $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
-                $employeeData['image'] = $upload['path'];
+                // if ($employee->image) {
+                //     $this->deleteFile($employee->getRawOriginal('image'), 'public');
+                // }
+                // $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
+                $employeeData['image'] = $employeeData['image'];
             }
 
             // 2️⃣ Update employee data
@@ -270,7 +269,7 @@ class EmployeeService
 
         try {
             if ($employee->image) {
-                $this->deleteFile($employee->image, 'public');
+                $this->deleteFile($employee->getRawOriginal('image'), 'public');
                 Log::info('🗑️ Employee image deleted', ['employee_id' => $employee->id]);
             }
 
@@ -319,10 +318,9 @@ class EmployeeService
     /**
      * Find employee by ID and business ID.
      */
-    public function find(int $id, int $partnerId): Employee
+    public function find(int $id): Employee
     {
         return Employee::where('id', $id)
-            ->where('partner_id', auth()->user()->partner_id)
             ->with('user')
             ->firstOrFail();
     }
@@ -380,7 +378,7 @@ class EmployeeService
         $employees = Employee::whereIn('id', $ids)->get();
         foreach ($employees as $employee) {
             if ($employee->image) {
-                $this->deleteFile($employee->image, 'public');
+                $this->deleteFile($employee->getRawOriginal('image'), 'public');
             }
         }
 
@@ -397,5 +395,13 @@ class EmployeeService
         });
 
         return true;
+    }
+
+    /**
+     * Get the next employee ID (last employee ID plus 1).
+     */
+    public function getNextEmployeeId(): int
+    {
+        return (Employee::max('id') ?? 0) + 1;
     }
 }

@@ -43,8 +43,7 @@ class EmployeeController extends Controller
     public function show($id)
     {
         try {
-            $partnerId = auth()->user()->partner_id;
-            $employee = $this->employeeService->find($id, $partnerId);
+            $employee = $this->employeeService->find($id);
 
             return ApiResponse::success(new EmployeeResource($employee), __('employee.employee_details'));
         } catch (\Exception $e) {
@@ -292,5 +291,14 @@ class EmployeeController extends Controller
         }
 
         return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
+    }
+
+    /**
+     * Get Next Employee ID
+     */
+    public function nextId()
+    {
+        $nextId = $this->employeeService->getNextEmployeeId();
+        return ApiResponse::success(['next_id' => $nextId], 'Next Employee ID retrieved successfully');
     }
 }
