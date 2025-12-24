@@ -39,6 +39,8 @@ return new class extends Migration
             $table->string('status')->nullable();
             $table->integer('estimated_completion_days')->nullable();
             $table->boolean('is_mandatory')->default(true);
+            $table->boolean('manual_verification')->default(false);
+            $table->unsignedBigInteger('task_related_api_id')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

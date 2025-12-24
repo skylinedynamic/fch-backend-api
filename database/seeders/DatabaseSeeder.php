@@ -62,6 +62,7 @@ class DatabaseSeeder extends Seeder
 
         // Call seeders in an order that respects new FK relationships
         $this->call([
+            TaskRelatedApiSeeder::class,
             TierSeeder::class,               // Create tiers and tier tasks
             PartnerSeeder::class,            // Create partners (first is host)
             BorrowerSeeder::class,           // Create borrowers under partners
