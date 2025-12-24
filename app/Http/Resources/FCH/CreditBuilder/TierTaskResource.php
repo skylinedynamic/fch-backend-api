@@ -24,6 +24,7 @@ class TierTaskResource extends JsonResource
             'button_title' => $this->button_title,
             'status' => $this->status,
             'order' => $this->order,
+            'manual_verification' => $this->manual_verification,
             'estimated_completion_days' => $this->estimated_completion_days,
             'tier_name' => $this->tier ? $this->tier->name : null,
             'created_at' => $this->created_at,

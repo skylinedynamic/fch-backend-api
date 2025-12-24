@@ -20,6 +20,7 @@ class TierTask extends Model
         'button_title',
         'order',
         'is_mandatory',
+        'manual_verification',
         'estimated_completion_days',
         'created_by',
         'updated_by',

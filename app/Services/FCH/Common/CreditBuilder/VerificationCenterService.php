@@ -43,7 +43,7 @@ class VerificationCenterService
                 'borrower_id',
                 'partner_id',
                 'tier_id',
-                DB::raw("COUNT(CASE WHEN status = '" . BorrowerTaskVerificationRequest::PENDING . "' THEN 1 END) as pending_count"),
+                DB::raw("COUNT(CASE WHEN status = '" . BorrowerTaskVerificationRequest::PROCESSING . "' THEN 1 END) as pending_count"),
                 DB::raw('MAX(created_at) as request_date'),
                 DB::raw("DATE_FORMAT(MAX(created_at), '%M %d, %Y %h:%i %p') as formatted_request_date"),
                 DB::raw('MIN(id) as id')

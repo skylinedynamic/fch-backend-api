@@ -17,7 +17,6 @@ class TierTaskService
      */
     public function list(array $filters = [])
     {
-            dd($filters);
         $sortField = $filters['sort_field'] ?? 'order';
         $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 
