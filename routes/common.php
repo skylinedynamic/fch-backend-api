@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
+use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -89,6 +90,10 @@ Route::prefix('v1')->group(function () {
 
             Route::post('tiers/fetch-all-tiers', [CommonTierController::class, 'index']);
             Route::post('tier-tasks/fetch-all-tasks', [CommonTierTaskController::class, 'index']);
+
+            Route::prefix('credit-builder')->group(function () {
+                Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
+            });
         });
 
         // V1 Notification routes

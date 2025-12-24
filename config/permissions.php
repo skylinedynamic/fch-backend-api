@@ -197,6 +197,12 @@ return [
             'add tiers',
             'edit tiers',
             'delete tiers',
+        ],
+    ],
+
+    'verification center' => [
+        'is_host' => 0,
+        'permissions' => [
             'view verification center',
             'add verification center',
             'edit verification center',
