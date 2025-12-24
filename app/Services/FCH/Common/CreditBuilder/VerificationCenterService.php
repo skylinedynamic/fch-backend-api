@@ -144,4 +144,70 @@ class VerificationCenterService
             __('verification_center.success_retrieved')
         );
     }
+
+    /**
+     * Fetch all verification requests for a specific borrower.
+     */
+    public function fetchBorrowerRequests(array $filters)
+    {
+        $query = BorrowerTaskVerificationRequest::query()
+            ->with(['borrower:id,first_name,last_name', 'tier:id,name', 'task:id,title']);
+
+        if (!empty($filters['borrower_id'])) {
+            $query->where('borrower_id', $filters['borrower_id']);
+        }
+
+        if (!empty($filters['partner_id'])) {
+            $query->where('partner_id', $filters['partner_id']);
+        }
+
+        // Apply partner security filter if not already filtered or restricted
+        $authUser = auth()->user();
+        if ($authUser && $authUser->partner && $authUser->partner->is_host != 1) {
+            $query->where('partner_id', $authUser->partner_id);
+        }
+
+        // Global search across task title and tier name
+        if (!empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('task', function ($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%");
+                })->orWhereHas('tier', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                })->orWhere('status', 'LIKE', "%{$search}%")
+                ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y %h:%i %p') LIKE ?", ["%{$search}%"]);
+            });
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'created_at';
+        if ($sortField === 'request_date') {
+            $sortField = 'created_at';
+        }
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        if ($sortField === 'task_name') {
+            $query->join('tier_tasks', 'borrower_task_verification_requests.task_id', '=', 'tier_tasks.id')
+                ->orderBy('tier_tasks.title', $sortOrder)
+                ->select('borrower_task_verification_requests.*');
+        } elseif ($sortField === 'tier_name') {
+            $query->join('tiers', 'borrower_task_verification_requests.tier_id', '=', 'tiers.id')
+                ->orderBy('tiers.name', $sortOrder)
+                ->select('borrower_task_verification_requests.*');
+        } else {
+            $query->orderBy('borrower_task_verification_requests.' . $sortField, $sortOrder);
+        }
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            \App\Http\Resources\FCH\CreditBuilder\BorrowerTaskVerificationRequestDetailResource::class,
+            __('verification_center.success_retrieved')
+        );
+    }
 }

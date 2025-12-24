@@ -93,6 +93,7 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('credit-builder')->group(function () {
                 Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
+                Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests']);
             });
         });
 
