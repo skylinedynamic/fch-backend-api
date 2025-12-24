@@ -75,4 +75,9 @@ class Borrower extends Model
     {
         return $this->belongsTo(Tier::class, 'current_tier');
     }
+
+    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CreditBuilder\BorrowerTaskVerificationRequest::class, 'borrower_id');
+    }
 }
