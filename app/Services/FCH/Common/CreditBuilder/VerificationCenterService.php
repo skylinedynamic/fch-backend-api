@@ -66,24 +66,26 @@ class VerificationCenterService
         // Search and Filters using HAVING for grouped columns and subqueries
         $inputFilters = $filters['filters'] ?? [];
 
-        if (!empty($inputFilters['borrower_name'])) {
-            $val = is_array($inputFilters['borrower_name']) ? ($inputFilters['borrower_name']['value'] ?? null) : $inputFilters['borrower_name'];
-            if ($val) {
-                $query->having('borrower_name', 'LIKE', "%{$val}%");
-            }
-        }
+        foreach ($inputFilters as $field => $filterData) {
+            $constraints = is_array($filterData) && isset($filterData['constraints']) 
+                ? $filterData['constraints'] 
+                : [['value' => is_array($filterData) ? ($filterData['value'] ?? null) : $filterData]];
 
-        if (!empty($inputFilters['tier_name'])) {
-            $val = is_array($inputFilters['tier_name']) ? ($inputFilters['tier_name']['value'] ?? null) : $inputFilters['tier_name'];
-            if ($val) {
-                $query->having('tier_name', 'LIKE', "%{$val}%");
-            }
-        }
+            foreach ($constraints as $constraint) {
+                $val = $constraint['value'] ?? null;
+                if ($val === null || $val === '') continue;
 
-        if (!empty($inputFilters['pending_count'])) {
-            $val = is_array($inputFilters['pending_count']) ? ($inputFilters['pending_count']['value'] ?? null) : $inputFilters['pending_count'];
-            if ($val !== null && $val !== '') {
-                $query->having('pending_count', '=', (int)$val);
+                if ($field === 'borrower_name') {
+                    $query->having('borrower_name', 'LIKE', "%{$val}%");
+                } elseif ($field === 'tier_name') {
+                    $query->having('tier_name', 'LIKE', "%{$val}%");
+                } elseif ($field === 'partner_name') {
+                    $query->having('partner_name', 'LIKE', "%{$val}%");
+                } elseif ($field === 'pending_count') {
+                    $query->having('pending_count', '=', (int)$val);
+                } elseif ($field === 'request_date') {
+                    $query->having('formatted_request_date', 'LIKE', "%{$val}%");
+                }
             }
         }
 
@@ -178,6 +180,42 @@ class VerificationCenterService
                 })->orWhere('status', 'LIKE', "%{$search}%")
                 ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y %h:%i %p') LIKE ?", ["%{$search}%"]);
             });
+        }
+
+        // PrimeReact DataTable filters (Nested constraints)
+        if (!empty($filters['filters'])) {
+            foreach ($filters['filters'] as $field => $filterData) {
+                if (is_array($filterData) && isset($filterData['constraints'])) {
+                    foreach ($filterData['constraints'] as $constraint) {
+                        $value = $constraint['value'] ?? null;
+                        if ($value === null || $value === '') continue;
+
+                        $query->where(function ($q) use ($field, $value) {
+                            if ($field === 'task_title') {
+                                $q->whereHas('task', function ($sq) use ($value) {
+                                    $sq->where('title', 'LIKE', "%{$value}%");
+                                });
+                            } elseif ($field === 'tier_name') {
+                                $q->whereHas('tier', function ($sq) use ($value) {
+                                    $sq->where('name', 'LIKE', "%{$value}%");
+                                });
+                            } elseif ($field === 'borrower_name') {
+                                $q->whereHas('borrower', function ($sq) use ($value) {
+                                    $sq->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'LIKE', "%{$value}%");
+                                });
+                            } elseif ($field === 'partner_name') {
+                                $q->whereHas('partner', function ($sq) use ($value) {
+                                    $sq->where('full_name', 'LIKE', "%{$value}%");
+                                });
+                            } elseif ($field === 'status') {
+                                $q->where('status', 'LIKE', "%{$value}%");
+                            } elseif ($field === 'request_date') {
+                                $q->whereRaw("DATE_FORMAT(created_at, '%M %d, %Y %h:%i %p') LIKE ?", ["%{$value}%"]);
+                            }
+                        });
+                    }
+                }
+            }
         }
 
         // Sorting

@@ -57,6 +57,7 @@ class VerificationCenterController extends Controller
                 'partner_id' => $request->input('partner_id'),
                 'sort_field' => $request->input('sort_field', 'created_at'),
                 'sort_order' => $request->input('sort_order', 'desc'),
+                'filters' => $request->input('filters', []),
             ];
 
             return $this->verificationCenterService->fetchBorrowerRequests($filters);
