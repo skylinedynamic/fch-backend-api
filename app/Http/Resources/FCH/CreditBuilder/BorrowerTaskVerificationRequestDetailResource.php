@@ -24,6 +24,7 @@ class BorrowerTaskVerificationRequestDetailResource extends JsonResource
             'tier_id' => $this->tier_id,
             'tier_name' => $this->tier?->name,
             'status' => $this->status,
+            'borrower_status' => $this->borrower?->status,
             'request_date' => $this->created_at ? (Carbon::parse($this->created_at)->format('F d, Y h:i A')) : null,
         ];
     }

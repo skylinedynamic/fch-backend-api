@@ -153,7 +153,7 @@ class VerificationCenterService
     public function fetchBorrowerRequests(array $filters)
     {
         $query = BorrowerTaskVerificationRequest::query()
-            ->with(['borrower:id,first_name,last_name', 'tier:id,name', 'task:id,title']);
+            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name', 'task:id,title']);
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
