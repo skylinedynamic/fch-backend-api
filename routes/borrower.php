@@ -68,12 +68,6 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::delete('/{id}', [DocumentController::class, 'destroy']);
             });
 
-        Route::prefix('documents')->group(function () {
-            Route::get('borrower-document-types', [DocumentController::class, 'documentTypes']);
-            Route::get('/', [DocumentController::class, 'index']);
-            Route::post('/upload', [DocumentController::class, 'store']);
-            Route::delete('/{id}', [DocumentController::class, 'destroy']);
-        });
 
         Route::prefix('credit-builder')->group(function () {
             Route::get('/my-progress', [CreditBuilderOverviewController::class, 'index']);

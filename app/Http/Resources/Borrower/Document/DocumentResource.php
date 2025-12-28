@@ -19,6 +19,11 @@ class DocumentResource extends JsonResource
             'file_name' => $this->file_name,
             'file_path' => $this->file_path,
             'url' => $this->url,
+            'status' => $this->status,
+            'rejection_reason' => $this->rejection_reason,
+            'file_size' => $this->file_size,
+            'updated_at' => $this->updated_at,
+            'updated_by' => $this->updated_by,
         ];
     }
 }

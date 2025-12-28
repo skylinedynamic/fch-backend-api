@@ -519,12 +519,13 @@ class BorrowerService
 
                 return [
                     'id' => $doc->id,
-                    // Use file_name if available, otherwise extract from file_path
-                    'document_name' => $doc->file_name ?: ($doc->file_path ? basename($doc->file_path) : 'N/A'),
+                    'document_name' => $doc->file_name ?: ($doc->getRawOriginal('file_path') ? basename($doc->getRawOriginal('file_path')) : 'N/A'),
                     'type' => $doc->documentType->name ?? 'Other',
-                    'size' => $size,
+                    'rejection_reason' => $doc->rejection_reason ?? '',
+                    'size' => $doc->file_size ?: '0 KB',
+                    'status' => $doc->status ?: BorrowerDocument::STATUS_PENDING,
                     'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
-                    'document_url' => $doc->file_path, // Keep original full URL for frontend
+                    'document_url' => $doc->file_path, // Uses accessor to return full URL
                 ];
             });
  

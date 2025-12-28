@@ -80,7 +80,11 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
             Route::post('borrowers-stats', [BorrowerController::class, 'stats']);
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
+            Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
+          
+            Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus']);
+            Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
             Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
 
