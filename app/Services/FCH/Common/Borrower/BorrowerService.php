@@ -499,15 +499,13 @@ class BorrowerService
      */
     public function getBorrowerDocuments(int $borrowerId)
     {
+
         $documents = BorrowerDocument::with('documentType')
             ->where('borrower_id', $borrowerId)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($doc) {
                 $size = '0 KB';
-                
-                // Extract relative path from full URL if needed
-                // e.g., "http://127.0.0.1:8000/storage/borrowers/documents/aa.png" -> "borrowers/documents/aa.png"
                 $relativePath = $doc->file_path;
                 if ($relativePath && str_contains($relativePath, '/storage/')) {
                     $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
@@ -529,6 +527,7 @@ class BorrowerService
                     'document_url' => $doc->file_path, // Keep original full URL for frontend
                 ];
             });
+ 
 
         return $documents;
     }
