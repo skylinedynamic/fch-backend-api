@@ -79,6 +79,8 @@ return [
     'upload_failed' => 'Failed to upload document.',
     'document_delete_failed' => 'Failed to delete document.',
     'document_not_found' => 'Document not found.',
+    'document_status_updated' => 'Document status updated successfully.',
+    'document_status_update_failed' => 'Failed to update document status.',
    
 
     // Miscellaneous

@@ -179,6 +179,8 @@ return [
     'notes_max' => 'Notes cannot exceed 1000 characters',
     'id_integer' => 'ID must be an integer',
     'id_exists' => 'Selected record not found',
+    'borrower_id_required' => 'The borrower ID is required.',
+    'borrower_id_exists' => 'The selected borrower ID is invalid.',
 
     // Pagination
     'per_page_min' => 'The per page must be at least 1.',
@@ -199,4 +201,8 @@ return [
     'task_id_required' => 'Task ID is required',
     'task_id_must_be_integer' => 'Task ID must be an integer',
     'task_id_not_found' => 'The selected task ID does not exist',
+    'status_required' => 'The status field is required.',
+    'status_in' => 'The selected status is invalid.',
+    'rejection_reason_required' => 'The rejection reason is required when the status is Rejected.',
+    'rejection_reason_string' => 'The rejection reason must be a string.',
 ];

@@ -209,4 +209,14 @@ return [
             'delete verification center',
         ],
     ],
+
+    'borrower documents' => [
+        'is_host' => 0,
+        'permissions' => [
+            'view borrower documents',
+            'upload borrower documents',
+            'update borrower documents status',
+            'delete borrower documents',
+        ],
+    ],
 ];
