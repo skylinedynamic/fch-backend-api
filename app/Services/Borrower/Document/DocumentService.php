@@ -16,8 +16,10 @@ class DocumentService
 
     public function listForUser(Request $request)
     {
+        $borrowerId = Auth::user()->entity_id;
+
         return BorrowerDocument::query()
-            ->ownedBy(Auth::id())
+            ->ownedBy($borrowerId)
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('document_type_id');
@@ -31,7 +33,7 @@ class DocumentService
         $documents = [];
         $user = Auth::user();
 
-        $borrowerId = $user->id;
+        $borrowerId = $user->entity_id;
 
         foreach ($data['files'] as $path) {
             try {

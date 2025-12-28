@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\UpdateVerificationStatusRequest;
 use App\Services\FCH\Common\CreditBuilder\VerificationCenterService;
 use Illuminate\Http\Request;
 
@@ -63,6 +64,20 @@ class VerificationCenterController extends Controller
             return $this->verificationCenterService->fetchBorrowerRequests($filters);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('verification_center.error_fetch_failed'));
+        }
+    }
+
+    /**
+     * Update status of verification request.
+     */
+    public function statusUpdate(UpdateVerificationStatusRequest $request)
+    {
+        try {
+            $this->verificationCenterService->updateStatus($request->validated());
+
+            return ApiResponse::success([], __('verification_center.success_status_updated'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('verification_center.error_status_update_failed'));
         }
     }
 }

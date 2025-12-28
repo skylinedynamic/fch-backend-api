@@ -83,6 +83,8 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
             Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
+            Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
+            
 
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);
@@ -94,6 +96,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('credit-builder')->group(function () {
                 Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
                 Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests']);
+                Route::post('verification-center-status-update', [VerificationCenterController::class, 'statusUpdate']);
             });
         });
 

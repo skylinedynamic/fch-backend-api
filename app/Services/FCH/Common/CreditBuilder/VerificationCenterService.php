@@ -153,7 +153,7 @@ class VerificationCenterService
     public function fetchBorrowerRequests(array $filters)
     {
         $query = BorrowerTaskVerificationRequest::query()
-            ->with(['borrower:id,first_name,last_name', 'tier:id,name', 'task:id,title']);
+            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name', 'task:id,title']);
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
@@ -247,5 +247,27 @@ class VerificationCenterService
             \App\Http\Resources\FCH\CreditBuilder\BorrowerTaskVerificationRequestDetailResource::class,
             __('verification_center.success_retrieved')
         );
+    }
+
+    /**
+     * Update verification request status.
+     */
+    public function updateStatus(array $data)
+    {
+        $verificationRequest = BorrowerTaskVerificationRequest::findOrFail($data['request_id']);
+
+        $updateData = [
+            'status' => $data['status'],
+            'verified_by' => auth()->id(),
+            'verified_at' => now(),
+        ];
+
+        if ($data['status'] === BorrowerTaskVerificationRequest::REJECTED) {
+            $updateData['rejection_reason'] = $data['rejection_reason'] ?? null;
+        }
+
+        $verificationRequest->update($updateData);
+
+        return $verificationRequest;
     }
 }

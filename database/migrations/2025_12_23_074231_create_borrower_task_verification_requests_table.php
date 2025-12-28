@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('tier_id')->nullable()->constrained('tiers')->nullOnDelete();
             $table->foreignId('task_id')->nullable()->constrained('tier_tasks')->nullOnDelete();
             $table->string('status')->nullable()->index();
+            $table->text('rejection_reason')->nullable();
             $table->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('verified_at')->nullable();
             $table->softDeletes();

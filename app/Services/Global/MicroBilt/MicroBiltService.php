@@ -64,116 +64,64 @@ class MicroBiltService
     }
 
     /**
-     * Get a credit report for a borrower.
-     *
-     * @param array $borrowerData
+     * Send a request to MicroBilt API.
+     * 
+     * @param string $endpoint
+     * @param array $data
      * @return array
      * @throws Exception
      */
-    public function getReport(array $borrowerData)
+    public function sendRequest(string $endpoint, array $data)
     {
         $token = $this->authenticate();
 
         try {
             // Using Laravel's retry helper for robust transient error handling
-            $response = retry(3, function () use ($token, $borrowerData) {
+            $response = retry(3, function () use ($token, $endpoint, $data) {
                 return Http::withToken($token)
-                    ->timeout(30) // Set a reasonable timeout
-                    ->post($this->baseUrl . 'ibv/report', $borrowerData); // Adjust endpoint based on specific product (e.g., IBV, Credit, etc.)
+                    ->timeout(30)
+                    ->post($this->baseUrl . $endpoint, $data);
             }, 100);
 
             if ($response->successful()) {
                 return $response->json();
             }
 
-            Log::error('MicroBilt Report Failed', ['status' => $response->status(), 'body' => $response->body()]);
+            Log::error('MicroBilt API Failed', [
+                'endpoint' => $endpoint, 
+                'status' => $response->status(), 
+                'body' => $response->body()
+            ]);
+            
             throw new Exception('MicroBilt API Error: ' . $response->status());
 
         } catch (\Throwable $e) {
-            Log::error('MicroBilt Report Exception', ['message' => $e->getMessage()]);
+            Log::error('MicroBilt API Exception', [
+                'endpoint' => $endpoint, 
+                'message' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
 
     /**
-     * Map MicroBilt response to Tiers and Workflows.
-     * 
-     * @param array $response
-     * @param int $borrowerId
-     * @return void
-     */
-    public function mapResponseToTiers(array $response, int $borrowerId)
-    {
-        // Example Mapping Logic
-        // This needs to be customized based on the actual MicroBilt response structure
-        // and your specific Tier Task rules.
-        
-        $borrower = Borrower::find($borrowerId);
-        if (!$borrower) {
-            Log::warning("Borrower not found for ID: $borrowerId during mapping.");
-            return;
-        }
-
-        // Example: If a certain score is met, mark a task as complete
-        // response structure is hypothetical here
-        $score = $response['decision']['score'] ?? null;
-        
-        if ($score && $score > 700) {
-           // Find a relevant task. For example, "Achieve 700+ Credit Score"
-           // This requires knowing your TierTask IDs or codes.
-           // Let's assume a hypothetical TierTask ID or lookup by title
-           
-           $task = TierTask::where('title', 'like', '%700+ Credit Score%')->first();
-           
-           if ($task) {
-               BorrowerTaskVerificationRequest::updateOrCreate(
-                   [
-                       'borrower_id' => $borrowerId,
-                       'tier_id' => $task->tier_id,
-                       'task_id' => $task->id,
-                   ],
-                   [
-                       'status' => BorrowerTaskVerificationRequest::APPROVED,
-                       'verified_at' => now(),
-                       'partner_id' => Borrower::find($borrowerId)->partner_id,
-                   ]
-               );
-               Log::info("Marked task {$task->id} as complete for borrower $borrowerId based on MicroBilt score.");
-           }
-        }
-    }
-
-    /**
-     * Verify a business phone number.
+     * Verify Phone Name.
      *
      * @param string $phone
+     * @param string $firstName
+     * @param string $lastName
+     * @param string $middleName
      * @return array
      */
-    public function verifyPhone(string $phone)
+    public function verifyPhoneName(string $phone, string $firstName, string $lastName, string $middleName = ' ')
     {
-        return $this->getReport(['phone' => $phone, 'product_type' => 'enhanced_phone_search']);
-    }
-
-    /**
-     * Verify a business address.
-     *
-     * @param array $addressData
-     * @return array
-     */
-    public function verifyAddress(array $addressData)
-    {
-        return $this->getReport(array_merge($addressData, ['product_type' => 'address_standardization']));
-    }
-
-    /**
-     * Verify EIN / Business Identity.
-     *
-     * @param string $ein
-     * @param string $businessName
-     * @return array
-     */
-    public function verifyEIN(string $ein, string $businessName)
-    {
-        return $this->getReport(['tin' => $ein, 'company_name' => $businessName, 'product_type' => 'business_identity_verification']);
+        return $this->sendRequest('PhoneNameVerification', [
+            'Name' => [
+                'FirstName' => $firstName,
+                'MiddleName' => $middleName,
+                'LastName' => $lastName,
+            ],
+            'PhoneNumber' => $phone,
+        ]);
     }
 }

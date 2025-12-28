@@ -35,31 +35,39 @@ class CreditBuilderStepGuideService
     {
         $borrower = Borrower::where('id', auth()->user()->entity_id)->first();
         
-        // Get existing verification requests for this borrower
-        $existingTaskIds = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
-            ->whereIn('task_id', $taskIds)
-            ->pluck('task_id')
-            ->toArray();
-        
-        // Filter out task IDs that already have verification requests
-        $newTaskIds = array_diff($taskIds, $existingTaskIds);
-        
         $verificationRequests = [];
         
-        foreach ($newTaskIds as $taskId) {
+        foreach ($taskIds as $taskId) {
             // Get task details to retrieve tier_id
             $task = TierTask::find($taskId);
             
             if ($task) {
-                $verificationRequest = BorrowerTaskVerificationRequest::create([
-                    'borrower_id' => $borrower->id,
-                    'partner_id' => $borrower->partner_id,
-                    'tier_id' => $task->tier_id,
-                    'task_id' => $taskId,
-                    'status' => BorrowerTaskVerificationRequest::PROCESSING,
-                ]);
-                
-                $verificationRequests[] = $verificationRequest;
+                // Check if request exists
+                $existingRequest = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
+                    ->where('task_id', $taskId)
+                    ->first();
+
+                if ($existingRequest) {
+                     // Update existing request
+                     $existingRequest->update([
+                        'status' => BorrowerTaskVerificationRequest::PROCESSING,
+                        'rejection_reason' => null,
+                        'verified_by' => null,
+                        'verified_at' => null,
+                     ]);
+                     $verificationRequests[] = $existingRequest;
+                } else {
+                    // Create new request
+                    $verificationRequest = BorrowerTaskVerificationRequest::create([
+                        'borrower_id' => $borrower->id,
+                        'partner_id' => $borrower->partner_id,
+                        'tier_id' => $task->tier_id,
+                        'task_id' => $taskId,
+                        'status' => BorrowerTaskVerificationRequest::PROCESSING,
+                        'rejection_reason' => null,
+                    ]);
+                    $verificationRequests[] = $verificationRequest;
+                }
             }
         }
         
