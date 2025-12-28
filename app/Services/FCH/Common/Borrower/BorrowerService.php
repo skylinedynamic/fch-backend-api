@@ -523,7 +523,7 @@ class BorrowerService
                     'type' => $doc->documentType->name ?? 'Other',
                     'rejection_reason' => $doc->rejection_reason ?? '',
                     'size' => $doc->file_size ?: '0 KB',
-                    'status' => $doc->status ?: BorrowerDocument::STATUS_PENDING,
+                    'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
                     'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
                     'document_url' => $doc->file_path, // Uses accessor to return full URL
                 ];

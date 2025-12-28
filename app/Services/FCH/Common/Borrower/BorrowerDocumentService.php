@@ -68,7 +68,7 @@ class BorrowerDocumentService
             'document_type_id' => $data['document_type_id'] ?? null,
             'file_path'        => $dbPath,
             'file_size'        => $size,
-            'status'           => BorrowerDocument::STATUS_PENDING,
+            'status'           => BorrowerDocument::STATUS_UPLOADED,
             'created_by'       => Auth::id(),
         ];
 
