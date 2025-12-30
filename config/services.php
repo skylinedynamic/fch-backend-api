@@ -41,6 +41,7 @@ return [
         'client_id' => env('MS_CLIENT_ID'),
         'client_secret' => env('MS_CLIENT_SECRET'),
         'sharepoint_site_id' => env('MS_SHAREPOINT_SITE_ID'),
+        'calendar_service_email' => env('MS_CALENDAR_SERVICE_EMAIL'), // The internal account that hosts events
     ],
 
     'microbilt' => [

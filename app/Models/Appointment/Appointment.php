@@ -8,6 +8,31 @@ class Appointment extends Model
 {
     protected $table = 'appointments';
 
+    protected $fillable = [
+        'appointment_code',
+        'microsoft_event_id',
+        'scheduled_by',
+        'assigned_for',
+        'subject',
+        'description',
+        'appointment_date',
+        'timezone',
+        'duration_minutes',
+        'status',
+        'meeting_type',
+        'location',
+        'remarks',
+    ];
+
+    public function scheduledBy()
+    {
+        return $this->belongsTo(\App\Models\User\User::class, 'scheduled_by');
+    }
+
+    public function assignedFor()
+    {
+        return $this->belongsTo(\App\Models\User\User::class, 'assigned_for');
+    }
     public const STATUS_SCHEDULED = 'scheduled';
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_COMPLETED = 'completed';

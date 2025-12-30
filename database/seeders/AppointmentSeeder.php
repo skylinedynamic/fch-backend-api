@@ -39,6 +39,7 @@ class AppointmentSeeder extends Seeder
                     'subject' => 'Meeting with ' . $partner->company_name,
                     'description' => 'Discussion regarding partnership details and future collaboration.',
                     'appointment_date' => Carbon::now()->addDays(rand(-30, 30))->addHours(rand(9, 17)),
+                    'timezone' => 'UTC',
                     'duration_minutes' => rand(30, 120),
                     'status' => $this->getRandomStatus(),
                     'meeting_type' => $this->getRandomMeetingType(),
