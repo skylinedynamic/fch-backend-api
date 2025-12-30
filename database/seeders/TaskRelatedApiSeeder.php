@@ -17,8 +17,10 @@ class TaskRelatedApiSeeder extends Seeder
 
         $apis = [
             [
-                'name' => 'MicroBilt API',
-                'base_url' => 'https://api.microbilt.com',
+                'name' => 'Business Address Verification',
+                'provider' => 'MicroBilt',
+                'tier_id' => 1,
+                'base_url' => 'https://api.microbilt.com/AddressNameVerification',
                 'client_id' => 'your_client_id_here',
                 'client_secret' => 'your_client_secret_here',
                 'additional_info' => 'MicroBilt API for business verification and credit reporting',
@@ -26,23 +28,27 @@ class TaskRelatedApiSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'name' => 'D&B API',
-                'base_url' => 'https://api.dnb.com',
+                'name' => 'Phone Verification By Name',
+                'provider' => 'MicroBilt',
+                'tier_id' => 1,
+                'base_url' => 'https://api.microbilt.com/PhoneVerification',
                 'client_id' => 'your_client_id_here',
                 'client_secret' => 'your_client_secret_here',
-                'additional_info' => 'Dun & Bradstreet API for DUNS number verification',
+                'additional_info' => 'MicroBilt API for business verification and credit reporting',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-            [
-                'name' => 'Plaid API',
-                'base_url' => 'https://production.plaid.com',
+             [
+                'name' => 'Phone Verification By Address',
+                'provider' => 'MicroBilt',
+                'tier_id' => 1,
+                'base_url' => 'https://api.microbilt.com/PhoneNameVerification',
                 'client_id' => 'your_client_id_here',
                 'client_secret' => 'your_client_secret_here',
-                'additional_info' => 'Plaid API for bank account verification',
+                'additional_info' => 'MicroBilt API for business verification and credit reporting',
                 'created_at' => now(),
                 'updated_at' => now(),
-            ],
+            ]
         ];
 
         DB::table('task_related_apis')->insert($apis);

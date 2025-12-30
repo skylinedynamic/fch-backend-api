@@ -25,6 +25,7 @@ class TierTaskResource extends JsonResource
             'subtitle' => $this->subtitle,
             'description' => $this->description,
             'status' => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
+            'rejection_reason' => $borrower_task ? $borrower_task->rejection_reason : null,
             'completed_at' => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
             'url' => $this->url,
             'button_title' => $this->button_title,

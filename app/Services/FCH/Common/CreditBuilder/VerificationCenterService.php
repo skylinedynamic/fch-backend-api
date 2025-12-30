@@ -248,4 +248,26 @@ class VerificationCenterService
             __('verification_center.success_retrieved')
         );
     }
+
+    /**
+     * Update verification request status.
+     */
+    public function updateStatus(array $data)
+    {
+        $verificationRequest = BorrowerTaskVerificationRequest::findOrFail($data['request_id']);
+
+        $updateData = [
+            'status' => $data['status'],
+            'verified_by' => auth()->id(),
+            'verified_at' => now(),
+        ];
+
+        if ($data['status'] === BorrowerTaskVerificationRequest::REJECTED) {
+            $updateData['rejection_reason'] = $data['rejection_reason'] ?? null;
+        }
+
+        $verificationRequest->update($updateData);
+
+        return $verificationRequest;
+    }
 }

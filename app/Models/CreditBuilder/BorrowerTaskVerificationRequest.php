@@ -22,6 +22,7 @@ class BorrowerTaskVerificationRequest extends Model
         'status',
         'verified_by',
         'verified_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
@@ -30,12 +31,14 @@ class BorrowerTaskVerificationRequest extends Model
 
     public const PENDING = 'pending';
     public const PROCESSING = 'processing';
-    public const COMPLETED = 'completed';
+    public const COMPLETED = 'verified';
+    public const REJECTED = 'rejected';
 
     public const STATUS = [
         self::PENDING => self::PENDING,
         self::PROCESSING => self::PROCESSING,
         self::COMPLETED => self::COMPLETED,
+        self::REJECTED => self::REJECTED,
     ];
 
     public function borrower(): BelongsTo

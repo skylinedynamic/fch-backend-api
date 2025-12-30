@@ -20,4 +20,5 @@ return [
     'validation_title_required' => 'The title field is required.',
     'validation_title_max' => 'The title must not be greater than 255 characters.',
     'validation_status_max' => 'The status must not be greater than 50 characters.',
+    'validation_related_api_id_exists' => 'The selected related API is invalid.',
 ];

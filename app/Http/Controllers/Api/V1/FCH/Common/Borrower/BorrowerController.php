@@ -7,6 +7,7 @@ use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
+use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
 use App\Services\FCH\Common\Borrower\BorrowerDocumentService;
@@ -22,7 +23,6 @@ use Illuminate\Support\Facades\Storage;
 class BorrowerController extends Controller
 {
     protected BorrowerService $borrowerService;
-
     public function __construct(BorrowerService $borrowerService)
     {
         $this->borrowerService = $borrowerService;
@@ -367,6 +367,26 @@ class BorrowerController extends Controller
             return ApiResponse::success(null, __('borrower.document_deleted_successfully'));
         } catch (\Throwable $e) {
             return ApiResponse::error(__('borrower.document_delete_failed'));
+        }
+    }
+    /**
+     * Get Borrower Profile.
+     */
+    public function getBorrowerProfile(int $borrowerId)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails($borrowerId);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            return ApiResponse::success(
+                new BorrowerProfileResource($borrower),
+                __('borrower.retrieved_details')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 }

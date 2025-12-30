@@ -76,6 +76,9 @@ class TierTaskService
                     'button_title' => 'tier_tasks.button_title',
                     'status' => 'tier_tasks.status',
                     'tier_name' => 'tiers.name',
+                    'is_mandatory' => 'tier_tasks.is_mandatory',
+                    'manual_verification' => 'tier_tasks.manual_verification',
+                    'related_api_id' => 'tier_tasks.related_api_id',
                 ],
             ]
         );

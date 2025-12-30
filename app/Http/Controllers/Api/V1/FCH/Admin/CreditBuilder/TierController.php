@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\Tier\StoreTierRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\Tier\UpdateTierRequest;
 use App\Http\Resources\FCH\CreditBuilder\TierResource;
+use App\Http\Resources\FCH\CreditBuilder\TierRelatedApiResource;
+use App\Models\CreditBuilder\TierRelatedApi;
 use App\Services\FCH\Admin\CreditBuilder\TierService;
 use Illuminate\Http\Request;
 
@@ -120,6 +122,24 @@ class TierController extends Controller
             return ApiResponse::success(null, __('tier.success_deleted'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('tier.error_delete_failed'));
+        }
+    }
+
+    /**
+     * Get Tier Related APIs.
+     */
+    public function getTierRelatedApi(int $tier_id)
+    {
+        try {
+            $tierRelatedApis = TierRelatedApi::where('tier_id', $tier_id)->get();
+
+            return ApiResponse::success(
+                TierRelatedApiResource::collection($tierRelatedApis),
+                __('Tier related APIs retrieved successfully')
+            );
+        } catch (\Exception $e) {
+
+            return ApiResponse::serverError($e->getMessage());
         }
     }
 }

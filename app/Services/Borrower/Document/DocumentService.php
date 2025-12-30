@@ -17,8 +17,10 @@ class DocumentService
 
     public function listForUser(Request $request)
     {
+        $borrowerId = Auth::user()->entity_id;
+
         return BorrowerDocument::query()
-            ->ownedBy(Auth::id())
+            ->ownedBy($borrowerId)
             ->orderByDesc('created_at')
             ->get()
             ->groupBy('document_type_id');
