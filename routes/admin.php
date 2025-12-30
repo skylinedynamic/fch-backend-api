@@ -60,6 +60,7 @@ Route::prefix('v1/admin')
             Route::get('tiers/{id}', [TierController::class, 'show']);
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
+            Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
 
             // Tier Tasks
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);

@@ -32,11 +32,17 @@ class MicroBiltService
      */
     public function authenticate()
     {
-        if (Cache::has('microbilt_token')) {
-            return Cache::get('microbilt_token');
-        }
+        // if (Cache::has('microbilt_token')) {
+        //     return Cache::get('microbilt_token');
+        // }
 
         try {
+            Log::info('MicroBilt Auth Attempt Credentials', [
+                'client_id' => $this->clientId,
+                'client_secret' => $this->clientSecret,
+                'base_url' => $this->baseUrl
+            ]);
+
             $response = Http::asForm()->post($this->baseUrl . 'oauth/token', [ // Adjust endpoint as per specific MicroBilt API docs
                 'grant_type' => 'client_credentials',
                 'client_id' => $this->clientId,
@@ -113,15 +119,37 @@ class MicroBiltService
      * @param string $middleName
      * @return array
      */
-    public function verifyPhoneName(string $phone, string $firstName, string $lastName, string $middleName = ' ')
+    public function verifyPhoneByName(string $phone, string $firstName, string $lastName, string $middleName = ' ')
     {
         return $this->sendRequest('PhoneNameVerification', [
+            'PhoneNumber' => $phone,
             'Name' => [
                 'FirstName' => $firstName,
                 'MiddleName' => $middleName,
                 'LastName' => $lastName,
             ],
+        ]);
+    }
+
+     /**
+     * Verify Phone Name.
+     *
+     * @param string $address
+     * @param string $city
+     * @param string $state
+     * @param string $zip
+     * @return array
+     */
+    public function verifyPhoneByAddress(string $phone, string $address, string $city, string $state, string $zip)
+    {
+        return $this->sendRequest('PhoneAddressVerification', [
             'PhoneNumber' => $phone,
+            'Address' => [
+                'Addr1' => $address,
+                'City' => $city,
+                'State' => $state,
+                'Zip' => $zip,
+            ],
         ]);
     }
 }

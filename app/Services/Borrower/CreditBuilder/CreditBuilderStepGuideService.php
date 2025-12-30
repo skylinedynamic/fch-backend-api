@@ -6,6 +6,8 @@ use App\Models\Borrower\Borrower;
 use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Models\CreditBuilder\TaskRelatedApi;
+use Illuminate\Support\Facades\Log;
 
 class CreditBuilderStepGuideService
 {
@@ -40,6 +42,36 @@ class CreditBuilderStepGuideService
         foreach ($taskIds as $taskId) {
             // Get task details to retrieve tier_id
             $task = TierTask::find($taskId);
+
+            if(!$task->manual_verification && $task->related_api_id){
+                $api_details = TaskRelatedApi::where('id', $task->related_api_id)->first();
+                
+                if($api_details && $api_details->provider == 'Microbilt'){
+                    if($api_details->name == 'Phone Verification By Address'){
+                        try {
+                            Log::info('MicroBilt Phone Verification Request', [
+                                'borrower' => $borrower,
+                                'api_details' => $api_details,
+                            ]);
+                            /** @var \App\Services\Global\MicroBilt\MicroBiltService $microBiltService */
+                            $microBiltService = app(\App\Services\Global\MicroBilt\MicroBiltService::class);
+                            
+                            $response = $microBiltService->verifyPhoneByAddress(
+                                $borrower->business_phone ?? '',
+                                $borrower->business_address ?? '',
+                                $borrower->business_city ?? '',
+                                $borrower->business_state ?? '',
+                                $borrower->business_postal_code ?? ''
+                            );
+
+                            Log::info('MicroBilt Phone Verification Response', ['response' => $response]);
+
+                        } catch (\Exception $e) {
+                            Log::error('MicroBilt Phone Verification Failed', ['error' => $e->getMessage()]);
+                        }
+                    }
+                }
+            }
             
             if ($task) {
                 // Check if request exists

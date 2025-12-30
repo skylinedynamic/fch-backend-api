@@ -38,7 +38,7 @@ class TierSeeder extends Seeder
                         'order' => 1,
                         'is_mandatory' => true,
                         'manual_verification' => false,
-                        'task_related_api_id' => 1,
+                        'related_api_id' => 1,
                     ],
                     [
                         'title' => 'Business Address Verification',
@@ -49,7 +49,7 @@ class TierSeeder extends Seeder
                         'order' => 2,
                         'is_mandatory' => true,
                         'manual_verification' => false,
-                        'task_related_api_id' => 1,
+                        'related_api_id' => 1,
                     ],
                         [
                         'title' => 'Business Phone & Directory Listing',
@@ -60,7 +60,7 @@ class TierSeeder extends Seeder
                         'order' => 3,
                         'is_mandatory' => true,
                         'manual_verification' => false,
-                        'task_related_api_id' => 1,
+                        'related_api_id' => 1,
                     ],
                     [   
                         'title' => 'Website & Professional Email Presence',
@@ -71,7 +71,7 @@ class TierSeeder extends Seeder
                         'order' => 4,
                         'is_mandatory' => true,
                         'manual_verification' => true,
-                        'task_related_api_id' => null,
+                        'related_api_id' => null,
                     ],
                     [
                         'title' => 'Business Banking Presence',
@@ -82,7 +82,7 @@ class TierSeeder extends Seeder
                         'order' => 5,
                         'is_mandatory' => true,
                         'manual_verification' => false,
-                        'task_related_api_id' => 1,
+                        'related_api_id' => 1,
                     ],
                     [
                         'title' => 'D-U-N-S Number (Existence Check)',
@@ -93,7 +93,7 @@ class TierSeeder extends Seeder
                         'order' => 6,
                         'is_mandatory' => true,
                         'manual_verification' => false,
-                        'task_related_api_id' => 1,
+                        'related_api_id' => 1,
                     ],
                     [
                         'title' => 'Business identity match',
@@ -104,7 +104,7 @@ class TierSeeder extends Seeder
                         'order' => 7,
                         'is_mandatory' => true,
                         'manual_verification' => true,
-                        'task_related_api_id' => null,
+                        'related_api_id' => null,
                     ],
                     [
                         'title' => 'Active Legal Entity Status',
@@ -115,7 +115,7 @@ class TierSeeder extends Seeder
                         'order' => 8,
                         'is_mandatory' => true,
                         'manual_verification' => true,
-                        'task_related_api_id' => null,
+                        'related_api_id' => null,
                     ],
                 ]
             ],
