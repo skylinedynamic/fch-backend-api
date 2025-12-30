@@ -13,15 +13,39 @@ class BorrowerDocument extends Model
 
     protected $table = 'borrower_documents';
 
+    public const STATUS_UPLOADED = 'Uploaded';
+    public const STATUS_UNDER_REVIEW = 'Under Review';
+    public const STATUS_ACCEPTED = 'Accepted';
+    public const STATUS_REJECTED = 'Rejected';
+
+    public const STATUSES = [
+        self::STATUS_UPLOADED,
+        self::STATUS_UNDER_REVIEW,
+        self::STATUS_ACCEPTED,
+        self::STATUS_REJECTED,
+    ];
+
     protected $fillable = [
         'document_type_id',
         'borrower_id',
         'application_id',
         'file_name',
         'file_path',
+        'status',
+        'rejection_reason',
+        'file_size',
         'created_by',
+        'updated_by',
         'deleted_by',
     ];
+
+    /**
+     * Get the file path with storage prefix.
+     */
+    public function getFilePathAttribute($value)
+    {
+        return $value ? asset("storage/borrowers/{$this->borrower_id}/{$value}") : null;
+    }
 
     public function documentType()
     {
@@ -35,15 +59,13 @@ class BorrowerDocument extends Model
      */
     public function getUrlAttribute(): ?string
     {
-        if (!$this->file_path) {
+        // Use the raw attribute to check if path exists
+        $rawPath = $this->getRawOriginal('file_path');
+        if (!$rawPath) {
             return null;
         }
 
-        try {
-            return encodeUrl(Storage::disk('public')->url($this->file_path));
-        } catch (\Throwable $e) {
-            return null;
-        }
+        return $this->file_path;
     }
 
     /**

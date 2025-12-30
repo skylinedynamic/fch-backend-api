@@ -10,8 +10,10 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
-use App\Services\Borrower\Document\DocumentService;
+use App\Services\FCH\Common\Borrower\BorrowerDocumentService;
 use App\Services\FCH\Common\Tier\TierService;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateDocumentStatusRequest;
 use Illuminate\Http\Request;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Mail;
@@ -169,7 +171,7 @@ class BorrowerController extends Controller
     public function documentTypes()
     {
         try {
-            $documentService = new DocumentService();
+            $documentService = new BorrowerDocumentService();
             return $documentService->documentTypes();
 
         } catch (\Exception $e) {
@@ -258,7 +260,7 @@ class BorrowerController extends Controller
     public function fetchBorrowerDocuments($borrowerId)
     {
         try {
-            $documents = $this->borrowerService->getBorrowerDocuments($borrowerId);
+            $documents = $this->borrowerService->getBorrowerDocuments((int)$borrowerId);
             return ApiResponse::success($documents, 'Documents retrieved successfully');
         } catch (\Exception $e) {
             return ApiResponse::serverError('Failed to retrieve documents');
@@ -319,6 +321,52 @@ class BorrowerController extends Controller
 
         } catch (\Exception $e) {
              return ApiResponse::serverError('Download failed');
+        }
+    }
+
+    /**
+     * Upload Borrower Document
+     */
+    public function uploadDocument(UploadBorrowerDocumentRequest $request)
+    {
+  
+        try {
+            $documentService = new BorrowerDocumentService();
+            return $documentService->createBorrowerDocuments($request->validated());
+        } catch (\Throwable $e) {
+            return ApiResponse::error('Upload failed');
+        }
+    }
+
+    /**
+     * Update Document Status
+     */
+    public function updateDocumentStatus(UpdateDocumentStatusRequest $request, int $id)
+    {
+        try {
+            $documentService = new BorrowerDocumentService();
+            return $documentService->updateStatus($id, $request->validated());
+        } catch (\Throwable $e) {
+            return ApiResponse::error('Status update failed');
+        }
+    }
+
+    /**
+     * Delete Borrower Document
+     */
+    public function deleteDocument($id)
+    {
+        try {
+            $documentService = new BorrowerDocumentService();
+            $deleted = $documentService->removeById((int)$id);
+            
+            if (!$deleted) {
+                return ApiResponse::notFound(__('borrower.document_not_found'));
+            }
+
+            return ApiResponse::success(null, __('borrower.document_deleted_successfully'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error(__('borrower.document_delete_failed'));
         }
     }
     /**

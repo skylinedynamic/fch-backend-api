@@ -499,15 +499,13 @@ class BorrowerService
      */
     public function getBorrowerDocuments(int $borrowerId)
     {
+
         $documents = BorrowerDocument::with('documentType')
             ->where('borrower_id', $borrowerId)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($doc) {
                 $size = '0 KB';
-                
-                // Extract relative path from full URL if needed
-                // e.g., "http://127.0.0.1:8000/storage/borrowers/documents/aa.png" -> "borrowers/documents/aa.png"
                 $relativePath = $doc->file_path;
                 if ($relativePath && str_contains($relativePath, '/storage/')) {
                     $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
@@ -521,14 +519,16 @@ class BorrowerService
 
                 return [
                     'id' => $doc->id,
-                    // Use file_name if available, otherwise extract from file_path
-                    'document_name' => $doc->file_name ?: ($doc->file_path ? basename($doc->file_path) : 'N/A'),
+                    'document_name' => $doc->file_name ?: ($doc->getRawOriginal('file_path') ? basename($doc->getRawOriginal('file_path')) : 'N/A'),
                     'type' => $doc->documentType->name ?? 'Other',
-                    'size' => $size,
+                    'rejection_reason' => $doc->rejection_reason ?? '',
+                    'size' => $doc->file_size ?: '0 KB',
+                    'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
                     'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
-                    'document_url' => $doc->file_path, // Keep original full URL for frontend
+                    'document_url' => $doc->file_path, // Uses accessor to return full URL
                 ];
             });
+ 
 
         return $documents;
     }
