@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
+use App\Http\Controllers\Api\V1\Global\General\LocationController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -108,6 +109,9 @@ Route::prefix('v1')->group(function () {
             Route::post('appointments/fetch-all', [AppointmentController::class, 'index']);
             Route::post('appointments/multiple-delete', [AppointmentController::class, 'multipleDelete']);
             Route::apiResource('appointments', AppointmentController::class);
+            
+            // Location routes
+            Route::get('locations', [LocationController::class, 'index']);
         });
 
         // V1 Notification routes

@@ -5,9 +5,6 @@ namespace App\Services\Global\MicroBilt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
-use App\Models\Borrower\Borrower;
-use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
-use App\Models\CreditBuilder\TierTask;
 use Exception;
 
 class MicroBiltService
@@ -32,9 +29,9 @@ class MicroBiltService
      */
     public function authenticate()
     {
-        // if (Cache::has('microbilt_token')) {
-        //     return Cache::get('microbilt_token');
-        // }
+        if (Cache::has('microbilt_token')) {
+            return Cache::get('microbilt_token');
+        }
 
         try {
             Log::info('MicroBilt Auth Attempt Credentials', [
@@ -43,7 +40,7 @@ class MicroBiltService
                 'base_url' => $this->baseUrl
             ]);
 
-            $response = Http::asForm()->post($this->baseUrl . 'oauth/token', [ // Adjust endpoint as per specific MicroBilt API docs
+            $response = Http::asForm()->post($this->baseUrl . 'OAuth/Token', [ // Adjust endpoint as per specific MicroBilt API docs
                 'grant_type' => 'client_credentials',
                 'client_id' => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -119,7 +116,7 @@ class MicroBiltService
      * @param string $middleName
      * @return array
      */
-    public function verifyPhoneByName(string $phone, string $firstName, string $lastName, string $middleName = ' ')
+    public function verifyPhoneByName(string $phone, string $firstName, string $lastName, string $middleName = '')
     {
         return $this->sendRequest('PhoneNameVerification', [
             'PhoneNumber' => $phone,
@@ -141,7 +138,7 @@ class MicroBiltService
      * @return array
      */
     public function verifyPhoneByAddress(string $phone, string $address, string $city, string $state, string $zip)
-    {
+    {      
         return $this->sendRequest('PhoneAddressVerification', [
             'PhoneNumber' => $phone,
             'Address' => [

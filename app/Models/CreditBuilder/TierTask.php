@@ -21,6 +21,7 @@ class TierTask extends Model
         'order',
         'is_mandatory',
         'manual_verification',
+        'related_api_id',
         'estimated_completion_days',
         'created_by',
         'updated_by',
