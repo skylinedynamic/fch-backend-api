@@ -73,6 +73,7 @@ class DatabaseSeeder extends Seeder
             UserRoleSeeder::class,           // Assign roles to users and sync permissions
             EmployeeSeeder::class,           // Create employees under partners
             DepartmentSeeder::class,         // Create departments under partners
+            TimeSlotSeeder::class,           // Create time slots
             AppointmentSeeder::class,        // Create appointments for partners
             InvoiceSeeder::class,            // Create invoices for partners
             SupportTicketSeeder::class,      // Create support tickets for partners
