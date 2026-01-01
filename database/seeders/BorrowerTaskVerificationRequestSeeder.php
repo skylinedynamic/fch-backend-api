@@ -29,6 +29,8 @@ class BorrowerTaskVerificationRequestSeeder extends Seeder
         $tier1Tasks = TierTask::where('tier_id', $tier1->id)->get();
 
         foreach ($borrowers as $borrower) {
+            if($borrower->id == 1) continue;
+            
             foreach ($tier1Tasks as $task) {
                 BorrowerTaskVerificationRequest::firstOrCreate(
                     [
