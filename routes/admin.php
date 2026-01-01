@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
@@ -68,5 +69,12 @@ Route::prefix('v1/admin')
             Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
             Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
+
+            // Vendors
+            Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);
+            Route::post('vendors', [CreditBuilderVendorController::class, 'store']);
+            Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
+            Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
+            Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
         });
     });
