@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Appointment;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\V1\FCH\Common\Appointment\StoreAppointmentRequest;
-use App\Http\Requests\V1\FCH\Common\Appointment\UpdateAppointmentRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Appointment\StoreAppointmentRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Appointment\UpdateAppointmentRequest;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Models\Appointment\Appointment;
 use App\Services\FCH\Common\Appointment\AppointmentService;
@@ -21,7 +21,7 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Display a listing of appointments.
+     * Appointment List
      */
     public function index(Request $request)
     {
@@ -29,53 +29,47 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Store a newly created appointment.
+     * Appointment Store
      */
     public function store(StoreAppointmentRequest $request)
     {
         $appointment = $this->appointmentService->create($request->validated());
-        $message = $appointment->sync_successful 
-            ? 'Appointment created and synced successfully.' 
-            : 'Appointment created successfully, but Microsoft 365 sync was skipped (External Email).';
 
-        return ApiResponse::success(new AppointmentResource($appointment), $message);
+        return ApiResponse::success(new AppointmentResource($appointment), __('appointment.created_synced'));
     }
 
     /**
-     * Display the specified appointment.
+     * Appointment Show
      */
     public function show($id)
     {
         $appointment = Appointment::with(['scheduledBy', 'assignedFor'])->findOrFail($id);
-        return ApiResponse::success(new AppointmentResource($appointment), 'Appointment details retrieved.');
+        return ApiResponse::success(new AppointmentResource($appointment), __('appointment.retrieved'));
     }
 
     /**
-     * Update the specified appointment.
+     * Appointment Update
      */
     public function update(UpdateAppointmentRequest $request, $id)
     {
         $appointment = Appointment::findOrFail($id);
         $updated = $this->appointmentService->update($appointment, $request->validated());
-        $message = $updated->sync_successful 
-            ? 'Appointment updated and synced successfully.' 
-            : 'Appointment updated successfully, but Microsoft 365 sync was skipped or failed.';
-
-        return ApiResponse::success(new AppointmentResource($updated), $message);
+    
+        return ApiResponse::success(new AppointmentResource($updated), __('appointment.updated_synced'));
     }
 
     /**
-     * Remove the specified appointment.
+     * Appointment Delete
      */
     public function destroy($id)
     {
         $appointment = Appointment::findOrFail($id);
         $this->appointmentService->delete($appointment);
-        return ApiResponse::success(null, 'Appointment deleted successfully.');
+        return ApiResponse::success(null, __('appointment.deleted'));
     }
 
     /**
-     * Delete multiple appointments.
+     * Appointment Multiple Delete
      */
     public function multipleDelete(Request $request)
     {
@@ -86,6 +80,6 @@ class AppointmentController extends Controller
                 $this->appointmentService->delete($appointment);
             }
         }
-        return ApiResponse::success(null, 'Selected appointments deleted successfully.');
+        return ApiResponse::success(null, __('appointment.multiple_deleted'));
     }
 }

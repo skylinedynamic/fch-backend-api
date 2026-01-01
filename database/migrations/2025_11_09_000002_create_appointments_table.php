@@ -23,8 +23,8 @@ return new class extends Migration
             $table->text('description');
             $table->dateTime('appointment_date');
             $table->integer('duration_minutes');
-            $table->string('status')->default(Appointment::STATUS_SCHEDULED);
-            $table->string('meeting_type')->default(Appointment::MEETING_TYPE_ONLINE);
+            $table->string('status')->default('pending');
+            $table->string('meeting_type')->default('Initial Consultation');
             $table->string('location', 255);
             $table->text('remarks')->nullable();
             $table->softDeletes();

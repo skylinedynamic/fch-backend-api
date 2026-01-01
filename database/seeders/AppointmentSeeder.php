@@ -32,7 +32,6 @@ class AppointmentSeeder extends Seeder
                 $assignedFor = $users->random();
                 
                 Appointment::create([
-                    'partner_id' => $partner->id,
                     'appointment_code' => 'APT-' . strtoupper(Str::random(8)),
                     'scheduled_by' => $scheduledBy->id,
                     'assigned_for' => $assignedFor->id,
@@ -43,7 +42,7 @@ class AppointmentSeeder extends Seeder
                     'duration_minutes' => rand(30, 120),
                     'status' => $this->getRandomStatus(),
                     'meeting_type' => $this->getRandomMeetingType(),
-                    'location' => 'Online via Zoom',
+                    'location' => 'Online via Microsoft Teams',
                     'remarks' => 'Please prepare the monthly report.',
                 ]);
             }
@@ -53,10 +52,12 @@ class AppointmentSeeder extends Seeder
     private function getRandomStatus()
     {
         $statuses = [
-            Appointment::STATUS_SCHEDULED,
+            Appointment::STATUS_PENDING,
+            Appointment::STATUS_CONFIRMED,
+            Appointment::STATUS_REJECTED,
+            Appointment::STATUS_RESCHEDULED,
             Appointment::STATUS_COMPLETED,
             Appointment::STATUS_CANCELLED,
-            Appointment::STATUS_RESCHEDULED,
         ];
         return $statuses[array_rand($statuses)];
     }
@@ -64,8 +65,12 @@ class AppointmentSeeder extends Seeder
     private function getRandomMeetingType()
     {
         $types = [
-            Appointment::MEETING_TYPE_ONLINE,
-            Appointment::MEETING_TYPE_IN_PERSON,
+            Appointment::MEETING_TYPE_INITIAL_CONSULTATION,
+            Appointment::MEETING_TYPE_FOLLOWUP_MEETING,
+            Appointment::MEETING_TYPE_BUSINESS_REVIEW,
+            Appointment::MEETING_TYPE_TECHNICAL_SUPPORT,
+            Appointment::MEETING_TYPE_FEEDBACK_SESSION,
+            Appointment::MEETING_TYPE_PARTNERSHIP_MEETING,
         ];
         return $types[array_rand($types)];
     }
