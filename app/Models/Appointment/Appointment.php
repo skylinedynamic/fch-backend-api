@@ -2,10 +2,13 @@
 
 namespace App\Models\Appointment;
 
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
+    use SoftDeletes;
     protected $table = 'appointments';
 
     protected $fillable = [
@@ -26,36 +29,48 @@ class Appointment extends Model
 
     public function scheduledBy()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'scheduled_by');
+        return $this->belongsTo(User::class, 'scheduled_by');
     }
 
     public function assignedFor()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'assigned_for');
+        return $this->belongsTo(User::class, 'assigned_for');
     }
-    public const STATUS_SCHEDULED = 'scheduled';
-    public const STATUS_IN_PROGRESS = 'in_progress';
-    public const STATUS_COMPLETED = 'completed';
-    public const STATUS_CANCELLED = 'cancelled';
+
+    public function details()
+    {
+        return $this->hasMany(AppointmentDetail::class, 'appointment_id');
+    }
+
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_REJECTED = 'rejected';
     public const STATUS_RESCHEDULED = 'rescheduled';
+    public const STATUS_COMPLETED = 'completed'; // Keeping as it makes sense for lifecycle
+    public const STATUS_CANCELLED = 'cancelled'; // Keeping as it makes sense
 
     public const STATUSES = [
-        self::STATUS_SCHEDULED => self::STATUS_SCHEDULED,
-        self::STATUS_IN_PROGRESS => self::STATUS_IN_PROGRESS,
+        self::STATUS_PENDING => self::STATUS_PENDING,
+        self::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
+        self::STATUS_REJECTED => self::STATUS_REJECTED,
+        self::STATUS_RESCHEDULED => self::STATUS_RESCHEDULED,
         self::STATUS_COMPLETED => self::STATUS_COMPLETED,
         self::STATUS_CANCELLED => self::STATUS_CANCELLED,
-        self::STATUS_RESCHEDULED => self::STATUS_RESCHEDULED,
     ];
 
-    public const MEETING_TYPE_ONLINE = 'online';
-    public const MEETING_TYPE_IN_PERSON = 'in_person';
-    public const MEETING_TYPE_PHONE = 'phone';
+    public const MEETING_TYPE_INITIAL_CONSULTATION = 'Initial Consultation';
+    public const MEETING_TYPE_FOLLOWUP_MEETING = 'Follow-up Meeting';
+    public const MEETING_TYPE_BUSINESS_REVIEW = 'Business Review';
+    public const MEETING_TYPE_TECHNICAL_SUPPORT = 'Technical Support';
+    public const MEETING_TYPE_FEEDBACK_SESSION = 'Feedback Session';
+    public const MEETING_TYPE_PARTNERSHIP_MEETING = 'Partnership Meeting';
 
     public const MEETING_TYPES = [
-        self::MEETING_TYPE_ONLINE => self::MEETING_TYPE_ONLINE,
-        self::MEETING_TYPE_IN_PERSON => self::MEETING_TYPE_IN_PERSON,
-        self::MEETING_TYPE_PHONE => self::MEETING_TYPE_PHONE,
+        self::MEETING_TYPE_INITIAL_CONSULTATION => self::MEETING_TYPE_INITIAL_CONSULTATION,
+        self::MEETING_TYPE_FOLLOWUP_MEETING => self::MEETING_TYPE_FOLLOWUP_MEETING,
+        self::MEETING_TYPE_BUSINESS_REVIEW => self::MEETING_TYPE_BUSINESS_REVIEW,
+        self::MEETING_TYPE_TECHNICAL_SUPPORT => self::MEETING_TYPE_TECHNICAL_SUPPORT,
+        self::MEETING_TYPE_FEEDBACK_SESSION => self::MEETING_TYPE_FEEDBACK_SESSION,
+        self::MEETING_TYPE_PARTNERSHIP_MEETING => self::MEETING_TYPE_PARTNERSHIP_MEETING,
     ];
-
-
 }

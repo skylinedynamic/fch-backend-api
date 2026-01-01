@@ -42,6 +42,9 @@ return [
         'client_secret' => env('MS_CLIENT_SECRET'),
         'sharepoint_site_id' => env('MS_SHAREPOINT_SITE_ID'),
         'calendar_service_email' => env('MS_CALENDAR_SERVICE_EMAIL'), // The internal account that hosts events
+        'login_endpoint' => env('MS_LOGIN_ENDPOINT', 'https://login.microsoftonline.com/'),
+        'graph_endpoint' => env('MS_GRAPH_ENDPOINT', 'https://graph.microsoft.com/v1.0'),
+        'default_scope'  => env('MS_DEFAULT_SCOPE', 'https://graph.microsoft.com/.default'),
     ],
 
     'microbilt' => [
