@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\FCH\Common\TimeSlot;
+namespace App\Http\Controllers\Api\V1\FCH\Common\TimeSlot;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -10,14 +10,14 @@ class TimeSlotController extends Controller
 {
 
     /**
-     * Fetch all time slots without pagination.
+     * Fetch Time Slots
      */
     public function fetchAll()
     {
         $slots = TimeSlot::where('is_active', true)->get();
         return response()->json([
             'status' => true,
-            'message' => 'Time slots retrieved successfully.',
+            'message' => __('timeslot.retrieved'),
             'data' => $slots
         ]);
     }

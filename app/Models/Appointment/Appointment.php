@@ -2,10 +2,13 @@
 
 namespace App\Models\Appointment;
 
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
+    use SoftDeletes;
     protected $table = 'appointments';
 
     protected $fillable = [
@@ -26,13 +29,19 @@ class Appointment extends Model
 
     public function scheduledBy()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'scheduled_by');
+        return $this->belongsTo(User::class, 'scheduled_by');
     }
 
     public function assignedFor()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'assigned_for');
+        return $this->belongsTo(User::class, 'assigned_for');
     }
+
+    public function details()
+    {
+        return $this->hasMany(AppointmentDetail::class, 'appointment_id');
+    }
+
     public const STATUS_PENDING = 'pending';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_REJECTED = 'rejected';
@@ -49,15 +58,19 @@ class Appointment extends Model
         self::STATUS_CANCELLED => self::STATUS_CANCELLED,
     ];
 
-    public const MEETING_TYPE_ONLINE = 'online';
-    public const MEETING_TYPE_IN_PERSON = 'in_person';
-    public const MEETING_TYPE_PHONE = 'phone';
+    public const MEETING_TYPE_INITIAL_CONSULTATION = 'Initial Consultation';
+    public const MEETING_TYPE_FOLLOWUP_MEETING = 'Follow-up Meeting';
+    public const MEETING_TYPE_BUSINESS_REVIEW = 'Business Review';
+    public const MEETING_TYPE_TECHNICAL_SUPPORT = 'Technical Support';
+    public const MEETING_TYPE_FEEDBACK_SESSION = 'Feedback Session';
+    public const MEETING_TYPE_PARTNERSHIP_MEETING = 'Partnership Meeting';
 
     public const MEETING_TYPES = [
-        self::MEETING_TYPE_ONLINE => self::MEETING_TYPE_ONLINE,
-        self::MEETING_TYPE_IN_PERSON => self::MEETING_TYPE_IN_PERSON,
-        self::MEETING_TYPE_PHONE => self::MEETING_TYPE_PHONE,
+        self::MEETING_TYPE_INITIAL_CONSULTATION => self::MEETING_TYPE_INITIAL_CONSULTATION,
+        self::MEETING_TYPE_FOLLOWUP_MEETING => self::MEETING_TYPE_FOLLOWUP_MEETING,
+        self::MEETING_TYPE_BUSINESS_REVIEW => self::MEETING_TYPE_BUSINESS_REVIEW,
+        self::MEETING_TYPE_TECHNICAL_SUPPORT => self::MEETING_TYPE_TECHNICAL_SUPPORT,
+        self::MEETING_TYPE_FEEDBACK_SESSION => self::MEETING_TYPE_FEEDBACK_SESSION,
+        self::MEETING_TYPE_PARTNERSHIP_MEETING => self::MEETING_TYPE_PARTNERSHIP_MEETING,
     ];
-
-
 }

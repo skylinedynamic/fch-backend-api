@@ -2,18 +2,19 @@
 
 namespace App\Services\FCH\Common\Appointment;
 
-use App\Helpers\ApiResponse;
-use App\Http\Resources\FCH\Appointment\AppointmentResource;
-use App\Models\Appointment\Appointment;
-use App\Models\User\User;
-use App\Services\Global\Microsoft\MicrosoftCalendarService;
-use App\Services\Global\Datatable\QueryFilter;
-use App\Traits\PaginatesApi;
+use Throwable;
 use Carbon\Carbon;
+use App\Models\User\User;
+use Illuminate\Support\Str;
+use App\Helpers\ApiResponse;
+use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Throwable;
+use App\Models\Appointment\Appointment;
+use App\Models\Appointment\AppointmentDetail;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\FCH\Appointment\AppointmentResource;
+use App\Services\Global\Microsoft\MicrosoftCalendarService;
 
 class AppointmentService
 {
@@ -27,10 +28,7 @@ class AppointmentService
     }
 
     /**
-     * List appointments with filtering and pagination.
-     */
-    /**
-     * List appointments with filtering (No Pagination).
+     * List Appointments
      */
     public function list(array $filters)
     {
@@ -88,11 +86,56 @@ class AppointmentService
         Log::info('[DEMO] Starting appointment creation process...');
         DB::beginTransaction();
         try {
+            // Check time slot availability if time_slot_id is provided
+            if (!empty($data['time_slot_id'])) {
+                $isAvailable = $this->checkTimeSlotAvailability(
+                    $data['time_slot_id'],
+                    $data['appointment_date'],
+                    auth()->id(),
+                    $data['assigned_for']
+                );
+
+                if (!$isAvailable) {
+                    throw new \RuntimeException('The selected time slot is not available for one or both users.');
+                }
+            }
+
             $data['appointment_code'] = $this->generateNextAppointmentCode();
             $data['scheduled_by'] = auth()->id();
             
             $appointment = Appointment::create($data);
             Log::info('[DEMO] Appointment record created in database. Code: ' . $appointment->appointment_code);
+
+            // Debug: Check if time_slot_id is present
+            Log::info('[DEBUG] Checking time_slot_id', [
+                'time_slot_id_exists' => !empty($data['time_slot_id']),
+                'time_slot_id_value' => $data['time_slot_id'] ?? 'NOT SET',
+                'assigned_for' => $data['assigned_for'] ?? 'NOT SET',
+                'all_data_keys' => array_keys($data)
+            ]);
+
+            // Create appointment detail record
+            if (!empty($data['time_slot_id'])) {
+                $appointmentDateOnly = Carbon::parse($data['appointment_date'])->format('Y-m-d');
+                
+                Log::info('[DEBUG] Creating appointment detail', [
+                    'appointment_id' => $appointment->id,
+                    'time_slot_id' => $data['time_slot_id'],
+                    'appointment_date' => $appointmentDateOnly,
+                ]);
+
+                AppointmentDetail::create([
+                    'appointment_id' => $appointment->id,
+                    'scheduled_by' => $appointment->scheduled_by,
+                    'assigned_for' => $appointment->assigned_for,
+                    'time_slot_id' => $data['time_slot_id'],
+                    'appointment_date' => $appointmentDateOnly,
+                    'status' => AppointmentDetail::STATUS_PENDING,
+                ]);
+                Log::info('[DEMO] Appointment detail record created with time slot.');
+            } else {
+                Log::warning('[DEBUG] Skipping appointment detail creation - time_slot_id is empty or not provided');
+            }
 
             // Sync with Microsoft 365
             Log::info('[DEMO] Initiating M365 synchronization...');
@@ -113,10 +156,14 @@ class AppointmentService
 
     /**
      * Generate the next accurate sequential appointment code.
+     * Includes soft-deleted records to prevent duplicate codes.
      */
     public function generateNextAppointmentCode(): string
     {
-        $lastAppointment = Appointment::orderBy('id', 'desc')->first();
+        // Include soft-deleted records to get the true last code
+        $lastAppointment = Appointment::withTrashed()
+            ->orderBy('id', 'desc')
+            ->first();
         
         if (!$lastAppointment) {
             return 'APP-0001';
@@ -162,19 +209,43 @@ class AppointmentService
     {
         DB::beginTransaction();
         try {
+            // Delete from Microsoft 365 if synced
             if ($appointment->microsoft_event_id && $appointment->assignedFor) {
                 $this->microsoftCalendarService->deleteEvent(
                     $appointment->assignedFor->email,
                     $appointment->microsoft_event_id
                 );
+                Log::info('[MS GRAPH] Event deleted from Microsoft 365', [
+                    'appointment_id' => $appointment->id,
+                    'event_id' => $appointment->microsoft_event_id
+                ]);
             }
 
+            // Soft delete related appointment details
+            $detailsCount = $appointment->details()->count();
+            if ($detailsCount > 0) {
+                $appointment->details()->delete();
+                Log::info('[APPOINTMENT] Deleted appointment details', [
+                    'appointment_id' => $appointment->id,
+                    'details_count' => $detailsCount
+                ]);
+            }
+
+            // Soft delete the appointment
             $appointment->delete();
+            Log::info('[APPOINTMENT] Appointment deleted successfully', [
+                'appointment_id' => $appointment->id,
+                'appointment_code' => $appointment->appointment_code
+            ]);
+
             DB::commit();
             return true;
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('Appointment deletion failed', ['error' => $e->getMessage()]);
+            Log::error('[APPOINTMENT] Deletion failed', [
+                'appointment_id' => $appointment->id ?? null,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
@@ -248,7 +319,37 @@ class AppointmentService
                     'type' => 'required',
                 ],
             ],
-            'isOnlineMeeting' => $appointment->meeting_type === Appointment::MEETING_TYPE_ONLINE,
+            'isOnlineMeeting' => in_array($appointment->meeting_type, [
+                Appointment::MEETING_TYPE_INITIAL_CONSULTATION,
+                Appointment::MEETING_TYPE_FOLLOWUP_MEETING,
+                Appointment::MEETING_TYPE_TECHNICAL_SUPPORT,
+                Appointment::MEETING_TYPE_FEEDBACK_SESSION,
+                Appointment::MEETING_TYPE_BUSINESS_REVIEW,
+                Appointment::MEETING_TYPE_PARTNERSHIP_MEETING,
+            ]),
         ];
+    }
+
+    /**
+     * Check if a time slot is available for both users on a specific date.
+     */
+    protected function checkTimeSlotAvailability(int $timeSlotId, string $appointmentDate, int $scheduledBy, int $assignedFor): bool
+    {
+        // Check if the time slot is already booked for either user on the given date
+        $conflictCount = AppointmentDetail::where('time_slot_id', $timeSlotId)
+            ->where('appointment_date', $appointmentDate)
+            ->where(function ($query) use ($scheduledBy, $assignedFor) {
+                $query->where('scheduled_by', $scheduledBy)
+                      ->orWhere('scheduled_by', $assignedFor)
+                      ->orWhere('assigned_for', $scheduledBy)
+                      ->orWhere('assigned_for', $assignedFor);
+            })
+            ->whereIn('status', [
+                AppointmentDetail::STATUS_PENDING,
+                AppointmentDetail::STATUS_CONFIRMED,
+            ])
+            ->count();
+
+        return $conflictCount === 0;
     }
 }

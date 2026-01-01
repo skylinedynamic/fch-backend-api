@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
-use App\Http\Controllers\FCH\Common\TimeSlot\TimeSlotController;
+use App\Http\Controllers\Api\V1\FCH\Common\TimeSlot\TimeSlotController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;

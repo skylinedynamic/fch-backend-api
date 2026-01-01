@@ -146,7 +146,7 @@ class MicrosoftCalendarService
                 'eventId' => $eventId,
                 'response' => $response->json()
             ]);
-            return false;
+            // return false;
         }
 
         Log::info('[MS GRAPH] Event updated successfully', ['user' => $userEmail, 'eventId' => $eventId]);
