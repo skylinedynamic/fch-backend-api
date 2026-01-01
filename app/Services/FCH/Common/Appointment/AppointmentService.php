@@ -29,9 +29,19 @@ class AppointmentService
     /**
      * List appointments with filtering and pagination.
      */
+    /**
+     * List appointments with filtering (No Pagination).
+     */
     public function list(array $filters)
     {
         $query = Appointment::query()->with(['scheduledBy', 'assignedFor']);
+
+        // Filter: Auth user is either the host (scheduler) or the attendee (assigned_for)
+        $userId = auth()->id();
+        $query->where(function ($q) use ($userId) {
+            $q->where('scheduled_by', $userId)
+              ->orWhere('assigned_for', $userId);
+        });
 
         if (!empty($filters['search'])) {
             $search = trim($filters['search']);
@@ -61,14 +71,11 @@ class AppointmentService
             $filters['filters'] ?? []
         );
 
-        $perPage = $filters['per_page'] ?? 10;
-        $page = $filters['page'] ?? 1;
+        // Retrieve all records without pagination
+        $results = $query->get();
 
-        $paginator = $this->paginateBuilderWith($query, (int)$perPage, (int)$page);
-
-        return $this->respondWithPaginationResource(
-            $paginator,
-            AppointmentResource::class,
+        return ApiResponse::success(
+            AppointmentResource::collection($results),
             'Appointments retrieved successfully.'
         );
     }
@@ -178,9 +185,9 @@ class AppointmentService
      */
     protected function syncWithMicrosoft(Appointment $appointment): bool
     {
-        $serviceEmail = config('services.microsoft.calendar_service_email');
-        $targetEmail = $serviceEmail ?: ($appointment->assignedFor->email ?? null);
-
+       
+        // $serviceEmail = config('services.microsoft.calendar_service_email');
+        $targetEmail = ($appointment->assignedFor->email ?? null);
         if (!$targetEmail) {
             Log::warning('[MS Graph] No target email found for sync.');
             return false;
