@@ -82,4 +82,51 @@ class AppointmentController extends Controller
         }
         return ApiResponse::success(null, __('appointment.multiple_deleted'));
     }
+    /**
+     * Check Appointment Availability
+     */
+    public function checkAvailability(Request $request)
+    {
+        $request->validate([
+            'appointment_date' => 'required|date_format:Y-m-d',
+            'assigned_for' => 'nullable|integer|exists:users,id',
+        ], [
+            'appointment_date.required' => __('appointment.date_required'),
+            'appointment_date.date_format' => __('appointment.date_invalid'),
+            'assigned_for.exists' => __('appointment.assigned_for_invalid'),
+        ]);
+
+        $result = $this->appointmentService->checkDuplicate($request->all());
+        
+        $schedulerConflicts = $result['scheduler_conflicts'];
+        $assigneeConflicts = $result['assignee_conflicts'];
+
+        if ($schedulerConflicts->isNotEmpty() || $assigneeConflicts->isNotEmpty()) {
+            
+            $formatConflict = function ($conflicts) {
+                return $conflicts->map(function ($appointment) {
+                    $start = \Carbon\Carbon::parse($appointment->appointment_date);
+                    $end = $start->copy()->addMinutes($appointment->duration_minutes);
+                    
+                    return [
+                        'id' => $appointment->id,
+                        'date' => $start->format('Y-m-d'),
+                        'start_time' => $start->format('H:i'),
+                        'end_time' => $end->format('H:i'),
+                        'duration_minutes' => $appointment->duration_minutes,
+                    ];
+                });
+            };
+
+            return ApiResponse::success([
+                'available' => false,
+                'scheduler_conflicts' => $formatConflict($schedulerConflicts),
+                'assignee_conflicts' => $formatConflict($assigneeConflicts),
+            ], __('appointment.duplicate_found'));
+        }
+
+        return ApiResponse::success([
+            'available' => true
+        ], __('appointment.available'));
+    }
 }

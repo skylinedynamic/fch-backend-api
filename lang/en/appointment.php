@@ -3,10 +3,10 @@
 return [
     // Success messages
     'created' => 'Appointment created successfully.',
-    'created_synced' => 'Appointment created and synced with Microsoft 365 successfully.',
+    'created_synced' => 'Appointment has been created successfully.',
     'created_sync_skipped' => 'Appointment created successfully, but Microsoft 365 sync was skipped.',
     'updated' => 'Appointment updated successfully.',
-    'updated_synced' => 'Appointment updated and synced with Microsoft 365 successfully.',
+    'updated_synced' => 'Appointment updated successfully.',
     'updated_sync_failed' => 'Appointment updated successfully, but Microsoft 365 sync failed.',
     'deleted' => 'Appointment deleted successfully.',
     'multiple_deleted' => 'Selected appointments deleted successfully.',
@@ -20,6 +20,10 @@ return [
     'delete_failed' => 'Failed to delete appointment.',
     'time_slot_unavailable' => 'The selected time slot is not available for one or both users.',
     'external_email' => 'Microsoft 365 sync is not available for external email addresses.',
+
+    // Availability messages
+    'duplicate_found' => 'Duplicate appointments found.',
+    'available' => 'Time slot is available.',
     
     // Validation messages
     'subject_required' => 'Appointment subject is required.',

@@ -12,6 +12,8 @@ class Appointment extends Model
     protected $table = 'appointments';
 
     protected $fillable = [
+        'entity_type',
+        'entity_id',
         'appointment_code',
         'microsoft_event_id',
         'scheduled_by',
@@ -26,6 +28,24 @@ class Appointment extends Model
         'location',
         'remarks',
     ];
+
+    /**
+     * Relationship: polymorphic parent (e.g., Employee).
+     */
+    public function entity()
+    {
+        return $this->morphTo();
+    }
+
+    /**
+     * Relationship: The user associated with the entity.
+     * Use this if you want to get the User derived from the entity (like in Employee).
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'entity_id')
+            ->where('entity_type', $this->entity_type);
+    }
 
     public function scheduledBy()
     {

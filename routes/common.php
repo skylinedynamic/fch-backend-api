@@ -106,12 +106,12 @@ Route::prefix('v1')->group(function () {
             });
 
             // Appointment routes
-            Route::post('appointments/fetch-all', [AppointmentController::class, 'index']);
-            Route::post('appointments/multiple-delete', [AppointmentController::class, 'multipleDelete']);
+            Route::prefix('appointments')->group(function () {
+                Route::post('check-availability', [AppointmentController::class, 'checkAvailability']);
+                Route::post('fetch-all', [AppointmentController::class, 'index']);
+                Route::post('multiple-delete', [AppointmentController::class, 'multipleDelete']);
+            });
             Route::apiResource('appointments', AppointmentController::class);
-
-            // Time Slot routes
-            Route::get('time-slots/fetch-all', [TimeSlotController::class, 'fetchAll']);
         });
 
         // V1 Notification routes
