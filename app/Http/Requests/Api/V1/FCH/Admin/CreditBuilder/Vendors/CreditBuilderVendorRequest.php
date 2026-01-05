@@ -26,9 +26,9 @@ class CreditBuilderVendorRequest extends FormRequest
             'category' => 'nullable|string|max:255',
             'requirements' => 'nullable|array',
             'benefits' => 'nullable|array',
-            'report_to' => 'nullable|string|max:255',
-            'tier_id' => 'nullable|exists:tiers,id',
-            'status' => 'nullable|string|in:active,inactive',
+            'report_to' => 'nullable|array',
+            'tier_id' => 'required|exists:tiers,id',
+            'status' => 'required|string',
         ];
     }
 }

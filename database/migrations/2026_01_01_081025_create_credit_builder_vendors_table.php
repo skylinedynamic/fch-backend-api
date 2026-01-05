@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('category')->nullable();
             $table->json('requirements')->nullable();
             $table->json('benefits')->nullable();
-            $table->string('report_to')->nullable();
+            $table->json('report_to')->nullable();
             $table->unsignedBigInteger('tier_id')->nullable();
             $table->string('status')->default('active');
             $table->softDeletes();

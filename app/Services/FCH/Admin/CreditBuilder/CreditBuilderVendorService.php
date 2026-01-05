@@ -3,18 +3,63 @@
 namespace App\Services\FCH\Admin\CreditBuilder;
 
 use App\Models\CreditBuilder\CreditBuilderVendor;
+use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
 
 class CreditBuilderVendorService
 {
+
+    use PaginatesApi;
+    
+
     /**
-     * Get all vendors with pagination.
+     * Get all vendors with filtering and pagination.
      *
-     * @param int $limit
+     * @param array $filters
      * @return \Illuminate\Pagination\LengthAwarePaginator
      */
-    public function getAll($limit = 10)
+    public function list(array $filters = [])
     {
-        return CreditBuilderVendor::latest()->paginate($limit);
+        $query = CreditBuilderVendor::query();
+
+        if (!empty($filters['search'])) {
+            $query->search($filters['search']);
+        }
+
+        if(isset($filters['tier_id']) && !empty($filters['tier_id'])) {
+            $query->where('tier_id', $filters['tier_id']);
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
+        $skipSorting = false;
+
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [],
+                'skip_sorting' => $skipSorting,
+            ]
+        );
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            CreditBuilderVendorResource::class,
+            __('credit_builder.vendor_list_fetched')
+        );
+
     }
 
     /**

@@ -41,7 +41,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Rewards Program',
                     'Net 30 Terms'
                 ],
-                'report_to' => 'D&B',
+                'report_to' => ['D&B'],
                 'tier_id' => $tier0,
                 'status' => 'active',
             ],
@@ -58,7 +58,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Order History',
                     'Net 30 Terms'
                 ],
-                'report_to' => 'D&B',
+                'report_to' => ['D&B'],
                 'tier_id' => $tier0,
                 'status' => 'active',
             ],
@@ -77,7 +77,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Free Shipping',
                     'Net 30 Terms'
                 ],
-                'report_to' => 'D&B, Experian',
+                'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => 'active',
             ],
@@ -94,7 +94,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Net 30 Terms',
                     'Order Tracking'
                 ],
-                'report_to' => 'D&B, Experian',
+                'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => 'active',
             ],
@@ -111,7 +111,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Quick Delivery',
                     'Net 30 Terms'
                 ],
-                'report_to' => 'D&B',
+                'report_to' => ['D&B'],
                 'tier_id' => $tier1,
                 'status' => 'active',
             ],
@@ -128,7 +128,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Account Management',
                     'Net 30 Terms'
                 ],
-                'report_to' => 'D&B, Experian',
+                'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => 'active',
             ],
@@ -147,7 +147,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Business Support',
                     'Flexible Terms'
                 ],
-                'report_to' => 'D&B, Experian, Equifax',
+                'report_to' => ['D&B', 'Experian', 'Equifax'],
                 'tier_id' => $tier2,
                 'status' => 'active',
             ],
@@ -164,7 +164,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Wide Selection',
                     'Payment Terms'
                 ],
-                'report_to' => 'Experian, Equifax',
+                'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier2,
                 'status' => 'active',
             ],
@@ -183,7 +183,7 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Flexible Financing',
                     'Business Support'
                 ],
-                'report_to' => 'Experian, Equifax',
+                'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier3,
                 'status' => 'active',
             ],
