@@ -88,7 +88,7 @@ class AppointmentController extends Controller
     public function checkAvailability(Request $request)
     {
         $request->validate([
-            'appointment_date' => 'required|date_format:Y-m-d',
+            'appointment_date' => 'required',
             'assigned_for' => 'nullable|integer|exists:users,id',
         ], [
             'appointment_date.required' => __('appointment.date_required'),

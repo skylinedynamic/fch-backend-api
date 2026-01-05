@@ -5,6 +5,9 @@ namespace App\Services\FCH\Common\Appointment;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Str;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
@@ -85,8 +88,8 @@ class AppointmentService
      */
     public function create(array $data): Appointment
     {
-        Log::info('[DEMO] Starting appointment creation process...');
         DB::beginTransaction();
+
         try {
             // Check time slot availability if time_slot_id is provided
             if (!empty($data['time_slot_id'])) {
@@ -104,13 +107,6 @@ class AppointmentService
 
             $data['appointment_code'] = $this->generateNextAppointmentCode();
             $data['scheduled_by'] = auth()->id();
-
-            // Set entity_type and entity_id from the authenticated user
-            $user = auth()->user();
-            if ($user->entity_type && $user->entity_id) {
-                $data['entity_type'] = $user->entity_type;
-                $data['entity_id'] = $user->entity_id;
-            }
             
             $appointment = Appointment::create($data);
             Log::info('[DEMO] Appointment record created in database. Code: ' . $appointment->appointment_code);
@@ -395,9 +391,11 @@ class AppointmentService
      */
     protected function checkTimeSlotAvailability(int $timeSlotId, string $appointmentDate, int $scheduledBy, int $assignedFor): bool
     {
+        $appointmentDateOnly = Carbon::parse($appointmentDate)->format('Y-m-d');
+
         // Check if the time slot is already booked for either user on the given date
         $conflictCount = AppointmentDetail::where('time_slot_id', $timeSlotId)
-            ->where('appointment_date', $appointmentDate)
+            ->where('appointment_date', $appointmentDateOnly)
             ->where(function ($query) use ($scheduledBy, $assignedFor) {
                 $query->where('scheduled_by', $scheduledBy)
                       ->orWhere('scheduled_by', $assignedFor)
@@ -418,10 +416,10 @@ class AppointmentService
      */
     public function checkDuplicate(array $data)
     {
-        $appointmentDate = $data['appointment_date'];
+        $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
-
+        
         // Check conflicts for Scheduler
         $schedulerConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
             ->where(function ($q) use ($scheduledBy) {
@@ -454,10 +452,11 @@ class AppointmentService
      */
     public function getBusySlots(array $data)
     {
-        $date = $data['date']; // Y-m-d
+        $date = Carbon::parse($data['date'])->format('Y-m-d'); // Y-m-d
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
         $excludeId = $data['exclude_appointment_id'] ?? null;
+
 
         // Fetch Scheduler's busy slots for the date
         $schedulerBusySlots = Appointment::whereDate('appointment_date', $date)

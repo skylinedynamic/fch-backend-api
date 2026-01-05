@@ -3,12 +3,17 @@
 namespace App\Models\Appointment;
 
 use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Appointment extends Model
 {
     use SoftDeletes;
+
     protected $table = 'appointments';
 
     protected $fillable = [
@@ -30,11 +35,32 @@ class Appointment extends Model
     ];
 
     /**
-     * Relationship: polymorphic parent (e.g., Employee).
+     * Polymorphic relation to the associated entity model.
      */
-    public function entity()
+    public function entity(): MorphTo
     {
-        return $this->morphTo();
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
+    }
+
+    /**
+     * Accessor: human-readable entity name (partner/borrower/employee).
+     */
+    public function getEntityNameAttribute(): ?string
+    {
+        return $this->entity_type ? ucfirst(class_basename($this->entity_type)) : null;
+    }
+
+    /**
+     * Mutator: resolve short entity name to class name.
+     */
+    public function setEntityTypeAttribute($value)
+    {
+        $this->attributes['entity_type'] = match (strtolower($value)) {
+            'partner'  => Partner::class,
+            'borrower' => Borrower::class,
+            'employee' => Employee::class,
+            default    => $value,
+        };
     }
 
     /**

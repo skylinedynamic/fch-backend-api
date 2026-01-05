@@ -18,13 +18,15 @@ class StoreAppointmentRequest extends BaseApiRequest
         return [
             'subject' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'appointment_date' => 'required|date_format:Y-m-d H:i:s',
+            'appointment_date' => 'required',
             'timezone' => 'required|string',
             'duration_minutes' => 'required|integer|min:1',
             'status' => ['nullable', Rule::in(array_keys(Appointment::STATUSES))],
             'meeting_type' => ['required', Rule::in(array_keys(Appointment::MEETING_TYPES))],
             'location' => 'nullable|string|max:255',
             'assigned_for' => 'required|exists:users,id',
+            'entity_id' => 'nullable|integer',
+            'entity_type' => 'nullable|string',
             'time_slot_id' => 'nullable|exists:time_slots,id',
         ];
     }
