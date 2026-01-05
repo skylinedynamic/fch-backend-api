@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Appointment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Appointment\StoreAppointmentRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Appointment\UpdateAppointmentRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Appointment\CheckAvailabilityRequest;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Models\Appointment\Appointment;
 use App\Services\FCH\Common\Appointment\AppointmentService;
@@ -85,17 +86,8 @@ class AppointmentController extends Controller
     /**
      * Check Appointment Availability
      */
-    public function checkAvailability(Request $request)
+    public function checkAvailability(CheckAvailabilityRequest $request)
     {
-        $request->validate([
-            'appointment_date' => 'required',
-            'assigned_for' => 'nullable|integer|exists:users,id',
-        ], [
-            'appointment_date.required' => __('appointment.date_required'),
-            'appointment_date.date_format' => __('appointment.date_invalid'),
-            'assigned_for.exists' => __('appointment.assigned_for_invalid'),
-        ]);
-
         $result = $this->appointmentService->checkDuplicate($request->all());
         
         $schedulerConflicts = $result['scheduler_conflicts'];
