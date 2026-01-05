@@ -7,7 +7,6 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Models\Appointment\Appointment;
 use App\Models\Appointment\AppointmentDetail;
-use App\Models\FCH\Common\TimeSlot\TimeSlot;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
@@ -19,19 +18,14 @@ class AppointmentSeeder extends Seeder
     public function run(): void
     {
         $users = User::all();
-        $timeSlots = TimeSlot::where('is_active', true)->get();
 
-        if ($users->isEmpty() || $timeSlots->isEmpty()) {
-            return;
-        }
 
         // Create exactly 10 appointments
         for ($i = 0; $i < 10; $i++) {
             $scheduledBy = $users->random();
             $assignedFor = $users->random();
-            $timeSlot = $timeSlots->random();
             $appointmentDate = Carbon::now()->addDays(rand(1, 30))->format('Y-m-d');
-            $fullDateTime = $appointmentDate . ' ' . $timeSlot->start_time;
+            $fullDateTime = $appointmentDate;
 
             $status = $this->getRandomStatus();
 
@@ -55,7 +49,6 @@ class AppointmentSeeder extends Seeder
                 'appointment_id' => $appointment->id,
                 'scheduled_by' => $scheduledBy->id,
                 'assigned_for' => $assignedFor->id,
-                'time_slot_id' => $timeSlot->id,
                 'appointment_date' => $appointmentDate,
                 'status' => $status === Appointment::STATUS_PENDING ? AppointmentDetail::STATUS_PENDING : AppointmentDetail::STATUS_CONFIRMED,
             ]);
