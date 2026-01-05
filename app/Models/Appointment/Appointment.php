@@ -3,15 +3,22 @@
 namespace App\Models\Appointment;
 
 use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Appointment extends Model
 {
     use SoftDeletes;
+
     protected $table = 'appointments';
 
     protected $fillable = [
+        'entity_type',
+        'entity_id',
         'appointment_code',
         'microsoft_event_id',
         'scheduled_by',
@@ -26,6 +33,45 @@ class Appointment extends Model
         'location',
         'remarks',
     ];
+
+    /**
+     * Polymorphic relation to the associated entity model.
+     */
+    public function entity(): MorphTo
+    {
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
+    }
+
+    /**
+     * Accessor: human-readable entity name (partner/borrower/employee).
+     */
+    public function getEntityNameAttribute(): ?string
+    {
+        return $this->entity_type ? ucfirst(class_basename($this->entity_type)) : null;
+    }
+
+    /**
+     * Mutator: resolve short entity name to class name.
+     */
+    public function setEntityTypeAttribute($value)
+    {
+        $this->attributes['entity_type'] = match (strtolower($value)) {
+            'partner'  => Partner::class,
+            'borrower' => Borrower::class,
+            'employee' => Employee::class,
+            default    => $value,
+        };
+    }
+
+    /**
+     * Relationship: The user associated with the entity.
+     * Use this if you want to get the User derived from the entity (like in Employee).
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'entity_id')
+            ->where('entity_type', $this->entity_type);
+    }
 
     public function scheduledBy()
     {

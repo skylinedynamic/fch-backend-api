@@ -5,6 +5,9 @@ namespace App\Services\FCH\Common\Appointment;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Str;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
@@ -15,6 +18,8 @@ use App\Models\Appointment\AppointmentDetail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
+use App\Mail\Appointment\AppointmentNotification;
+use Illuminate\Support\Facades\Mail;
 
 class AppointmentService
 {
@@ -83,8 +88,8 @@ class AppointmentService
      */
     public function create(array $data): Appointment
     {
-        Log::info('[DEMO] Starting appointment creation process...');
         DB::beginTransaction();
+
         try {
             // Check time slot availability if time_slot_id is provided
             if (!empty($data['time_slot_id'])) {
@@ -137,9 +142,15 @@ class AppointmentService
                 Log::warning('[DEBUG] Skipping appointment detail creation - time_slot_id is empty or not provided');
             }
 
-            // Sync with Microsoft 365
+            // Sync with Microsoft 365 (SKIPPED as per requirement)
+            /*
             Log::info('[DEMO] Initiating M365 synchronization...');
             $syncResult = $this->syncWithMicrosoft($appointment);
+            */
+            $syncResult = false; // Default to false since we skipped
+
+            // Send Email Notification to Assigned User
+            $this->sendNotification($appointment, 'created');
 
             DB::commit();
             
@@ -187,8 +198,14 @@ class AppointmentService
         try {
             $appointment->update($data);
 
-            // Sync with Microsoft 365
+            // Sync with Microsoft 365 (SKIPPED as per requirement)
+            /*
             $syncResult = $this->syncWithMicrosoft($appointment);
+            */
+            $syncResult = false; 
+
+            // Send Email Notification to Assigned User
+            $this->sendNotification($appointment, 'updated');
 
             DB::commit();
             
@@ -209,7 +226,8 @@ class AppointmentService
     {
         DB::beginTransaction();
         try {
-            // Delete from Microsoft 365 if synced
+            // Delete from Microsoft 365 if synced (SKIPPED as per requirement)
+            /*
             if ($appointment->microsoft_event_id && $appointment->assignedFor) {
                 $this->microsoftCalendarService->deleteEvent(
                     $appointment->assignedFor->email,
@@ -220,6 +238,7 @@ class AppointmentService
                     'event_id' => $appointment->microsoft_event_id
                 ]);
             }
+            */
 
             // Soft delete related appointment details
             $detailsCount = $appointment->details()->count();
@@ -237,6 +256,9 @@ class AppointmentService
                 'appointment_id' => $appointment->id,
                 'appointment_code' => $appointment->appointment_code
             ]);
+
+            // Send Email Notification to Assigned User
+             $this->sendNotification($appointment, 'deleted');
 
             DB::commit();
             return true;
@@ -331,13 +353,49 @@ class AppointmentService
     }
 
     /**
+     * Send email notification to the assigned user with business info.
+     */
+    protected function sendNotification(Appointment $appointment, string $action): void
+    {
+        if (!$appointment->assignedFor) {
+            return;
+        }
+
+        try {
+            // Get Partner Info (Business Info)
+            // Try getting from auth user first, or fall back to the scheduler's partner
+            $user = auth()->user();
+            $partner = $user ? $user->partner : $appointment->scheduledBy->partner;
+            
+            // Fallback empty if no partner found (e.g. system admin?)
+            $businessInfo = [
+                'company_name' => $partner->company_name ?? 'Our Company',
+                'company_logo' => $partner->company_logo ?? 'logo.png',
+                'email' => $partner->email ?? '',
+                'phone_number' => $partner->phone_number ?? '',
+                'address_line_1' => $partner->address_line_1 ?? '',
+            ];
+
+            Mail::to($appointment->assignedFor->email)->send(
+                new AppointmentNotification($appointment, $action, $businessInfo)
+            );
+            
+            Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
+        } catch (Throwable $e) {
+            Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Check if a time slot is available for both users on a specific date.
      */
     protected function checkTimeSlotAvailability(int $timeSlotId, string $appointmentDate, int $scheduledBy, int $assignedFor): bool
     {
+        $appointmentDateOnly = Carbon::parse($appointmentDate)->format('Y-m-d');
+
         // Check if the time slot is already booked for either user on the given date
         $conflictCount = AppointmentDetail::where('time_slot_id', $timeSlotId)
-            ->where('appointment_date', $appointmentDate)
+            ->where('appointment_date', $appointmentDateOnly)
             ->where(function ($query) use ($scheduledBy, $assignedFor) {
                 $query->where('scheduled_by', $scheduledBy)
                       ->orWhere('scheduled_by', $assignedFor)
@@ -351,5 +409,83 @@ class AppointmentService
             ->count();
 
         return $conflictCount === 0;
+    }
+
+    /**
+     * Check for duplicate appointments.
+     */
+    public function checkDuplicate(array $data)
+    {
+        $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
+        $assignedFor = $data['assigned_for'] ?? null;
+        $scheduledBy = auth()->id();
+        
+        // Check conflicts for Scheduler
+        $schedulerConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
+            ->where(function ($q) use ($scheduledBy) {
+                $q->where('scheduled_by', $scheduledBy)
+                  ->orWhere('assigned_for', $scheduledBy);
+            })
+            ->with(['scheduledBy', 'assignedFor'])
+            ->get();
+
+        // Check conflicts for Assignee (if provided)
+        $assigneeConflicts = collect();
+        if ($assignedFor) {
+            $assigneeConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
+                ->where(function ($q) use ($assignedFor) {
+                    $q->where('scheduled_by', $assignedFor)
+                      ->orWhere('assigned_for', $assignedFor);
+                })
+                ->with(['scheduledBy', 'assignedFor'])
+                ->get();
+        }
+
+        return [
+            'scheduler_conflicts' => $schedulerConflicts,
+            'assignee_conflicts' => $assigneeConflicts,
+        ];
+    }
+
+    /**
+     * Get busy slots (appointments) for a specific date.
+     */
+    public function getBusySlots(array $data)
+    {
+        $date = Carbon::parse($data['date'])->format('Y-m-d'); // Y-m-d
+        $assignedFor = $data['assigned_for'] ?? null;
+        $scheduledBy = auth()->id();
+        $excludeId = $data['exclude_appointment_id'] ?? null;
+
+
+        // Fetch Scheduler's busy slots for the date
+        $schedulerBusySlots = Appointment::whereDate('appointment_date', $date)
+            ->where(function ($q) use ($scheduledBy) {
+                $q->where('scheduled_by', $scheduledBy)
+                  ->orWhere('assigned_for', $scheduledBy);
+            })
+            ->when($excludeId, function ($q) use ($excludeId) {
+                $q->where('id', '!=', $excludeId);
+            })
+            ->get(['id', 'appointment_date', 'duration_minutes', 'appointment_end_date']);
+
+        // Fetch Assignee's busy slots for the date (if provided)
+        $assigneeBusySlots = collect();
+        if ($assignedFor) {
+            $assigneeBusySlots = Appointment::whereDate('appointment_date', $date)
+                ->where(function ($q) use ($assignedFor) {
+                    $q->where('scheduled_by', $assignedFor)
+                      ->orWhere('assigned_for', $assignedFor);
+                })
+                ->when($excludeId, function ($q) use ($excludeId) {
+                    $q->where('id', '!=', $excludeId);
+                })
+                ->get(['id', 'appointment_date', 'duration_minutes', 'appointment_end_date']);
+        }
+
+        return [
+            'scheduler_busy_slots' => $schedulerBusySlots,
+            'assignee_busy_slots' => $assigneeBusySlots,
+        ];
     }
 }
