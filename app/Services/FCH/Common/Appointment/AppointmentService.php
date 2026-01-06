@@ -37,7 +37,7 @@ class AppointmentService
      */
     public function list(array $filters)
     {
-        $query = Appointment::query()->with(['scheduledBy', 'assignedFor']);
+        $query = Appointment::query()->with(['scheduledBy', 'assignedFor.entity']);
 
         // Filter: Auth user is either the host (scheduler) or the attendee (assigned_for)
         $userId = auth()->id();
@@ -88,6 +88,8 @@ class AppointmentService
      */
     public function create(array $data): Appointment
     {
+        $this->resolveEntityAndUser($data);
+
         DB::beginTransaction();
 
         try {
@@ -194,6 +196,8 @@ class AppointmentService
      */
     public function update(Appointment $appointment, array $data): Appointment
     {
+        $this->resolveEntityAndUser($data);
+
         DB::beginTransaction();
         try {
             $appointment->update($data);
@@ -487,5 +491,34 @@ class AppointmentService
             'scheduler_busy_slots' => $schedulerBusySlots,
             'assignee_busy_slots' => $assigneeBusySlots,
         ];
+    }
+
+    /**
+     * Resolve entity_type, entity_id, and assigned_for (user_id) based on provided data.
+     */
+    private function resolveEntityAndUser(array &$data): void
+    {
+        // 1. If entity info is provided, resolve the User (assigned_for)
+        if (!empty($data['entity_type']) && !empty($data['entity_id'])) {
+            // Use model mutator to normalize type (handles 'borrower' -> Borrower::class etc)
+            $temp = new Appointment(['entity_type' => $data['entity_type']]);
+            
+            $user = User::where('entity_type', $temp->entity_type)
+                ->where('entity_id', $data['entity_id'])
+                ->first();
+
+            if ($user) {
+                $data['assigned_for'] = $user->id;
+                $data['entity_type'] = $temp->entity_type;
+            }
+        }
+        // 2. If assigned_for (user_id) is provided but entity info is missing, resolve it from User
+        elseif (!empty($data['assigned_for'])) {
+            $user = User::find($data['assigned_for']);
+            if ($user && $user->entity_type && $user->entity_id) {
+                $data['entity_type'] = $user->entity_type;
+                $data['entity_id'] = $user->entity_id;
+            }
+        }
     }
 }

@@ -5,6 +5,10 @@ namespace App\Http\Resources\FCH\Appointment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
+
 class AppointmentResource extends JsonResource
 {
     /**
@@ -33,6 +37,9 @@ class AppointmentResource extends JsonResource
                 'id' => $this->assignedFor->id,
                 'name' => $this->assignedFor->name,
                 'email' => $this->assignedFor->email,
+                'entity_type' => $this->assignedFor->entity_name,
+                'entity_id' => $this->assignedFor->entity_id,
+                'image' => $this->assignedFor->image,
             ] : null,
             'microsoft_event_id' => $this->microsoft_event_id,
             'created_at' => $this->created_at,
