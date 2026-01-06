@@ -34,6 +34,8 @@ class BusinessInfoService
                 'business_email'        => $data['business_email']    ?? null,
                 'duns_number'           => $data['duns_number']     ?? null,
                 'business_address'      => $data['business_address']  ?? null,
+                'business_country'      => $data['business_country']  ?? null,
+                'business_country_code' => $data['business_country_code'] ?? null,
                 'business_city'         => $data['business_city']     ?? null,
                 'business_state'        => $data['business_state']    ?? null,
                 'business_postal_code'  => $data['business_zip_code'] ?? null,

@@ -83,6 +83,10 @@ class TierService
             $maxOrder = Tier::max('order') ?? 0;
             $data['order'] = $maxOrder + 1;
         }
+
+        if($data['description'] == '<p><br></p>'){
+            $data['description'] = null;
+        }
         
         return Tier::create($data);
     }
@@ -93,6 +97,11 @@ class TierService
     public function update(Tier $tier, array $data): Tier
     {
         $data['updated_by'] = auth()->id();
+
+        if($data['description'] == '<p><br></p>'){
+            $data['description'] = null;
+        }
+
         $tier->update($data);
         return $tier;
     }
