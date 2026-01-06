@@ -43,7 +43,7 @@ class AppointmentController extends Controller
      */
     public function show($id)
     {
-        $appointment = Appointment::with(['scheduledBy', 'assignedFor'])->findOrFail($id);
+        $appointment = Appointment::with(['scheduledBy', 'assignedFor.entity'])->findOrFail($id);
         return ApiResponse::success(new AppointmentResource($appointment), __('appointment.retrieved'));
     }
 

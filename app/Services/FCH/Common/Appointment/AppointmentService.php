@@ -37,7 +37,7 @@ class AppointmentService
      */
     public function list(array $filters)
     {
-        $query = Appointment::query()->with(['scheduledBy', 'assignedFor']);
+        $query = Appointment::query()->with(['scheduledBy', 'assignedFor.entity']);
 
         // Filter: Auth user is either the host (scheduler) or the attendee (assigned_for)
         $userId = auth()->id();
