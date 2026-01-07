@@ -43,7 +43,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B'],
                 'tier_id' => $tier0,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Office Depot Business Credit',
@@ -60,7 +60,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B'],
                 'tier_id' => $tier0,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
 
             // Tier 1
@@ -79,7 +79,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Quill Business Credit',
@@ -96,7 +96,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Grainger Commercial Account',
@@ -113,7 +113,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B'],
                 'tier_id' => $tier1,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'MSC Industrial Supply',
@@ -130,7 +130,75 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
+            ],
+            [
+                'name' => 'Crown Office Supplies',
+                'category' => 'Office Supplies',
+                'requirements' => [
+                    '6 Months in Business',
+                    'Trade References',
+                    'D&B Profile'
+                ],
+                'benefits' => [
+                    'Volume Discounts',
+                    'Net 30 Terms',
+                    'Account Management'
+                ],
+                'report_to' => ['D&B', 'Experian'],
+                'tier_id' => $tier1,
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
+            ],
+            [
+                'name' => 'Global Industrial',
+                'category' => 'Industrial Supplies',
+                'requirements' => [
+                    'Business Bank Account',
+                    'Trade References',
+                    'D&B Profile'
+                ],
+                'benefits' => [
+                    'Warehouse Solutions',
+                    'Safety Products',
+                    'Net 30 Terms'
+                ],
+                'report_to' => ['D&B'],
+                'tier_id' => $tier1,
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
+            ],
+            [
+                'name' => 'Seton',
+                'category' => 'Safety Supplies',
+                'requirements' => [
+                    '6 Months in Business',
+                    'Trade References',
+                    'D&B Profile'
+                ],
+                'benefits' => [
+                    'Safety Compliance',
+                    'Volume Pricing',
+                    'Net 30 Terms'
+                ],
+                'report_to' => ['D&B', 'Experian'],
+                'tier_id' => $tier1,
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
+            ],
+            [
+                'name' => 'Office Garner',
+                'category' => 'Office Supplies',
+                'requirements' => [
+                    '6 Months in Business',
+                    'Trade References',
+                    'D&B Profile'
+                ],
+                'benefits' => [
+                    'Office Solutions',
+                    'Volume Discounts',
+                    'Net 30 Terms'
+                ],
+                'report_to' => ['D&B'],
+                'tier_id' => $tier1,
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
 
             // Tier 2
@@ -149,7 +217,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['D&B', 'Experian', 'Equifax'],
                 'tier_id' => $tier2,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Amazon Business Net Terms',
@@ -166,7 +234,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier2,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
 
             // Tier 3
@@ -185,7 +253,7 @@ class CreditBuilderVendorSeeder extends Seeder
                 ],
                 'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier3,
-                'status' => 'active',
+                'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
         ];
 

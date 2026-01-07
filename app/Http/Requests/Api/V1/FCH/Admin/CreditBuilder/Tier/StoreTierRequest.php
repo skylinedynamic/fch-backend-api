@@ -26,6 +26,7 @@ class StoreTierRequest extends BaseApiRequest
             'title' => 'required|string|max:255',
             'subtitle' => 'nullable|string',
             'description' => 'nullable|string',
+            'has_vendor' => 'nullable|boolean',
             'status' => 'nullable|string|max:50',
         ];
     }

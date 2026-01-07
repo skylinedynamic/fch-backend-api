@@ -16,10 +16,12 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('title');
+            $table->string('code')->nullable();
             $table->text('subtitle')->nullable();
             $table->longText('description')->nullable();
             $table->string('status')->nullable();
             $table->integer('order')->nullable();
+            $table->boolean('has_vendor')->default(false);
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

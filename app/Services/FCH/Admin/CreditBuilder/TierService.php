@@ -84,6 +84,12 @@ class TierService
             $data['order'] = $maxOrder + 1;
         }
 
+        if (!isset($data['has_vendor']) || empty($data['has_vendor'])) {
+            $data['has_vendor'] = false;
+        }else{
+            $data['has_vendor'] = true;
+        }
+
         if($data['description'] == '<p><br></p>'){
             $data['description'] = null;
         }
@@ -100,6 +106,12 @@ class TierService
 
         if($data['description'] == '<p><br></p>'){
             $data['description'] = null;
+        }
+
+        if (!isset($data['has_vendor']) || empty($data['has_vendor'])) {
+            $data['has_vendor'] = false;
+        }else{
+            $data['has_vendor'] = true;
         }
 
         $tier->update($data);

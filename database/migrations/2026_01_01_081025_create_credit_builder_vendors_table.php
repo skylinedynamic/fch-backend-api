@@ -18,6 +18,8 @@ return new class extends Migration
             $table->json('requirements')->nullable();
             $table->json('benefits')->nullable();
             $table->json('report_to')->nullable();
+            $table->string('general_url')->nullable();
+            $table->string('affiliate_url')->nullable();
             $table->unsignedBigInteger('tier_id')->nullable();
             $table->string('status')->default('active');
             $table->softDeletes();
