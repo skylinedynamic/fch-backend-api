@@ -116,6 +116,11 @@ Route::prefix('v1')->group(function () {
             
             // Location routes
             Route::get('locations', [LocationController::class, 'index']);
+
+            // Contact routes
+            Route::post('contacts/fetch-contacts', [\App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController::class, 'fetchContacts']);
+            Route::post('contacts/multiple-delete', [\App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController::class, 'multipleDelete']);
+            Route::apiResource('contacts', \App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController::class);
         });
 
         // V1 Notification routes
