@@ -12,6 +12,7 @@ return [
     'multiple_deleted' => 'Selected appointments deleted successfully.',
     'retrieved' => 'Appointment details retrieved successfully.',
     'list_retrieved' => 'Appointments retrieved successfully.',
+    'users_selection_retrieved' => 'Users list retrieved successfully.',
 
     // Error messages
     'not_found' => 'Appointment not found.',

@@ -5,21 +5,22 @@ namespace App\Services\FCH\Common\Appointment;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
-use App\Models\Partner\Partner;
-use App\Models\Borrower\Borrower;
-use App\Models\Employee\Employee;
 use Illuminate\Support\Str;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Appointment\Appointment;
 use App\Models\Appointment\AppointmentDetail;
 use App\Services\Global\Datatable\QueryFilter;
+use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
-use App\Mail\Appointment\AppointmentNotification;
-use Illuminate\Support\Facades\Mail;
+use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 
 class AppointmentService
 {
@@ -457,6 +458,62 @@ class AppointmentService
             'scheduler_busy_slots' => $schedulerBusySlots,
             'assignee_busy_slots' => $assigneeBusySlots,
         ];
+    }
+
+    /**
+     * Get all users list without pagination for appointment selection.
+     */
+    public function getSelectableUsers(array $data)
+    {
+        $query = User::query();
+        $isHost = (int) auth()->user()->partner->is_host;
+        $authPartnerId = auth()->user()->partner->id;
+
+        if ($isHost === 1) {
+            $query->where(function ($q) use ($authPartnerId, $data) {
+            if (empty($data['meeting_with'])) {
+                    $q->where(function ($sub) use ($authPartnerId) {
+                        $sub->where(function ($e) {
+                            $e->where('entity_type', Borrower::class)
+                            ->orWhereNull('entity_type');
+                        })
+                        ->where('partner_id', $authPartnerId);
+                    });
+            } else {
+                $q->where('entity_type', Partner::class)
+                ->where('partner_id','!=',$authPartnerId);
+            }
+        });
+        } else {  
+            $query->where(function ($q) use ($authPartnerId, $data) {
+               
+                if (empty($data['meeting_with_host'])) {
+                   
+                    $q->where(function ($sub) use ($authPartnerId) {
+                        $sub->where(function ($e) {
+                            $e->where('entity_type', Borrower::class)
+                            ->orWhereNull('entity_type');
+                        })
+                        ->where('partner_id', $authPartnerId);
+                    });
+                } else {
+                    $hostId =  1;
+                    $q->orWhere(function ($sub) use ($hostId) {
+                        $sub->where('entity_id', $hostId)
+                            ->where('entity_type', Partner::class)
+                            ->where('name','!=','Developer')
+                            ->where('partner_id', $hostId);
+                    });
+                }
+            });
+        }
+
+        $results = $query->get(['id', 'name', 'entity_type', 'entity_id']);
+
+        return ApiResponse::success(
+            AppointmentUserResource::collection($results),
+            __('appointment.users_selection_retrieved')
+        );
     }
 
     /**

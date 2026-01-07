@@ -2,15 +2,16 @@
 
 namespace App\Services\Global\Auth;
 
-use App\Helpers\ApiResponse;
 use App\Models\User\User;
-use Illuminate\Http\JsonResponse;
+use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
+use App\Models\Borrower\Borrower;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\RateLimiter;
-use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Services\Global\TwoFaAuth\TwoFaService;
+use App\Http\Resources\Global\Auth\UserResource;
 
 class AuthService
 {
@@ -41,8 +42,14 @@ class AuthService
         }
         
         $user = User::where('email', $authCredentials['email'])
-                    ->when($user_type,function($query) use ($user_type){
-                        $query->where('user_type',$user_type);
+                    ->when($user_type, function ($query) use ($user_type) {
+                        $query->where('user_type', $user_type);
+                        if ($user_type === 'Borrower') {
+                            $query->where('entity_type', Borrower::class);
+                        }
+                    })
+                    ->unless($user_type === 'Borrower', function ($query) {
+                        $query->where('entity_type', '!=', Borrower::class);
                     })
                     ->first();
 

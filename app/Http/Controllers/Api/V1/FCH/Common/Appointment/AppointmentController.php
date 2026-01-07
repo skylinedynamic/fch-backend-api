@@ -121,4 +121,12 @@ class AppointmentController extends Controller
             'available' => true
         ], __('appointment.available'));
     }
+
+    /**
+     * Get Selectable Users
+     */
+    public function selectableUsers(Request $request)
+    {
+        return $this->appointmentService->getSelectableUsers($request->all());
+    }
 }

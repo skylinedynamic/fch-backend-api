@@ -488,30 +488,5 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->roles->first()?->name;
     }
 
-    /**
-     * Get the resolved image from the associated entity.
-     */
-    public function getImageAttribute(): ?string
-    {
-        $entity = $this->entity;
-
-        if (!$entity) {
-            return null;
-        }
-
-        if ($entity instanceof Partner) {
-            return $entity->getRawOriginal('partner_image');
-        }
-
-        if ($entity instanceof Employee) {
-            return $entity->getRawOriginal('image');
-        }
-
-        if ($entity instanceof Borrower) {
-            return $entity->getRawOriginal('image');
-        }
-
-        return null;
-    }
     
 }

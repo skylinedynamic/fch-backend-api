@@ -39,7 +39,17 @@ class AppointmentResource extends JsonResource
                 'email' => $this->assignedFor->email,
                 'entity_type' => $this->assignedFor->entity_name,
                 'entity_id' => $this->assignedFor->entity_id,
-                'image' => $this->assignedFor->image ? (encodeUrl($this->assignedFor->image)) : null,
+                'image' => (function($user) {
+                    if (!$user || !$user->entity) return null;
+                    $entity = $user->entity;
+                    $path = null;
+                    if ($entity instanceof Partner) {
+                        $path = $entity->getRawOriginal('partner_image');
+                    } elseif ($entity instanceof Employee || $entity instanceof Borrower) {
+                        $path = $entity->getRawOriginal('image');
+                    }
+                    return $path ? encodeUrl($path) : null;
+                })($this->assignedFor),
             ] : null,
             'microsoft_event_id' => $this->microsoft_event_id,
             'created_at' => $this->created_at,
