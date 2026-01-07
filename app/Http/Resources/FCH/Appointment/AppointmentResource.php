@@ -39,7 +39,7 @@ class AppointmentResource extends JsonResource
                 'email' => $this->assignedFor->email,
                 'entity_type' => $this->assignedFor->entity_name,
                 'entity_id' => $this->assignedFor->entity_id,
-                'image' => $this->assignedFor->image,
+                'image' => $this->assignedFor->image ? (encodeUrl($this->assignedFor->image)) : null,
             ] : null,
             'microsoft_event_id' => $this->microsoft_event_id,
             'created_at' => $this->created_at,

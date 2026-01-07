@@ -76,7 +76,7 @@ class UserService
 
     public function getAll()
     {
-         $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles'])->orderBy('id', 'desc');
+         $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles', 'entity'])->orderBy('id', 'desc');
          
          if (!Auth::user()->hasRole('Developer')) {
              $query->whereDoesntHave('roles', function ($q) {
@@ -94,7 +94,7 @@ class UserService
      */
     public function list(int $partnerId, array $filters)
     {
-        $query = User::query()->where('partner_id', $partnerId)->with(['roles','partner']);
+        $query = User::query()->where('partner_id', $partnerId)->with(['roles', 'partner', 'entity']);
 
         if (!Auth::user()->hasRole('Developer')) {
             $query->whereDoesntHave('roles', function ($q) {
