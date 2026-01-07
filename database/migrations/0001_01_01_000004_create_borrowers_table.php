@@ -34,6 +34,8 @@ return new class extends Migration {
             $table->string('business_ein')->nullable()->index();
             $table->string('business_phone')->nullable()->index();
             $table->string('business_address')->nullable();
+            $table->string('business_country')->nullable();
+            $table->string('business_country_code')->nullable();
             $table->string('business_city')->nullable();
             $table->string('business_state')->nullable();
             $table->string('business_postal_code')->nullable();

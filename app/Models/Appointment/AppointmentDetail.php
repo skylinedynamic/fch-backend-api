@@ -16,7 +16,6 @@ class AppointmentDetail extends Model
         'appointment_id',
         'scheduled_by',
         'assigned_for',
-        'time_slot_id',
         'appointment_date',
         'status',
     ];
@@ -34,11 +33,6 @@ class AppointmentDetail extends Model
     public function assignedFor()
     {
         return $this->belongsTo(User::class, 'assigned_for');
-    }
-
-    public function timeSlot()
-    {
-        return $this->belongsTo(TimeSlot::class, 'time_slot_id');
     }
 
     // Status constants

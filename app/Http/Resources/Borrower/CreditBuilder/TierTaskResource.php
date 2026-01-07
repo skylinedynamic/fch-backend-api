@@ -28,6 +28,7 @@ class TierTaskResource extends JsonResource
             'rejection_reason' => $borrower_task ? $borrower_task->rejection_reason : null,
             'completed_at' => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
             'url' => $this->url,
+            'logo' => $this->logo ? asset('/' . encodeUrl($this->logo)) : null,
             'button_title' => $this->button_title,
             'estimated_completion_days' => $this->estimated_completion_days,
             'order' => $this->order,

@@ -154,7 +154,9 @@
             @if($appointment->description)
             <tr>
                 <td>Description</td>
-                <td>{{ $appointment->description }}</td>
+                <td>
+                   {!! \Illuminate\Support\Str::limit($appointment->description, 1000, '...') !!}
+                </td>
             </tr>
             @endif
         </table>

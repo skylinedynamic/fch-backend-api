@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Http\Resources\FCH\CreditBuilder\BorrowerTaskVerificationRequestResource;
+use App\Models\CreditBuilder\TierTask;
 
 class VerificationCenterService
 {
@@ -163,6 +164,10 @@ class VerificationCenterService
             $query->where('partner_id', $filters['partner_id']);
         }
 
+        if (!empty($filters['tier_id'])) {
+            $query->where('tier_id', $filters['tier_id']);
+        }
+
         // Apply partner security filter if not already filtered or restricted
         $authUser = auth()->user();
         if ($authUser && $authUser->partner && $authUser->partner->is_host != 1) {
@@ -268,6 +273,47 @@ class VerificationCenterService
 
         $verificationRequest->update($updateData);
 
+        $this->tierUpdate($verificationRequest, $data['status']);
+
         return $verificationRequest;
+    }
+
+    /**
+     * Check and update borrower tier if all tasks are completed.
+     */
+    protected function tierUpdate(BorrowerTaskVerificationRequest $verificationRequest, string $status)
+    {
+        // Check if all tasks in the current tier are verified
+        if ($status === BorrowerTaskVerificationRequest::COMPLETED) {
+            $tierId = $verificationRequest->tier_id;
+            $borrowerId = $verificationRequest->borrower_id;
+
+            // Count total tasks in this tier
+            $totalTasks = TierTask::where('tier_id', $tierId)->count();
+
+            // Count verified tasks for this borrower in this tier
+            $verifiedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrowerId)
+                ->where('tier_id', $tierId)
+                ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
+                ->count();
+
+            // If verified tasks equal or exceed total tasks, move to next tier
+            if ($verifiedTasks >= $totalTasks && $totalTasks > 0) {
+                $currentTier = Tier::find($tierId);
+
+                if ($currentTier) {
+                    // Find the next tier based on order
+                    $nextTier = Tier::where('order', '>', $currentTier->order)
+                        ->orderBy('order', 'asc')
+                        ->first();
+
+                    if ($nextTier) {
+                        Borrower::where('id', $borrowerId)->update([
+                            'current_tier' => $nextTier->id
+                        ]);
+                    }
+                }
+            }
+        }
     }
 }

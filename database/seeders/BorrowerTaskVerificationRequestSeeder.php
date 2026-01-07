@@ -28,7 +28,7 @@ class BorrowerTaskVerificationRequestSeeder extends Seeder
         // Get all tasks for Tier 1
         $tier1Tasks = TierTask::where('tier_id', $tier1->id)->get();
 
-        foreach ($borrowers as $borrower) {
+        foreach ($borrowers as $borrower) {     
             foreach ($tier1Tasks as $task) {
                 BorrowerTaskVerificationRequest::firstOrCreate(
                     [
@@ -38,9 +38,9 @@ class BorrowerTaskVerificationRequestSeeder extends Seeder
                     ],
                     [
                         'partner_id' => $borrower->partner_id,
-                        'status' => BorrowerTaskVerificationRequest::PROCESSING,
-                        'verified_by' => null,
-                        'verified_at' => null,
+                        'status' => $borrower->id == 1 ? BorrowerTaskVerificationRequest::COMPLETED : BorrowerTaskVerificationRequest::PROCESSING,
+                        'verified_by' => $borrower->id == 1 ? 1 : null,
+                        'verified_at' => $borrower->id == 1 ? now() : null,
                     ]
                 );
             }

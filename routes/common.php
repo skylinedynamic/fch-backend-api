@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
-use App\Http\Controllers\Api\V1\FCH\Common\TimeSlot\TimeSlotController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -17,6 +16,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
+use App\Http\Controllers\Api\V1\Global\General\LocationController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -112,6 +112,9 @@ Route::prefix('v1')->group(function () {
                 Route::post('multiple-delete', [AppointmentController::class, 'multipleDelete']);
             });
             Route::apiResource('appointments', AppointmentController::class);
+            
+            // Location routes
+            Route::get('locations', [LocationController::class, 'index']);
         });
 
         // V1 Notification routes

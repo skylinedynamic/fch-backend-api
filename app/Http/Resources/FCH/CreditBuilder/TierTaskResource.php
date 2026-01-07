@@ -19,6 +19,7 @@ class TierTaskResource extends JsonResource
             'tier_id' => $this->tier_id,
             'title' => $this->title,
             'subtitle' => $this->subtitle,
+            'logo' => $this->logo ? asset('/' . encodeUrl($this->logo)) : null,
             'description' => $this->description,
             'url' => $this->url,
             'related_api_id' => $this->related_api_id,

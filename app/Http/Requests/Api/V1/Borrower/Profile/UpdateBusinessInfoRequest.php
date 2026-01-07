@@ -29,10 +29,12 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_email' => 'required|email|max:255',
             'duns_number' => 'nullable|string|max:255',
             'business_address' => 'required|string|max:255',
+            'business_country' => 'required|string|max:255',
+            'business_country_code' => 'required|string|max:5',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
             'business_zip_code' => 'required|string|max:20',
-            'business_website' => 'nullable|url|max:255',
+            'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
         ];

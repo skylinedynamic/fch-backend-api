@@ -68,7 +68,7 @@
             color: #1f2937;
         }
         .footer {
-            background: #b91c1c; /* Match header */
+            background: #331111ff; /* Match header */
             padding: 25px 20px;
             text-align: center;
             font-size: 14px;

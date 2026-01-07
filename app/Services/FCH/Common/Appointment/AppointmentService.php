@@ -37,7 +37,7 @@ class AppointmentService
      */
     public function list(array $filters)
     {
-        $query = Appointment::query()->with(['scheduledBy', 'assignedFor']);
+        $query = Appointment::query()->with(['scheduledBy', 'assignedFor.entity']);
 
         // Filter: Auth user is either the host (scheduler) or the attendee (assigned_for)
         $userId = auth()->id();
@@ -88,66 +88,35 @@ class AppointmentService
      */
     public function create(array $data): Appointment
     {
+        $this->resolveEntityAndUser($data);
+
         DB::beginTransaction();
 
         try {
-            // Check time slot availability if time_slot_id is provided
-            if (!empty($data['time_slot_id'])) {
-                $isAvailable = $this->checkTimeSlotAvailability(
-                    $data['time_slot_id'],
-                    $data['appointment_date'],
-                    auth()->id(),
-                    $data['assigned_for']
-                );
-
-                if (!$isAvailable) {
-                    throw new \RuntimeException('The selected time slot is not available for one or both users.');
-                }
-            }
-
+            $isAvailable = $this->checkTimeSlotAvailability(
+                $data['appointment_date'],
+                auth()->id(),
+                $data['assigned_for']
+            );
             $data['appointment_code'] = $this->generateNextAppointmentCode();
             $data['scheduled_by'] = auth()->id();
             
             $appointment = Appointment::create($data);
             Log::info('[DEMO] Appointment record created in database. Code: ' . $appointment->appointment_code);
 
-            // Debug: Check if time_slot_id is present
-            Log::info('[DEBUG] Checking time_slot_id', [
-                'time_slot_id_exists' => !empty($data['time_slot_id']),
-                'time_slot_id_value' => $data['time_slot_id'] ?? 'NOT SET',
-                'assigned_for' => $data['assigned_for'] ?? 'NOT SET',
-                'all_data_keys' => array_keys($data)
+            $appointmentDateOnly = Carbon::parse($data['appointment_date'])->format('Y-m-d');
+
+            AppointmentDetail::create([
+                'appointment_id' => $appointment->id,
+                'scheduled_by' => $appointment->scheduled_by,
+                'assigned_for' => $appointment->assigned_for,
+                'appointment_date' => $appointmentDateOnly,
+                'status' => AppointmentDetail::STATUS_PENDING,
             ]);
-
-            // Create appointment detail record
-            if (!empty($data['time_slot_id'])) {
-                $appointmentDateOnly = Carbon::parse($data['appointment_date'])->format('Y-m-d');
-                
-                Log::info('[DEBUG] Creating appointment detail', [
-                    'appointment_id' => $appointment->id,
-                    'time_slot_id' => $data['time_slot_id'],
-                    'appointment_date' => $appointmentDateOnly,
-                ]);
-
-                AppointmentDetail::create([
-                    'appointment_id' => $appointment->id,
-                    'scheduled_by' => $appointment->scheduled_by,
-                    'assigned_for' => $appointment->assigned_for,
-                    'time_slot_id' => $data['time_slot_id'],
-                    'appointment_date' => $appointmentDateOnly,
-                    'status' => AppointmentDetail::STATUS_PENDING,
-                ]);
-                Log::info('[DEMO] Appointment detail record created with time slot.');
-            } else {
-                Log::warning('[DEBUG] Skipping appointment detail creation - time_slot_id is empty or not provided');
-            }
-
             // Sync with Microsoft 365 (SKIPPED as per requirement)
             /*
-            Log::info('[DEMO] Initiating M365 synchronization...');
-            $syncResult = $this->syncWithMicrosoft($appointment);
             */
-            $syncResult = false; // Default to false since we skipped
+            $syncResult = false;
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'created');
@@ -194,6 +163,8 @@ class AppointmentService
      */
     public function update(Appointment $appointment, array $data): Appointment
     {
+        $this->resolveEntityAndUser($data);
+
         DB::beginTransaction();
         try {
             $appointment->update($data);
@@ -389,13 +360,12 @@ class AppointmentService
     /**
      * Check if a time slot is available for both users on a specific date.
      */
-    protected function checkTimeSlotAvailability(int $timeSlotId, string $appointmentDate, int $scheduledBy, int $assignedFor): bool
+    protected function checkTimeSlotAvailability(string $appointmentDate, int $scheduledBy, int $assignedFor): bool
     {
         $appointmentDateOnly = Carbon::parse($appointmentDate)->format('Y-m-d');
 
         // Check if the time slot is already booked for either user on the given date
-        $conflictCount = AppointmentDetail::where('time_slot_id', $timeSlotId)
-            ->where('appointment_date', $appointmentDateOnly)
+        $conflictCount = AppointmentDetail::where('appointment_date', $appointmentDateOnly)
             ->where(function ($query) use ($scheduledBy, $assignedFor) {
                 $query->where('scheduled_by', $scheduledBy)
                       ->orWhere('scheduled_by', $assignedFor)
@@ -487,5 +457,34 @@ class AppointmentService
             'scheduler_busy_slots' => $schedulerBusySlots,
             'assignee_busy_slots' => $assigneeBusySlots,
         ];
+    }
+
+    /**
+     * Resolve entity_type, entity_id, and assigned_for (user_id) based on provided data.
+     */
+    private function resolveEntityAndUser(array &$data): void
+    {
+        // 1. If entity info is provided, resolve the User (assigned_for)
+        if (!empty($data['entity_type']) && !empty($data['entity_id'])) {
+            // Use model mutator to normalize type (handles 'borrower' -> Borrower::class etc)
+            $temp = new Appointment(['entity_type' => $data['entity_type']]);
+            
+            $user = User::where('entity_type', $temp->entity_type)
+                ->where('entity_id', $data['entity_id'])
+                ->first();
+
+            if ($user) {
+                $data['assigned_for'] = $user->id;
+                $data['entity_type'] = $temp->entity_type;
+            }
+        }
+        // 2. If assigned_for (user_id) is provided but entity info is missing, resolve it from User
+        elseif (!empty($data['assigned_for'])) {
+            $user = User::find($data['assigned_for']);
+            if ($user && $user->entity_type && $user->entity_id) {
+                $data['entity_type'] = $user->entity_type;
+                $data['entity_id'] = $user->entity_id;
+            }
+        }
     }
 }
