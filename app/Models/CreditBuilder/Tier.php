@@ -13,9 +13,11 @@ class Tier extends Model
     protected $fillable = [
         'name',
         'title',
+        'code',
         'subtitle',
         'description',
         'status',
+        'has_vendor',
         'order',
         'created_by',
         'updated_by',

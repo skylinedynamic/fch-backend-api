@@ -25,6 +25,7 @@ class UpdateTierRequest extends BaseApiRequest
             'name' => 'sometimes|string|max:255',
             'title' => 'sometimes|string|max:255',
             'subtitle' => 'nullable|string',
+            'has_vendor' => 'nullable|boolean',
             'description' => 'nullable|string',
             'status' => 'nullable|string|max:50',
         ];

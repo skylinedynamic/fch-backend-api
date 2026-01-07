@@ -24,9 +24,11 @@ class TierSeeder extends Seeder
         $tiers = [
             [
                 'name' => 'Tier 0',
+                'code' => 'T0',
                 'title' => 'Business Foundation & Compliance',
                 'subtitle' => 'Establish the legal and structural essentials required for business credit readiness and financial compliance.',
                 'order' => 1,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
                     [
@@ -121,9 +123,11 @@ class TierSeeder extends Seeder
             ],
             [
                 'name' => 'Tier 1',
+                'code' => 'T1',
                 'title' => 'Starter Vendor Accounts',
                 'subtitle' => 'Open your first tradelines with vendors that report to the business credit bureaus. These small starter accounts help establish your business’s first credit history and build your D-U-N-S file.',
                 'order' => 2,
+                'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'Uline', 'subtitle' => 'Shipping supplies', 'logo' => 'Logos/Uline.png', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
@@ -139,8 +143,10 @@ class TierSeeder extends Seeder
             [
                 'name' => 'Tier 2',
                 'title' => 'Intermediate Vendors & Revolving Accounts',
+                'code' => 'T2',
                 'subtitle' => 'Expand your credit profile with additional vendors and store/fleet accounts that report to multiple bureaus. This phase strengthens your payment history and boosts your credit depth.',
                 'order' => 3,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'Home Depot Commercial', 'subtitle' => 'Building materials', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
@@ -153,8 +159,10 @@ class TierSeeder extends Seeder
             [
                 'name' => 'Tier 3',
                 'title' => 'Fleet & Vehicle',
+                'code' => 'T3',
                 'subtitle' => 'Transition from vendor credit to revolving business credit cards, higher limit Net 55/60 terms, and equipment or fleet financing. This tier proves long term creditworthiness and payment reliability.',
                 'order' => 4,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'Shell Fleet', 'subtitle' => 'Fuel card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
@@ -168,8 +176,10 @@ class TierSeeder extends Seeder
             [
                 'name' => 'Tier 4',
                 'title' => 'Bank & Institutional Lending',
+                'code' => 'T4',
                 'subtitle' => 'Leverage your established credit history to access bank lines of credit, SBA loans, and corporate financing — often without a personal guarantee. This tier is where funding power meets independence.',
                 'order' => 5,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'American Express Business', 'subtitle' => 'Business Card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],

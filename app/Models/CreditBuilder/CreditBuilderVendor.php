@@ -19,13 +19,25 @@ class CreditBuilderVendor extends Model
         'benefits',
         'report_to',
         'tier_id',
+        'general_url',
+        'affiliate_url',
         'status',
     ];
 
     protected $casts = [
         'requirements' => 'array',
         'benefits' => 'array',
-        'report_to' => 'array'
+        'report_to' => 'array',
+        'general_url' => 'string',
+        'affiliate_url' => 'string',
+    ];
+
+    public const STATUS_ACTIVE = 'Active';
+    public const STATUS_INACTIVE = 'Inactive';
+
+    public const STATUS = [
+        self::STATUS_ACTIVE =>  self::STATUS_ACTIVE,
+        self::STATUS_INACTIVE => self::STATUS_INACTIVE,
     ];
 
     public function scopeSearch($query, ?string $search)
