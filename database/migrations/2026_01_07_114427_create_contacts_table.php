@@ -19,9 +19,10 @@ return new class extends Migration
             $table->string('company_name')->nullable();
             $table->string('mobile_number', 20)->nullable();
             $table->string('email')->nullable();
-            $table->text('address')->nullable();
-            $table->string('state')->nullable();
             $table->string('country')->nullable();
+            $table->string('state')->nullable();
+            $table->string('city')->nullable();
+            $table->text('address')->nullable();
             $table->string('zip_code', 20)->nullable();
             $table->string('website')->nullable();
             $table->text('notes')->nullable();

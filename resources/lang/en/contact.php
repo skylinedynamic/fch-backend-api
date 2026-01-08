@@ -11,9 +11,15 @@ return [
     'contact_not_found' => 'Contact not found.',
     'unauthorized' => 'You are not authorized to access this contact.',
     'contact_listed' => 'Contact listed successfully.',
-    'success' => [
-        'retrieved' => 'Contacts retrieved successfully.',
-    ],
+    'retrieved_success' => 'Contacts retrieved successfully.',
     'first_name_required' => 'First name is required.',
     'email_valid' => 'Please enter a valid email address.',
+    'address_required' => 'Address is required.',
+    'country_required' => 'Country is required.',
+    'state_required' => 'State is required.',
+    'city_required' => 'City is required.',
+    'company_name_required' => 'Company name is required.',
+    'mobile_number_required' => 'Mobile number is required.',
+    'email_required' => 'Email address is required.',
+    'email_taken' => 'The email address has already been taken.',
 ];

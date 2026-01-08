@@ -21,7 +21,7 @@ class ContactService
     {
         $contacts = Contact::query()->where('partner_id', Auth::user()->partner_id)->orderBy('id', 'desc')->get();
 
-        return ApiResponse::success(ContactResource::collection($contacts), __('contact.success.retrieved'));
+        return ApiResponse::success(ContactResource::collection($contacts), __('contact.retrieved_success'));
     }
 
     /**
@@ -72,10 +72,10 @@ class ContactService
             $contact = Contact::create($contactData);
             Log::info('✅ Contact created successfully', ['contact_id' => $contact->id]);
 
-            // Handling Image Upload
-            if (isset($contactData['image']) && $contactData['image'] instanceof UploadedFile) {
-                 $this->uploadContactImage($contact, $contactData['image']);
-            }
+            // // Handling Image Upload
+            // if (isset($contactData['image']) && $contactData['image'] instanceof UploadedFile) {
+            //      $this->uploadContactImage($contact, $contactData['image']);
+            // }
 
             DB::commit();
 

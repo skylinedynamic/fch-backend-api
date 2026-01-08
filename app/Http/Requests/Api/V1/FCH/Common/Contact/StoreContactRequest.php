@@ -25,16 +25,25 @@ class StoreContactRequest extends BaseApiRequest
         return [
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
-            'company_name' => ['nullable', 'string', 'max:255'],
-            'mobile_number' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'state' => ['nullable', 'string', 'max:255'],
-            'country' => ['nullable', 'string', 'max:255'],
+            'company_name' => ['required', 'string', 'max:255'],
+            'mobile_number' => ['required', 'string', 'max:20'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('contacts')->where(function ($query) {
+                    return $query->where('partner_id', $this->user()->partner_id)
+                        ->whereNull('deleted_at');
+                })
+            ],
+            'state' => ['required', 'string', 'max:255'],
+            'country' => ['required', 'string', 'max:255'],
+            'city' => ['required', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', 'max:20'],
             'website' => ['nullable', 'url', 'max:255'],
             'notes' => ['nullable', 'string'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg', 'max:2048'],
-            'address' => ['nullable', 'string', 'max:500'],
+            'image' => ['nullable'],
+            'address' => ['required', 'string', 'max:500'],
         ];
     }
 
@@ -42,7 +51,15 @@ class StoreContactRequest extends BaseApiRequest
     {
         return [
             'first_name.required' => __('contact.first_name_required'),
+            'company_name.required' => __('contact.company_name_required'),
+            'mobile_number.required' => __('contact.mobile_number_required'),
+            'email.required' => __('contact.email_required'),
             'email.email' => __('contact.email_valid'),
+            'email.unique' => __('contact.email_taken'),
+            'address.required' => __('contact.address_required'),
+            'country.required' => __('contact.country_required'),
+            'state.required' => __('contact.state_required'),
+            'city.required' => __('contact.city_required'),
         ];
     }
 }

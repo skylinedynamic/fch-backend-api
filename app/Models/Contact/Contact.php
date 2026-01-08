@@ -20,8 +20,9 @@ class Contact extends Model
         'mobile_number',
         'email',
         'address',
-        'state',
         'country',
+        'state',
+        'city',
         'zip_code',
         'website',
         'notes',
@@ -58,18 +59,10 @@ class Contact extends Model
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'like', "%{$search}%")
                 ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('company_name', 'like', "%{$search}%")
                 ->orWhere('mobile_number', 'like', "%{$search}%")
-                ->orWhere('company_name', 'like', "%{$search}%");
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
         });
-    }
-
-    /**
-     * Get the contact image URL.
-     */
-    public function getImageAttribute($value)
-    {
-         return $value ? asset("storage/contacts/{$this->id}/{$value}") : null;
     }
 }
