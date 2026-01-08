@@ -219,4 +219,14 @@ return [
             'delete borrower documents',
         ],
     ],
+
+    'contacts' => [
+        'is_host' => 0,
+        'permissions' => [
+            'view contacts',
+            'create contacts',
+            'update contacts',
+            'delete contacts',
+        ],
+    ],
 ];

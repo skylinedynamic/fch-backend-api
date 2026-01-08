@@ -27,7 +27,6 @@ class StoreAppointmentRequest extends BaseApiRequest
             'assigned_for' => 'required|exists:users,id',
             'entity_id' => 'nullable|integer',
             'entity_type' => 'nullable|string',
-            'time_slot_id' => 'nullable|exists:time_slots,id',
         ];
     }
 
@@ -42,8 +41,8 @@ class StoreAppointmentRequest extends BaseApiRequest
             'meeting_type.required' => __('appointment.meeting_type_required'),
             'meeting_type.in' => __('appointment.meeting_type_invalid'),
             'status.in' => __('appointment.status_invalid'),
+            'assigned_for.required' => __('appointment.assigned_for_required'),
             'assigned_for.exists' => __('appointment.assigned_for_invalid'),
-            'time_slot_id.exists' => __('appointment.time_slot_invalid'),
         ];
     }
 }

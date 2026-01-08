@@ -20,12 +20,12 @@ return new class extends Migration
             $table->foreignId('assigned_for')->nullable()->constrained('users');
 
             $table->string('subject', 255);
-            $table->text('description');
+            $table->text('description')->nullable();
             $table->dateTime('appointment_date');
             $table->integer('duration_minutes');
             $table->string('status')->default('pending');
             $table->string('meeting_type')->default('Initial Consultation');
-            $table->string('location', 255);
+            $table->string('location', 255)->nullable();
             $table->text('remarks')->nullable();
             $table->softDeletes();
             $table->timestamps();

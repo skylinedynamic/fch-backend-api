@@ -68,7 +68,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             // Other
             'partner_id'                => ['nullable', 'integer', 'exists:partners,id'],
             'status'                    => ['nullable', 'string', 'max:255'],
-            'current_tier'              => ['nullable', 'string', 'max:255'],
+            'current_tier'              => ['nullable'],
             'assign_id'                 => ['nullable', 'integer', 'exists:users,id'],
             'notes'                     => ['nullable', 'string'],
             'additional_data'           => ['nullable', 'json'],

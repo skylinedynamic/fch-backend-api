@@ -77,7 +77,9 @@ class DatabaseSeeder extends Seeder
             InvoiceSeeder::class,            // Create invoices for partners
             SupportTicketSeeder::class,      // Create support tickets for partners
             BorrowerTaskVerificationRequestSeeder::class,
+            BorrowerTaskVerificationRequestSeeder::class,
             CreditBuilderVendorSeeder::class,
+            ContactSeeder::class,
         ]);
     }
 }
