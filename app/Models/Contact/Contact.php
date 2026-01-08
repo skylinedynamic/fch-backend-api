@@ -62,6 +62,7 @@ class Contact extends Model
                 ->orWhere('company_name', 'like', "%{$search}%")
                 ->orWhere('mobile_number', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('address', 'like', "%{$search}%")
                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
         });
     }

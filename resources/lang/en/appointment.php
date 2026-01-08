@@ -22,8 +22,8 @@ return [
     'appointment_delete_failed' => 'Failed to delete appointment.',
     
     // Controller usages
-    'created_synced' => 'Appointment created and synced successfully.',
-    'updated_synced' => 'Appointment updated and synced successfully.',
+    'created_synced' => 'Appointment created successfully.',
+    'updated_synced' => 'Appointment updated successfully.',
     'retrieved' => 'Appointment retrieved successfully.',
     'deleted' => 'Appointment deleted successfully.',
     'multiple_deleted' => 'Selected appointments deleted successfully.',
