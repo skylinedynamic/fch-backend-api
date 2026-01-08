@@ -27,7 +27,7 @@ class ContactResource extends JsonResource
             'city' => $this->city,
             'zip_code' => $this->zip_code,
             'website' => $this->website,
-            'notes' => strip_tags($this->notes),
+            'notes' => $this->notes,
             'image' => $this->image,
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
