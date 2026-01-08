@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Contact;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Contact\ContactResource;
 use App\Models\Contact\Contact;
+use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\UploadedFile;
@@ -34,6 +35,28 @@ class ContactService
         if (! empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
+
+        // Apply Advanced Filters
+        $aliases = [
+            'email' => 'contacts.email',
+            'mobile_number' => 'contacts.mobile_number',
+            'company_name' => 'contacts.company_name',
+            'address' => 'contacts.address',
+        ];
+
+        $query = QueryFilter::apply(
+            $query,
+            $filters['sort_field'] ?? 'id',
+            $filters['sort_order'] ?? 'desc',
+            $filters['filters'] ?? [],
+            [
+                'concat_fields' => [
+                    'full_name' => ['contacts.first_name', 'contacts.last_name'],
+                ],
+                'aliases' => $aliases,
+                'skip_sorting' => true, // We handle sorting manually below
+            ]
+        );
 
         // Sorting
         $sortField = $filters['sort_field'] ? $filters['sort_field'] : 'id';
