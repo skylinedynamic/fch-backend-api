@@ -153,6 +153,6 @@ class ContactController extends Controller
             return ApiResponse::success([], __('contact.contact_deleted'));
         }
 
-        return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
+        return response()->json(['status' => false, 'message' => __('contact.multiple_delete_failed')], 422);
     }
 }

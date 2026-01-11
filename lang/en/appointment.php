@@ -36,7 +36,18 @@ return [
     'meeting_type_invalid' => 'Invalid meeting type.',
     'status_invalid' => 'Invalid appointment status.',
     'assigned_for_invalid' => 'Assigned user does not exist.',
+    'assigned_for_required' => 'Appointment with field is required.',
     'time_slot_invalid' => 'Selected time slot does not exist.',
+    
+    // Legacy keys (merged from resources)
+    'appointment_created' => 'Appointment created successfully.',
+    'appointment_updated' => 'Appointment updated successfully.',
+    'appointment_deleted' => 'Appointment deleted successfully.',
+    'appointment_not_found' => 'Appointment not found.',
+    'appointment_list_failed' => 'Failed to retrieve appointment list.',
+    'appointment_create_failed' => 'Failed to create appointment.',
+    'appointment_update_failed' => 'Failed to update appointment.',
+    'appointment_delete_failed' => 'Failed to delete appointment.',
     
     // Status labels
     'status' => [
