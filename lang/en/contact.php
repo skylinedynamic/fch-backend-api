@@ -22,4 +22,5 @@ return [
     'mobile_number_required' => 'Mobile number is required.',
     'email_required' => 'Email address is required.',
     'email_taken' => 'The email address has already been taken.',
+    'multiple_delete_failed' => 'Failed to delete selected contacts.',
 ];
