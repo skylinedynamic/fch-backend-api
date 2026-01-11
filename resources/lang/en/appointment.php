@@ -1,12 +1,12 @@
 <?php
 
 return [
-    'subject_required' => 'The appointment title is required.',
-    'date_required' => 'The appointment date is required.',
-    'date_invalid' => 'The appointment date is not a valid date.',
-    'duration_required' => 'The duration minutes is required.',
-    'duration_min' => 'The duration must be at least 1 minute.',
-    'meeting_type_required' => 'The meeting type is required.',
+    'subject_required' => 'Appointment title is required.',
+    'date_required' => 'Appointment date is required.',
+    'date_invalid' => 'Appointment date is not a valid date.',
+    'duration_required' => 'Duration minutes is required.',
+    'duration_min' => 'Duration must be at least 1 minute.',
+    'meeting_type_required' => 'Meeting type is required.',
     'meeting_type_invalid' => 'The selected meeting type is invalid.',
     'status_invalid' => 'The selected status is invalid.',
     'assigned_for_invalid' => 'Appointment with field is invalid.',
