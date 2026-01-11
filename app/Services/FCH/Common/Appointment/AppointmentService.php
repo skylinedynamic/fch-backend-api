@@ -334,8 +334,6 @@ class AppointmentService
         }
 
         try {
-            // Get Partner Info (Business Info)
-            // Try getting from auth user first, or fall back to the scheduler's partner
             $user = auth()->user();
             $partner = $user ? $user->partner : $appointment->scheduledBy->partner;
             
@@ -365,7 +363,6 @@ class AppointmentService
     {
         $appointmentDateOnly = Carbon::parse($appointmentDate)->format('Y-m-d');
 
-        // Check if the time slot is already booked for either user on the given date
         $conflictCount = AppointmentDetail::where('appointment_date', $appointmentDateOnly)
             ->where(function ($query) use ($scheduledBy, $assignedFor) {
                 $query->where('scheduled_by', $scheduledBy)
@@ -387,7 +384,6 @@ class AppointmentService
      */
     public function checkDuplicate(array $data)
     {
-        // Resolve entity/user first to ensure we have the correct assigned_for ID
         $this->resolveEntityAndUser($data);
 
         $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
@@ -403,7 +399,6 @@ class AppointmentService
             ->with(['scheduledBy', 'assignedFor'])
             ->get();
 
-        // Check conflicts for Assignee (if provided)
         $assigneeConflicts = collect();
         if ($assignedFor) {
             $assigneeConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
@@ -432,7 +427,6 @@ class AppointmentService
         $excludeId = $data['exclude_appointment_id'] ?? null;
 
 
-        // Fetch Scheduler's busy slots for the date
         $schedulerBusySlots = Appointment::whereDate('appointment_date', $date)
             ->where(function ($q) use ($scheduledBy) {
                 $q->where('scheduled_by', $scheduledBy)
@@ -443,7 +437,6 @@ class AppointmentService
             })
             ->get(['id', 'appointment_date', 'duration_minutes', 'appointment_end_date']);
 
-        // Fetch Assignee's busy slots for the date (if provided)
         $assigneeBusySlots = collect();
         if ($assignedFor) {
             $assigneeBusySlots = Appointment::whereDate('appointment_date', $date)

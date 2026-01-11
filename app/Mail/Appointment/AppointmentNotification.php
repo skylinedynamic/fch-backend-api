@@ -73,7 +73,7 @@ class AppointmentNotification extends Mailable
             with: [
                 'appointment' => $this->appointment,
                 'action' => $this->action,
-                'assigneeName' => $this->appointment->assignedFor->full_name ?? 'User',
+                'assigneeName' => $this->appointment->assignedFor->name ?? 'User',
                 'business_info' => [
                     'company_name'   => $this->businessInfo['company_name'] ?? '',
                     'email'  => $this->businessInfo['email'] ?? '',

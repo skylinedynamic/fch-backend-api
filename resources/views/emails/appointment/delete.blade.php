@@ -114,7 +114,7 @@
     </div>
 
     <div class="content">
-        <h2>Hello {{ $assigneeName }},</h2>
+        <h2>Dear {{ $assigneeName }},</h2>
         <p>
             An appointment has been <strong>cancelled/deleted</strong>.
         </p>

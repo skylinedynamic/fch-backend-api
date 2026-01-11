@@ -110,7 +110,6 @@ Route::prefix('v1')->group(function () {
             Route::prefix('appointments')->group(function () {
                 Route::post('check-availability', [AppointmentController::class, 'checkAvailability']);
                 Route::post('fetch-all', [AppointmentController::class, 'index']);
-                Route::post('multiple-delete', [AppointmentController::class, 'multipleDelete']);
                 Route::post('fetch-selectable-users', [AppointmentController::class, 'selectableUsers']);
             });
             Route::apiResource('appointments', AppointmentController::class);
