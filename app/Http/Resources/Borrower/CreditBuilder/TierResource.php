@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\CreditBuilder;
 
+use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,7 +23,9 @@ class TierResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'order' => $this->order,
+            'has_vendor' => $this->has_vendor,
             'tasks' => TierTaskResource::collection($this->whenLoaded('tasks')),
+            'vendors' => CreditBuilderVendorResource::collection($this->whenLoaded('vendors')),
         ];
     }
 }

@@ -23,6 +23,9 @@ class CreditBuilderVendorResource extends JsonResource
             'report_to' => $this->report_to,
             'tier_id' => $this->tier_id,
             'status' => $this->status,
+            'description' => $this->description,
+            'general_url' => $this->general_url,
+            'affiliate_url' => $this->affiliate_url,
         ];
     }
 }

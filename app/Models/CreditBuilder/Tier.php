@@ -33,4 +33,9 @@ class Tier extends Model
     {
         return $this->hasMany(\App\Models\Borrower\Borrower::class, 'current_tier');
     }
+
+    public function vendors()
+    {
+        return $this->hasMany(CreditBuilderVendor::class, 'tier_id', 'id');
+    }
 }

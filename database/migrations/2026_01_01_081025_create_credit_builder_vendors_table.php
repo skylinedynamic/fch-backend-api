@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('general_url')->nullable();
             $table->string('affiliate_url')->nullable();
             $table->unsignedBigInteger('tier_id')->nullable();
+            $table->longText('description')->nullable();
             $table->string('status')->default('active');
             $table->softDeletes();
             $table->timestamps();
