@@ -387,6 +387,9 @@ class AppointmentService
      */
     public function checkDuplicate(array $data)
     {
+        // Resolve entity/user first to ensure we have the correct assigned_for ID
+        $this->resolveEntityAndUser($data);
+
         $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
@@ -521,26 +524,29 @@ class AppointmentService
      */
     private function resolveEntityAndUser(array &$data): void
     {
-        // 1. If entity info is provided, resolve the User (assigned_for)
-        if (!empty($data['entity_type']) && !empty($data['entity_id'])) {
-            // Use model mutator to normalize type (handles 'borrower' -> Borrower::class etc)
-            $temp = new Appointment(['entity_type' => $data['entity_type']]);
-            
-            $user = User::where('entity_type', $temp->entity_type)
-                ->where('entity_id', $data['entity_id'])
-                ->first();
-
-            if ($user) {
-                $data['assigned_for'] = $user->id;
-                $data['entity_type'] = $temp->entity_type;
-            }
+        if (array_key_exists('entity_type', $data) && empty(trim($data['entity_type'] ?? ''))) {
+            $data['entity_type'] = null;
         }
-        // 2. If assigned_for (user_id) is provided but entity info is missing, resolve it from User
-        elseif (!empty($data['assigned_for'])) {
-            $user = User::find($data['assigned_for']);
-            if ($user && $user->entity_type && $user->entity_id) {
-                $data['entity_type'] = $user->entity_type;
-                $data['entity_id'] = $user->entity_id;
+
+        if (array_key_exists('entity_type', $data) && is_null($data['entity_type'])) {
+            $data['entity_id'] = null;
+            return;
+        }
+
+        if (!empty($data['entity_type']) && !empty($data['entity_id'])) {
+            $temp = new Appointment(['entity_type' => $data['entity_type']]);
+            $normalizedType = $temp->entity_type;
+            
+            $data['entity_type'] = $normalizedType;
+
+            if (empty($data['assigned_for'])) {
+                $user = User::where('entity_type', $normalizedType)
+                    ->where('entity_id', $data['entity_id'])
+                    ->first();
+
+                if ($user) {
+                    $data['assigned_for'] = $user->id;
+                }
             }
         }
     }
