@@ -50,4 +50,12 @@ return [
     'validation_status_max' => 'The status must not be greater than 50 characters.',
     'validation_related_api_id_exists' => 'The selected related API is invalid.',
 
+    'validation_vendor_name_required' => 'Vendor name is required.',
+    'validation_vendor_name_max' => 'Vendor name must not exceed 255 characters.',
+    'validation_vendor_category_max' => 'Category must not exceed 255 characters.',
+    'validation_vendor_tier_id_required' => 'Tier is required.',
+    'validation_vendor_tier_id_exists' => 'Selected tier is invalid.',
+    'validation_vendor_status_required' => 'Status is required.',
+    'validation_vendor_general_url_required' => 'General URL is required.',
+
 ];

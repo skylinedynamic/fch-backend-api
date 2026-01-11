@@ -21,6 +21,7 @@ class CreditBuilderVendor extends Model
         'tier_id',
         'general_url',
         'affiliate_url',
+        'description',
         'status',
     ];
 
@@ -30,6 +31,7 @@ class CreditBuilderVendor extends Model
         'report_to' => 'array',
         'general_url' => 'string',
         'affiliate_url' => 'string',
+        'description' => 'string',
     ];
 
     public const STATUS_ACTIVE = 'Active';
