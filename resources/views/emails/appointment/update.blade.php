@@ -114,7 +114,7 @@
     </div>
 
     <div class="content">
-        <h2>Hello {{ $assigneeName }},</h2>
+        <h2>Dear {{ $assigneeName }},</h2>
         <p>
             The schedule for an appointment has been <strong>changed</strong>. Please verify the new details below:
         </p>

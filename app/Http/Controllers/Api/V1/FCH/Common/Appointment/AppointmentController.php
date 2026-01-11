@@ -70,20 +70,6 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Appointment Multiple Delete
-     */
-    public function multipleDelete(Request $request)
-    {
-        $ids = $request->input('ids', []);
-        foreach ($ids as $id) {
-            $appointment = Appointment::find($id);
-            if ($appointment) {
-                $this->appointmentService->delete($appointment);
-            }
-        }
-        return ApiResponse::success(null, __('appointment.multiple_deleted'));
-    }
-    /**
      * Check Appointment Availability
      */
     public function checkAvailability(CheckAvailabilityRequest $request)

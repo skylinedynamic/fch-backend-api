@@ -114,7 +114,7 @@
     </div>
 
     <div class="content">
-        <h2>Hello {{ $assigneeName }},</h2>
+        <h2>Dear {{ $assigneeName }},</h2>
         <p>
             A new appointment has been <strong>scheduled</strong>. Please check the details below:
         </p>
