@@ -77,7 +77,7 @@ class RoleController extends Controller
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
 
-        $role->load(['permissions', 'users']);
+        $role->load(['permissions', 'users.entity']);
 
         $payload = [
             'id' => $role->id,

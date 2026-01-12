@@ -89,7 +89,7 @@ class EmployeeSeeder extends Seeder
                     'country' => $country,
                     'country_code' => $countryCode,
                     'address' => $address,
-                    'image' => $image,
+                    'image' => null,
                     'department' => $department,
                     'designation' => $designation,
                     'job_status' => 'Active',
