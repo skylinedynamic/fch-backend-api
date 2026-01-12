@@ -23,6 +23,7 @@ class CreditBuilderVendor extends Model
         'affiliate_url',
         'description',
         'status',
+        'logo',
     ];
 
     protected $casts = [

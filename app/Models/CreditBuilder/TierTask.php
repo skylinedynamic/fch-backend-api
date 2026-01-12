@@ -23,6 +23,7 @@ class TierTask extends Model
         'is_mandatory',
         'manual_verification',
         'related_api_id',
+        'vendor_id',
         'estimated_completion_days',
         'created_by',
         'updated_by',
@@ -37,5 +38,10 @@ class TierTask extends Model
     public function borrowerTierTasks()
     {
         return $this->hasMany(BorrowerTaskVerificationRequest::class, 'task_id', 'id');
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(CreditBuilderVendor::class);
     }
 }

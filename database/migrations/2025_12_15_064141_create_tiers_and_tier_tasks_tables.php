@@ -43,6 +43,7 @@ return new class extends Migration
             $table->boolean('is_mandatory')->default(true);
             $table->boolean('manual_verification')->default(false);
             $table->unsignedBigInteger('related_api_id')->nullable();
+            $table->unsignedBigInteger('vendor_id')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

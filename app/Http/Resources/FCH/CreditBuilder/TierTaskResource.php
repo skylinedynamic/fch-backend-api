@@ -23,6 +23,7 @@ class TierTaskResource extends JsonResource
             'description' => $this->description,
             'url' => $this->url,
             'related_api_id' => $this->related_api_id,
+            'vendor_id' => $this->vendor_id,
             'button_title' => $this->button_title,
             'status' => $this->status,
             'order' => $this->order,

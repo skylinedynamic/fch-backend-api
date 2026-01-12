@@ -62,6 +62,7 @@ class DatabaseSeeder extends Seeder
 
         // Call seeders in an order that respects new FK relationships
         $this->call([
+            CreditBuilderVendorSeeder::class,
             TaskRelatedApiSeeder::class,
             TierSeeder::class,               // Create tiers and tier tasks
             PartnerSeeder::class,            // Create partners (first is host)
@@ -78,7 +79,6 @@ class DatabaseSeeder extends Seeder
             SupportTicketSeeder::class,      // Create support tickets for partners
             BorrowerTaskVerificationRequestSeeder::class,
             BorrowerTaskVerificationRequestSeeder::class,
-            CreditBuilderVendorSeeder::class,
             ContactSeeder::class,
         ]);
     }

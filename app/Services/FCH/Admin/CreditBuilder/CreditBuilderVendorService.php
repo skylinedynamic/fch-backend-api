@@ -31,6 +31,10 @@ class CreditBuilderVendorService
             $query->where('tier_id', $filters['tier_id']);
         }
 
+        if(isset($filters['status']) && !empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';

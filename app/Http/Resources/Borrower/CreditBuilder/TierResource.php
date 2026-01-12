@@ -25,7 +25,6 @@ class TierResource extends JsonResource
             'order' => $this->order,
             'has_vendor' => $this->has_vendor,
             'tasks' => TierTaskResource::collection($this->whenLoaded('tasks')),
-            'vendors' => CreditBuilderVendorResource::collection($this->whenLoaded('vendors')),
         ];
     }
 }
