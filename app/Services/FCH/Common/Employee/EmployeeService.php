@@ -144,7 +144,7 @@ class EmployeeService
 
             // 3️⃣ Upload image if provided
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                $employee->update(['image' => $employeeData['image']]);
+                $employee->update(['image' => 'employees/' . $employee->id . '/' . $employeeData['image']]);
                 Log::info('🖼️ Employee image uploaded', ['path' => $upload['path']]);
             }
 
@@ -192,7 +192,7 @@ class EmployeeService
                 //     $this->deleteFile($employee->getRawOriginal('image'), 'public');
                 // }
                 // $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
-                $employeeData['image'] = $employeeData['image'];
+                $employeeData['image'] =  'employees/' . $employee->id . '/' . $employeeData['image'];
             }
 
             // 2️⃣ Update employee data

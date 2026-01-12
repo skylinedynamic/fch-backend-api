@@ -106,6 +106,6 @@ class Employee extends Model
      */
     public function getImageAttribute($value)
     {
-         return $value ? asset("storage/employees/{$this->id}/{$value}") : null;
+         return $value ? asset("storage/{$value}") : null;
     }
 }

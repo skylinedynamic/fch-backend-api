@@ -44,9 +44,9 @@ class AppointmentResource extends JsonResource
                     $entity = $user->entity;
                     $path = null;
                     if ($entity instanceof Partner) {
-                        $path = $entity->getRawOriginal('partner_image');
+                        $path = ($entity->partner_image) ? encodeUrl($entity->partner_image) : null;
                     } elseif ($entity instanceof Employee || $entity instanceof Borrower) {
-                        $path = $entity->getRawOriginal('image');
+                        $path = ($entity->image) ? encodeUrl($entity->image) : null;
                     }
                     return $path ? encodeUrl($path) : null;
                 })($this->assignedFor),
