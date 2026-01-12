@@ -42,16 +42,11 @@ class AuthService
         }
         
         $user = User::where('email', $authCredentials['email'])
-                    ->when($user_type, function ($query) use ($user_type) {
-                        $query->where('user_type', $user_type);
-                        if ($user_type === 'Borrower') {
-                            $query->where('entity_type', Borrower::class);
-                        }
-                    })
-                    ->unless($user_type === 'Borrower', function ($query) {
-                        $query->where('entity_type', '!=', Borrower::class);
-                    })
-                    ->first();
+            ->where(function ($query) {
+                $query->where('entity_type', '!=', Borrower::class)
+                      ->orWhereNull('entity_type');
+            })
+            ->first();
 
         
         if (!$user) {
