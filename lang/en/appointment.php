@@ -25,9 +25,9 @@ return [
     // Availability messages
     'duplicate_found' => 'Duplicate appointments found.',
     'available' => 'Time slot is available.',
-    
+
     // Validation messages
-    'subject_required' => 'Appointment subject is required.',
+    'subject_required' => 'Appointment title is required.',
     'date_required' => 'Appointment date is required.',
     'date_invalid' => 'Invalid appointment date format.',
     'duration_required' => 'Duration is required.',
@@ -38,7 +38,7 @@ return [
     'assigned_for_invalid' => 'Assigned user does not exist.',
     'assigned_for_required' => 'Appointment with field is required.',
     'time_slot_invalid' => 'Selected time slot does not exist.',
-    
+
     // Legacy keys (merged from resources)
     'appointment_created' => 'Appointment created successfully.',
     'appointment_updated' => 'Appointment updated successfully.',
@@ -48,7 +48,7 @@ return [
     'appointment_create_failed' => 'Failed to create appointment.',
     'appointment_update_failed' => 'Failed to update appointment.',
     'appointment_delete_failed' => 'Failed to delete appointment.',
-    
+
     // Status labels
     'status' => [
         'pending' => 'Pending',
@@ -58,7 +58,7 @@ return [
         'completed' => 'Completed',
         'cancelled' => 'Cancelled',
     ],
-    
+
     // Meeting type labels
     'meeting_type' => [
         'Initial Consultation' => 'Initial Consultation',

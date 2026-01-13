@@ -462,46 +462,59 @@ class AppointmentService
     public function getSelectableUsers(array $data)
     {
         $query = User::query();
-        $isHost = (int) auth()->user()->partner->is_host;
-        $authPartnerId = auth()->user()->partner->id;
+        $user = auth()->user();
 
-        if ($isHost === 1) {
-            $query->where(function ($q) use ($authPartnerId, $data) {
-            if (empty($data['meeting_with'])) {
-                    $q->where(function ($sub) use ($authPartnerId) {
-                        $sub->where(function ($e) {
-                            $e->where('entity_type', Borrower::class)
-                            ->orWhereNull('entity_type');
-                        })
-                        ->where('partner_id', $authPartnerId);
-                    });
+        if ($user->entity_type === Partner::class) {
+            $isHost = (int) $user->partner->is_host;
+            $authPartnerId = $user->partner->id;
+
+            if ($isHost === 1) {
+                $query->where(function ($q) use ($authPartnerId, $data) {
+                    if (empty($data['meeting_with'])) {
+                        $q->where(function ($sub) use ($authPartnerId) {
+                            $sub->where(function ($e) {
+                                $e->where('entity_type', Borrower::class)
+                                ->orWhereNull('entity_type');
+                            })
+                            ->where('partner_id', $authPartnerId);
+                        });
+                    } else {
+                        $q->where('entity_type', Partner::class)
+                        ->where('partner_id', '!=', $authPartnerId);
+                    }
+                });
             } else {
-                $q->where('entity_type', Partner::class)
-                ->where('partner_id','!=',$authPartnerId);
+                $query->where(function ($q) use ($authPartnerId, $data) {
+
+                    if (empty($data['meeting_with_host'])) {
+
+                        $q->where(function ($sub) use ($authPartnerId) {
+                            $sub->where(function ($e) {
+                                $e->where('entity_type', Borrower::class)
+                                ->orWhereNull('entity_type');
+                            })
+                            ->where('partner_id', $authPartnerId);
+                        });
+                    } else {
+                        $hostId =  1;
+                        $q->orWhere(function ($sub) use ($hostId) {
+                            $sub->where('entity_id', $hostId)
+                                ->where('entity_type', Partner::class)
+                                ->where('name', '!=', 'Developer')
+                                ->where('partner_id', $hostId);
+                        });
+                    }
+                });
             }
-        });
-        } else {  
-            $query->where(function ($q) use ($authPartnerId, $data) {
-               
-                if (empty($data['meeting_with_host'])) {
-                   
-                    $q->where(function ($sub) use ($authPartnerId) {
-                        $sub->where(function ($e) {
-                            $e->where('entity_type', Borrower::class)
-                            ->orWhereNull('entity_type');
-                        })
-                        ->where('partner_id', $authPartnerId);
-                    });
-                } else {
-                    $hostId =  1;
-                    $q->orWhere(function ($sub) use ($hostId) {
-                        $sub->where('entity_id', $hostId)
-                            ->where('entity_type', Partner::class)
-                            ->where('name','!=','Developer')
-                            ->where('partner_id', $hostId);
-                    });
-                }
-            });
+        } elseif ($user->entity_type === Borrower::class) {
+            $borrower = $user->entity;
+            if ($borrower) {
+                $query->where(function ($q) use ($borrower) {
+                    $authPartnerId = auth()->user()->partner->id;
+                    $q->where('entity_type', Partner::class)
+                        ->where('partner_id',   $authPartnerId);
+                });
+            }
         }
 
         $results = $query->get(['id', 'name', 'entity_type', 'entity_id']);
