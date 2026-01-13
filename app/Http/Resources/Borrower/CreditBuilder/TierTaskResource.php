@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\CreditBuilder;
 
+use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Http\Request;
@@ -32,6 +33,7 @@ class TierTaskResource extends JsonResource
             'button_title' => $this->button_title,
             'estimated_completion_days' => $this->estimated_completion_days,
             'order' => $this->order,
+            'vendor' => CreditBuilderVendorResource::make($this->whenLoaded('vendor')),
         ];
     }
 }

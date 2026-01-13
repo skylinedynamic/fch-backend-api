@@ -23,6 +23,7 @@ return new class extends Migration
             $table->unsignedBigInteger('tier_id')->nullable();
             $table->longText('description')->nullable();
             $table->string('status')->default('active');
+            $table->string('logo')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });

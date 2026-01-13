@@ -64,7 +64,6 @@ class BorrowerProfileResource extends JsonResource
             'paydex_score'              => $this->paydex_score,
             'number_of_employees'       => $this->number_of_employees,
             'nsf_days'                  => $this->nsf_days,
-            'time_in_business'          => $this->time_in_business,
             'funding_urgency'           => $this->funding_urgency,
 
             'status'        => $this->status,

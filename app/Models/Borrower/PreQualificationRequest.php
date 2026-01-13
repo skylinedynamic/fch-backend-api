@@ -29,7 +29,7 @@ class PreQualificationRequest extends Model
         'business_structure',
         'monthly_revenue',
         'annual_revenue',
-        'time_in_business',
+        'years_in_business',
         'funding_requested_amount',
         'funding_urgency',
         'purpose_of_funding',

@@ -32,6 +32,7 @@ class CreditBuilderVendorRequest extends BaseApiRequest
             'description' => 'nullable|string',
             'general_url' => 'required|string',
             'affiliate_url' => 'nullable|string',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ];
     }
 

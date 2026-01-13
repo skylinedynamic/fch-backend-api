@@ -38,6 +38,7 @@ class CreditBuilderVendorController extends Controller
             'filters' => $input['filters'] ?? null,
             'sort_field' => $input['sort_field'] ?? null,
             'sort_order' => $input['sort_order'] ?? null,
+            'status' => $input['status'] ?? null,
         ];
 
         return $this->service->list($filters);

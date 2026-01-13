@@ -28,9 +28,11 @@ class StoreTierTaskRequest extends BaseApiRequest
             'description' => 'nullable|string',
             'status' => 'nullable|string|max:50',
             'related_api_id' => 'nullable|exists:task_related_apis,id',
+            'vendor_id' => 'nullable|exists:credit_builder_vendors,id',
             'button_title' => 'nullable|string|max:255',
             'order' => 'nullable|integer',
             'estimated_completion_days' => 'nullable|integer|min:0',
+            'manual_verification' => 'nullable|boolean',
         ];
     }
 

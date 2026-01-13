@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
+use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -73,7 +74,13 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/my-progress', [CreditBuilderOverviewController::class, 'index']);
             Route::get('/tier-wise-tasklist', [CreditBuilderStepGuideController::class, 'index']);
             Route::post('/task-verify-request', [CreditBuilderStepGuideController::class, 'taskVerifyRequest']);
-        });    
+        });  
+        
+        
+        Route::prefix('funding-application')->group(function () {
+            Route::get('/business-info', [FundingApplicationController::class, 'getBusinessInfo']);
+            Route::post('/business-info',[FundingApplicationController::class,'saveBusinessInfo']);
+        });
 
     });
 });

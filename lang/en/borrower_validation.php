@@ -136,9 +136,9 @@ return [
     'currency_max' => 'Currency cannot exceed 10 characters',
     'years_in_business_required' => 'Years in business is required',
     'years_in_business_string' => 'Years in business must be a string',
-    'time_in_business_required' => 'Time in business is required',
-    'time_in_business_string' => 'Time in business must be a string',
-    'time_in_business_max' => 'Time in business cannot exceed 255 characters',
+    'years_in_business_required' => 'Years in business is required',
+    'years_in_business_string' => 'Years in business must be a string',
+    'years_in_business_max' => 'Years in business cannot exceed 255 characters',
     
     // Funding
     'funding_requested_amount_required' => 'Funding requested amount is required',

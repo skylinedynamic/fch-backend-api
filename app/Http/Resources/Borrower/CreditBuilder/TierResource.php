@@ -17,6 +17,7 @@ class TierResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'code' => $this->code,
             'name' => $this->name,
             'title' => $this->title,
             'subtitle' => $this->subtitle,
@@ -24,8 +25,8 @@ class TierResource extends JsonResource
             'status' => $this->status,
             'order' => $this->order,
             'has_vendor' => $this->has_vendor,
+            'task_to_complete' => $this->task_to_complete,
             'tasks' => TierTaskResource::collection($this->whenLoaded('tasks')),
-            'vendors' => CreditBuilderVendorResource::collection($this->whenLoaded('vendors')),
         ];
     }
 }
