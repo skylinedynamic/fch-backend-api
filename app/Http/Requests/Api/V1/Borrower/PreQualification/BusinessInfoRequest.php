@@ -28,7 +28,7 @@ class BusinessInfoRequest extends BaseApiRequest
             'business_structure' => ['required','string','max:255'],
             'monthly_revenue' => ['required','numeric','min:0'],
             'annual_revenue' => ['required','numeric','min:0'],
-            'time_in_business' => ['required','string','max:255'],
+            'years_in_business' => ['required','string','max:255'],
         ];
     }
 
@@ -55,9 +55,9 @@ class BusinessInfoRequest extends BaseApiRequest
             'annual_revenue.numeric' => __('borrower_validation.annual_revenue_numeric'),
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
 
-            'time_in_business.required' => __('borrower_validation.time_in_business_required'),
-            'time_in_business.string' => __('borrower_validation.time_in_business_string'),
-            'time_in_business.max' => __('borrower_validation.time_in_business_max'),
+            'years_in_business.required' => __('borrower_validation.years_in_business_required'),
+            'years_in_business.string' => __('borrower_validation.years_in_business_string'),
+            'years_in_business.max' => __('borrower_validation.years_in_business_max'),
         ];
     }
 }

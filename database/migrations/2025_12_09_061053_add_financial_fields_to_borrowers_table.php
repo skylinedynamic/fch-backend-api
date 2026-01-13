@@ -19,7 +19,6 @@ return new class extends Migration
             $table->integer('paydex_score')->nullable()->after('fico_score');
             $table->integer('number_of_employees')->nullable()->after('years_in_business');
             $table->integer('nsf_days')->nullable()->after('number_of_employees');
-            $table->string('time_in_business')->nullable()->after('years_in_business');
             $table->string('funding_urgency')->nullable()->after('nsf_days');
         });
     }
@@ -38,7 +37,6 @@ return new class extends Migration
                 'paydex_score',
                 'number_of_employees',
                 'nsf_days',
-                'time_in_business',
                 'funding_urgency'
             ]);
         });

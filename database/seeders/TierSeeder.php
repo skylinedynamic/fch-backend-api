@@ -29,6 +29,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Establish the legal and structural essentials required for business credit readiness and financial compliance.',
                 'order' => 1,
                 'has_vendor' => false,
+                'task_to_complete' => null,
                 'status' => 'Active',
                 'tasks' => [
                     [
@@ -127,6 +128,7 @@ class TierSeeder extends Seeder
                 'title' => 'Starter Vendor Accounts',
                 'subtitle' => 'Open your first tradelines with vendors that report to the business credit bureaus. These small starter accounts help establish your business’s first credit history and build your D-U-N-S file.',
                 'order' => 2,
+                'task_to_complete' => 2,
                 'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
@@ -146,6 +148,7 @@ class TierSeeder extends Seeder
                 'code' => 'T2',
                 'subtitle' => 'Expand your credit profile with additional vendors and store/fleet accounts that report to multiple bureaus. This phase strengthens your payment history and boosts your credit depth.',
                 'order' => 3,
+                'task_to_complete' => null,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
@@ -162,6 +165,7 @@ class TierSeeder extends Seeder
                 'code' => 'T3',
                 'subtitle' => 'Transition from vendor credit to revolving business credit cards, higher limit Net 55/60 terms, and equipment or fleet financing. This tier proves long term creditworthiness and payment reliability.',
                 'order' => 4,
+                'task_to_complete' => null,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [
@@ -179,6 +183,7 @@ class TierSeeder extends Seeder
                 'code' => 'T4',
                 'subtitle' => 'Leverage your established credit history to access bank lines of credit, SBA loans, and corporate financing — often without a personal guarantee. This tier is where funding power meets independence.',
                 'order' => 5,
+                'task_to_complete' => null,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => [

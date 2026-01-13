@@ -113,7 +113,7 @@ class BorrowerSeeder extends Seeder
 
                 // Financial Info
                 'currency' => 'USD',
-                'years_in_business' => 5,
+                'years_in_business' => '1–2 years',
                 'monthly_revenue' => 85000.00,
                 'annual_revenue' => 1020000.00,
 
@@ -167,7 +167,7 @@ class BorrowerSeeder extends Seeder
 
                 // Financial Info
                 'currency' => 'USD',
-                'years_in_business' => 10,
+                'years_in_business' => '1–2 years',
                 'monthly_revenue' => 200000.00,
                 'annual_revenue' => 2400000.00,
 
@@ -221,7 +221,7 @@ class BorrowerSeeder extends Seeder
 
                 // Financial Info
                 'currency' => 'USD',
-                'years_in_business' => 13,
+                'years_in_business' => '1–2 years',
                 'monthly_revenue' => 180000.00,
                 'annual_revenue' => 2160000.00,
 
@@ -275,7 +275,7 @@ class BorrowerSeeder extends Seeder
 
                 // Financial Info
                 'currency' => 'USD',
-                'years_in_business' => 17,
+                'years_in_business' => '1–2 years',
                 'monthly_revenue' => 450000.00,
                 'annual_revenue' => 5400000.00,
 

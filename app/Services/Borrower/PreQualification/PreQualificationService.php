@@ -53,7 +53,7 @@ class PreQualificationService
                 'Business Industry' => $record->industry_type,
                 'State of Incorporation' => $record->state_of_incorporation,
                 'Business Structure' => $record->business_structure,
-                'Time in Business' => $record->time_in_business,
+                'Time in Business' => $record->years_in_business,
                 'Average Monthly Revenue' => $record->monthly_revenue,
                 'Annual Revenue' => $record->annual_revenue,
                 'Estimated Personal Credit Score' => $record->personal_credit_score,
@@ -114,7 +114,7 @@ class PreQualificationService
                 'business_name' => $borrower->business_name,
                 'industry_type' => $borrower->business_industry_type,
                 'business_structure' => $borrower->business_entity_type,
-                'time_in_business' => $borrower->years_in_business,
+                'years_in_business' => $borrower->years_in_business,
                 'monthly_revenue' => $borrower->monthly_revenue,
                 'annual_revenue' => $borrower->annual_revenue,
 
@@ -264,7 +264,7 @@ class PreQualificationService
             'business_name' => 'business_name',
             'industry_type' => 'business_industry_type',
             'business_structure' => 'business_entity_type',
-            'time_in_business' => 'years_in_business',
+            'years_in_business' => 'years_in_business',
             'monthly_revenue' => 'monthly_revenue',
             'annual_revenue' => 'annual_revenue',
         ];

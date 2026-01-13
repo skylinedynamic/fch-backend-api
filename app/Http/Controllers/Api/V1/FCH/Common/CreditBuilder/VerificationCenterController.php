@@ -53,9 +53,9 @@ class VerificationCenterController extends Controller
             $filters = [
                 'per_page' => $perPage,
                 'page' => max(1, (int) $request->input('page', 1)),
+                'status' => $request->input('status'),
                 'search' => $request->input('search') ? trim((string) $request->input('search')) : null,
                 'borrower_id' => $request->input('borrower_id'),
-                'partner_id' => $request->input('partner_id'),
                 'tier_id' => $request->input('tier_id'),
                 'sort_field' => $request->input('sort_field', 'created_at'),
                 'sort_order' => $request->input('sort_order', 'desc'),

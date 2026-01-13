@@ -69,7 +69,6 @@ class StoreBorrowerRequest extends BaseApiRequest
             'paydex_score'              => ['nullable', 'integer', 'min:0'],
             'number_of_employees'       => ['nullable', 'integer', 'min:0'],
             'nsf_days'                  => ['nullable', 'integer', 'min:0'],
-            'time_in_business'          => ['nullable', 'string', 'max:255'],
             'funding_urgency'           => ['nullable', 'string', 'max:255'],
 
             // Other

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('status')->nullable();
             $table->integer('order')->nullable();
             $table->boolean('has_vendor')->default(false);
+            $table->integer('task_to_complete')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

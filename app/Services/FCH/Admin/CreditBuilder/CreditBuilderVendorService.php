@@ -6,6 +6,7 @@ use App\Models\CreditBuilder\CreditBuilderVendor;
 use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Storage;
 
 class CreditBuilderVendorService
 {
@@ -74,6 +75,9 @@ class CreditBuilderVendorService
      */
     public function create(array $data)
     {
+        if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
+            $data['logo'] = Storage::disk('public')->putFile('vendors', $data['logo']);
+        }
         return CreditBuilderVendor::create($data);
     }
 
@@ -98,6 +102,18 @@ class CreditBuilderVendorService
     public function update($id, array $data)
     {
         $vendor = CreditBuilderVendor::findOrFail($id);
+
+        if (isset($data['logo']) && $data['logo'] instanceof \Illuminate\Http\UploadedFile) {
+            // Delete old logo if exists
+            $oldLogo = $vendor->getRawOriginal('logo');
+            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                Storage::disk('public')->delete($oldLogo);
+            }
+            $data['logo'] = Storage::disk('public')->putFile('vendors', $data['logo']);
+        }else{
+            $data['logo'] = $vendor->logo;
+        }
+
         $vendor->update($data);
         return $vendor;
     }

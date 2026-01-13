@@ -154,18 +154,19 @@ class VerificationCenterService
     public function fetchBorrowerRequests(array $filters)
     {
         $query = BorrowerTaskVerificationRequest::query()
-            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name', 'task:id,title']);
+            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name', 'task:id,title','partner:id,full_name']);
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
         }
 
-        if (!empty($filters['partner_id'])) {
-            $query->where('partner_id', $filters['partner_id']);
-        }
 
         if (!empty($filters['tier_id'])) {
             $query->where('tier_id', $filters['tier_id']);
+        }
+
+        if(!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
         }
 
         // Apply partner security filter if not already filtered or restricted
@@ -297,18 +298,22 @@ class VerificationCenterService
                 ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
                 ->count();
 
-            // If verified tasks equal or exceed total tasks, move to next tier
-            if ($verifiedTasks >= $totalTasks && $totalTasks > 0) {
-                $currentTier = Tier::find($tierId);
+            $taskTier = Tier::find($tierId);
+            $borrower = Borrower::with('tier')->find($borrowerId);
 
-                if ($currentTier) {
+            if ($taskTier && $borrower) {
+                // Determine mandatory task count for progression
+                $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
+
+                // If verified tasks equal or exceed required amount, move to next tier
+                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0) {
                     // Find the next tier based on order
-                    $nextTier = Tier::where('order', '>', $currentTier->order)
+                    $nextTier = Tier::where('order', '>', $borrower->tier->order)
                         ->orderBy('order', 'asc')
                         ->first();
 
                     if ($nextTier) {
-                        Borrower::where('id', $borrowerId)->update([
+                        $borrower->update([
                             'current_tier' => $nextTier->id
                         ]);
                     }

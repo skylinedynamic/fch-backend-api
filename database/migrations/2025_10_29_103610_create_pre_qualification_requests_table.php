@@ -27,7 +27,7 @@ return new class extends Migration
             $table->string('business_structure')->nullable();
             $table->decimal('monthly_revenue', 15, 2)->nullable();
             $table->decimal('annual_revenue', 15, 2)->nullable();
-            $table->string('time_in_business')->nullable();
+            $table->string('years_in_business')->nullable();
             $table->decimal('funding_requested_amount', 15, 2)->nullable();
             $table->string('funding_urgency')->nullable();
             $table->string('purpose_of_funding')->nullable();

@@ -18,6 +18,7 @@ class Tier extends Model
         'description',
         'status',
         'has_vendor',
+        'task_to_complete',
         'order',
         'created_by',
         'updated_by',

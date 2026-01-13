@@ -24,7 +24,7 @@ class PreQualificationResource extends JsonResource
             'business_name' => $this->business_name,
             'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,
-            'time_in_business' => $this->time_in_business,
+            'years_in_business' => $this->years_in_business,
             'monthly_revenue' => $this->monthly_revenue,
             'annual_revenue' => $this->annual_revenue,
 
