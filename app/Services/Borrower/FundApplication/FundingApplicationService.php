@@ -13,8 +13,9 @@ class FundingApplicationService
      * @param int $userId
      * @return mixed
      */
-    public function getBusinessInfo()
+    public function getBorrowerInfo()
     {
         return Borrower::where('id',auth()->user()->entity_id)->first();
     }
+
 }

@@ -8,6 +8,22 @@ return [
     'failed_to_update_profile' => 'Failed to update profile',   
     'signup_id_not_found' => 'Signup ID not found',
 
+    // Funding Application
+    'ownership_info_not_found' => 'Ownership information not found',
+    'fetch_ownership_info' => 'Fetch Ownership Information',
+    'fetch_ownership_info_failed' => 'Failed to fetch ownership information. Please try again.',
+
+    'fetch_financial_info' => 'Fetch Financial Information',
+    'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',
+
+    'funding_request_not_found' => 'Funding request information not found',
+    'fetch_funding_request' => 'Fetch Funding Request',
+    'fetch_funding_request_failed' => 'Failed to fetch funding request information. Please try again.',
+
+    'disclosures_and_consent_not_found' => 'Disclosures and consent information not found',
+    'fetch_disclosures_and_consent' => 'Fetch Disclosures and Consent',
+    'fetch_disclosures_and_consent_failed' => 'Failed to fetch disclosures and consent information. Please try again.',
+
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
     'update_business_info' => 'Update Business Information',
@@ -108,4 +124,6 @@ return [
     'task_verify_request_success' => 'Task verify request submitted successfully',
     'task_verify_request_failed' => 'Failed to submit task verify request. Please try again.',
     'tier_task_list_retrieved' => 'Tier task list retrieved successfully',
+
+
 ];
