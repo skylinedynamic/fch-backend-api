@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
+use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -32,7 +33,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [V1AuthController::class, 'logout']);
         });
     });
-    
+
 
     Route::middleware('auth:api')->group(function () {
 
@@ -46,16 +47,16 @@ Route::prefix('v1')->group(function () {
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
         Route::prefix('common')->group(function () {
-            
-            Route::post('roles/fetch-roles',[RoleController::class,'fetchRoles']);
+
+            Route::post('roles/fetch-roles', [RoleController::class, 'fetchRoles']);
             Route::post('roles/destroy', [RoleController::class, 'destroy']);
             Route::apiResource('roles', RoleController::class)->except(['destroy']);
 
             Route::post('users/{user}/roles', [UserRoleController::class, 'assignRoles']);
             Route::post('users/{user}/permissions', [UserRoleController::class, 'assignPermissions']);
 
-            Route::post('employees/fetch-employees',[EmployeeController::class,'fetchEmployees']);
-            Route::post('employees/fetch-department-status',[EmployeeController::class,'fetchDepartmentStatus']);
+            Route::post('employees/fetch-employees', [EmployeeController::class, 'fetchEmployees']);
+            Route::post('employees/fetch-department-status', [EmployeeController::class, 'fetchDepartmentStatus']);
             Route::post('employees/multiple-delete', [EmployeeController::class, 'multipleDelete']);
             Route::get('employees-next-id', [EmployeeController::class, 'nextId']);
             Route::apiResource('employees', EmployeeController::class);
@@ -63,7 +64,7 @@ Route::prefix('v1')->group(function () {
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
             Route::apiResource('users', UserController::class);
-            
+
             Route::post('permissions', [PermissionController::class, 'index']);
 
             Route::post('departments', [DepartmentController::class, 'store']);
@@ -85,13 +86,13 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
-          
+
             Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus']);
             Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
             Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
             Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
-            
+
 
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);
@@ -113,7 +114,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-selectable-users', [AppointmentController::class, 'selectableUsers']);
             });
             Route::apiResource('appointments', AppointmentController::class);
-            
+
             // Location routes
             Route::get('locations', [LocationController::class, 'index']);
 
@@ -121,13 +122,16 @@ Route::prefix('v1')->group(function () {
             Route::post('contacts/fetch-contacts', [ContactController::class, 'fetchContacts']);
             Route::post('contacts/multiple-delete', [ContactController::class, 'multipleDelete']);
             Route::apiResource('contacts', ContactController::class);
+
+            // Lead routes
+            Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
+            Route::apiResource('leads', LeadController::class);
+            Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
         });
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {
             Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
         });
-       
     });
-
 });
