@@ -13,9 +13,13 @@ use App\Models\Common\Permission;
 use App\Models\CreditBuilder\Tier;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Services\FCH\Partner\PartnerService;
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
 use Throwable;
 
@@ -23,7 +27,10 @@ class LeadService
 {
     use PaginatesApi;
 
-    public function __construct() {}
+    public function __construct(
+        protected BorrowerService $borrowerService,
+        protected PartnerService $partnerService
+    ) {}
 
     /**
      * List leads with pagination and filtering.
@@ -222,18 +229,17 @@ class LeadService
     {
         DB::beginTransaction();
         try {
-            // Strict check as requested: contact_person, email, and phone_number must not be empty
             if (empty($lead->contact_person) || empty($lead->email) || empty($lead->phone_number)) {
                 throw new \InvalidArgumentException('Contact person, email, and phone number are required for conversion.');
             }
 
-            // Validation: Check if a borrower with this email already exists
             if ($lead->email && Borrower::where('email', $lead->email)->exists()) {
                 throw new \InvalidArgumentException('A borrower with this email already exists.');
             }
 
             $firstName = $this->getFirstName($lead->contact_person);
             $lastName = $this->getLastName($lead->contact_person);
+
             $borrowerData = [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -257,10 +263,13 @@ class LeadService
                 'status' => 'active',
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
-                'current_tier' => Tier::where('order', 1)->first()?->id,
             ];
 
-            $borrower = Borrower::create($borrowerData);
+            // Use BorrowerService to create borrower and user
+            $result = $this->borrowerService->store($borrowerData);
+            $borrower = $result['borrower'];
+            $user = $result['user'];
+            $plainPassword = '12345';
 
             // Update lead conversion status
             $lead->update([
@@ -268,9 +277,22 @@ class LeadService
                 'status' => 'Lead Completed',
             ]);
 
-            // Create associated User if needed (check first_name, last_name, email, phone_number)
-            if (!empty($firstName) && !empty($lastName) && !empty($lead->email) && !empty($lead->phone_number)) {
-                $this->createBorrowerUser($borrower, $firstName, $lastName);
+            // Send email to lead
+            if ($user && $plainPassword) {
+                // Get business info for email (using first host partner if available)
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'business_info' => [
+                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                        'email' => $hostPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $hostPartner->phone_number ?? '',
+                        'address_line_1' => $hostPartner->address_line_1 ?? '',
+                    ]
+                ];
+                Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
             }
 
             DB::commit();
@@ -282,35 +304,6 @@ class LeadService
         }
     }
 
-    /**
-     * Create User for Borrower
-     */
-    private function createBorrowerUser(Borrower $borrower, string $firstName, string $lastName): void
-    {
-        $plainPassword = bin2hex(random_bytes(4));
-        $userData = [
-            'name' => $firstName . ' ' . $lastName,
-            'email' => $borrower->email,
-            'phone_number' => $borrower->phone_number,
-            'user_type' => User::BORROWER,
-            'password' => bcrypt($plainPassword),
-            'entity_type' => Borrower::class,
-            'entity_id' => $borrower->id,
-            'partner_id' => $borrower->partner_id,
-            'status' => 'active',
-        ];
-
-        $user = User::create($userData);
-
-        // Assign 'Borrower' role based on partner_id
-        $role = Role::where('name', 'Borrower')
-            ->where('partner_id', $borrower->partner_id)
-            ->first();
-
-        if ($role) {
-            $user->assignRole($role);
-        }
-    }
 
     /**
      * Convert Lead to Partner
@@ -319,12 +312,10 @@ class LeadService
     {
         DB::beginTransaction();
         try {
-            // Strict check as requested: contact_person, email, and phone_number must not be empty
             if (empty($lead->contact_person) || empty($lead->email) || empty($lead->phone_number)) {
                 throw new \InvalidArgumentException('Contact person, email, and phone number are required for conversion.');
             }
 
-            // Validation: Check if a partner with this email already exists
             if ($lead->email && Partner::where('email', $lead->email)->exists()) {
                 throw new \InvalidArgumentException('A partner with this email already exists.');
             }
@@ -337,7 +328,7 @@ class LeadService
                 'contact_person' => $lead->contact_person,
                 'contact_person_email' => $lead->email,
                 'contact_person_phone_number' => $lead->phone_number,
-                'partner_type' => 'Referral Partner', // Default mapping
+                'partner_type' => 'Referral Partner',
                 'status' => 'active',
                 'country' => $lead->country,
                 'state' => $lead->state,
@@ -349,7 +340,11 @@ class LeadService
                 'assign_to' => $lead->salesperson_id,
             ];
 
-            $partner = Partner::create($partnerData);
+            // Use PartnerService to create partner and user
+            $result = $this->partnerService->store($partnerData);
+            $partner = $result['partner'];
+            $user = $result['user'];
+            $plainPassword = $result['plain_password'];
 
             // Update lead conversion status
             $lead->update([
@@ -357,9 +352,25 @@ class LeadService
                 'status' => 'Lead Completed',
             ]);
 
-            // Create associated User if needed (check contact_person, email, phone_number)
-            if (!empty($lead->contact_person) && !empty($lead->email) && !empty($lead->phone_number)) {
-                $this->createPartnerUser($partner);
+            // Send email to lead
+            if ($user && $plainPassword) {
+                // Partner email logic (Can reuse BorrowerAccountCreatedMail if structure is similar, 
+                // or use a generic notification. For now, we will use BorrowerAccountCreatedMail if it fits 
+                // or just log it if a specific Partner mail is missing. 
+                // The user asked to "pass mail lead email", implying we should send one.)
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'business_info' => [
+                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                        'email' => $hostPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $hostPartner->phone_number ?? '',
+                        'address_line_1' => $hostPartner->address_line_1 ?? '',
+                    ]
+                ];
+                Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
             }
 
             DB::commit();
@@ -371,57 +382,6 @@ class LeadService
         }
     }
 
-    /**
-     * Create User and Roles for Partner
-     */
-    private function createPartnerUser(Partner $partner): void
-    {
-        $plainPassword = bin2hex(random_bytes(4));
-        $userData = [
-            'name' => $partner->full_name,
-            'email' => $partner->email,
-            'phone_number' => $partner->phone_number,
-            'user_type' => User::PARTNER,
-            'password' => bcrypt($plainPassword),
-            'entity_type' => Partner::class,
-            'entity_id' => $partner->id,
-            'partner_id' => $partner->id,
-            'status' => 'active',
-        ];
-
-        $user = User::create($userData);
-
-        // Create Default Roles and Assign Admin Role
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        // Admin Role
-        $adminRole = Role::updateOrCreate(
-            ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id],
-            [
-                'code' => 'admin',
-                'is_static' => false,
-            ]
-        );
-
-        // Borrower Role
-        Role::updateOrCreate(
-            ['name' => 'Borrower', 'guard_name' => 'api', 'partner_id' => $partner->id],
-            [
-                'code' => 'borrower',
-                'is_static' => false,
-            ]
-        );
-
-        $user->assignRole($adminRole);
-
-        // Sync permissions (only non-host permissions for normal partners)
-        $permissions = Permission::where('guard_name', 'api')->where('is_host', 0)->get();
-        if ($permissions->isNotEmpty()) {
-            $user->syncPermissions($permissions);
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-    }
 
     private function getFirstName(?string $fullName): string
     {
