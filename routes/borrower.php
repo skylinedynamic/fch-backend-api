@@ -86,7 +86,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/financial-info', [FundingApplicationController::class, 'getFinancialInfo']);
             Route::get('/funding-request', [FundingApplicationController::class, 'getFundingRequest']);
             Route::get('/disclosures-and-consent', [FundingApplicationController::class, 'getDisclosuresAndConsent']);
-            Route::post('/federal-compliance-disclosures', [FundingApplicationController::class, 'saveFederalComplianceDisclosures']);
+            Route::get('/federal-compliance-disclosures', [FundingApplicationController::class, 'getFederalComplianceDisclosures']);
         });
         
     });

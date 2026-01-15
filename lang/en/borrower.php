@@ -22,7 +22,9 @@ return [
 
     'disclosures_and_consent_not_found' => 'Disclosures and consent information not found',
     'fetch_disclosures_and_consent' => 'Fetch Disclosures and Consent',
-    'fetch_disclosures_and_consent_failed' => 'Failed to fetch disclosures and consent information. Please try again.',
+    'fetch_federal_compliance_disclosures' => 'Fetch Federal Compliance Disclosures',
+    'fetch_federal_compliance_disclosures_failed' => 'Failed to fetch federal compliance disclosures. Please try again.',
+    'federal_compliance_not_found' => 'Federal compliance information not found',
 
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',

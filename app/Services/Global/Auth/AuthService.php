@@ -40,14 +40,16 @@ class AuthService
                 'time' => $decayMinutes,
             ]));
         }
-        
-        $user = User::where('email', $authCredentials['email'])
-                    ->when($user_type,function($query) use ($user_type){
-                        $query->where('user_type',$user_type);
-                    })
-                    ->first();
 
+        $user = User::where('email', $authCredentials['email'])
+            ->when($user_type, function ($query) use ($user_type) {
+                $query->where('user_type', $user_type);
+            }, function ($query) {
+                $query->whereIn('user_type', [User::ADMIN, User::PARTNER]);
+            })
+            ->first();
         
+    
         if (!$user) {
             RateLimiter::hit($key, $decayMinutes * 60);
             $attempts = RateLimiter::attempts($key);

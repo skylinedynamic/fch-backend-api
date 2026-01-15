@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Borrower\FundApplication\BusinessResource;
 use App\Http\Resources\Borrower\FundApplication\DisclosuresAndConsentResource;
+use App\Http\Resources\Borrower\FundApplication\FederalComplianceResource;
 use App\Http\Resources\Borrower\FundApplication\FinancialResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
@@ -145,21 +146,21 @@ class FundingApplicationController extends Controller
     }
 
 
-    public function saveFederalComplianceDisclosures(){
+    public function getFederalComplianceDisclosures(){
         try {   
-            $disclosuresAndConsent = $this->fundingApplicationService->getBorrowerInfo();
+            $federalCompliance = $this->fundingApplicationService->getBorrowerInfo();
             
-            if (!$disclosuresAndConsent) {
-                return ApiResponse::error(__('borrower.disclosures_and_consent_not_found'), 404);
+            if (!$federalCompliance) {
+                return ApiResponse::error(__('borrower.federal_compliance_not_found'), 404);
             }
 
             return ApiResponse::success(
-                new DisclosuresAndConsentResource($disclosuresAndConsent),
-                __('borrower.fetch_disclosures_and_consent')
+                new FederalComplianceResource($federalCompliance),
+                __('borrower.fetch_federal_compliance_disclosures')
             );
 
         } catch (\Exception $e) {
-            return ApiResponse::error(__('borrower.fetch_disclosures_and_consent_failed'), 500);
+            return ApiResponse::error(__('borrower.fetch_federal_compliance_disclosures_failed'), 500);
         }
     }
 
