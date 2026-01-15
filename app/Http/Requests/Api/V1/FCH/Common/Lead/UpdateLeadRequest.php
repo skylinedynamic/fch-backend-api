@@ -18,7 +18,7 @@ class UpdateLeadRequest extends BaseApiRequest
 
         return [
             'probability' => ['nullable', 'string', 'max:255'],
-            'lead_type' => ['required', 'string', 'in:Partner,Borrower'],
+            // 'lead_type' => ['nullable', 'string', 'in:Partner,Borrower'],
             'status' => ['nullable', 'string', 'max:255'],
             'salesperson_id' => ['nullable', 'exists:users,id'],
             'company_name' => ['nullable', 'string', 'max:255'],

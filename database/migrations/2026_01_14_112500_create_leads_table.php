@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
-            $table->string('lead_id')->unique()->index();
+            $table->string('lead_id')->nullable()->index();
             $table->foreignId('partner_id')->nullable()->constrained('partners')->onDelete('set null');
             $table->string('tasks_no')->nullable();
             $table->string('probability')->nullable();

@@ -11,11 +11,17 @@ use App\Models\Partner\Partner;
 
 class PartnerSeeder extends Seeder
 {
+    use LocationHelper;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
+        $loc1 = $this->getRandomLocation();
+        $loc2 = $this->getRandomLocation();
+        $loc3 = $this->getRandomLocation();
+
         DB::table('partners')->insert([
             [
                 'is_host' => true,
@@ -28,12 +34,12 @@ class PartnerSeeder extends Seeder
                 'contact_person_email' => 'contact@fch.com',
                 'contact_person_phone_number' => '+1000000002',
                 'partner_type' => 'White-Label Partner (WL)',
-                'state' => 'CA',
-                'city' => 'San Francisco',
+                'state' => $loc1['state'],
+                'city' => $loc1['city'],
                 'postal_code' => '94105',
                 'address_line_1' => '123 Main St',
                 'address_line_2' => null,
-                'country' => 'USA',
+                'country' => $loc1['country'],
                 'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null, // No assignment needed in seed
@@ -55,12 +61,12 @@ class PartnerSeeder extends Seeder
                 'contact_person_email' => 'john.p@example.com',
                 'contact_person_phone_number' => '+1234567892',
                 'partner_type' => 'White-Label Partner (WL)',
-                'state' => 'CA',
-                'city' => 'Los Angeles',
+                'state' => $loc2['state'],
+                'city' => $loc2['city'],
                 'postal_code' => '90001',
                 'address_line_1' => '456 Oak St',
                 'address_line_2' => null,
-                'country' => 'USA',
+                'country' => $loc2['country'],
                 'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null,
@@ -82,12 +88,12 @@ class PartnerSeeder extends Seeder
                 'contact_person_email' => 'sarah.w@example.com',
                 'contact_person_phone_number' => '+1234567893',
                 'partner_type' => 'Certified Partner',
-                'state' => 'IL',
-                'city' => 'Chicago',
+                'state' => $loc3['state'],
+                'city' => $loc3['city'],
                 'postal_code' => '60601',
                 'address_line_1' => '789 Pine St',
                 'address_line_2' => null,
-                'country' => 'USA',
+                'country' => $loc3['country'],
                 'country_code' => '+1',
                 'status' => 'active',
                 'assign_to' => null,

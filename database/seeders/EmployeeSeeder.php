@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeSeeder extends Seeder
 {
+    use LocationHelper;
+
     /**
      * Run the database seeds.
      */
@@ -19,11 +21,6 @@ class EmployeeSeeder extends Seeder
         // Generate 10 employees for every partner (with full random profile fields)
         $departments = ['Operations', 'Finance', 'IT', 'HR', 'Sales', 'Support'];
         $designations = ['Staff', 'Manager', 'Lead', 'Analyst', 'Coordinator', 'Specialist'];
-        $citiesStates = [
-            ['Los Angeles', 'CA'], ['San Francisco', 'CA'], ['Austin', 'TX'], ['Chicago', 'IL'],
-            ['New York', 'NY'], ['Miami', 'FL'], ['Seattle', 'WA'], ['Denver', 'CO'],
-            ['Phoenix', 'AZ'], ['Atlanta', 'GA'], ['Charlotte', 'NC'],
-        ];
         $streets = ['Oak', 'Pine', 'Elm', 'Maple', 'Cedar', 'Walnut', 'Birch', 'Ash', 'Cherry', 'Willow'];
         $genders = ['male', 'female'];
 
@@ -44,6 +41,7 @@ class EmployeeSeeder extends Seeder
             }
 
             for ($i = 1; $i <= 10; $i++) {
+                $location = $this->getRandomLocation();
                 $firstName = "Employee{$partnerId}{$i}";
                 $lastName = 'User';
                 $empCode = "Emp-0000{$i}";
@@ -57,18 +55,14 @@ class EmployeeSeeder extends Seeder
 
                 // Random profile fields
                 $gender = $genders[array_rand($genders)];
-                $cs = $citiesStates[array_rand($citiesStates)];
-                $city = $cs[0];
-                $state = $cs[1];
                 $postal = str_pad((string) mt_rand(10000, 99999), 5, '0', STR_PAD_LEFT);
-                $country = 'USA';
-                $address = mt_rand(100, 999).' '.$streets[array_rand($streets)].' St';
+                $address = mt_rand(100, 999) . ' ' . $streets[array_rand($streets)] . ' St';
                 $image = "employee_{$partnerId}_{$i}.jpg";
                 $dobTs = mt_rand(strtotime('1970-01-01'), strtotime('2002-12-31'));
                 $dateOfBirth = date('Y-m-d', $dobTs);
                 $joinTs = mt_rand(strtotime('2018-01-01'), strtotime('2024-12-31'));
                 $joiningDate = date('Y-m-d', $joinTs);
-                $emergencyContact = $firstName.' '.$lastName.' Contact';
+                $emergencyContact = $firstName . ' ' . $lastName . ' Contact';
                 $emergencyPhone = str_pad($number, 10, '0', STR_PAD_LEFT);
                 $countryCode = '+1';
 
@@ -83,10 +77,10 @@ class EmployeeSeeder extends Seeder
                     'phone_number_2' => $phone2,
                     'date_of_birth' => $dateOfBirth,
                     'gender' => $gender,
-                    'city' => $city,
-                    'state' => $state,
+                    'city' => $location['city'],
+                    'state' => $location['state'],
                     'postal_code' => $postal,
-                    'country' => $country,
+                    'country' => $location['country'],
                     'country_code' => $countryCode,
                     'address' => $address,
                     'image' => null,
@@ -100,7 +94,7 @@ class EmployeeSeeder extends Seeder
 
                 // Create user for the employee
                 $user = User::create([
-                    'name' => $firstName.' '.$lastName,
+                    'name' => $firstName . ' ' . $lastName,
                     'email' => $email,
                     'phone_number' => $phone1,
                     'phone_verified_at' => null,

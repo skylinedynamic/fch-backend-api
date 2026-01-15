@@ -11,11 +11,28 @@ use App\Models\Borrower\Borrower;
 
 class BorrowerSeeder extends Seeder
 {
+    use LocationHelper;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
+        $loc1 = $this->getRandomLocation();
+        $loc1Business = $this->getRandomLocation();
+
+        $loc2 = $this->getRandomLocation();
+        $loc2Business = $this->getRandomLocation();
+
+        $loc3 = $this->getRandomLocation();
+        $loc3Business = $this->getRandomLocation();
+
+        $loc4 = $this->getRandomLocation();
+        $loc4Business = $this->getRandomLocation();
+
+        $loc5 = $this->getRandomLocation();
+        $loc5Business = $this->getRandomLocation();
+
         DB::table('borrowers')->insert([
             [
                 'signup_id' => 'SIGN-1001',
@@ -25,10 +42,10 @@ class BorrowerSeeder extends Seeder
                 'last_name' => 'Chen',
                 'email' => 'craig-borrower@fourcornerholdings.com',
                 'phone_number' => '5550101001',
-                'country' => 'United States',
+                'country' => $loc1['country'],
                 'country_code' => '+1',
-                'state' => 'New York',
-                'city' => 'New York City',
+                'state' => $loc1['state'],
+                'city' => $loc1['city'],
                 'postal_code' => '94105',
                 'home_address' => '101 Tech Way, Apt 4B',
                 'home_phone' => '5550101002',
@@ -40,10 +57,10 @@ class BorrowerSeeder extends Seeder
                 'business_ein' => '12-3456789',
                 'business_phone' => '5550101000',
                 'business_address' => '500 Innovation Dr',
-                'business_country' => 'United States',
+                'business_country' => $loc1Business['country'],
                 'business_country_code' => '+1',
-                'business_city' => 'New York City',
-                'business_state' => 'New York',
+                'business_city' => $loc1Business['city'],
+                'business_state' => $loc1Business['state'],
                 'business_postal_code' => '94107',
                 'business_email' => 'contact@alphatech.example.com',
                 'business_website' => 'https://alphatech.example.com',
@@ -79,10 +96,10 @@ class BorrowerSeeder extends Seeder
                 'last_name' => 'Jenkins',
                 'email' => 'sarah.j@greenearth.example.com',
                 'phone_number' => '5550202001',
-                'country' => 'United States',
+                'country' => $loc2['country'],
                 'country_code' => '+1',
-                'state' => 'New York',
-                'city' => 'New York City',
+                'state' => $loc2['state'],
+                'city' => $loc2['city'],
                 'postal_code' => '78701',
                 'home_address' => '202 Eco Lane',
                 'home_phone' => '5550202002',
@@ -94,10 +111,10 @@ class BorrowerSeeder extends Seeder
                 'business_ein' => '98-7654321',
                 'business_phone' => '+15550202000',
                 'business_address' => '800 Solar Blvd',
-                'business_country' => 'United States',
+                'business_country' => $loc2Business['country'],
                 'business_country_code' => '+1',
-                'business_city' => 'New York City',
-                'business_state' => 'New York',
+                'business_city' => $loc2Business['city'],
+                'business_state' => $loc2Business['state'],
                 'business_postal_code' => '78702',
                 'business_email' => 'info@greenearth.example.com',
                 'business_website' => 'https://greenearth.example.com',
@@ -133,10 +150,10 @@ class BorrowerSeeder extends Seeder
                 'last_name' => 'Rossi',
                 'email' => 'david.rossi@urbanbites.example.com',
                 'phone_number' => '5550303001',
-                'country' => 'United States',
+                'country' => $loc3['country'],
                 'country_code' => '+1',
-                'state' => 'New York',
-                'city' => 'New York City',
+                'state' => $loc3['state'],
+                'city' => $loc3['city'],
                 'postal_code' => '10001',
                 'home_address' => '303 Culinary Ave, Suite 10',
                 'home_phone' => '5550303002',
@@ -148,10 +165,10 @@ class BorrowerSeeder extends Seeder
                 'business_ein' => '11-2233445',
                 'business_phone' => '5550303000',
                 'business_address' => '1500 Broadway',
-                'business_country' => 'United States',
+                'business_country' => $loc3Business['country'],
                 'business_country_code' => '+1',
-                'business_city' => 'New York City',
-                'business_state' => 'New York',
+                'business_city' => $loc3Business['city'],
+                'business_state' => $loc3Business['state'],
                 'business_postal_code' => '10036',
                 'business_email' => 'hello@urbanbites.example.com',
                 'business_website' => 'https://urbanbites.example.com',
@@ -187,10 +204,10 @@ class BorrowerSeeder extends Seeder
                 'last_name' => 'Wong',
                 'email' => 'emily.wong@summitconsulting.example.com',
                 'phone_number' => '5550404001',
-                'country' => 'United States',
+                'country' => $loc4['country'],
                 'country_code' => '+1',
-                'state' => 'New York',
-                'city' => 'New York City',
+                'state' => $loc4['state'],
+                'city' => $loc4['city'],
                 'postal_code' => '60611',
                 'home_address' => '404 Lake Shore Dr',
                 'home_phone' => '5550404002',
@@ -202,10 +219,10 @@ class BorrowerSeeder extends Seeder
                 'business_ein' => '55-6677889',
                 'business_phone' => '5550404000',
                 'business_address' => '200 W Madison St',
-                'business_country' => 'United States',
+                'business_country' => $loc4Business['country'],
                 'business_country_code' => '+1',
-                'business_city' => 'New York City',
-                'business_state' => 'New York',
+                'business_city' => $loc4Business['city'],
+                'business_state' => $loc4Business['state'],
                 'business_postal_code' => '60606',
                 'business_email' => 'contact@summitconsulting.example.com',
                 'business_website' => 'https://summitconsulting.example.com',
@@ -241,10 +258,10 @@ class BorrowerSeeder extends Seeder
                 'last_name' => 'Miller',
                 'email' => 'robert.miller@buildright.example.com',
                 'phone_number' => '5550505001',
-                'country' => 'United States',
+                'country' => $loc5['country'],
                 'country_code' => '+1',
-                'state' => 'New York',
-                'city' => 'New York City',
+                'state' => $loc5['state'],
+                'city' => $loc5['city'],
                 'postal_code' => '33101',
                 'home_address' => '505 Ocean Dr',
                 'home_phone' => '5550505002',
@@ -256,10 +273,10 @@ class BorrowerSeeder extends Seeder
                 'business_ein' => '22-3344556',
                 'business_phone' => '5550505000',
                 'business_address' => '700 Brickell Ave',
-                'business_country' => 'United States',
+                'business_country' => $loc5Business['country'],
                 'business_country_code' => '+1',
-                'business_city' => 'New York City',
-                'business_state' => 'New York',
+                'business_city' => $loc5Business['city'],
+                'business_state' => $loc5Business['state'],
                 'business_postal_code' => '33131',
                 'business_email' => 'info@buildright.example.com',
                 'business_website' => 'https://buildright.example.com',
