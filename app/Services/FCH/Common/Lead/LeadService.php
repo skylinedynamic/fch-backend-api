@@ -265,21 +265,17 @@ class LeadService
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
             ];
 
-            // Use BorrowerService to create borrower and user
             $result = $this->borrowerService->store($borrowerData);
             $borrower = $result['borrower'];
             $user = $result['user'];
             $plainPassword = '12345';
 
-            // Update lead conversion status
             $lead->update([
                 'convert_to' => 'Borrower',
                 'status' => 'Lead Completed',
             ]);
 
-            // Send email to lead
             if ($user && $plainPassword) {
-                // Get business info for email (using first host partner if available)
                 $hostPartner = Partner::where('is_host', 1)->first();
                 $mailData = [
                     'user' => $user,
@@ -340,13 +336,11 @@ class LeadService
                 'assign_to' => $lead->salesperson_id,
             ];
 
-            // Use PartnerService to create partner and user
             $result = $this->partnerService->store($partnerData);
             $partner = $result['partner'];
             $user = $result['user'];
             $plainPassword = $result['plain_password'];
 
-            // Update lead conversion status
             $lead->update([
                 'convert_to' => 'Partner',
                 'status' => 'Lead Completed',
@@ -354,10 +348,6 @@ class LeadService
 
             // Send email to lead
             if ($user && $plainPassword) {
-                // Partner email logic (Can reuse BorrowerAccountCreatedMail if structure is similar, 
-                // or use a generic notification. For now, we will use BorrowerAccountCreatedMail if it fits 
-                // or just log it if a specific Partner mail is missing. 
-                // The user asked to "pass mail lead email", implying we should send one.)
                 $hostPartner = Partner::where('is_host', 1)->first();
                 $mailData = [
                     'user' => $user,
@@ -399,5 +389,47 @@ class LeadService
             return implode(' ', $parts);
         }
         return '';
+    }
+
+    /**
+     * Get Leads Statistics
+     */
+    public function getStats(array $filters): array
+    {
+        $authUser = Auth::user();
+        $query = Lead::query();
+
+        if ($authUser && $authUser->partner) {
+            if ($authUser->partner->is_host != 1) {
+                $query->where('partner_id', $authUser->partner_id);
+            } else {
+                if (!empty($filters['partner_id'])) {
+                    $query->where('partner_id', $filters['partner_id']);
+                }
+            }
+        }
+
+        $baseQuery = clone $query;
+        $totalLeads = (clone $baseQuery)->count();
+        $newLeads = (clone $baseQuery)->where('status', 'New Lead')->count();
+        $declinedLeads = (clone $baseQuery)->where('status', 'Lead Declined')->count();
+        $qualifiedStatuses = [
+            'Lead Identified',
+            'Meeting Arranged',
+            'Application Allowed',
+            'Negotiation',
+            'Lead Completed'
+        ];
+        $qualifiedLeads = (clone $baseQuery)->whereIn('status', $qualifiedStatuses)->count();
+
+        $qualifiedRate = $totalLeads > 0 ? round(($qualifiedLeads / $totalLeads) * 100, 1) : 0;
+        $declinedRate = $totalLeads > 0 ? round(($declinedLeads / $totalLeads) * 100, 1) : 0;
+
+        return [
+            'total_leads' => $totalLeads,
+            'new_leads' => $newLeads,
+            'qualified_rate' => $qualifiedRate,
+            'declined_rate' => $declinedRate,
+        ];
     }
 }

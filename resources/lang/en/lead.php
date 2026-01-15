@@ -3,6 +3,7 @@
 return [
     'lead_list_failed' => 'Failed to retrieve leads.',
     'lead_details' => 'Lead details retrieved successfully.',
+    'stats_retrieved' => 'Stats retrieved successfully.',
     'lead_not_found' => 'Lead not found.',
     'lead_created' => 'Lead created successfully.',
     'lead_create_failed' => 'Failed to create lead.',

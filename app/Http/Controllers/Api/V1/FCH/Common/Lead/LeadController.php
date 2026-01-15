@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Lead;
 
 use App\Models\Lead\Lead;
+use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -129,6 +131,19 @@ class LeadController extends Controller
             return ApiResponse::success($result, __('lead.conversion_success'));
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage() ?: __('lead.conversion_failed'));
+        }
+    }
+
+    /**
+     * Dashboard Stats
+     */
+    public function dashboardStats(Request $request)
+    {
+        try {
+            $stats = $this->leadService->getStats($request->all());
+            return ApiResponse::success($stats, __('lead.stats_retrieved'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('lead.stats_failed'));
         }
     }
 }

@@ -126,6 +126,7 @@ Route::prefix('v1')->group(function () {
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
             Route::apiResource('leads', LeadController::class);
+            Route::get('leads-stats', [LeadController::class, 'dashboardStats']);
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
         });
 
