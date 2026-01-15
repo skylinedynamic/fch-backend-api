@@ -60,12 +60,12 @@ class Lead extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('lead_id', 'like', "%{$search}%")
-                ->orWhere('contact_person', 'like', "%{$search}%")
-                ->orWhere('organization_name', 'like', "%{$search}%")
+            $q->where('contact_person', 'like', "%{$search}%")
                 ->orWhere('phone_number', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('legal_business_name', 'like', "%{$search}%");
+                ->orWhere('lead_type', 'like', "%{$search}%")
+                ->orWhere('salesperson_id', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%");
         });
     }
 }

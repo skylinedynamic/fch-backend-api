@@ -20,6 +20,10 @@ class FetchLeadRequest extends BaseApiRequest
             'filters' => ['nullable', 'array'],
             'sort_field' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'string', 'in:asc,desc,ASC,DESC'],
+            'lead_type' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
+            'salesperson_id' => ['nullable', 'integer'],
+            'partner_id' => ['nullable', 'integer'],
         ];
     }
 }

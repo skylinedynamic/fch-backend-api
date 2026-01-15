@@ -36,44 +36,58 @@ class LeadService
             ->select('leads.*');
 
         // Filter based on host status
-        if ($authUser->partner->is_host != 1) {
-            $query->where('leads.lead_type', 'Borrower');
-            $query->where('leads.partner_id', $authUser->partner_id);
+        if ($authUser && $authUser->partner) {
+            if ($authUser->partner->is_host != 1) {
+                // Non-hosts see only Borrower leads and their own partner's leads
+                $query->where('leads.lead_type', 'Borrower');
+                $query->where('leads.partner_id', $authUser->partner_id);
+            } else {
+                // Hosts can see all or filter by partner_id
+                if (! empty($filters['partner_id'])) {
+                    $query->where('leads.partner_id', $filters['partner_id']);
+                }
+            }
         }
 
-        // Search across multiple fields
+        // Top-level Dropdown Filters
+        if (! empty($filters['lead_type'])) {
+            $query->where('leads.lead_type', $filters['lead_type']);
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('leads.status', $filters['status']);
+        }
+
+        if (! empty($filters['salesperson_id'])) {
+            $query->where('leads.salesperson_id', $filters['salesperson_id']);
+        }
+
+        // Search scope (Model defined)
         if (! empty($filters['search'])) {
-            $search = trim((string) $filters['search']);
-            $query->where(function ($q) use ($search) {
-                $q->where('leads.lead_id', 'like', "%{$search}%")
-                    ->orWhere('leads.contact_person', 'like', "%{$search}%")
-                    ->orWhere('leads.organization_name', 'like', "%{$search}%")
-                    ->orWhere('leads.phone_number', 'like', "%{$search}%")
-                    ->orWhere('leads.email', 'like', "%{$search}%")
-                    ->orWhere('leads.legal_business_name', 'like', "%{$search}%")
-                    ->orWhereHas('salesperson', function ($sq) use ($search) {
-                        $sq->where('name', 'like', "%{$search}%");
-                    });
-            });
+            $query->search($filters['search']);
         }
 
         // Sorting and Joins for Salesperson Name
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $skipSorting = false;
+        $rawFilters = $filters['filters'] ?? [];
 
-        if ($sortField === 'salesperson_name') {
+        // Join Users if sorting or filtering by salesperson_name
+        if ($sortField === 'salesperson_name' || isset($rawFilters['salesperson_name'])) {
             $query->leftJoin('users as salespersons', 'leads.salesperson_id', '=', 'salespersons.id')
-                ->orderBy('salespersons.name', $sortOrder);
-            $skipSorting = true;
+                ->addSelect('salespersons.name as salesperson_name');
+            if ($sortField === 'salesperson_name') {
+                $query->orderBy('salespersons.name', $sortOrder);
+                $skipSorting = true;
+            }
         }
-
 
         $query = QueryFilter::apply(
             $query,
             $sortField,
             $sortOrder,
-            $filters['filters'] ?? [],
+            $rawFilters,
             [
                 'aliases' => [
                     'email' => 'leads.email',
@@ -251,7 +265,7 @@ class LeadService
             // Update lead conversion status
             $lead->update([
                 'convert_to' => 'Borrower',
-                'status' => 'Converted',
+                'status' => 'Lead Completed',
             ]);
 
             // Create associated User if needed (check first_name, last_name, email, phone_number)
@@ -340,7 +354,7 @@ class LeadService
             // Update lead conversion status
             $lead->update([
                 'convert_to' => 'Partner',
-                'status' => 'Converted',
+                'status' => 'Lead Completed',
             ]);
 
             // Create associated User if needed (check contact_person, email, phone_number)
@@ -385,7 +399,7 @@ class LeadService
             ['name' => 'Admin', 'guard_name' => 'api', 'partner_id' => $partner->id],
             [
                 'code' => 'admin',
-                'is_static' => true,
+                'is_static' => false,
             ]
         );
 
