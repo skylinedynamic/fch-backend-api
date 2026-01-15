@@ -16,6 +16,17 @@ class LeadSeeder extends Seeder
     public function run(): void
     {
         $faker = Faker::create();
+        $leadStatusTypes = [
+            'New Lead',
+            'Contact Initiated',
+            'Lead Identified',
+            'Meeting Arranged',
+            'Application Allowed',
+            'Follow Up',
+            'Negotiation',
+            'Lead Completed',
+            'Lead Declined',
+        ];
         // Generate 50 sample leads
         for ($i = 0; $i < 50; $i++) {
             $leadId = 'LD-' . now()->format('Y-md') . '-' . str_pad(($i + 1), 3, '0', STR_PAD_LEFT);
@@ -23,8 +34,8 @@ class LeadSeeder extends Seeder
                 'lead_id' => $leadId,
                 'lead_type' => $faker->randomElement(['Borrower', 'Partner']),
                 'partner_id' => $faker->numberBetween(1, 3),
-                'status' => $faker->randomElement(['new', 'contacted', 'qualified', 'lost']),
-                'salesperson_id' => null,
+                'status' => $faker->randomElement($leadStatusTypes),
+                'salesperson_id' => $faker->numberBetween(5, 15),
                 'company_name' => $faker->company,
                 'domain' => $faker->domainName,
                 'lead_source' => $faker->word,
