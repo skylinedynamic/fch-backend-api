@@ -17,9 +17,9 @@ return new class extends Migration
             $table->foreignId('borrower_id')->constrained()->onDelete('cascade');
             
             // Business Information
-            $table->string('full_name')->nullable();
-            $table->string('business_name')->nullable();
-            $table->string('business_email')->nullable();
+            $table->string('full_name')->nullable()->index();
+            $table->string('business_name')->nullable()->index();
+            $table->string('business_email')->nullable()->index();
             $table->string('business_phone_no')->nullable();
             $table->string('business_country')->nullable();
             $table->string('business_country_code')->nullable();
@@ -27,8 +27,8 @@ return new class extends Migration
             $table->string('business_city')->nullable();
             $table->string('business_state')->nullable();
             $table->string('business_postal_code')->nullable();
-            $table->string('industry_type')->nullable();
-            $table->string('entity_type')->nullable();
+            $table->string('industry_type')->nullable()->index();
+            $table->string('entity_type')->nullable()->index();
             $table->string('years_in_business')->nullable();
             $table->integer('number_of_employees')->nullable();
             

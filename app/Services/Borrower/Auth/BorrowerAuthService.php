@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Auth;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerSignupId;
+use App\Models\CreditBuilder\Tier;
 use App\Models\Employee\Employee;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,7 @@ class BorrowerAuthService
         DB::beginTransaction();
         try {
             $signup = BorrowerSignupId::where('signup_id', $data['signup_id'])->first();
+            $first_tier = Tier::orderBy('order', 'asc')->first();
               
             if (!$signup) {
                 DB::rollBack();
@@ -43,6 +45,7 @@ class BorrowerAuthService
                 'country' => $data['country'],
                 'country_code' => $data['country_code'],
                 'business_phone' => $data['phone_number'],
+                'current_tier' => $first_tier->id,
                 'business_state' => $data['state'],
             ]);
 

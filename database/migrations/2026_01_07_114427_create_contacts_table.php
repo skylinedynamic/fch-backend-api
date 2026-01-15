@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('contacts', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('partner_id')->index();
-            $table->string('first_name');
-            $table->string('last_name')->nullable();
+            $table->string('first_name')->index();
+            $table->string('last_name')->nullable()->index();
             $table->string('company_name')->nullable();
-            $table->string('mobile_number', 20)->nullable();
-            $table->string('email')->nullable();
+            $table->string('mobile_number', 20)->nullable()->index();
+            $table->string('email')->nullable()->index();
             $table->string('country')->nullable();
             $table->string('state')->nullable();
             $table->string('city')->nullable();

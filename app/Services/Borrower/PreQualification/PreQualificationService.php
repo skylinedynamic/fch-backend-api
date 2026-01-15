@@ -33,7 +33,6 @@ class PreQualificationService
         $zapierResponse = $this->sendToZapier($record);
 
         $record->update(['status' => PreQualificationRequest::SUBMITTED]);
-        
 
         return ApiResponse::success(
             $zapierResponse,
@@ -44,29 +43,59 @@ class PreQualificationService
     private function sendToZapier(PreQualificationRequest $record)
     {
         try {
+
             $zapierPayload = [
-                'Full Name' => $record->first_name . ' ' . $record->last_name,
-                'Phone Number' => $record->phone_number,
-                'Email' => $record->email,
-                'Business Name' => $record->business_name,
-                'Business Website' => $record->business_website,
-                'Business Industry' => $record->industry_type,
-                'State of Incorporation' => $record->state_of_incorporation,
-                'Business Structure' => $record->business_structure,
-                'Time in Business' => $record->years_in_business,
-                'Average Monthly Revenue' => $record->monthly_revenue,
-                'Annual Revenue' => $record->annual_revenue,
-                'Estimated Personal Credit Score' => $record->personal_credit_score,
-                'Estimated Business Credit Score' => $record->estimated_business_credit_score,
-                'Existing Business Debt?' => $record->existing_business_debt ? 'Yes' : 'No',
-                'Debt Balance' => $record->debt_balance,
-                'Funding Amount Requested' => $record->funding_requested_amount,
-                'Purpose of Funding' => $record->purpose_of_funding,
-                'Funding Urgency' => $record->funding_urgency,
-                'Notes From Borrower' => $record->notes,
+                'full_name' => 'Demo User',
+                'phone' => '555-123-4567',
+                'email' => 'demo@example.com',
+                'business_name' => 'Demo Business Inc.',
+                'website' => 'https://demo.example.com',
+                'business_industry' => 'Technology',
+                'state_of_incorporation' => 'CA',
+                'business_structure' => 'LLC',
+                'time_in_business' => '0-6 months',
+                'monthly_revenue' => '50000',
+                'annual_revenue' => '600000',
+                'personal_credit_score_est' => '720',
+                'business_credit_score_est' => '680',
+                'existing_business_debt' => 'Yes',
+                'balance' => '25000',
+                'funding_request' => '100000',
+                'purpose_of_funds' => 'Expansion',
+                'funding_urgency' => 'Within 30 days',
+                'borrower_notes' => 'Demo submission for testing purposes',
             ];
 
-            $response = Http::withoutVerifying()->post('https://hooks.zapier.com/hooks/catch/21994150/ukf0iv0/', $zapierPayload);
+            // $zapierPayload = [
+            //     'full_name' => $record->first_name . ' ' . $record->last_name,
+            //     'phone' => $record->phone_number,
+            //     'email' => $record->email,
+            //     'business_name' => $record->business_name,
+            //     'website' => $record->business_website,
+            //     'business_industry' => $record->industry_type,
+            //     'state_of_incorporation' => $record->state_of_incorporation,
+            //     'business_structure' => $record->business_structure,
+            //     'time_in_business' => $record->years_in_business,
+            //     'monthly_revenue' => $record->monthly_revenue,
+            //     'annual_revenue' => $record->annual_revenue,
+            //     'personal_credit_score_est' => $record->personal_credit_score,
+            //     'business_credit_score_est' => $record->estimated_business_credit_score,
+            //     'existing_business_debt' => $record->existing_business_debt ? 'Yes' : 'No',
+            //     'balance' => $record->debt_balance,
+            //     'funding_request' => $record->funding_requested_amount,
+            //     'purpose_of_funds' => $record->purpose_of_funding,
+            //     'funding_urgency' => $record->funding_urgency,
+            //     'borrower_notes' => $record->notes,
+            // ];
+
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])->post(
+                    'https://hooks.zapier.com/hooks/catch/21994150/u4gwugj/',
+                    $zapierPayload
+                );
 
             Log::info('Zapier Webhook Response', [
                 'status' => $response->status(),

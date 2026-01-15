@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('funding_application_id')->constrained()->onDelete('cascade');
             
-            $table->string('first_name')->nullable();
-            $table->string('last_name')->nullable();
+            $table->string('first_name')->nullable()->index();
+            $table->string('last_name')->nullable()->index();
             $table->string('title_role')->nullable();
             $table->decimal('ownership_percentage', 8, 2)->nullable();
-            $table->string('email')->nullable();
+            $table->string('email')->nullable()->index();
             $table->string('mobile_phone')->nullable();
             $table->string('home_phone')->nullable();
             $table->date('date_of_birth')->nullable();

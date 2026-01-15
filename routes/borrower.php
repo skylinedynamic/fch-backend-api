@@ -80,7 +80,14 @@ Route::prefix('v1/borrower')->group(function () {
         Route::prefix('funding-application')->group(function () {
             Route::get('/business-info', [FundingApplicationController::class, 'getBusinessInfo']);
             Route::post('/business-info',[FundingApplicationController::class,'saveBusinessInfo']);
-        });
 
+            Route::get('/ownership-info', [FundingApplicationController::class, 'getOwnershipInfo']);
+
+            Route::get('/financial-info', [FundingApplicationController::class, 'getFinancialInfo']);
+            Route::get('/funding-request', [FundingApplicationController::class, 'getFundingRequest']);
+            Route::get('/disclosures-and-consent', [FundingApplicationController::class, 'getDisclosuresAndConsent']);
+            Route::get('/federal-compliance-disclosures', [FundingApplicationController::class, 'getFederalComplianceDisclosures']);
+        });
+        
     });
 });
