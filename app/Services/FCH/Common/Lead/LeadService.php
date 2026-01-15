@@ -394,19 +394,13 @@ class LeadService
     /**
      * Get Leads Statistics
      */
-    public function getStats(array $filters): array
+    public function getStats(): array
     {
         $authUser = Auth::user();
         $query = Lead::query();
 
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host != 1) {
-                $query->where('partner_id', $authUser->partner_id);
-            } else {
-                if (!empty($filters['partner_id'])) {
-                    $query->where('partner_id', $filters['partner_id']);
-                }
-            }
+           $query->where('partner_id', $authUser->partner_id);
         }
 
         $baseQuery = clone $query;

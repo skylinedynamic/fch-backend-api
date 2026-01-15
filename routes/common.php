@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -123,10 +124,13 @@ Route::prefix('v1')->group(function () {
             Route::post('contacts/multiple-delete', [ContactController::class, 'multipleDelete']);
             Route::apiResource('contacts', ContactController::class);
 
+            // Statistics routes
+            Route::post('stats', [StatisticsController::class, 'stats']);
+
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
+            Route::get('leads-stats', [LeadController::class, 'stats']);
             Route::apiResource('leads', LeadController::class);
-            Route::get('leads-stats', [LeadController::class, 'dashboardStats']);
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
         });
 
