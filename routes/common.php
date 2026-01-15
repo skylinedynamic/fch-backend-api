@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistCo
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
+use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -123,6 +124,9 @@ Route::prefix('v1')->group(function () {
             Route::post('contacts/fetch-contacts', [ContactController::class, 'fetchContacts']);
             Route::post('contacts/multiple-delete', [ContactController::class, 'multipleDelete']);
             Route::apiResource('contacts', ContactController::class);
+
+            // Common routes
+            Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
 
             // Statistics routes
             Route::post('stats', [StatisticsController::class, 'stats']);

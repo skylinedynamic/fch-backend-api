@@ -544,23 +544,6 @@ class PartnerService
         ];
     }
 
-    /**
-     * Get all users where entity_type is Employee or NULL.
-     * Returns only id and name.
-     */
-    public function getAllUsers()
-    {
-        $users = User::query()
-            ->where(function ($query) {
-                $query->where('entity_type', Employee::class)
-                    ->orWhereNull('entity_type');
-            })
-            ->select('id', 'name', 'email', 'phone_number')
-            ->orderBy('name', 'asc')
-            ->get();
-
-        return $users;
-    }
 
     /**
      * Map request data to partner model attributes.

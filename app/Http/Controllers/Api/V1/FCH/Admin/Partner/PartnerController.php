@@ -134,18 +134,6 @@ class PartnerController extends Controller
         );
     }
 
-    /**
-     * Get All Users
-     */
-    public function getAllUsers(Request $request)
-    {
-        $users = $this->partnerService->getAllUsers();
-
-        return ApiResponse::success(
-            $users,
-            'Users retrieved successfully'
-        );
-    }
 
     /**
      * Get Borrowers List.
@@ -227,10 +215,9 @@ class PartnerController extends Controller
      */
     public function profileStatsCount(int $id)
     {
-            $data = $this->partnerService->getPartnerProfileStats($id);
+        $data = $this->partnerService->getPartnerProfileStats($id);
 
-            return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
-       
+        return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
     }
 
     /**

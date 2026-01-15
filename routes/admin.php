@@ -27,7 +27,6 @@ Route::prefix('v1/admin')
 
         // 🧭 Partner routes
         Route::post('partners/fetch-partners', [PartnerController::class, 'index']);
-        Route::post('partners/get-all-users', [PartnerController::class, 'getAllUsers']);
         Route::post('partners', [PartnerController::class, 'store']);
         Route::put('partners/{id}', [PartnerController::class, 'update']);
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
@@ -52,7 +51,7 @@ Route::prefix('v1/admin')
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
         Route::post('demo-requests/store', [DemoRequestController::class, 'store']);
         // Route::post('demo-requests/update', [DemoRequestController::class, 'update']);
-        
+
         // 🏆 Credit Builder
         Route::prefix('credit-builder')->group(function () {
             // Tiers
