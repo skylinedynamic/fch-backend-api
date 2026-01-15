@@ -112,7 +112,6 @@ class PartnerService
                 'user' => $user->fresh(),
                 'plain_password' => $plainPassword,
             ];
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
@@ -201,7 +200,6 @@ class PartnerService
 
             // Clear cached permissions after role creation
             app(PermissionRegistrar::class)->forgetCachedPermissions();
-
         } catch (\Exception $e) {
             Log::error('❌ Failed to create partner roles', [
                 'partner_id' => $partnerId,
@@ -586,7 +584,7 @@ class PartnerService
      */
     public function getBorrowers(array $filters)
     {
-        
+
         $query = Borrower::query()->with('partner');
 
         // Filter by partner_id
@@ -615,7 +613,7 @@ class PartnerService
                     ->orWhere('email', 'LIKE', "%{$search}%")
                     ->orWhere('phone_number', 'LIKE', "%{$search}%")
                     ->orWhere('business_start_date', 'LIKE', "%{$search}%")
-                // Search concatenated full_name (first_name + last_name)
+                    // Search concatenated full_name (first_name + last_name)
                     ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
             });
         }
@@ -640,7 +638,7 @@ class PartnerService
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-       
+
         return $this->respondWithPaginationResource(
             $paginator,
             BorrowerPartnerResource::class,
@@ -694,20 +692,44 @@ class PartnerService
 
     public function getPartnerProfileStats(int $id)
     {
+        $authId = auth()->id();
+
         $stats = DB::table('partners as p')
             ->select(
                 'p.id',
-                DB::raw('(SELECT COUNT(*) FROM appointments WHERE partner_id = '.$id.') as total_meetings'),
-                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = '.$id.') as total_clients'),
-                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = '.$id.') as total_invoice'),
-                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = '.$id.') as total_tickets'),
-                DB::raw('(SELECT enrollment_type FROM partner_subscriptions 
-                      WHERE partner_id = '.$id.' 
-                      ORDER BY id DESC 
-                      LIMIT 1) as enrollment_type')
+                DB::raw('(SELECT COUNT(*) FROM appointments WHERE scheduled_by = ?) AS total_meetings'),
+                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = ?) AS total_clients'),
+                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
+                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
+                DB::raw('(SELECT COALESCE(
+                        (SELECT enrollment_type 
+                         FROM partner_subscriptions 
+                         WHERE partner_id = ? 
+                         ORDER BY id DESC 
+                         LIMIT 1),
+                        "N/A"
+                     )) AS enrollment_type')
             )
+            ->setBindings([
+                $authId,
+                $id,
+                $id,
+                $id,
+                $id
+            ])
             ->where('p.id', $id)
             ->first();
+
+        if (!$stats) {
+            return (object)[
+                'id' => $id,
+                'total_meetings' => 0,
+                'total_clients' => 0,
+                'total_invoice' => 0,
+                'total_tickets' => 0,
+                'enrollment_type' => 'N/A',
+            ];
+        }
 
         return $stats;
     }

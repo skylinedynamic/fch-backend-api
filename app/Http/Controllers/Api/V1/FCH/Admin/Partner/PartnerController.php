@@ -48,7 +48,6 @@ class PartnerController extends Controller
             ];
 
             return $this->partnerService->list($filters);
-
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('partner.error.list_failed'));
         }
@@ -165,7 +164,6 @@ class PartnerController extends Controller
             ];
 
             return $this->partnerService->getBorrowers($filters);
-
         } catch (\Exception $e) {
             return ApiResponse::serverError('Failed to fetch borrowers');
         }
@@ -177,7 +175,7 @@ class PartnerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to '.$businessInfo->company_name,
+            'subject' => 'Welcome to ' . $businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -229,13 +227,10 @@ class PartnerController extends Controller
      */
     public function profileStatsCount(int $id)
     {
-        try {
             $data = $this->partnerService->getPartnerProfileStats($id);
 
             return ApiResponse::success($data, __('partner.partner_stats_retrieved'));
-        } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('partner.partner_stats_retrieved_failed'), 500);
-        }
+       
     }
 
     /**
