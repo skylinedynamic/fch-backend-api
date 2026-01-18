@@ -12,6 +12,9 @@ use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
 use App\Services\Borrower\FundApplication\FundingApplicationService;
 
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
+
 class FundingApplicationController extends Controller   
 {
     protected FundingApplicationService $fundingApplicationService;
@@ -27,7 +30,7 @@ class FundingApplicationController extends Controller
     public function getBusinessInfo()
     {
         try {
-            $businessInfo = $this->fundingApplicationService->getBorrowerInfo();
+            $businessInfo = $this->fundingApplicationService->getFundingInfo();
             
             if (!$businessInfo) {
                 return ApiResponse::error(__('borrower.business_info_not_found'), 404);
@@ -47,9 +50,19 @@ class FundingApplicationController extends Controller
     /**
      * Save Business Info.
      */
-    public function saveBusinessInfo()
+    public function saveBusinessInfo(StoreBusinessInfoRequest $request)
     {
-      
+        try {
+            $businessInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+
+            return ApiResponse::success(
+                new BusinessResource($businessInfo),
+                __('borrower.business_info_updated_successfully')
+            );
+
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
+        }
     }
 
 
@@ -58,7 +71,7 @@ class FundingApplicationController extends Controller
      */
     public function getOwnershipInfo(){
         try {   
-            $borrowerInfo = $this->fundingApplicationService->getBorrowerInfo();
+            $borrowerInfo = $this->fundingApplicationService->getFundingInfo();
             
             if (!$borrowerInfo) {
                 return ApiResponse::error(__('borrower.ownership_info_not_found'), 404);
@@ -76,10 +89,19 @@ class FundingApplicationController extends Controller
 
 
     /**
-     * Save Business Info.
+     * Save Ownership Info.
      */
-    public function saveOwnershipInfo(){
+    public function saveOwnershipInfo(StoreOwnershipInfoRequest $request){
+        try {
+            $ownershipInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
 
+            return ApiResponse::success(
+                new OwnershipResource($ownershipInfo),
+                __('borrower.ownership_info_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.ownership_info_update_failed'), 500);
+        }
     }
 
 
@@ -88,7 +110,7 @@ class FundingApplicationController extends Controller
      */
     public function getFinancialInfo(){
          try {   
-            $financialInfo = $this->fundingApplicationService->getBorrowerInfo();
+            $financialInfo = $this->fundingApplicationService->getFundingInfo();
             
             if (!$financialInfo) {
                 return ApiResponse::error(__('borrower.financial_info_not_found'), 404);

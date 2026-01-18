@@ -10,7 +10,8 @@ class FundingApplication extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'user_id',
+        'borrower_id',
+        'status',
         'full_name',
         'business_name',
         'business_email',
@@ -31,6 +32,7 @@ class FundingApplication extends Model
         'ssn',
         'citizenship_status',
         'street_address',
+        'country',
         'city',
         'state',
         'zip_code',
@@ -89,12 +91,24 @@ class FundingApplication extends Model
         'attestation_authorization' => 'boolean',
     ];
 
+
+    public const ON_HOLD = 'On Hold';
+    public const PENDING = 'Pending';
+    public const APPROVED = 'Approved';
+    public const REJECTED = 'Rejected';
+
+    public const STATUS = [
+        self::ON_HOLD => self::ON_HOLD,
+        self::PENDING => self::PENDING,
+        self::APPROVED => self::APPROVED,
+        self::REJECTED => self::REJECTED,
+    ];
     /**
-     * Get the user that owns the funding application.
+     * Get the borrower that owns the funding application.
      */
-    public function user()
+    public function borrower()
     {
-        return $this->belongsTo(\App\Models\User\User::class);
+        return $this->belongsTo(\App\Models\Borrower\Borrower::class);
     }
 
     /**

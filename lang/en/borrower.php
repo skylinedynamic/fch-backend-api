@@ -12,6 +12,8 @@ return [
     'ownership_info_not_found' => 'Ownership information not found',
     'fetch_ownership_info' => 'Fetch Ownership Information',
     'fetch_ownership_info_failed' => 'Failed to fetch ownership information. Please try again.',
+    'ownership_info_updated_successfully' => 'Ownership information updated successfully',
+    'ownership_info_update_failed' => 'Failed to update ownership information. Please try again.',
 
     'fetch_financial_info' => 'Fetch Financial Information',
     'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',

@@ -27,46 +27,10 @@ class CreditBuilderVendorSeeder extends Seeder
         $tier4 = 5;
 
         $vendors = [
-            // Tier 0
-            [
-                'name' => 'Staples Business Credit',
-                'category' => 'Office Supplies',
-                'requirements' => [
-                    'Business Bank Account',
-                    'Business Address',
-                    'EIN'
-                ],
-                'benefits' => [
-                    'Online Account Management',
-                    'Rewards Program',
-                    'Net 30 Terms'
-                ],
-                'report_to' => ['D&B'],
-                'tier_id' => $tier0,
-                'status' => CreditBuilderVendor::STATUS_ACTIVE,
-            ],
-            [
-                'name' => 'Office Depot Business Credit',
-                'category' => 'Office Supplies',
-                'requirements' => [
-                    'Business Bank Account',
-                    'Business Address',
-                    'EIN'
-                ],
-                'benefits' => [
-                    'Rewards Program',
-                    'Order History',
-                    'Net 30 Terms'
-                ],
-                'report_to' => ['D&B'],
-                'tier_id' => $tier0,
-                'status' => CreditBuilderVendor::STATUS_ACTIVE,
-            ],
-
             // Tier 1
             [
                 'name' => 'Uline Business Credit',
-                'category' => 'Industrial Supplies',
+                'category' => 'Office Supplies',
                 'requirements' => [
                     '6 Months in Business',
                     'Trade References',
@@ -78,6 +42,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Net 30 Terms'
                 ],
                 'report_to' => ['D&B', 'Experian'],
+                'affiliate_url' => '',
+                'general_url' => 'https://www.uline.com',
+                'logo' => asset('Logos/tier-1/uline.png'),
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
@@ -95,12 +62,15 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Order Tracking'
                 ],
                 'report_to' => ['D&B', 'Experian'],
+                'affiliate_url' => '',
+                'general_url' => 'https://www.quill.com/quill-net-30/cbi/94.cshtml',
+                'logo' => asset('Logos/tier-1/quill.png'),
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Grainger Commercial Account',
-                'category' => 'Industrial Supplies',
+                'category' => 'Industrial / MRO',
                 'requirements' => [
                     'Business Bank Account',
                     'Trade References',
@@ -111,13 +81,16 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Quick Delivery',
                     'Net 30 Terms'
                 ],
+                'affiliate_url' => '',
+                'general_url' => 'https://www.grainger.com/content/user_registration',
+                'logo' => asset('Logos/tier-1/grainger_logo.png'),
                 'report_to' => ['D&B'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'MSC Industrial Supply',
-                'category' => 'Industrial Supplies',
+                'category' => 'MSC Industrial Supply',
                 'requirements' => [
                     'Business Bank Account',
                     'Trade References',
@@ -128,6 +101,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Account Management',
                     'Net 30 Terms'
                 ],
+                'affiliate_url' => '',
+                'general_url' => 'https://www.mscdirect.com/customer-service/credit',
+                'logo' => asset('Logos/tier-1/msc.jpg'),
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -145,13 +121,16 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Net 30 Terms',
                     'Account Management'
                 ],
+                'affiliate_url' => '',
+                'general_url' => 'https://crownofficesupplies.com/net30-application/',
+                'logo' => asset('Logos/tier-1/crown.png'),
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
             ],
             [
                 'name' => 'Global Industrial',
-                'category' => 'Industrial Supplies',
+                'category' => 'Warehouse, Safety & Shipping',
                 'requirements' => [
                     'Business Bank Account',
                     'Trade References',
@@ -162,6 +141,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Safety Products',
                     'Net 30 Terms'
                 ],
+                'affiliate_url' => '',
+                'general_url' => 'https://www.globalindustrial.com/applyforcredit',
+                'logo' => asset('Logos/tier-1/global_logo.png'),
                 'report_to' => ['D&B'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -179,6 +161,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Volume Pricing',
                     'Net 30 Terms'
                 ],
+                'affiliate_url' => 'https://www.staples.com/business-credit',
+                'general_url' => 'https://www.seton.com',
+                'logo' => asset('Logos/Seton Logo.png'),
                 'report_to' => ['D&B', 'Experian'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -196,6 +181,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Volume Discounts',
                     'Net 30 Terms'
                 ],
+                'affiliate_url' => '',
+                'general_url' => 'https://officegarner.com/checkout/?add-to-cart=8687',
+                'logo' => asset('Logos/tier-1/office_garner_logo.png'),
                 'report_to' => ['D&B'],
                 'tier_id' => $tier1,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -215,6 +203,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Business Support',
                     'Flexible Terms'
                 ],
+                'affiliate_url' => 'https://www.staples.com/business-credit',
+                'general_url' => 'https://www.dell.com',
+                'logo' => asset('Logos/dell.png'),
                 'report_to' => ['D&B', 'Experian', 'Equifax'],
                 'tier_id' => $tier2,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -232,6 +223,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Wide Selection',
                     'Payment Terms'
                 ],
+                'affiliate_url' => 'https://www.staples.com/business-credit',
+                'general_url' => 'https://www.amazon.com',
+                'logo' => asset('Logos/amazon.png'),
                 'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier2,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
@@ -251,6 +245,9 @@ class CreditBuilderVendorSeeder extends Seeder
                     'Flexible Financing',
                     'Business Support'
                 ],
+                'affiliate_url' => 'https://www.staples.com/business-credit',
+                'general_url' => 'https://www.cdw.com',
+                'logo' => asset('Logos/cdw.png'),
                 'report_to' => ['Experian', 'Equifax'],
                 'tier_id' => $tier3,
                 'status' => CreditBuilderVendor::STATUS_ACTIVE,
