@@ -1,14 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
-use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
+use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
@@ -19,8 +22,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
-use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
-use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -136,6 +137,11 @@ Route::prefix('v1')->group(function () {
             Route::get('leads-stats', [LeadController::class, 'stats']);
             Route::apiResource('leads', LeadController::class);
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
+
+            // 🧾 Invoices
+            Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
+            Route::post('invoices/stats', [InvoiceController::class, 'stats']);
+            Route::get('invoices/{id}', [InvoiceController::class, 'show']);
         });
 
         // V1 Notification routes

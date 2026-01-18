@@ -1,14 +1,14 @@
 <?php
 
-use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\SettingController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
-use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
-use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Setting\SettingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 
 // ✅ Import Role & Permission Controllers
 
@@ -35,7 +35,6 @@ Route::prefix('v1/admin')
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners-stats', [PartnerController::class, 'stats']);
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
-        Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
         Route::post('settings', [SettingController::class, 'store']);
         Route::get('settings', [SettingController::class, 'show']);

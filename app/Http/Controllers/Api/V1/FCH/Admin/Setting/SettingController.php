@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
+namespace App\Http\Controllers\Api\V1\FCH\Admin\Setting;
 
+use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\FCH\Setting\SettingResource;
 use App\Services\FCH\Admin\Setting\SettingService;
+use App\Http\Resources\FCH\Setting\SettingResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Setting\StoreSettingRequest;
 
 class SettingController extends Controller
@@ -40,15 +41,12 @@ class SettingController extends Controller
         }
 
         if (!$partnerId) {
-            return response()->json(['message' => 'Partner ID is required.'], 422);
+            return ApiResponse::validationError(['partner_id' => [__('setting.partner_id_required')]], __('setting.partner_id_required'));
         }
 
         $setting = $this->settingService->updateOrCreate($request->validated(), $partnerId);
 
-        return response()->json([
-            'message' => 'Settings saved successfully.',
-            'data' => new SettingResource($setting),
-        ]);
+        return ApiResponse::success(new SettingResource($setting), __('setting.saved'));
     }
 
     /**
@@ -68,18 +66,15 @@ class SettingController extends Controller
         }
 
         if (!$partnerId) {
-            return response()->json(['message' => 'Partner ID is required.'], 422);
+            return ApiResponse::validationError(['partner_id' => [__('setting.partner_id_required')]], __('setting.partner_id_required'));
         }
 
         $setting = $this->settingService->getSettings($partnerId);
 
         if (!$setting) {
-            return response()->json(['message' => 'Settings not found.'], 404);
+            return ApiResponse::notFound(__('setting.not_found'));
         }
 
-        return response()->json([
-            'message' => 'Settings retrieved successfully.',
-            'data' => new SettingResource($setting),
-        ]);
+        return ApiResponse::success(new SettingResource($setting), __('setting.retrieved'));
     }
 }

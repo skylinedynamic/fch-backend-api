@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
+            $table->string('invoice_id')->unique()->nullable();
             $table->unsignedBigInteger('partner_id');
             $table->string('entity_type')->nullable();
             $table->string('entity_id')->nullable();
@@ -18,7 +19,10 @@ return new class extends Migration
             $table->string('country');
             $table->decimal('payment_amount', 10, 2);
             $table->date('payment_date');
-            $table->string('status')->nullable();
+            $table->string('status')->default('Pending');
+            $table->string('cycle')->nullable(); // Annual, Monthly, Quarterly, One Time
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });
@@ -29,4 +33,3 @@ return new class extends Migration
         Schema::dropIfExists('invoices');
     }
 };
-
