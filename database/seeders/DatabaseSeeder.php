@@ -81,6 +81,7 @@ class DatabaseSeeder extends Seeder
             BorrowerTaskVerificationRequestSeeder::class,
             ContactSeeder::class,
             LeadSeeder::class,
+            SettingsSeeder::class,
         ]);
     }
 }
