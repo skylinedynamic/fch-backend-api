@@ -15,8 +15,9 @@ class DisclosuresAndConsentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'credit_pull_authorization' => false,
-            'terms_conditions_acceptance' => false,
+            'id' => isset($this->borrower_id) ? $this->id : null,
+            'credit_pull_authorization' => $this->credit_pull_authorization ? true : false,
+            'terms_conditions_acceptance' => $this->terms_conditions_acceptance ? true : false,
         ];
     }
 }

@@ -12,6 +12,8 @@ return [
     'ownership_info_not_found' => 'Ownership information not found',
     'fetch_ownership_info' => 'Fetch Ownership Information',
     'fetch_ownership_info_failed' => 'Failed to fetch ownership information. Please try again.',
+    'ownership_info_updated_successfully' => 'Ownership information updated successfully',
+    'ownership_info_update_failed' => 'Failed to update ownership information. Please try again.',
 
     'fetch_financial_info' => 'Fetch Financial Information',
     'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',
@@ -22,9 +24,19 @@ return [
 
     'disclosures_and_consent_not_found' => 'Disclosures and consent information not found',
     'fetch_disclosures_and_consent' => 'Fetch Disclosures and Consent',
+    'fetch_disclosures_and_consent_failed' => 'Failed to fetch disclosures and consent information. Please try again.',
+    'disclosures_and_consent_updated_successfully' => 'Disclosures and consent updated successfully',
+    'disclosures_and_consent_update_failed' => 'Failed to update disclosures and consent. Please try again.',
     'fetch_federal_compliance_disclosures' => 'Fetch Federal Compliance Disclosures',
     'fetch_federal_compliance_disclosures_failed' => 'Failed to fetch federal compliance disclosures. Please try again.',
     'federal_compliance_not_found' => 'Federal compliance information not found',
+    'federal_compliance_disclosures_updated_successfully' => 'Federal compliance disclosures updated successfully',
+    'federal_compliance_disclosures_update_failed' => 'Failed to update federal compliance disclosures. Please try again.',
+    'attestation_and_authorization_updated_successfully' => 'Attestation and authorization updated successfully',
+    'attestation_and_authorization_update_failed' => 'Failed to update attestation and authorization. Please try again.',
+    'attestation_and_authorization_not_found' => 'Attestation and authorization information not found',
+    'fetch_attestation_and_authorization' => 'Fetch Attestation and Authorization',
+    'fetch_attestation_and_authorization_failed' => 'Failed to fetch attestation and authorization. Please try again.',
 
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
@@ -46,6 +58,10 @@ return [
     'financial_info_update_failed' => 'Failed to update financial information. Please try again.',
     'financial_info_fetch_failed' => 'Failed to fetch financial information. Please try again.',
 
+    // Funding Request Messages
+    'funding_request_updated_successfully' => 'Funding request updated successfully',
+    'funding_request_update_failed' => 'Failed to update funding request. Please try again.',
+
     // Pre-Qualification Messages
     'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
     'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
@@ -64,6 +80,10 @@ return [
     'pre_qualification_retrieved_successfully' => 'Pre-qualification application retrieved successfully',
     'pre_qualification_retrieval_failed' => 'Failed to retrieve pre-qualification application. Please try again.',
     'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
+    'get_pre_qualification_applications' => 'Pre-qualification applications fetched successfully',
+    'get_pre_qualification_applications_failed' => 'Failed to fetch pre-qualification applications. Please try again.',
+    'get_funding_applications' => 'Funding applications fetched successfully',
+    'get_funding_applications_failed' => 'Failed to fetch funding applications. Please try again.',
 
     // Success Messages
     

@@ -39,6 +39,7 @@ return new class extends Migration
             $table->string('ssn')->nullable();
             $table->string('citizenship_status')->nullable();
             $table->string('street_address')->nullable();
+            $table->string('country')->nullable();
             $table->string('city')->nullable();
             $table->string('state')->nullable();
             $table->string('zip_code')->nullable();
@@ -77,6 +78,9 @@ return new class extends Migration
             $table->boolean('any_outstanding_judgments_business')->default(false);
             $table->boolean('any_outstanding_judgments_owner')->default(false);
             $table->longText('federal_compliance_disclosures_explanation')->nullable();
+
+            //others
+            $table->string('status')->nullable();
 
             // Attestation and authorization
             $table->boolean('attestation_authorization')->default(false);

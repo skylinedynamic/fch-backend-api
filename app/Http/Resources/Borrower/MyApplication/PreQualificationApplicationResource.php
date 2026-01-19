@@ -5,7 +5,7 @@ namespace App\Http\Resources\Borrower\MyApplication;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class MyApplicationResource extends JsonResource
+class PreQualificationApplicationResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
