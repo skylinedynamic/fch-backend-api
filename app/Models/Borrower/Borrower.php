@@ -38,6 +38,7 @@ class Borrower extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
     public const STATUS = [
         'OnBoarding',
         'Active',

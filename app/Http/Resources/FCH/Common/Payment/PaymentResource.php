@@ -3,6 +3,7 @@
 namespace App\Http\Resources\FCH\Common\Payment;
 
 use Illuminate\Http\Request;
+use App\Models\Invoice\Invoice;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PaymentResource extends JsonResource
@@ -43,7 +44,7 @@ class PaymentResource extends JsonResource
     private function getPaymentDetails(): string
     {
         // Try to find if there's an invoice linked
-        $invoice = \App\Models\Invoice\Invoice::where('entity_id', $this->entity_id)
+        $invoice = Invoice::where('entity_id', $this->entity_id)
             ->where('entity_type', $this->entity_type)
             ->where('status', 'Paid')
             ->first();

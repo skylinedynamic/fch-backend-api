@@ -263,47 +263,32 @@ class LeadService
                 'state_file_number' => $lead->state_file_number,
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
-                'status' => 'OnBoarding',
+                'status' => Borrower::STATUS[0],
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
             ];
 
-            Log::info('Borrower data before store: ' . json_encode($borrowerData));
             $result = $this->borrowerService->store($borrowerData);
             Log::info('Borrower data after store: ' . json_encode($result));
             $borrower = $result['borrower'];
             $user = $result['user'];
-            $plainPassword = '12345';
+            $plainPassword = '12345678';
 
-            // Automatic Invoice Creation based on enrollment type
-            if (!empty($data['enrollment_type'])) {
-                Log::info('enrollment type: ' . json_encode($data['enrollment_type']));
-                $enrollmentConfigs = config('enrollment.types');
-                $matchedType = null;
-                foreach ($enrollmentConfigs as $key => $config) {
-                    if ($config['label'] === $data['enrollment_type']) {
-                        $matchedType = $config;
-                        break;
-                    }
-                }
-                Log::info('matchedType: ' . $matchedType);
-                if ($matchedType) {
-                    $this->invoiceService->create([
-                        'partner_id' => $borrower->partner_id,
-                        'borrower_id' => $borrower->id,
-                        'entity_type' => Borrower::class,
-                        'entity_id' => $borrower->id,
-                        'customer_name' => $borrower->full_name,
-                        'email' => $borrower->email,
-                        'country' => $borrower->country,
-                        'payment_amount' => $matchedType['amount'],
-                        'status' => Invoice::STATUS_UNPAID,
-                        'cycle' => $data['enrollment_type'] === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
-                    ]);
-                    Log::info('Invoice created: ' . json_encode($matchedType));
-                }
-            }
+            Log::info('enrollment type: ' . json_encode($data['enrollment_type']));
+            $enrollmentConfigs = config('enrollment.types');
+            $this->invoiceService->create([
+                'partner_id' => $borrower->partner_id,
+                'borrower_id' => $borrower->id,
+                'entity_type' => Borrower::class,
+                'entity_id' => $borrower->id,
+                'customer_name' => $borrower->full_name,
+                'email' => $borrower->email,
+                'country' => $borrower->country,
+                'payment_amount' => $data['amount'],
+                'status' => Invoice::STATUS_UNPAID,
+                'cycle' => ($data['enrollment_type'] ?? '') === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
+            ]);
 
             $lead->update([
                 'convert_to' => 'Borrower',
