@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Resources\Borrower\MyApplication;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class FundingApplicationResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'borrower_id' => $this->borrower_id,
+            'status' => $this->status,
+            'full_name' => $this->full_name,
+            'business_name' => $this->business_name,
+            'business_email' => $this->business_email,
+            'business_phone_no' => $this->business_phone_no,
+            'business_country' => $this->business_country,
+            'business_country_code' => $this->business_country_code,
+            'business_address' => $this->business_address,
+            'business_city' => $this->business_city,
+            'business_state' => $this->business_state,
+            'business_postal_code' => $this->business_postal_code,
+            'industry_type' => $this->industry_type,
+            'entity_type' => $this->entity_type,
+            'years_in_business' => $this->years_in_business,
+            'number_of_employees' => $this->number_of_employees,
+            'first_name' => $this->first_name,
+            'last_name' => $this->last_name,
+            'date_of_birth' => $this->date_of_birth ? date('m-d-Y', strtotime($this->date_of_birth)) : null,
+            'ssn' => $this->ssn,
+            'citizenship_status' => $this->citizenship_status,
+            'street_address' => $this->street_address,
+            'country' => $this->country,
+            'city' => $this->city,
+            'state' => $this->state,
+            'zip_code' => $this->zip_code,
+            'ownership' => $this->ownership,
+            'has_co_borrower' => $this->has_co_borrower,
+            'monthly_revenue' => $this->monthly_revenue,
+            'annual_revenue' => $this->annual_revenue,
+            'business_bank_name' => $this->business_bank_name,
+            'business_checking_start_date' => $this->business_checking_start_date ? date('m-d-Y', strtotime($this->business_checking_start_date)) : null,
+            'self_reported_personal_credit_score' => $this->self_reported_personal_credit_score,
+            'self_reported_business_credit_score' => $this->self_reported_business_credit_score,
+            'has_business_debt' => $this->has_business_debt,
+            'debt_balance' => $this->debt_balance,
+            'requested_amount' => $this->requested_amount,
+            'purpose_of_funds' => $this->purpose_of_funds,
+            'preferred_funding_type' => $this->preferred_funding_type,
+            'timeframe_needed' => $this->timeframe_needed,
+            'collateral_available' => $this->collateral_available,
+            'credit_pull_authorization' => $this->credit_pull_authorization,
+            'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
+            'filed_for_bankruptcy' => $this->filed_for_bankruptcy,
+            'any_pending_lawsuits' => $this->any_pending_lawsuits,
+            'has_federal_loan' => $this->has_federal_loan,
+            'has_federal_debt' => $this->has_federal_debt,
+            'has_criminal_offense' => $this->has_criminal_offense,
+            'has_parole_or_probation' => $this->has_parole_or_probation,
+            'suspended_or_debarred' => $this->suspended_or_debarred,
+            'any_outstanding_judgments_business' => $this->any_outstanding_judgments_business,
+            'any_outstanding_judgments_owner' => $this->any_outstanding_judgments_owner,
+            'federal_compliance_disclosures_explanation' => $this->federal_compliance_disclosures_explanation,
+            'attestation_authorization' => $this->attestation_authorization,
+        ];
+    }
+}
