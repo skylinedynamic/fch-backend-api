@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH;
 
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Invoice\Invoice;
 use App\Traits\PaginatesApi;
 use App\Http\Resources\Api\V1\FCH\InvoiceResource;
@@ -24,38 +26,38 @@ class InvoiceService
 
         // Filter by Date Range (Payment Date)
         // if (!empty($filters['date_from'])) {
-        //     $query->where('payment_date', '>=', $filters['date_from']);
+        // $query->where('payment_date', '>=', $filters['date_from']);
         // }
         // if (!empty($filters['date_to'])) {
-        //     $query->where('payment_date', '<=', $filters['date_to']);
+        // $query->where('payment_date', '<=', $filters['date_to']);
         // }
 
         // // Filter by Status
-        // if (!empty($filters['status']) && $filters['status'] !== Invoice::STATUS_ALL) {
-        //     // Handle "All Status" if passed from frontend, though usually frontend sends specific value or null
-        //     $query->where('status', $filters['status']);
+        // if (!empty($filters['status']) && $filters['status'] !==Invoice::STATUS_ALL) {
+        // // Handle "All Status" if passed from frontend, though usually frontend sends specific value or null
+        // $query->where('status', $filters['status']);
         // }
 
         // // Filter by Cycle
         // if (!empty($filters['cycle']) && $filters['cycle'] !== Invoice::CYCLE_ALL) {
-        //     $query->where('cycle', $filters['cycle']);
+        // $query->where('cycle', $filters['cycle']);
         // }
 
-        // // Filter by Payees (Customer Name or Partner ID) - assuming 'payee' is passed. 
+        // // Filter by Payees (Customer Name or Partner ID) - assuming 'payee' is passed.
         // // If 'All Payees' is passed, we ignore.
         // // For now, let's allow searching/filtering by specific payee if needed.
         // if (!empty($filters['payee']) && $filters['payee'] !== Invoice::PAYEE_ALL) {
-        //     $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
+        // $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
         // }
 
         // // General Search (optional)
         // if (!empty($filters['search'])) {
-        //     $search = $filters['search'];
-        //     $query->where(function (Builder $q) use ($search) {
-        //         $q->where('customer_name', 'like', "%{$search}%")
-        //             ->orWhere('email', 'like', "%{$search}%")
-        //             ->orWhere('invoice_id', 'like', "%{$search}%");
-        //     });
+        // $search = $filters['search'];
+        // $query->where(function (Builder $q) use ($search) {
+        // $q->where('customer_name', 'like', "%{$search}%")
+        // ->orWhere('email', 'like', "%{$search}%")
+        // ->orWhere('invoice_id', 'like', "%{$search}%");
+        // });
         // }
 
         // Sorting
@@ -137,8 +139,26 @@ class InvoiceService
     }
 
     /**
+     * Create a new invoice.
+     *
+     * @param array $data
+     * @return Invoice
+     */
+    public function create(array $data): Invoice
+    {
+        if (empty($data['invoice_id'])) {
+            $data['invoice_id'] = $this->generateInvoiceId();
+        }
+
+        $data['created_by'] = Auth::id();
+        $data['updated_by'] = Auth::id();
+
+        return Invoice::create($data);
+    }
+
+    /**
      * Find Invoice by ID.
-     * 
+     *
      * @param string|int $id
      * @return Invoice|null
      */

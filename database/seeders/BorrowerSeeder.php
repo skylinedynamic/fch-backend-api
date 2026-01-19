@@ -80,7 +80,7 @@ class BorrowerSeeder extends Seeder
                 'monthly_revenue' => 150000.00,
                 'annual_revenue' => 1800000.00,
 
-                'status' => 'active',
+                'status' => 'OnBoarding',
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'High growth potential, recently closed Series A funding.',
@@ -134,7 +134,7 @@ class BorrowerSeeder extends Seeder
                 'monthly_revenue' => 85000.00,
                 'annual_revenue' => 1020000.00,
 
-                'status' => 'pending',
+                'status' => 'OnBoarding',
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'Pending final document verification.',
@@ -188,7 +188,7 @@ class BorrowerSeeder extends Seeder
                 'monthly_revenue' => 200000.00,
                 'annual_revenue' => 2400000.00,
 
-                'status' => 'active',
+                'status' => 'OnBoarding',
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'Stable revenue, looking to franchise.',
@@ -242,7 +242,7 @@ class BorrowerSeeder extends Seeder
                 'monthly_revenue' => 180000.00,
                 'annual_revenue' => 2160000.00,
 
-                'status' => 'active',
+                'status' => 'OnBoarding',
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'Consistent performance, low risk.',
@@ -296,7 +296,7 @@ class BorrowerSeeder extends Seeder
                 'monthly_revenue' => 450000.00,
                 'annual_revenue' => 5400000.00,
 
-                'status' => 'active',
+                'status' => 'OnBoarding',
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'Large scale operations, seasonal revenue fluctuations.',

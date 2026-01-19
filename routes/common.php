@@ -5,8 +5,10 @@ use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
+use App\Http\Controllers\Api\V1\Global\Stripe\StripePaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -142,7 +144,11 @@ Route::prefix('v1')->group(function () {
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
             Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
+            Route::post('settings', [SettingController::class, 'store']);
+            Route::get('settings', [SettingController::class, 'show']);
         });
+
+        Route::post('process-payment', [StripePaymentController::class, 'processPayment']);
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {

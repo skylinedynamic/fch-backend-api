@@ -36,8 +36,6 @@ Route::prefix('v1/admin')
         Route::post('partners-stats', [PartnerController::class, 'stats']);
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
-        Route::post('settings', [SettingController::class, 'store']);
-        Route::get('settings', [SettingController::class, 'show']);
 
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);

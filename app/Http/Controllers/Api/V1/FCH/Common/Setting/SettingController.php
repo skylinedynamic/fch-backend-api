@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\FCH\Admin\Setting;
+namespace App\Http\Controllers\Api\V1\FCH\Common\Setting;
 
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
-use App\Services\FCH\Admin\Setting\SettingService;
-use App\Http\Resources\FCH\Setting\SettingResource;
-use App\Http\Requests\Api\V1\FCH\Admin\Setting\StoreSettingRequest;
+use Illuminate\Support\Facades\Auth;
+use App\Services\FCH\Common\Setting\SettingService;
+use App\Http\Resources\FCH\Common\Setting\SettingResource;
+use App\Http\Requests\Api\V1\FCH\Common\Setting\StoreSettingRequest;
 
 class SettingController extends Controller
 {
@@ -27,11 +28,7 @@ class SettingController extends Controller
      */
     public function store(StoreSettingRequest $request): JsonResponse
     {
-        // Determine Partner ID:
-        // 1. From Authenticated User (if Partner)
-        // 2. From Request (if Admin/SuperAdmin acting on behalf)
-
-        $user = auth()->user();
+        $user = Auth::user();
         $partnerId = null;
 
         if ($user && $user->partner) {
@@ -56,7 +53,8 @@ class SettingController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
-        $user = auth()->user();
+
+        $user = Auth::user();
         $partnerId = null;
 
         if ($user && $user->partner) {

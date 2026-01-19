@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\FCH\Admin\Setting;
+namespace App\Services\FCH\Common\Setting;
 
 use App\Models\Setting\Setting;
 
@@ -29,6 +29,6 @@ class SettingService
      */
     public function getSettings(int $partnerId): ?Setting
     {
-        return Setting::where('partner_id', $partnerId)->first();
+        return Setting::first();
     }
 }

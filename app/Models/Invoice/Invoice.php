@@ -13,6 +13,7 @@ class Invoice extends Model
     protected $fillable = [
         'invoice_id',
         'partner_id',
+        'borrower_id',
         'entity_type', // Client, Borrower, etc.
         'entity_id',
         'customer_name',
@@ -25,6 +26,11 @@ class Invoice extends Model
         'created_by',
         'updated_by',
     ];
+
+    public function borrower()
+    {
+        return $this->belongsTo(\App\Models\Borrower\Borrower::class);
+    }
 
     const STATUS_PAID = 'Paid';
     const STATUS_UNPAID = 'Unpaid';

@@ -15,6 +15,8 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Partner\PartnerService;
+use App\Services\FCH\InvoiceService;
+use App\Models\Invoice\Invoice;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +31,8 @@ class LeadService
 
     public function __construct(
         protected BorrowerService $borrowerService,
-        protected PartnerService $partnerService
+        protected PartnerService $partnerService,
+        protected InvoiceService $invoiceService
     ) {}
 
     /**
@@ -211,10 +214,10 @@ class LeadService
     /**
      * Generic Convert Lead
      */
-    public function convert(Lead $lead): Borrower|Partner
+    public function convert(Lead $lead, array $data = []): Borrower|Partner
     {
         if ($lead->lead_type === 'Borrower') {
-            return $this->convertToBorrower($lead);
+            return $this->convertToBorrower($lead, $data);
         } elseif ($lead->lead_type === 'Partner') {
             return $this->convertToPartner($lead);
         }
@@ -225,7 +228,7 @@ class LeadService
     /**
      * Convert Lead to Borrower
      */
-    public function convertToBorrower(Lead $lead): Borrower
+    public function convertToBorrower(Lead $lead, array $data = []): Borrower
     {
         DB::beginTransaction();
         try {
@@ -260,15 +263,47 @@ class LeadService
                 'state_file_number' => $lead->state_file_number,
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
-                'status' => 'active',
+                'status' => 'OnBoarding',
+                'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
             ];
 
+            Log::info('Borrower data before store: ' . json_encode($borrowerData));
             $result = $this->borrowerService->store($borrowerData);
+            Log::info('Borrower data after store: ' . json_encode($result));
             $borrower = $result['borrower'];
             $user = $result['user'];
             $plainPassword = '12345';
+
+            // Automatic Invoice Creation based on enrollment type
+            if (!empty($data['enrollment_type'])) {
+                Log::info('enrollment type: ' . json_encode($data['enrollment_type']));
+                $enrollmentConfigs = config('enrollment.types');
+                $matchedType = null;
+                foreach ($enrollmentConfigs as $key => $config) {
+                    if ($config['label'] === $data['enrollment_type']) {
+                        $matchedType = $config;
+                        break;
+                    }
+                }
+                Log::info('matchedType: ' . json_encode($matchedType));
+                if ($matchedType) {
+                    $this->invoiceService->create([
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'entity_type' => Borrower::class,
+                        'entity_id' => $borrower->id,
+                        'customer_name' => $borrower->full_name,
+                        'email' => $borrower->email,
+                        'country' => $borrower->country,
+                        'payment_amount' => $matchedType['amount'],
+                        'status' => Invoice::STATUS_UNPAID,
+                        'cycle' => $data['enrollment_type'] === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
+                    ]);
+                    Log::info('Invoice created: ' . json_encode($matchedType));
+                }
+            }
 
             $lead->update([
                 'convert_to' => 'Borrower',
@@ -400,7 +435,7 @@ class LeadService
         $query = Lead::query();
 
         if ($authUser && $authUser->partner) {
-           $query->where('partner_id', $authUser->partner_id);
+            $query->where('partner_id', $authUser->partner_id);
         }
 
         $baseQuery = clone $query;

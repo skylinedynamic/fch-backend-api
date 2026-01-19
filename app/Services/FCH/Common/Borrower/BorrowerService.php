@@ -68,11 +68,13 @@ class BorrowerService
         if (! empty($filters['assign_id'])) {
             $query->where('borrowers.assign_id', $filters['assign_id']);
         }
-   
+
         // Determine sorting and joins
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-        if ($sortField === 'full_name') { $sortField = 'first_name'; }
+        if ($sortField === 'full_name') {
+            $sortField = 'first_name';
+        }
 
         $skipSorting = false;
         $rawFilters = $filters['filters'] ?? [];
@@ -80,7 +82,7 @@ class BorrowerService
         // Join Tiers if sorting or filtering by current_tier_name
         if ($sortField === 'current_tier_name' || isset($rawFilters['current_tier_name'])) {
             $query->leftJoin('tiers', 'borrowers.current_tier', '=', 'tiers.id')
-                  ->addSelect('tiers.name as current_tier_name');
+                ->addSelect('tiers.name as current_tier_name');
             if ($sortField === 'current_tier_name') {
                 $query->orderBy('tiers.name', $sortOrder);
                 $skipSorting = true;
@@ -90,7 +92,7 @@ class BorrowerService
         // Join Partners if sorting or filtering by partner_name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
             $query->leftJoin('partners', 'borrowers.partner_id', '=', 'partners.id')
-                  ->addSelect('partners.full_name as partner_name');
+                ->addSelect('partners.full_name as partner_name');
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
                 $skipSorting = true;
@@ -100,7 +102,7 @@ class BorrowerService
         // Join Users if sorting or filtering by assign_name
         if ($sortField === 'assign_name' || isset($rawFilters['assign_name'])) {
             $query->leftJoin('users as assigned_users', 'borrowers.assign_id', '=', 'assigned_users.id')
-                  ->addSelect('assigned_users.name as assign_name');
+                ->addSelect('assigned_users.name as assign_name');
             if ($sortField === 'assign_name') {
                 $query->orderBy('assigned_users.name', $sortOrder);
                 $skipSorting = true;
@@ -121,7 +123,7 @@ class BorrowerService
                     ->orWhereHas('tier', function ($q) use ($search) {
                         $q->where('name', 'LIKE', "%{$search}%");
                     })
-                // Search concatenated full_name (first_name + last_name)
+                    // Search concatenated full_name (first_name + last_name)
                     ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
             });
         }
@@ -221,11 +223,17 @@ class BorrowerService
     {
         DB::beginTransaction();
         try {
-            // Handle file uploads if any (e.g., business_logo)
-            // Note: The migration has 'business_logo' string column.
-            $data['partner_id'] = auth()->user()->partner_id;
+            // Handle partner_id assignment
+            $authUser = auth()->user();
+            if (empty($data['partner_id'])) {
+                $data['partner_id'] = $authUser->partner_id;
+            } elseif ($authUser->partner && $authUser->partner->is_host != 1 && $data['partner_id'] != $authUser->partner_id) {
+                // Non-hosts can only create borrowers for their own partner
+                $data['partner_id'] = $authUser->partner_id;
+            }
+
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
-            Log::info('Partner ID: ' . auth()->user()->partner_id);
+            Log::info('Assigning to Partner ID: ' . $data['partner_id']);
             $borrower = Borrower::create($data);
 
             // Remove used signup_id
@@ -243,13 +251,12 @@ class BorrowerService
             }
 
             DB::commit();
-            
+
             return [
                 'borrower' => $borrower->fresh(),
                 'user' => $userDataResult['user'] ?? null,
                 'plain_password' => $userDataResult['plain_password'] ?? null,
             ];
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌ Borrower creation failed', ['error' => $e->getMessage()]);
@@ -274,20 +281,19 @@ class BorrowerService
 
             $borrower->update($data);
 
-             // Update associated User if exists
-             if ($borrower->user) {
+            // Update associated User if exists
+            if ($borrower->user) {
                 $this->createOrUpdateUser($data, $borrower, $borrower->user);
             } elseif (!empty($data['email'])) {
-                 // Create user if email is provided and user doesn't exist
-                 $this->createOrUpdateUser($data, $borrower);
+                // Create user if email is provided and user doesn't exist
+                $this->createOrUpdateUser($data, $borrower);
             }
 
             DB::commit();
-            
+
             // Return consistent format or just borrower? Controller expects resource.
             // Keeping it simple as controller will be updated to handle array for store, but update often doesn't need email.
             return $borrower->fresh();
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌ Borrower update failed', ['error' => $e->getMessage()]);
@@ -312,7 +318,7 @@ class BorrowerService
             // Delete associated users first
             User::where('entity_type', Borrower::class)->whereIn('entity_id', $ids)->delete();
             Borrower::whereIn('id', $ids)->delete();
-            
+
             return ApiResponse::success([], __('borrower.success.deleted'));
         } catch (\Throwable $e) {
             return ApiResponse::serverError(__('borrower.error.delete_failed'), 500);
@@ -342,20 +348,20 @@ class BorrowerService
         // Check if user exists by email to avoid duplicates if not linked
         $user = User::where('email', $data['email'])->first();
         if ($user) {
-             $user->update($userData);
-             return ['user' => $user, 'plain_password' => null];
+            $user->update($userData);
+            return ['user' => $user, 'plain_password' => null];
         }
 
         $plainPassword = bin2hex(random_bytes(8));
         $userData['password'] = bcrypt($plainPassword);
-        
+
         $newUser = User::create($userData);
 
         // Assign 'Borrower' role based on partner_id
         $role = Role::where('name', 'Borrower')
-                    ->where('partner_id', $borrower->partner_id)
-                    ->first();
-        
+            ->where('partner_id', $borrower->partner_id)
+            ->first();
+
         if ($role) {
             $newUser->assignRole($role);
         }
@@ -374,7 +380,7 @@ class BorrowerService
     {
         // Get authenticated user
         $authUser = auth()->user();
-        
+
         // Base query: users where entity_type is Employee or NULL
         $query = User::query()
             ->where(function ($q) {
@@ -411,10 +417,10 @@ class BorrowerService
 
         // Base query
         $query = Borrower::query();
-        
+
         // Check user type
         $user = auth()->user();
-        
+
         // If user is a Borrower, they should only see their own data (return zeros for counts)
         if ($user && $user->user_type === 'Borrower') {
             return [
@@ -424,7 +430,7 @@ class BorrowerService
                 'inactive_count' => 0,
             ];
         }
-        
+
         // If user is Partner, use their partner_id
         if ($user && $user->user_type === 'Partner' && !$partnerId) {
             // Get partner_id from user's entity
@@ -432,7 +438,7 @@ class BorrowerService
                 $partnerId = $user->entity_id;
             }
         }
-        
+
         // Filter by partner_id if provided
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
@@ -441,11 +447,11 @@ class BorrowerService
         // Clone query for different counts
         $totalBorrowers = (clone $query)->count();
         $newThisMonth = (clone $query)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
-        
+
         // Active count: borrowers with at least one document or application
         // You can adjust this logic based on your definition of "active"
         $activeCount = (clone $query)->whereHas('user')->count();
-        
+
         return [
             'total_borrowers' => $totalBorrowers,
             'new_this_month' => $newThisMonth,
@@ -470,10 +476,10 @@ class BorrowerService
                 'b.id',
                 // Meetings: linked via User (assigned_for).
                 DB::raw("(SELECT COUNT(*) FROM appointments WHERE assigned_for IN (SELECT id FROM users WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id)) as total_meetings"),
-                
+
                 // Invoices: linked via entity_type and entity_id
                 DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id) as total_invoices"),
-                
+
                 DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM partner_subscriptions 
                           WHERE partner_id = b.partner_id 
                           ORDER BY id DESC 
@@ -481,7 +487,7 @@ class BorrowerService
 
                 // Prequalification Requests
                 DB::raw('(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification'),
-                
+
                 // Tickets: Placeholder for future support tickets implementation
                 DB::raw('0 as total_tickets'),
 
@@ -510,7 +516,7 @@ class BorrowerService
                 if ($relativePath && str_contains($relativePath, '/storage/')) {
                     $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
                 }
-                
+
                 // Use relative path for storage operations
                 if ($relativePath && Storage::disk('public')->exists($relativePath)) {
                     $sizeBytes = Storage::disk('public')->size($relativePath);
@@ -528,7 +534,7 @@ class BorrowerService
                     'document_url' => $doc->file_path, // Uses accessor to return full URL
                 ];
             });
- 
+
 
         return $documents;
     }

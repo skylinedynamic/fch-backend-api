@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->string('signup_id')->nullable()->unique();
             $table->foreignId('partner_id')->nullable()->constrained('partners');
-           //personal info
+            //personal info
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('email')->nullable()->index();
@@ -28,7 +28,7 @@ return new class extends Migration {
             $table->string('home_phone')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('last_4_ssn')->nullable();
-            
+
             //business info
             $table->string('business_name')->nullable()->index();
             $table->string('business_ein')->nullable()->index();
@@ -57,12 +57,12 @@ return new class extends Migration {
             $table->decimal('monthly_revenue', 23, 2)->nullable();
             $table->decimal('annual_revenue', 23, 2)->nullable();
 
-
-            $table->string('status')->nullable()->index();
+            $table->enum('status', ['OnBoarding', 'Active', 'Suspended', 'Closed'])->default('OnBoarding')->nullable();
+            $table->string('enrollment_type')->nullable();
             $table->foreignId('assign_id')->nullable()->constrained('users');
             $table->json('additional_data')->nullable();
             $table->longText('notes')->nullable();
-  
+
             $table->softDeletes();
             $table->timestamps();
         });

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\FCH\Setting;
+namespace App\Http\Resources\FCH\Common\Setting;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

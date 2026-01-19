@@ -115,12 +115,12 @@ class LeadController extends Controller
     /**
      * Convert Lead (Generic)
      */
-    public function convert($id)
+    public function convert(Request $request, $id)
     {
         Log::info('Convert lead: ' . $id);
         try {
             $lead = Lead::findOrFail($id);
-            $result = $this->leadService->convert($lead);
+            $result = $this->leadService->convert($lead, $request->all());
 
             if ($result instanceof Borrower) {
                 return ApiResponse::success(new BorrowerResource($result), __('lead.converted_to_borrower'));
