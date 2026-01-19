@@ -119,23 +119,19 @@ class InvoiceService
     }
 
     /**
-     * Generate a unique Invoice ID (INV-xxxx).
+     * Generate a unique Invoice ID (INV-YYYYMMDDXXX).
      *
      * @return string
      */
     public function generateInvoiceId(): string
     {
-        $lastInvoice = Invoice::latest('id')->first();
+        $today = now()->format('Ymd');
 
-        if (!$lastInvoice || !$lastInvoice->invoice_id) {
-            return 'INV-1001';
-        }
+        // Count invoices created today to determine the sequence
+        $todayCount = Invoice::where('invoice_id', 'like', "INV-{$today}%")->count();
+        $sequence = str_pad($todayCount + 1, 3, '0', STR_PAD_LEFT);
 
-        // Extract number from INV-xxxx
-        $lastIdNumber = (int) Str::after($lastInvoice->invoice_id, 'INV-');
-        $newIdNumber = $lastIdNumber + 1;
-
-        return 'INV-' . $newIdNumber;
+        return "INV-{$today}{$sequence}";
     }
 
     /**

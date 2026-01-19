@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Lead;
 
 use App\Models\Lead\Lead;
-use App\Models\Borrower\Borrower;
-use App\Models\Partner\Partner;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\Lead\LeadResource;
@@ -14,6 +14,7 @@ use App\Services\FCH\Common\Lead\LeadService;
 use Symfony\Component\HttpFoundation\Response;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Http\Resources\FCH\Lead\ConvertedBorrowerResource;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\FetchLeadRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadRequest;
@@ -123,8 +124,8 @@ class LeadController extends Controller
             $result = $this->leadService->convert($lead, $request->all());
 
             if ($result instanceof Borrower) {
-                return ApiResponse::success(new BorrowerResource($result), __('lead.converted_to_borrower'));
-            } elseif ($result instanceof Partner) {
+                return ApiResponse::success(new ConvertedBorrowerResource($result), __('lead.converted_to_borrower'));
+            } elseif ($result instanceof \App\Models\Partner\Partner) {
                 return ApiResponse::success(new PartnerResource($result), __('lead.converted_to_partner'));
             }
 

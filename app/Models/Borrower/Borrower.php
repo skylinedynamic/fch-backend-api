@@ -86,4 +86,20 @@ class Borrower extends Model
     {
         return $this->hasMany(\App\Models\CreditBuilder\BorrowerTaskVerificationRequest::class, 'borrower_id');
     }
+
+    /**
+     * Get the invoices for the borrower.
+     */
+    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'borrower_id');
+    }
+
+    /**
+     * Get the latest invoice for the borrower.
+     */
+    public function latestInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Invoice\Invoice::class, 'borrower_id')->latestOfMany();
+    }
 }

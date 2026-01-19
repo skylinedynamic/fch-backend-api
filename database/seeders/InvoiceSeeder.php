@@ -26,8 +26,10 @@ class InvoiceSeeder extends Seeder
             $count = rand(5, 15);
 
             for ($i = 0; $i < $count; $i++) {
+                $today = now()->format('Ymd');
+                $sequence = str_pad($i + 1, 3, '0', STR_PAD_LEFT);
                 Invoice::create([
-                    'invoice_id' => 'INV-' . Str::random(10),
+                    'invoice_id' => "INV-{$today}{$sequence}",
                     'partner_id' => $partner->id,
                     'borrower_id' => null,
                     'customer_name' => 'Customer ' . Str::random(5),
