@@ -11,7 +11,8 @@ return new class extends Migration
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
             $table->string('invoice_id')->unique()->nullable();
-            $table->unsignedBigInteger('partner_id');
+            $table->unsignedBigInteger('partner_id')->nullable();
+            $table->unsignedBigInteger('borrower_id')->nullable();
             $table->string('entity_type')->nullable();
             $table->string('entity_id')->nullable();
             $table->string('customer_name')->nullable();

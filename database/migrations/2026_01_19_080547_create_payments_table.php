@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('entity_type')->nullable();
             $table->string('entity_id')->nullable();
             $table->string('transaction_id')->nullable()->index();
+            $table->string('payment_from')->nullable();
+            $table->string('payment_type')->nullable();
             $table->decimal('amount', 23, 2)->nullable();
             $table->string('currency')->nullable();
             $table->string('status')->nullable();

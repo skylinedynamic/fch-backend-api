@@ -27,9 +27,11 @@ class InvoiceSeeder extends Seeder
 
             for ($i = 0; $i < $count; $i++) {
                 Invoice::create([
+                    'invoice_id' => 'INV-' . Str::random(10),
                     'partner_id' => $partner->id,
-                    'customer_name' => 'Customer '.Str::random(5),
-                    'email' => 'customer'.Str::random(3).'@example.com',
+                    'borrower_id' => null,
+                    'customer_name' => 'Customer ' . Str::random(5),
+                    'email' => 'customer' . Str::random(3) . '@example.com',
                     'country' => 'USA',
                     'payment_amount' => rand(100, 5000),
                     'payment_date' => Carbon::now()->subDays(rand(0, 60)),
@@ -41,7 +43,7 @@ class InvoiceSeeder extends Seeder
 
     private function getRandomStatus()
     {
-        $statuses = ['Paid', 'Pending', 'Overdue', 'Cancelled'];
+        $statuses = ['Paid', 'Pending', 'Overdue', 'Canceled', 'Unpaid'];
 
         return $statuses[array_rand($statuses)];
     }

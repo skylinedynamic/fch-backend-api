@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class StoreSettingRequest extends FormRequest
+class StoreSettingRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,16 +22,6 @@ class StoreSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'card_name_sandbox' => 'nullable|string',
-            'card_no_sandbox' => 'nullable|string',
-            'card_expiry_sandbox' => 'nullable|string',
-            'card_cvv_sandbox' => 'nullable|string',
-            'card_name_production' => 'nullable|string',
-            'card_no_production' => 'nullable|string',
-            'card_expiry_production' => 'nullable|string',
-            'card_cvv_production' => 'nullable|string',
-            'currency' => 'nullable|string',
-            'status' => 'nullable|string|in:active,inactive',
             'payment_mode' => 'nullable|string|in:sandbox,production',
             'stripe_key_sandbox' => 'nullable|string',
             'stripe_secret_sandbox' => 'nullable|string',
@@ -39,7 +29,24 @@ class StoreSettingRequest extends FormRequest
             'stripe_secret_production' => 'nullable|string',
             'payment_method' => 'nullable|string',
             'configuration' => 'nullable|array',
-            'partner_id' => 'nullable|integer|exists:partners,id',
+        ];
+    }
+
+    /**
+     * Get the validation messages that apply to the request.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'payment_mode.in' => __('setting_validation.payment_mode_in'),
+            'stripe_key_sandbox.string' => __('setting_validation.stripe_key_sandbox_string'),
+            'stripe_secret_sandbox.string' => __('setting_validation.stripe_secret_sandbox_string'),
+            'stripe_key_production.string' => __('setting_validation.stripe_key_production_string'),
+            'stripe_secret_production.string' => __('setting_validation.stripe_secret_production_string'),
+            'payment_method.string' => __('setting_validation.payment_method_string'),
+            'configuration.array' => __('setting_validation.configuration_array'),
         ];
     }
 }

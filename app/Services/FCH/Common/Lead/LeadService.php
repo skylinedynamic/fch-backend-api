@@ -287,7 +287,7 @@ class LeadService
                         break;
                     }
                 }
-                Log::info('matchedType: ' . json_encode($matchedType));
+                Log::info('matchedType: ' . $matchedType);
                 if ($matchedType) {
                     $this->invoiceService->create([
                         'partner_id' => $borrower->partner_id,

@@ -28,20 +28,8 @@ class SettingController extends Controller
      */
     public function store(StoreSettingRequest $request): JsonResponse
     {
-        $user = Auth::user();
-        $partnerId = null;
 
-        if ($user && $user->partner) {
-            $partnerId = $user->partner->id;
-        } elseif ($request->has('partner_id')) {
-            $partnerId = $request->input('partner_id');
-        }
-
-        if (!$partnerId) {
-            return ApiResponse::validationError(['partner_id' => [__('setting.partner_id_required')]], __('setting.partner_id_required'));
-        }
-
-        $setting = $this->settingService->updateOrCreate($request->validated(), $partnerId);
+        $setting = $this->settingService->updateOrCreate($request->validated());
 
         return ApiResponse::success(new SettingResource($setting), __('setting.saved'));
     }

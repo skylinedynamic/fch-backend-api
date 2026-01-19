@@ -181,7 +181,7 @@ return [
     ],
 
     'settings' => [
-        'is_host' => 0,
+        'is_host' => 1,
         'permissions' => [
             'view settings',
             'create settings',

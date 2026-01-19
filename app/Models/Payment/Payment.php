@@ -15,6 +15,10 @@ class Payment extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'transaction_date' => 'datetime',
+    ];
+
     public function partner()
     {
         return $this->belongsTo(Partner::class);

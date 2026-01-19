@@ -1,29 +1,44 @@
 <?php
 
-namespace App\Services\Global\Stripe;
+namespace App\Services\Global\Payment;
 
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
-use Stripe\Exception\ApiErrorException;
-use Illuminate\Support\Facades\Log;
-
-use App\Models\Payment\Payment;
 use App\Models\Invoice\Invoice;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Payment\Payment;
 
-class StripeService
+use App\Models\Setting\Setting;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Stripe\Exception\ApiErrorException;
+
+class PaymentService
 {
-    public function __construct()
-    {
-        Stripe::setApiKey(config('stripe.secret_key'));
-    }
+    public function __construct() {}
 
     /**
      * Create and process a Stripe payment.
      */
     public function processPayment(array $data)
     {
+        // Fetch global active setting
+        $setting = Setting::where('status', true)->first();
+
+        if (!$setting) {
+            throw new \Exception('Payment settings not found or inactive.');
+        }
+
+        $secretKey = ($setting->payment_mode === 'production')
+            ? $setting->stripe_secret_production
+            : $setting->stripe_secret_sandbox;
+
+        if (!$secretKey) {
+            throw new \Exception('Stripe secret key not configured in settings for ' . $setting->payment_mode . ' mode.');
+        }
+
+        Stripe::setApiKey($secretKey);
+
         DB::beginTransaction();
         try {
             $paymentIntent = PaymentIntent::create([
@@ -54,7 +69,9 @@ class StripeService
                     'entity_type' => $data['entity_type'] ?? null,
                     'entity_id' => $data['entity_id'] ?? null,
                     'transaction_id' => $paymentIntent->id,
-                    'amount' => $data['amount'] / 100, // Convert cents to dollars if needed, or keep cents? Usually UI sends cents for Stripe.
+                    'payment_from' => 'Stripe',
+                    'payment_type' => 'Card',
+                    'amount' => $data['amount'] / 100, // Convert cents to dollars
                     'currency' => $paymentIntent->currency,
                     'status' => $paymentIntent->status,
                     'transaction_date' => now(),

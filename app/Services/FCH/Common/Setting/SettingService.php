@@ -10,25 +10,28 @@ class SettingService
      * Update or Create Settings for a partner.
      *
      * @param array $data
-     * @param int $partnerId
      * @return Setting
      */
-    public function updateOrCreate(array $data, int $partnerId): Setting
+    public function updateOrCreate(array $data): Setting
     {
-        return Setting::updateOrCreate(
-            ['partner_id' => $partnerId],
-            $data
-        );
+        $setting = Setting::first();
+
+        if ($setting) {
+            $setting->update($data);
+            return $setting;
+        }
+
+        $data['status'] = true;
+        return Setting::create($data);
     }
 
     /**
      * Get Settings for a partner.
      *
-     * @param int $partnerId
      * @return Setting|null
      */
-    public function getSettings(int $partnerId): ?Setting
+    public function getSettings(): ?Setting
     {
-        return Setting::first();
+        return Setting::where('status', true)->first();
     }
 }

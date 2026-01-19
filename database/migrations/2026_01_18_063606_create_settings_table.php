@@ -13,32 +13,13 @@ return new class extends Migration
     {
         Schema::create('settings', function (Blueprint $table) {
             $table->id();
-            // $table->foreignId('partner_id')->constrained('partners')->onDelete('cascade');
-            $table->unsignedBigInteger('partner_id')->index();
-
-            // Card Sandbox
-            $table->string('card_name_sandbox')->nullable();
-            $table->string('card_no_sandbox')->nullable();
-            $table->string('card_expiry_sandbox')->nullable();
-            $table->string('card_cvv_sandbox')->nullable();
-
-            // Card Production
-            $table->string('card_name_production')->nullable();
-            $table->string('card_no_production')->nullable();
-            $table->string('card_expiry_production')->nullable();
-            $table->string('card_cvv_production')->nullable();
-
-            $table->string('currency')->nullable();
-            $table->string('status')->default('active');
-
-            // New fields directly in create
             $table->string('payment_mode')->default('sandbox'); // sandbox | production
+            $table->string('payment_method')->default('stripe'); // credit_card | bank_transfer | crypto
             $table->string('stripe_key_sandbox')->nullable();
             $table->string('stripe_secret_sandbox')->nullable();
             $table->string('stripe_key_production')->nullable();
             $table->string('stripe_secret_production')->nullable();
-
-            $table->string('payment_method')->nullable();
+            $table->boolean('status')->default(true);
             $table->json('configuration')->nullable();
             $table->softDeletes();
             $table->timestamps();

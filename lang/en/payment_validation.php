@@ -1,0 +1,18 @@
+<?php
+
+return [
+    'amount_numeric' => 'The amount must be a number.',
+    'amount_min' => 'The amount must be at least 1.',
+    'currency_string' => 'The currency must be a string.',
+    'currency_size' => 'The currency must be exactly 3 characters.',
+    'payment_method_id_string' => 'The payment method ID must be a string.',
+    'description_string' => 'The description must be a string.',
+    'description_max' => 'The description cannot exceed 255 characters.',
+    'invoice_id_string' => 'The invoice ID must be a string.',
+    'partner_id_integer' => 'The partner ID must be an integer.',
+    'partner_id_exists' => 'The selected partner ID is invalid.',
+    'borrower_id_integer' => 'The borrower ID must be an integer.',
+    'borrower_id_exists' => 'The selected borrower ID is invalid.',
+    'entity_type_string' => 'The entity type must be a string.',
+    'entity_id_integer' => 'The entity ID must be an integer.',
+];
