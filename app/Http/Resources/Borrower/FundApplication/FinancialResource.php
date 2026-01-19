@@ -20,7 +20,7 @@ class FinancialResource extends JsonResource
                 'monthly_revenue' => $this->monthly_revenue ?? $this->borrower->monthly_revenue,
                 'annual_revenue' => $this->annual_revenue ?? $this->borrower->annual_revenue,
                 'business_bank_name' => $this->business_bank_name ?? null,
-                'business_checking_start_date' => $this->business_checking_start_date ?? null,
+                'business_checking_start_date' => $this->business_checking_start_date ? date('m-d-Y', strtotime($this->business_checking_start_date)) : null,
                 'self_reported_personal_credit_score' => $this->self_reported_personal_credit_score ?? $this->borrower->self_reported_personal_credit_score,
                 'self_reported_business_credit_score' => $this->self_reported_business_credit_score ?? $this->borrower->self_reported_business_credit_score,
                 'has_business_debt' => $this->has_business_debt ? true : false,

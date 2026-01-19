@@ -21,6 +21,15 @@ class MyApplicationController extends Controller
      */
     public function preQualification(GetMyApplicationRequest $request): JsonResponse
     {
-        return $this->myApplicationService->list($request->validated());
+        return $this->myApplicationService->preQualificationList($request->validated());
+    }
+
+
+    /**
+     * Funding Applications
+     */
+    public function fundingApplication(GetMyApplicationRequest $request): JsonResponse
+    {
+        return $this->myApplicationService->fundingApplicationList($request->validated());
     }
 }

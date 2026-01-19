@@ -60,6 +60,7 @@ Route::prefix('v1/borrower')->group(function () {
 
         Route::group(['prefix' => 'myapplication',], function () {
             Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
+            Route::get('/funding-application', [MyApplicationController::class, 'fundingApplication']);
         });
 
          Route::prefix('documents')->group(function () {
@@ -85,10 +86,20 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/ownership-info',[FundingApplicationController::class,'saveOwnershipInfo']);
 
             Route::get('/financial-info', [FundingApplicationController::class, 'getFinancialInfo']);
+            Route::post('/financial-info',[FundingApplicationController::class,'saveFinancialInfo']);
             
             Route::get('/funding-request', [FundingApplicationController::class, 'getFundingRequest']);
+            Route::post('/funding-request',[FundingApplicationController::class,'saveFundingRequest']);
+
             Route::get('/disclosures-and-consent', [FundingApplicationController::class, 'getDisclosuresAndConsent']);
+            Route::post('/disclosures-and-consent', [FundingApplicationController::class, 'saveDisclosuresAndConsent']);
+
+
             Route::get('/federal-compliance-disclosures', [FundingApplicationController::class, 'getFederalComplianceDisclosures']);
+            Route::post('/federal-compliance-disclosures', [FundingApplicationController::class, 'saveFederalComplianceDisclosures']);
+
+            Route::get('/attestation-authorization', [FundingApplicationController::class, 'getAttestationAndAuthorization']);
+            Route::post('/attestation-authorization', [FundingApplicationController::class, 'saveAttestationAndAuthorization']);
         });
         
     });

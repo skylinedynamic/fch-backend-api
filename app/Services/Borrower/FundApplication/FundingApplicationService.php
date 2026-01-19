@@ -43,11 +43,11 @@ class FundingApplicationService
      * @param array $data
      * @return mixed
      */
-    public function saveFundingApplication(array $data)
+    public function saveFundingApplication(array $data, $status = null)
     {
         $borrowerId = auth()->user()->entity_id;
         
-        $data['status'] = FundingApplication::ON_HOLD;
+        $data['status'] = $status ?? FundingApplication::ON_HOLD;
         $data['borrower_id'] = $borrowerId;
 
         return FundingApplication::updateOrCreate(

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Borrower\FundApplication\BusinessResource;
 use App\Http\Resources\Borrower\FundApplication\DisclosuresAndConsentResource;
 use App\Http\Resources\Borrower\FundApplication\FederalComplianceResource;
+use App\Http\Resources\Borrower\FundApplication\AttestationAndAuthorizationResource;
 use App\Http\Resources\Borrower\FundApplication\FinancialResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
@@ -14,6 +15,12 @@ use App\Services\Borrower\FundApplication\FundingApplicationService;
 
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
+use App\Models\Borrower\FundingApplication;
 
 class FundingApplicationController extends Controller   
 {
@@ -128,11 +135,27 @@ class FundingApplicationController extends Controller
 
 
     /**
+     * Save Financial Info.
+     */
+    public function saveFinancialInfo(StoreFinancialInfoRequest $request){
+        try {
+            $financialInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+
+            return ApiResponse::success(
+                new FinancialResource($financialInfo),
+                __('borrower.financial_info_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.financial_info_update_failed'), 500);
+        }
+    }
+
+    /**
      * Get Funding Request.
      */
     public function getFundingRequest(){
          try {   
-            $fundingRequest = $this->fundingApplicationService->getBorrowerInfo();
+            $fundingRequest = $this->fundingApplicationService->getFundingInfo();
             
             if (!$fundingRequest) {
                 return ApiResponse::error(__('borrower.funding_request_not_found'), 404);
@@ -148,10 +171,26 @@ class FundingApplicationController extends Controller
         }
     }
 
+    /**
+     * Save Funding Request.
+     */
+    public function saveFundingRequest(StoreFundingRequestRequest $request){
+        try {
+            $fundingRequest = $this->fundingApplicationService->saveFundingApplication($request->validated());
+
+            return ApiResponse::success(
+                new FundingRequestResource($fundingRequest),
+                __('borrower.funding_request_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.funding_request_update_failed'), 500);
+        }
+    }
+
 
     public function getDisclosuresAndConsent(){
          try {   
-            $disclosuresAndConsent = $this->fundingApplicationService->getBorrowerInfo();
+            $disclosuresAndConsent = $this->fundingApplicationService->getFundingInfo();
             
             if (!$disclosuresAndConsent) {
                 return ApiResponse::error(__('borrower.disclosures_and_consent_not_found'), 404);
@@ -167,10 +206,23 @@ class FundingApplicationController extends Controller
         }
     }
 
+    public function saveDisclosuresAndConsent(DisclosuresAndConsentRequest $request){
+        try {
+            $disclosuresAndConsent = $this->fundingApplicationService->saveFundingApplication($request->validated());
+
+            return ApiResponse::success(
+                new DisclosuresAndConsentResource($disclosuresAndConsent),
+                __('borrower.disclosures_and_consent_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.disclosures_and_consent_update_failed'), 500);
+        }
+    }
+
 
     public function getFederalComplianceDisclosures(){
         try {   
-            $federalCompliance = $this->fundingApplicationService->getBorrowerInfo();
+            $federalCompliance = $this->fundingApplicationService->getFundingInfo();
             
             if (!$federalCompliance) {
                 return ApiResponse::error(__('borrower.federal_compliance_not_found'), 404);
@@ -183,6 +235,50 @@ class FundingApplicationController extends Controller
 
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_federal_compliance_disclosures_failed'), 500);
+        }
+    }
+
+    public function saveFederalComplianceDisclosures(FederalComplianceRequest $request){
+        try {
+            $federalCompliance = $this->fundingApplicationService->saveFundingApplication($request->validated());
+
+            return ApiResponse::success(
+                new FederalComplianceResource($federalCompliance),
+                __('borrower.federal_compliance_disclosures_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.federal_compliance_disclosures_update_failed'), 500);
+        }
+    }
+
+    public function getAttestationAndAuthorization(){
+        try {   
+            $attestationAndAuthorization = $this->fundingApplicationService->getFundingInfo();
+            
+            if (!$attestationAndAuthorization) {
+                return ApiResponse::error(__('borrower.attestation_and_authorization_not_found'), 404);
+            }
+
+            return ApiResponse::success(
+                new AttestationAndAuthorizationResource($attestationAndAuthorization),
+                __('borrower.fetch_attestation_and_authorization')
+            );
+
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.fetch_attestation_and_authorization_failed'), 500);
+        }
+    }
+
+    public function saveAttestationAndAuthorization(AttestationAndAuthorizationRequest $request){
+        try {
+            $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($request->validated(),FundingApplication::PENDING);
+
+            return ApiResponse::success(
+                new AttestationAndAuthorizationResource($attestationAndAuthorization),
+                __('borrower.attestation_and_authorization_updated_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed'), 500);
         }
     }
 

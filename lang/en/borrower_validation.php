@@ -229,4 +229,49 @@ return [
     'citizenship_status_max' => 'Citizenship status cannot exceed 255 characters',
     'ownership_numeric' => 'Ownership must be a number',
     'has_co_borrower_boolean' => 'Has co-borrower must be true or false',
+
+    // Funding Application Financial Info
+    'business_bank_name_string' => 'Business bank name must be a string',
+    'business_bank_name_max' => 'Business bank name cannot exceed 255 characters',
+    'business_checking_start_date_date' => 'Business checking start date must be a valid date',
+    'self_reported_personal_credit_score_string' => 'Self reported personal credit score must be a string',
+    'self_reported_personal_credit_score_max' => 'Self reported personal credit score cannot exceed 255 characters',
+    'self_reported_business_credit_score_string' => 'Self reported business credit score must be a string',
+    'self_reported_business_credit_score_max' => 'Self reported business credit score cannot exceed 255 characters',
+    'has_business_debt_boolean' => 'Has business debt must be true or false',
+    'debt_balance_required_if' => 'Debt balance is required when has business debt is true',
+    'debt_balance_min' => 'Debt balance cannot be negative',
+
+    // Funding Application Funding Request
+    'requested_amount_numeric' => 'Requested amount must be a number',
+    'requested_amount_min' => 'Requested amount cannot be negative',
+    'purpose_of_funds_string' => 'Purpose of funds must be a string',
+    'purpose_of_funds_max' => 'Purpose of funds cannot exceed 500 characters',
+    'preferred_funding_type_string' => 'Preferred funding type must be a string',
+    'preferred_funding_type_max' => 'Preferred funding type cannot exceed 255 characters',
+    'timeframe_needed_string' => 'Timeframe needed must be a string',
+    'timeframe_needed_max' => 'Timeframe needed cannot exceed 255 characters',
+    'collateral_available_string' => 'Collateral available must be a string',
+    'collateral_available_max' => 'Collateral available cannot exceed 500 characters',
+
+    // Disclosures & Consent
+    'credit_pull_authorization_accepted' => 'You must authorize the credit pull.',
+    'terms_conditions_acceptance_accepted' => 'You must accept the terms and conditions.',
+
+    // Federal Compliance
+    'filed_for_bankruptcy_boolean' => 'Filed for bankruptcy must be true or false',
+    'any_pending_lawsuits_boolean' => 'Any pending lawsuits must be true or false',
+    'has_federal_loan_boolean' => 'Has federal loan must be true or false',
+    'has_federal_debt_boolean' => 'Has federal debt must be true or false',
+    'has_criminal_offense_boolean' => 'Has criminal offense must be true or false',
+    'has_parole_or_probation_boolean' => 'Has parole or probation must be true or false',
+    'suspended_or_debarred_boolean' => 'Suspended or debarred must be true or false',
+    'any_outstanding_judgments_business_boolean' => 'Any outstanding judgments (business) must be true or false',
+    'any_outstanding_judgments_owner_boolean' => 'Any outstanding judgments (owner) must be true or false',
+    'federal_compliance_disclosures_explanation_string' => 'Explanation must be a string.',
+    'federal_compliance_disclosures_explanation_max' => 'Explanation cannot exceed 1000 characters.',
+    'federal_compliance_disclosures_explanation_required' => 'Explanation is required when any of the compliance questions are answered Yes.',
+
+    // Attestation & Authorization
+    'attestation_authorization_accepted' => 'You must check the box to certify.',
 ];
