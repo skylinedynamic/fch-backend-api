@@ -22,7 +22,6 @@ class PaymentService
      */
     public function processPayment(array $data)
     {
-        // Fetch global active setting
         $setting = Setting::where('status', true)->first();
 
         if (!$setting) {
@@ -60,9 +59,7 @@ class PaymentService
                 ],
             ]);
 
-            // If payment is successful (succeeded or requires_capture)
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
-                // 1. Record Payment
                 Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                     'borrower_id' => $data['borrower_id'] ?? null,
@@ -71,7 +68,7 @@ class PaymentService
                     'transaction_id' => $paymentIntent->id,
                     'payment_from' => 'Stripe',
                     'payment_type' => 'Card',
-                    'amount' => $data['amount'] / 100, // Convert cents to dollars
+                    'amount' => $data['amount'] / 100,
                     'currency' => $paymentIntent->currency,
                     'status' => $paymentIntent->status,
                     'transaction_date' => now(),
@@ -81,7 +78,6 @@ class PaymentService
                 // 2. Update Invoice if provided
                 if (!empty($data['invoice_id'])) {
                     $invoice = Invoice::where('id', $data['invoice_id'])
-                        ->orWhere('invoice_id', $data['invoice_id'])
                         ->first();
 
                     if ($invoice) {
