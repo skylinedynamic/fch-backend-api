@@ -96,6 +96,10 @@ class GlobalPaymentService
                 $borrower = null;
                 if (!empty($data['borrower_id'])) {
                     $borrower = Borrower::find($data['borrower_id']);
+                    if ($borrower) {
+                        $borrower->status = Borrower::STATUS_ACTIVE;
+                        $borrower->save();
+                    }
                 }
 
                 $userEmail = $borrower ? $borrower->email : (Auth::user() ? Auth::user()->email : null);

@@ -2,31 +2,32 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
-use App\Models\Borrower\Borrower;
-use App\Models\Borrower\BorrowerSignupId;
-use App\Models\Common\Role;
+use Dom\DocumentType;
 use App\Models\User\User;
-use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use Illuminate\Http\UploadedFile;
+use App\Models\CreditBuilder\Tier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\UploadedFile;
-use App\Helpers\ApiResponse;
-use App\Models\Borrower\BorrowerDocType;
-use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
-use Dom\DocumentType;
-use App\Models\Borrower\BorrowerDocument;
-use App\Models\CreditBuilder\Tier;
-use Illuminate\Support\Facades\Storage;
-use App\Models\Partner\Partner;
-use App\Models\Invoice\Invoice;
-use App\Mail\Borrower\BorrowerAccountCreatedMail;
-use App\Mail\Borrower\BorrowerPaymentLinkMail;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Auth;
 use App\Services\FCH\InvoiceService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Borrower\BorrowerDocType;
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\BorrowerSignupId;
+use App\Mail\Borrower\BorrowerPaymentLinkMail;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
+use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 
 class BorrowerService
 {
@@ -128,6 +129,7 @@ class BorrowerService
                     ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
                     ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
                     ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
+                    ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
                     ->orWhereHas('partner', function ($q) use ($search) {
                         $q->where('full_name', 'LIKE', "%{$search}%");
                     })
@@ -187,6 +189,7 @@ class BorrowerService
             'phone_number' => 'borrowers.phone_number',
             'first_name' => 'borrowers.first_name',
             'last_name' => 'borrowers.last_name',
+            'status' => 'borrowers.status',
         ];
 
         // Add join-dependent aliases only when those joins exist

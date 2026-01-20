@@ -105,6 +105,11 @@ class Borrower extends Model
 
     public static function getStatuses(): array
     {
-        return self::STATUS;
+        return [
+            self::STATUS_ONBOARDING,
+            self::STATUS_ACTIVE,
+            self::STATUS_SUSPENDED,
+            self::STATUS_CLOSED
+        ];
     }
 }
