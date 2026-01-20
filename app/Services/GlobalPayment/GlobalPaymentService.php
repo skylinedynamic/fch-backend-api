@@ -6,11 +6,15 @@ use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
+use App\Models\Borrower\Borrower;
+use App\Mail\Payment\PaymentSuccessMail;
+use App\Mail\Payment\GlobalPaymentNotificationMail;
 
 use App\Models\Setting\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 
 class GlobalPaymentService
@@ -60,7 +64,7 @@ class GlobalPaymentService
             ]);
 
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
-                Payment::create([
+                $payment = Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                     'borrower_id' => $data['borrower_id'] ?? null,
                     'entity_type' => $data['entity_type'] ?? null,
@@ -87,6 +91,43 @@ class GlobalPaymentService
                         ]);
                     }
                 }
+
+                // 3. Send Email Notifications
+                $borrower = null;
+                if (!empty($data['borrower_id'])) {
+                    $borrower = Borrower::find($data['borrower_id']);
+                }
+
+                $userEmail = $borrower ? $borrower->email : (Auth::user() ? Auth::user()->email : null);
+                $userName = $borrower ? ($borrower->first_name . ' ' . $borrower->last_name) : (Auth::user() ? Auth::user()->name : 'Guest');
+
+                $paymentData = [
+                    'amount' => $payment->amount,
+                    'currency' => $payment->currency,
+                    'transaction_id' => $payment->transaction_id,
+                    'date' => $payment->transaction_date,
+                    'user_name' => $userName,
+                    'user_email' => $userEmail,
+                ];
+
+                // Send to User (Borrower) if valid email exists
+                if ($userEmail && filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+                    try {
+                        Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData));
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
+                    }
+                }
+
+                // Send Global Notification
+                // $globalEmail = config('mail.from.address'); // Or a specific setting
+                // if ($globalEmail) {
+                //     try {
+                //         Mail::to($globalEmail)->send(new GlobalPaymentNotificationMail($paymentData));
+                //     } catch (\Exception $e) {
+                //         Log::error('Failed to send GlobalPaymentNotificationMail: ' . $e->getMessage());
+                //     }
+                // }
             }
 
             DB::commit();

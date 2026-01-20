@@ -277,7 +277,7 @@ class LeadService
 
             Log::info('enrollment type: ' . json_encode($data['enrollment_type']));
             $enrollmentConfigs = config('enrollment.types');
-            $this->invoiceService->create([
+            $invoice = $this->invoiceService->create([
                 'partner_id' => $borrower->partner_id,
                 'borrower_id' => $borrower->id,
                 'entity_type' => Borrower::class,
