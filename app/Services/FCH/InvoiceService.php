@@ -24,7 +24,17 @@ class InvoiceService
      */
     public function getInvoices(array $filters): JsonResponse
     {
+        $authUser = Auth::user();
         $query = Invoice::query();
+
+        // RBAC: Filter by partner_id if not a host
+        if ($authUser && $authUser->partner) {
+            if ($authUser->partner->is_host != 1) {
+                $query->where('partner_id', $authUser->partner_id);
+            } elseif (!empty($filters['partner_id'])) {
+                $query->where('partner_id', $filters['partner_id']);
+            }
+        }
 
         // Filter by Date Range (Payment Date)
         if (!empty($filters['date_from'])) {
@@ -50,7 +60,7 @@ class InvoiceService
             $query->where('cycle', $filters['cycle']);
         }
 
-        // Filter by Payee
+        // Filter by Payee (Generic entity_id)
         if (!empty($filters['payee_id'])) {
             $query->where('entity_id', $filters['payee_id']);
         }
@@ -90,7 +100,17 @@ class InvoiceService
      */
     public function getStats(array $filters): array
     {
+        $authUser = Auth::user();
         $query = Invoice::query();
+
+        // RBAC: Filter by partner_id if not a host
+        if ($authUser && $authUser->partner) {
+            if ($authUser->partner->is_host != 1) {
+                $query->where('partner_id', $authUser->partner_id);
+            } elseif (!empty($filters['partner_id'])) {
+                $query->where('partner_id', $filters['partner_id']);
+            }
+        }
 
         if (!empty($filters['date_from'])) {
             $query->whereDate('payment_date', '>=', $filters['date_from']);
