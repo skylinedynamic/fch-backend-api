@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\Global\Payment;
+namespace App\Http\Requests\Api\V1\GlobalPayment;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class PaymentRequest extends BaseApiRequest
+class GlobalPaymentRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.

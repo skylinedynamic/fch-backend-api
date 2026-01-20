@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
-use App\Http\Controllers\Api\V1\Global\Payment\PaymentController as GlobalPaymentController;
+use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Global\Payment;
+namespace App\Services\GlobalPayment;
 
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Stripe\Exception\ApiErrorException;
 
-class PaymentService
+class GlobalPaymentService
 {
     public function __construct() {}
 
