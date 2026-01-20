@@ -23,8 +23,14 @@ class Invoice extends Model
         'payment_date',
         'status',
         'cycle',
+        'details',
         'created_by',
         'updated_by',
+    ];
+
+    protected $casts = [
+        'details' => 'array',
+        'payment_date' => 'date',
     ];
 
     public function borrower()
@@ -39,6 +45,7 @@ class Invoice extends Model
     const STATUS_PENDING = 'Pending';
     const STATUS_SUCCESS = 'Success';
     const STATUS_CANCELED = 'Canceled';
+    const STATUS_OVERDUE = 'Overdue';
     const STATUS_ALL = 'All Status';
 
     const CYCLE_ANNUAL = 'Annual';

@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('status')->nullable();
             $table->timestamp('transaction_date')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users');
+            $table->softDeletes();
             $table->timestamps();
         });
     }

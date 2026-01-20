@@ -27,6 +27,8 @@ class InvoiceResource extends JsonResource
             'payment_date' => $this->payment_date,
             'status' => $this->status,
             'cycle' => $this->cycle,
+            'details' => $this->details,
+            'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'created_at' => $this->created_at,
             // Add any other fields or relations if needed
         ];

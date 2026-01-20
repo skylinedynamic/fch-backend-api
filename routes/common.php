@@ -145,6 +145,8 @@ Route::prefix('v1')->group(function () {
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
             Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
+            Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
+            Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
             Route::post('settings', [SettingController::class, 'store']);
             Route::get('settings', [SettingController::class, 'show']);
 

@@ -62,4 +62,37 @@ class InvoiceController extends Controller
 
         return ApiResponse::success(new InvoiceResource($invoice), __('invoice.details_retrieved'));
     }
+
+    /**
+     * Download invoice PDF.
+     *
+     * @param string|int $id
+     * @return mixed
+     */
+    public function download($id)
+    {
+        try {
+            $invoice = $this->invoiceService->downloadInvoice($id);
+            // Return PDF stream/download here
+            return ApiResponse::success($invoice, __('invoice.download_started'));
+        } catch (\Exception $e) {
+            return ApiResponse::notFound($e->getMessage());
+        }
+    }
+
+    /**
+     * Send invoice email.
+     *
+     * @param string|int $id
+     * @return JsonResponse
+     */
+    public function send($id): JsonResponse
+    {
+        try {
+            $this->invoiceService->sendInvoice($id);
+            return ApiResponse::success(null, __('invoice.sent_success'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
 }

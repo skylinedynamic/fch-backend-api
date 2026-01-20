@@ -48,6 +48,7 @@ class PaymentService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('transaction_id', 'like', "%{$search}%")
+                    ->orWhere('payment_from', 'like', "%{$search}%")
                     ->orWhereHas('partner', function ($pq) use ($search) {
                         $pq->where('company_name', 'like', "%{$search}%")
                             ->orWhere('full_name', 'like', "%{$search}%");
@@ -59,6 +60,29 @@ class PaymentService
                     });
             });
         }
+
+        // Add additional filters sent from frontend
+        if (!empty($filters['payee_id'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('partner_id', $filters['payee_id'])
+                    ->orWhere('borrower_id', $filters['payee_id']);
+            });
+        }
+
+        if (!empty($filters['cycle']) && $filters['cycle'] !== 'All Cycle') {
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'transaction_date';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        // Map frontend fields to backend if needed
+        $fieldMap = [
+            'date' => 'transaction_date',
+            'from' => 'payment_from',
+            'transaction_id' => 'transaction_id'
+        ];
+        $actualField = $fieldMap[$sortField] ?? $sortField;
+        $query->orderBy($actualField, $sortOrder);
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
@@ -92,14 +116,14 @@ class PaymentService
             $query->whereDate('transaction_date', '<=', $filters['date_to']);
         }
 
-        $stats = [
-            'total_payments' => (clone $query)->sum('amount'),
-            'completed' => (clone $query)->whereIn('status', ['succeeded', 'success'])->sum('amount'),
-            'pending' => (clone $query)->where('status', 'pending')->count(),
-            'failed' => (clone $query)->where('status', 'failed')->count(),
-        ];
+        $allPayments = $query->get(['amount', 'status']);
 
-        return $stats;
+        return [
+            'total_payments' => $allPayments->sum('amount'),
+            'completed' => $allPayments->whereIn('status', ['succeeded', 'success'])->sum('amount'),
+            'pending' => $allPayments->where('status', 'pending')->count(),
+            'failed' => $allPayments->where('status', 'failed')->count(),
+        ];
     }
 
     /**
