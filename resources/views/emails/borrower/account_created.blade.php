@@ -176,8 +176,8 @@
 
             <div style="text-align:center;">
                 @if(!empty($paymentLink))
-                <p style="margin-bottom: 20px;">Please complete your payment to finalize your account setup.</p>
-                <a href="{{ $paymentLink }}" class="btn">Pay Now</a>
+                <p style="margin-bottom: 20px;">Please complete your payment of <strong>${{ number_format($amount, 2) }}</strong> to finalize your account setup.</p>
+                <a href="{{ $paymentLink }}" class="btn">Pay ${{ number_format($amount, 2) }} Now</a>
                 @else
                 <a href="{{ $loginUrl }}" class="btn">Login to Your Account</a>
                 @endif

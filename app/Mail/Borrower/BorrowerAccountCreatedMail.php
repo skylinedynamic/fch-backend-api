@@ -62,6 +62,8 @@ class BorrowerAccountCreatedMail extends Mailable
                     'business_logo_url'  => $businessLogoUrl,  // For production (external)
                     'business_logo_path' => $businessLogoPath, // For local embed
                 ],
+                'paymentLink' => $this->mailData['payment_link'] ?? null,
+                'amount' => $this->mailData['amount'] ?? null,
             ]
         );
     }

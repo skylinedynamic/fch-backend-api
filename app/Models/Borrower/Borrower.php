@@ -39,12 +39,12 @@ class Borrower extends Model
         'deleted_at' => 'datetime',
     ];
 
-    public const STATUS = [
-        'OnBoarding',
-        'Active',
-        'Suspended',
-        'Closed'
-    ];
+    const STATUS_ONBOARDING = 'OnBoarding';
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_SUSPENDED = 'Suspended';
+    const STATUS_CLOSED = 'Closed';
+
+
     /**
      * Get the user that owns the borrower.
      */
@@ -101,5 +101,10 @@ class Borrower extends Model
     public function latestInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(\App\Models\Invoice\Invoice::class, 'borrower_id')->latestOfMany();
+    }
+
+    public static function getStatuses(): array
+    {
+        return self::STATUS;
     }
 }

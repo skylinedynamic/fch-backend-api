@@ -31,7 +31,7 @@ class BorrowerResource extends JsonResource
             'home_phone'    => $this->home_phone,
             'date_of_birth' => $this->date_of_birth,
             'last_4_ssn'    => $this->last_4_ssn,
-            
+
             // Business
             'business_name'             => $this->business_name,
             'business_ein'              => $this->business_ein,
@@ -75,6 +75,10 @@ class BorrowerResource extends JsonResource
             'current_tier'  => $this->current_tier,
             'current_tier_name' => $this->tier?->name,
             'additional_data' => $this->additional_data,
+            // 'invoice' => $this->latestInvoice ? [
+            //     'id' => $this->latestInvoice->id,
+            //     'invoice_id' => $this->latestInvoice->invoice_id,
+            // ] : null,
         ];
     }
 }

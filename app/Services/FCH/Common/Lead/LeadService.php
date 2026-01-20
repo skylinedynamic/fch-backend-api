@@ -264,65 +264,20 @@ class LeadService
                 'state_file_number' => $lead->state_file_number,
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
-                'status' => Borrower::STATUS[0],
+                'status' => Borrower::STATUS_ONBOARDING,
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
+                'payment_amount' => $data['payment_amount'] ?? 0,
             ];
 
             $result = $this->borrowerService->store($borrowerData);
-            Log::info('Borrower data after store: ' . json_encode($result));
             $borrower = $result['borrower'];
-            $user = $result['user'];
-            $plainPassword = '12345678';
-
-            Log::info('enrollment type: ' . json_encode($data['enrollment_type']));
-            $enrollmentConfigs = config('enrollment.types');
-            $invoice = $this->invoiceService->create([
-                'partner_id' => $borrower->partner_id,
-                'borrower_id' => $borrower->id,
-                'entity_type' => Borrower::class,
-                'entity_id' => $borrower->id,
-                'customer_name' => $borrower->full_name,
-                'email' => $borrower->email,
-                'country' => $borrower->country,
-                'payment_amount' => $data['amount'],
-                'status' => Invoice::STATUS_UNPAID,
-                'cycle' => ($data['enrollment_type'] ?? '') === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
-            ]);
 
             $lead->update([
                 'convert_to' => 'Borrower',
                 'status' => 'Lead Completed',
             ]);
-
-            if ($user && $plainPassword) {
-                $hostPartner = Partner::where('is_host', 1)->first();
-                $authUser = Auth::user();
-                $isHostConverting = $authUser && $authUser->partner && $authUser->partner->is_host;
-
-                $mailData = [
-                    'user' => $user,
-                    'plain_password' => $plainPassword,
-                    'business_info' => [
-                        'company_name' => $hostPartner->company_name ?? config('app.name'),
-                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
-                        'email' => $hostPartner->email ?? config('mail.from.address'),
-                        'phone_number' => $hostPartner->phone_number ?? '',
-                        'address_line_1' => $hostPartner->address_line_1 ?? '',
-                    ]
-                ];
-
-                if ($isHostConverting) {
-                    if (isset($invoice)) {
-                        $mailData['payment_link'] = config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id;
-                        $mailData['amount'] = $invoice->payment_amount;
-                    }
-                    Mail::to($lead->email)->send(new BorrowerPaymentLinkMail($mailData));
-                } else {
-                    Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
-                }
-            }
 
             DB::commit();
             return $borrower;

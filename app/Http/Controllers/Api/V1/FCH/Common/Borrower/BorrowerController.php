@@ -2,23 +2,22 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 
-use App\Http\Controllers\Controller;
-use App\Services\FCH\Common\Borrower\BorrowerService;
-use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
-use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
-use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
-use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
-use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Helpers\ApiResponse;
-use App\Services\FCH\Common\Borrower\BorrowerDocumentService;
-use App\Services\FCH\Common\Tier\TierService;
-use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
-use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateDocumentStatusRequest;
 use Illuminate\Http\Request;
-use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
-use Illuminate\Support\Facades\Storage;
+use App\Services\FCH\Common\Tier\TierService;
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
+use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
+use App\Services\FCH\Common\Borrower\BorrowerDocumentService;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateDocumentStatusRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
 
 class BorrowerController extends Controller
 {
@@ -35,7 +34,7 @@ class BorrowerController extends Controller
     {
         try {
             $input = $request->validated();
-            
+
             // Sanitize pagination
             $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
             $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null;
@@ -54,7 +53,6 @@ class BorrowerController extends Controller
             ];
 
             return $this->borrowerService->list($filters);
-
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.error.list_failed'));
         }
@@ -73,16 +71,8 @@ class BorrowerController extends Controller
             $user = $result['user'] ?? null;
             $plainPassword = $result['plain_password'] ?? null;
 
-            if ($user && $plainPassword) {
-                // Get partner info for the email
-                $partnerInfo = auth()->user()->partner;
-                if ($partnerInfo) {
-                    $this->sendAccountCreatedMail($user, $partnerInfo, $plainPassword);
-                }
-            }
-
             return ApiResponse::success(
-                new BorrowerResource($borrower),
+                new BorrowerDetailsResource($borrower),
                 __('borrower.success.created'),
                 201
             );
@@ -106,7 +96,7 @@ class BorrowerController extends Controller
             $updatedBorrower = $this->borrowerService->update($borrower, $data);
 
             return ApiResponse::success(
-                new BorrowerResource($updatedBorrower),
+                new BorrowerDetailsResource($updatedBorrower),
                 __('borrower.success.updated')
             );
         } catch (\Exception $e) {
@@ -127,7 +117,7 @@ class BorrowerController extends Controller
             }
 
             return ApiResponse::success(
-                new BorrowerResource($borrower),
+                new BorrowerDetailsResource($borrower),
                 __('borrower.success.retrieved_details')
             );
         } catch (\Exception $e) {
@@ -173,13 +163,12 @@ class BorrowerController extends Controller
         try {
             $documentService = new BorrowerDocumentService();
             return $documentService->documentTypes();
-
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.document_types_fetch_failed'));
         }
     }
 
-    
+
     /**
      * Get Tiers List
      * TODO: When tiers table is created, modify to fetch from database
@@ -200,7 +189,7 @@ class BorrowerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to '.$businessInfo->company_name,
+            'subject' => 'Welcome to ' . $businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -244,7 +233,7 @@ class BorrowerController extends Controller
      */
     public function profileStatsCount(int $borrowerId)
     {
- 
+
         try {
             $data = $this->borrowerService->getBorrowerProfileStats($borrowerId);
 
@@ -272,7 +261,7 @@ class BorrowerController extends Controller
      */
     public function downloadDocument(int $documentId)
     {
-       
+
         try {
             // Note: Route parameter is named {borrowerId}, but for download it likely refers to the Document ID.
             $document = BorrowerDocument::where('id', $documentId)->first();
@@ -285,7 +274,7 @@ class BorrowerController extends Controller
 
             // If still empty
             if (!$urlPath) {
-                 return ApiResponse::notFound('File path not found in record');
+                return ApiResponse::notFound('File path not found in record');
             }
 
             // Extract relative path from full URL if needed
@@ -305,7 +294,7 @@ class BorrowerController extends Controller
 
             // Get MIME type
             $mimeType = mime_content_type($filePath);
-            
+
             // Determine filename (use file_name if available, else basename)
             $fileName = $document->file_name ?: basename($relativePath);
 
@@ -318,9 +307,8 @@ class BorrowerController extends Controller
                     'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
                 ]
             );
-
         } catch (\Exception $e) {
-             return ApiResponse::serverError('Download failed');
+            return ApiResponse::serverError('Download failed');
         }
     }
 
@@ -329,7 +317,7 @@ class BorrowerController extends Controller
      */
     public function uploadDocument(UploadBorrowerDocumentRequest $request)
     {
-  
+
         try {
             $documentService = new BorrowerDocumentService();
             return $documentService->createBorrowerDocuments($request->validated());
@@ -359,7 +347,7 @@ class BorrowerController extends Controller
         try {
             $documentService = new BorrowerDocumentService();
             $deleted = $documentService->removeById((int)$id);
-            
+
             if (!$deleted) {
                 return ApiResponse::notFound(__('borrower.document_not_found'));
             }

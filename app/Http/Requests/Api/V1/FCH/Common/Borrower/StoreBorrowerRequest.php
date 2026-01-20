@@ -78,6 +78,8 @@ class StoreBorrowerRequest extends BaseApiRequest
             'assign_id'                 => ['nullable', 'integer', 'exists:users,id'],
             'notes'                     => ['nullable', 'string'],
             'additional_data'           => ['nullable', 'json'],
+            'payment_amount'            => ['nullable', 'numeric', 'min:0'],
+            'enrollment_type'           => ['nullable', 'string'],
         ];
     }
 

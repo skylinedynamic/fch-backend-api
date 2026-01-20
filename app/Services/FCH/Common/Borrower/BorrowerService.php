@@ -20,10 +20,21 @@ use Dom\DocumentType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\CreditBuilder\Tier;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Partner\Partner;
+use App\Models\Invoice\Invoice;
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Mail\Borrower\BorrowerPaymentLinkMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
+use App\Services\FCH\InvoiceService;
 
 class BorrowerService
 {
     use PaginatesApi, UploadsFiles;
+
+    public function __construct(
+        protected InvoiceService $invoiceService
+    ) {}
 
     /**
      * List borrowers with pagination, search, filtering and sorting.
@@ -209,6 +220,7 @@ class BorrowerService
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
         return $this->respondWithPaginationResource(
             $paginator,
             BorrowerResource::class,
@@ -234,7 +246,15 @@ class BorrowerService
 
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
             Log::info('Assigning to Partner ID: ' . $data['partner_id']);
-            $borrower = Borrower::create($data);
+            $data['status'] = Borrower::STATUS_ONBOARDING;
+
+            // Filter out fields that are not columns in the borrowers table
+            $borrowerData = collect($data)->except(['payment_amount', 'enrollment_type'])->toArray();
+
+            $borrower = Borrower::create($borrowerData);
+            Log::info('Payment Amount: ' . ($data['payment_amount'] ?? 'N/A'));
+            Log::info('all data ' . json_encode($data));
+            // $data['payment_amount'] = (int) ($data['payment_amount'] ?? $data['payment_amount'] ?? 0);
 
             // Remove used signup_id
             // if (!empty($data['signup_id']) && !empty($data['partner_id'])) {
@@ -245,9 +265,60 @@ class BorrowerService
 
             // Create associated User if needed
             $userDataResult = null;
+            Log::info('Emailsss: ' . $data['email']);
             if (!empty($data['email'])) {
                 Log::info('Email send');
                 $userDataResult = $this->createOrUpdateUser($data, $borrower);
+                $user = $userDataResult['user'];
+                $plainPassword = $userDataResult['plain_password'];
+
+                if ($user && $plainPassword) {
+                    $hostPartner = Partner::where('is_host', 1)->first();
+                    $authUser = Auth::user();
+                    $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
+
+                    $mailData = [
+                        'user' => $user,
+                        'plain_password' => $plainPassword,
+                        'business_info' => [
+                            'company_name' => $hostPartner->company_name ?? config('app.name'),
+                            'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                            'email' => $hostPartner->email ?? config('mail.from.address'),
+                            'phone_number' => $hostPartner->phone_number ?? '',
+                            'address_line_1' => $hostPartner->address_line_1 ?? '',
+                        ]
+                    ];
+                    $amount = $data['payment_amount'] ?? ($data['amount'] ?? 0);
+                    Log::info('Total Amount: ' . $amount);
+                    $invoice = $this->invoiceService->create([
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'entity_type' => Borrower::class,
+                        'entity_id' => $borrower->id,
+                        'customer_name' => $borrower->full_name,
+                        'email' => $borrower->email,
+                        'country' => $borrower->country,
+                        'payment_amount' => $amount,
+                        'status' => Invoice::STATUS_UNPAID,
+                        'cycle' => ($data['enrollment_type'] ?? '') === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
+                    ]);
+
+                    if ($isHostCreating) {
+                        Log::info('Email send11');
+                        if ($amount > 0) {
+                            $mailData['payment_link'] = config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id;
+                            $mailData['amount'] = $invoice->payment_amount;
+                            Log::info('Email sento accuarte');
+                            Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
+                        } else {
+                            Log::info('Email sento non accuarte ');
+                            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                        }
+                    } else {
+                        Log::info('Email sento non borrower ');
+                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                    }
+                }
             }
 
             DB::commit();
