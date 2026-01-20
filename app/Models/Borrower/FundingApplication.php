@@ -4,6 +4,7 @@ namespace App\Models\Borrower;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 class FundingApplication extends Model
 {
@@ -117,5 +118,29 @@ class FundingApplication extends Model
     public function coBorrowers()
     {
         return $this->hasMany(FundingApplicationCoBorrower::class);
+    }
+
+
+    public function scopeSearch($query, $term)
+    {
+        $like = "%{$term}%";
+
+        return $query->where(function (Builder $q) use ($like) {
+            $q->where('first_name', 'like', $like)
+              ->orWhere('last_name', 'like', $like)
+              ->orWhere('full_name', 'like', $like)
+              ->orWhere('business_name', 'like', $like)
+              ->orWhere('business_email', 'like', $like)
+              ->orWhere('business_phone_no', 'like', $like)
+              ->orWhere('city', 'like', $like)
+              ->orWhere('state', 'like', $like)
+              ->orWhere('zip_code', 'like', $like)
+              ->orWhere('business_country', 'like', $like)
+              ->orWhere('business_country_code', 'like', $like)
+              ->orWhere('business_address', 'like', $like)
+              ->orWhere('business_city', 'like', $like)
+              ->orWhere('business_state', 'like', $like)
+              ->orWhere('business_zip_code', 'like', $like);
+        });
     }
 }

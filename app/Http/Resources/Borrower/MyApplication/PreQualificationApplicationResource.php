@@ -16,6 +16,7 @@ class PreQualificationApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'full_name' => $this->first_name . ' ' . $this->last_name,
             'funding_type' => $this->purpose_of_funding,
             'business_name' => $this->business_name,
             'industry' => $this->industry_type,

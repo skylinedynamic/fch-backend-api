@@ -207,16 +207,22 @@ return [
     'rejection_reason_string' => 'The rejection reason must be a string.',
 
     // Funding Application Business Info
+    'business_phone_no_required' => 'Business phone number is required',
     'business_phone_no_string' => 'Business phone number must be a string',
     'business_phone_no_max' => 'Business phone number cannot exceed 255 characters',
+    'business_country_required' => 'Business country is required',
     'business_country_string' => 'Business country must be a string',
     'business_country_max' => 'Business country cannot exceed 255 characters',
+    'business_country_code_required' => 'Business country code is required',
     'business_country_code_string' => 'Business country code must be a string',
     'business_country_code_max' => 'Business country code cannot exceed 10 characters',
+    'business_postal_code_required' => 'Business postal code is required',
     'business_postal_code_string' => 'Business postal code must be a string',
     'business_postal_code_max' => 'Business postal code cannot exceed 20 characters',
+    'industry_type_required' => 'Industry type is required',
     'industry_type_string' => 'Industry type must be a string',
     'industry_type_max' => 'Industry type cannot exceed 255 characters',
+    'entity_type_required' => 'Entity type is required',
     'entity_type_string' => 'Entity type must be a string',
     'entity_type_max' => 'Entity type cannot exceed 255 characters',
     'number_of_employees_integer' => 'Number of employees must be an integer',
@@ -224,7 +230,7 @@ return [
     
     // Funding Application Ownership Info
     'ssn_string' => 'SSN must be a string',
-    'ssn_max' => 'SSN cannot exceed 255 characters',
+    'ssn_digits' => 'SSN must be 9 digits',
     'citizenship_status_string' => 'Citizenship status must be a string',
     'citizenship_status_max' => 'Citizenship status cannot exceed 255 characters',
     'ownership_numeric' => 'Ownership must be a number',

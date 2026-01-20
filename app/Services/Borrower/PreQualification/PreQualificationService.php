@@ -32,7 +32,7 @@ class PreQualificationService
 
         $zapierResponse = $this->sendToZapier($record);
 
-        $record->update(['status' => PreQualificationRequest::SUBMITTED]);
+        $record->update(['status' => PreQualificationRequest::PENDING]);
 
         return ApiResponse::success(
             $zapierResponse,

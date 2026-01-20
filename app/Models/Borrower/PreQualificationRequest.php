@@ -50,17 +50,17 @@ class PreQualificationRequest extends Model
         'existing_business_debt' => 'boolean',
     ];
 
-    public const ON_HOLD = 'on_hold';
-    public const SUBMITTED = 'submitted';
-    public const INTAKE_RECEIVED = 'intake_received';
-    public const IN_REVIEW = 'in_review';
-    public const APPROVED = 'approved';
-    public const DECLINED = 'declined';
+    public const ON_HOLD = 'On Hold';
+    public const PENDING = 'Pending';
+    public const INTAKE_RECEIVED = 'Intake Received';
+    public const IN_REVIEW = 'In Review';
+    public const APPROVED = 'Approved';
+    public const DECLINED = 'Declined';
     
 
     public const STATUS = [
         self::ON_HOLD => self::ON_HOLD,
-        self::SUBMITTED => self::SUBMITTED,
+        self::PENDING => self::PENDING,
         self::INTAKE_RECEIVED => self::INTAKE_RECEIVED,
         self::IN_REVIEW => self::IN_REVIEW,
         self::APPROVED => self::APPROVED,
@@ -77,6 +77,12 @@ class PreQualificationRequest extends Model
         return $this->belongsTo(Business::class);
     }
 
+
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class);
+    }
+
     /**
      * Scope a query to search across common text fields.
      */
@@ -89,10 +95,11 @@ class PreQualificationRequest extends Model
         $like = "%{$term}%";
 
         return $query->where(function (Builder $q) use ($like) {
-            $q->where('full_name', 'like', $like)
+            $q->where('first_name', 'like', $like)
+              ->orWhere('last_name', 'like', $like)
               ->orWhere('business_name', 'like', $like)
               ->orWhere('email', 'like', $like)
-              ->orWhere('phone', 'like', $like);
+              ->orWhere('phone_number', 'like', $like);
         });
     }
 }

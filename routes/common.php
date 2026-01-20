@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
@@ -99,6 +100,14 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
             Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
 
+
+            //Request Application
+            Route::prefix('request-application')->group(function () {
+                Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
+                Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
+                Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
+            });
 
             // Borrower Documents Checklist routes
             Route::get('borrower-documents-checklist/{borrowerId}', [BorrowerDocumentsChecklistController::class, 'getChecklist']);
