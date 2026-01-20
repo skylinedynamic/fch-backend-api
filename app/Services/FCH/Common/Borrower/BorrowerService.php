@@ -495,7 +495,7 @@ class BorrowerService
         // Check user type
         $user = auth()->user();
 
-        // If user is a Borrower, they should only see their own data (return zeros for counts)
+        // If user is a Borrower, they should only see their own data
         if ($user && $user->user_type === 'Borrower') {
             return [
                 'total_borrowers' => 0,
@@ -507,7 +507,6 @@ class BorrowerService
 
         // If user is Partner, use their partner_id
         if ($user && $user->user_type === 'Partner' && !$partnerId) {
-            // Get partner_id from user's entity
             if ($user->entity_type === 'App\\Models\\Partner\\Partner' && $user->entity_id) {
                 $partnerId = $user->entity_id;
             }
@@ -522,9 +521,8 @@ class BorrowerService
         $totalBorrowers = (clone $query)->count();
         $newThisMonth = (clone $query)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
 
-        // Active count: borrowers with at least one document or application
-        // You can adjust this logic based on your definition of "active"
-        $activeCount = (clone $query)->whereHas('user')->count();
+        // Active count: borrowers with STATUS_ACTIVE
+        $activeCount = (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count();
 
         return [
             'total_borrowers' => $totalBorrowers,
