@@ -18,6 +18,7 @@ use App\Services\FCH\Partner\PartnerService;
 use App\Services\FCH\InvoiceService;
 use App\Models\Invoice\Invoice;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -297,6 +298,9 @@ class LeadService
 
             if ($user && $plainPassword) {
                 $hostPartner = Partner::where('is_host', 1)->first();
+                $authUser = Auth::user();
+                $isHostConverting = $authUser && $authUser->partner && $authUser->partner->is_host;
+
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
@@ -308,7 +312,16 @@ class LeadService
                         'address_line_1' => $hostPartner->address_line_1 ?? '',
                     ]
                 ];
-                Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
+
+                if ($isHostConverting) {
+                    if (isset($invoice)) {
+                        $mailData['payment_link'] = config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id;
+                        $mailData['amount'] = $invoice->payment_amount;
+                    }
+                    Mail::to($lead->email)->send(new BorrowerPaymentLinkMail($mailData));
+                } else {
+                    Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
+                }
             }
 
             DB::commit();

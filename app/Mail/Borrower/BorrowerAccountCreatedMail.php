@@ -53,7 +53,6 @@ class BorrowerAccountCreatedMail extends Mailable
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-                'paymentLink' => $this->mailData['payment_link'] ?? null,
 
                 'business_info' => [
                     'company_name'   => $this->mailData['business_info']['company_name'] ?? '',
