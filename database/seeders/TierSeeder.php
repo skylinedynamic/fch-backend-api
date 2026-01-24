@@ -149,7 +149,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Expand your credit profile with additional vendors and store/fleet accounts that report to multiple bureaus. This phase strengthens your payment history and boosts your credit depth.',
                 'order' => 3,
                 'task_to_complete' => null,
-                'has_vendor' => false,
+                'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'Home Depot Commercial', 'subtitle' => 'Building materials', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
@@ -166,7 +166,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Transition from vendor credit to revolving business credit cards, higher limit Net 55/60 terms, and equipment or fleet financing. This tier proves long term creditworthiness and payment reliability.',
                 'order' => 4,
                 'task_to_complete' => null,
-                'has_vendor' => false,
+                'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'Shell Fleet', 'subtitle' => 'Fuel card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
@@ -184,7 +184,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Leverage your established credit history to access bank lines of credit, SBA loans, and corporate financing — often without a personal guarantee. This tier is where funding power meets independence.',
                 'order' => 5,
                 'task_to_complete' => null,
-                'has_vendor' => false,
+                'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
                     ['title' => 'American Express Business', 'subtitle' => 'Business Card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
