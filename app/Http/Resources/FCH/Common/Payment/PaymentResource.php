@@ -17,7 +17,7 @@ class PaymentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'date' => $this->transaction_date ? $this->transaction_date->format('Y-m-d') : null,
+            'transaction_date' => $this->transaction_date ? $this->transaction_date->format('Y-m-d') : null,
             'from' => $this->payment_from ?? __('payment.na'),
             'payment_type' => $this->payment_type ?? __('payment.na'),
             'company' => $this->getCompanyName(),
@@ -26,6 +26,12 @@ class PaymentResource extends JsonResource
             'amount' => $this->amount,
             'currency' => $this->currency,
             'status' => strtoupper($this->status),
+            'borrower_id' => $this->borrower_id,
+            'partner_id' => $this->partner_id,
+            'entity_id' => $this->entity_id,
+            'entity_type' => $this->entity_type,
+            'borrower_name' => (str_contains((string)$this->entity_type, 'borrower') && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
+            'partner_name' => (str_contains((string)$this->entity_type, 'partner') && $this->partner) ? ($this->partner->full_name ?? '') : '',
             'created_at' => $this->created_at,
         ];
     }

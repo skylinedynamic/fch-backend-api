@@ -21,12 +21,12 @@ class Payment extends Model
 
     public function partner()
     {
-        return $this->belongsTo(Partner::class);
+        return $this->belongsTo(Partner::class, 'partner_id', 'id');
     }
 
     public function borrower()
     {
-        return $this->belongsTo(Borrower::class);
+        return $this->belongsTo(Borrower::class, 'borrower_id', 'id');
     }
 
     public function creator()
