@@ -11,6 +11,7 @@ use App\Models\Common\Role;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Models\Invoice\Invoice;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
@@ -19,10 +20,21 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\PermissionRegistrar;
+use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Partner\PartnerSubscriptionService;
+use App\Mail\Partner\PartnerPaymentLinkMail;
+use App\Mail\Partner\PartnerAccountCreatedMail;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class PartnerService
 {
     use PaginatesApi, UploadsFiles;
+
+    public function __construct(
+        protected InvoiceService $invoiceService,
+        protected PartnerSubscriptionService $subscriptionService
+    ) {}
 
     /**
      * Field mapping for user table fields.
@@ -71,9 +83,6 @@ class PartnerService
     /**
      * Create a new partner.
      */
-    /**
-     * Create a new partner.
-     */
     public function store(array $data): array
     {
         DB::beginTransaction();
@@ -85,15 +94,13 @@ class PartnerService
 
             // Create partner
             $partnerData = $this->mapPartnerData($data);
-
             $partner = Partner::create($partnerData);
 
             // Handle partner_image upload
             if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
-                // $upload = $this->uploadFile($partnerData['partner_image'], "partners/{$partner->id}", 'public');
                 $partnerData['partner_image'] = "partners/{$partner->id}/" . ltrim($partnerData['partner_image'], '/');
                 $partner->update(['partner_image' => $partnerData['partner_image']]);
-                Log::info('🖼️ Partner image uploaded', ['path' => $upload['path']]);
+                Log::info('🖼️ Partner image uploaded', ['path' => $partnerData['partner_image']]);
             }
 
             // Update user with partner link
@@ -104,6 +111,84 @@ class PartnerService
 
             // Create default roles for the partner and assign Admin role to user
             $this->createPartnerRoles($partner->id, $user);
+
+            // Check if enrollment data exists
+            $enrollmentType = $data['enrollment_type'] ?? null;
+            $enrollmentAmount = $data['enrollment_amount'] ?? 0;
+
+            // Create subscription if enrollment data exists
+            if ($enrollmentType) {
+                $subscriptionData = [
+                    'partner_type' => $data['partner_type'] ?? null,
+                    'enrollment_type' => $enrollmentType,
+                    'first_reg_amount' => $enrollmentAmount,
+                    'status' => 'Active',
+                ];
+
+                $this->subscriptionService->createOrUpdate($partner->id, $subscriptionData);
+                Log::info('✅ Partner subscription created', ['partner_id' => $partner->id]);
+            }
+
+            // Determine if host is creating this partner
+            $authUser = Auth::user();
+            $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
+
+            // Create invoice and send email if enrollment amount exists
+            if ($enrollmentAmount > 0 && $enrollmentType) {
+                $invoice = $this->invoiceService->create([
+                    'partner_id' => $partner->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $partner->id,
+                    'customer_name' => $partner->full_name,
+                    'email' => $partner->email,
+                    'country' => $partner->country,
+                    'payment_amount' => $enrollmentAmount,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'cycle' => $enrollmentType === 'One-Time Payment' ? Invoice::CYCLE_ONE_TIME : Invoice::CYCLE_MONTHLY,
+                ]);
+
+                Log::info('✅ Partner invoice created', ['invoice_id' => $invoice->id]);
+
+                // Prepare email data
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'payment_link' => config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id,
+                    'amount' => $invoice->payment_amount,
+                    'enrollment_type' => $enrollmentType,
+                    'business_info' => [
+                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'email' => config('mail.from.address'),
+                        'phone_number' => config('app.phone_number', ''),
+                        'address_line_1' => config('app.address', ''),
+                        'company_logo' => 'logo.png',
+                    ],
+                ];
+
+                if ($isHostCreating) {
+                    Log::info('📧 Sending payment link email to partner', ['email' => $user->email]);
+                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
+                } else {
+                    Log::info('📧 Sending payment link email to partner (non-host)', ['email' => $user->email]);
+                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
+                }
+            } elseif ($plainPassword) {
+                // Send account created email without payment link
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'business_info' => [
+                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'email' => config('mail.from.address'),
+                        'phone_number' => config('app.phone_number', ''),
+                        'address_line_1' => config('app.address', ''),
+                        'company_logo' => 'logo.png',
+                    ],
+                ];
+
+                Log::info('📧 Sending account created email to partner', ['email' => $user->email]);
+                Mail::to($user->email)->send(new PartnerAccountCreatedMail($mailData));
+            }
 
             DB::commit();
 
@@ -685,13 +770,13 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
                 DB::raw('(SELECT COALESCE(
-                        (SELECT enrollment_type 
-                         FROM partner_subscriptions 
-                         WHERE partner_id = ? 
-                         ORDER BY id DESC 
-                         LIMIT 1),
-                        "N/A"
-                     )) AS enrollment_type')
+(SELECT enrollment_type
+FROM partner_subscriptions
+WHERE partner_id = ?
+ORDER BY id DESC
+LIMIT 1),
+"N/A"
+)) AS enrollment_type')
             )
             ->setBindings([
                 $authId,

@@ -45,6 +45,8 @@ class StorePartnerRequest extends FormRequest
             'company_logo'                => ['nullable'], // 2MB max
             'partner_image'               => ['nullable'], // 2MB max
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
+            'enrollment_type'             => ['nullable', 'string', 'max:255'],
+            'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
         ];
     }
 
@@ -67,7 +69,7 @@ class StorePartnerRequest extends FormRequest
         ];
     }
 
-     /**
+    /**
      * Handle a failed validation attempt.
      *
      * @param  \Illuminate\Contracts\Validation\Validator  $validator
@@ -80,11 +82,10 @@ class StorePartnerRequest extends FormRequest
     {
         $errors = [];
         foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0]; 
+            $errors[$field] = $messages[0];
         }
         throw new HttpResponseException(
             ApiResponse::validationError($errors, __('auth.validation_failed'))
         );
     }
-
 }
