@@ -38,6 +38,29 @@ class Invoice extends Model
         return $this->belongsTo(\App\Models\Borrower\Borrower::class);
     }
 
+    /**
+     * Scope: apply text search across common invoice fields.
+     */
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('invoice_id', 'like', "%{$search}%")
+                ->orWhere('customer_name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%")
+                ->orWhere('cycle', 'like', "%{$search}%")
+                ->orWhere('payment_amount', 'like', "%{$search}%")
+                ->orWhere('payment_date', 'like', "%{$search}%")
+                ->orWhere('created_at', 'like', "%{$search}%");
+        });
+    }
+
     const STATUS_PAID = 'Paid';
     const STATUS_UNPAID = 'Unpaid';
     const STATUS_DISPUTED = 'Disputed';

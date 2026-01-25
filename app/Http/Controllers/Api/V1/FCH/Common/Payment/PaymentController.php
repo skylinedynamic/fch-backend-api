@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Payment;
 use App\Http\Controllers\Controller;
 use App\Services\FCH\Common\Payment\PaymentService;
 use App\Helpers\ApiResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Api\V1\FCH\Common\Payment\FetchPayment;
 
 class PaymentController extends Controller
 {
@@ -15,9 +15,9 @@ class PaymentController extends Controller
     /**
      * List payments.
      */
-    public function index(Request $request): JsonResponse
+    public function index(FetchPayment $request): JsonResponse
     {
-        return $this->paymentService->list($request->all());
+        return $this->paymentService->list($request->validated());
     }
 
     /**
@@ -25,20 +25,21 @@ class PaymentController extends Controller
      */
     public function show($id): JsonResponse
     {
-        try {
-            $payment = $this->paymentService->show($id);
-            return ApiResponse::success($payment, __('payment.details_retrieved'));
-        } catch (\Exception $e) {
+        $payment = $this->paymentService->find($id);
+
+        if (!$payment) {
             return ApiResponse::notFound(__('payment.not_found'));
         }
+
+        return ApiResponse::success($payment, __('payment.details_retrieved'));
     }
 
     /**
      * Get payment statistics.
      */
-    public function stats(Request $request): JsonResponse
+    public function stats(FetchPayment $request): JsonResponse
     {
-        $stats = $this->paymentService->getStats($request->all());
+        $stats = $this->paymentService->getStats($request->validated());
         return ApiResponse::success($stats, __('payment.stats_retrieved'));
     }
 }

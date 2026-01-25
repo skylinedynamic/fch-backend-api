@@ -16,7 +16,7 @@ class FetchInvoiceRequest extends FormRequest
         return [
             'date_from' => ['nullable', 'date'],
             'date_to'   => ['nullable', 'date'],
-            'status'    => ['nullable', 'string'],
+            'status'    => ['nullable'],
             'cycle'     => ['nullable', 'string'],
             'payee'     => ['nullable', 'string'],
             'search'    => ['nullable', 'string'],

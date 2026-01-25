@@ -47,6 +47,13 @@ class PaymentService
             $query->whereDate('payments.transaction_date', '<=', $filters['date_to']);
         }
 
+        // Accurate Date Range (Following InvoiceService pattern)
+        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
+            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
+                $query->whereBetween('payments.transaction_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+            }
+        }
+
         // Compatibility with payee_id
         if (!empty($filters['payee_id'])) {
             $query->where(function ($q) use ($filters) {
@@ -60,26 +67,10 @@ class PaymentService
             $query->where('payments.status', strtolower($filters['status']));
         }
 
-        // Accurate Global Search (Following Borrowers Pattern)
+        // Accurate Global Search (Following Borrowers/Employees Pattern)
         $search = $filters['search'] ?? ($filters['filters']['global']['value'] ?? null);
         if (!empty($search)) {
-            $search = trim((string) $search);
-            $query->where(function ($q) use ($search) {
-                $q->where('payments.transaction_id', 'like', "%{$search}%")
-                    ->orWhere('payments.payment_from', 'like', "%{$search}%")
-                    ->orWhere('payments.status', 'like', "%{$search}%")
-                    ->orWhere('payments.amount', 'like', "%{$search}%")
-                    ->orWhereHas('partner', function ($pq) use ($search) {
-                        $pq->where('company_name', 'like', "%{$search}%")
-                            ->orWhere('full_name', 'like', "%{$search}%");
-                    })
-                    ->orWhereHas('borrower', function ($bq) use ($search) {
-                        $bq->where('business_name', 'like', "%{$search}%")
-                            ->orWhere('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%")
-                            ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
-                    });
-            });
+            $query->search($search);
         }
 
         // PrimeReact Structured Filters
@@ -167,7 +158,7 @@ class PaymentService
             ]
         );
 
-        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
@@ -199,6 +190,13 @@ class PaymentService
             $query->whereDate('transaction_date', '<=', $filters['date_to']);
         }
 
+        // Accurate Date Range (Consistent with list)
+        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
+            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
+                $query->whereBetween('transaction_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+            }
+        }
+
         $allPayments = $query->get(['amount', 'status']);
 
         return [
@@ -212,9 +210,9 @@ class PaymentService
     /**
      * Get payment details.
      */
-    public function show(int $id)
+    public function find($id)
     {
-        $payment = Payment::with(['partner', 'borrower'])->findOrFail($id);
-        return new PaymentResource($payment);
+        $payment = Payment::with(['partner', 'borrower'])->find($id);
+        return $payment ? new PaymentResource($payment) : null;
     }
 }

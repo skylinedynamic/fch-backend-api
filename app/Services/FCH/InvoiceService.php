@@ -27,26 +27,28 @@ class InvoiceService
         $authUser = Auth::user();
         $query = Invoice::query();
 
-        // RBAC: Filter by partner_id if not a host
+        // RBAC: Partner Wise (Accurate Code following Borrowers/Payments)
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host != 1) {
+            if ($authUser->partner->is_host == 1) {
+                if (!empty($filters['partner_id'])) {
+                    $query->where('partner_id', $filters['partner_id']);
+                }
+            } else {
                 $query->where('partner_id', $authUser->partner_id);
-            } elseif (!empty($filters['partner_id'])) {
-                $query->where('partner_id', $filters['partner_id']);
             }
         }
 
-        // Filter by Date Range (Payment Date)
+        // Accurate Date Range: created_at (Following User Request)
         if (!empty($filters['date_from'])) {
-            $query->whereDate('payment_date', '>=', $filters['date_from']);
+            $query->whereDate('created_at', '>=', $filters['date_from']);
         }
         if (!empty($filters['date_to'])) {
-            $query->whereDate('payment_date', '<=', $filters['date_to']);
+            $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
         if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
             if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
-                $query->whereBetween('payment_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+                $query->whereBetween('created_at', [$filters['date_range'][0], $filters['date_range'][1]]);
             }
         }
 
@@ -65,14 +67,9 @@ class InvoiceService
             $query->where('entity_id', $filters['payee_id']);
         }
 
-        // General Search
+        // Accurate Global Search (Following Model Scope Pattern)
         if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function (Builder $q) use ($search) {
-                $q->where('customer_name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('invoice_id', 'like', "%{$search}%");
-            });
+            $query->search($filters['search']);
         }
 
         // Sorting
@@ -80,7 +77,7 @@ class InvoiceService
         $sortOrder = $filters['sort_order'] ?? 'desc';
         $query->orderBy($sortField, $sortOrder);
 
-        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
@@ -103,20 +100,22 @@ class InvoiceService
         $authUser = Auth::user();
         $query = Invoice::query();
 
-        // RBAC: Filter by partner_id if not a host
+        // RBAC: Partner Wise (Accurate Code)
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host != 1) {
+            if ($authUser->partner->is_host == 1) {
+                if (!empty($filters['partner_id'])) {
+                    $query->where('partner_id', $filters['partner_id']);
+                }
+            } else {
                 $query->where('partner_id', $authUser->partner_id);
-            } elseif (!empty($filters['partner_id'])) {
-                $query->where('partner_id', $filters['partner_id']);
             }
         }
 
         if (!empty($filters['date_from'])) {
-            $query->whereDate('payment_date', '>=', $filters['date_from']);
+            $query->whereDate('created_at', '>=', $filters['date_from']);
         }
         if (!empty($filters['date_to'])) {
-            $query->whereDate('payment_date', '<=', $filters['date_to']);
+            $query->whereDate('created_at', '<=', $filters['date_to']);
         }
         if (!empty($filters['cycle']) && $filters['cycle'] !== Invoice::CYCLE_ALL) {
             $query->where('cycle', $filters['cycle']);

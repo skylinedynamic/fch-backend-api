@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Api\V1\FCH;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class InvoiceResource extends JsonResource
@@ -24,12 +25,12 @@ class InvoiceResource extends JsonResource
             'email' => $this->email,
             'country' => $this->country,
             'payment_amount' => $this->payment_amount,
-            'payment_date' => $this->payment_date,
+            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->format('Y-m-d') : null,
             'status' => $this->status,
             'cycle' => $this->cycle,
             'details' => $this->details,
             // 'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
-            'created_at' => $this->created_at,
+            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->format('Y-m-d') : null,
             // Add any other fields or relations if needed
         ];
     }
