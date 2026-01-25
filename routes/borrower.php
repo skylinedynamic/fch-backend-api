@@ -61,6 +61,7 @@ Route::prefix('v1/borrower')->group(function () {
         Route::group(['prefix' => 'myapplication',], function () {
             Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
             Route::get('/funding-application', [MyApplicationController::class, 'fundingApplication']);
+            Route::post('/funding-application/co-borrower-validation', [MyApplicationController::class, 'coBorrowerValidation']);
         });
 
          Route::prefix('documents')->group(function () {

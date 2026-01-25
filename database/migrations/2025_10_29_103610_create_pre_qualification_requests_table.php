@@ -37,6 +37,7 @@ return new class extends Migration
             $table->decimal('debt_balance', 15, 2)->nullable();
             $table->text('notes')->nullable();
             $table->string('status')->default(PreQualificationRequest::ON_HOLD)->nullable();
+            $table->longText('status_note')->nullable();
             $table->softDeletes();
             $table->timestamps();
 

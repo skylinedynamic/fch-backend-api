@@ -50,4 +50,9 @@ class MyApplicationService
             __('borrower.get_funding_applications')
         );
     }
+
+    public function coBorrowerValidation(array $data)
+    {
+        return \App\Helpers\ApiResponse::success([], __('borrower_validation.validation_success'));
+    }
 }
