@@ -4,13 +4,23 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartnerSubscriptionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StoreUpdatePartnerSubscriptionRequest;
 use App\Http\Resources\FCH\Partner\PartnerSubscriptionResource;
 use App\Services\FCH\Partner\PartnerSubscriptionService;
+use Illuminate\Http\JsonResponse;
 
 class PartnerSubscriptionController extends Controller
 {
     public function __construct(protected PartnerSubscriptionService $subscriptionService) {}
+
+    /**
+     * List partner subscriptions.
+     */
+    public function index(FetchPartnerSubscriptionRequest $request): JsonResponse
+    {
+        return $this->subscriptionService->list($request->validated());
+    }
 
     /**
      * Create And Update Subscription

@@ -47,4 +47,26 @@ class PartnerSubscription extends Model
     {
         return $this->belongsTo(Partner::class);
     }
+
+    /**
+     * Scope: apply text search across common subscription fields.
+     */
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('partner_subscriptions.status', 'like', "%{$search}%")
+                ->orWhere('partner_subscriptions.enrollment_type', 'like', "%{$search}%")
+                ->orWhereHas('partner', function ($pq) use ($search) {
+                    $pq->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+        });
+    }
 }

@@ -31,6 +31,9 @@ class PartnerSubscriptionResource extends JsonResource
             'expiry_date' => $this->expiry_date?->format('Y-m-d'),
             'termination_date' => $this->termination_date?->format('Y-m-d'),
             'status' => $this->status,
+            'partner_name' => $this->partner?->full_name,
+            'company_name' => $this->partner?->company_name,
+            'partner_email' => $this->partner?->email,
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];
