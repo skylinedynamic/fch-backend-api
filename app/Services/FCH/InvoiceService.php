@@ -2,16 +2,20 @@
 
 namespace App\Services\FCH;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use App\Models\Invoice\Invoice;
-use App\Traits\PaginatesApi;
-use App\Http\Resources\Api\V1\FCH\InvoiceResource;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Mail;
+use App\Traits\PaginatesApi;
+use Illuminate\Support\Carbon;
+use App\Models\Invoice\Invoice;
 use App\Mail\Invoice\InvoiceMail;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Database\Eloquent\Builder;
+
+use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\Api\V1\FCH\InvoiceResource;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class InvoiceService
 {
@@ -25,57 +29,124 @@ class InvoiceService
     public function getInvoices(array $filters): JsonResponse
     {
         $authUser = Auth::user();
-        $query = Invoice::query();
+        $query = Invoice::query()
+            ->with([
+                'partner:id,full_name',
+                'borrower:id,first_name,last_name'
+            ])
+            ->select('invoices.*');
 
-        // RBAC: Partner Wise (Accurate Code following Borrowers/Payments)
+        // RBAC: Partner Wise (Accurate Code)
         if ($authUser && $authUser->partner) {
             if ($authUser->partner->is_host == 1) {
                 if (!empty($filters['partner_id'])) {
-                    $query->where('partner_id', $filters['partner_id']);
+                    $query->where('invoices.partner_id', $filters['partner_id']);
                 }
             } else {
-                $query->where('partner_id', $authUser->partner_id);
+                $query->where('invoices.partner_id', $authUser->partner_id);
             }
         }
 
         // Accurate Date Range: created_at (Following User Request)
+        // Accurate Date Range Filtering (Inclusive of Full Day for Timestamps)
         if (!empty($filters['date_from'])) {
-            $query->whereDate('created_at', '>=', $filters['date_from']);
-        }
-        if (!empty($filters['date_to'])) {
-            $query->whereDate('created_at', '<=', $filters['date_to']);
+            $query->where(
+                'invoices.created_at',
+                '>=',
+                Carbon::parse($filters['date_from'])->startOfDay()
+            );
         }
 
-        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
-            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
-                $query->whereBetween('created_at', [$filters['date_range'][0], $filters['date_range'][1]]);
+        if (!empty($filters['date_to'])) {
+            $query->where(
+                'invoices.created_at',
+                '<=',
+                Carbon::parse($filters['date_to'])->endOfDay()
+            );
+        }
+
+        // Efficiently extract global search term
+        $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
+        $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;
+
+
+        if ($search) {
+            $query->search($search);
+        }
+        // PrimeReact Structured Filters
+        $rawFilters = $filters['filters'] ?? [];
+        unset($rawFilters['global']); // Prevent QueryFilter from trying to search a 'global' column
+
+        // Manual Date Handling for structured filters
+        foreach (['date', 'created_at'] as $key) {
+            if (isset($rawFilters[$key])) {
+                $dateFilter = $rawFilters[$key];
+                if (isset($dateFilter['constraints']) && is_array($dateFilter['constraints'])) {
+                    foreach ($dateFilter['constraints'] as $constraint) {
+                        $value = $constraint['value'] ?? null;
+                        $mode = $constraint['matchMode'] ?? 'dateIs';
+                        if ($value) {
+                            if ($mode === 'dateIs') {
+                                $query->whereDate('invoices.created_at', '=', $value);
+                            } elseif ($mode === 'dateBefore') {
+                                $query->whereDate('invoices.created_at', '<', $value);
+                            } elseif ($mode === 'dateAfter') {
+                                $query->whereDate('invoices.created_at', '>', $value);
+                            }
+                        }
+                    }
+                }
+                unset($rawFilters[$key]);
             }
         }
 
-        // Filter by Status
+        // Filter by Status (Compatibility)
         if (!empty($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('status', $filters['status']);
+            $query->where('invoices.status', $filters['status']);
+            unset($rawFilters['status']); // Avoid duplicate filter in QueryFilter
         }
 
-        // Filter by Cycle
-        if (!empty($filters['cycle']) && $filters['cycle'] !== 'All Cycle') {
-            $query->where('cycle', $filters['cycle']);
+        // Filter by Cycle (Compatibility)
+        if (!empty($filters['cycle']) && $filters['cycle'] !== 'All Status' && $filters['cycle'] !== 'All Cycle') {
+            $query->where('invoices.cycle', $filters['cycle']);
+            unset($rawFilters['cycle']);
         }
 
-        // Filter by Payee (Generic entity_id)
+        // Filter by Payee (Compatibility)
         if (!empty($filters['payee_id'])) {
-            $query->where('entity_id', $filters['payee_id']);
-        }
-
-        // Accurate Global Search (Following Model Scope Pattern)
-        if (!empty($filters['search'])) {
-            $query->search($filters['search']);
+            $query->where('invoices.entity_id', $filters['payee_id']);
+            unset($rawFilters['payee_id']);
         }
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
-        $query->orderBy($sortField, $sortOrder);
+
+        $sortFieldMap = [
+            'date' => 'created_at',
+            'payment_date' => 'payment_date',
+            'amount' => 'payment_amount',
+        ];
+
+        $actualSortField = $sortFieldMap[$sortField] ?? $sortField;
+        if (!str_contains($actualSortField, '.')) {
+            $actualSortField = 'invoices.' . $actualSortField;
+        }
+
+        // Apply remaining structured filters via QueryFilter
+        $query = QueryFilter::apply(
+            $query,
+            $actualSortField,
+            $sortOrder,
+            $rawFilters,
+            [
+                'aliases' => [
+                    'amount' => 'payment_amount',
+                    'date' => 'created_at',
+                    'payment_date' => 'payment_date',
+                ]
+            ]
+        );
 
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;

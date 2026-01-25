@@ -46,16 +46,24 @@ class Payment extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('transaction_id', 'like', "%{$search}%")
-                ->orWhere('payment_from', 'like', "%{$search}%")
-                ->orWhere('payment_type', 'like', "%{$search}%")
-                ->orWhere('status', 'like', "%{$search}%")
-                ->orWhere('amount', 'like', "%{$search}%")
-                ->orWhere('transaction_date', 'like', "%{$search}%")
-                ->orWhereHas('partner', function ($pq) use ($search) {
-                    $pq->where('company_name', 'like', "%{$search}%")
-                        ->orWhere('full_name', 'like', "%{$search}%");
-                })
+            $q->where('payments.transaction_id', 'like', "%{$search}%")
+                ->orWhere('payments.payment_from', 'like', "%{$search}%")
+                ->orWhere('payments.payment_type', 'like', "%{$search}%")
+                ->orWhere('payments.amount', 'like', "%{$search}%")
+                ->orWhere('payments.transaction_date', 'like', "%{$search}%");
+
+            // Accurate Status Matching: Prevent "Paid" from matching "Unpaid"
+            $statuses = ['Paid', 'Unpaid', 'Success', 'Failed', 'Pending', 'Succeeded'];
+            if (in_array(ucfirst(strtolower($search)), $statuses)) {
+                $q->orWhere('payments.status', strtolower($search));
+            } else {
+                $q->orWhere('payments.status', 'like', "%{$search}%");
+            }
+
+            $q->orWhereHas('partner', function ($pq) use ($search) {
+                $pq->where('company_name', 'like', "%{$search}%")
+                    ->orWhere('full_name', 'like', "%{$search}%");
+            })
                 ->orWhereHas('borrower', function ($bq) use ($search) {
                     $bq->where('business_name', 'like', "%{$search}%")
                         ->orWhere('first_name', 'like', "%{$search}%")

@@ -40,6 +40,7 @@ class PaymentService
         }
 
         // Accurate Date Range: transaction_date (Consistent with InvoiceService)
+        // Accurate Date Range Filtering (Inclusive of Full Day)
         if (!empty($filters['date_from'])) {
             $query->whereDate('payments.transaction_date', '>=', $filters['date_from']);
         }
@@ -47,10 +48,12 @@ class PaymentService
             $query->whereDate('payments.transaction_date', '<=', $filters['date_to']);
         }
 
-        // Accurate Date Range (Following InvoiceService pattern)
         if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
-            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
-                $query->whereBetween('payments.transaction_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+            if (!empty($filters['date_range'][0])) {
+                $query->whereDate('payments.transaction_date', '>=', $filters['date_range'][0]);
+            }
+            if (!empty($filters['date_range'][1])) {
+                $query->whereDate('payments.transaction_date', '<=', $filters['date_range'][1]);
             }
         }
 
@@ -67,14 +70,17 @@ class PaymentService
             $query->where('payments.status', strtolower($filters['status']));
         }
 
-        // Accurate Global Search (Following Borrowers/Employees Pattern)
-        $search = $filters['search'] ?? ($filters['filters']['global']['value'] ?? null);
-        if (!empty($search)) {
+        // Efficiently extract global search term
+        $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
+        $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;
+
+        if ($search) {
             $query->search($search);
         }
 
         // PrimeReact Structured Filters
         $rawFilters = $filters['filters'] ?? [];
+        unset($rawFilters['global']); // Prevent QueryFilter from trying to search a 'global' column
 
         // Manual Date Handling for structured filters
         if (isset($rawFilters['date'])) {
@@ -115,6 +121,21 @@ class PaymentService
                 }
             }
             unset($rawFilters['company']);
+        }
+
+        // Compatibility with payee_id
+        if (!empty($filters['payee_id'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('payments.partner_id', $filters['payee_id'])
+                    ->orWhere('payments.borrower_id', $filters['payee_id']);
+            });
+            unset($rawFilters['payee_id']);
+        }
+
+        // Status (Compatibility)
+        if (!empty($filters['status']) && !is_array($filters['status']) && $filters['status'] !== 'All Status') {
+            $query->where('payments.status', strtolower($filters['status']));
+            unset($rawFilters['status']);
         }
 
         // Sorting

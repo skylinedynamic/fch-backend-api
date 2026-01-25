@@ -33,9 +33,14 @@ class Invoice extends Model
         'payment_date' => 'date',
     ];
 
-    public function borrower()
+    public function borrower(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\Borrower\Borrower::class);
+        return $this->belongsTo(\App\Models\Borrower\Borrower::class, 'borrower_id');
+    }
+
+    public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
     }
 
     /**
@@ -50,14 +55,41 @@ class Invoice extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('invoice_id', 'like', "%{$search}%")
-                ->orWhere('customer_name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('status', 'like', "%{$search}%")
-                ->orWhere('cycle', 'like', "%{$search}%")
-                ->orWhere('payment_amount', 'like', "%{$search}%")
-                ->orWhere('payment_date', 'like', "%{$search}%")
-                ->orWhere('created_at', 'like', "%{$search}%");
+            $q->where('invoices.invoice_id', 'like', "%{$search}%")
+                ->orWhere('invoices.customer_name', 'like', "%{$search}%")
+                ->orWhere('invoices.email', 'like', "%{$search}%")
+                ->orWhere('invoices.cycle', 'like', "%{$search}%")
+                ->orWhere('invoices.payment_amount', 'like', "%{$search}%")
+                ->orWhere('invoices.payment_date', 'like', "%{$search}%")
+                ->orWhere('invoices.created_at', 'like', "%{$search}%");
+
+            // Accurate Status Matching: Use exact match if search matches a status to avoid "Paid" matching "Unpaid"
+            $statuses = [
+                'Paid',
+                'Unpaid',
+                'Disputed',
+                'Failed',
+                'Pending',
+                'Success',
+                'Canceled',
+                'Overdue'
+            ];
+
+            if (in_array(ucfirst(strtolower($search)), $statuses)) {
+                $q->orWhere('invoices.status', ucfirst(strtolower($search)));
+            } else {
+                $q->orWhere('invoices.status', 'like', "%{$search}%");
+            }
+
+            $q->orWhereHas('partner', function ($pq) use ($search) {
+                $pq->where('company_name', 'like', "%{$search}%")
+                    ->orWhere('full_name', 'like', "%{$search}%");
+            })->orWhereHas('borrower', function ($bq) use ($search) {
+                $bq->where('business_name', 'like', "%{$search}%")
+                    ->orWhere('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+            });
         });
     }
 
