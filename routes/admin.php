@@ -45,7 +45,7 @@ Route::prefix('v1/admin')
         Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
 
         // 💳 Partner Subscriptions
-        Route::post('partners/fetch-subscriptions', [PartnerSubscriptionController::class, 'index']);
+        Route::post('partners/fetch-subscriptions/{partnerId}', [PartnerSubscriptionController::class, 'index']);
         Route::post('partners/subscription', [PartnerSubscriptionController::class, 'store']);
         Route::post('partner-subscriptions/{partnerId}', [PartnerSubscriptionController::class, 'details']);
 

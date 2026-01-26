@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('partner_id')->nullable()->constrained('partners');
             $table->foreignId('borrower_id')->nullable()->constrained('borrowers');
+            $table->foreignId('invoice_id')->nullable();
             $table->string('entity_type')->nullable();
             $table->string('entity_id')->nullable();
             $table->string('transaction_id')->nullable()->index();
@@ -22,6 +23,7 @@ return new class extends Migration
             $table->string('payment_type')->nullable();
             $table->decimal('amount', 23, 2)->nullable();
             $table->string('currency')->nullable();
+            $table->json('details')->nullable();
             $table->string('status')->nullable();
             $table->timestamp('transaction_date')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users');

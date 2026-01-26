@@ -50,6 +50,7 @@ class Payment extends Model
                 ->orWhere('payments.payment_from', 'like', "%{$search}%")
                 ->orWhere('payments.payment_type', 'like', "%{$search}%")
                 ->orWhere('payments.amount', 'like', "%{$search}%")
+                ->orWhere('payments.invoice_id', 'like', "%{$search}%")
                 ->orWhere('payments.transaction_date', 'like', "%{$search}%");
 
             // Accurate Status Matching: Prevent "Paid" from matching "Unpaid"

@@ -14,10 +14,15 @@ class PartnerSubscriptionService
 
     /**
      * List partner subscriptions with pagination and filters.
+     *
+     * @param array $filters
+     * @param int $partnerId
+     * @return PartnerSubscriptionResource
      */
-    public function list(array $filters)
+    public function list(array $filters, int $partnerId)
     {
         $query = PartnerSubscription::query()
+            ->where('partner_id', $partnerId)
             ->with(['partner:id,full_name,company_name,email'])
             ->select('partner_subscriptions.*');
 

@@ -17,9 +17,9 @@ class PartnerSubscriptionController extends Controller
     /**
      * List partner subscriptions.
      */
-    public function index(FetchPartnerSubscriptionRequest $request): JsonResponse
+    public function index(FetchPartnerSubscriptionRequest $request, int $partnerId)
     {
-        return $this->subscriptionService->list($request->validated());
+        return $this->subscriptionService->list($request->validated(), $partnerId);
     }
 
     /**
