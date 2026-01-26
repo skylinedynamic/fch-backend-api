@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 use App\Helpers\ApiResponse;
+use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
-class UpdatePartnerDocumentRequest extends FormRequest
+class UpdatePartnerDocumentRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -42,25 +43,5 @@ class UpdatePartnerDocumentRequest extends FormRequest
         return [
             'file_path.max' => __('partner.validation.document_file.max'),
         ];
-    }
-
-     /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0]; 
-        }
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

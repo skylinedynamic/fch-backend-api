@@ -98,6 +98,16 @@ return [
             'string' => 'Status must be a string.',
             'in' => 'Status must be one of: active, inactive, suspended, or expired.',
         ],
+        'enrollment_type' => [
+            'required' => 'Enrollment type is required.',
+            'string' => 'Enrollment type must be a string.',
+            'max' => 'Enrollment type must not exceed 255 characters.',
+        ],
+        'enrollment_amount' => [
+            'required' => 'Enrollment amount is required.',
+            'numeric' => 'Enrollment amount must be a number.',
+            'min' => 'Enrollment amount must be greater than or equal to 0.',
+        ],
     ],
 
     /*

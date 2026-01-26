@@ -17,6 +17,7 @@ class Payment extends Model
 
     protected $casts = [
         'transaction_date' => 'datetime',
+        'details' => 'array',
     ];
 
     public function partner()

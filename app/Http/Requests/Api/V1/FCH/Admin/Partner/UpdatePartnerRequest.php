@@ -2,15 +2,16 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 use App\Helpers\ApiResponse;
-
 use Illuminate\Validation\Rule;
+use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
+
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 
-class UpdatePartnerRequest extends FormRequest
+class UpdatePartnerRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -25,7 +26,7 @@ class UpdatePartnerRequest extends FormRequest
      */
     public function rules(): array
     {
-       
+
         return [
             'full_name'                   => ['sometimes', 'required', 'string', 'max:255'],
             'company_name'                => ['sometimes', 'required', 'string', 'max:255'],
@@ -75,25 +76,5 @@ class UpdatePartnerRequest extends FormRequest
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
         ];
-    }
-
-    /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0]; 
-        }
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

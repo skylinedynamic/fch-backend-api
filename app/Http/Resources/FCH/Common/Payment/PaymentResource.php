@@ -22,6 +22,7 @@ class PaymentResource extends JsonResource
             'payment_type' => $this->payment_type ?? __('payment.na'),
             'company' => $this->getCompanyName(),
             'details' => $this->getPaymentDetails(),
+            'invoice_id' => $this->invoice_id,
             'transaction_id' => $this->transaction_id,
             'amount' => $this->amount,
             'currency' => $this->currency,

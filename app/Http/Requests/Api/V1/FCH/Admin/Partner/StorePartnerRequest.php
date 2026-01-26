@@ -2,12 +2,13 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 use App\Helpers\ApiResponse;
+use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
-class StorePartnerRequest extends FormRequest
+class StorePartnerRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -45,7 +46,7 @@ class StorePartnerRequest extends FormRequest
             'company_logo'                => ['nullable'], // 2MB max
             'partner_image'               => ['nullable'], // 2MB max
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
-            'enrollment_type'             => ['nullable', 'string', 'max:255'],
+            'enrollment_type'             => ['required', 'string', 'max:255'],
             'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
         ];
     }
@@ -66,26 +67,7 @@ class StorePartnerRequest extends FormRequest
             'city.required' => __('partner.validation.city.required'),
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
+            'enrollment_type.required' => __('partner.validation.enrollment_type.required'),
         ];
-    }
-
-    /**
-     * Handle a failed validation attempt.
-     *
-     * @param  \Illuminate\Contracts\Validation\Validator  $validator
-     * @return void
-     *
-     * @throws \Illuminate\Http\Exceptions\HttpResponseException
-     */
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

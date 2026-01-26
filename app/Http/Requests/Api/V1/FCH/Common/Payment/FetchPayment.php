@@ -26,6 +26,7 @@ class FetchPayment extends FormRequest
             'status'       => ['nullable', 'string'],
             'payee_id'     => ['nullable', 'integer'],
             'partner_id'   => ['nullable', 'integer'],
+            'invoice_id'   => ['nullable'],
             'date_from'    => ['nullable', 'date'],
             'date_to'      => ['nullable', 'date'],
             'date_range'   => ['nullable', 'array'],

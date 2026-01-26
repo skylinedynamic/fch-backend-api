@@ -67,6 +67,7 @@ class GlobalPaymentService
                 $payment = Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                     'borrower_id' => $data['borrower_id'] ?? null,
+                    'invoice_id' => $data['invoice_id'] ?? null,
                     'entity_type' => $data['entity_type'] ?? null,
                     'entity_id' => $data['entity_id'] ?? null,
                     'transaction_id' => $paymentIntent->id,
@@ -74,6 +75,7 @@ class GlobalPaymentService
                     'payment_type' => 'Card',
                     'amount' => $data['amount'] / 100,
                     'currency' => $paymentIntent->currency,
+                    'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                     'transaction_date' => now(),
                     'created_by' => Auth::id(),

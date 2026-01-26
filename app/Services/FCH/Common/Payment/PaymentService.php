@@ -69,6 +69,9 @@ class PaymentService
         if (!empty($filters['status']) && !is_array($filters['status']) && $filters['status'] !== 'All Status') {
             $query->where('payments.status', strtolower($filters['status']));
         }
+        if (!empty($filters['invoice_id'])) {
+            $query->where('payments.invoice_id', $filters['invoice_id']);
+        }
 
         // Efficiently extract global search term
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
