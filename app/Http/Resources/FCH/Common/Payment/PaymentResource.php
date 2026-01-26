@@ -4,6 +4,8 @@ namespace App\Http\Resources\FCH\Common\Payment;
 
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PaymentResource extends JsonResource
@@ -31,8 +33,8 @@ class PaymentResource extends JsonResource
             'partner_id' => $this->partner_id,
             'entity_id' => $this->entity_id,
             'entity_type' => $this->entity_type,
-            'borrower_name' => (str_contains((string)$this->entity_type, 'borrower') && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
-            'partner_name' => (str_contains((string)$this->entity_type, 'partner') && $this->partner) ? ($this->partner->full_name ?? '') : '',
+            'borrower_name' => ($this->entity_type === Borrower::class && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
+            'partner_name' => ($this->entity_type === Partner::class && $this->partner) ? ($this->partner->full_name ?? '') : '',
             'created_at' => $this->created_at,
         ];
     }

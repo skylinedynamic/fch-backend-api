@@ -11,6 +11,12 @@ class PartnerSubscription extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_INACTIVE = 'Inactive';
+    const STATUS_SUSPENDED = 'Suspended';
+    const STATUS_CANCELLED = 'Cancelled';
+    const STATUS_PENDING = 'Pending';
+
     protected $fillable = [
         'partner_id',
         'partner_type',

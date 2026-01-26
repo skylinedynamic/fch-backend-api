@@ -2,30 +2,31 @@
 
 namespace App\Services\FCH\Partner;
 
-use App\Helpers\ApiResponse;
-use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
-use App\Http\Resources\FCH\Partner\PartnerResource;
-use App\Models\Borrower\Borrower;
-use App\Models\Common\Permission;
-use App\Models\Common\Role;
-use App\Models\Employee\Employee;
-use App\Models\Partner\Partner;
 use App\Models\User\User;
-use App\Models\Invoice\Invoice;
-use App\Services\Global\Datatable\QueryFilter;
+use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use App\Models\Common\Permission;
+use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Spatie\Permission\PermissionRegistrar;
 use App\Services\FCH\InvoiceService;
-use App\Services\FCH\Partner\PartnerSubscriptionService;
-use App\Mail\Partner\PartnerPaymentLinkMail;
-use App\Mail\Partner\PartnerAccountCreatedMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Spatie\Permission\PermissionRegistrar;
+use App\Models\Partner\PartnerSubscription;
+use App\Mail\Partner\PartnerPaymentLinkMail;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Mail\Partner\PartnerAccountCreatedMail;
+use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Services\FCH\Partner\PartnerSubscriptionService;
+use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
 
 class PartnerService
 {
@@ -140,7 +141,9 @@ class PartnerService
                     'total_subscription_amount' => $planConfig['one_time_cost'] ?? $enrollmentAmount,
                     'payable_amount' => $enrollmentAmount,
                     'monthly_platform_fee' => $platformFee,
-                    'status' => 'Pending', // Pending until payment is confirmed
+                    'subscription_start_date' => now(),
+                    'subscription_end_date' => now()->addMonths(11),
+                    'status' => PartnerSubscription::STATUS_PENDING, // Pending until payment is confirmed
                 ];
 
                 $this->subscriptionService->createOrUpdate($partner->id, $subscriptionData);
@@ -432,13 +435,13 @@ class PartnerService
             }]);
 
         // Filter based on authenticated user's host status
-        if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
-            // If logged-in user is a host, show only non-host partners
-            $query->where('is_host', '!=', 1);
-        } else {
-            // Otherwise, show only host partners
-            $query->where('is_host', 1);
-        }
+        // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
+        //     // If logged-in user is a host, show only non-host partners
+        //     $query->where('is_host', '!=', 1);
+        // } else {
+        //     // Otherwise, show only host partners
+        //     $query->where('is_host', 1);
+        // }
 
         // 🔍 Filter by partner_id (exact match)
         if (! empty($filters['partner_id'])) {
