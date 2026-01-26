@@ -309,7 +309,7 @@ class BorrowerService
                     if ($isHostCreating) {
                         Log::info('Email send11');
                         if ($amount > 0) {
-                            $mailData['payment_link'] = config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id;
+                            $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
                             $mailData['amount'] = $invoice->payment_amount;
                             Log::info('Email sento accuarte');
                             Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));

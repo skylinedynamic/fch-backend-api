@@ -114,19 +114,36 @@ class PartnerService
 
             // Check if enrollment data exists
             $enrollmentType = $data['enrollment_type'] ?? null;
+
+            // Calculate enrollment amount from config if available
+            $partnerType = $data['partner_type'] ?? null;
+            $planConfig = config("enrollment.partner_plans.{$partnerType}");
+
             $enrollmentAmount = $data['enrollment_amount'] ?? 0;
+
+            if ($planConfig && $enrollmentType) {
+                if ($enrollmentType === 'One-Time Payment') {
+                    $enrollmentAmount = $planConfig['one_time_cost'];
+                } elseif ($enrollmentType === 'Payment Plan' || $enrollmentType === 'Monthly') {
+                    $enrollmentAmount = $planConfig['installment_cost'];
+                }
+            }
 
             // Create subscription if enrollment data exists
             if ($enrollmentType) {
+                // Get platform fee from config
+                $platformFee = $planConfig['platform_fee'] ?? 0;
+
                 $subscriptionData = [
                     'partner_type' => $data['partner_type'] ?? null,
                     'enrollment_type' => $enrollmentType,
                     'first_reg_amount' => $enrollmentAmount,
-                    'status' => 'Active',
+                    'monthly_platform_fee' => $platformFee,
+                    'status' => 'Pending', // Pending until payment is confirmed
                 ];
 
                 $this->subscriptionService->createOrUpdate($partner->id, $subscriptionData);
-                Log::info('✅ Partner subscription created', ['partner_id' => $partner->id]);
+                Log::info('✅ Partner subscription initialized', ['partner_id' => $partner->id]);
             }
 
             // Determine if host is creating this partner
@@ -153,7 +170,7 @@ class PartnerService
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
-                    'payment_link' => config('app.frontend_url') . '/payment?invoice_id=' . $invoice->id,
+                    'payment_link' => config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id,
                     'amount' => $invoice->payment_amount,
                     'enrollment_type' => $enrollmentType,
                     'business_info' => [

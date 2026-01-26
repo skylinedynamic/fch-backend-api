@@ -73,12 +73,12 @@ class PartnerController extends Controller
         $partner = $result['partner'];
 
         // Send email if new user created
-        if (! empty($result['plain_password'])) {
-            $partnerInfo = auth()->user()->partner;
-            if ($partnerInfo) {
-                $this->sendAccountCreatedMail($result['user'], $partnerInfo, $result['plain_password']);
-            }
-        }
+        // if (! empty($result['plain_password'])) {
+        //     $partnerInfo = auth()->user()->partner;
+        //     if ($partnerInfo) {
+        //         $this->sendAccountCreatedMail($result['user'], $partnerInfo, $result['plain_password']);
+        //     }
+        // }
 
         return ApiResponse::success(
             new PartnerResource($partner),

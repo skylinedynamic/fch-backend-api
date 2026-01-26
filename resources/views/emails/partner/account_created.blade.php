@@ -171,7 +171,7 @@
 
             <div style="text-align:center;">
                 <p style="margin-bottom: 20px;">You can now log in to your partner portal and start managing your account.</p>
-                <a href="{{ config('app.frontend_url') }}/login" class="btn">Login to Your Account</a>
+                <a href="{{ config('app.frontend_partner_url') }}/login" class="btn">Login to Your Account</a>
             </div>
         </div>
 

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Eloquent\Builder;
 
 use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\Api\V1\FCH\InvoiceResource;
+use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class InvoiceService

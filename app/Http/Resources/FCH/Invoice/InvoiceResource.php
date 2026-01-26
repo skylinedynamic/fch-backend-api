@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\Api\V1\FCH;
+namespace App\Http\Resources\FCH\Invoice;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;

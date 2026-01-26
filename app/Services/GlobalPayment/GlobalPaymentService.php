@@ -89,6 +89,11 @@ class GlobalPaymentService
                             'status' => Invoice::STATUS_PAID,
                             'payment_date' => now(),
                         ]);
+
+                        // Handle Partner specific logic
+                        if ($invoice->entity_type === \App\Models\Partner\Partner::class) {
+                            $this->handlePartnerPayment($invoice);
+                        }
                     }
                 }
 
@@ -145,5 +150,36 @@ class GlobalPaymentService
             Log::error('❌ Payment Processing Error: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Handle Partner Post-Payment Logic
+     */
+    protected function handlePartnerPayment(Invoice $invoice)
+    {
+        if ($invoice->entity_type !== \App\Models\Partner\Partner::class) {
+            return;
+        }
+
+        $partner = \App\Models\Partner\Partner::find($invoice->entity_id);
+        if (!$partner) return;
+
+        $subscription = \App\Models\Partner\PartnerSubscription::where('partner_id', $partner->id)->first();
+        if (!$subscription) return;
+
+        // Based on business rule: Platform fee starts on the 12th month
+        // Update subscription start date or next billing date
+        $platformFeeStartDate = now()->addMonths(11); // 12th month effectively
+
+        $subscription->update([
+            'status' => 'Active',
+            'start_date' => now(), // Enrollment starts now
+            'next_billing_date' => $platformFeeStartDate, // Fee triggers in 12th month
+        ]);
+
+        Log::info('✅ Partner Subscription Activated', [
+            'partner_id' => $partner->id,
+            'platform_fee_start' => $platformFeeStartDate
+        ]);
     }
 }

@@ -11,4 +11,18 @@ return [
             'amount' => 500,
         ],
     ],
+    'partner_plans' => [
+        'Certified Partner' => [
+            'one_time_cost' => 4997,
+            'installment_cost' => 499.70,
+            'installments_count' => 11,
+            'platform_fee' => 299,
+        ],
+        'Executive Partner' => [
+            'one_time_cost' => 6997,
+            'installment_cost' => 699.70,
+            'installments_count' => 11,
+            'platform_fee' => 399,
+        ],
+    ],
 ];

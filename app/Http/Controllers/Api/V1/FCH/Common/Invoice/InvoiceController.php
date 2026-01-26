@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Invoice;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\V1\FCH\InvoiceResource;
+use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use App\Services\FCH\InvoiceService;
 use App\Http\Requests\Api\V1\FCH\Common\Invoice\FetchInvoiceRequest;
 use Illuminate\Http\Request;
