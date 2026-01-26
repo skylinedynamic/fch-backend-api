@@ -134,7 +134,7 @@ class FundingApplication extends Model
     /**
      * Get the co-borrowers for the funding application.
      */
-    public function coBorrowers()
+    public function coborrowers()
     {
         return $this->hasMany(FundingApplicationCoBorrower::class);
     }

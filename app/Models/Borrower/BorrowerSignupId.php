@@ -8,5 +8,7 @@ class BorrowerSignupId extends Model
 {
     protected $table = 'signup_ids';
 
+    public $timestamps = false;
+
     protected $guarded = [];
 }

@@ -47,7 +47,7 @@ class DocumentController extends Controller
         try {
             return $this->documentService->createBorrowerDocuments($request->validated());
         } catch (\Throwable $e) {
-            return ApiResponse::error(__('borrower.upload_failed'));
+            return ApiResponse::error($e->getMessage());
         }
     } 
 

@@ -82,6 +82,7 @@ class DatabaseSeeder extends Seeder
             ContactSeeder::class,
             LeadSeeder::class,
             SettingsSeeder::class,
+            SignupIdSeeder::class,
         ]);
     }
 }

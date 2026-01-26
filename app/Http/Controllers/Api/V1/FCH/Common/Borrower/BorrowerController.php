@@ -317,12 +317,11 @@ class BorrowerController extends Controller
      */
     public function uploadDocument(UploadBorrowerDocumentRequest $request)
     {
-
         try {
             $documentService = new BorrowerDocumentService();
             return $documentService->createBorrowerDocuments($request->validated());
         } catch (\Throwable $e) {
-            return ApiResponse::error('Upload failed');
+            return ApiResponse::error($e->getMessage());
         }
     }
 

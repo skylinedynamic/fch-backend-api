@@ -239,4 +239,43 @@ class RequestApplicationService
 
         return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
     }
+    /**
+     * Get Pre-Qualification Card Summary
+     */
+    public function getPreQualificationCardSummary()
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $baseQuery = PreQualificationRequest::where('status', '!=', PreQualificationRequest::ON_HOLD)
+            ->whereHas('borrower', function ($q) use($partnerId) {
+                $q->where('partner_id', $partnerId);
+            });
+
+        return ApiResponse::success([
+            'total_applications' => (clone $baseQuery)->count(),
+            'approved' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->count(),
+            'pending' => (clone $baseQuery)->where('status', PreQualificationRequest::PENDING)->count(),
+            'approved_amount' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount'),
+        ]);
+    }
+
+    /**
+     * Get Funding Application Card Summary
+     */
+    public function getFundingApplicationCardSummary()
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $baseQuery = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
+            ->whereHas('borrower', function ($q) use($partnerId) {
+                $q->where('partner_id', $partnerId);
+            });
+
+        return ApiResponse::success([
+            'total_applications' => (clone $baseQuery)->count(),
+            'approved' => (clone $baseQuery)->where('status', FundingApplication::APPROVED)->count(),
+            'pending' => (clone $baseQuery)->where('status', FundingApplication::PENDING)->count(),
+            'approved_amount' => (clone $baseQuery)->where('status', FundingApplication::APPROVED)->sum('requested_amount'),
+        ]);
+    }
 }

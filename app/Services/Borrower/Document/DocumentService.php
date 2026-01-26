@@ -33,13 +33,11 @@ class DocumentService
     {
         $documents = [];
         $user = Auth::user();
-        $borrowerId = $data['borrower_id'];
 
-
-        foreach ($data['file_path'] as $index => $path) {
+        foreach ($data['files'] as $index => $path) {
             try {
                 $docName = $data['document_name'][$index] ?? basename($path);
-                $documents[] = $this->createDocument($borrowerId, $path, $docName, $data);
+                $documents[] = $this->createDocument($user->entity_id, $path, $docName, $data);
             } catch (\Throwable $e) {
                 Log::error(__('borrower_validation.upload_failed'), [
                     'user_id' => $user->id,

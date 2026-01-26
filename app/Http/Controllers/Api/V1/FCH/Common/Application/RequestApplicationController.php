@@ -120,4 +120,23 @@ class RequestApplicationController extends Controller
             return ApiResponse::serverError(__('application.error_updating_status'));
         }
     }
+
+
+    public function getPreQualificationCardSummary()
+    {
+        try {
+            return $this->requestApplicationService->getPreQualificationCardSummary();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_retrieving_pre_qualification'));
+        }
+    }
+
+    public function getFundingApplicationCardSummary()
+    {
+        try {
+            return $this->requestApplicationService->getFundingApplicationCardSummary();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
+        }
+    }
 }
