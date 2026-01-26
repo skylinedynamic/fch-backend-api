@@ -2,6 +2,7 @@
 
 return [
     'validation_failed' => 'Validation failed',
+    'validation_success' => 'Validation successful',
 
     // Signup ID
     'signup_id_required' => 'Signup ID is required',
@@ -280,4 +281,21 @@ return [
 
     // Attestation & Authorization
     'attestation_authorization_accepted' => 'You must check the box to certify.',
+
+    // Co-Borrower
+    'co_borrower_first_name_required' => 'First name is required.',
+    'co_borrower_last_name_required' => 'Last name is required.',
+    'co_borrower_title_role_required' => 'Title/Role is required.',
+    'co_borrower_ownership_required' => 'Ownership is required.',
+    'co_borrower_email_required' => 'Email is required.',
+    'co_borrower_email_email' => 'Email must be a valid email address.',
+    'co_borrower_mobile_phone_required' => 'Mobile phone is required.',
+    'co_borrower_dob_required' => 'Date of birth is required.',
+    'co_borrower_ssn_required' => 'Social Security Number (SSN) is required.',
+    'co_borrower_street_address_required' => 'Street address is required.',
+    'co_borrower_country_required' => 'Country is required.',
+    'co_borrower_state_required' => 'State is required.',
+    'co_borrower_city_required' => 'City is required.',
+    'co_borrower_zip_code_required' => 'Zip code is required.',
+    'co_borrower_validation_success' => 'Co-borrower validation successful.',
 ];

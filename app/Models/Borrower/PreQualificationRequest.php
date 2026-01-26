@@ -39,6 +39,7 @@ class PreQualificationRequest extends Model
         'debt_balance',
         'notes',
         'status',
+        'status_note',
         'assign_to',
     ];
 
@@ -57,6 +58,21 @@ class PreQualificationRequest extends Model
     public const APPROVED = 'Approved';
     public const DECLINED = 'Declined';
     
+    public const ON_HOLD_CLASS = '';
+    public const PENDING_CLASS = 'warning';
+    public const INTAKE_RECEIVED_CLASS = 'info';
+    public const IN_REVIEW_CLASS = 'primary';
+    public const APPROVED_CLASS = 'success';
+    public const DECLINED_CLASS = 'danger';
+
+    public const STATUS_CLASS = [
+        self::ON_HOLD => self::ON_HOLD_CLASS,
+        self::PENDING => self::PENDING_CLASS,
+        self::INTAKE_RECEIVED => self::INTAKE_RECEIVED_CLASS,
+        self::IN_REVIEW => self::IN_REVIEW_CLASS,
+        self::APPROVED => self::APPROVED_CLASS,
+        self::DECLINED => self::DECLINED_CLASS,
+    ];
 
     public const STATUS = [
         self::ON_HOLD => self::ON_HOLD,
@@ -66,6 +82,11 @@ class PreQualificationRequest extends Model
         self::APPROVED => self::APPROVED,
         self::DECLINED => self::DECLINED,
     ];
+
+    public function getStatusClassAttribute(): string
+    {
+        return self::STATUS_CLASS[$this->status] ?? '';
+    }
 
     public function user()
     {

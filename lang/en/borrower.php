@@ -119,7 +119,10 @@ return [
     'document_not_found' => 'Document not found.',
     'document_status_updated' => 'Document status updated successfully.',
     'document_status_update_failed' => 'Failed to update document status.',
-   
+    'documents_fetched_successfully' => 'Documents fetched successfully.',
+    'documents_fetched_failed' => 'Failed to fetch documents.',
+    'funding_application_id_required' => 'Funding application id is required',
+   'documents_fetched_failed' => 'Failed to fetch documents.',
 
     // Miscellaneous
     'user_id_required' => 'User ID is required.',

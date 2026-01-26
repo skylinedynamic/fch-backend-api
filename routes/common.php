@@ -104,9 +104,14 @@ Route::prefix('v1')->group(function () {
             //Request Application
             Route::prefix('request-application')->group(function () {
                 Route::post('pre-qualification', [RequestApplicationController::class, 'getPreQualification']);
+                Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
                 Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
+                Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
+                Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
+                Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
+
             });
 
             // Borrower Documents Checklist routes

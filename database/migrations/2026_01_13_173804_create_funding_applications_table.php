@@ -81,6 +81,7 @@ return new class extends Migration
 
             //others
             $table->string('status')->nullable();
+            $table->string('status_note')->nullable();
 
             // Attestation and authorization
             $table->boolean('attestation_authorization')->default(false);

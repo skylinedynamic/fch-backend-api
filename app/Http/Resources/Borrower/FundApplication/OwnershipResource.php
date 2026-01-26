@@ -29,6 +29,7 @@ class OwnershipResource extends JsonResource
                 'zip_code' => $this->zip_code ?? $this->borrower->postal_code,
                 'ownership' => $this->ownership ?? null,
                 'has_co_borrower' => $this->has_co_borrower ?? null,
+                'co_borrowers' => CoBorrowerResource::collection($this->whenLoaded('coborrowers')),
             ];
         }else{
             return [
@@ -45,6 +46,7 @@ class OwnershipResource extends JsonResource
                 'zip_code' => $this->postal_code,
                 'ownership' => null,
                 'has_co_borrower' => null,
+                'co_borrowers' => [],
             ];
         }
     }

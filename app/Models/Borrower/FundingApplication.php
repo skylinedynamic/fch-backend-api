@@ -13,6 +13,7 @@ class FundingApplication extends Model
     protected $fillable = [
         'borrower_id',
         'status',
+        'status_note',
         'full_name',
         'business_name',
         'business_email',
@@ -98,12 +99,30 @@ class FundingApplication extends Model
     public const APPROVED = 'Approved';
     public const REJECTED = 'Rejected';
 
+    public const ON_HOLD_CLASS = '';
+    public const PENDING_CLASS = 'warning';
+    public const APPROVED_CLASS = 'success';
+    public const REJECTED_CLASS = 'danger';
+
+    public const STATUS_CLASS = [
+        self::ON_HOLD => self::ON_HOLD_CLASS,
+        self::PENDING => self::PENDING_CLASS,
+        self::APPROVED => self::APPROVED_CLASS,
+        self::REJECTED => self::REJECTED_CLASS,
+    ];
+
     public const STATUS = [
         self::ON_HOLD => self::ON_HOLD,
         self::PENDING => self::PENDING,
         self::APPROVED => self::APPROVED,
         self::REJECTED => self::REJECTED,
     ];
+
+    public function getStatusClassAttribute(): string
+    {
+        return self::STATUS_CLASS[$this->status] ?? '';
+    }
+
     /**
      * Get the borrower that owns the funding application.
      */
@@ -115,7 +134,7 @@ class FundingApplication extends Model
     /**
      * Get the co-borrowers for the funding application.
      */
-    public function coBorrowers()
+    public function coborrowers()
     {
         return $this->hasMany(FundingApplicationCoBorrower::class);
     }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Application;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\FCH\Common\Application\FetchRequestApplicationRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Application\UpdatePreQualificationStatusRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Application\UpdateFundingApplicationStatusRequest;
 use App\Services\FCH\Common\Application\RequestApplicationService;
 use Illuminate\Http\JsonResponse;
 
@@ -42,7 +44,7 @@ class RequestApplicationController extends Controller
             return $this->requestApplicationService->getPreQualificationList($filters);
 
         } catch (\Exception $e) {
-            return ApiResponse::serverError($e->getMessage());
+            return ApiResponse::serverError(__('application.error_retrieving_pre_qualification'));
         }
     }
 
@@ -67,7 +69,7 @@ class RequestApplicationController extends Controller
             return $this->requestApplicationService->getFundingApplicationList($filters);
 
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.list_failed') ?? 'Failed to retrieve list');
+            return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
         }
     }
     /**
@@ -78,9 +80,10 @@ class RequestApplicationController extends Controller
         try {
             return $this->requestApplicationService->getPreQualificationById($id);
         } catch (\Exception $e) {
-            return ApiResponse::serverError($e->getMessage());
+            return ApiResponse::serverError(__('application.error_retrieving_pre_qualification'));
         }
     }
+
 
     /**
      * Get Funding Application By ID
@@ -90,7 +93,50 @@ class RequestApplicationController extends Controller
         try {
             return $this->requestApplicationService->getFundingApplicationById($id);
         } catch (\Exception $e) {
-            return ApiResponse::serverError($e->getMessage());
+            return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
+        }
+    }
+
+    /**
+     * Update Pre-Qualification Application Status
+     */
+    public function preQualificationStatusUpdate(UpdatePreQualificationStatusRequest $request): JsonResponse
+    {
+        try {
+            return $this->requestApplicationService->preQualificationStatusUpdate($request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_updating_status'));
+        }
+    }
+
+    /**
+     * Update Funding Application Status
+     */
+    public function fundingApplicationStatusUpdate(UpdateFundingApplicationStatusRequest $request): JsonResponse
+    {
+        try {
+            return $this->requestApplicationService->fundingApplicationStatusUpdate($request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_updating_status'));
+        }
+    }
+
+
+    public function getPreQualificationCardSummary()
+    {
+        try {
+            return $this->requestApplicationService->getPreQualificationCardSummary();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_retrieving_pre_qualification'));
+        }
+    }
+
+    public function getFundingApplicationCardSummary()
+    {
+        try {
+            return $this->requestApplicationService->getFundingApplicationCardSummary();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
         }
     }
 }

@@ -35,6 +35,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'zip_code' => 'required|string|max:20',
             'ownership' => 'required|numeric',
             'has_co_borrower' => 'nullable|boolean',
+            'co_borrowers' => 'nullable|array',
         ];
     }
 

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
+use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -61,6 +62,7 @@ Route::prefix('v1/borrower')->group(function () {
         Route::group(['prefix' => 'myapplication',], function () {
             Route::get('/pre-qualification', [MyApplicationController::class, 'preQualification']);
             Route::get('/funding-application', [MyApplicationController::class, 'fundingApplication']);
+            Route::post('/funding-application/co-borrower-validation', [MyApplicationController::class, 'coBorrowerValidation']);
         });
 
          Route::prefix('documents')->group(function () {
@@ -100,6 +102,9 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::get('/attestation-authorization', [FundingApplicationController::class, 'getAttestationAndAuthorization']);
             Route::post('/attestation-authorization', [FundingApplicationController::class, 'saveAttestationAndAuthorization']);
+
+
+            Route::get('/documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);
         });
         
     });

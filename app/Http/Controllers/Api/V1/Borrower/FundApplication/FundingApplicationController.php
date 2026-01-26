@@ -12,7 +12,7 @@ use App\Http\Resources\Borrower\FundApplication\FinancialResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
 use App\Services\Borrower\FundApplication\FundingApplicationService;
-
+use Illuminate\Http\Request;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
@@ -21,6 +21,9 @@ use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentReque
 use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
 use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\FundingApplicationDocument;
+use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
+use Illuminate\Support\Facades\Auth;
 
 class FundingApplicationController extends Controller   
 {
@@ -107,7 +110,7 @@ class FundingApplicationController extends Controller
                 __('borrower.ownership_info_updated_successfully')
             );
         } catch (\Exception $e) {
-            return ApiResponse::error(__('borrower.ownership_info_update_failed'), 500);
+            return ApiResponse::error($e->getMessage(), 500);
         }
     }
 
@@ -282,4 +285,34 @@ class FundingApplicationController extends Controller
         }
     }
 
+
+    public function getDocuments(Request $request)
+    {
+        try {
+            
+            $fundingApplicationId = $request->query('funding_application_id');
+            $borrowerId = Auth::user()->entity_id;
+
+            if (!$fundingApplicationId) {
+                return ApiResponse::error(__('borrower.funding_application_id_required'), 400);
+            }
+
+            $documents = FundingApplicationDocument::query()
+                ->where('funding_application_id', $fundingApplicationId)
+                ->where('borrower_id', $borrowerId)
+                ->orderByDesc('created_at')
+                ->get()
+                ->groupBy('borrower_doc_type_id');
+
+            // Map the grouped collection using the resource
+            $payload = $documents->map(function ($group) {
+                return FundingApplicationDocumentResource::collection($group);
+            });
+
+            return ApiResponse::success($payload, __('borrower.documents_fetched_successfully'));
+
+        } catch (\Exception $e) {
+            return ApiResponse::error('borrower.documents_fetched_failed', 500);
+        }
+    }
 }
