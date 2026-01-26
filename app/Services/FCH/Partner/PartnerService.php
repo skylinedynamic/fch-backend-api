@@ -137,7 +137,8 @@ class PartnerService
                 $subscriptionData = [
                     'partner_type' => $data['partner_type'] ?? null,
                     'enrollment_type' => $enrollmentType,
-                    'first_reg_amount' => $enrollmentAmount,
+                    'total_subscription_amount' => $planConfig['one_time_cost'] ?? $enrollmentAmount,
+                    'payable_amount' => $enrollmentAmount,
                     'monthly_platform_fee' => $platformFee,
                     'status' => 'Pending', // Pending until payment is confirmed
                 ];

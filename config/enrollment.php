@@ -24,5 +24,11 @@ return [
             'installments_count' => 11,
             'platform_fee' => 399,
         ],
+        'White-Label Partner (WL)' => [
+            'one_time_cost' => 6997,
+            'installment_cost' => 699.70,
+            'installments_count' => 11,
+            'platform_fee' => 399,
+        ],
     ],
 ];

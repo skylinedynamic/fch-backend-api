@@ -220,7 +220,7 @@ class LeadService
         if ($lead->lead_type === 'Borrower') {
             return $this->convertToBorrower($lead, $data);
         } elseif ($lead->lead_type === 'Partner') {
-            return $this->convertToPartner($lead);
+            return $this->convertToPartner($lead, $data);
         }
 
         throw new \InvalidArgumentException('Invalid lead type for conversion: ' . $lead->lead_type);
@@ -292,7 +292,7 @@ class LeadService
     /**
      * Convert Lead to Partner
      */
-    public function convertToPartner(Lead $lead): Partner
+    public function convertToPartner(Lead $lead, array $data = []): Partner
     {
         DB::beginTransaction();
         try {
@@ -312,13 +312,17 @@ class LeadService
                 'contact_person' => $lead->contact_person,
                 'contact_person_email' => $lead->email,
                 'contact_person_phone_number' => $lead->phone_number,
-                'partner_type' => 'Referral Partner',
+                'contact_person_relation' => $lead->contact_person_relation ?? 'Primary',
+                'partner_type' => $data['partner_type'] ?? 'Referral Partner',
+                'enrollment_type' => $data['enrollment_type'] ?? null,
+                'enrollment_amount' => $data['enrollment_amount'] ?? 0,
                 'status' => 'active',
                 'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
                 'postal_code' => $lead->zip_code,
                 'address_line_1' => $lead->business_address,
+                'address_line_2' => $lead->business_address_2 ?? null,
                 'tax_id' => $lead->business_ein,
                 'website' => $lead->domain,
                 'assign_to' => $lead->salesperson_id,
@@ -333,23 +337,6 @@ class LeadService
                 'convert_to' => 'Partner',
                 'status' => 'Lead Completed',
             ]);
-
-            // Send email to lead
-            if ($user && $plainPassword) {
-                $hostPartner = Partner::where('is_host', 1)->first();
-                $mailData = [
-                    'user' => $user,
-                    'plain_password' => $plainPassword,
-                    'business_info' => [
-                        'company_name' => $hostPartner->company_name ?? config('app.name'),
-                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
-                        'email' => $hostPartner->email ?? config('mail.from.address'),
-                        'phone_number' => $hostPartner->phone_number ?? '',
-                        'address_line_1' => $hostPartner->address_line_1 ?? '',
-                    ]
-                ];
-                Mail::to($lead->email)->send(new BorrowerAccountCreatedMail($mailData));
-            }
 
             DB::commit();
             return $partner;

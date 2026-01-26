@@ -13,21 +13,40 @@ return new class extends Migration
     {
         Schema::create('partner_subscriptions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('partner_id')->constrained('partners')->onDelete('cascade');
+
+            // Partner relation
+            $table->foreignId('partner_id')
+                ->constrained('partners')
+                ->onDelete('cascade');
+
+            // Partner & enrollment info
             $table->string('partner_type')->nullable();
             $table->string('enrollment_type')->nullable();
+
+            // Platform & subscription amounts
             $table->decimal('monthly_platform_fee', 10, 2)->nullable();
-            $table->decimal('first_reg_amount', 10, 2)->nullable();
-            $table->date('first_reg_date')->nullable();
-            $table->tinyInteger('installment_type')->nullable()->comment('0 = No, 1 = Yes');
-            $table->decimal('first_reg_payment', 10, 2)->nullable();
-            $table->decimal('first_reg_payment_2', 10, 2)->nullable();
-            $table->decimal('total_paid_amount', 10, 2)->nullable();
+            $table->decimal('total_subscription_amount', 10, 2)->nullable();
+            $table->decimal('payable_amount', 10, 2)->nullable();
+
+            // Payment & fee timeline
+            $table->date('first_payment_date')->nullable();
+            $table->date('platform_fee_start_date')->nullable();
+            $table->date('next_installment_date')->nullable();
+
+            // Installment config
+            $table->tinyInteger('installment_type')
+                ->default(0)
+                ->comment('0 = No installment, 1 = Installment');
+
+            // Subscription lifecycle
             $table->date('subscription_start_date')->nullable();
             $table->date('subscription_end_date')->nullable();
-            $table->date('expiry_date')->nullable();
-            $table->date('termination_date')->nullable();
-            $table->string('status')->default('Active');
+
+            // Status
+            $table->string('status')->default('Active')
+                ->comment('Active, Inactive, Suspended, Cancelled');
+
+            // System columns
             $table->softDeletes();
             $table->timestamps();
         });

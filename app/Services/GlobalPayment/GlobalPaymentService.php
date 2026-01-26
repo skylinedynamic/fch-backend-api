@@ -170,18 +170,26 @@ class GlobalPaymentService
         if (!$subscription) return;
 
         // Based on business rule: Platform fee starts on the 12th month
-        // Update subscription start date or next billing date
-        $platformFeeStartDate = now()->addMonths(11); // 12th month effectively
+        // Update subscription dates
+        $firstPaymentDate = now();
+        $platformFeeStartDate = $firstPaymentDate->copy()->addMonths(11); // 12th month effectively
+        $nextInstallmentDate = null;
+
+        if ($subscription->installment_type == 1) {
+            $nextInstallmentDate = $firstPaymentDate->copy()->addMonth();
+        }
 
         $subscription->update([
             'status' => 'Active',
-            'start_date' => now(), // Enrollment starts now
-            'next_billing_date' => $platformFeeStartDate, // Fee triggers in 12th month
+            'first_payment_date' => $firstPaymentDate,
+            'subscription_start_date' => $firstPaymentDate,
+            'platform_fee_start_date' => $platformFeeStartDate,
+            'next_installment_date' => $nextInstallmentDate,
         ]);
 
         Log::info('✅ Partner Subscription Activated', [
             'partner_id' => $partner->id,
-            'platform_fee_start' => $platformFeeStartDate
+            'platform_fee_start' => $platformFeeStartDate->toDateString()
         ]);
     }
 }
