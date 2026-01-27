@@ -37,6 +37,7 @@ return new class extends Migration
             $table->string('last_name')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('ssn')->nullable();
+            $table->string('phone_number')->nullable();
             $table->string('citizenship_status')->nullable();
             $table->string('street_address')->nullable();
             $table->string('country')->nullable();

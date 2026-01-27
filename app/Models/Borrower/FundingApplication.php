@@ -32,6 +32,7 @@ class FundingApplication extends Model
         'last_name',
         'date_of_birth',
         'ssn',
+        'phone_number',
         'citizenship_status',
         'street_address',
         'country',
@@ -139,6 +140,14 @@ class FundingApplication extends Model
         return $this->hasMany(FundingApplicationCoBorrower::class);
     }
 
+    /**
+     * Get the funding documents for the funding application.
+     */
+    public function fundingDocuments()
+    {
+        return $this->hasMany(FundingApplicationDocument::class);
+    }
+
 
     public function scopeSearch($query, $term)
     {
@@ -162,4 +171,6 @@ class FundingApplication extends Model
               ->orWhere('business_zip_code', 'like', $like);
         });
     }
+
+
 }

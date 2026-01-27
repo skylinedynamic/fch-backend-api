@@ -176,7 +176,7 @@ class RequestApplicationService
     {
         $partnerId = $this->getAuthenticatedPartnerId();
 
-        $application = FundingApplication::with('borrower')
+        $application = FundingApplication::with('borrower','coborrowers','fundingDocuments','fundingDocuments.docType')
            ->whereHas('borrower', function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         })

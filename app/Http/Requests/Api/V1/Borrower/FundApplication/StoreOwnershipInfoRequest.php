@@ -28,6 +28,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'date_of_birth' => 'required|date',
             'ssn' => 'required|string|digits:9',
             'country' => 'nullable|string|max:255',
+            'phone_number' => 'required|string|max:255',
             'citizenship_status' => 'required|string|max:255',
             'street_address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
