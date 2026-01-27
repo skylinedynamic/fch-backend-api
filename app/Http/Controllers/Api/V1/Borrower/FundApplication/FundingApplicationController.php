@@ -20,6 +20,7 @@ use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest
 use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingApplicationDocumentRequest;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
@@ -286,33 +287,48 @@ class FundingApplicationController extends Controller
     }
 
 
-    public function getDocuments(Request $request)
+    public function getDocuments(Request $request, $funding_application_id)
     {
         try {
-            
-            $fundingApplicationId = $request->query('funding_application_id');
             $borrowerId = Auth::user()->entity_id;
 
-            if (!$fundingApplicationId) {
+            if (!$funding_application_id) {
                 return ApiResponse::error(__('borrower.funding_application_id_required'), 400);
             }
 
             $documents = FundingApplicationDocument::query()
-                ->where('funding_application_id', $fundingApplicationId)
+                ->where('funding_application_id', $funding_application_id)
                 ->where('borrower_id', $borrowerId)
                 ->orderByDesc('created_at')
-                ->get()
-                ->groupBy('borrower_doc_type_id');
+                ->get();
 
-            // Map the grouped collection using the resource
-            $payload = $documents->map(function ($group) {
-                return FundingApplicationDocumentResource::collection($group);
-            });
-
-            return ApiResponse::success($payload, __('borrower.documents_fetched_successfully'));
+            return ApiResponse::success(FundingApplicationDocumentResource::collection($documents), __('borrower.documents_fetched_successfully'));
 
         } catch (\Exception $e) {
             return ApiResponse::error('borrower.documents_fetched_failed', 500);
+        }
+    }
+
+    public function uploadDocument(StoreFundingApplicationDocumentRequest $request)
+    {
+        try {
+            return $this->fundingApplicationService->uploadDocument($request->validated());
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage());
+        }
+    }
+
+    public function deleteDocument($id)
+    {
+        try {
+            $this->fundingApplicationService->deleteDocument($id);
+
+            return ApiResponse::success(
+                null,
+                __('borrower.document_deleted_successfully')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower.document_delete_failed'), 500);
         }
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\FundApplication;
 
+use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 
@@ -10,6 +11,7 @@ use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 
 class FundingApplicationService
@@ -88,7 +90,7 @@ class FundingApplicationService
             }
 
             if($fundingApplication){
-                $this->createFundingApplicationDocumentDir($fundingApplication->id);
+                $doc = $this->createFundingApplicationDocumentDir($fundingApplication->id);
             }
 
             return $fundingApplication;
@@ -113,44 +115,166 @@ class FundingApplicationService
             return true;
         }
 
-        $sourceDir = "borrowers/{$borrowerId}";
-        $destinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
+        $documents = BorrowerDocument::where('borrower_id', $borrowerId)->get();
+        $baseDestinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
 
-        if (!Storage::exists($destinationDir)) {
-            Storage::makeDirectory($destinationDir);
+        if (!Storage::disk('public')->exists($baseDestinationDir)) {
+            Storage::disk('public')->makeDirectory($baseDestinationDir);
         }
 
-        $files = Storage::allFiles($sourceDir);
-
-        foreach ($files as $file) {
-            $relativePath = str_replace($sourceDir . '/', '', $file);
-            $destinationPath = $destinationDir . '/' . $relativePath;
-
-            $destinationSubDir = dirname($destinationPath);
-            if (!Storage::exists($destinationSubDir)) {
-                Storage::makeDirectory($destinationSubDir);
+        foreach ($documents as $document) {
+            $rawFilePath = $document->getRawOriginal('file_path');
+            
+            if (!$rawFilePath) {
+                continue;
             }
 
-            Storage::copy($file, $destinationPath);
+            $sourcePath = "borrowers/{$borrowerId}/{$rawFilePath}";
 
-            $originalDocument = BorrowerDocument::where('borrower_id', $borrowerId)
-                ->where('file_path', 'LIKE', '%' . basename($file))
-                ->first();
+            if (Storage::disk('public')->exists($sourcePath)) {
+                // Copy only the file to base folder, no subdirectories
+                $fileName = basename($rawFilePath);
+                $destinationPath = "{$baseDestinationDir}/{$fileName}";
 
-            FundingApplicationDocument::create([
-                'funding_application_id' => $fundingApplicationId,
-                'borrower_id' => $borrowerId,
-                'borrower_doc_type_id' => $originalDocument->document_type_id ?? null,
-                'name' => $originalDocument->file_name ?? basename($file),
-                'path' => $destinationPath,
-                'disk' => 'public',
-                'original_name' => $originalDocument->file_name ?? basename($file),
-                'extension' => pathinfo($file, PATHINFO_EXTENSION),
-                'mime' => Storage::mimeType($file),
-                'size' => Storage::size($file),
-            ]);
+                Storage::disk('public')->copy($sourcePath, $destinationPath);
+
+                FundingApplicationDocument::create([
+                    'funding_application_id' => $fundingApplicationId,
+                    'borrower_id' => $borrowerId,
+                    'borrower_doc_type_id' => $document->document_type_id ?? null,
+                    'name' => $document->file_name ?? basename($rawFilePath),
+                    'path' => $destinationPath,
+                    'disk' => 'public',
+                    'original_name' => $document->file_name ?? basename($rawFilePath),
+                    'extension' => pathinfo($sourcePath, PATHINFO_EXTENSION),
+                    'mime' => Storage::disk('public')->mimeType($sourcePath),
+                    'size' => Storage::disk('public')->size($sourcePath),
+                ]);
+            }
         }
 
         return true;
+    }
+
+    /**
+     * Upload multiple documents for a funding application.
+     *
+     * @param array $data
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function uploadDocument(array $data)
+    {
+        $documents = [];
+        $borrowerId = auth()->user()->entity_id;
+        $fundingApplicationId = $data['funding_application_id'];
+        $destinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
+
+        foreach ($data['files'] as $index => $file) {
+            try {
+                if ($file instanceof \Illuminate\Http\UploadedFile) {
+                    $path = $file->store($destinationDir, 'public');
+                    $name = $file->getClientOriginalName();
+                    $originalName = $file->getClientOriginalName();
+                    $extension = $file->getClientOriginalExtension();
+                    $mime = $file->getMimeType();
+                    $size = $file->getSize();
+                } else {
+                    // It's a string path
+                    $sourcePath = $this->normalizePath($borrowerId, $file);
+
+                    if (!Storage::disk('public')->exists($sourcePath)) {
+                        throw new \Exception("File does not exist: {$sourcePath}");
+                    }
+
+                    $fileName = basename($sourcePath);
+                    $destinationPath = "{$destinationDir}/{$fileName}";
+
+                    // Ensure destination directory exists
+                    if (!Storage::disk('public')->exists($destinationDir)) {
+                        Storage::disk('public')->makeDirectory($destinationDir);
+                    }
+
+                    Storage::disk('public')->copy($sourcePath, $destinationPath);
+
+                    $path = $destinationPath;
+                    $name = $fileName;
+                    $originalName = $fileName;
+                    $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
+                    $mime = Storage::disk('public')->mimeType($sourcePath);
+                    $size = Storage::disk('public')->size($sourcePath);
+                }
+
+                $documents[] = FundingApplicationDocument::create([
+                    'funding_application_id' => $fundingApplicationId,
+                    'borrower_id' => $borrowerId,
+                    'borrower_doc_type_id' => $data['document_type_id'],
+                    'name' => $name,
+                    'path' => $path,
+                    'disk' => 'public',
+                    'original_name' => $originalName,
+                    'extension' => $extension,
+                    'mime' => $mime,
+                    'size' => $size,
+                ]);
+            } catch (\Throwable $e) {
+
+                \Log::error('Funding application document upload failed', [
+                    'user_id' => auth()->id(),
+                    'file' => is_string($file) ? $file : (is_object($file) ? $file->getClientOriginalName() : 'unknown'),
+                    'error' => $e->getMessage(),
+                ]);
+
+                throw new \RuntimeException($e->getMessage());
+            }
+        }
+
+        return ApiResponse::success(
+            \App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource::collection($documents),
+            __('borrower.document_uploaded_successfully'),
+            201
+        );
+    }
+
+    /**
+     * Normalize file path for borrowers
+     */
+    private function normalizePath(int $borrowerId, $file): string
+    {
+        // If it's an UploadedFile object, put it in borrowers/{id}/
+        if ($file instanceof \Illuminate\Http\UploadedFile) {
+            return "borrowers/{$borrowerId}/" . $file->getClientOriginalName();
+        }
+
+        // If it's a string, ensure it starts with borrowers/{id}/
+        $path = ltrim($file, '/');
+        if (!str_starts_with($path, "borrowers/{$borrowerId}/")) {
+            return "borrowers/{$borrowerId}/" . $path;
+        }
+
+        return $path;
+    }
+
+    /**
+     * Delete a funding application document.
+     *
+     * @param int $id
+     * @return bool
+     * @throws \Exception
+     */
+    public function deleteDocument($id)
+    {
+        $borrowerId = auth()->user()->entity_id;
+        
+        $document = FundingApplicationDocument::where('id', $id)
+            ->where('borrower_id', $borrowerId)
+            ->firstOrFail();
+
+        // Delete from storage
+        if (Storage::disk('public')->exists($document->path)) {
+            Storage::disk('public')->delete($document->path);
+        }
+
+        // Delete record
+        return $document->forceDelete();
     }
 }

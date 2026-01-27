@@ -105,6 +105,8 @@ Route::prefix('v1/borrower')->group(function () {
 
 
             Route::get('/documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);
+            Route::post('/documents/upload', [FundingApplicationController::class, 'uploadDocument']);
+            Route::delete('/documents/{id}', [FundingApplicationController::class, 'deleteDocument']);
         });
         
     });
