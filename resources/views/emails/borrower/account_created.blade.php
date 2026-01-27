@@ -31,7 +31,7 @@
         }
 
         .header img {
-            height: 42px;
+            height: 80px;
             margin-bottom: 10px;
         }
 
