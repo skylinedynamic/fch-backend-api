@@ -64,6 +64,7 @@ class BorrowerAccountCreatedMail extends Mailable
                 ],
                 'paymentLink' => $this->mailData['payment_link'] ?? null,
                 'amount' => $this->mailData['amount'] ?? null,
+                'is_update' => $this->mailData['is_update'] ?? false,
             ]
         );
     }

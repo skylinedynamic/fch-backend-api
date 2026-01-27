@@ -356,8 +356,30 @@ class BorrowerService
             $borrower->update($data);
 
             // Update associated User if exists
+            // Update associated User if exists
             if ($borrower->user) {
-                $this->createOrUpdateUser($data, $borrower, $borrower->user);
+                $userResult = $this->createOrUpdateUser($data, $borrower, $borrower->user);
+                $user = $userResult['user'];
+                $plainPassword = $userResult['plain_password'];
+
+                if ($plainPassword) {
+                    $hostPartner = Partner::where('is_host', 1)->first();
+                    $mailData = [
+                        'user' => $user,
+                        'plain_password' => $plainPassword,
+                        'business_info' => [
+                            'company_name' => $hostPartner->company_name ?? config('app.name'),
+                            'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                            'email' => $hostPartner->email ?? config('mail.from.address'),
+                            'phone_number' => $hostPartner->phone_number ?? '',
+                            'address_line_1' => $hostPartner->address_line_1 ?? '',
+                        ],
+                        'subject' => 'Welcome to Four Corner Holdings, LLC - Borrower Account Updated',
+                        'is_update' => true,
+                    ];
+                    Log::info('📧 Sending account update email to borrower with new password', ['email' => $user->email]);
+                    Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                }
             } elseif (!empty($data['email'])) {
                 // Create user if email is provided and user doesn't exist
                 $this->createOrUpdateUser($data, $borrower);
@@ -404,19 +426,39 @@ class BorrowerService
      */
     private function createOrUpdateUser(array $data, Borrower $borrower, ?User $existingUser = null)
     {
-        $userData = [
-            'name' => $data['first_name'] . ' ' . $data['last_name'],
-            'email' => $data['email'],
-            'phone_number' => $data['phone_number'] ?? null,
-            'user_type' => User::BORROWER,
-            'entity_type' => Borrower::class,
-            'entity_id' => $borrower->id,
-            'partner_id' => $borrower->partner_id,
-        ];
+        $userData = [];
+
+        if (isset($data['first_name']) && isset($data['last_name'])) {
+            $userData['name'] = $data['first_name'] . ' ' . $data['last_name'];
+        }
+
+        if (isset($data['email'])) {
+            $userData['email'] = $data['email'];
+        }
+
+        if (isset($data['phone_number'])) {
+            $userData['phone_number'] = $data['phone_number'];
+        }
+
+        if (!$existingUser) {
+            // Defaults for new user
+            $userData['user_type'] = User::BORROWER;
+            $userData['entity_type'] = Borrower::class;
+            $userData['entity_id'] = $borrower->id;
+            $userData['partner_id'] = $borrower->partner_id;
+        }
 
         if ($existingUser) {
+            $plainPassword = null;
+            // Check if email is changing and present in update data
+            if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
+                $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
+                $userData['password'] = bcrypt($plainPassword);
+                Log::info('🔑 Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
+            }
+
             $existingUser->update($userData);
-            return ['user' => $existingUser, 'plain_password' => null];
+            return ['user' => $existingUser, 'plain_password' => $plainPassword];
         }
 
         // Check if user exists by email to avoid duplicates if not linked

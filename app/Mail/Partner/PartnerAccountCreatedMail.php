@@ -19,7 +19,7 @@ class PartnerAccountCreatedMail extends Mailable
     {
         return new Envelope(
             subject: $this->mailData['subject']
-                ?? 'Welcome to Four Corner Holdings, LLC - Partner Account Created',
+                ?? 'Welcome to ' . ($this->mailData['business_info']['company_name'] ?? 'Four Corner Holdings, LLC') . ' - Partner Account Created',
         );
     }
 
@@ -56,6 +56,7 @@ class PartnerAccountCreatedMail extends Mailable
                     'business_logo_url'  => $businessLogoUrl,
                     'business_logo_path' => $businessLogoPath,
                 ],
+                'is_update' => $this->mailData['is_update'] ?? false,
             ]
         );
     }
