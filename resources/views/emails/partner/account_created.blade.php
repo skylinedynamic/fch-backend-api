@@ -30,7 +30,7 @@
         }
 
         .header img {
-            height: 42px;
+            height: 80px;
             margin-bottom: 10px;
         }
 
@@ -145,7 +145,11 @@
             <h2>Hello {{ $user->name }}!</h2>
             <p>
                 Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
+                @if(!empty($is_update))
+                Your partner account has been successfully updated. Below are your new login details:
+                @else
                 Your partner account has been successfully created. Below are your login details:
+                @endif
             </p>
 
             <table class="details-table">

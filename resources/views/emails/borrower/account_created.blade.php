@@ -31,7 +31,7 @@
         }
 
         .header img {
-            height: 42px;
+            height: 120px;
             margin-bottom: 10px;
         }
 
@@ -107,7 +107,7 @@
         }
 
         .footer img {
-            height: 35px;
+            height: 100px;
             margin-bottom: 10px;
             filter: brightness(0) invert(1);
             /* makes logo visible on dark bg */
@@ -150,7 +150,11 @@
             <h2>Hello {{ $user->name }}!</h2>
             <p>
                 Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
+                @if(!empty($is_update))
+                Your borrower account has been successfully updated. Below are your new login details:
+                @else
                 Your borrower account has been successfully created. Below are your login details:
+                @endif
             </p>
 
             <table class="details-table">

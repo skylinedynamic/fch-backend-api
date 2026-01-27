@@ -9,10 +9,11 @@ use App\Models\Invoice\Invoice;
 use App\Mail\Invoice\InvoiceMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Database\Eloquent\Builder;
 
+use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -65,6 +66,7 @@ class InvoiceService
             );
         }
 
+
         // Efficiently extract global search term
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
         $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;
@@ -101,9 +103,18 @@ class InvoiceService
         }
 
         // Filter by Status (Compatibility)
-        if (!empty($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('invoices.status', $filters['status']);
-            unset($rawFilters['status']); // Avoid duplicate filter in QueryFilter
+        // Filter by Status (Compatibility)
+        $statusFilter = $filters['status'] ?? null;
+        if (is_array($statusFilter)) {
+            $statusFilter = $statusFilter['value'] ?? null;
+        }
+
+        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
+            $query->where('invoices.status', $statusFilter);
+        }
+
+        if (isset($rawFilters['status'])) {
+            unset($rawFilters['status']);
         }
 
         // Filter by Cycle (Compatibility)

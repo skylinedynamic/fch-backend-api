@@ -178,7 +178,7 @@ class PartnerService
                     'amount' => $invoice->payment_amount,
                     'enrollment_type' => $enrollmentType,
                     'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
                         'email' => config('mail.from.address'),
                         'phone_number' => config('app.phone_number', ''),
                         'address_line_1' => config('app.address', ''),
@@ -199,12 +199,14 @@ class PartnerService
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
                         'email' => config('mail.from.address'),
                         'phone_number' => config('app.phone_number', ''),
                         'address_line_1' => config('app.address', ''),
                         'company_logo' => 'logo.png',
                     ],
+                    'subject' => 'Welcome to ' . config('app.name', 'Four Corner Holdings, LLC') . ' - Partner Account Created',
+                    'is_update' => false,
                 ];
 
                 Log::info('📧 Sending account created email to partner', ['email' => $user->email]);
@@ -333,7 +335,27 @@ class PartnerService
             $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
 
             if ($user) {
-                $this->createOrUpdateUser($data, $user);
+                $userResult = $this->createOrUpdateUser($data, $user);
+                $updatedUser = $userResult['user'];
+                $plainPassword = $userResult['plain_password'];
+
+                if ($plainPassword) {
+                    $mailData = [
+                        'user' => $updatedUser,
+                        'plain_password' => $plainPassword,
+                        'business_info' => [
+                            'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
+                            'email' => config('mail.from.address'),
+                            'phone_number' => config('app.phone_number', ''),
+                            'address_line_1' => config('app.address', ''),
+                            'company_logo' => 'logo.png',
+                        ],
+                        'subject' => 'Welcome to ' . config('app.name', 'Four Corner Holdings, LLC') . ' - Partner Account Updated',
+                        'is_update' => true,
+                    ];
+                    Log::info('📧 Sending account update email to partner with new password', ['email' => $updatedUser->email]);
+                    Mail::to($updatedUser->email)->send(new PartnerAccountCreatedMail($mailData));
+                }
             }
 
             // Update partner
@@ -380,9 +402,16 @@ class PartnerService
         $plainPassword = null;
 
         if ($existingUser) {
+            $plainPassword = null;
+            if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
+                $plainPassword = bin2hex(random_bytes(4));
+                $userData['password'] = bcrypt($plainPassword);
+                Log::info('🔑 Password reset for Partner user due to email change', ['user_id' => $existingUser->id]);
+            }
+
             $existingUser->update($userData);
 
-            return ['user' => $existingUser, 'plain_password' => null];
+            return ['user' => $existingUser, 'plain_password' => $plainPassword];
         }
 
         // Check if user exists by email
