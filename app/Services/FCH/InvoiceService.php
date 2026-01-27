@@ -103,9 +103,18 @@ class InvoiceService
         }
 
         // Filter by Status (Compatibility)
-        if (!empty($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('invoices.status', $filters['status']);
-            unset($rawFilters['status']); // Avoid duplicate filter in QueryFilter
+        // Filter by Status (Compatibility)
+        $statusFilter = $filters['status'] ?? null;
+        if (is_array($statusFilter)) {
+            $statusFilter = $statusFilter['value'] ?? null;
+        }
+
+        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
+            $query->where('invoices.status', $statusFilter);
+        }
+
+        if (isset($rawFilters['status'])) {
+            unset($rawFilters['status']);
         }
 
         // Filter by Cycle (Compatibility)

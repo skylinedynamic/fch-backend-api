@@ -23,7 +23,7 @@ class FetchPayment extends FormRequest
     {
         return [
             'search'       => ['nullable', 'string'],
-            'status'       => ['nullable', 'string'],
+            'status'       => ['nullable'],
             'payee_id'     => ['nullable', 'integer'],
             'partner_id'   => ['nullable', 'integer'],
             'invoice_id'   => ['nullable'],

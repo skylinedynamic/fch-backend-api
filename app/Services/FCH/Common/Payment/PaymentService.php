@@ -66,8 +66,19 @@ class PaymentService
         }
 
         // Status (Compatibility)
-        if (!empty($filters['status']) && !is_array($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('payments.status', strtolower($filters['status']));
+        // Status (Compatibility)
+        $statusFilter = $filters['status'] ?? null;
+        if (is_array($statusFilter)) {
+            $statusFilter = $statusFilter['value'] ?? null;
+        }
+
+        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
+            $query->where('payments.status', strtolower($statusFilter));
+        }
+
+        // Ensure we don't double filter in QueryFilter
+        if (isset($rawFilters['status'])) {
+            unset($rawFilters['status']);
         }
         if (!empty($filters['invoice_id'])) {
             $query->where('payments.invoice_id', $filters['invoice_id']);
@@ -136,10 +147,7 @@ class PaymentService
         }
 
         // Status (Compatibility)
-        if (!empty($filters['status']) && !is_array($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('payments.status', strtolower($filters['status']));
-            unset($rawFilters['status']);
-        }
+
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'transaction_date';
