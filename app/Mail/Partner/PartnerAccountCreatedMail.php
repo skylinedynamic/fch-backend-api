@@ -19,7 +19,7 @@ class PartnerAccountCreatedMail extends Mailable
     {
         return new Envelope(
             subject: $this->mailData['subject']
-                ?? 'Welcome to Four Corner Holding - Partner Account Created',
+                ?? 'Welcome to Four Corner Holdings, LLC - Partner Account Created',
         );
     }
 

@@ -9,10 +9,11 @@ use App\Models\Invoice\Invoice;
 use App\Mail\Invoice\InvoiceMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Database\Eloquent\Builder;
 
+use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -64,6 +65,7 @@ class InvoiceService
                 Carbon::parse($filters['date_to'])->endOfDay()
             );
         }
+
 
         // Efficiently extract global search term
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);

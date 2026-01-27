@@ -178,7 +178,7 @@ class PartnerService
                     'amount' => $invoice->payment_amount,
                     'enrollment_type' => $enrollmentType,
                     'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
                         'email' => config('mail.from.address'),
                         'phone_number' => config('app.phone_number', ''),
                         'address_line_1' => config('app.address', ''),
@@ -199,7 +199,7 @@ class PartnerService
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holding'),
+                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
                         'email' => config('mail.from.address'),
                         'phone_number' => config('app.phone_number', ''),
                         'address_line_1' => config('app.address', ''),

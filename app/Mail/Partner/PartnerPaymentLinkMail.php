@@ -19,7 +19,7 @@ class PartnerPaymentLinkMail extends Mailable
     {
         return new Envelope(
             subject: $this->mailData['subject']
-                ?? 'Complete Your Partner Enrollment - ' . ($this->mailData['business_info']['company_name'] ?? 'Four Corner Holding'),
+                ?? 'Complete Your Partner Enrollment - ' . ($this->mailData['business_info']['company_name'] ?? 'Four Corner Holdings, LLC'),
         );
     }
 

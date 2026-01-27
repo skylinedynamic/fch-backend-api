@@ -12,7 +12,7 @@
     <p><a href="{{ config('app.frontend_partner_url') }}/invoices/{{ $invoice->id }}">View Invoice</a></p>
     <br>
     <p>Thank you for your business!</p>
-    <p>Best regards,<br>Four Corner Holdings Team</p>
+    <p>Best regards,<br>Four Corner Holdings, LLC Team</p>
 </body>
 
 </html>
