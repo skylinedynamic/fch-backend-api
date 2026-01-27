@@ -31,7 +31,7 @@
         }
 
         .header img {
-            height: 80px;
+            height: 120px;
             margin-bottom: 10px;
         }
 
@@ -107,7 +107,7 @@
         }
 
         .footer img {
-            height: 35px;
+            height: 100px;
             margin-bottom: 10px;
             filter: brightness(0) invert(1);
             /* makes logo visible on dark bg */
