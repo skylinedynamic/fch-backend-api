@@ -67,7 +67,7 @@ class GlobalPaymentService
 
             $invoice = null;
             if (!empty($data['invoice_id'])) {
-                $invoice = Invoice::where('invoice_id', $data['invoice_id'])->first();
+                $invoice = Invoice::where('id', $data['invoice_id'])->first();
             }
 
             $payment = null;
@@ -83,7 +83,7 @@ class GlobalPaymentService
                     'payment_type' => 'Card',
                     'amount' => $data['amount'] / 100,
                     'currency' => $paymentIntent->currency,
-                    // 'details' => $paymentIntent->toArray(),
+                    'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                     'transaction_date' => now(),
                     'created_by' => Auth::id(),
