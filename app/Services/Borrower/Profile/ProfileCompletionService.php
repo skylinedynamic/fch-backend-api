@@ -66,7 +66,7 @@ class ProfileCompletionService
         $fields = [
             'business_name' => $borrower->business_name,
             'business_ein' => $borrower->business_ein,
-            'business_phone' => $borrower->business_phone,
+            // 'business_phone' => $borrower->business_phone,
             'business_address' => $borrower->business_address,
             'entity_type' => $borrower->business_entity_type,
             'industry_type' => $borrower->business_industry_type,

@@ -115,7 +115,7 @@ class DocumentService
     {
         try {
             $doc = BorrowerDocument::query()
-                ->ownedBy(Auth::id())
+                ->ownedBy(auth()->user()->entity_id)
                 ->whereKey($id)
                 ->first();
 
@@ -129,11 +129,13 @@ class DocumentService
             
             return true;
         } catch (\Throwable $e) {
+
             Log::error('Document removal failed', [
                 'user_id' => Auth::id(),
                 'document_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+            
             throw new \RuntimeException(__('borrower.document_delete_failed'));
         }
     }
