@@ -16,7 +16,7 @@ class InvoiceMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public $invoice) {}
+    public function __construct(public $invoice, public $pdfContent = null) {}
 
     /**
      * Get the message envelope.
@@ -45,6 +45,13 @@ class InvoiceMail extends Mailable
      */
     public function attachments(): array
     {
+        if ($this->pdfContent) {
+            return [
+                \Illuminate\Mail\Mailables\Attachment::fromData(fn () => $this->pdfContent, "Invoice-{$this->invoice->invoice_id}.pdf")
+                    ->withMime('application/pdf'),
+            ];
+        }
+
         return [];
     }
 }

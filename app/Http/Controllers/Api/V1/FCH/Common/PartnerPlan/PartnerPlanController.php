@@ -18,9 +18,9 @@ class PartnerPlanController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(FetchPartnerPlanRequest $request)
     {
-        $plans = $this->partnerPlanService->list();
+        $plans = $this->partnerPlanService->list($request->validated());
         
         return ApiResponse::success(
             PartnerPlanResource::collection($plans),

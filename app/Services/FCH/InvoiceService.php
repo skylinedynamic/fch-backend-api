@@ -6,13 +6,15 @@ use Illuminate\Support\Str;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Carbon;
 use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Mail\Invoice\InvoiceMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
@@ -273,9 +275,13 @@ class InvoiceService
         $invoice = $this->find($id);
         if (!$invoice) throw new \Exception("Invoice not found");
 
-        // We use a simple approach for now. Real PDF would use Barryvdh\DomPDF
-        // For accuracy in this environment, we just ensure data is ready.
-        return $invoice;
+        $business_info = $this->getBusinessInfo();
+
+        $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
+            ->setPaper('a4')
+            ->setWarnings(false);
+
+        return $pdf;
     }
 
     /**
@@ -286,7 +292,43 @@ class InvoiceService
         $invoice = $this->find($id);
         if (!$invoice) throw new \Exception("Invoice not found");
 
-        Mail::to($invoice->email)->send(new InvoiceMail($invoice));
+        $business_info = $this->getBusinessInfo();
+
+        $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
+            ->setPaper('a4')
+            ->setWarnings(false);
+        
+        $pdfContent = $pdf->output();
+
+        Mail::to($invoice->email)->send(new InvoiceMail($invoice, $pdfContent));
         return true;
+    }
+
+    /**
+     * Helper to get business info for templates.
+     */
+    private function getBusinessInfo(): array
+    {
+        $business = Partner::where('is_host', 1)->first();
+        
+        $businessLogo = $business->company_logo ?? 'logo.png';
+        if ($businessLogo && str_starts_with($businessLogo, 'http')) {
+            $fileName = basename(parse_url($businessLogo, PHP_URL_PATH));
+            $localPath = public_path($fileName);
+        } else {
+            $localPath = public_path($businessLogo ?? 'logo.png');
+        }
+
+        $businessLogoPath = (file_exists($localPath) && is_file($localPath)) ? $localPath : public_path('logo.png');
+
+        return [
+            'company_name'   => 'Four Corner Holdings, LLC',
+            'email'  => 'support@fourcornerholdings.com',
+            'phone_number'  => '+1 (01) 234 6789',
+            'address_line_1'  => 'California, United States',
+            'postal_code' => '90201',
+            'website' => 'www.fourcornerholdings.com',
+            'business_logo_path' => $businessLogoPath,
+        ];
     }
 }

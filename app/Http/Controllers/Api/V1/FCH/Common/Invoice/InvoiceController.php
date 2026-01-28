@@ -72,9 +72,8 @@ class InvoiceController extends Controller
     public function download($id)
     {
         try {
-            $invoice = $this->invoiceService->downloadInvoice($id);
-            // Return PDF stream/download here
-            return ApiResponse::success($invoice, __('invoice.download_started'));
+            $pdf = $this->invoiceService->downloadInvoice($id);
+            return $pdf->download("Invoice-{$id}.pdf");
         } catch (\Exception $e) {
             return ApiResponse::notFound($e->getMessage());
         }
