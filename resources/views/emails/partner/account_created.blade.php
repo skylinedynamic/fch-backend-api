@@ -25,12 +25,12 @@
         .header {
             background: #1e3a8a;
             color: #ffffff;
-            padding: 28px 25px;
+            padding: 20px 25px;
             text-align: center;
         }
 
         .header img {
-            height: 80px;
+            height: 60px;
             margin-bottom: 10px;
         }
 
@@ -98,14 +98,14 @@
 
         .footer {
             background: #1e3a8a;
-            padding: 25px 20px;
+            padding: 20px 20px;
             text-align: center;
             font-size: 14px;
             color: #ffffff;
         }
 
         .footer img {
-            height: 35px;
+            height: 45px;
             margin-bottom: 10px;
             filter: brightness(0) invert(1);
         }
@@ -142,41 +142,46 @@
         </div>
 
         <div class="content">
-            <h2>Hello {{ $user->name }}!</h2>
+            <h2>Hello {{ $user->name }},</h2>
             <p>
                 Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
-                @if(!empty($is_update))
-                Your partner account has been successfully updated. Below are your new login details:
-                @else
-                Your partner account has been successfully created. Below are your login details:
-                @endif
+            </p>
+            <p>
+                Your partner account has been successfully created, and you now have access to the <strong>{{ $business_info['company_name'] }} Partner Portal</strong>.
             </p>
 
-            <table class="details-table">
-                <tr>
-                    <td>Full Name</td>
-                    <td>{{ $user->name }}</td>
-                </tr>
-                <tr>
-                    <td>Email</td>
-                    <td><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></td>
-                </tr>
-                @if(!empty($user->phone_number))
-                <tr>
-                    <td>Phone</td>
-                    <td>{{ $user->phone_number }}</td>
-                </tr>
-                @endif
-                <tr>
-                    <td>Temporary Password</td>
-                    <td><strong>{{ $plainPassword }}</strong></td>
-                </tr>
-            </table>
+            <h3 style="color: #111827; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">What you can do next:</h3>
+            <ul style="color: #4b5563; font-size: 15px; margin-bottom: 25px; padding-left: 20px;">
+                <li style="margin-bottom: 8px;">Log in to your Partner Dashboard</li>
+                <li style="margin-bottom: 8px;">Add and manage clients</li>
+                <li style="margin-bottom: 8px;">Track client progress through tiers and underwriting</li>
+                <li style="margin-bottom: 8px;">View commission activity (as applicable)</li>
+                <li style="margin-bottom: 0;">Access partner training and resources</li>
+            </ul>
 
-            <div style="text-align:center;">
-                <p style="margin-bottom: 20px;">You can now log in to your partner portal and start managing your account.</p>
-                <a href="{{ config('app.frontend_partner_url') }}/login" class="btn">Login to Your Account</a>
+            <div style="text-align:center; padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 25px;">
+                <p style="margin-top: 0;"><strong>Partner Portal Login:</strong></p>
+                <a href="{{ config('app.frontend_partner_url') }}/login" class="btn" style="margin-top: 5px;">Go to Partner Dashboard</a>
+                
+                <p style="font-size: 13px; color: #6b7280; margin-top: 15px; margin-bottom: 0;">
+                    <strong>Temporary Password:</strong> {{ $plainPassword }}<br>
+                    For security reasons, if this is your first login, you may be prompted to set or confirm your password.
+                </p>
             </div>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; color: #4b5563; font-size: 14px;">
+                <p><strong>Please note:</strong></p>
+                <p>
+                    Partner access is role-based and read-only for underwriting decisions. All underwriting, tier advancement, and funding decisions remain managed by the <strong>{{ $business_info['company_name'] }}</strong> internal team.
+                </p>
+                <p>
+                    If you have any questions or need assistance getting started, our Partner Support team is available through the portal.
+                </p>
+            </div>
+
+            <p style="margin-top: 30px;">
+                We’re excited to have you onboard.
+            </p>
         </div>
 
         <div class="footer">
@@ -188,8 +193,11 @@
                 alt="{{ $business_info['company_name'] }} Logo">
             @endif
             <p>
-                {{ $business_info['company_name'] }} | {{ $business_info['phone_number'] }} |
-                <a href="mailto:{{ $business_info['email'] }}">{{ $business_info['email'] }}</a><br>
+                <strong>{{ $business_info['company_name'] }}</strong><br>
+                Partner Operations Team<br>
+                {{ $business_info['phone_number'] }} | <a href="mailto:{{ $business_info['email'] }}" style="color: #ffffff;">{{ $business_info['email'] }}</a>
+            </p>
+            <p style="font-size: 12px; margin-top: 10px;">
                 {{ $business_info['address_line_1'] }}
             </p>
             <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>

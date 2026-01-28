@@ -25,12 +25,12 @@
         .header {
             background: #1e3a8a;
             color: #ffffff;
-            padding: 28px 25px;
+            padding: 20px 25px;
             text-align: center;
         }
 
         .header img {
-            height: 42px;
+            height: 60px;
             margin-bottom: 10px;
         }
 
@@ -98,14 +98,14 @@
 
         .footer {
             background: #1e3a8a;
-            padding: 25px 20px;
+            padding: 20px 20px;
             text-align: center;
             font-size: 14px;
             color: #ffffff;
         }
 
         .footer img {
-            height: 35px;
+            height: 45px;
             margin-bottom: 10px;
             filter: brightness(0) invert(1);
         }

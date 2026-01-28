@@ -48,13 +48,19 @@ class PaymentSuccessMail extends Mailable
         $businessInfo['business_logo_url'] = asset($businessLogo);
         $businessInfo['business_logo_path'] = file_exists($localPath) ? $localPath : public_path('logo.png');
 
+        $userName = $this->paymentData['user_name'] ?? 'Valued Customer';
+        $firstName = explode(' ', trim($userName))[0];
+
         return new Content(
             view: 'emails.payment.success',
             with: [
                 'amount' => $this->paymentData['amount'],
                 'currency' => $this->paymentData['currency'],
                 'transaction_id' => $this->paymentData['transaction_id'],
+                'description' => $this->paymentData['description'] ?? 'Program Payment',
                 'date' => $this->paymentData['date']->format('F j, Y, g:i a'),
+                'user_name' => $userName,
+                'first_name' => $firstName,
                 'business_info' => $businessInfo,
             ]
         );

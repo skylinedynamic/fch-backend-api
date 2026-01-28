@@ -25,12 +25,12 @@
         .header {
             background: #1e3a8a;
             color: #ffffff;
-            padding: 28px 25px;
+            padding: 20px 25px;
             text-align: center;
         }
 
         .header img {
-            height: 42px;
+            height: 60px;
             margin-bottom: 10px;
         }
 
@@ -81,14 +81,14 @@
 
         .footer {
             background: #1e3a8a;
-            padding: 25px 20px;
+            padding: 20px 20px;
             text-align: center;
             font-size: 14px;
             color: #ffffff;
         }
 
         .footer img {
-            height: 35px;
+            height: 45px;
             margin-bottom: 10px;
             filter: brightness(0) invert(1);
         }
@@ -123,26 +123,31 @@
         </div>
 
         <div class="content">
-            <h2>Payment Successful</h2>
+            <h2>Hello {{ $first_name }},</h2>
             <p>
-                Thank you for your payment to <strong>{{ $business_info['company_name'] }}</strong>.
-                We have successfully received your transaction.
+                This is a confirmation that your payment was successfully processed.
             </p>
 
-            <table class="details-table">
-                <tr>
-                    <td>Transaction ID</td>
-                    <td>{{ $transaction_id }}</td>
-                </tr>
-                <tr>
-                    <td>Date</td>
-                    <td>{{ $date }}</td>
-                </tr>
-                <tr>
-                    <td>Amount</td>
-                    <td><strong>{{ strtoupper($currency) }} {{ number_format($amount, 2) }}</strong></td>
-                </tr>
-            </table>
+            <h3 style="color: #111827; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">Payment Details</h3>
+            <ul style="list-style: none; padding: 0; color: #4b5563; font-size: 15px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; background: #f9fafb;">
+                <li style="margin-bottom: 8px;"><strong>• Amount:</strong> {{ strtoupper($currency) }} {{ number_format($amount, 2) }}</li>
+                <li style="margin-bottom: 8px;"><strong>• Date:</strong> {{ $date }}</li>
+                <li style="margin-bottom: 8px;"><strong>• Transaction ID:</strong> {{ $transaction_id }}</li>
+                <li style="margin-bottom: 0;"><strong>• Description:</strong> {{ $description }}</li>
+            </ul>
+
+            <p style="margin-top: 25px;">
+                Your account has been updated, and no further action is required at this time.
+            </p>
+            <p>
+                If this payment is related to your <strong>{{ $business_info['company_name'] }}</strong> program enrollment or activation, our system will continue progressing your file automatically based on underwriting and tier requirements.
+            </p>
+            <p>
+                If you have any questions or believe this payment was made in error, please contact our support team through your portal.
+            </p>
+            <p style="margin-top: 30px;">
+                Thank you for your business.
+            </p>
         </div>
 
         <div class="footer">
@@ -152,8 +157,11 @@
             <img src="{{ $business_info['business_logo_url'] }}" alt="{{ $business_info['company_name'] }} Logo">
             @endif
             <p>
-                {{ $business_info['company_name'] }} | {{ $business_info['phone_number'] }} |
-                <a href="mailto:{{ $business_info['email'] }}">{{ $business_info['email'] }}</a><br>
+                <strong>{{ $business_info['company_name'] }}</strong><br>
+                Business Credit & Funding Platform<br>
+                {{ $business_info['phone_number'] }} | <a href="mailto:{{ $business_info['email'] }}" style="color: #ffffff;">{{ $business_info['email'] }}</a>
+            </p>
+            <p style="font-size: 12px; margin-top: 10px;">
                 {{ $business_info['address_line_1'] }}
             </p>
             <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>
