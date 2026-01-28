@@ -48,12 +48,12 @@ class PartnerSubscription extends Model
 
     public function partner()
     {
-        return $this->belongsTo(Partner::class);
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     public function partnerPlan()
     {
-        return $this->belongsTo(PartnerPlan::class);
+        return $this->belongsTo(PartnerPlan::class, 'partner_plan_id');
     }
 
     /**
