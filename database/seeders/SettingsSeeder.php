@@ -21,6 +21,7 @@ class SettingsSeeder extends Seeder
                 'status' => true,
                 'stripe_key_production' => null,
                 'stripe_secret_production' => null,
+                'non_host_enrollment_price' => 800,
                 'payment_method' => 'stripe',
                 'configuration' => [
                     'notifications' => true,

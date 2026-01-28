@@ -1,16 +1,6 @@
 <?php
 
 return [
-    'types' => [
-        'on_time_payment' => [
-            'label' => 'OnTime Payment',
-            'amount' => 2900,
-        ],
-        'six_month_payment' => [
-            'label' => '6 Month Payment',
-            'amount' => 500,
-        ],
-    ],
     'partner_plans' => [
         'Certified Partner' => [
             'one_time_cost' => 4997,

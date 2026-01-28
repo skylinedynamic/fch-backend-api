@@ -29,6 +29,7 @@ class StoreSettingRequest extends BaseApiRequest
             'stripe_secret_production' => 'nullable|string',
             'payment_method' => 'nullable|string',
             'configuration' => 'nullable|array',
+            'non_host_enrollment_price' => 'nullable|decimal:2',
         ];
     }
 

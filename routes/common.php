@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
+use App\Http\Controllers\Api\V1\FCH\Common\PartnerPlan\PartnerPlanController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -168,6 +169,10 @@ Route::prefix('v1')->group(function () {
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
             Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
+
+            // Partner Plans
+            Route::get('partner-plans', [PartnerPlanController::class, 'index']);
+            Route::get('partner-plans/{idOrSlug}', [PartnerPlanController::class, 'show']);
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);

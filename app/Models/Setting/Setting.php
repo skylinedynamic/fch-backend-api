@@ -20,11 +20,13 @@ class Setting extends Model
         'stripe_secret_production',
         'payment_method',
         'configuration',
+        'non_host_enrollment_price',
     ];
 
     protected $casts = [
         'configuration' => 'array',
         'partner_id' => 'integer',
+        'non_host_enrollment_price' => 'decimal:2',
     ];
 
     public function partner()

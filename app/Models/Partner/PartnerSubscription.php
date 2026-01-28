@@ -19,6 +19,7 @@ class PartnerSubscription extends Model
 
     protected $fillable = [
         'partner_id',
+        'partner_plan_id',
         'partner_type',
         'enrollment_type',
         'monthly_platform_fee',
@@ -48,6 +49,11 @@ class PartnerSubscription extends Model
     public function partner()
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    public function partnerPlan()
+    {
+        return $this->belongsTo(PartnerPlan::class);
     }
 
     /**

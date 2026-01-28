@@ -10,6 +10,7 @@ use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerPlan;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
@@ -114,22 +115,22 @@ class PartnerService
             // Create default roles for the partner and assign Admin role to user
             $this->createPartnerRoles($partner->id, $user);
 
-            // Check if enrollment data exists
+            // Calculate enrollment amount from database if available
+            $partnerType = $data['partner_type'] ?? null;
             $enrollmentType = $data['enrollment_type'] ?? null;
 
-            // Calculate enrollment amount from config if available
-            $partnerType = $data['partner_type'] ?? null;
-            $planConfig = config("enrollment.partner_plans.{$partnerType}");
+            $plan = PartnerPlan::where('partner_type', $partnerType)
+                ->where('enrollment_type', $enrollmentType)
+                ->first();
 
-            $enrollmentAmount = $data['enrollment_amount'] ?? 0;
-
-            if ($planConfig && $enrollmentType) {
-                if (Str::contains($enrollmentType, 'One-Time')) {
-                    $enrollmentAmount = $planConfig['one_time_cost'];
-                } elseif (Str::contains($enrollmentType, ['Payment Plan', 'Monthly'])) {
-                    $enrollmentAmount = $planConfig['installment_cost'];
-                }
+            // Fallback to slug comparison
+            if (!$plan && $partnerType && $enrollmentType) {
+                $plan = PartnerPlan::where('partner_type_slug', Str::slug($partnerType))
+                    ->where('enrollment_type_slug', Str::slug($enrollmentType))
+                    ->first();
             }
+
+            $enrollmentAmount = (float) ($data['enrollment_amount'] ?? ($plan->payment_amount ?? 0));
 
             // Create subscription if enrollment data exists
             if ($enrollmentType) {
@@ -137,18 +138,19 @@ class PartnerService
                 $platformFee = $planConfig['platform_fee'] ?? 0;
 
                 $subscriptionData = [
-                    'partner_type' => $data['partner_type'] ?? null,
-                    'enrollment_type' => $enrollmentType,
-                    'total_subscription_amount' => $planConfig['one_time_cost'] ?? $enrollmentAmount,
+                    'partner_plan_id' => $plan->id ?? null,
+                    'partner_type' => $plan->partner_type ?? $partnerType,
+                    'enrollment_type' => $plan->enrollment_type ?? $enrollmentType,
+                    'total_subscription_amount' => $plan->total_amount ?? $enrollmentAmount,
                     'payable_amount' => $enrollmentAmount,
-                    'monthly_platform_fee' => $platformFee,
+                    'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'subscription_start_date' => now(),
                     'subscription_end_date' => now()->addMonths(11),
                     'status' => PartnerSubscription::STATUS_PENDING, // Pending until payment is confirmed
                 ];
 
                 $this->subscriptionService->createOrUpdate($partner->id, $subscriptionData);
-                Log::info('✅ Partner subscription initialized', ['partner_id' => $partner->id]);
+                Log::info('✅ Partner subscription initialized', ['partner_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
             }
 
             // Determine if host is creating this partner

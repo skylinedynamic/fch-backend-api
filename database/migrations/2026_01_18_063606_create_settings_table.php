@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('stripe_secret_sandbox')->nullable();
             $table->string('stripe_key_production')->nullable();
             $table->string('stripe_secret_production')->nullable();
+            $table->decimal('non_host_enrollment_price', 10, 2)->default(0.00)->nullable();
             $table->boolean('status')->default(true);
             $table->json('configuration')->nullable();
             $table->softDeletes();
