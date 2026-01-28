@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewCont
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
+use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -107,6 +108,11 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);
             Route::post('/documents/upload', [FundingApplicationController::class, 'uploadDocument']);
             Route::delete('/documents/{id}', [FundingApplicationController::class, 'deleteDocument']);
+        });
+
+        Route::prefix('invoice')->group(function () {
+            Route::post('/', [InvoiceController::class, 'index']);
+            Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
         });
         
     });
