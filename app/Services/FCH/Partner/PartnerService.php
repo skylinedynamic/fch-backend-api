@@ -14,6 +14,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
@@ -123,9 +124,9 @@ class PartnerService
             $enrollmentAmount = $data['enrollment_amount'] ?? 0;
 
             if ($planConfig && $enrollmentType) {
-                if ($enrollmentType === 'One-Time Payment') {
+                if (Str::contains($enrollmentType, 'One-Time')) {
                     $enrollmentAmount = $planConfig['one_time_cost'];
-                } elseif ($enrollmentType === 'Payment Plan' || $enrollmentType === 'Monthly') {
+                } elseif (Str::contains($enrollmentType, ['Payment Plan', 'Monthly'])) {
                     $enrollmentAmount = $planConfig['installment_cost'];
                 }
             }
@@ -165,7 +166,7 @@ class PartnerService
                     'country' => $partner->country,
                     'payment_amount' => $enrollmentAmount,
                     'status' => Invoice::STATUS_UNPAID,
-                    'cycle' => $enrollmentType === 'One-Time Payment' ? Invoice::CYCLE_ONE_TIME : Invoice::CYCLE_MONTHLY,
+                    'cycle' => Str::contains($enrollmentType, 'One-Time') ? Invoice::CYCLE_ONE_TIME : Invoice::CYCLE_MONTHLY,
                 ]);
 
                 Log::info('✅ Partner invoice created', ['invoice_id' => $invoice->id]);

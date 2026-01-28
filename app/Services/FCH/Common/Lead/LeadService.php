@@ -304,34 +304,40 @@ class LeadService
                 throw new \InvalidArgumentException('A partner with this email already exists.');
             }
 
+            // Map Lead data to Partner storage format
             $partnerData = [
                 'full_name' => $lead->contact_person,
                 'company_name' => $lead->legal_business_name ?: $lead->company_name,
                 'email' => $lead->email,
                 'phone_number' => $lead->phone_number,
+                
                 'contact_person' => $lead->contact_person,
                 'contact_person_email' => $lead->email,
                 'contact_person_phone_number' => $lead->phone_number,
                 'contact_person_relation' => $lead->contact_person_relation ?? 'Primary',
+
+                // Conversion Options from payload
                 'partner_type' => $data['partner_type'] ?? 'Referral Partner',
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'enrollment_amount' => $data['enrollment_amount'] ?? 0,
+                
                 'status' => 'active',
+                'joining_date' => now(),
+
+                // Address & Business Info
                 'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
                 'postal_code' => $lead->zip_code,
                 'address_line_1' => $lead->business_address,
-                'address_line_2' => $lead->business_address_2 ?? null,
                 'tax_id' => $lead->business_ein,
                 'website' => $lead->domain,
                 'assign_to' => $lead->salesperson_id,
             ];
 
+            // Trigger robust Partner storage logic
             $result = $this->partnerService->store($partnerData);
             $partner = $result['partner'];
-            $user = $result['user'];
-            $plainPassword = $result['plain_password'];
 
             $lead->update([
                 'convert_to' => 'Partner',
@@ -339,6 +345,11 @@ class LeadService
             ]);
 
             DB::commit();
+            Log::info('✅ Lead successfully converted to Partner', [
+                'lead_id' => $lead->id,
+                'partner_id' => $partner->id
+            ]);
+
             return $partner;
         } catch (Throwable $e) {
             DB::rollBack();

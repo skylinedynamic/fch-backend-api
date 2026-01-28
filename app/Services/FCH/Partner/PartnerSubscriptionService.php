@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Partner;
 
+use Illuminate\Support\Str;
 use App\Models\Partner\PartnerSubscription;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
@@ -89,7 +90,7 @@ class PartnerSubscriptionService
     {
         // Handle installment_type logic
         if (isset($data['enrollment_type'])) {
-            $data['installment_type'] = ($data['enrollment_type'] === 'Payment Plan' || $data['enrollment_type'] === 'Monthly') ? 1 : 0;
+            $data['installment_type'] = (Str::contains($data['enrollment_type'], ['Payment Plan', 'Monthly'])) ? 1 : 0;
         }
 
         return PartnerSubscription::updateOrCreate(
