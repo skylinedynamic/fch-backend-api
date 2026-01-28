@@ -97,6 +97,7 @@ class PartnerService
 
             // Create partner
             $partnerData = $this->mapPartnerData($data);
+            $partnerData['status'] = Partner::STATUS_ONBOARDING;
             $partner = Partner::create($partnerData);
 
             // Handle partner_image upload

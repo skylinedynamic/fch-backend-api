@@ -75,6 +75,11 @@ class Partner extends Model
         'inactive' => 'inactive',
     ];
 
+    const STATUS_ONBOARDING = 'OnBoarding';
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_SUSPENDED = 'Suspended';
+    const STATUS_CLOSED = 'Closed';
+
     /**
      * Users that belong to this partner (via users.partner_id).
      */

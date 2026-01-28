@@ -151,7 +151,13 @@ class GlobalPaymentService
         }
 
         $partner = Partner::find($invoice->entity_id);
+
         if (!$partner) return;
+
+        $partner->update([
+            'status' => Partner::STATUS_ACTIVE,
+            'updated_at' => now(),
+        ]);
 
         $subscription = PartnerSubscription::where('partner_id', $partner->id)->first();
         if (!$subscription) return;
