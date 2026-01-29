@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
+use App\Models\Subscription\Subscription;
+
 class Partner extends Model
 {
     use HasFactory, SoftDeletes;
@@ -88,7 +90,7 @@ class Partner extends Model
         return $this->hasMany(User::class, 'partner_id');
     }
 
-    
+
     /**
      * Assigned user for this partner (via partners.assign_to).
      */
@@ -118,17 +120,17 @@ class Partner extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('company_name', 'LIKE', "%{$search}%")
-              ->orWhere('email', 'LIKE', "%{$search}%")
-              ->orWhere('phone_number', 'LIKE', "%{$search}%")
-              ->orWhere('full_name', 'LIKE', "%{$search}%")
-              ->orWhere('contact_person', 'LIKE', "%{$search}%")
-              ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
-              ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
-              ->orWhere('partner_type', 'LIKE', "%{$search}%")
-              ->orWhereHas('assignedUser', function ($userQ) use ($search) {
-                  $userQ->where('name', 'LIKE', "%{$search}%")
+                ->orWhere('email', 'LIKE', "%{$search}%")
+                ->orWhere('phone_number', 'LIKE', "%{$search}%")
+                ->orWhere('full_name', 'LIKE', "%{$search}%")
+                ->orWhere('contact_person', 'LIKE', "%{$search}%")
+                ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
+                ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
+                ->orWhere('partner_type', 'LIKE', "%{$search}%")
+                ->orWhereHas('assignedUser', function ($userQ) use ($search) {
+                    $userQ->where('name', 'LIKE', "%{$search}%")
                         ->orWhere('email', 'LIKE', "%{$search}%");
-              });
+                });
         });
     }
     /**
@@ -152,7 +154,7 @@ class Partner extends Model
      */
     public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(PartnerSubscription::class, 'partner_id');
+        return $this->hasOne(Subscription::class, 'partner_id');
     }
 
     // /**

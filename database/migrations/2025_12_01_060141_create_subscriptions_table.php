@@ -11,13 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('partner_subscriptions', function (Blueprint $table) {
+        Schema::create('subscriptions', function (Blueprint $table) {
             $table->id();
 
             // Partner relation
+            // Partner & Borrower relation
             $table->foreignId('partner_id')
+                ->nullable()
                 ->constrained('partners')
                 ->onDelete('cascade');
+
+            $table->string('borrower_id')
+                ->nullable();
+            $table->string('partner_plan_id')->nullable();
 
             // Partner & enrollment info
             $table->string('partner_type')->nullable();
@@ -57,6 +63,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('partner_subscriptions');
+        Schema::dropIfExists('subscriptions');
     }
 };

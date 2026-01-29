@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Models\Partner;
+namespace App\Models\Subscription;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\Carbon;
+use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerPlan;
+use App\Models\Borrower\Borrower;
 
-class PartnerSubscription extends Model
+class Subscription extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -17,8 +19,11 @@ class PartnerSubscription extends Model
     const STATUS_CANCELLED = 'Cancelled';
     const STATUS_PENDING = 'Pending';
 
+    protected $table = 'subscriptions';
+
     protected $fillable = [
         'partner_id',
+        'borrower_id',
         'partner_plan_id',
         'partner_type',
         'enrollment_type',
@@ -51,6 +56,11 @@ class PartnerSubscription extends Model
         return $this->belongsTo(Partner::class, 'partner_id');
     }
 
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class, 'borrower_id');
+    }
+
     public function partnerPlan()
     {
         return $this->belongsTo(PartnerPlan::class, 'partner_plan_id');
@@ -68,11 +78,16 @@ class PartnerSubscription extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('partner_subscriptions.status', 'like', "%{$search}%")
-                ->orWhere('partner_subscriptions.enrollment_type', 'like', "%{$search}%")
+            $q->where('status', 'like', "%{$search}%")
+                ->orWhere('enrollment_type', 'like', "%{$search}%")
                 ->orWhereHas('partner', function ($pq) use ($search) {
                     $pq->where('full_name', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhereHas('borrower', function ($bq) use ($search) {
+                    $bq->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
         });

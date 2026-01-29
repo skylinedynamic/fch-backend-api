@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 use App\Mail\Payment\PaymentSuccessMail;
-use App\Models\Partner\PartnerSubscription;
+use App\Models\Subscription\Subscription;
 use App\Mail\Payment\GlobalPaymentNotificationMail;
 
 class GlobalPaymentService
@@ -160,7 +160,7 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        $subscription = PartnerSubscription::where('partner_id', $partner->id)->first();
+        $subscription = Subscription::where('partner_id', $partner->id)->first();
         if (!$subscription) return;
 
         // Based on business rule: Platform fee starts on the 12th month
@@ -176,7 +176,7 @@ class GlobalPaymentService
         }
 
         $subscription->update([
-            'status' => PartnerSubscription::STATUS_ACTIVE,
+            'status' => Subscription::STATUS_ACTIVE,
             'first_payment_date' => $firstPaymentDate,
             'subscription_start_date' => $firstPaymentDate,
             'subscription_end_date' => $subscriptionEndDate,

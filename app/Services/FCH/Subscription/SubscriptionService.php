@@ -1,28 +1,29 @@
 <?php
 
-namespace App\Services\FCH\Partner;
+namespace App\Services\FCH\Subscription;
 
 use Illuminate\Support\Str;
-use App\Models\Partner\PartnerSubscription;
+use App\Models\Subscription\Subscription;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
-use App\Http\Resources\FCH\Partner\PartnerSubscriptionResource;
+use App\Http\Resources\FCH\Subscription\SubscriptionResource;
 use Illuminate\Support\Facades\Log;
 
-class PartnerSubscriptionService
+class SubscriptionService
 {
     use PaginatesApi;
 
     /**
-     * List partner subscriptions with pagination and filters.
+     * List subscriptions with pagination and filters.
      *
      * @param array $filters
-     * @param int $partnerId
-     * @return PartnerSubscriptionResource
+     * @param int|null $partnerId
+     * @param int|null $borrowerId
+     * @return SubscriptionResource
      */
-    public function list(array $filters, int $partnerId)
+    public function list(array $filters, ?int $partnerId = null, ?int $borrowerId = null)
     {
-        $query = $this->prepareSubscriptionQuery($filters, $partnerId);
+        $query = $this->prepareSubscriptionQuery($filters, $partnerId, $borrowerId);
         return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'));
     }
 
@@ -30,25 +31,29 @@ class PartnerSubscriptionService
      * Fetch All Subscriptions (Global).
      *
      * @param array $filters
-     * @return PartnerSubscriptionResource
+     * @return SubscriptionResource
      */
     public function fetchAll(array $filters)
     {
-        $query = $this->prepareSubscriptionQuery($filters, null);
+        $query = $this->prepareSubscriptionQuery($filters, null, null);
         return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'));
     }
 
     /**
      * Prepare the subscription query with filters and sorting.
      */
-    private function prepareSubscriptionQuery(array $filters, ?int $partnerId = null)
+    private function prepareSubscriptionQuery(array $filters, ?int $partnerId = null, ?int $borrowerId = null)
     {
-        $query = PartnerSubscription::where('partner_id', $filters['partner_id'])
-            ->with(['partner:id,full_name,company_name,email'])
-            ->select('partner_subscriptions.*');
+        $query = Subscription::where('partner_id', $filters['partner_id'])
+            ->with(['partner:id,full_name,company_name,email', 'borrower:id,first_name,last_name,email'])
+            ->select('subscriptions.*');
 
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
+        }
+
+        if ($borrowerId) {
+            $query->where('borrower_id', $borrowerId);
         }
 
         // Global Search
@@ -68,7 +73,7 @@ class PartnerSubscriptionService
 
         // Join Partners if sorting or filtering by partner_name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $query->leftJoin('partners', 'partner_subscriptions.partner_id', '=', 'partners.id')
+            $query->leftJoin('partners', 'subscriptions.partner_id', '=', 'partners.id')
                 ->addSelect('partners.full_name as partner_name');
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
@@ -104,7 +109,7 @@ class PartnerSubscriptionService
 
         return $this->respondWithPaginationResource(
             $paginator,
-            PartnerSubscriptionResource::class,
+            SubscriptionResource::class,
             $message
         );
     }
@@ -112,32 +117,36 @@ class PartnerSubscriptionService
     /**
      * Create or Update Subscription
      *
-     * @param int $partnerId
+     * @param array $searchFields
      * @param array $data
-     * @return PartnerSubscription
+     * @return Subscription
      */
-    public function createOrUpdate(int $partnerId, array $data)
+    public function createOrUpdate(array $searchFields, array $data)
     {
         // Handle installment_type logic
         if (isset($data['enrollment_type'])) {
             $data['installment_type'] = (Str::contains($data['enrollment_type'], ['Payment Plan', 'Monthly'])) ? 1 : 0;
         }
 
-        return PartnerSubscription::updateOrCreate(
-            ['partner_id' => $partnerId],
-            $data
-        );
+        return Subscription::updateOrCreate($searchFields, $data);
     }
 
     /**
      * Get Subscription by Partner ID
      *
      * @param int $partnerId
-     * @return PartnerSubscription|null
+     * @return Subscription|null
      */
     public function getByPartnerId(int $partnerId)
     {
-        $subscription = PartnerSubscription::where('partner_id', $partnerId)->orderBy('id', 'desc')->with(['partner'])->first();
-        return $subscription;
+        return Subscription::where('partner_id', $partnerId)->orderBy('id', 'desc')->with(['partner'])->first();
+    }
+
+    /**
+     * Get Subscription by Borrower ID
+     */
+    public function getByBorrowerId(int $borrowerId)
+    {
+        return Subscription::where('borrower_id', $borrowerId)->orderBy('id', 'desc')->with(['borrower'])->first();
     }
 }

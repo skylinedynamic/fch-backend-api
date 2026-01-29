@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerSubscriptionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 
 // ✅ Import Role & Permission Controllers
@@ -44,12 +44,12 @@ Route::prefix('v1/admin')
         Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
         Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
 
-        // 💳 Partner Subscriptions
-        Route::post('partners/fetch-all-subscriptions', [PartnerSubscriptionController::class, 'fetchAll']);
-        Route::post('partners/fetch-subscriptions/{partnerId}', [PartnerSubscriptionController::class, 'index']);
+        // 💳 Subscriptions
+        Route::post('partners/fetch-all-subscriptions', [SubscriptionController::class, 'fetchAll']);
+        Route::post('partners/fetch-subscriptions/{partnerId}', [SubscriptionController::class, 'index']);
 
-        Route::post('partners/subscription', [PartnerSubscriptionController::class, 'store']);
-        Route::post('partner-subscriptions/{partnerId}', [PartnerSubscriptionController::class, 'details']);
+        Route::post('partners/subscription', [SubscriptionController::class, 'store']);
+        Route::post('partner-subscriptions/{partnerId}', [SubscriptionController::class, 'details']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);

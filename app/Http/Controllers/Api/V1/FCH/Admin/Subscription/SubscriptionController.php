@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\FCH\Admin\Subscription;
+
+use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchSubscriptionRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\StoreUpdateSubscriptionRequest;
+use App\Http\Resources\FCH\Subscription\SubscriptionResource;
+use App\Services\FCH\Subscription\SubscriptionService;
+use Illuminate\Http\JsonResponse;
+
+class SubscriptionController extends Controller
+{
+    public function __construct(protected SubscriptionService $subscriptionService) {}
+
+    /**
+     * List subscriptions.
+     */
+    public function index(FetchSubscriptionRequest $request, int $partnerId)
+    {
+        return $this->subscriptionService->list($request->validated(), $partnerId);
+    }
+
+    /**
+     * Fetch All Subscriptions (Global).
+     */
+    public function fetchAll(FetchSubscriptionRequest $request)
+    {
+        return $this->subscriptionService->fetchAll($request->validated());
+    }
+
+    /**
+     * Create And Update Subscription
+     */
+    public function store(StoreUpdateSubscriptionRequest $request)
+
+    {
+        try {
+            $data = $request->validated();
+            $partnerId = $data['partner_id'] ?? null;
+            $borrowerId = $data['borrower_id'] ?? null;
+
+            $searchFields = [];
+            if ($partnerId) $searchFields['partner_id'] = $partnerId;
+            if ($borrowerId) $searchFields['borrower_id'] = $borrowerId;
+
+            if (empty($searchFields)) {
+                return ApiResponse::error('Entity ID required');
+            }
+
+            $subscription = $this->subscriptionService->createOrUpdate($searchFields, $data);
+
+            return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_saved'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('partner.subscription_save_failed'));
+        }
+    }
+
+    /**
+     * Get Subscriptions
+     */
+    public function details(int $partnerId)
+    {
+        try {
+            $subscription = $this->subscriptionService->getByPartnerId($partnerId);
+
+            if (! $subscription) {
+                return ApiResponse::success(null, __('partner.subscription_not_found'));
+            }
+
+            return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_details'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
+        }
+    }
+}

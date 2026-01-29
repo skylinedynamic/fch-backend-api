@@ -22,10 +22,12 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\BorrowerSignupId;
+use App\Models\Subscription\Subscription;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 
@@ -34,7 +36,8 @@ class BorrowerService
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
-        protected InvoiceService $invoiceService
+        protected InvoiceService $invoiceService,
+        protected SubscriptionService $subscriptionService
     ) {}
 
     /**
@@ -288,8 +291,19 @@ class BorrowerService
                             'address_line_1' => $hostPartner->address_line_1 ?? '',
                         ]
                     ];
-                    $amount = $data['payment_amount'] ?? ($data['amount'] ?? 0);
-                    Log::info('Total Amount: ' . $amount);
+
+                    // Calculate enrollment amount/type similar to PartnerService
+                    $partnerType = $data['partner_type'] ?? null;
+                    $enrollmentType = $data['enrollment_type'] ?? null;
+
+                    // Fetch plan if possible (Partnership plans might apply)
+                    $plan = \App\Models\Partner\PartnerPlan::where('partner_type', $partnerType)
+                        ->where('enrollment_type', $enrollmentType)
+                        ->first();
+
+                    $amount = (float) ($data['payment_amount'] ?? ($data['amount'] ?? ($plan->payment_amount ?? 0)));
+                    Log::info('Total Enrollment Amount: ' . $amount);
+
                     $invoice = $this->invoiceService->create([
                         'partner_id' => $borrower->partner_id,
                         'borrower_id' => $borrower->id,
@@ -298,24 +312,47 @@ class BorrowerService
                         'customer_name' => $borrower->full_name,
                         'email' => $borrower->email,
                         'country' => $borrower->country,
-                        'payment_amount' => $amount,
+                        'payment_amount' => $data['payment_amount'],
                         'status' => Invoice::STATUS_UNPAID,
-                        'cycle' => ($data['enrollment_type'] ?? '') === '6 Month Payment' ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
+                        'cycle' => ($enrollmentType === '6 Month Payment') ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
                     ]);
 
+                    // Insert Subscription data (Generic Subscription Table)
+                    $totalAmount = 0;
+                    if ($enrollmentType === '6 Month Payment') {
+                        $totalAmount = $data['payment_amount'] * 6;
+                    } else {
+                        $totalAmount = $data['payment_amount'];
+                    }
+                    $subscriptionData = [
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'partner_plan_id' =>  null,
+                        'partner_type' => null,
+                        'enrollment_type' => $data['enrollment_type'] ?? null,
+                        'monthly_platform_fee' =>  0,
+                        'total_subscription_amount' => $totalAmount,
+                        'payable_amount' => $data['payment_amount'],
+                        'subscription_start_date' => now(),
+                        'subscription_end_date' => null,
+                        'status' => Subscription::STATUS_PENDING, // Pending until payment
+                    ];
+
+                    Subscription::create($subscriptionData);
+
                     if ($isHostCreating) {
-                        Log::info('Email send11');
+                        Log::info('Triggering Onboarding Email');
                         if ($amount > 0) {
                             $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
                             $mailData['amount'] = $invoice->payment_amount;
-                            Log::info('Email sento accuarte');
+                            Log::info('📧 Sending Payment Link Mail to Borrower');
                             Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
                         } else {
-                            Log::info('Email sento non accuarte ');
+                            Log::info('📧 Sending Account Created Mail to Borrower');
                             Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
                         }
                     } else {
-                        Log::info('Email sento non borrower ');
+                        Log::info('📧 Sending Default Account Created Mail');
                         Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
                     }
                 }
@@ -465,7 +502,7 @@ class BorrowerService
             return ['user' => $user, 'plain_password' => null];
         }
 
-        $plainPassword = bin2hex(random_bytes(8));
+        $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
         $userData['password'] = bcrypt($plainPassword);
 
         $newUser = User::create($userData);
