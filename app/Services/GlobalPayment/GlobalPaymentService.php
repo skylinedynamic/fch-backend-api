@@ -133,12 +133,50 @@ class GlobalPaymentService
             return $payment ?? $paymentIntent;
         } catch (ApiErrorException $e) {
             DB::rollBack();
+            $this->recordFailedPayment($data, $e->getMessage(), 'Stripe Api Error');
             Log::error('Stripe Payment Error: ' . $e->getMessage());
             throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
+            $this->recordFailedPayment($data, $e->getMessage(), 'System Error');
             Log::error('Payment Processing Error: ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    /**
+     * Record a failed payment attempt.
+     */
+    private function recordFailedPayment(array $data, string $errorMessage, string $errorType): void
+    {
+        try {
+            $invoice = null;
+            if (!empty($data['invoice_id'])) {
+                $invoice = Invoice::where('id', $data['invoice_id'])->first();
+            }
+
+            Payment::create([
+                'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
+                'borrower_id' => $data['borrower_id'] ?? null,
+                'invoice_id' => $invoice ? $invoice->invoice_id : null,
+                'entity_type' => $data['entity_type'] ?? null,
+                'entity_id' => $data['entity_id'] ?? null,
+                'transaction_id' => 'FAILED_' . uniqid(),
+                'payment_from' => 'Stripe',
+                'payment_type' => 'Card',
+                'amount' => ($data['amount'] ?? 0) / 100,
+                'currency' => $data['currency'] ?? 'usd',
+                'details' => [
+                    'error' => $errorMessage,
+                    'type' => $errorType,
+                    'input_data' => $data
+                ],
+                'status' => 'failed',
+                'transaction_date' => now(),
+                'created_by' => Auth::id(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to record failed payment: ' . $e->getMessage());
         }
     }
 
