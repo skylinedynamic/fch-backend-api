@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Resources\FCH\Partner;
+namespace App\Http\Resources\FCH\Subscription;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class PartnerSubscriptionResource extends JsonResource
+class SubscriptionResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,6 +17,7 @@ class PartnerSubscriptionResource extends JsonResource
         return [
             'id' => $this->id,
             'partner_id' => $this->partner_id,
+            'borrower_id' => $this->borrower_id,
             'partner_type' => $this->partner_type,
             'enrollment_type' => $this->enrollment_type,
             'monthly_platform_fee' => $this->monthly_platform_fee,
@@ -34,6 +35,8 @@ class PartnerSubscriptionResource extends JsonResource
             'partner_name' => $this->partner?->full_name,
             'company_name' => $this->partner?->company_name,
             'partner_email' => $this->partner?->email,
+            'borrower_name' => $this->borrower ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : null,
+            'borrower_email' => $this->borrower?->email,
             'created_at' => $this->created_at?->toDateTimeString(),
             'updated_at' => $this->updated_at?->toDateTimeString(),
         ];

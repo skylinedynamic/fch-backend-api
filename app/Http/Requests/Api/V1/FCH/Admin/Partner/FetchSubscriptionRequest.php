@@ -4,7 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class FetchPartnerSubscriptionRequest extends FormRequest
+class FetchSubscriptionRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,6 +23,7 @@ class FetchPartnerSubscriptionRequest extends FormRequest
     {
         return [
             'partner_id'      => ['nullable', 'integer'],
+            'borrower_id'     => ['nullable', 'integer'],
             'search'          => ['nullable', 'string'],
             'status'          => ['nullable', 'string'],
             'enrollment_type' => ['nullable', 'string'],

@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistCo
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\PartnerPlan\PartnerPlanController;
+use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -112,7 +113,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
-
             });
 
             // Borrower Documents Checklist routes
@@ -146,6 +146,7 @@ Route::prefix('v1')->group(function () {
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
+            Route::get('user-details', [UserDetailController::class, '__invoke']);
 
             // Statistics routes
             Route::post('stats', [StatisticsController::class, 'stats']);

@@ -310,7 +310,7 @@ class LeadService
                 'company_name' => $lead->legal_business_name ?: $lead->company_name,
                 'email' => $lead->email,
                 'phone_number' => $lead->phone_number,
-                
+
                 'contact_person' => $lead->contact_person,
                 'contact_person_email' => $lead->email,
                 'contact_person_phone_number' => $lead->phone_number,
@@ -318,17 +318,18 @@ class LeadService
 
                 // Conversion Options from payload
                 'partner_type' => $data['partner_type'] ?? 'Referral Partner',
-                'enrollment_type' => $data['enrollment_type'] ?? null,
-                'enrollment_amount' => $data['enrollment_amount'] ?? 0,
-                
-                'status' => 'active',
+                'enrollment_type' => $data['enrollment_type'] ?? 'Monthly Platform Fee', // Default or from data
+                'enrollment_amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? 0),
+
+                'status' => Partner::STATUS_ONBOARDING,
                 'joining_date' => now(),
 
                 // Address & Business Info
                 'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
-                'postal_code' => $lead->zip_code,
+                'postal_code' => $lead->zip_code, // Store expects postal_code or aliased
+                'zip_code' => $lead->zip_code,    // Backward compatibility with Request
                 'address_line_1' => $lead->business_address,
                 'tax_id' => $lead->business_ein,
                 'website' => $lead->domain,

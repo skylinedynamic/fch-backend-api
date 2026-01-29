@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use Carbon\Carbon;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
+use App\Models\Borrower\Borrower;
 
 class InvoiceSeeder extends Seeder
 {
@@ -21,9 +22,15 @@ class InvoiceSeeder extends Seeder
             return;
         }
 
+        // Get all borrowers for linking to invoices
+        $borrowers = Borrower::all();
+
         foreach ($partners as $partner) {
             // Create 5-15 invoices for each partner
             $count = rand(5, 15);
+
+            // Get borrowers for this specific partner
+            $partnerBorrowers = $borrowers->where('partner_id', $partner->id);
 
             for ($i = 0; $i < $count; $i++) {
                 $today = now()->format('Ymd');
@@ -53,12 +60,23 @@ class InvoiceSeeder extends Seeder
                     $totalAmount += $amount;
                 }
 
+                // Randomly assign a borrower (50% chance if borrowers exist for this partner)
+                $borrower = null;
+                $customerName = 'Customer ' . Str::random(5);
+                $customerEmail = 'customer' . Str::random(3) . '@example.com';
+
+                if ($partnerBorrowers->isNotEmpty() && rand(0, 1) === 1) {
+                    $borrower = $partnerBorrowers->random();
+                    $customerName = trim($borrower->first_name . ' ' . $borrower->last_name);
+                    $customerEmail = $borrower->email ?? $customerEmail;
+                }
+
                 Invoice::create([
                     'invoice_id' => "INV-{$today}{$sequence}",
                     'partner_id' => $partner->id,
-                    'borrower_id' => null,
-                    'customer_name' => 'Customer ' . Str::random(5),
-                    'email' => 'customer' . Str::random(3) . '@example.com',
+                    'borrower_id' => $borrower?->id,
+                    'customer_name' => $customerName,
+                    'email' => $customerEmail,
                     'country' => 'USA',
                     'payment_amount' => $totalAmount,
                     'payment_date' => Carbon::now()->subDays(rand(0, 60)),
@@ -67,7 +85,7 @@ class InvoiceSeeder extends Seeder
                     'details' => [
                         'items' => $items,
                         'billing_address' => [
-                            'name' => 'John Doe',
+                            'name' => $customerName,
                             'street' => '123 Main St',
                             'city' => 'San Francisco',
                             'state' => 'CA',

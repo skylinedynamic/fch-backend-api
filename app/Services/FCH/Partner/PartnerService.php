@@ -22,12 +22,12 @@ use App\Services\FCH\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
-use App\Models\Partner\PartnerSubscription;
+use App\Models\Subscription\Subscription;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountCreatedMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
-use App\Services\FCH\Partner\PartnerSubscriptionService;
+use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
 
 class PartnerService
@@ -36,7 +36,7 @@ class PartnerService
 
     public function __construct(
         protected InvoiceService $invoiceService,
-        protected PartnerSubscriptionService $subscriptionService
+        protected SubscriptionService $subscriptionService
     ) {}
 
     /**
@@ -147,10 +147,10 @@ class PartnerService
                     'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'subscription_start_date' => now(),
                     'subscription_end_date' => now()->addMonths(11),
-                    'status' => PartnerSubscription::STATUS_PENDING, // Pending until payment is confirmed
+                    'status' => Subscription::STATUS_PENDING, // Pending until payment is confirmed
                 ];
 
-                $this->subscriptionService->createOrUpdate($partner->id, $subscriptionData);
+                $this->subscriptionService->createOrUpdate(['partner_id' => $partner->id], $subscriptionData);
                 Log::info('✅ Partner subscription initialized', ['partner_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
             }
 
@@ -824,13 +824,13 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
                 DB::raw('(SELECT COALESCE(
-(SELECT enrollment_type
-FROM partner_subscriptions
-WHERE partner_id = ?
-ORDER BY id DESC
-LIMIT 1),
-"N/A"
-)) AS enrollment_type')
+                    (SELECT enrollment_type
+                    FROM partner_subscriptions
+                    WHERE partner_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1),
+                    "N/A"
+                    )) AS enrollment_type')
             )
             ->setBindings([
                 $authId,
