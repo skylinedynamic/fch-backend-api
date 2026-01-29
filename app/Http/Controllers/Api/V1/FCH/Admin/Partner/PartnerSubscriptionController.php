@@ -23,6 +23,14 @@ class PartnerSubscriptionController extends Controller
     }
 
     /**
+     * Fetch All Subscriptions (Global).
+     */
+    public function fetchAll(FetchPartnerSubscriptionRequest $request)
+    {
+        return $this->subscriptionService->fetchAll($request->validated());
+    }
+
+    /**
      * Create And Update Subscription
      */
     public function store(StoreUpdatePartnerSubscriptionRequest $request)

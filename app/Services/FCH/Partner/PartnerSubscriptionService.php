@@ -22,10 +22,34 @@ class PartnerSubscriptionService
      */
     public function list(array $filters, int $partnerId)
     {
-        $query = PartnerSubscription::query()
-            ->where('partner_id', $partnerId)
+        $query = $this->prepareSubscriptionQuery($filters, $partnerId);
+        return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'));
+    }
+
+    /**
+     * Fetch All Subscriptions (Global).
+     *
+     * @param array $filters
+     * @return PartnerSubscriptionResource
+     */
+    public function fetchAll(array $filters)
+    {
+        $query = $this->prepareSubscriptionQuery($filters, null);
+        return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'));
+    }
+
+    /**
+     * Prepare the subscription query with filters and sorting.
+     */
+    private function prepareSubscriptionQuery(array $filters, ?int $partnerId = null)
+    {
+        $query = PartnerSubscription::where('partner_id', $filters['partner_id'])
             ->with(['partner:id,full_name,company_name,email'])
             ->select('partner_subscriptions.*');
+
+        if ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        }
 
         // Global Search
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
@@ -52,7 +76,7 @@ class PartnerSubscriptionService
             }
         }
 
-        $query = QueryFilter::apply(
+        return QueryFilter::apply(
             $query,
             $sortField,
             $sortOrder,
@@ -66,7 +90,13 @@ class PartnerSubscriptionService
                 ]
             ]
         );
+    }
 
+    /**
+     * Paginate and respond with resource.
+     */
+    private function paginateAndRespond($query, array $filters, string $message)
+    {
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -75,7 +105,7 @@ class PartnerSubscriptionService
         return $this->respondWithPaginationResource(
             $paginator,
             PartnerSubscriptionResource::class,
-            __('partner.subscription_list_retrieved')
+            $message
         );
     }
 
@@ -107,7 +137,7 @@ class PartnerSubscriptionService
      */
     public function getByPartnerId(int $partnerId)
     {
-        $subscription = PartnerSubscription::where('partner_id', $partnerId)->with(['partner'])->first();
+        $subscription = PartnerSubscription::where('partner_id', $partnerId)->orderBy('id', 'desc')->with(['partner'])->first();
         return $subscription;
     }
 }
