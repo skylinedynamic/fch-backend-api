@@ -248,7 +248,6 @@ class BorrowerService
             }
 
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
-            Log::info('Assigning to Partner ID: ' . $data['partner_id']);
             $data['status'] = Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table
@@ -256,7 +255,6 @@ class BorrowerService
 
             $borrower = Borrower::create($borrowerData);
             Log::info('Payment Amount: ' . ($data['payment_amount'] ?? 'N/A'));
-            Log::info('all data ' . json_encode($data));
             // $data['payment_amount'] = (int) ($data['payment_amount'] ?? $data['payment_amount'] ?? 0);
 
             // Remove used signup_id
@@ -268,7 +266,6 @@ class BorrowerService
 
             // Create associated User if needed
             $userDataResult = null;
-            Log::info('Emailsss: ' . $data['email']);
             if (!empty($data['email'])) {
                 Log::info('Email send');
                 $userDataResult = $this->createOrUpdateUser($data, $borrower);
