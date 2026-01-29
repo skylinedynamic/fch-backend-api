@@ -824,13 +824,13 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
                 DB::raw('(SELECT COALESCE(
-(SELECT enrollment_type
-FROM partner_subscriptions
-WHERE partner_id = ?
-ORDER BY id DESC
-LIMIT 1),
-"N/A"
-)) AS enrollment_type')
+                    (SELECT enrollment_type
+                    FROM partner_subscriptions
+                    WHERE partner_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1),
+                    "N/A"
+                    )) AS enrollment_type')
             )
             ->setBindings([
                 $authId,
