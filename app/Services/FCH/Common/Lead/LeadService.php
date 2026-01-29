@@ -265,7 +265,6 @@ class LeadService
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
-                'partner_type' => $data['partner_type'] ?? null,
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
@@ -319,17 +318,18 @@ class LeadService
 
                 // Conversion Options from payload
                 'partner_type' => $data['partner_type'] ?? 'Referral Partner',
-                'enrollment_type' => $data['enrollment_type'] ?? null,
-                'enrollment_amount' => $data['enrollment_amount'] ?? 0,
+                'enrollment_type' => $data['enrollment_type'] ?? 'Monthly Platform Fee', // Default or from data
+                'enrollment_amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? 0),
 
-                'status' => 'active',
+                'status' => Partner::STATUS_ONBOARDING,
                 'joining_date' => now(),
 
                 // Address & Business Info
                 'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
-                'postal_code' => $lead->zip_code,
+                'postal_code' => $lead->zip_code, // Store expects postal_code or aliased
+                'zip_code' => $lead->zip_code,    // Backward compatibility with Request
                 'address_line_1' => $lead->business_address,
                 'tax_id' => $lead->business_ein,
                 'website' => $lead->domain,
