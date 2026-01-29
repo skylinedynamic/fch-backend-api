@@ -44,12 +44,13 @@ class SubscriptionService
      */
     private function prepareSubscriptionQuery(array $filters, ?int $partnerId = null, ?int $borrowerId = null)
     {
-        $query = Subscription::where('partner_id', $filters['partner_id'])
+        $query = Subscription::query()
             ->with(['partner:id,full_name,company_name,email', 'borrower:id,first_name,last_name,email'])
             ->select('subscriptions.*');
 
-        if ($partnerId) {
-            $query->where('partner_id', $partnerId);
+        $effectivePartnerId = $partnerId ?: ($filters['partner_id'] ?? null);
+        if ($effectivePartnerId) {
+            $query->where('partner_id', $effectivePartnerId);
         }
 
         if ($borrowerId) {

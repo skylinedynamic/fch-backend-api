@@ -265,6 +265,7 @@ class LeadService
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
+                'partner_type' => $data['partner_type'] ?? null,
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
@@ -310,7 +311,7 @@ class LeadService
                 'company_name' => $lead->legal_business_name ?: $lead->company_name,
                 'email' => $lead->email,
                 'phone_number' => $lead->phone_number,
-                
+
                 'contact_person' => $lead->contact_person,
                 'contact_person_email' => $lead->email,
                 'contact_person_phone_number' => $lead->phone_number,
@@ -320,7 +321,7 @@ class LeadService
                 'partner_type' => $data['partner_type'] ?? 'Referral Partner',
                 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'enrollment_amount' => $data['enrollment_amount'] ?? 0,
-                
+
                 'status' => 'active',
                 'joining_date' => now(),
 
