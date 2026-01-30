@@ -298,4 +298,7 @@ return [
     'co_borrower_city_required' => 'City is required.',
     'co_borrower_zip_code_required' => 'Zip code is required.',
     'co_borrower_validation_success' => 'Co-borrower validation successful.',
+
+    'co_borrower_zip_code_required' => 'Zip code is required.',
+    'co_borrower_validation_success' => 'Co-borrower validation successful.',
 ];
