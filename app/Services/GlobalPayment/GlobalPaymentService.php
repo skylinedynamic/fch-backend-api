@@ -92,6 +92,8 @@ class GlobalPaymentService
                 if ($invoice) {
                     if ($invoice->entity_type === Partner::class) {
                         $this->handlePartnerPayment($invoice);
+                    } else if ($invoice->entity_type === Borrower::class) {
+                        $this->handleBorrowerPayment($invoice);
                     }
                     $invoice->update([
                         'status' => Invoice::STATUS_PAID,
@@ -226,6 +228,60 @@ class GlobalPaymentService
             'partner_id' => $partner->id,
             'subscription_end' => $subscriptionEndDate->toDateString(),
             'platform_fee_start' => $platformFeeStartDate->toDateString()
+        ]);
+    }
+
+    /**
+     * Handle Borrower Post-Payment Logic
+     */
+    protected function handleBorrowerPayment(Invoice $invoice)
+    {
+        if ($invoice->entity_type !== Borrower::class) {
+            return;
+        }
+
+        $borrower = Borrower::find($invoice->entity_id);
+
+        if (!$borrower) return;
+
+        $borrower->update([
+            'status' => Borrower::STATUS_ACTIVE,
+            'updated_at' => now(),
+        ]);
+
+        $subscription = Subscription::where('borrower_id', $borrower->id)->first();
+        if ($subscription) {
+            // Based on business rule: Platform fee starts on the 12th month
+            // Update subscription dates
+            $firstPaymentDate = now();
+            $platformFeeStartDate = $firstPaymentDate->copy()->addMonths(11); // 12th month effectively
+            $subscriptionEndDate = $firstPaymentDate->copy()->addMonths(11);
+            $nextInstallmentDate = null;
+
+            if ($subscription->installment_type == 1) {
+                $nextInstallmentDate = $firstPaymentDate->copy()
+                    ->addMonth();
+            }
+
+            $subscription->update([
+                'status' => Subscription::STATUS_ACTIVE,
+                'first_payment_date' => $firstPaymentDate,
+                'subscription_start_date' => $firstPaymentDate,
+                'subscription_end_date' => $subscriptionEndDate,
+                'platform_fee_start_date' => $platformFeeStartDate,
+                'next_installment_date' => $nextInstallmentDate,
+            ]);
+
+            Log::info('✅ Borrower Subscription Activated', [
+                'borrower_id' => $borrower->id,
+                'subscription_end' => $subscriptionEndDate->toDateString(),
+                'platform_fee_start' => $platformFeeStartDate->toDateString()
+            ]);
+        }
+
+        Log::info('✅ Borrower Status Activated', [
+            'borrower_id' => $borrower->id,
+            'status' => Borrower::STATUS_ACTIVE
         ]);
     }
 }
