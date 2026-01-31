@@ -2,27 +2,28 @@
 
 namespace App\Services\FCH\Partner;
 
+use enrollment;
 use App\Models\User\User;
 use App\Models\Common\Role;
+use Illuminate\Support\Str;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\Request;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use App\Models\Partner\PartnerPlan;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Spatie\Permission\PermissionRegistrar;
+use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
+use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountCreatedMail;
@@ -120,13 +121,13 @@ class PartnerService
             $partnerType = $data['partner_type'] ?? null;
             $enrollmentType = $data['enrollment_type'] ?? null;
 
-            $plan = PartnerPlan::where('partner_type', $partnerType)
+            $plan = SubscriptionPlan::where('partner_type', $partnerType)
                 ->where('enrollment_type', $enrollmentType)
                 ->first();
 
             // Fallback to slug comparison
             if (!$plan && $partnerType && $enrollmentType) {
-                $plan = PartnerPlan::where('partner_type_slug', Str::slug($partnerType))
+                $plan = SubscriptionPlan::where('partner_type_slug', Str::slug($partnerType))
                     ->where('enrollment_type_slug', Str::slug($enrollmentType))
                     ->first();
             }

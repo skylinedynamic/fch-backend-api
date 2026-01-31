@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services\FCH\Common\PartnerPlan;
+namespace App\Services\FCH\Common\SubscriptionPlan;
 
-use App\Models\Partner\PartnerPlan;
+use App\Models\Partner\SubscriptionPlan;
 use App\Traits\PaginatesApi;
 
-class PartnerPlanService
+class SubscriptionPlanService
 {
     use PaginatesApi;
 
@@ -14,7 +14,7 @@ class PartnerPlanService
      */
     public function list()
     {
-        return PartnerPlan::where('status', true)->get();
+        return SubscriptionPlan::where('status', true)->get();
     }
 
     /**
@@ -22,8 +22,7 @@ class PartnerPlanService
      */
     public function find($idOrSlug)
     {
-        return PartnerPlan::where('id', $idOrSlug)
-            ->orWhere('slug', $idOrSlug)
+        return SubscriptionPlan::where('id', $idOrSlug)
             ->firstOrFail();
     }
 }

@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Resources\FCH\Common\PartnerPlan;
+namespace App\Http\Resources\FCH\Common\SubscriptionPlan;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class PartnerPlanResource extends JsonResource
+class SubscriptionPlanResource extends JsonResource
 {
     /**
      * Transform the resource into an array.

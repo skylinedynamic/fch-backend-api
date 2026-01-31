@@ -26,6 +26,7 @@ return new class extends Migration
             $table->string('currency')->default('USD')->nullable();
             $table->string('currency_symbol')->default('$')->nullable();
             $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();
+            $table->boolean('is_platform_fee')->default(false)->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->softDeletes();

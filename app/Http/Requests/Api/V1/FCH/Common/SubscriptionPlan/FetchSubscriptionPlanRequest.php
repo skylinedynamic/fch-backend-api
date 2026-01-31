@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\FCH\Common\PartnerPlan;
+namespace App\Http\Requests\Api\V1\FCH\Common\SubscriptionPlan;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class FetchPartnerPlanRequest extends FormRequest
+class FetchSubscriptionPlanRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

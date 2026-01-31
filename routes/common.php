@@ -26,7 +26,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierCont
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
-use App\Http\Controllers\Api\V1\FCH\Common\PartnerPlan\PartnerPlanController;
+use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 
@@ -173,8 +173,8 @@ Route::prefix('v1')->group(function () {
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
 
             // Partner Plans
-            Route::get('partner-plans', [PartnerPlanController::class, 'index']);
-            Route::get('partner-plans/{idOrSlug}', [PartnerPlanController::class, 'show']);
+            Route::get('partner-plans', [SubscriptionPlanController::class, 'index']);
+            Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
@@ -189,6 +189,5 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth-profile')->group(function () {
             Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
         });
-        
     });
 });

@@ -22,7 +22,6 @@ return new class extends Migration
             $table->string('payment_from')->nullable();
             $table->string('payment_type')->nullable();
             $table->decimal('amount', 23, 2)->nullable();
-            $table->string('currency')->nullable();
             $table->json('details')->nullable();
             $table->string('status')->nullable();
             $table->timestamp('transaction_date')->nullable();
@@ -33,7 +32,6 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
         });
-        
     }
 
     /**

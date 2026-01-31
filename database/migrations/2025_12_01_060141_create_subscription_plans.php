@@ -9,11 +9,11 @@ return new class extends Migration {
     {
         Schema::create('subscription_plans', function (Blueprint $table) {
             $table->id();
-            $table->string('plan_for')->nullable();
             $table->string('partner_type')->nullable();
             $table->string('partner_type_slug')->nullable();
             $table->string('enrollment_type')->nullable();
             $table->string('enrollment_type_slug')->nullable();
+            $table->string('entity_type')->nullable()->comment('Partner or Borrower, NULL for User');
             $table->decimal('payment_amount', 10, 2)->nullable();
             $table->integer('installments_count')->nullable(); // per month
             $table->decimal('total_installments_count', 10, 2)->nullable(); // total installments
