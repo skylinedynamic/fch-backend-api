@@ -374,7 +374,6 @@ class BorrowerService
             $borrower->update($data);
 
             // Update associated User if exists
-            // Update associated User if exists
             if ($borrower->user) {
                 $userResult = $this->createOrUpdateUser($data, $borrower, $borrower->user);
                 $user = $userResult['user'];

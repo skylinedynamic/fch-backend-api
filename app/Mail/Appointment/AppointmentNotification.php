@@ -26,16 +26,21 @@ class AppointmentNotification extends Mailable
         $this->action = $action;
         $this->businessInfo = $businessInfo;
     }
-
+ 
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
     {
-        $subject = 'Appointment ' . ucfirst($this->action) . ': ' . $this->appointment->subject;
-        
+        $subject = match ($this->action) {
+            'created' => 'New Appointment Scheduled',
+            'updated' => 'Appointment Updated',
+            'deleted' => 'Appointment Cancelled',
+            default => 'Appointment Notification',
+        };
+
         return new Envelope(
-            subject: $subject,
+            subject: $subject . ': ' . $this->appointment->subject,
         );
     }
 

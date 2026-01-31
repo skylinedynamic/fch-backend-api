@@ -1,0 +1,258 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', Helvetica, Arial, sans-serif;
+    background-color: #f3f3f9;
+    margin: 0;
+    padding: 0;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    color: #495057;
+}
+
+.wrapper {
+    width: 100%;
+    background-color: #f3f3f9;
+    padding: 40px 0;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(56, 65, 74, 0.15);
+    border-radius: 0; 
+    overflow: hidden;
+}
+
+/* Top Bar: Dark Blue */
+.top-bar {
+    background-color: #1e3a8a; /* Primary Brand Blue */
+    color: #ffffff;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Logo Section: White */
+.header-logo {
+    background-color: #ffffff;
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #e9ebec;
+}
+
+.logo {
+    display: block;
+    margin: 0 auto;
+    width: 200px;
+    height: auto;
+}
+
+/* Content */
+.content {
+    padding: 0 30px;
+    text-align: left;
+}
+
+h1 {
+    color: #495057;
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+/* Image-Based Design Components */
+.section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #878a99;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.appointment-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a2e44;
+    margin-bottom: 24px;
+}
+
+.description-card {
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.appointment-cancelled p{
+    color: #f32b2b;
+    margin-bottom: 0;
+}
+
+.detail-grid {
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+.detail-item {
+    padding: 15px 10px;
+    width: 50%;
+}
+
+.detail-item-container {
+    display: table;
+    width: 100%;
+}
+
+.detail-icon {
+    display: table-cell;
+    width: 32px;
+    vertical-align: top;
+    padding-top: 4px;
+}
+
+.detail-icon-bg {
+    width: 32px;
+    height: 32px;
+    /* Using background color + emoji or font icon if possible, but safe icons are better */
+}
+
+.detail-content {
+    display: table-cell;
+    vertical-align: top;
+    padding-left: 8px;
+}
+
+.detail-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #878a99;
+    margin-bottom: 2px;
+}
+
+.detail-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a2e44;
+}
+
+.see-less {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #1e3a8a;
+    margin-top: 16px;
+    display: block;
+    text-decoration: none;
+}
+
+.btn-container {
+    margin: 30px 0;
+    text-align: center;
+}
+
+
+.btn-container .highlight {
+    margin-bottom: 20px; 
+    font-size: 14px; 
+    color: #878a99
+}
+
+.btn {
+    display: inline-block;
+    background-color: #0ab39c; /* Success Teal from Velzon reference */
+    color: #ffffff !important;
+    text-decoration: none;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+}
+
+.btn:hover {
+    background-color: #099885;
+}
+
+/* Footer Strip: Light accent */
+.footer-strip {
+    background-color: #fde8e4; /* Light pinkish from reference? Or match brand? */
+    /* Let's use a very light blue to match the brand blue top bar, or keeping consistent with the requested style.
+       The user said "this type of design". The image has a pink strip. 
+       I will use a light blue/gray strip to be safe for a financial company, pink might be odd.
+       Let's us #e0e7ff (Indigo 100) or #f3f6f9.
+       Actually, let's use the 'alert' color or 'warning' color if it's "Call us".
+       I'll go with a subtle light gray/blue. */
+    background-color: #eff2f7;
+    color: #ef4444; /* Red text? Or blue? */
+    padding: 15px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1e3a8a; /* Text color matching header */
+}
+
+/* Bottom Footer */
+.bottom-footer {
+    background-color: #1a2e44;
+    padding: 1px 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #fff;
+    line-height: 1.6;
+}
+.bottom-footer p{
+    color: #fff;
+}
+
+.bottom-footer a {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+
+/* Alerts - Bootstrap Fallback for Emails */
+.alert {
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.alert-danger {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+.alert strong {
+    color: inherit;
+}
+
+.highlight {
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
+@media only screen and (max-width: 600px) {
+    .container {
+        width: 100% !important;
+    }
+    .content {
+        padding: 25px 20px;
+    }
+    .info-item {
+        flex-direction: column;
+    }
+    .info-label {
+        margin-bottom: 5px;
+        width: 100%;
+    }
+}

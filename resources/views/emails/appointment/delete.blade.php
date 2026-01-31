@@ -1,157 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Appointment Cancelled</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background-color: #eef2f7;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        .container {
-            max-width: 650px;
-            margin: 40px auto;
-            background: #ffffff;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-        }
-        .header {
-            background: #331111ff; /* Red for cancellation/deletion */
-            color: #ffffff;
-            padding: 28px 25px;
-            text-align: center;
-        }
-        .header img {
-            height: 42px;
-            margin-bottom: 10px;
-        }
-        .header h1 {
-            font-size: 21px;
-            font-weight: 600;
-            margin: 0;
-            letter-spacing: 0.3px;
-        }
-        .content {
-            padding: 35px 30px;
-        }
-        .content h2 {
-            color: #111827;
-            font-size: 20px;
-            margin-bottom: 12px;
-        }
-        .content p {
-            color: #4b5563;
-            line-height: 1.6;
-            font-size: 15px;
-            margin-top: 0;
-        }
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .details-table td {
-            border: 1px solid #e5e7eb;
-            padding: 12px 16px;
-            font-size: 15px;
-        }
-        .details-table td:first-child {
-            font-weight: 600;
-            background: #f9fafb;
-            width: 35%;
-            color: #1f2937;
-        }
-        .footer {
-            background: #331111ff; /* Match header */
-            padding: 25px 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #ffffff;
-        }
-        .footer img {
-            height: 35px;
-            margin-bottom: 10px;
-            filter: brightness(0) invert(1);
-        }
-        .footer p {
-            margin: 5px 0;
-            color: #e5e7eb;
-            line-height: 1.5;
-        }
-        small {
-            color: #cbd5e1;
-        }
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 600;
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-    </style>
-</head>
-<body>
-<div class="container">
-    <div class="header">
-        @if(app()->environment('local'))
-            {{-- Local: embed from filesystem --}}
-            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
-                    alt="{{ $business_info['company_name'] }} Logo">
-        @else
-            {{-- Production: use public URL --}}
-            <img src="{{ $business_info['business_logo_url'] }}" 
-                alt="{{ $business_info['company_name'] }} Logo">
-        @endif
-        <h1>{{ $business_info['company_name'] }}</h1>
-    </div>
+@extends('emails.layouts.mail')
 
-    <div class="content">
-        <h2>Dear {{ $assigneeName }},</h2>
-        <p>
-            An appointment has been <strong>cancelled/deleted</strong>.
-        </p>
+@section('title', 'Appointment Cancelled - ' . $business_info['company_name'])
 
-        <table class="details-table">
+@php
+    $startTime = \Carbon\Carbon::parse($appointment->appointment_date);
+    $endTime = (clone $startTime)->addMinutes($appointment->duration_minutes);
+@endphp
+
+@section('content')
+    <div style="padding-top: 20px;">
+        <div class="alert alert-danger" role="alert">
+            The following appointment has been <strong>cancelled</strong>.
+        </div>
+
+        <div class="mt-2">
+            {!! $appointment->description !!}
+        </div>
+
+        <table class="detail-grid" cellspacing="0" cellpadding="0">
             <tr>
-                <td>Subject</td>
-                <td>{{ $appointment->subject }}</td>
+                <td class="detail-item">
+                    <div class="detail-item-container">
+                        <div class="detail-icon">📅</div>
+                        <div class="detail-content">
+                            <div class="detail-label">Original Date</div>
+                            <div class="detail-value">{{ $startTime->format('d F, Y') }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="detail-item">
+                    <div class="detail-item-container">
+                        <div class="detail-icon">🕒</div>
+                        <div class="detail-content">
+                            <div class="detail-label">Time Slot</div>
+                            <div class="detail-value">{{ $startTime->format('g:i A') }} - {{ $endTime->format('g:i A') }}
+                            </div>
+                        </div>
+                    </div>
+                </td>
             </tr>
             <tr>
-                <td>Appointment Code</td>
-                <td><span class="badge">{{ $appointment->appointment_code }}</span></td>
-            </tr>
-            <tr>
-                <td>Originally Scheduled</td>
-                <td>
-                    {{ \Carbon\Carbon::parse($appointment->appointment_date)->format('F j, Y, g:i a') }}
+                <td class="detail-item">
+                    <div class="detail-item-container">
+                        <div class="detail-icon">🌍</div>
+                        <div class="detail-content">
+                            <div class="detail-label">Time Zone</div>
+                            <div class="detail-value">{{ $appointment->timezone ?? 'UTC (GMT+00:00)' }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="detail-item">
+                    <div class="detail-item-container">
+                        <div class="detail-icon">👤</div>
+                        <div class="detail-content">
+                            <div class="detail-label">Scheduled By</div>
+                            <div class="detail-value">{{ $business_info['company_name'] }}</div>
+                        </div>
+                    </div>
                 </td>
             </tr>
         </table>
     </div>
-
-    <div class="footer">
-       @if(app()->environment('local'))
-            <img src="{{ $message->embed($business_info['business_logo_path']) }}" 
-                alt="{{ $business_info['company_name'] }} Logo">
-        @else
-            <img src="{{ $business_info['business_logo_url'] }}" 
-                alt="{{ $business_info['company_name'] }} Logo">
-        @endif
-        <p>
-            {{ $business_info['company_name'] }} | {{ $business_info['phone_number'] }} | 
-            <a href="mailto:{{ $business_info['email'] }}" style="color:#e5e7eb;">{{ $business_info['email'] }}</a><br>
-            {{ $business_info['address_line_1'] }}
-        </p>
-        <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>
-    </div>
-</div>
-</body>
-</html>
+@endsection
