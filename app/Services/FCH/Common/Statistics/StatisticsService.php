@@ -26,8 +26,8 @@ class StatisticsService
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ' . $partnerId . ') as total_tickets'),
                 DB::raw('COALESCE((
                     SELECT enrollment_type 
-                    FROM partner_subscriptions 
-                    WHERE partner_id = ' . $partnerId . ' 
+                    FROM subscriptions 
+                    WHERE entity_id = ' . $partnerId . ' AND entity_type = "App\\\Models\\\Partner\\\Partner" 
                     ORDER BY id DESC 
                     LIMIT 1
                 ), "N/A") as enrollment_type')

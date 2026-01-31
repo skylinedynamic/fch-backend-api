@@ -17,6 +17,8 @@ class SubscriptionPlan extends Model
         'partner_type_slug',
         'enrollment_type',
         'enrollment_type_slug',
+        'entity_type',
+        'is_non_host_payment',
         'payment_amount',
         'installments_count',
         'total_installments_count',
@@ -24,7 +26,7 @@ class SubscriptionPlan extends Model
         'platform_fee',
         'currency',
         'currency_symbol',
-        'currency_rate',
+        'conversion_rate',
         'status',
     ];
 
@@ -34,7 +36,7 @@ class SubscriptionPlan extends Model
         'payment_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'platform_fee' => 'decimal:2',
-        'currency_rate' => 'decimal:4',
+        'conversion_rate' => 'decimal:4',
         'status' => 'boolean',
     ];
 }

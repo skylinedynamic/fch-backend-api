@@ -152,9 +152,9 @@ class Partner extends Model
     /**
      * Get the subscription for the partner.
      */
-    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
-        return $this->hasOne(Subscription::class, 'partner_id');
+        return $this->morphOne(Subscription::class, 'entity');
     }
 
     // /**

@@ -2,12 +2,13 @@
 
 namespace App\Models\Subscription;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\User\User;
 use App\Models\Partner\Partner;
-use App\Models\Partner\PartnerPlan;
 use App\Models\Borrower\Borrower;
+use Illuminate\Database\Eloquent\Model;
+use App\Models\Partner\SubscriptionPlan;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Subscription extends Model
 {
@@ -22,9 +23,9 @@ class Subscription extends Model
     protected $table = 'subscriptions';
 
     protected $fillable = [
-        'partner_id',
-        'borrower_id',
-        'partner_plan_id',
+        'entity_type',
+        'entity_id',
+        'subscription_plan_id',
         'partner_type',
         'enrollment_type',
         'monthly_platform_fee',
@@ -53,17 +54,30 @@ class Subscription extends Model
 
     public function partner()
     {
-        return $this->belongsTo(Partner::class, 'partner_id');
+        // Note: usage of this relation assumes the subscription IS a partner subscription.
+        // If entity_type matches Borrower, this will still return a Partner if IDs collide.
+        // Strict usage should check entity_type or use the 'entity' relation.
+        return $this->belongsTo(Partner::class, 'entity_id');
     }
 
     public function borrower()
     {
-        return $this->belongsTo(Borrower::class, 'borrower_id');
+        return $this->belongsTo(Borrower::class, 'entity_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'entity_id');
+    }
+
+    public function entity()
+    {
+        return $this->morphTo();
     }
 
     public function partnerPlan()
     {
-        return $this->belongsTo(PartnerPlan::class, 'partner_plan_id');
+        return $this->belongsTo(SubscriptionPlan::class, 'partner_plan_id');
     }
 
     /**
@@ -88,6 +102,10 @@ class Subscription extends Model
                 ->orWhereHas('borrower', function ($bq) use ($search) {
                     $bq->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orWhereHas('user', function ($uq) use ($search) {
+                    $uq->where('name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 });
         });

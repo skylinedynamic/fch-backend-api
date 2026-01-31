@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 use App\Mail\Payment\PaymentSuccessMail;
+use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
-use App\Mail\Payment\GlobalPaymentNotificationMail;
 
 class GlobalPaymentService
 {
@@ -44,6 +44,37 @@ class GlobalPaymentService
 
         Stripe::setApiKey($secretKey);
 
+        $entityTypeInput  = $data['entity_type'] ?? null;
+        $entityId = $data['entity_id'] ?? null;
+
+        $map = [
+            'borrower' => Borrower::class,
+            Borrower::class => Borrower::class,
+
+            'partner' => Partner::class,
+            Partner::class => Partner::class,
+        ];
+
+        $entityType = null;
+
+        if ($entityTypeInput) {
+            $key = strtolower(trim($entityTypeInput));
+            $entityType = $map[$key] ?? $map[$entityTypeInput] ?? null;
+        }
+        Log::info('Entity Typessss: ' . $entityType);
+
+
+        if (!$entityType) {
+            if ($entityType == Borrower::class) {
+                $entityType = Borrower::class;
+                $entityId = $data['borrower_id'];
+            } elseif ($entityType == Partner::class) {
+                $entityType = Partner::class;
+                $entityId = Auth::user()->entity_id;
+                Log::info('Entity aa: ' . $entityId);
+            }
+        }
+        Log::info('Entity IDsssss: ' . $entityId);
         DB::beginTransaction();
         try {
             $paymentIntent = PaymentIntent::create([
@@ -57,8 +88,8 @@ class GlobalPaymentService
                     'allow_redirects' => 'never',
                 ],
                 'metadata' => [
-                    'entity_id' => $data['entity_id'] ?? null,
-                    'entity_type' => $data['entity_type'] ?? null,
+                    'entity_id' => $entityId,
+                    'entity_type' => $entityType,
                     'borrower_id' => $data['borrower_id'] ?? null,
                     'partner_id' => $data['partner_id'] ?? null,
                     'invoice_id' => $data['invoice_id'] ?? null,
@@ -72,12 +103,13 @@ class GlobalPaymentService
 
             $payment = null;
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+
                 $payment = Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                     'borrower_id' => $data['borrower_id'] ?? null,
                     'invoice_id' => $invoice ? $invoice->invoice_id : null,
-                    'entity_type' => $data['entity_type'] ?? null,
-                    'entity_id' => $data['entity_id'] ?? null,
+                    'entity_type' => $invoice->entity_type,
+                    'entity_id' => $invoice->entity_id,
                     'transaction_id' => $paymentIntent->id,
                     'payment_from' => 'Stripe',
                     'payment_type' => 'Card',
@@ -102,12 +134,14 @@ class GlobalPaymentService
                 }
 
                 $borrower = null;
-                if (!empty($data['borrower_id'])) {
+                if ($invoice->entity_type === Borrower::class && $invoice->entity_id) {
+                    $borrower = Borrower::find($invoice->entity_id);
+                } elseif (!empty($data['borrower_id'])) {
                     $borrower = Borrower::find($data['borrower_id']);
-                    if ($borrower) {
-                        $borrower->status = Borrower::STATUS_ACTIVE;
-                        $borrower->save();
-                    }
+                }
+
+                if ($borrower && $borrower->status !== Borrower::STATUS_ACTIVE) {
+                    $borrower->update(['status' => Borrower::STATUS_ACTIVE]);
                 }
 
                 $userEmail = $borrower ? $borrower->email : (Auth::user() ? Auth::user()->email : null);
@@ -200,7 +234,9 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        $subscription = Subscription::where('partner_id', $partner->id)->first();
+        $subscription = Subscription::where('entity_type', Partner::class)
+            ->where('entity_id', $partner->id)
+            ->first();
         if (!$subscription) return;
 
         // Based on business rule: Platform fee starts on the 12th month
@@ -249,7 +285,9 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        $subscription = Subscription::where('borrower_id', $borrower->id)->first();
+        $subscription = Subscription::where('entity_type', Borrower::class)
+            ->where('entity_id', $borrower->id)
+            ->first();
         if ($subscription) {
             // Based on business rule: Platform fee starts on the 12th month
             // Update subscription dates

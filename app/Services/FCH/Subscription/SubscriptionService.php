@@ -3,11 +3,13 @@
 namespace App\Services\FCH\Subscription;
 
 use Illuminate\Support\Str;
+use App\Traits\PaginatesApi;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
+use Illuminate\Support\Facades\Log;
 use App\Models\Subscription\Subscription;
 use App\Services\Global\Datatable\QueryFilter;
-use App\Traits\PaginatesApi;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
-use Illuminate\Support\Facades\Log;
 
 class SubscriptionService
 {
@@ -50,11 +52,13 @@ class SubscriptionService
 
         $effectivePartnerId = $partnerId ?: ($filters['partner_id'] ?? null);
         if ($effectivePartnerId) {
-            $query->where('partner_id', $effectivePartnerId);
+            $query->where('entity_type', Partner::class)
+                ->where('entity_id', $effectivePartnerId);
         }
 
         if ($borrowerId) {
-            $query->where('borrower_id', $borrowerId);
+            $query->where('entity_type', Borrower::class)
+                ->where('entity_id', $borrowerId);
         }
 
         // Global Search
@@ -74,8 +78,11 @@ class SubscriptionService
 
         // Join Partners if sorting or filtering by partner_name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $query->leftJoin('partners', 'subscriptions.partner_id', '=', 'partners.id')
-                ->addSelect('partners.full_name as partner_name');
+            $query->leftJoin('partners', function ($join) {
+                $join->on('subscriptions.entity_id', '=', 'partners.id')
+                    ->where('subscriptions.entity_type', '=', \App\Models\Partner\Partner::class);
+            })->addSelect('partners.full_name as partner_name');
+
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
                 $skipSorting = true;
@@ -140,7 +147,11 @@ class SubscriptionService
      */
     public function getByPartnerId(int $partnerId)
     {
-        return Subscription::where('partner_id', $partnerId)->orderBy('id', 'desc')->with(['partner'])->first();
+        return Subscription::where('entity_type', \App\Models\Partner\Partner::class)
+            ->where('entity_id', $partnerId)
+            ->orderBy('id', 'desc')
+            ->with(['partner'])
+            ->first();
     }
 
     /**
@@ -148,6 +159,10 @@ class SubscriptionService
      */
     public function getByBorrowerId(int $borrowerId)
     {
-        return Subscription::where('borrower_id', $borrowerId)->orderBy('id', 'desc')->with(['borrower'])->first();
+        return Subscription::where('entity_type', \App\Models\Borrower\Borrower::class)
+            ->where('entity_id', $borrowerId)
+            ->orderBy('id', 'desc')
+            ->with(['borrower'])
+            ->first();
     }
 }

@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocType;
+use App\Models\Partner\SubscriptionPlan;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\BorrowerSignupId;
 use App\Models\Subscription\Subscription;
@@ -258,15 +259,6 @@ class BorrowerService
 
             $borrower = Borrower::create($borrowerData);
             Log::info('Payment Amount: ' . ($data['payment_amount'] ?? 'N/A'));
-            // $data['payment_amount'] = (int) ($data['payment_amount'] ?? $data['payment_amount'] ?? 0);
-
-            // Remove used signup_id
-            // if (!empty($data['signup_id']) && !empty($data['partner_id'])) {
-            //     BorrowerSignupId::where('signup_id', $data['signup_id'])
-            //         ->where('partner_id', $data['partner_id'])
-            //         ->delete();
-            // }
-
             // Create associated User if needed
             $userDataResult = null;
             if (!empty($data['email'])) {
@@ -292,12 +284,9 @@ class BorrowerService
                         ]
                     ];
 
-                    // Calculate enrollment amount/type similar to PartnerService
-                    $partnerType = $data['partner_type'] ?? null;
                     $enrollmentType = $data['enrollment_type'] ?? null;
 
-                    // Fetch plan if possible (Partnership plans might apply)
-                    $plan = \App\Models\Partner\PartnerPlan::where('partner_type', $partnerType)
+                    $plan = SubscriptionPlan::where('entity_type', Borrower::class)
                         ->where('enrollment_type', $enrollmentType)
                         ->first();
 
@@ -312,27 +301,22 @@ class BorrowerService
                         'customer_name' => $borrower->full_name,
                         'email' => $borrower->email,
                         'country' => $borrower->country,
-                        'payment_amount' => $data['payment_amount'],
+                        'payment_amount' => $amount,
                         'status' => Invoice::STATUS_UNPAID,
-                        'cycle' => ($enrollmentType === '6 Month Payment') ? Invoice::CYCLE_MONTHLY : Invoice::CYCLE_ONE_TIME,
+                        'is_platform_fee' => false,
+                        'cycle' => $enrollmentType,
                     ]);
 
-                    // Insert Subscription data (Generic Subscription Table)
-                    $totalAmount = 0;
-                    if ($enrollmentType === '6 Month Payment') {
-                        $totalAmount = $data['payment_amount'] * 6;
-                    } else {
-                        $totalAmount = $data['payment_amount'];
-                    }
                     $subscriptionData = [
-                        'partner_id' => $borrower->partner_id,
-                        'borrower_id' => $borrower->id,
-                        'partner_plan_id' =>  null,
+                        'entity_type' => Borrower::class,
+                        'entity_id' => $borrower->id,
+                        'subscription_plan_id' =>  $plan->id ?? null,
                         'partner_type' => null,
-                        'enrollment_type' => $data['enrollment_type'] ?? null,
+                        'enrollment_type' => $enrollmentType,
                         'monthly_platform_fee' =>  0,
-                        'total_subscription_amount' => $totalAmount,
-                        'payable_amount' => $data['payment_amount'],
+                        'total_subscription_amount' => $plan->total_amount ?? 0,
+                        'payable_amount' => $amount,
+                        'installment_type' => isset($plan->installments_count) && $plan->installments_count >= 1 ? 1 : 0,
                         'subscription_start_date' => now(),
                         'subscription_end_date' => null,
                         'status' => Subscription::STATUS_PENDING, // Pending until payment
@@ -628,8 +612,8 @@ class BorrowerService
                 // Invoices: linked via entity_type and entity_id
                 DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id) as total_invoices"),
 
-                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM partner_subscriptions 
-                          WHERE partner_id = b.partner_id 
+                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions 
+                          WHERE entity_type = 'App\\\\\\Models\\\\\\Partner\\\\\\Partner' AND entity_id = b.partner_id 
                           ORDER BY id DESC 
                           LIMIT 1), 'N/A')) as enrollment_type"),
 

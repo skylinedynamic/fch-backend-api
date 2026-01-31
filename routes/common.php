@@ -174,6 +174,8 @@ Route::prefix('v1')->group(function () {
 
             // Partner Plans
             Route::get('partner-plans', [SubscriptionPlanController::class, 'index']);
+            Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
+            Route::get('non-host-borrower-plans', [SubscriptionPlanController::class, 'nonHostBorrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
         });
 

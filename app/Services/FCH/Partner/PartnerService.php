@@ -140,19 +140,19 @@ class PartnerService
                 $platformFee = $planConfig['platform_fee'] ?? 0;
 
                 $subscriptionData = [
-                    'partner_plan_id' => $plan->id ?? null,
+                    'subscription_plan_id' => $plan->id ?? null,
+                    'entity_type' => Partner::class,
                     'partner_type' => $plan->partner_type ?? $partnerType,
                     'enrollment_type' => $plan->enrollment_type ?? $enrollmentType,
-                    'total_subscription_amount' => $plan->total_amount ?? $enrollmentAmount,
+                    'total_subscription_amount' => $plan->total_amount ?? 0,
                     'payable_amount' => $enrollmentAmount,
-                    'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'subscription_start_date' => now(),
                     'subscription_end_date' => now()->addMonths(11),
                     'status' => Subscription::STATUS_PENDING, // Pending until payment is confirmed
                 ];
 
-                $this->subscriptionService->createOrUpdate(['partner_id' => $partner->id], $subscriptionData);
-                Log::info('✅ Partner subscription initialized', ['partner_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
+                $this->subscriptionService->createOrUpdate(['entity_id' => $partner->id], $subscriptionData);
+                Log::info('✅ Partner subscription initialized', ['entity_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
             }
 
             // Determine if host is creating this partner
@@ -826,8 +826,8 @@ class PartnerService
                 DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
                 DB::raw('(SELECT COALESCE(
                     (SELECT enrollment_type
-                    FROM partner_subscriptions
-                    WHERE partner_id = ?
+                    FROM subscriptions
+                    WHERE entity_id = ? AND entity_type = "App\\\Models\\\Partner\\\Partner"
                     ORDER BY id DESC
                     LIMIT 1),
                     "N/A"

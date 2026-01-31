@@ -16,11 +16,9 @@ return new class extends Migration
             $table->id();
 
             // Partner relation
-            // Partner & Borrower relation
-            $table->foreignId('partner_id')->nullable()->constrained('partners')->onDelete('cascade');
-
-            $table->string('borrower_id')->nullable();
-            $table->string('partner_plan_id')->nullable();
+            $table->string('entity_type')->nullable()->comment('Partner or Borrower and Null for User');
+            $table->string('entity_id')->nullable();
+            $table->string('subscription_plan_id')->nullable();
 
             // Partner & enrollment info
             $table->string('partner_type')->nullable();

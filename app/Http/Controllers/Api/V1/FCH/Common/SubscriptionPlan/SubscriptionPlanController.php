@@ -39,4 +39,30 @@ class SubscriptionPlanController extends Controller
             __('partner_plan.success.retrieved')
         );
     }
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function borrowerPlans(FetchSubscriptionPlanRequest $request)
+    {
+        $plans = $this->subscriptionPlanService->borrowerPlans($request->validated());
+
+        return ApiResponse::success(
+            SubscriptionPlanResource::collection($plans),
+            __('partner_plan.success.listed')
+        );
+    }
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function nonHostBorrowerPlans(FetchSubscriptionPlanRequest $request)
+    {
+        $plans = $this->subscriptionPlanService->nonHostBorrowerPlans($request->validated());
+
+        return ApiResponse::success(
+            SubscriptionPlanResource::collection($plans),
+            __('partner_plan.success.listed')
+        );
+    }
 }
