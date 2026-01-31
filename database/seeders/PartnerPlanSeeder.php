@@ -24,7 +24,7 @@ class PartnerPlanSeeder extends Seeder
                 'platform_fee' => 299,
                 'currency' => 'USD',
                 'currency_symbol' => '$',
-                'currency_rate' => 1.0000,
+                'currency_rate' => 1.0000,//conversion rate
                 'status' => true
             ],
             [

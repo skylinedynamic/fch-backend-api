@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Subscription\Subscription;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,13 +17,9 @@ return new class extends Migration
 
             // Partner relation
             // Partner & Borrower relation
-            $table->foreignId('partner_id')
-                ->nullable()
-                ->constrained('partners')
-                ->onDelete('cascade');
+            $table->foreignId('partner_id')->nullable()->constrained('partners')->onDelete('cascade');
 
-            $table->string('borrower_id')
-                ->nullable();
+            $table->string('borrower_id')->nullable();
             $table->string('partner_plan_id')->nullable();
 
             // Partner & enrollment info
@@ -49,7 +46,7 @@ return new class extends Migration
             $table->date('subscription_end_date')->nullable();
 
             // Status
-            $table->string('status')->default('Active')
+            $table->string('status')->default(Subscription::STATUS_PENDING)
                 ->comment('Active, Inactive, Suspended, Cancelled');
 
             // System columns
