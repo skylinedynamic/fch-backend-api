@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as Common
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\PartnerPlan\PartnerPlanController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
+use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -182,5 +183,12 @@ Route::prefix('v1')->group(function () {
         Route::prefix('notifications')->group(function () {
             Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
         });
+
+
+        // auth profile
+        Route::prefix('auth-profile')->group(function () {
+            Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
+        });
+        
     });
 });

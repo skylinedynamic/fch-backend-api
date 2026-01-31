@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
@@ -113,6 +114,12 @@ Route::prefix('v1/borrower')->group(function () {
         Route::prefix('invoice')->group(function () {
             Route::post('/', [InvoiceController::class, 'index']);
             Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
+        });
+
+
+        // auth profile
+        Route::prefix('auth-profile')->group(function () {
+            Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
         });
         
     });
