@@ -61,7 +61,6 @@ class GlobalPaymentService
             $key = strtolower(trim($entityTypeInput));
             $entityType = $map[$key] ?? $map[$entityTypeInput] ?? null;
         }
-        Log::info('Entity Typessss: ' . $entityType);
 
 
         if (!$entityType) {
@@ -74,7 +73,6 @@ class GlobalPaymentService
                 Log::info('Entity aa: ' . $entityId);
             }
         }
-        Log::info('Entity IDsssss: ' . $entityId);
         DB::beginTransaction();
         try {
             $paymentIntent = PaymentIntent::create([
