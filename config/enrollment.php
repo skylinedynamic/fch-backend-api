@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'partner_plans' => [
+    'subscription_plans' => [
         'Certified Partner' => [
             'one_time_cost' => 4997,
             'installment_cost' => 499.70,

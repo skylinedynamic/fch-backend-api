@@ -49,6 +49,12 @@ return new class extends Migration
             $table->string('status')->default(Subscription::STATUS_PENDING)
                 ->comment('Active, Inactive, Suspended, Cancelled');
 
+
+            $table->string('currency')->default('USD')->nullable();
+            $table->string('currency_symbol')->default('$')->nullable();
+            $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();
+
+
             // System columns
             $table->softDeletes();
             $table->timestamps();

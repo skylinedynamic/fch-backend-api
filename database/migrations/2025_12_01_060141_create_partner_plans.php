@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('partner_plans', function (Blueprint $table) {
+        Schema::create('subscription_plans', function (Blueprint $table) {
             $table->id();
+            $table->string('plan_for')->nullable();
             $table->string('partner_type')->nullable();
             $table->string('partner_type_slug')->nullable();
             $table->string('enrollment_type')->nullable();
@@ -20,7 +21,7 @@ return new class extends Migration {
             $table->decimal('platform_fee', 10, 2)->nullable();
             $table->string('currency')->default('USD')->nullable();
             $table->string('currency_symbol')->default('$')->nullable();
-            $table->decimal('currency_rate', 10, 4)->default(1.0000)->nullable();
+            $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();
             $table->boolean('status')->default(true);
             $table->softDeletes();
             $table->timestamps();
@@ -29,6 +30,6 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('partner_plans');
+        Schema::dropIfExists('subscription_plans');
     }
 };
