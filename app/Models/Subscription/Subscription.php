@@ -80,6 +80,11 @@ class Subscription extends Model
         return $this->belongsTo(SubscriptionPlan::class, 'partner_plan_id');
     }
 
+    public function phases()
+    {
+        return $this->hasMany(SubscriptionPhase::class);
+    }
+
     /**
      * Scope: apply text search across common subscription fields.
      */

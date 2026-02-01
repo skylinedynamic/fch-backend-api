@@ -19,7 +19,7 @@ class SubscriptionPlanResource extends JsonResource
             'enrollment_type' => $this->enrollment_type,
             'enrollment_type_slug' => $this->enrollment_type_slug,
             'payment_amount' => (float) $this->payment_amount,
-            'installments_count' => $this->installments_count,
+            // 'installments_count' => $this->installments_count,
             'total_installments_count' => $this->total_installments_count,
             'total_amount' => (float) $this->total_amount,
             'platform_fee' => (float) $this->platform_fee,

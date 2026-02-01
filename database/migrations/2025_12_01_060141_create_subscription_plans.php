@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->string('entity_type')->nullable()->comment('Partner or Borrower, NULL for User');
             $table->boolean('is_non_host_payment')->nullable()->default(false);
             $table->decimal('payment_amount', 10, 2)->nullable();
-            $table->integer('installments_count')->nullable(); // per month
+            // $table->integer('installments_count')->nullable(); // per month
             $table->decimal('total_installments_count', 10, 2)->nullable(); // total installments
             $table->decimal('total_amount', 10, 2)->nullable();
             $table->decimal('platform_fee', 10, 2)->nullable();

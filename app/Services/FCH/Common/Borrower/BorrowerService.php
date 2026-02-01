@@ -316,7 +316,7 @@ class BorrowerService
                         'monthly_platform_fee' =>  0,
                         'total_subscription_amount' => $plan->total_amount ?? 0,
                         'payable_amount' => $plan->payment_amount ?? 0,
-                        'installment_type' => isset($plan->installments_count) && $plan->installments_count >= 1 ? 1 : 0,
+                        'installment_type' => 1,
                         'subscription_start_date' => now(),
                         'subscription_end_date' => null,
                         'status' => Subscription::STATUS_PENDING, // Pending until payment
