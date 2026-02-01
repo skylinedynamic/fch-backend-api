@@ -9,6 +9,9 @@ class SubscriptionPhase extends Model
 {
     use HasFactory;
 
+    const PHASE_ENROLLMENT = 'enrollment';
+    const PHASE_PLATFORM_FEE = 'platform_fee';
+
     protected $fillable = [
         'subscription_id',
         'phase',

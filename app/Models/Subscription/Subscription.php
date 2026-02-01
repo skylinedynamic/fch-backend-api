@@ -33,7 +33,7 @@ class Subscription extends Model
         'payable_amount',
         'first_payment_date',
         'platform_fee_start_date',
-        'next_installment_date',
+        // 'next_installment_date',
         'installment_type',
         'subscription_start_date',
         'subscription_end_date',
@@ -43,7 +43,7 @@ class Subscription extends Model
     protected $casts = [
         'first_payment_date' => 'date',
         'platform_fee_start_date' => 'date',
-        'next_installment_date' => 'date',
+        // 'next_installment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
         'monthly_platform_fee' => 'decimal:2',
@@ -77,12 +77,22 @@ class Subscription extends Model
 
     public function partnerPlan()
     {
-        return $this->belongsTo(SubscriptionPlan::class, 'partner_plan_id');
+        return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
 
     public function phases()
     {
         return $this->hasMany(SubscriptionPhase::class);
+    }
+
+    public function enrollmentPhase()
+    {
+        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_ENROLLMENT);
+    }
+
+    public function platformFeePhase()
+    {
+        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE);
     }
 
     /**
