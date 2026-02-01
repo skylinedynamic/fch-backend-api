@@ -114,10 +114,8 @@ class PartnerService
             $user->entity_id = $partner->id;
             $user->save();
 
-            // Create default roles for the partner and assign Admin role to user
             $this->createPartnerRoles($partner->id, $user);
 
-            // Calculate enrollment amount from database if available
             $partnerType = $data['partner_type'] ?? null;
             $enrollmentType = $data['enrollment_type'] ?? null;
 
@@ -136,19 +134,18 @@ class PartnerService
 
             // Create subscription if enrollment data exists
             if ($enrollmentType) {
-                // Get platform fee from config
-                $platformFee = $planConfig['platform_fee'] ?? 0;
 
                 $subscriptionData = [
                     'subscription_plan_id' => $plan->id ?? null,
                     'entity_type' => Partner::class,
                     'partner_type' => $plan->partner_type ?? $partnerType,
                     'enrollment_type' => $plan->enrollment_type ?? $enrollmentType,
+                    'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'total_subscription_amount' => $plan->total_amount ?? 0,
                     'payable_amount' => $enrollmentAmount,
                     'subscription_start_date' => now(),
                     'subscription_end_date' => now()->addMonths(11),
-                    'status' => Subscription::STATUS_PENDING, // Pending until payment is confirmed
+                    'status' => Subscription::STATUS_PENDING,
                 ];
 
                 $this->subscriptionService->createOrUpdate(['entity_id' => $partner->id], $subscriptionData);

@@ -315,7 +315,7 @@ class BorrowerService
                         'enrollment_type' => $enrollmentType,
                         'monthly_platform_fee' =>  0,
                         'total_subscription_amount' => $plan->total_amount ?? 0,
-                        'payable_amount' => $amount,
+                        'payable_amount' => $plan->payment_amount ?? 0,
                         'installment_type' => isset($plan->installments_count) && $plan->installments_count >= 1 ? 1 : 0,
                         'subscription_start_date' => now(),
                         'subscription_end_date' => null,
