@@ -18,6 +18,8 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateDocumentStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
+use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
+use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 
 class BorrowerController extends Controller
 {
@@ -374,6 +376,48 @@ class BorrowerController extends Controller
             );
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.fetch_failed'));
+        }
+    }
+
+    /**
+     * Get Borrower Personal Details.
+     */
+    public function getPersonalDetails(string $id)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails((int)$id);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.error.not_found'));
+            }
+
+            return ApiResponse::success(
+                new BorrowerPersonalDetailsResource($borrower),
+                __('borrower.success.retrieved_details')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.error.fetch_failed'));
+        }
+    }
+
+    /**
+     * Get Borrower Business Financials.
+     */
+    public function getBusinessFinancials(string $id)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails((int)$id);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.error.not_found'));
+            }
+
+            return ApiResponse::success(
+                new BorrowerBusinessFinancialsResource($borrower),
+                __('borrower.success.retrieved_details')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.error.fetch_failed'));
         }
     }
 }

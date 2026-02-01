@@ -26,7 +26,7 @@ use App\Models\Subscription\Subscription;
 use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
-use App\Mail\Partner\PartnerAccountCreatedMail;
+use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
@@ -95,6 +95,7 @@ class PartnerService
             $userResult = $this->createOrUpdateUser($data);
             $user = $userResult['user'];
             $plainPassword = $userResult['plain_password'];
+            $isNew = $userResult['is_new'];
 
             // Create partner
             $partnerData = $this->mapPartnerData($data);
@@ -160,8 +161,8 @@ class PartnerService
             $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
 
             // Create invoice and send email if enrollment amount exists
-            if ($enrollmentAmount > 0 && $enrollmentType) {
-                $invoice = $this->invoiceService->create([
+            
+            $invoice = $this->invoiceService->create([
                     'partner_id' => $partner->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $partner->id,
@@ -170,52 +171,30 @@ class PartnerService
                     'country' => $partner->country,
                     'payment_amount' => $enrollmentAmount,
                     'status' => Invoice::STATUS_UNPAID,
-                    'cycle' => Str::contains($enrollmentType, 'One-Time') ? Invoice::CYCLE_ONE_TIME : Invoice::CYCLE_MONTHLY,
                 ]);
 
-                Log::info('✅ Partner invoice created', ['invoice_id' => $invoice->id]);
+            Log::info('✅ Partner invoice created', ['invoice_id' => $invoice->id]);
 
-                // Prepare email data
-                $mailData = [
-                    'user' => $user,
-                    'plain_password' => $plainPassword,
-                    'payment_link' => config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id,
-                    'amount' => $invoice->payment_amount,
-                    'enrollment_type' => $enrollmentType,
-                    'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
-                        'email' => config('mail.from.address'),
-                        'phone_number' => config('app.phone_number', ''),
-                        'address_line_1' => config('app.address', ''),
-                        'company_logo' => 'logo.png',
-                    ],
-                ];
+            // Prepare email data
+            $mailData = [
+                'user' => $user,
+                'plain_password' => $plainPassword,
+                'payment_link' => config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id,
+                'amount' => $invoice->payment_amount,
+                'enrollment_type' => $enrollmentType,
+                'business_info' => [
+                    'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
+                    'email' => config('mail.from.address'),
+                    'phone_number' => config('app.phone_number', ''),
+                    'address_line_1' => config('app.address', ''),
+                    'company_logo' => 'logo.png',
+                ],
+            ];
 
-                if ($isHostCreating) {
-                    Log::info('📧 Sending payment link email to partner', ['email' => $user->email]);
-                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-                } else {
-                    Log::info('📧 Sending payment link email to partner (non-host)', ['email' => $user->email]);
-                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-                }
-            } elseif ($plainPassword) {
-                // Send account created email without payment link
-                $mailData = [
-                    'user' => $user,
-                    'plain_password' => $plainPassword,
-                    'business_info' => [
-                        'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
-                        'email' => config('mail.from.address'),
-                        'phone_number' => config('app.phone_number', ''),
-                        'address_line_1' => config('app.address', ''),
-                        'company_logo' => 'logo.png',
-                    ],
-                    'subject' => 'Welcome to ' . config('app.name', 'Four Corner Holdings, LLC') . ' - Partner Account Created',
-                    'is_update' => false,
-                ];
-
-                Log::info('📧 Sending account created email to partner', ['email' => $user->email]);
-                Mail::to($user->email)->send(new PartnerAccountCreatedMail($mailData));
+            try{
+                Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
+            }catch(\Exception $e){
+                Log::error('❌ Partner payment link email failed', ['error' => $e->getMessage()]);
             }
 
             DB::commit();
@@ -343,6 +322,7 @@ class PartnerService
                 $userResult = $this->createOrUpdateUser($data, $user);
                 $updatedUser = $userResult['user'];
                 $plainPassword = $userResult['plain_password'];
+                $isNew = $userResult['is_new'];
 
                 if ($plainPassword) {
                     $mailData = [
@@ -355,11 +335,17 @@ class PartnerService
                             'address_line_1' => config('app.address', ''),
                             'company_logo' => 'logo.png',
                         ],
-                        'subject' => 'Welcome to ' . config('app.name', 'Four Corner Holdings, LLC') . ' - Partner Account Updated',
+                        'subject' => 'Your Email has been changed - ' . config('app.name', 'Four Corner Holdings, LLC'),
                         'is_update' => true,
                     ];
+                    
                     Log::info('📧 Sending account update email to partner with new password', ['email' => $updatedUser->email]);
-                    Mail::to($updatedUser->email)->send(new PartnerAccountCreatedMail($mailData));
+
+                    try{
+                        Mail::to($updatedUser->email)->send(new PartnerAccountUpdateMail($mailData));
+                    }catch(\Exception $e){
+                        Log::error('❌ Partner account update email failed', ['error' => $e->getMessage()]);
+                    }
                 }
             }
 
@@ -407,7 +393,9 @@ class PartnerService
         $plainPassword = null;
 
         if ($existingUser) {
+
             $plainPassword = null;
+
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
                 $plainPassword = bin2hex(random_bytes(4));
                 $userData['password'] = bcrypt($plainPassword);
@@ -416,16 +404,17 @@ class PartnerService
 
             $existingUser->update($userData);
 
-            return ['user' => $existingUser, 'plain_password' => $plainPassword];
+            return ['user' => $existingUser, 'plain_password' => $plainPassword,'is_new'=>false];
         }
 
         // Check if user exists by email
+        // nomal data update
         $user = User::where('email', $data['email'])->first();
 
         if ($user) {
             $user->update($userData);
 
-            return ['user' => $user, 'plain_password' => null];
+            return ['user' => $user, 'plain_password' => null,'is_new'=>false];
         }
 
         // Create new user
@@ -435,7 +424,7 @@ class PartnerService
 
         $user = User::create($userData);
 
-        return ['user' => $user, 'plain_password' => $plainPassword];
+        return ['user' => $user, 'plain_password' => $plainPassword,'is_new'=>true];
     }
 
     /**

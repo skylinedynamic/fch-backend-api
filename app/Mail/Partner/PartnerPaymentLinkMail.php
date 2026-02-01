@@ -43,7 +43,7 @@ class PartnerPaymentLinkMail extends Mailable
         $businessLogoPath = file_exists($localPath) ? $localPath : public_path('logo.png');
 
         return new Content(
-            view: 'emails.partner.payment_link',
+            view: 'emails.partner.account_created',
             with: [
                 'user' => $user,
                 'paymentLink' => $this->mailData['payment_link'] ?? null,

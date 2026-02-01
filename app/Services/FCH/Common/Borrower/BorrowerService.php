@@ -304,7 +304,6 @@ class BorrowerService
                         'payment_amount' => $amount,
                         'status' => Invoice::STATUS_UNPAID,
                         'is_platform_fee' => false,
-                        'cycle' => $enrollmentType,
                     ]);
 
                     $subscriptionData = [
@@ -419,7 +418,11 @@ class BorrowerService
      */
     public function getDetails(int $id)
     {
-        return Borrower::with('partner')->find($id);
+        return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
+            $query->where('partner_id', auth()->user()->partner_id);
+        })
+            ->with('partner')
+            ->find($id);
     }
 
     /**

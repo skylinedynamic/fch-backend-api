@@ -223,7 +223,8 @@
         <tr>
             <td>
                 <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
-                <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}</div>
+                <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
+                </div>
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>
@@ -248,7 +249,8 @@
                 <td style="width: 50%; vertical-align: top; text-align: right">
                     <div class="address-box">
                         <div class="section-header">Billing Address</div>
-                        <div class="name">{{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}</div>
+                        <div class="name">
+                            {{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}</div>
                         <p>{{ $invoice->details['billing_address']['street'] ?? 'Address not specified' }}</p>
                         <p>Phone: {{ $invoice->details['billing_address']['phone'] ?? 'N/A' }}</p>
                         <p>Country: {{ $invoice->details['billing_address']['country'] ?? 'USA' }}</p>
@@ -267,12 +269,15 @@
             </td>
             <td style="width: 20%;">
                 <div class="label">Date</div>
-                <div class="value">{{ $invoice->payment_date ? $invoice->payment_date->format('d M Y') : $invoice->created_at->format('d M Y') }}</div>
+                <div class="value">
+                    {{ $invoice->payment_date ? $invoice->payment_date->format('d M Y') : $invoice->created_at->format('d M Y') }}
+                </div>
             </td>
             <td style="width: 25%;">
                 <div class="label">Payment Status</div>
                 <div class="value">
-                    <span class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : 'status-unpaid' }}">
+                    <span
+                        class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : 'status-unpaid' }}">
                         {{ $invoice->status }}
                     </span>
                 </div>
@@ -297,19 +302,17 @@
         </thead>
         <tbody>
             @php $items = $invoice->details['items'] ?? [['description' => 'Platform Service Enrollment', 'rate' => $invoice->payment_amount, 'quantity' => 1, 'amount' => $invoice->payment_amount]]; @endphp
-            @foreach($items as $index => $item)
-            <tr>
-                <td style="text-align: center; color: #9ca3af;">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</td>
-                <td>
-                    <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
-                    @if(!empty($item['cycle']))
-                    <div style="font-size: 11px; color: #9ca3af;">Payment Cycle: {{ $item['cycle'] }}</div>
-                    @endif
-                </td>
-                <td style="text-align: right;">${{ number_format($item['rate'], 2) }}</td>
-                <td style="text-align: center;">{{ str_pad($item['quantity'] ?? 1, 2, '0', STR_PAD_LEFT) }}</td>
-                <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
-            </tr>
+            @foreach ($items as $index => $item)
+                <tr>
+                    <td style="text-align: center; color: #9ca3af;">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}
+                    </td>
+                    <td>
+                        <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
+                    </td>
+                    <td style="text-align: right;">${{ number_format($item['rate'], 2) }}</td>
+                    <td style="text-align: center;">{{ str_pad($item['quantity'] ?? 1, 2, '0', STR_PAD_LEFT) }}</td>
+                    <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
+                </tr>
             @endforeach
         </tbody>
     </table>
@@ -332,9 +335,10 @@
     <div class="payment-details">
         <div class="title">Payment Details:</div>
         <p><strong>Payment Method:</strong> {{ $invoice->details['payment_method'] ?? 'Stripe / Card' }}</p>
-        <p><strong>Card Holder:</strong> {{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}</p>
-        @if(!empty($invoice->details['card_last4']))
-        <p><strong>Card Number:</strong> xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</p>
+        <p><strong>Card Holder:</strong> {{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}
+        </p>
+        @if (!empty($invoice->details['card_last4']))
+            <p><strong>Card Number:</strong> xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</p>
         @endif
         <p><strong>Total Amount:</strong> ${{ number_format($invoice->payment_amount, 2) }}</p>
     </div>
@@ -342,7 +346,9 @@
     <!-- Notes -->
     <div class="notes-box">
         <strong>NOTES:</strong>
-        All accounts are to be paid within 7 days from receipt of invoice. To be paid by cheque or credit card or direct payment online. If account is not paid within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted fee noted above.
+        All accounts are to be paid within 7 days from receipt of invoice. To be paid by cheque or credit card or direct
+        payment online. If account is not paid within 7 days the credits details supplied as confirmation of work
+        undertaken will be charged the agreed quoted fee noted above.
     </div>
 </body>
 

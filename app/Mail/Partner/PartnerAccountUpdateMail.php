@@ -6,7 +6,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class PartnerAccountCreatedMail extends Mailable
+class PartnerAccountUpdateMail extends Mailable
 {
     protected array $mailData;
 
@@ -26,11 +26,8 @@ class PartnerAccountCreatedMail extends Mailable
     public function content(): Content
     {
         $user = $this->mailData['user'];
-
-        // ✅ Handle business logo properly
         $businessLogo = $this->mailData['business_info']['company_logo'] ?? 'logo.png';
 
-        // If full URL was provided, convert to filename
         if (str_starts_with($businessLogo, 'http')) {
             $fileName = basename(parse_url($businessLogo, PHP_URL_PATH));
             $localPath = public_path($fileName);
@@ -38,16 +35,14 @@ class PartnerAccountCreatedMail extends Mailable
             $localPath = public_path($businessLogo);
         }
 
-        // ✅ Prepare URLs and paths
         $businessLogoUrl = asset($businessLogo);
         $businessLogoPath = file_exists($localPath) ? $localPath : public_path('logo.png');
 
         return new Content(
-            view: 'emails.partner.account_created',
+            view: 'emails.partner.mail_updated',
             with: [
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
-
                 'business_info' => [
                     'company_name'   => $this->mailData['business_info']['company_name'] ?? '',
                     'email'  => $this->mailData['business_info']['email'] ?? '',
