@@ -11,23 +11,27 @@
     </p>
 
     <!-- Information List -->
-    <div class="info-card">
-        <div class="info-item">
-            <div class="info-label">Full Name</div>
-            <div class="info-value">{{ $user->name }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Email Address</div>
-            <div class="info-value">{{ $user->email }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Payment Amount</div>
-            <div class="info-value">{{ number_format($amount, 2) }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Temporary Password</div>
-            <div class="info-value">
-                {{ $plainPassword }}</div>
+    <div class="box-light info-card-container">
+        <div class="info-card-header">Payment Required</div>
+        <div class="info-card-content">
+            <table class="info-table">
+                <tr>
+                    <td class="label">Full Name</td>
+                    <td class="value">{{ $user->name }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Email Address</td>
+                    <td class="value">{{ $user->email }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Payment Amount</td>
+                    <td class="value amount-value">${{ number_format($amount, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Temporary Password</td>
+                    <td class="value"><span class="highlight-value">{{ $plainPassword }}</span></td>
+                </tr>
+            </table>
         </div>
     </div>
 

@@ -14,21 +14,24 @@
         </p>
 
         {{-- Invoice Details --}}
-        <div class="section-label mb-2">Invoice Summary</div>
-        <table class="detail-table">
-            <tr>
-                <td class="label">Invoice Number</td>
-                <td class="value">#{{ $invoice->invoice_id }}</td>
-            </tr>
-            <tr>
-                <td class="label">Date Issued</td>
-                <td class="value">{{ $invoice->created_at->format('F j, Y') }}</td>
-            </tr>
-            <tr>
-                <td class="label">Amount Due</td>
-                <td class="value">${{ number_format($invoice->payment_amount, 2) }}</td>
-            </tr>
-        </table>
+        <div class="box-light invoice-summary-card">
+            <div class="invoice-summary-header">
+                <span class="label invoice-summary-label">Amount Due</span>
+                <span class="value invoice-summary-amount">${{ number_format($invoice->payment_amount, 2) }}</span>
+            </div>
+            <div class="invoice-summary-content">
+                <table class="detail-table invoice-summary-table">
+                    <tr>
+                        <td class="label">Invoice Number</td>
+                        <td class="value">#{{ $invoice->invoice_id }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Date Issued</td>
+                        <td class="value">{{ $invoice->created_at->format('F j, Y') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
 
         {{-- Action Section --}}
         <div class="box-primary">
@@ -38,14 +41,6 @@
             <p class="text-muted small mt-4 mb-0">Invoice Status: <strong>Pending Payment</strong></p>
         </div>
 
-        {{-- Note --}}
-        <div class="box-note">
-            <p class="section-label mb-2">Important Note</p>
-            <p class="text-muted mb-0 small" style="line-height: 1.6;">
-                For your records, a PDF copy of this invoice has been attached to this email. If you have already made this
-                payment, please disregard this notice.
-            </p>
-        </div>
 
         <p class="text-muted mt-5 mb-0">
             Thank you for your business.
