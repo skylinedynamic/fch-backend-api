@@ -32,7 +32,7 @@ return new class extends Migration
             // Payment & fee timeline
             $table->date('first_payment_date')->nullable();
             $table->date('platform_fee_start_date')->nullable();
-            $table->date('next_installment_date')->nullable();
+            // $table->date('next_installment_date')->nullable();
 
             // Installment config
             $table->tinyInteger('installment_type')

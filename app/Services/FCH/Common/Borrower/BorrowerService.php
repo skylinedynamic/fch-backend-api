@@ -306,22 +306,12 @@ class BorrowerService
                         'is_platform_fee' => false,
                     ]);
 
-                    $subscriptionData = [
-                        'entity_type' => Borrower::class,
-                        'entity_id' => $borrower->id,
-                        'subscription_plan_id' =>  $plan->id ?? null,
-                        'partner_type' => null,
-                        'enrollment_type' => $enrollmentType,
-                        'monthly_platform_fee' =>  0,
+                    $subscription = $this->subscriptionService->startSubscription($borrower, $plan, $enrollmentType, [
+                        'monthly_platform_fee' => 0,
                         'total_subscription_amount' => $plan->total_amount ?? 0,
-                        'payable_amount' => $amount,
-                        'installment_type' => isset($plan->installments_count) && $plan->installments_count >= 1 ? 1 : 0,
-                        'subscription_start_date' => now(),
-                        'subscription_end_date' => null,
-                        'status' => Subscription::STATUS_PENDING, // Pending until payment
-                    ];
-
-                    Subscription::create($subscriptionData);
+                        'payable_amount' => $plan->payment_amount ?? 0,
+                    ]);
+                    Log::info('✅ Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
                     if ($isHostCreating) {
                         Log::info('Triggering Onboarding Email');

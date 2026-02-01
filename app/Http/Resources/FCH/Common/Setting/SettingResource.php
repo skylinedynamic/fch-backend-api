@@ -22,7 +22,6 @@ class SettingResource extends JsonResource
             'stripe_key_production' => $this->stripe_key_production,
             'stripe_secret_production' => $this->stripe_secret_production,
             'payment_method' => $this->payment_method,
-            'non_host_enrollment_price' => $this->non_host_enrollment_price,
             'status' => $this->status,
             'configuration' => $this->configuration,
             'created_at' => $this->created_at,

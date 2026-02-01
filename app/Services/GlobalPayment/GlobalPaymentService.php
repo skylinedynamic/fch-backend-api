@@ -16,12 +16,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 use App\Mail\Payment\PaymentSuccessMail;
-use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
+use App\Services\FCH\Subscription\SubscriptionService;
 
 class GlobalPaymentService
 {
-    public function __construct() {}
+    public function __construct(
+        protected SubscriptionService $subscriptionService
+    ) {}
 
     /**
      * Create and process a Stripe payment.
@@ -120,15 +122,21 @@ class GlobalPaymentService
                 ]);
 
                 if ($invoice) {
+                    // Update invoice status first
+                    $invoice->update([
+                        'status' => Invoice::STATUS_PAID,
+                        'payment_date' => now(),
+                    ]);
+
+                    // Delegate subscription logic to SubscriptionService
+                    $this->subscriptionService->handleSuccessfulPayment($invoice);
+
+                    // Backward compatibility/Additional logic if needed
                     if ($invoice->entity_type === Partner::class) {
                         $this->handlePartnerPayment($invoice);
                     } else if ($invoice->entity_type === Borrower::class) {
                         $this->handleBorrowerPayment($invoice);
                     }
-                    $invoice->update([
-                        'status' => Invoice::STATUS_PAID,
-                        'payment_date' => now(),
-                    ]);
                 }
 
                 $borrower = null;
@@ -215,7 +223,7 @@ class GlobalPaymentService
     }
 
     /**
-     * Handle Partner Post-Payment Logic
+     * Handle Partner Post-Payment Logic (Legacy/Status updates)
      */
     protected function handlePartnerPayment(Invoice $invoice)
     {
@@ -224,7 +232,6 @@ class GlobalPaymentService
         }
 
         $partner = Partner::find($invoice->entity_id);
-
         if (!$partner) return;
 
         $partner->update([
@@ -232,41 +239,11 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        $subscription = Subscription::where('entity_type', Partner::class)
-            ->where('entity_id', $partner->id)
-            ->first();
-        if (!$subscription) return;
-
-        // Based on business rule: Platform fee starts on the 12th month
-        // Update subscription dates
-        $firstPaymentDate = now();
-        $platformFeeStartDate = $firstPaymentDate->copy()->addMonths(11); // 12th month effectively
-        $subscriptionEndDate = $firstPaymentDate->copy()->addMonths(11);
-        $nextInstallmentDate = null;
-
-        if ($subscription->installment_type == 1) {
-            $nextInstallmentDate = $firstPaymentDate->copy()
-                ->addMonth();
-        }
-
-        $subscription->update([
-            'status' => Subscription::STATUS_ACTIVE,
-            'first_payment_date' => $firstPaymentDate,
-            'subscription_start_date' => $firstPaymentDate,
-            'subscription_end_date' => $subscriptionEndDate,
-            'platform_fee_start_date' => $platformFeeStartDate,
-            'next_installment_date' => $nextInstallmentDate,
-        ]);
-
-        Log::info('✅ Partner Subscription Activated', [
-            'partner_id' => $partner->id,
-            'subscription_end' => $subscriptionEndDate->toDateString(),
-            'platform_fee_start' => $platformFeeStartDate->toDateString()
-        ]);
+        Log::info('✅ Partner Status Activated via Payment', ['partner_id' => $partner->id]);
     }
 
     /**
-     * Handle Borrower Post-Payment Logic
+     * Handle Borrower Post-Payment Logic (Legacy/Status updates)
      */
     protected function handleBorrowerPayment(Invoice $invoice)
     {
@@ -275,7 +252,6 @@ class GlobalPaymentService
         }
 
         $borrower = Borrower::find($invoice->entity_id);
-
         if (!$borrower) return;
 
         $borrower->update([
@@ -283,41 +259,6 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        $subscription = Subscription::where('entity_type', Borrower::class)
-            ->where('entity_id', $borrower->id)
-            ->first();
-        if ($subscription) {
-            // Based on business rule: Platform fee starts on the 12th month
-            // Update subscription dates
-            $firstPaymentDate = now();
-            $platformFeeStartDate = $firstPaymentDate->copy()->addMonths(11); // 12th month effectively
-            $subscriptionEndDate = $firstPaymentDate->copy()->addMonths(11);
-            $nextInstallmentDate = null;
-
-            if ($subscription->installment_type == 1) {
-                $nextInstallmentDate = $firstPaymentDate->copy()
-                    ->addMonth();
-            }
-
-            $subscription->update([
-                'status' => Subscription::STATUS_ACTIVE,
-                'first_payment_date' => $firstPaymentDate,
-                'subscription_start_date' => $firstPaymentDate,
-                'subscription_end_date' => $subscriptionEndDate,
-                'platform_fee_start_date' => $platformFeeStartDate,
-                'next_installment_date' => $nextInstallmentDate,
-            ]);
-
-            Log::info('✅ Borrower Subscription Activated', [
-                'borrower_id' => $borrower->id,
-                'subscription_end' => $subscriptionEndDate->toDateString(),
-                'platform_fee_start' => $platformFeeStartDate->toDateString()
-            ]);
-        }
-
-        Log::info('✅ Borrower Status Activated', [
-            'borrower_id' => $borrower->id,
-            'status' => Borrower::STATUS_ACTIVE
-        ]);
+        Log::info('✅ Borrower Status Activated via Payment', ['borrower_id' => $borrower->id]);
     }
 }

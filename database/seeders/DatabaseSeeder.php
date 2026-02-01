@@ -75,7 +75,7 @@ class DatabaseSeeder extends Seeder
             EmployeeSeeder::class,           // Create employees under partners
             DepartmentSeeder::class,         // Create departments under partners
             AppointmentSeeder::class,        // Create appointments for partners
-            InvoiceSeeder::class,            // Create invoices for partners
+            // InvoiceSeeder::class,            // Create invoices for partners
             SupportTicketSeeder::class,      // Create support tickets for partners
             BorrowerTaskVerificationRequestSeeder::class,
             BorrowerTaskVerificationRequestSeeder::class,

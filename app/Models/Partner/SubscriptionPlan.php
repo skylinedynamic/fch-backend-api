@@ -20,7 +20,6 @@ class SubscriptionPlan extends Model
         'entity_type',
         'is_non_host_payment',
         'payment_amount',
-        'installments_count',
         'total_installments_count',
         'total_amount',
         'platform_fee',
@@ -31,7 +30,6 @@ class SubscriptionPlan extends Model
     ];
 
     protected $casts = [
-        'installments_count' => 'integer',
         'total_installments_count' => 'integer',
         'payment_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',

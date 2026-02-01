@@ -29,7 +29,10 @@ class SubscriptionResource extends JsonResource
             'total_paid_amount' => $this->total_paid_amount,
             'subscription_start_date' => $this->subscription_start_date?->format('Y-m-d'),
             'subscription_end_date' => $this->subscription_end_date?->format('Y-m-d'),
-            'next_installment_date' => $this->next_installment_date?->format('Y-m-d'),
+            'next_installment_date' => $this->enrollmentPhase?->next_installment_date?->format('Y-m-d')
+                ?? $this->next_installment_date?->format('Y-m-d'),
+            'next_platform_fee_date' => $this->platformFeePhase?->next_platform_fee_date?->format('Y-m-d'),
+            'enrollment_completed_at' => $this->enrollmentPhase?->enrollment_completed_at?->toDateTimeString(),
             'termination_date' => $this->termination_date?->format('Y-m-d'),
             'status' => $this->status,
             'partner_name' => $this->partner?->full_name,
