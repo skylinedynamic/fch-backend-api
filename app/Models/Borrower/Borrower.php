@@ -2,11 +2,13 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Invoice\Invoice;
 use App\Models\CreditBuilder\Tier;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Subscription\Subscription;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 
 class Borrower extends Model
@@ -92,7 +94,7 @@ class Borrower extends Model
      */
     public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'borrower_id');
+        return $this->hasMany(Invoice::class, 'borrower_id');
     }
 
     /**
@@ -100,7 +102,15 @@ class Borrower extends Model
      */
     public function latestInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(\App\Models\Invoice\Invoice::class, 'borrower_id')->latestOfMany();
+        return $this->hasOne(Invoice::class, 'borrower_id')->latestOfMany();
+    }
+
+    /**
+     * Get the subscription for the borrower.
+     */
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(Subscription::class, 'entity');
     }
 
     public static function getStatuses(): array
