@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
+use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
@@ -39,7 +40,6 @@ Route::prefix('v1/borrower')->group(function () {
     Route::middleware(['auth:api', 'borrower'])->group(function () {
 
         Route::post('/logout', [AuthController::class, 'logout']);
-        Route::get('/user-details', BorrowerUserDetailController::class);
 
         // Pre-Qualification
         Route::get('/pre-qualification', [PreQualificationController::class, 'index']);
@@ -118,6 +118,10 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/stats', [InvoiceController::class, 'stats']);
             Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
         });
+
+        Route::get('/user-details', BorrowerUserDetailController::class);
+
+        Route::post('/process-payment', [GlobalPaymentController::class, 'processPayment']);
 
 
         // auth profile
