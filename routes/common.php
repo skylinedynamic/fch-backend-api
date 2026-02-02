@@ -85,6 +85,13 @@ Route::prefix('v1')->group(function () {
             //Borrower document types
             Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
 
+            Route::post('borrowers/personal-details', [BorrowerController::class, 'updatePersonalDetails']);
+            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']); 
+
+            // Separate API for Client Info and Business Financials
+            Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
+            Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
+
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);

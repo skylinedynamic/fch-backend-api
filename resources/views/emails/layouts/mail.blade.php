@@ -18,7 +18,7 @@
             <div class="header-logo">
                 {{-- Logo retrieval logic --}}
                 @php
-                    $logoPath = public_path('logo_mail.jpeg');
+                    $logoPath = public_path('fch-logo.svg');
                     $logoSrc = '';
                     if (file_exists($logoPath)) {
                         try {

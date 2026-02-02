@@ -119,11 +119,6 @@ class InvoiceService
             unset($rawFilters['status']);
         }
 
-        // Filter by Cycle (Compatibility)
-        if (!empty($filters['cycle']) && $filters['cycle'] !== 'All Status' && $filters['cycle'] !== 'All Cycle') {
-            $query->where('invoices.cycle', $filters['cycle']);
-            unset($rawFilters['cycle']);
-        }
 
         // Filter by Payee (Compatibility)
         if (!empty($filters['payee_id'])) {
@@ -201,9 +196,7 @@ class InvoiceService
         if (!empty($filters['date_to'])) {
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['cycle']) && $filters['cycle'] !== Invoice::CYCLE_ALL) {
-            $query->where('cycle', $filters['cycle']);
-        }
+ 
         if (!empty($filters['payee']) && $filters['payee'] !== Invoice::PAYEE_ALL) {
             $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
         }

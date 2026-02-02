@@ -1,208 +1,106 @@
-<!DOCTYPE html>
-<html lang="en">
+@extends('emails.layouts.mail')
 
-<head>
-    <meta charset="UTF-8">
-    <title>Welcome to {{ $business_info['company_name'] }}</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background-color: #eef2f7;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
+@section('title', 'Welcome to ' . $business_info['company_name'])
 
-        .container {
-            max-width: 650px;
-            margin: 40px auto;
-            background: #ffffff;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-        }
+@section('content')
 
-        .header {
-            background: #1e3a8a;
-            color: #ffffff;
-            padding: 20px 25px;
-            text-align: center;
-        }
+    <div class="description-card">
+        <p class="mb-3">
+            Hello <strong>{{ $user->name }}</strong>,
+        </p>
 
-        .header img {
-            height: 60px;
-            margin-bottom: 10px;
-        }
+        <p class="mb-3">
+            Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
+        </p>
 
-        .header h1 {
-            font-size: 21px;
-            font-weight: 600;
-            margin: 0;
-            letter-spacing: 0.3px;
-        }
+        <p class="mb-5 text-muted">
+            Your partner account has been successfully created, and you now have access to the
+            <strong>{{ $business_info['company_name'] }} Partner Portal</strong>.
+        </p>
 
-        .content {
-            padding: 35px 30px;
-        }
-
-        .content h2 {
-            color: #111827;
-            font-size: 20px;
-            margin-bottom: 12px;
-        }
-
-        .content p {
-            color: #4b5563;
-            line-height: 1.6;
-            font-size: 15px;
-            margin-top: 0;
-        }
-
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 18px;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .details-table td {
-            border: 1px solid #e5e7eb;
-            padding: 12px 16px;
-            font-size: 15px;
-        }
-
-        .details-table td:first-child {
-            font-weight: 600;
-            background: #f9fafb;
-            width: 35%;
-            color: #1f2937;
-        }
-
-        .btn {
-            display: inline-block;
-            background: #2563eb;
-            color: #ffffff !important;
-            text-decoration: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            font-weight: 600;
-            margin-top: 25px;
-            font-size: 15px;
-            transition: background 0.2s ease;
-        }
-
-        .btn:hover {
-            background: #1e40af;
-        }
-
-        .footer {
-            background: #1e3a8a;
-            padding: 20px 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #ffffff;
-        }
-
-        .footer img {
-            height: 45px;
-            margin-bottom: 10px;
-            filter: brightness(0) invert(1);
-        }
-
-        .footer p {
-            margin: 5px 0;
-            color: #e5e7eb;
-            line-height: 1.5;
-            font-size: 13px;
-        }
-
-        .footer a {
-            color: #ffffff;
-            text-decoration: none;
-        }
-
-        small {
-            color: #cbd5e1;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="container">
-        <div class="header">
-            @if(app()->environment('local'))
-            <img src="{{ $message->embed($business_info['business_logo_path']) }}"
-                alt="{{ $business_info['company_name'] }} Logo">
-            @else
-            <img src="{{ $business_info['business_logo_url'] }}"
-                alt="{{ $business_info['company_name'] }} Logo">
-            @endif
-            <h1>{{ $business_info['company_name'] }}</h1>
+        {{-- Next Steps --}}
+        <div class="box-light">
+            <p class="section-label mb-3">What you can do next:</p>
+            <ul>
+                <li>Log in to your Partner Dashboard</li>
+                <li>Add and manage clients</li>
+                <li>Track client progress through tiers and underwriting</li>
+                <li>View commission activity (as applicable)</li>
+                <li>Access partner training and resources</li>
+            </ul>
         </div>
 
-        <div class="content">
-            <h2>Hello {{ $user->name }},</h2>
-            <p>
-                Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
-            </p>
-            <p>
-                Your partner account has been successfully created, and you now have access to the <strong>{{ $business_info['company_name'] }} Partner Portal</strong>.
-            </p>
+        @php
+            $displayAmount = (float) ($amount ?? 0);
+        @endphp
 
-            <h3 style="color: #111827; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">What you can do next:</h3>
-            <ul style="color: #4b5563; font-size: 15px; margin-bottom: 25px; padding-left: 20px;">
-                <li style="margin-bottom: 8px;">Log in to your Partner Dashboard</li>
-                <li style="margin-bottom: 8px;">Add and manage clients</li>
-                <li style="margin-bottom: 8px;">Track client progress through tiers and underwriting</li>
-                <li style="margin-bottom: 8px;">View commission activity (as applicable)</li>
-                <li style="margin-bottom: 0;">Access partner training and resources</li>
-            </ul>
+        {{-- Enrollment Overview --}}
+        <div class="section-label mb-2">Enrollment Overview</div>
+        <table class="detail-table">
+            <tr>
+                <td class="label">Partner Name</td>
+                <td class="value">{{ $user->name }}</td>
+            </tr>
+            <tr>
+                <td class="label">Enrollment Type</td>
+                <td class="value">{{ $enrollmentType }}</td>
+            </tr>
+            @if ($displayAmount > 0)
+                <tr>
+                    <td class="label">Payment Amount</td>
+                    <td class="value">${{ number_format($displayAmount, 2) }}</td>
+                </tr>
+            @endif
+            @if (!empty($plainPassword))
+                <tr>
+                    <td class="label">Temporary Password</td>
+                    <td class="value"><span class="temp-password">{{ $plainPassword }}</span></td>
+                </tr>
+            @endif
+        </table>
 
-            <div style="text-align:center; padding: 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 25px;">
-                <p style="margin-top: 0;"><strong>Partner Portal Login:</strong></p>
-                <a href="{{ config('app.frontend_partner_url') }}/login" class="btn" style="margin-top: 5px;">Go to Partner Dashboard</a>
-                
-                <p style="font-size: 13px; color: #6b7280; margin-top: 15px; margin-bottom: 0;">
-                    <strong>Temporary Password:</strong> {{ $plainPassword }}<br>
+        {{-- Action Section --}}
+        @if ($displayAmount > 0)
+            <div class="box-primary">
+                <p class="mb-4">To finalize your enrollment and activate your dashboard access, please complete the secure
+                    payment process.</p>
+                <a href="{{ $paymentLink }}" class="btn">Complete Enrollment Payment</a>
+                <p class="text-muted small mt-4 mb-0">Total Amount Due:
+                    <strong>${{ number_format($displayAmount, 2) }}</strong>
+                </p>
+            </div>
+        @else
+            <div class="box-primary">
+                <p class="section-label mb-3">Partner Portal Login:</p>
+                <a href="{{ config('app.frontend_partner_url') }}/login" class="btn">Go to Partner Dashboard</a>
+                <p class="text-muted small mt-4 mb-0">
                     For security reasons, if this is your first login, you may be prompted to set or confirm your password.
                 </p>
             </div>
+        @endif
 
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; color: #4b5563; font-size: 14px;">
-                <p><strong>Please note:</strong></p>
-                <p>
-                    Partner access is role-based and read-only for underwriting decisions. All underwriting, tier advancement, and funding decisions remain managed by the <strong>{{ $business_info['company_name'] }}</strong> internal team.
-                </p>
-                <p>
-                    If you have any questions or need assistance getting started, our Partner Support team is available through the portal.
-                </p>
-            </div>
-
-            <p style="margin-top: 30px;">
-                We’re excited to have you onboard.
+        {{-- Note / Disclaimer --}}
+        <div class="box-note">
+            <p class="section-label mb-2">Please note:</p>
+            <p class="text-muted mb-3 small" style="line-height: 1.6;">
+                Partner access is role-based and read-only for underwriting decisions. All underwriting, tier advancement,
+                and funding decisions remain managed by the <strong>{{ $business_info['company_name'] }}</strong> internal
+                team.
+            </p>
+            <p class="text-muted mb-0 small" style="line-height: 1.6;">
+                If you have any questions or need assistance getting started, our Partner Support team is available through
+                the portal.
             </p>
         </div>
 
-        <div class="footer">
-            @if(app()->environment('local'))
-            <img src="{{ $message->embed($business_info['business_logo_path']) }}"
-                alt="{{ $business_info['company_name'] }} Logo">
-            @else
-            <img src="{{ $business_info['business_logo_url'] }}"
-                alt="{{ $business_info['company_name'] }} Logo">
-            @endif
-            <p>
-                <strong>{{ $business_info['company_name'] }}</strong><br>
-                Partner Operations Team<br>
-                {{ $business_info['phone_number'] }} | <a href="mailto:{{ $business_info['email'] }}" style="color: #ffffff;">{{ $business_info['email'] }}</a>
-            </p>
-            <p style="font-size: 12px; margin-top: 10px;">
-                {{ $business_info['address_line_1'] }}
-            </p>
-            <small>© {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</small>
-        </div>
+        <p class="text-muted mt-5 mb-0">
+            We’re excited to have you onboard.
+        </p>
+
+        <p class="text-muted mt-4 mb-0">
+            Regards,<br>
+            <strong>{{ $business_info['company_name'] }}</strong><br>
+            Partner Operations Team
+        </p>
     </div>
-</body>
-
-</html>
+@endsection
