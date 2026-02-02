@@ -113,6 +113,7 @@ Route::prefix('v1/borrower')->group(function () {
 
         Route::prefix('invoice')->group(function () {
             Route::post('/', [InvoiceController::class, 'index']);
+            Route::post('/stats', [InvoiceController::class, 'stats']);
             Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
         });
 

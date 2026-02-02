@@ -18,6 +18,7 @@ class FetchInvoiceRequest extends FormRequest
             'date_to'    => ['nullable', 'date'],
             'status'     => ['nullable'],
             'cycle'      => ['nullable', 'string'],
+            'payment_amount' => ['nullable', 'numeric'],
             'borrower_id'   => ['nullable'],
             'partner_id' => ['nullable', 'integer'],
             'search'     => ['nullable', 'string'],

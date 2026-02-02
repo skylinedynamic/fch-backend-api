@@ -10,6 +10,8 @@ class Invoice extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'invoices';
+
     protected $fillable = [
         'invoice_id',
         'partner_id',
