@@ -23,12 +23,12 @@ class CommissionService
             
             $requestedAmount = $fundingApplication->requested_amount ?? 0;
             $totalCommission = $data['total_commission'];
+            $adminCommission = $data['admin_commission'];
             $partnerCommission = $data['partner_commission'] ?? 0;
 
             $totalCommissionAmount = ($requestedAmount * $totalCommission) / 100;
             
             if ($partnerCommission > 0) {
-                $adminCommission = $totalCommission - $partnerCommission;
                 $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / $totalCommission;
                 $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
             } else {

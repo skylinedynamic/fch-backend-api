@@ -22,6 +22,7 @@ class SaveCommissionRequest extends BaseApiRequest
         return [
             'funding_application_id' => ['required', 'integer', 'exists:funding_applications,id'],
             'total_commission' => ['required', 'numeric', 'min:1', 'max:100'],
+            'admin_commission' => ['required', 'numeric', 'min:1', 'max:100'],
             'partner_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
@@ -39,6 +40,10 @@ class SaveCommissionRequest extends BaseApiRequest
             'total_commission.numeric' => __('application.total_commission_numeric'),
             'total_commission.min' => __('application.total_commission_min'),
             'total_commission.max' => __('application.total_commission_max'),
+            'admin_commission.required' => __('application.admin_commission_required'),
+            'admin_commission.numeric' => __('application.admin_commission_numeric'),
+            'admin_commission.min' => __('application.admin_commission_min'),
+            'admin_commission.max' => __('application.admin_commission_max'),
             'partner_commission.numeric' => __('application.partner_commission_numeric'),
             'partner_commission.min' => __('application.partner_commission_min'),
             'partner_commission.max' => __('application.partner_commission_max'),
