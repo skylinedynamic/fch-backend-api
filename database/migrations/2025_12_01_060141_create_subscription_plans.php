@@ -14,9 +14,8 @@ return new class extends Migration {
             $table->string('enrollment_type')->nullable();
             $table->string('enrollment_type_slug')->nullable();
             $table->string('entity_type')->nullable()->comment('Partner or Borrower, NULL for User');
-            $table->boolean('is_non_host_payment')->nullable()->default(false);
+            $table->boolean('is_partner_paying')->nullable()->default(false); // only used for borrower payment if true partner is paying for borrower
             $table->decimal('payment_amount', 10, 2)->nullable();
-            // $table->integer('installments_count')->nullable(); // per month
             $table->decimal('total_installments_count', 10, 2)->nullable(); // total installments
             $table->decimal('total_amount', 10, 2)->nullable();
             $table->decimal('platform_fee', 10, 2)->nullable();

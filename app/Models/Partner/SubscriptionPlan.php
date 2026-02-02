@@ -18,7 +18,7 @@ class SubscriptionPlan extends Model
         'enrollment_type',
         'enrollment_type_slug',
         'entity_type',
-        'is_non_host_payment',
+        'is_partner_paying',
         'payment_amount',
         'total_installments_count',
         'total_amount',
