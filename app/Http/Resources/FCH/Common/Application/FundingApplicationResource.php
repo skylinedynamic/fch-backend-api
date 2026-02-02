@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Common\Application;
 
+use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +17,7 @@ class FundingApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'partner_id' => $this->borrower->partner_id,
             'borrower_id' => $this->borrower_id,
             'full_name' => $this->full_name,
             'business_name' => $this->business_name,
@@ -72,7 +74,7 @@ class FundingApplicationResource extends JsonResource
             'status_note' => $this->status_note,
             'status_class' => $this->status_class,
             'attestation_authorization' => $this->attestation_authorization,
-             'co_borrowers' => \App\Http\Resources\Borrower\FundApplication\CoBorrowerResource::collection($this->whenLoaded('coborrowers')),
+            'co_borrowers' => \App\Http\Resources\Borrower\FundApplication\CoBorrowerResource::collection($this->whenLoaded('coborrowers')),
             'documents' => $this->whenLoaded('fundingDocuments', function () {
                 return $this->fundingDocuments->groupBy(function ($document) {
                     return $document->docType->name ?? 'Other';
@@ -83,9 +85,19 @@ class FundingApplicationResource extends JsonResource
                     ];
                 })->values();
             }),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
-           
+            'total_commission' => $this->commission->total_commission,
+            'admin_commission' => $this->commission->admin_commission,
+            'partner_commission' => $this->commission->partner_commission,
+            'total_commission_amount' => $this->commission->total_commission_amount,
+            'admin_commission_amount' => $this->commission->admin_commission_amount,
+            'partner_commission_amount' => $this->commission->partner_commission_amount,
+
+            'total_funded_amount' => $this->total_funded_amount,
+            'funded_note' => $this->funded_note,
+            'currency' => $this->currency,
+            'currency_symbol' => $this->currency_symbol,
+            'conversion_rate' => $this->conversion_rate,
+    
         ];
     }
 }

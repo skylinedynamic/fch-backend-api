@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Commission\Commission;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +15,12 @@ class FundingApplication extends Model
         'borrower_id',
         'status',
         'status_note',
+        'admin_commission',
+        'admin_commission_amount',
+        'partner_commission',
+        'partner_commission_amount',
+        'total_funded_amount',
+        'funded_note',
         'full_name',
         'business_name',
         'business_email',
@@ -67,6 +74,9 @@ class FundingApplication extends Model
         'any_outstanding_judgments_owner',
         'federal_compliance_disclosures_explanation',
         'attestation_authorization',
+        'currency',
+        'currency_symbol',
+        'conversion_rate',
     ];
 
     protected $casts = [
@@ -77,6 +87,11 @@ class FundingApplication extends Model
         'monthly_revenue' => 'decimal:2',
         'annual_revenue' => 'decimal:2',
         'debt_balance' => 'decimal:2',
+        'admin_commission' => 'decimal:2',
+        'admin_commission_amount' => 'decimal:2',
+        'partner_commission' => 'decimal:2',
+        'partner_commission_amount' => 'decimal:2',
+        'total_funded_amount' => 'decimal:2',
         'requested_amount' => 'decimal:2',
         'has_co_borrower' => 'boolean',
         'has_business_debt' => 'boolean',
@@ -173,4 +188,8 @@ class FundingApplication extends Model
     }
 
 
+    public function commission()
+    {
+        return $this->hasOne(Commission::class);
+    }
 }

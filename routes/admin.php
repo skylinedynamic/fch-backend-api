@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 
 // ✅ Import Role & Permission Controllers
 
@@ -79,5 +80,10 @@ Route::prefix('v1/admin')
             Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
             Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
             Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
+        });
+
+
+        Route::prefix('funding-application')->group(function () {
+            Route::post('save-commission', [CommissionController::class, 'saveCommission']);
         });
     });

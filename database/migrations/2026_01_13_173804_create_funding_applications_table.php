@@ -80,12 +80,20 @@ return new class extends Migration
             $table->boolean('any_outstanding_judgments_owner')->default(false);
             $table->longText('federal_compliance_disclosures_explanation')->nullable();
 
+            // Attestation and authorization
+            $table->boolean('attestation_authorization')->default(false);
+            
             //others
             $table->string('status')->nullable();
             $table->string('status_note')->nullable();
 
-            // Attestation and authorization
-            $table->boolean('attestation_authorization')->default(false);
+            $table->decimal('total_funded_amount', 15, 2)->nullable();
+            $table->string('funded_note')->nullable();
+
+            $table->string('currency')->default('USD')->nullable();
+            $table->string('currency_symbol')->default('$')->nullable();
+            $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();
+            
             $table->softDeletes();
             $table->timestamps();
             

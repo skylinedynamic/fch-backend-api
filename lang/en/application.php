@@ -23,4 +23,20 @@ return [
     'error_retrieving_pre_qualification' => 'Failed to retrieve pre-qualification application.',
     'error_retrieving_funding_application' => 'Failed to retrieve funding application.',
     'error_updating_status' => 'Failed to update application status.',
+    
+    // Commission Validation Messages
+    'funding_application_id_required' => 'The funding application ID is required.',
+    'funding_application_id_integer' => 'The funding application ID must be an integer.',
+    'funding_application_id_exists' => 'The selected funding application does not exist.',
+    'total_commission_required' => 'The total commission is required.',
+    'total_commission_numeric' => 'The total commission must be a number.',
+    'total_commission_min' => 'The total commission must be at least 1.',
+    'total_commission_max' => 'The total commission may not be greater than 100.',
+    'partner_commission_numeric' => 'The partner commission must be a number.',
+    'partner_commission_min' => 'The partner commission must be at least 0.',
+    'partner_commission_max' => 'The partner commission may not be greater than 100.',
+    
+    // Commission Service Messages
+    'commission_saved_successfully' => 'Commission saved successfully.',
+    'error_saving_commission' => 'Failed to save commission.',
 ];
