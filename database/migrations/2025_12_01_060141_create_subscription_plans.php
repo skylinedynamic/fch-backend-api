@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->boolean('is_partner_paying')->nullable()->default(false); // only used for borrower payment if true partner is paying for borrower
             $table->decimal('payment_amount', 10, 2)->nullable();
             $table->decimal('total_installments_count', 10, 2)->nullable(); // total installments
+            $table->decimal('subscription_period_month', 10, 2)->nullable(); // total subscription period in months
             $table->decimal('total_amount', 10, 2)->nullable();
             $table->decimal('platform_fee', 10, 2)->nullable();
             $table->string('currency')->default('USD')->nullable();
