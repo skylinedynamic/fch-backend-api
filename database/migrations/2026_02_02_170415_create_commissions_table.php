@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('commissions', function (Blueprint $table) {
             $table->id();
             
+            $table->unsignedBigInteger('borrower_id')->nullable();
+            $table->unsignedBigInteger('partner_id')->nullable();
             $table->unsignedBigInteger('funding_application_id')->nullable();
             
             $table->decimal('total_commission', 8, 2)->nullable();

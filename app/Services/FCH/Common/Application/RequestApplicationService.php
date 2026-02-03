@@ -113,46 +113,46 @@ class RequestApplicationService
      * Get Funding Applications List
      */
     public function getFundingApplicationList(array $filters)
-    {
-        $authUser = auth()->user();
-        
-        $query = FundingApplication::query()
-            ->where('status', '!=', FundingApplication::ON_HOLD)
-            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-                $query->whereHas('borrower', function ($q) use($authUser) {
-                    $q->where('partner_id', $authUser->partner_id);
+        {
+            $authUser = auth()->user();
+            
+            $query = FundingApplication::query()
+                ->where('status', '!=', FundingApplication::ON_HOLD)
+                ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                    $query->whereHas('borrower', function ($q) use($authUser) {
+                        $q->where('partner_id', $authUser->partner_id);
+                    });
                 });
-            });
 
-        // Apply Search
-        if (!empty($filters['search'])) {
-            $search = trim((string) $filters['search']);
-            $query->search($search);
+            // Apply Search
+            if (!empty($filters['search'])) {
+                $search = trim((string) $filters['search']);
+                $query->search($search);
+            }
+
+            $sortField = $filters['sort_field'] ?? 'id';
+            $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+            $advancedFilters = $filters['filters'] ?? [];
+
+            $query = QueryFilter::apply(
+                $query,
+                $sortField,
+                $sortOrder,
+                $advancedFilters,
+                []
+            );
+
+            $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+            $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+            $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+            return $this->respondWithPaginationResource(
+                $paginator,
+                FundingApplicationResource::class,
+                __('application.funding_application_retrieved')
+            );
         }
-
-        $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-        $advancedFilters = $filters['filters'] ?? [];
-
-        $query = QueryFilter::apply(
-            $query,
-            $sortField,
-            $sortOrder,
-            $advancedFilters,
-            []
-        );
-
-        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
-        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
-
-        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
-        return $this->respondWithPaginationResource(
-            $paginator,
-            FundingApplicationResource::class,
-            __('application.funding_application_retrieved')
-        );
-    }
     /**
      * Get Pre-Qualification Application By ID
      */
@@ -179,7 +179,7 @@ class RequestApplicationService
     {
         $authUser = auth()->user();
 
-        $application = FundingApplication::with('commission','borrower','coborrowers','fundingDocuments','fundingDocuments.docType')
+        $application = FundingApplication::with('commission','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType')
            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
             $query->whereHas('borrower', function ($q) use($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
@@ -190,6 +190,7 @@ class RequestApplicationService
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
         }
+        //return ApiResponse::success($application);
         return ApiResponse::success(new ApplicationFundingApplicationResource($application));
     }
 

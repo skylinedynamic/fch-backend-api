@@ -190,6 +190,6 @@ class FundingApplication extends Model
 
     public function commission()
     {
-        return $this->hasOne(Commission::class);
+        return $this->hasOne(Commission::class,'funding_application_id','id');
     }
 }

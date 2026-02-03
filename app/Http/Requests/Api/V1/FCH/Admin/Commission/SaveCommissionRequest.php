@@ -24,6 +24,7 @@ class SaveCommissionRequest extends BaseApiRequest
             'total_commission' => ['required', 'numeric', 'min:1', 'max:100'],
             'admin_commission' => ['required', 'numeric', 'min:1', 'max:100'],
             'partner_commission' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'requested_amount' => ['nullable', 'numeric'],
         ];
     }
 
@@ -47,6 +48,8 @@ class SaveCommissionRequest extends BaseApiRequest
             'partner_commission.numeric' => __('application.partner_commission_numeric'),
             'partner_commission.min' => __('application.partner_commission_min'),
             'partner_commission.max' => __('application.partner_commission_max'),
+            'requested_amount.numeric' => __('application.requested_amount_numeric'),
+            'requested_amount.min' => __('application.requested_amount_min'),
         ];
     }
 }

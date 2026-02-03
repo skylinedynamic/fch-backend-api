@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\FCH\Commission;
+namespace App\Http\Resources\FCH\Common\Commission;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

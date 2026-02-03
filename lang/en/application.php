@@ -39,6 +39,8 @@ return [
     'partner_commission_numeric' => 'The partner commission must be a number.',
     'partner_commission_min' => 'The partner commission must be at least 0.',
     'partner_commission_max' => 'The partner commission may not be greater than 100.',
+    'requested_amount_numeric' => 'The requested amount must be a number.',
+    'requested_amount_min' => 'The requested amount must be at least 1.',
     
     // Commission Service Messages
     'commission_saved_successfully' => 'Commission saved successfully.',

@@ -3,14 +3,20 @@
 namespace App\Services\FCH\Admin\Commission;
 
 use App\Helpers\ApiResponse;
-use App\Http\Resources\FCH\Commission\FundingApplicationCommissionResource;
+use App\Http\Resources\FCH\Common\Commission\CommissionResource;
+use App\Http\Resources\FCH\Common\Commission\FundingApplicationCommissionResource;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Illuminate\Database\Eloquent\Builder;
+
 class CommissionService
 {
+    use PaginatesApi;
     /**
      * Save commission data for a funding application.
      */
@@ -19,7 +25,13 @@ class CommissionService
         DB::beginTransaction();
         
         try {
-            $fundingApplication = FundingApplication::findOrFail($data['funding_application_id']);
+            $fundingApplication = FundingApplication::with('borrower')->findOrFail($data['funding_application_id']);
+
+            if(isset($data['requested_amount'])){
+                $fundingApplication->update([
+                    'requested_amount' => $data['requested_amount'],
+                ]);
+            }
             
             $requestedAmount = $fundingApplication->requested_amount ?? 0;
             $totalCommission = $data['total_commission'];
@@ -29,7 +41,7 @@ class CommissionService
             $totalCommissionAmount = ($requestedAmount * $totalCommission) / 100;
             
             if ($partnerCommission > 0) {
-                $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / $totalCommission;
+                $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / 100;
                 $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
             } else {
                 $adminCommission = $totalCommission;
@@ -41,12 +53,16 @@ class CommissionService
             Commission::updateOrCreate([
                 'funding_application_id' => $fundingApplication->id,
             ], [
+                'borrower_id' => $fundingApplication->borrower_id,
+                'partner_id' => $fundingApplication->borrower->partner_id,
                 'total_commission' => $totalCommission,
                 'admin_commission' => $adminCommission,
                 'partner_commission' => $partnerCommission,
                 'total_commission_amount' => $totalCommissionAmount,
                 'admin_commission_amount' => $adminCommissionAmount,
                 'partner_commission_amount' => $partnerCommissionAmount,
+                'commission_status' => Commission::STATUS_PENDING,
+                'payment_status' => Commission::PAYMENT_STATUS_PENDING,
             ]);
             
             DB::commit();
@@ -72,4 +88,60 @@ class CommissionService
             throw $e;
         }
     }
+
+    /**
+     * Get a list of commissions.
+     */
+    public function getCommissions(array $filters)
+    {
+        $query = Commission::with(['fundingApplication', 'partner', 'borrower']);
+
+        // Filter by Partner ID
+        if (isset($filters['partner_id']) && !empty($filters['partner_id'])) {
+            $query->where('partner_id', $filters['partner_id']);
+        }
+
+        // Filter by Payment Status
+        if (isset($filters['payment_status']) && !empty($filters['payment_status'])) {
+            $query->where('payment_status', $filters['payment_status']);
+        }
+
+        // Filter by Commission Status
+        if (isset($filters['commission_status']) && !empty($filters['commission_status'])) {
+            $query->where('commission_status', $filters['commission_status']);
+        }
+
+        // Apply Search
+        if (!empty($filters['search'])) {
+            $query->search(trim((string) $filters['search']));
+        }
+
+        $sortField = $filters['sort_field'] ?? 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        $advancedFilters = $filters['filters'] ?? [];
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $filters['filters'] ?? [],
+            [
+                'aliases' => [
+                    'created_at' => 'date_range',
+                ]
+            ]
+        );
+
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            CommissionResource::class,
+            __('application.commissions_retrieved')
+        );
+    }
 }
+ 

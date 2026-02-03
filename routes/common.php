@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -184,6 +185,11 @@ Route::prefix('v1')->group(function () {
             Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
             Route::get('non-host-borrower-plans', [SubscriptionPlanController::class, 'nonHostBorrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
+
+            // Commissions
+            Route::prefix('commissions')->group(function () {
+                Route::post('/', [CommissionController::class, 'index']);
+            });
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);

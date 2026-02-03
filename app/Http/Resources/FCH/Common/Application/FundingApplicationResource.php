@@ -85,12 +85,12 @@ class FundingApplicationResource extends JsonResource
                     ];
                 })->values();
             }),
-            'total_commission' => $this->commission->total_commission,
-            'admin_commission' => $this->commission->admin_commission,
-            'partner_commission' => $this->commission->partner_commission,
-            'total_commission_amount' => $this->commission->total_commission_amount,
-            'admin_commission_amount' => $this->commission->admin_commission_amount,
-            'partner_commission_amount' => $this->commission->partner_commission_amount,
+            'total_commission' => $this->commission?->total_commission,
+            'admin_commission' => $this->commission?->admin_commission,
+            'partner_commission' => $this->commission?->partner_commission,
+            'total_commission_amount' => $this->commission?->total_commission_amount,
+            'admin_commission_amount' => $this->commission?->admin_commission_amount,
+            'partner_commission_amount' => $this->commission?->partner_commission_amount,
 
             'total_funded_amount' => $this->total_funded_amount,
             'funded_note' => $this->funded_note,

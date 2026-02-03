@@ -2,7 +2,9 @@
 
 namespace App\Models\Commission;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,26 +13,10 @@ use Illuminate\Support\Facades\Auth;
 class Commission extends Model
 {
     use SoftDeletes;
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            if (Auth::check()) {
-                $model->created_by = Auth::id();
-                $model->updated_by = Auth::id();
-            }
-        });
-
-        static::updating(function ($model) {
-            if (Auth::check()) {
-                $model->updated_by = Auth::id();
-            }
-        });
-    }
-
+    
     protected $fillable = [
+        'borrower_id',
+        'partner_id',
         'funding_application_id',
         'total_commission',
         'admin_commission',
@@ -58,6 +44,55 @@ class Commission extends Model
         'conversion_rate' => 'decimal:2',
     ];
 
+    public const STATUS_PENDING = 'Pending';
+    public const STATUS_APPROVED = 'Approved';
+    public const STATUS_REJECTED = 'Rejected';
+
+    public const STATUS = [
+        self::STATUS_PENDING => self::STATUS_PENDING,
+        self::STATUS_APPROVED => self::STATUS_APPROVED,
+        self::STATUS_REJECTED => self::STATUS_REJECTED,
+    ];
+
+    public const PAYMENT_STATUS_PENDING = 'Pending';
+    public const PAYMENT_STATUS_PAID = 'Paid';
+    public const PAYMENT_STATUS_UNPAID = 'Unpaid';
+
+    public const PAYMENT_STATUS = [
+        self::PAYMENT_STATUS_PENDING => self::PAYMENT_STATUS_PENDING,
+        self::PAYMENT_STATUS_PAID => self::PAYMENT_STATUS_PAID,
+        self::PAYMENT_STATUS_UNPAID => self::PAYMENT_STATUS_UNPAID,
+    ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (Auth::check()) {
+                $model->created_by = Auth::id();
+                $model->updated_by = Auth::id();
+            }
+        });
+
+        static::updating(function ($model) {
+            if (Auth::check()) {
+                $model->updated_by = Auth::id();
+            }
+        });
+    }
+
+
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class);
+    }
+
+    public function partner()
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
     /**
      * Get the funding application that owns the commission.
      */
@@ -72,6 +107,31 @@ class Commission extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Scope a query to search for terms.
+     */
+    public function scopeSearch($query, string $term)
+    {
+        $like = "%{$term}%";
+
+        return $query->where(function ($q) use ($like) {
+            $q->where('total_commission_amount', 'like', $like)
+              ->orWhereHas('borrower', function ($q) use ($like) {
+                  $q->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+              })
+              ->orWhereHas('partner', function ($q) use ($like) {
+                  $q->where('full_name', 'like', $like)
+                    ->orWhere('company_name', 'like', $like);
+              })
+              ->orWhereHas('fundingApplication', function ($q) use ($like) {
+                  $q->where('business_name', 'like', $like)
+                    ->orWhere('full_name', 'like', $like);
+              });
+        });
     }
 
     /**

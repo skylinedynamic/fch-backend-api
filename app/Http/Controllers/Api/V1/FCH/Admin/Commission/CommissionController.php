@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\Commission;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Admin\Commission\SaveCommissionRequest;
+use App\Http\Resources\FCH\Admin\Commission\CommissionResource;
 use App\Services\FCH\Admin\Commission\CommissionService;
+
 use Throwable;
 
 class CommissionController extends Controller
@@ -17,6 +19,8 @@ class CommissionController extends Controller
         $this->commissionService = $commissionService;
     }
 
+
+
     /**
      * Save commission for a funding application.
      */
@@ -26,6 +30,7 @@ class CommissionController extends Controller
             $data = $request->validated();
             
             return $this->commissionService->saveCommission($data);
+            
         } catch (Throwable $e) {
             return ApiResponse::serverError(__('application.error_saving_commission'), 500);
         }
