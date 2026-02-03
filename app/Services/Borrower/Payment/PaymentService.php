@@ -1,0 +1,189 @@
+<?php
+
+namespace App\Services\Borrower\Payment;
+
+use App\Traits\PaginatesApi;
+use App\Models\Invoice\Invoice;
+use App\Models\Payment\Payment;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\Borrower\Payment\PaymentResource;
+
+class PaymentService
+{
+    use PaginatesApi;
+
+    /**
+     * List payments with pagination and filtering for borrower.
+     */
+    public function list(array $filters)
+    {
+        $authUser = Auth::user();
+        $borrowerId = $authUser->entity_id;
+
+        $query = Payment::where('is_partner_paying', false)->query()
+            ->with([
+                'partner:id,full_name',
+                'borrower:id,first_name,last_name'
+            ])
+            ->where('payments.borrower_id', $borrowerId)
+            ->select('payments.*');
+
+        // Accurate Date Range: transaction_date
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('payments.transaction_date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('payments.transaction_date', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
+            if (!empty($filters['date_range'][0])) {
+                $query->whereDate('payments.transaction_date', '>=', $filters['date_range'][0]);
+            }
+            if (!empty($filters['date_range'][1])) {
+                $query->whereDate('payments.transaction_date', '<=', $filters['date_range'][1]);
+            }
+        }
+
+        // Status (Compatibility)
+        $statusFilter = $filters['status'] ?? null;
+        if (is_array($statusFilter)) {
+            $statusFilter = $statusFilter['value'] ?? null;
+        }
+
+        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
+            $query->where('payments.status', strtolower($statusFilter));
+        }
+
+        if (!empty($filters['invoice_id'])) {
+            $query->where('payments.invoice_id', $filters['invoice_id']);
+        }
+
+        // Global search
+        $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
+        $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;
+
+        if ($search) {
+            $query->search($search);
+        }
+
+        // PrimeReact Structured Filters
+        $rawFilters = $filters['filters'] ?? [];
+        unset($rawFilters['global']);
+
+        // Manual Date Handling for structured filters
+        if (isset($rawFilters['date'])) {
+            $dateFilter = $rawFilters['date'];
+            if (isset($dateFilter['constraints']) && is_array($dateFilter['constraints'])) {
+                foreach ($dateFilter['constraints'] as $constraint) {
+                    $value = $constraint['value'] ?? null;
+                    $mode = $constraint['matchMode'] ?? 'dateIs';
+                    if ($value) {
+                        if ($mode === 'dateIs') {
+                            $query->whereDate('payments.transaction_date', '=', $value);
+                        } elseif ($mode === 'dateBefore') {
+                            $query->whereDate('payments.transaction_date', '<', $value);
+                        } elseif ($mode === 'dateAfter') {
+                            $query->whereDate('payments.transaction_date', '>', $value);
+                        }
+                    }
+                }
+            }
+            unset($rawFilters['date']);
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'transaction_date';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+
+        $sortFieldMap = [
+            'date' => 'payments.transaction_date',
+            'from' => 'payments.payment_from',
+        ];
+
+        $actualSortField = $sortFieldMap[$sortField] ?? $sortField;
+        if (!str_contains($actualSortField, '.')) {
+            $actualSortField = 'payments.' . $actualSortField;
+        }
+
+        // Apply remaining filters via QueryFilter
+        $query = QueryFilter::apply(
+            $query,
+            $actualSortField,
+            $sortOrder,
+            $rawFilters,
+            [
+                'aliases' => [
+                    'from' => 'payment_from',
+                    'transaction_id' => 'transaction_id',
+                    'amount' => 'amount',
+                    'status' => 'status',
+                    'payment_type' => 'payment_type'
+                ]
+            ]
+        );
+
+        $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            PaymentResource::class,
+            __('payment.list_retrieved')
+        );
+    }
+
+    /**
+     * Get payment statistics for borrower.
+     */
+    public function getStats(array $filters): array
+    {
+        $authUser = Auth::user();
+        $borrowerId = $authUser->entity_id;
+
+        $query = Payment::where('is_partner_paying', false)->query()->where('borrower_id', $borrowerId);
+
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('transaction_date', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('transaction_date', '<=', $filters['date_to']);
+        }
+
+        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
+            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
+                $query->whereBetween('transaction_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+            }
+        }
+
+        $allPayments = $query->get(['amount', 'status']);
+
+        return [
+            'total_payments' => $allPayments->sum('amount'),
+            'completed' => $allPayments->whereIn('status', ['succeeded', 'success'])->sum('amount'),
+            'pending' => $allPayments->where('status', 'pending')->sum('amount'),
+            'failed' => $allPayments->where('status', 'failed')->sum('amount'),
+        ];
+    }
+
+    /**
+     * Get payment details for borrower.
+     */
+    public function find($id)
+    {
+        $authUser = Auth::user();
+        $borrowerId = $authUser->entity_id;
+
+        $payment = Payment::with(['partner', 'borrower'])
+            ->where('partner_id', auth()->user()->partner_id)
+            ->where('borrower_id', $borrowerId)
+            ->find($id);
+
+        return $payment ? new PaymentResource($payment) : null;
+    }
+}

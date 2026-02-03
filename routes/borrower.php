@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationContr
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
+use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
 
 
 /*
@@ -117,6 +118,12 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/', [InvoiceController::class, 'index']);
             Route::post('/stats', [InvoiceController::class, 'stats']);
             Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
+        });
+
+        Route::prefix('payments')->group(function () {
+            Route::post('fetch-payments', [PaymentController::class, 'index']);
+            Route::post('stats', [PaymentController::class, 'stats']);
+            Route::get('{id}', [PaymentController::class, 'show']);
         });
 
         Route::get('/user-details', BorrowerUserDetailController::class);

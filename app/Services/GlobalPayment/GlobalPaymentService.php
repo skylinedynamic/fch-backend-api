@@ -72,7 +72,7 @@ class GlobalPaymentService
             } elseif ($entityType == Partner::class) {
                 $entityType = Partner::class;
                 $entityId = Auth::user()->entity_id;
-                Log::info('Entity aa: ' . $entityId);
+                Log::info('Entity: ' . $entityId);
             }
         }
         DB::beginTransaction();
@@ -115,6 +115,7 @@ class GlobalPaymentService
                     'payment_type' => 'Card',
                     'amount' => $data['amount'] / 100,
                     'currency' => $paymentIntent->currency,
+                    'is_partner_paying' => $data['is_partner_paying'] ?? false,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                     'transaction_date' => now(),
