@@ -190,7 +190,7 @@ class GlobalPaymentService
     }
 
     /**
-     * Record a failed payment attempt.
+     * Record a failed payment.
      */
     private function recordFailedPayment(array $data, string $errorMessage, string $errorType): void
     {
