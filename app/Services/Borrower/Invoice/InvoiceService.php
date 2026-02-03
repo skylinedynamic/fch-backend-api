@@ -17,6 +17,7 @@ class InvoiceService
     {
         return Invoice::where('borrower_id', $borrowerId)
             ->where('status', Invoice::STATUS_UNPAID)
+            ->where('is_partner_paying', false)
             ->get();
     }
 
@@ -30,7 +31,7 @@ class InvoiceService
      */
     public function getStats(int $borrowerId, int $partnerId, array $filters = []): array
     {
-        $query = Invoice::where('borrower_id', $borrowerId);
+        $query = Invoice::where('borrower_id', $borrowerId)->where('is_partner_paying', false);
 
         if (!empty($partnerId)) {
             $query->where('partner_id', $partnerId);

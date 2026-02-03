@@ -158,6 +158,7 @@ class PartnerService
                     'email' => $partner->email,
                     'country' => $partner->country,
                     'payment_amount' => $enrollmentAmount,
+                    'is_partner_paying' => $isHostCreating ? false : true,
                     'status' => Invoice::STATUS_UNPAID,
                     'cycle' => Str::contains($enrollmentType, 'One-Time') ? Invoice::CYCLE_ONE_TIME : Invoice::CYCLE_MONTHLY,
                 ]);

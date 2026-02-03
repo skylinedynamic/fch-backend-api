@@ -320,8 +320,6 @@ class SubscriptionService
         ]);
 
         $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
-
-        $this->createInvoiceForPhase($phase, 'platform_fee');
     }
 
     /**
@@ -341,7 +339,6 @@ class SubscriptionService
         $isPlatformFee = $type === 'platform_fee';
         $amount = $isPlatformFee ? $subscription->monthly_platform_fee : $subscription->payable_amount;
 
-        // Prevent duplicate invoice in same month
         $exists = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
             ->where('is_platform_fee', $isPlatformFee ? 1 : 0)
@@ -358,11 +355,10 @@ class SubscriptionService
             'email' => $entity->email,
             'payment_amount' => $amount,
             'status' => Invoice::STATUS_UNPAID,
+            'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
             'cycle' => Invoice::CYCLE_MONTHLY,
             'is_platform_fee' => $isPlatformFee ? 1 : 0,
         ]);
-
-        Log::info("Invoice created for {$type} for entity_id {$subscription->entity_id}");
     }
 
     // Cron Job Start
