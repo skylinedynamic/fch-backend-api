@@ -23,7 +23,7 @@ class PaymentService
         $authUser = Auth::user();
         $borrowerId = $authUser->entity_id;
 
-        $query = Payment::where('is_partner_paying', false)->query()
+        $query = Payment::where('is_partner_paying', false)
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name'
@@ -146,7 +146,7 @@ class PaymentService
         $authUser = Auth::user();
         $borrowerId = $authUser->entity_id;
 
-        $query = Payment::where('is_partner_paying', false)->query()->where('borrower_id', $borrowerId);
+        $query = Payment::where('is_partner_paying', false)->where('borrower_id', $borrowerId);
 
         if (!empty($filters['date_from'])) {
             $query->whereDate('transaction_date', '>=', $filters['date_from']);

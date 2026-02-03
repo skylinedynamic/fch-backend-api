@@ -266,8 +266,8 @@ class SubscriptionService
             $subscription->update([
                 'subscription_start_date' => now(),
                 'first_payment_date' => now(),
-                'subscription_end_date' => now()->addMonths($periodMonths),
-                'platform_fee_start_date' => now()->addMonths($periodMonths)->addDay(),
+                'subscription_end_date' => $plan->subscription_period_month ? now()->addMonths($periodMonths) : null,
+                'platform_fee_start_date' => $plan->subscription_period_month ? now()->addMonths($periodMonths)->addDay() : null,
                 'status' => Subscription::STATUS_ACTIVE,
             ]);
         } else {
@@ -276,7 +276,7 @@ class SubscriptionService
 
         // Complete enrollment if last installment or one-time payment
         if ($phase->installments_paid >= $totalInstallments) {
-            $this->completeEnrollment($subscription, $phase);
+            $this->completeEnrollment($subscription, $phase, $plan);
         }
     }
 
@@ -287,15 +287,36 @@ class SubscriptionService
      * @param SubscriptionPhase $phase
      * @return void
      */
-    private function completeEnrollment(Subscription $subscription, SubscriptionPhase $phase)
+    private function completeEnrollment(Subscription $subscription, SubscriptionPhase $phase, $plan)
     {
-        $completedAt = now();
+        $next_installment_date = null;
+        $next_platform_fee_date = null;
+        $enrollment_completed_at = null;
+        $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
 
+        if ($plan->entity_type == Borrower::class) {
+            if ($plan->total_installments_count > 1) {
+                $next_installment_date = now()->addMonth();
+                $next_platform_fee_date = null;
+                $phaseFee  = SubscriptionPhase::PHASE_ENROLLMENT;
+                $enrollment_completed_at = null;
+            } else {
+                $next_installment_date = null;
+                $next_platform_fee_date = null;
+                $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
+                $enrollment_completed_at = now();
+            }
+        } else {
+            $next_installment_date = null;
+            $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
+            $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
+            $enrollment_completed_at = now();
+        }
         $phase->update([
-            'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
-            'enrollment_completed_at' => $completedAt,
-            'next_installment_date' => null,
-            'next_platform_fee_date' => $subscription->platform_fee_start_date ?: $completedAt->copy()->addMonth()->addDay(),
+            'phase' => $phaseFee,
+            'enrollment_completed_at' => $enrollment_completed_at,
+            'next_installment_date' => $next_installment_date,
+            'next_platform_fee_date' => $next_platform_fee_date,
         ]);
 
         $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
