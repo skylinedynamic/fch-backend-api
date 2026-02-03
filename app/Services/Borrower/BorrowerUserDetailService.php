@@ -22,8 +22,7 @@ class BorrowerUserDetailService
             return ApiResponse::unauthorized(__('auth.unauthenticated'));
         }
 
-        // Eager-load relations needed for borrower resource
-        $user->borrower->load(['subscription.phases']);
+        $user->load(['entity.subscription.phases']);
 
         return ApiResponse::success([
             'user' => new BorrowerUserDetailResource($user),

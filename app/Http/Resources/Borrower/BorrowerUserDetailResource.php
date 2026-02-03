@@ -13,7 +13,7 @@ class BorrowerUserDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $subscription = $this->borrower?->subscription;
+        $subscription = $this->entity?->subscription;
         $phase = $subscription?->phases?->first();
 
         return [

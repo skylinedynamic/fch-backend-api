@@ -104,9 +104,14 @@ class GlobalPaymentService
             $payment = null;
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
 
+                $borrowerId = null;
+                if ($invoice->entity_type == Borrower::class) {
+                    $borrowerId = $invoice->entity_id;
+                }
+
                 $payment = Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
-                    'borrower_id' => $data['borrower_id'] ?? null,
+                    'borrower_id' => $borrowerId,
                     'invoice_id' => $invoice ? $invoice->invoice_id : null,
                     'entity_type' => $invoice->entity_type,
                     'entity_id' => $invoice->entity_id,
@@ -123,16 +128,13 @@ class GlobalPaymentService
                 ]);
 
                 if ($invoice) {
-                    // Update invoice status first
                     $invoice->update([
                         'status' => Invoice::STATUS_PAID,
                         'payment_date' => now(),
                     ]);
 
-                    // Delegate subscription logic to SubscriptionService
                     $this->subscriptionService->handleSuccessfulPayment($invoice);
 
-                    // Backward compatibility/Additional logic if needed
                     if ($invoice->entity_type === Partner::class) {
                         $this->handlePartnerPayment($invoice);
                     } else if ($invoice->entity_type === Borrower::class) {
@@ -240,7 +242,7 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        Log::info('✅ Partner Status Activated via Payment', ['partner_id' => $partner->id]);
+        Log::info('Partner Status Activated via Payment', ['partner_id' => $partner->id]);
     }
 
     /**
@@ -260,6 +262,6 @@ class GlobalPaymentService
             'updated_at' => now(),
         ]);
 
-        Log::info('✅ Borrower Status Activated via Payment', ['borrower_id' => $borrower->id]);
+        Log::info('Borrower Status Activated via Payment', ['borrower_id' => $borrower->id]);
     }
 }

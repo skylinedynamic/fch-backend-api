@@ -213,15 +213,15 @@ class User extends Authenticatable implements OAuthenticatable
         $twoFactorSetting->enabled = true;
         $twoFactorSetting->method = $method;
         $twoFactorSetting->confirmed_at = now();
-        
+
         if ($method === TwoFaAuthSetting::TOTP && !$twoFactorSetting->secret) {
             $twoFactorSetting->generateSecret();
         }
-        
+
         if (!$twoFactorSetting->recovery_codes) {
             $twoFactorSetting->generateRecoveryCodes();
         }
-        
+
         $twoFactorSetting->save();
     }
 
@@ -424,7 +424,15 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function partner()
     {
-        return $this->belongsTo(Partner::class, 'partner_id', 'id');
+        return $this->belongsTo(Partner::class, 'entity_id');
+    }
+
+    /**
+     * Get the user's borrower profile.
+     */
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class, 'entity_id');
     }
 
     /**
@@ -463,13 +471,13 @@ class User extends Authenticatable implements OAuthenticatable
 
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'like', "%{$search}%")
-            ->orWhere('email', 'like', "%{$search}%")
-            ->orWhere('phone_number', 'like', "%{$search}%")
-            ->orWhere('entity_type', 'like', "%{$search}%")
-            ->orWhere('status', 'like', "%{$search}%")
-            ->orWhereHas('roles', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%");
-            });
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone_number', 'like', "%{$search}%")
+                ->orWhere('entity_type', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%")
+                ->orWhereHas('roles', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
         });
     }
 
@@ -487,6 +495,4 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return $this->roles->first()?->name;
     }
-
-    
 }
