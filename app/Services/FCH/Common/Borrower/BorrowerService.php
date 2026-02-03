@@ -303,6 +303,7 @@ class BorrowerService
                         'country' => $borrower->country,
                         'payment_amount' => $amount,
                         'status' => Invoice::STATUS_UNPAID,
+                        'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
                         'is_platform_fee' => false,
                     ]);
 

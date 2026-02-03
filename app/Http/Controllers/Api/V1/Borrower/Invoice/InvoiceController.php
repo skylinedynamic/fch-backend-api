@@ -34,6 +34,7 @@ class InvoiceController extends Controller
 
         $invoices = Invoice::where('borrower_id', $borrowerId)
             ->where('partner_id', auth()->user()->partner_id)
+            ->where('is_partner_paying', false)
             ->with(['partner']) // Eager load partner if needed
             ->search($search)
             ->latest()

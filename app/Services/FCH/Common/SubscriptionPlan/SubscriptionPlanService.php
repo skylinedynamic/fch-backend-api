@@ -34,7 +34,7 @@ class SubscriptionPlanService
     public function borrowerPlans()
     {
         $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-            ->where('is_non_host_payment', false)
+            ->where('is_partner_paying', false)
             ->where('status', true)
             ->get();
 
@@ -47,7 +47,7 @@ class SubscriptionPlanService
     public function nonHostBorrowerPlans()
     {
         $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-            ->where('is_non_host_payment', true)
+            ->where('is_partner_paying', true)
             ->where('status', true)
             ->get();
 

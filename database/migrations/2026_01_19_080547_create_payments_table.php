@@ -25,6 +25,7 @@ return new class extends Migration
             $table->json('details')->nullable();
             $table->string('status')->nullable();
             $table->timestamp('transaction_date')->nullable();
+            $table->boolean('is_partner_paying')->default(false)->nullable();
             $table->string('currency')->default('USD')->nullable();
             $table->string('currency_symbol')->default('$')->nullable();
             $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();

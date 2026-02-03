@@ -27,6 +27,7 @@ class GlobalPaymentRequest extends BaseApiRequest
             'payment_method_id' => 'nullable|string',
             'description' => 'nullable|string|max:255',
             'invoice_id' => 'nullable',
+            'is_partner_paying' => 'nullable|boolean',
             'partner_id' => 'nullable|integer|exists:partners,id',
             'borrower_id' => 'nullable|integer|exists:borrowers,id',
             'entity_type' => 'nullable|string',
