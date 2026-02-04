@@ -25,26 +25,21 @@ class ProcessSubscriptions extends Command
     /**
      * Execute the console command.
      */
-    public function handle(SubscriptionService $subscriptionService)
-    {
-        $this->info('Starting subscription processing...');
-        Log::info('Artisan: subscriptions:process started');
+public function handle(SubscriptionService $subscriptionService)
+{
+    $this->info('Starting subscription processing...');
+    $this->info('Force test mode: ' . (config('subscription.force_generate_for_testing') ? 'ON' : 'OFF'));
 
-        try {
-            $this->info('Generating installment invoices...');
-            $subscriptionService->generateInstallmentInvoices();
+    try {
+        $subscriptionService->generateInstallmentInvoices();
+        $subscriptionService->generatePlatformFeeInvoices();
 
-            $this->info('Generating platform fee invoices...');
-            $subscriptionService->generatePlatformFeeInvoices();
-
-            $this->info('Subscription processing completed successfully.');
-            Log::info('Artisan: subscriptions:process completed');
-        } catch (\Exception $e) {
-            $this->error('An error occurred: ' . $e->getMessage());
-            Log::error('Artisan: subscriptions:process failed', ['error' => $e->getMessage()]);
-            return Command::FAILURE;
-        }
-
-        return Command::SUCCESS;
+        $this->info('Subscription processing completed.');
+    } catch (\Exception $e) {
+        $this->error($e->getMessage());
+        return Command::FAILURE;
     }
+
+    return Command::SUCCESS;
+}
 }

@@ -4,6 +4,7 @@ namespace App\Models\Subscription;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Subscription\Subscription;
 
 class SubscriptionPhase extends Model
 {
@@ -29,6 +30,6 @@ class SubscriptionPhase extends Model
 
     public function subscription()
     {
-        return $this->belongsTo(Subscription::class);
+        return $this->belongsTo(Subscription::class,'subscription_id','id');
     }
 }
