@@ -166,7 +166,7 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('leads', LeadController::class);
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 
-            // 🧾 Invoices
+            //  Invoices
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
             Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
@@ -175,7 +175,7 @@ Route::prefix('v1')->group(function () {
             Route::post('settings', [SettingController::class, 'store']);
             Route::get('settings', [SettingController::class, 'show']);
 
-            // 💳 Payments
+            //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
             Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
@@ -188,8 +188,10 @@ Route::prefix('v1')->group(function () {
 
             // Commissions
             Route::prefix('commissions')->group(function () {
+                Route::get('/{id}', [CommissionController::class, 'show']);
                 Route::post('/', [CommissionController::class, 'index']);
             });
+
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);

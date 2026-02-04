@@ -81,6 +81,7 @@ class FundingApplication extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'funded_date' => 'date',
         'business_checking_start_date' => 'date',
         'number_of_employees' => 'integer',
         'ownership' => 'decimal:2',

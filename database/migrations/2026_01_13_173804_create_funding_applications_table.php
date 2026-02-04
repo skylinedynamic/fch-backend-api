@@ -86,6 +86,7 @@ return new class extends Migration
             //others
             $table->string('status')->nullable();
             $table->string('status_note')->nullable();
+            $table->date('funded_date')->nullable();
 
             $table->decimal('total_funded_amount', 15, 2)->nullable();
             $table->string('funded_note')->nullable();

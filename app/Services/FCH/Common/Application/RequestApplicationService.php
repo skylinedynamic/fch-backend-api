@@ -231,7 +231,7 @@ class RequestApplicationService
            ->whereHas('borrower', function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         })
-        ->where('id',$data['id'])->first();
+        ->where('id',$data['funding_application_id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));

@@ -26,6 +26,7 @@ class Commission extends Model
         'partner_commission_amount',
         'commission_status',
         'payment_status',
+        'payout_date',
         'currency',
         'currency_symbol',
         'conversion_rate',
@@ -42,6 +43,7 @@ class Commission extends Model
         'admin_commission_amount' => 'decimal:2',
         'partner_commission_amount' => 'decimal:2',
         'conversion_rate' => 'decimal:2',
+        'payout_date' => 'date',
     ];
 
     public const STATUS_PENDING = 'Pending';

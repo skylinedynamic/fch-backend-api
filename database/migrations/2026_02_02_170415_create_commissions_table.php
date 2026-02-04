@@ -28,6 +28,7 @@ return new class extends Migration
             
             $table->string('commission_status')->nullable();
             $table->string('payment_status')->nullable();
+            $table->date('payout_date')->nullable();
             
             $table->string('currency')->default('USD')->nullable();
             $table->string('currency_symbol')->default('$')->nullable();

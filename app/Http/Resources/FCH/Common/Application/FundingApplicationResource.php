@@ -91,6 +91,8 @@ class FundingApplicationResource extends JsonResource
             'total_commission_amount' => $this->commission?->total_commission_amount,
             'admin_commission_amount' => $this->commission?->admin_commission_amount,
             'partner_commission_amount' => $this->commission?->partner_commission_amount,
+            'commission_status' => $this->commission?->commission_status,
+            'payment_status' => $this->commission?->payment_status,
 
             'total_funded_amount' => $this->total_funded_amount,
             'funded_note' => $this->funded_note,
