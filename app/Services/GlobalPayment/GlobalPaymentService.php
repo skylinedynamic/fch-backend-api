@@ -104,7 +104,6 @@ class GlobalPaymentService
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
 
                 $borrowerId = null;
-                Log::info($invoice->entity_type);
                 if ($invoice->entity_type == Borrower::class) {
                     $borrowerId = $invoice->entity_id;
                 }

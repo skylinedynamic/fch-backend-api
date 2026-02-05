@@ -224,6 +224,7 @@ class SubscriptionService
      */
     public function handleSuccessfulPayment(Invoice $invoice)
     {
+        Log::info('ARafatsss');
         $subscription = Subscription::where('entity_type', $invoice->entity_type)
             ->where('entity_id', $invoice->entity_id)
             ->first();
@@ -244,17 +245,6 @@ class SubscriptionService
         $plan = $subscription->partnerPlan;
         $totalInstallments = $plan->total_installments_count ?? 1;
         $periodMonths = $plan->subscription_period_month ?? $totalInstallments;
-
-        // PLATFORM FEE PAYMENT
-        if ($invoice->is_platform_fee && $subscription->entity_type == \App\Models\Partner\Partner::class) {
-            $phase->update([
-                'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
-                'next_platform_fee_date' => now()->addMonth()->addDay(),
-            ]);
-            $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
-            return;
-        }
-
         // ENROLLMENT PAYMENT
         $invoiceCount = Invoice::where('entity_type', $invoice->entity_type)
             ->where('entity_id', $invoice->entity_id)
@@ -278,7 +268,6 @@ class SubscriptionService
             $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
         }
 
-        // Complete enrollment if last installment or one-time payment
         // if ($phase->installments_paid >= $totalInstallments) {
         $this->completeEnrollment($subscription, $phase, $plan);
         // }
@@ -311,10 +300,21 @@ class SubscriptionService
                 $enrollment_completed_at = now();
             }
         } else {
-            $next_installment_date = null;
-            $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
-            $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
-            $enrollment_completed_at = now();
+            if ($subscription->installment_type == 0 && $subscription->entity_type == Partner::class) {
+                $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
+                $next_platform_fee_date = now()->addMonth($plan->subscription_period_month)->addDay();
+                $enrollment_completed_at = now();
+                $next_installment_date = null;
+            } else if ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
+                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
+                $next_platform_fee_date = null;
+                $enrollment_completed_at = null;
+                $next_installment_date = now()->addMonth();
+            }
+            // $next_installment_date = null;
+            // $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
+            // $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
+            // $enrollment_completed_at = now();
         }
         $phase->update([
             'phase' => $phaseFee,
@@ -322,8 +322,6 @@ class SubscriptionService
             'next_installment_date' => $next_installment_date,
             'next_platform_fee_date' => $next_platform_fee_date,
         ]);
-
-        $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
     }
     /**
      * Check if an invoice already exists for the given cycle.
