@@ -78,6 +78,11 @@ class DemoSubscriberSeeder extends Seeder
             ['installments_paid' => 1, 'next_installment_date' => '2026-11-27']
         );
 
+        SubscriptionPhase::updateOrCreate(
+            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE],
+            ['installments_paid' => 0, 'next_platform_fee_date' => null]
+        );
+
         // 5. Create 1 Invoice and 1 Payment
         $this->createSinglePayment($partner, Partner::class, $user, $subscription);
     }
@@ -119,6 +124,11 @@ class DemoSubscriberSeeder extends Seeder
         SubscriptionPhase::updateOrCreate(
             ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_ENROLLMENT],
             ['installments_paid' => 1, 'next_installment_date' => '2026-11-27']
+        );
+
+        SubscriptionPhase::updateOrCreate(
+            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE],
+            ['installments_paid' => 0, 'next_platform_fee_date' => null]
         );
 
         // 5. Create 1 Invoice and 1 Payment
