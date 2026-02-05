@@ -144,7 +144,6 @@ class DemoSubscriberSeeder extends Seeder
             'payment_date' => $date,
             'status' => Invoice::STATUS_PAID,
             'is_partner_paying' => false,
-            'cycle' => Invoice::CYCLE_MONTHLY,
             'is_platform_fee' => 0,
             'created_at' => $date,
         ]);
