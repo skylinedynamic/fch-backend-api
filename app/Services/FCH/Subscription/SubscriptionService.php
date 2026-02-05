@@ -298,11 +298,7 @@ class SubscriptionService
         $enrollment_completed_at = null;
         $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
 
-        Log::info($plan->entity_type == Borrower::class);
         if ($plan->entity_type == Borrower::class) {
-            Log::info($subscription->installment_type);
-            Log::info('ARafat');
-            Log::info($subscription->installment_type == 1);
             if ($subscription->installment_type == 1 && $phase->installments_paid < $plan->total_installments_count) {
                 $next_installment_date = $phase->next_installment_date ? $phase->next_installment_date->addMonth() : $subscription->subscription_start_date->addMonth();
                 $next_platform_fee_date = null;
@@ -387,10 +383,6 @@ class SubscriptionService
                 ->count();
 
             $totalCount = $subscription->partnerPlan?->total_installments_count;
-            Log::info($totalCount && $invoiceCount >= $totalCount);
-            Log::info($totalCount);
-            Log::info($invoiceCount >= $totalCount);
-            Log::info($invoiceCount  . ' ' . $totalCount);
 
             if ($totalCount && $invoiceCount >= $totalCount) {
                 return;
