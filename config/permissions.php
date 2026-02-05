@@ -101,7 +101,7 @@ return [
     ],
 
     'subscriptions' => [
-        'is_host' => 0,
+        'is_host' => 1,
         'permissions' => [
             'view subscriptions',
             'create subscriptions',

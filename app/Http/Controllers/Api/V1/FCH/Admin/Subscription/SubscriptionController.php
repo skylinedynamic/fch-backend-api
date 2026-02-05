@@ -8,7 +8,6 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchSubscriptionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StoreUpdateSubscriptionRequest;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
 use App\Services\FCH\Subscription\SubscriptionService;
-use Illuminate\Http\JsonResponse;
 
 class SubscriptionController extends Controller
 {
