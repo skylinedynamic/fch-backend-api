@@ -79,7 +79,7 @@ class BorrowerController extends Controller
                 201
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.create_failed'));
+            return ApiResponse::serverError($e->getMessage());
         }
     }
 

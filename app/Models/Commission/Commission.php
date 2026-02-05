@@ -46,11 +46,13 @@ class Commission extends Model
         'payout_date' => 'date',
     ];
 
+    public const STATUS_DRAFT = 'Draft';
     public const STATUS_PENDING = 'Pending';
     public const STATUS_APPROVED = 'Approved';
     public const STATUS_REJECTED = 'Rejected';
 
     public const STATUS = [
+        self::STATUS_DRAFT => self::STATUS_DRAFT,
         self::STATUS_PENDING => self::STATUS_PENDING,
         self::STATUS_APPROVED => self::STATUS_APPROVED,
         self::STATUS_REJECTED => self::STATUS_REJECTED,

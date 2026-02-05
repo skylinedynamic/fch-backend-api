@@ -18,7 +18,10 @@ class CommissionService
      */
     public function getCommissions(array $filters)
     {
-        $query = Commission::with(['fundingApplication', 'partner', 'borrower']);
+        $query = Commission::when(auth()->user()->user_type === User::PARTNER, function ($query) {
+            $query->where('partner_id', auth()->user()->partner_id);
+        })
+        ->with(['fundingApplication', 'partner', 'borrower']);
 
         // Filter by Partner ID
         if (isset($filters['partner_id']) && !empty($filters['partner_id'])) {

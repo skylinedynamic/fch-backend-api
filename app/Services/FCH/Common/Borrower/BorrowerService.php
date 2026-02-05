@@ -51,7 +51,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name'])
+            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
@@ -242,6 +242,7 @@ class BorrowerService
     {
         DB::beginTransaction();
         try {
+     
             // Handle partner_id assignment
             $authUser = auth()->user();
             if (empty($data['partner_id'])) {
@@ -429,7 +430,7 @@ class BorrowerService
         return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
             $query->where('partner_id', auth()->user()->partner_id);
         })
-            ->with('partner')
+            ->with('partner','latestSubscription')
             ->find($id);
     }
 

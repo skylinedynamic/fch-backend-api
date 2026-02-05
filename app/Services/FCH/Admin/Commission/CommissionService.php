@@ -61,7 +61,7 @@ class CommissionService
                 'total_commission_amount' => $totalCommissionAmount,
                 'admin_commission_amount' => $adminCommissionAmount,
                 'partner_commission_amount' => $partnerCommissionAmount,
-                'commission_status' => Commission::STATUS_PENDING,
+                'commission_status' => Commission::STATUS_DRAFT,
                 'payment_status' => Commission::PAYMENT_STATUS_PENDING,
             ]);
             
