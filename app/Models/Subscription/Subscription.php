@@ -107,8 +107,10 @@ class Subscription extends Model
         $search = trim($search);
 
         return $query->where(function ($q) use ($search) {
-            $q->where('status', 'like', "%{$search}%")
-                ->orWhere('enrollment_type', 'like', "%{$search}%")
+            $q->where('subscriptions.status', 'like', "%{$search}%")
+                ->orWhere('subscriptions.enrollment_type', 'like', "%{$search}%")
+                ->orWhere('subscriptions.payable_amount', 'like', "%{$search}%")
+                ->orWhere('subscriptions.created_at', 'like', "%{$search}%")
                 ->orWhereHas('partner', function ($pq) use ($search) {
                     $pq->where('full_name', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%")
@@ -119,9 +121,11 @@ class Subscription extends Model
                         ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%");
                 })
-                ->orWhereHas('user', function ($uq) use ($search) {
-                    $uq->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                ->orWhereHas('enrollmentPhase', function ($sq) use ($search) {
+                    $sq->where('next_installment_date', 'like', "%{$search}%");
+                })
+                ->orWhereHas('platformFeePhase', function ($sq) use ($search) {
+                    $sq->where('next_platform_fee_date', 'like', "%{$search}%");
                 });
         });
     }

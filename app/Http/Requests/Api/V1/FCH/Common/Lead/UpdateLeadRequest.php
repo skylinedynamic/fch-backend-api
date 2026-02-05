@@ -43,10 +43,13 @@ class UpdateLeadRequest extends BaseApiRequest
             'zip_code' => ['nullable', 'string', 'max:20'],
             'business_phone' => ['nullable', 'string', 'max:20'],
             'entity_type' => ['nullable', 'string', 'max:255'],
+            'entity_type_note' => ['nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],
+            'industry_type_note' => ['nullable', 'string'],
             'business_start_date' => ['nullable', 'date'],
             'ssn_last_4' => ['nullable', 'string', 'max:4'],
             'requirement_details' => ['nullable', 'string'],
+            'lead_source_note' => ['nullable', 'string'],
         ];
     }
 }

@@ -29,6 +29,7 @@ class LeadResource extends JsonResource
             'company_name' => $this->company_name,
             'domain' => $this->domain,
             'lead_source' => $this->lead_source,
+            'lead_source_note' => $this->lead_source_note,
             'employees' => $this->employees,
 
             // Contact Info
@@ -47,7 +48,9 @@ class LeadResource extends JsonResource
             'zip_code' => $this->zip_code,
             'business_phone' => $this->business_phone,
             'entity_type' => $this->entity_type,
+            'entity_type_note' => $this->entity_type_note,
             'industry_type' => $this->industry_type,
+            'industry_type_note' => $this->industry_type_note,
             'business_start_date' => $this->business_start_date?->format('Y-m-d'),
             'ssn_last_4' => $this->ssn_last_4,
             'requirement_details' => $this->requirement_details,

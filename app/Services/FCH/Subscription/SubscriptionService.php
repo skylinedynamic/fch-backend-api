@@ -81,6 +81,15 @@ class SubscriptionService
             $query->search($globalSearch);
         }
 
+        // Top-level status filter (mapping 1 -> Active, 0 -> Inactive)
+        $status = $filters['status'] ?? null;
+        if ($status !== null && $status !== '') {
+            if (is_numeric($status)) {
+                $status = ((int)$status === 1) ? Subscription::STATUS_ACTIVE : Subscription::STATUS_INACTIVE;
+            }
+            $query->where('subscriptions.status', $status);
+        }
+
         // PrimeReact Structured Filters
         $rawFilters = $filters['filters'] ?? [];
         unset($rawFilters['global']);
@@ -90,15 +99,41 @@ class SubscriptionService
         $sortOrder = $filters['sort_order'] ?? 'desc';
         $skipSorting = false;
 
-        // Join Partners if sorting or filtering by partner_name
+        // Join Partners if searching or sorting by partner/company name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
             $query->leftJoin('partners', function ($join) {
                 $join->on('subscriptions.entity_id', '=', 'partners.id')
-                    ->where('subscriptions.entity_type', '=', \App\Models\Partner\Partner::class);
+                    ->where('subscriptions.entity_type', '=', Partner::class);
             })->addSelect('partners.full_name as partner_name');
 
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
+                $skipSorting = true;
+            }
+        }
+
+        // Join Enrollment Phase for next_installment_date
+        if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date'])) {
+            $query->leftJoin('subscription_phases as ep', function ($join) {
+                $join->on('subscriptions.id', '=', 'ep.subscription_id')
+                    ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
+            })->addSelect('ep.next_installment_date');
+
+            if ($sortField === 'next_installment_date') {
+                $query->orderBy('ep.next_installment_date', $sortOrder);
+                $skipSorting = true;
+            }
+        }
+
+        // Join Platform Fee Phase for next_platform_fee_date
+        if ($sortField === 'next_platform_fee_date' || isset($rawFilters['next_platform_fee_date'])) {
+            $query->leftJoin('subscription_phases as pfp', function ($join) {
+                $join->on('subscriptions.id', '=', 'pfp.subscription_id')
+                    ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
+            })->addSelect('pfp.next_platform_fee_date');
+
+            if ($sortField === 'next_platform_fee_date') {
+                $query->orderBy('pfp.next_platform_fee_date', $sortOrder);
                 $skipSorting = true;
             }
         }
@@ -112,8 +147,15 @@ class SubscriptionService
                 'skip_sorting' => $skipSorting,
                 'aliases' => [
                     'partner_name' => 'partners.full_name',
-                    'enrollment_type' => 'enrollment_type',
-                    'status' => 'status'
+                    'enrollment_type' => 'subscriptions.enrollment_type',
+                    'payable_amount' => 'subscriptions.payable_amount',
+                    'status' => 'subscriptions.status',
+                    'created_at' => 'subscriptions.created_at',
+                    'next_installment_date' => 'ep.next_installment_date',
+                    'next_platform_fee_date' => 'pfp.next_platform_fee_date',
+                ],
+                'concat_fields' => [
+                    'partner_name' => ['partners.full_name', 'partners.company_name']
                 ]
             ]
         );
