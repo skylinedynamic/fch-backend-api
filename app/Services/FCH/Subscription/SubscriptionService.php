@@ -279,9 +279,9 @@ class SubscriptionService
         }
 
         // Complete enrollment if last installment or one-time payment
-        if ($phase->installments_paid >= $totalInstallments) {
-            $this->completeEnrollment($subscription, $phase, $plan);
-        }
+        // if ($phase->installments_paid >= $totalInstallments) {
+        $this->completeEnrollment($subscription, $phase, $plan);
+        // }
     }
 
     /**
@@ -298,9 +298,13 @@ class SubscriptionService
         $enrollment_completed_at = null;
         $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
 
+        Log::info($plan->entity_type == Borrower::class);
         if ($plan->entity_type == Borrower::class) {
-            if ($plan->total_installments_count < $phase->installments_paid) {
-                $next_installment_date = $subscription->subscription_start_date->addMonth();
+            Log::info($subscription->installment_type);
+            Log::info('ARafat');
+            Log::info($subscription->installment_type == 1);
+            if ($subscription->installment_type == 1 && $phase->installments_paid < $plan->total_installments_count) {
+                $next_installment_date = $phase->next_installment_date ? $phase->next_installment_date->addMonth() : $subscription->subscription_start_date->addMonth();
                 $next_platform_fee_date = null;
                 $phaseFee  = SubscriptionPhase::PHASE_ENROLLMENT;
                 $enrollment_completed_at = null;
@@ -374,16 +378,32 @@ class SubscriptionService
                 return;
             }
 
+            $entityType = $subscription->entity_type;
+            $entityId = $subscription->entity_id;
+
+            $invoiceCount = Invoice::where('entity_type', $entityType)
+                ->where('entity_id', $entityId)
+                ->where('is_platform_fee', 0)
+                ->count();
+
+            $totalCount = $subscription->partnerPlan?->total_installments_count;
+            Log::info($totalCount && $invoiceCount >= $totalCount);
+            Log::info($totalCount);
+            Log::info($invoiceCount >= $totalCount);
+            Log::info($invoiceCount  . ' ' . $totalCount);
+
+            if ($totalCount && $invoiceCount >= $totalCount) {
+                return;
+            }
+
             // Prevent duplicate (paid OR unpaid) for this month
             if ($this->invoiceExistsForCycle($subscription, $isPlatformFee, $cycleDate)) {
                 return;
             }
 
-            // Installment limit check
+            // Installment limit check (Secondary check using phase state)
             if (!$isPlatformFee) {
-                $total = $subscription->partnerPlan?->total_installments_count;
-
-                if (!$total || $phase->installments_paid >= $total) {
+                if (!$totalCount || $phase->installments_paid >= $totalCount) {
                     // Switch to platform fee phase
                     $phase->update([
                         'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
@@ -427,16 +447,16 @@ class SubscriptionService
             ]);
 
             // Update phase AFTER invoice
-            if (!$isPlatformFee) {
-                $phase->increment('installments_paid');
-                $phase->update([
-                    'next_installment_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
-                ]);
-            } else {
-                $phase->update([
-                    'next_platform_fee_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
-                ]);
-            }
+            // if (!$isPlatformFee) {
+            //     $phase->increment('installments_paid');
+            //     $phase->update([
+            //         'next_installment_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
+            //     ]);
+            // } else {
+            //     $phase->update([
+            //         'next_platform_fee_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
+            //     ]);
+            // }
         });
     }
     
@@ -452,7 +472,7 @@ class SubscriptionService
             ->where('phase', SubscriptionPhase::PHASE_ENROLLMENT)
             ->whereNotNull('next_installment_date')
             ->whereDate('next_installment_date', '<=', $targetDate)
-            ->whereHas('subscription', fn ($q) => $q->where('status', 'Active'))
+            ->whereHas('subscription', fn($q) => $q->where('status', 'Active'))
             ->chunkById(100, function ($phases) {
                 foreach ($phases as $phase) {
                     $this->createInvoiceForPhase($phase, 'enrollment');
@@ -470,14 +490,13 @@ class SubscriptionService
 
         SubscriptionPhase::with(['subscription.entity'])
             ->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
-        ->whereNotNull('next_platform_fee_date')
-        ->whereDate('next_platform_fee_date', '<=', $targetDate)
-        ->whereHas('subscription', fn ($q) => $q->where('status', 'Active'))
-        ->chunkById(100, function ($phases) {
-            foreach ($phases as $phase) {
-                $this->createInvoiceForPhase($phase, 'platform_fee');
-            }
-        });
+            ->whereNotNull('next_platform_fee_date')
+            ->whereDate('next_platform_fee_date', '<=', $targetDate)
+            ->whereHas('subscription', fn($q) => $q->where('status', 'Active'))
+            ->chunkById(100, function ($phases) {
+                foreach ($phases as $phase) {
+                    $this->createInvoiceForPhase($phase, 'platform_fee');
+                }
+            });
     }
-
 }

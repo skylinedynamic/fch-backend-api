@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 use App\Mail\Payment\PaymentSuccessMail;
-use App\Models\Subscription\Subscription;
 use App\Services\FCH\Subscription\SubscriptionService;
 
 class GlobalPaymentService
@@ -105,6 +104,7 @@ class GlobalPaymentService
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
 
                 $borrowerId = null;
+                Log::info($invoice->entity_type);
                 if ($invoice->entity_type == Borrower::class) {
                     $borrowerId = $invoice->entity_id;
                 }
@@ -202,7 +202,7 @@ class GlobalPaymentService
 
             Payment::create([
                 'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
-                'borrower_id' => $data['borrower_id'] ?? null,
+                'borrower_id' => $invoice->borrower_id ?? null,
                 'invoice_id' => $invoice ? $invoice->invoice_id : null,
                 'entity_type' => $data['entity_type'] ?? null,
                 'entity_id' => $data['entity_id'] ?? null,

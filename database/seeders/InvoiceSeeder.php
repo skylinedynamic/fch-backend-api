@@ -75,6 +75,8 @@ class InvoiceSeeder extends Seeder
                     'invoice_id' => "INV-{$today}{$sequence}",
                     'partner_id' => $partner->id,
                     'borrower_id' => $borrower?->id,
+                    'entity_type' => $borrower ? Borrower::class : Partner::class,
+                    'entity_id' => $borrower ? $borrower->id : $partner->id,
                     'customer_name' => $customerName,
                     'email' => $customerEmail,
                     'country' => 'USA',
@@ -82,6 +84,7 @@ class InvoiceSeeder extends Seeder
                     'payment_date' => Carbon::now()->subDays(rand(0, 60)),
                     'status' => $this->getRandomStatus(),
                     'cycle' => $this->getRandomCycle(),
+                    'is_platform_fee' => 0,
                     'details' => [
                         'items' => $items,
                         'billing_address' => [
