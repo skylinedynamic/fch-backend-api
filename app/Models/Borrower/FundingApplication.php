@@ -13,6 +13,7 @@ class FundingApplication extends Model
 
     protected $fillable = [
         'borrower_id',
+        'partner_id',
         'status',
         'status_note',
         'admin_commission',

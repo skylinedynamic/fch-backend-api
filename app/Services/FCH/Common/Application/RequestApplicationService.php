@@ -13,6 +13,7 @@ use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class RequestApplicationService
 {
@@ -25,7 +26,7 @@ class RequestApplicationService
      */
     private function getAuthenticatedPartnerId(): int
     {
-        return auth()->user()->partner_id;
+        return Auth::user()->partner_id;
     }
 
     /**
@@ -37,7 +38,7 @@ class RequestApplicationService
         
         $query = PreQualificationRequest::query()
         ->where('status', '!=', PreQualificationRequest::ON_HOLD)
-        ->whereHas('borrower', function ($q) use($partnerId) {
+        ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         });
 
@@ -114,14 +115,12 @@ class RequestApplicationService
      */
     public function getFundingApplicationList(array $filters)
         {
-            $authUser = auth()->user();
+            $authUser = Auth::user();
             
             $query = FundingApplication::query()
                 ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-                    $query->whereHas('borrower', function ($q) use($authUser) {
-                        $q->where('partner_id', $authUser->partner_id);
-                    });
+                    $query->where('partner_id', $authUser->partner_id);
                 });
 
             // Apply Search
@@ -161,7 +160,7 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
         
         $application = PreQualificationRequest::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
+           ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         })
         ->where('id',$id)->first();
@@ -177,13 +176,11 @@ class RequestApplicationService
      */
     public function getFundingApplicationById($id)
     {
-        $authUser = auth()->user();
+        $authUser = Auth::user();
 
         $application = FundingApplication::with('commission','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType')
            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-            $query->whereHas('borrower', function ($q) use($authUser) {
-                $q->where('partner_id', $authUser->partner_id);
-            });
+            $query->where('partner_id', $authUser->partner_id);
            })
         ->where('id',$id)->first();
 
@@ -202,9 +199,6 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = PreQualificationRequest::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
-            $q->where('partner_id', $partnerId);
-        })
         ->where('id',$data['id'])->first();
 
         if($application == null){
@@ -228,9 +222,6 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = FundingApplication::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
-            $q->where('partner_id', $partnerId);
-        })
         ->where('id',$data['funding_application_id'])->first();
 
         if($application == null){
@@ -253,7 +244,7 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $baseQuery = PreQualificationRequest::where('status', '!=', PreQualificationRequest::ON_HOLD)
-            ->whereHas('borrower', function ($q) use($partnerId) {
+            ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
                 $q->where('partner_id', $partnerId);
             });
 
@@ -270,13 +261,11 @@ class RequestApplicationService
      */
     public function getFundingApplicationCardSummary()
     {
-        $authUser = auth()->user();
+        $authUser = Auth::user();
 
         $baseQuery = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
             ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-                $query->whereHas('borrower', function ($q) use($authUser) {
-                    $q->where('partner_id', $authUser->partner_id);
-                });
+                $query->where('partner_id', $authUser->partner_id);
             });
 
         return ApiResponse::success([

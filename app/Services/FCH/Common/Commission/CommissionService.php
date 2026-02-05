@@ -8,6 +8,7 @@ use App\Models\Commission\Commission;
 use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Auth;
 
 class CommissionService
 {
@@ -18,8 +19,9 @@ class CommissionService
      */
     public function getCommissions(array $filters)
     {
-        $query = Commission::when(auth()->user()->user_type === User::PARTNER, function ($query) {
-            $query->where('partner_id', auth()->user()->partner_id);
+        $authUser = Auth::user();
+        $query = Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
+            $query->where('partner_id', $authUser->partner_id);
         })
         ->with(['fundingApplication', 'partner', 'borrower']);
 
@@ -75,9 +77,9 @@ class CommissionService
      */
     public function getCommissionById(int $id)
     {
-
-        return Commission::when(auth()->user()->user_type === User::PARTNER, function ($query) {
-            $query->where('partner_id', auth()->user()->partner_id);
+        $authUser = Auth::user();
+        return Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
+            $query->where('partner_id', $authUser->partner_id);
         })
             ->with(['fundingApplication', 'partner', 'borrower'])
             ->findOrFail($id);

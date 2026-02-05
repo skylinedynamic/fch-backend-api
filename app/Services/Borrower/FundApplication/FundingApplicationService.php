@@ -57,6 +57,7 @@ class FundingApplicationService
             
             $data['status'] = $status ?? FundingApplication::ON_HOLD;
             $data['borrower_id'] = $borrowerId;
+            $data['partner_id'] = auth()->user()->partner_id;
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $data['id']],

@@ -160,6 +160,7 @@ class PreQualificationService
                 'notes' => null,
                 'status' => PreQualificationRequest::ON_HOLD,
                 'borrower_id' => $borrower->id,
+                'partner_id' => $borrower->partner_id,
                 ];
 
                 $prequalificationRequest = PreQualificationRequest::create($mergedData)->toArray();
@@ -226,6 +227,7 @@ class PreQualificationService
             [
                 'id' => isset($data['id']) ? $data['id'] : null,
                 'borrower_id' => $user->entity_id,
+                'partner_id' => $user->partner_id,
             ],
             $payload
         );
@@ -248,6 +250,7 @@ class PreQualificationService
             [
                 'id' => isset($data['id']) ? $data['id'] : null,
                 'borrower_id' => $user->entity_id,
+                'partner_id' => $user->partner_id,
             ],  
             $payload
         );
@@ -270,6 +273,7 @@ class PreQualificationService
             [
                 'id' => isset($data['id']) ? $data['id'] : null,
                 'borrower_id' => $user->entity_id,
+                'partner_id' => $user->partner_id,
             ],
             $payload
         );

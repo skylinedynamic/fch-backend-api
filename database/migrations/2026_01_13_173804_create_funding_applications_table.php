@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('funding_applications', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('borrower_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('borrower_id')->nullable();
+            $table->unsignedBigInteger('partner_id')->nullable();
             
             // Business Information
             $table->string('full_name')->nullable()->index();

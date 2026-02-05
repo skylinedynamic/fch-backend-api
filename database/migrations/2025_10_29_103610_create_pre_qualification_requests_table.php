@@ -16,6 +16,7 @@ return new class extends Migration
         Schema::create('pre_qualification_requests', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('borrower_id')->nullable();
+            $table->unsignedBigInteger('partner_id')->nullable();
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('business_website')->nullable();
