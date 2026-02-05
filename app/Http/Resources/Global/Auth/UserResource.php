@@ -37,6 +37,8 @@ class UserResource extends JsonResource
             ->unique()
             ->values();
 
+        $subscription = $this->entity?->subscription;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -48,15 +50,15 @@ class UserResource extends JsonResource
             'entity_id' => $this->entity_id,
             'is_host' => $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
-            'enrollment_type' => $this->partner?->subscription?->enrollment_type,
-            'subscription_status' => $this->partner?->subscription?->status,
-            'first_payment_date' => $this->partner?->subscription?->first_payment_date?->toDateString(),
-            'platform_fee_start_date' => $this->partner?->subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $this->partner?->subscription?->enrollmentPhase?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $this->partner?->subscription?->platformFeePhase?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $this->partner?->subscription?->enrollmentPhase?->enrollment_completed_at?->toDateString(),
-            'subscription_start_date' => $this->partner?->subscription?->subscription_start_date?->toDateString(),
-            'subscription_end_date' => $this->partner?->subscription?->subscription_end_date?->toDateString(),
+            'enrollment_type' => $subscription?->enrollment_type,
+            'subscription_status' => $subscription?->status,
+            'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
+            'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),
+            'next_installment_date' => $subscription?->enrollmentPhase?->next_installment_date?->toDateString(),
+            'next_platform_fee_date' => $subscription?->platformFeePhase?->next_platform_fee_date?->toDateString(),
+            'enrollment_completed_at' => $subscription?->enrollmentPhase?->enrollment_completed_at?->toDateString(),
+            'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
+            'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
             'status' => $this->status,
             'image' => $this->image,
             'role_id' => $roleId,

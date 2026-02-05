@@ -141,7 +141,6 @@ class PartnerService
                     'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'total_subscription_amount' => $plan->total_amount ?? 0,
                     'payable_amount' => $enrollmentAmount,
-                    'subscription_end_date' => now()->addMonths(11),
                 ]);
                 Log::info('✅ Partner subscription initialized with phases', ['entity_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
             }
@@ -160,6 +159,7 @@ class PartnerService
                     'email' => $partner->email,
                     'country' => $partner->country,
                     'payment_amount' => $enrollmentAmount,
+                    'is_partner_paying' => $isHostCreating ? false : true,
                     'status' => Invoice::STATUS_UNPAID,
                 ]);
 

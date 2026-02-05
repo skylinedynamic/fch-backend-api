@@ -22,6 +22,7 @@ return new class extends Migration
             $table->decimal('payment_amount', 10, 2)->nullable();
             $table->date('payment_date')->nullable();
             $table->string('status')->default(Invoice::STATUS_PENDING)->nullable();
+            $table->boolean('is_partner_paying')->default(false)->nullable();
             $table->string('currency')->default('USD')->nullable();
             $table->string('currency_symbol')->default('$')->nullable();
             $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();

@@ -22,21 +22,21 @@ class AuthService
      * @param Request $request
      * @return JsonResponse
      */
-    public function login(array $credentials, Request $request,$user_type = null): JsonResponse
+    public function login(array $credentials, Request $request, $user_type = null): JsonResponse
     {
         $authCredentials = collect($credentials)->except('recaptcha')->toArray();
-        
+
         $email = (string) $credentials['email'];
         $key = 'login:' . $email . $request->ip();
-        
+
         $maxAttempts = config('app.login_throttle_limit');
         $decayMinutes = config('app.login_decay_minutes');
-        
+
         if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
-            
-            return ApiResponse::tooManyRequests(__('auth.too_many_login_attempts',[
+
+            return ApiResponse::tooManyRequests(__('auth.too_many_login_attempts', [
                 'time' => $decayMinutes,
             ]));
         }
@@ -48,13 +48,13 @@ class AuthService
                 $query->whereIn('user_type', [User::ADMIN, User::PARTNER]);
             })
             ->first();
-        
-    
+
+
         if (!$user) {
             RateLimiter::hit($key, $decayMinutes * 60);
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
-            
+
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
         }
 
@@ -64,12 +64,12 @@ class AuthService
             RateLimiter::hit($key, $decayMinutes * 60);
             $attempts = RateLimiter::attempts($key);
             $remainingAttempts = max(0, $maxAttempts - $attempts);
-            
+
             return ApiResponse::loginError(__('auth.invalid_password'), 'password', $remainingAttempts, $maxAttempts);
         }
 
         RateLimiter::clear($key);
-        $user = Auth::user();   
+        $user = Auth::user();
 
         // If 2FA is enabled, return token and 2FA details instead of user details
         $twoFaSetting = $user->twoFaAuthSetting()->first();
@@ -93,11 +93,11 @@ class AuthService
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         // Eager-load relations needed by UserResource to avoid lazy loading
-        $user->load(['roles.permissions', 'permissions', 'partner.subscription']);
+        $user->load(['roles.permissions', 'permissions', 'partner', 'entity.subscription.enrollmentPhase', 'entity.subscription.platformFeePhase']);
 
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);
-        
+
         return ApiResponse::success([
             'token' => $token,
             'user' => new UserResource($user),
@@ -114,7 +114,7 @@ class AuthService
     {
         try {
             $user = Auth::user();
-            
+
             if (!$user) {
                 return ApiResponse::unauthorized(__('auth.unauthenticated'));
             }

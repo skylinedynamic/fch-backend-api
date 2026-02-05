@@ -24,6 +24,7 @@ class Invoice extends Model
         'payment_amount',
         'payment_date',
         'status',
+        'is_partner_paying',
         'currency',
         'currency_symbol',
         'conversion_rate',

@@ -303,7 +303,7 @@ class InvoiceService
     private function getBusinessInfo(): array
     {
         $business = Partner::where('is_host', 1)->first();
-        
+
         $businessLogo = $business->company_logo ?? 'logo.png';
         if ($businessLogo && str_starts_with($businessLogo, 'http')) {
             $fileName = basename(parse_url($businessLogo, PHP_URL_PATH));
