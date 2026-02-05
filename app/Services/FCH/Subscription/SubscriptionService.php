@@ -224,7 +224,6 @@ class SubscriptionService
      */
     public function handleSuccessfulPayment(Invoice $invoice)
     {
-        Log::info('ARafatsss');
         $subscription = Subscription::where('entity_type', $invoice->entity_type)
             ->where('entity_id', $invoice->entity_id)
             ->first();
@@ -302,14 +301,27 @@ class SubscriptionService
         } else {
             if ($subscription->installment_type == 0 && $subscription->entity_type == Partner::class) {
                 $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
-                $next_platform_fee_date = now()->addMonth($plan->subscription_period_month)->addDay();
+                $next_platform_fee_date = is_null($phase->next_platform_fee_date) ? now()->addMonth($plan->subscription_period_month)->addDay() : $phase->next_platform_fee_date->addMonth();
                 $enrollment_completed_at = now();
                 $next_installment_date = null;
             } else if ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
-                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
-                $next_platform_fee_date = null;
-                $enrollment_completed_at = null;
-                $next_installment_date = now()->addMonth();
+
+                $invoiceCount = Invoice::where('entity_type', $subscription->entity_type)
+                    ->where('entity_id', $subscription->entity_id)
+                    ->where('is_platform_fee', false)
+                    ->where('status', Invoice::STATUS_PAID)
+                    ->get()->count();
+                if ($invoiceCount < $plan->total_installments_count) {
+                    $next_installment_date = is_null($phase->next_installment_date) ? now()->addMonth() : $phase->next_installment_date->addMonth();
+                    $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
+                    $next_platform_fee_date = null;
+                    $enrollment_completed_at = null;
+                } else {
+                    $next_platform_fee_date = now()->addMonth()->addDay();
+                    $enrollment_completed_at = now();
+                    $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
+                    $next_installment_date = null;
+                }
             }
             // $next_installment_date = null;
             // $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
@@ -435,18 +447,6 @@ class SubscriptionService
                 'cycle' => Invoice::CYCLE_MONTHLY,
                 'is_platform_fee' => $isPlatformFee ? 1 : 0,
             ]);
-
-            // Update phase AFTER invoice
-            // if (!$isPlatformFee) {
-            //     $phase->increment('installments_paid');
-            //     $phase->update([
-            //         'next_installment_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
-            //     ]);
-            // } else {
-            //     $phase->update([
-            //         'next_platform_fee_date' => Carbon::parse($cycleDate)->addMonth()->toDateString(),
-            //     ]);
-            // }
         });
     }
     
@@ -478,7 +478,7 @@ class SubscriptionService
     {
         $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
 
-        SubscriptionPhase::with(['subscription.entity'])
+        SubscriptionPhase::with(['subscription.entity', 'subscription.partnerPlan'])
             ->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
             ->whereNotNull('next_platform_fee_date')
             ->whereDate('next_platform_fee_date', '<=', $targetDate)

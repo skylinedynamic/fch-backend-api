@@ -55,6 +55,7 @@ class UserDetailResource extends JsonResource
             'enrollment_completed_at' => $this->partner?->subscription?->enrollmentPhase?->enrollment_completed_at?->toDateString(),
             'subscription_start_date' => $this->partner?->subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $this->partner?->subscription?->subscription_end_date?->toDateString(),
+            'phase' => $this->partner?->subscription?->enrollmentPhase?->phase,
             'status' => $this->status,
             'image' => $this->image,
             'role_id' => $roleId,
