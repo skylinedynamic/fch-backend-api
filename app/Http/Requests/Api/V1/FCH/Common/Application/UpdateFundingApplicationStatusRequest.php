@@ -16,9 +16,9 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id'            => ['required', 'integer', 'exists:funding_applications,id'],
-            'status'        => ['required', Rule::in(FundingApplication::STATUS)],
-            'status_note'   => ['nullable', 'string', 'max:1000'],
+            'funding_application_id' => ['required', 'integer', 'exists:funding_applications,id'],
+            'status'                 => ['required', Rule::in(FundingApplication::STATUS)],
+            'status_note'            => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -30,7 +30,7 @@ class UpdateFundingApplicationStatusRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'id.required' => __('application.id_required'),
+            'funding_application_id.required' => __('application.id_required'),
             'id.integer' => __('application.id_integer'),
             'id.exists' => __('application.funding_application_not_found'),
 

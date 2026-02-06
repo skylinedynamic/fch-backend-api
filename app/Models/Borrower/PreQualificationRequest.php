@@ -17,6 +17,7 @@ class PreQualificationRequest extends Model
 
     protected $fillable = [
         'borrower_id',
+        'partner_id',
         'business_id',
         'first_name',
         'last_name',

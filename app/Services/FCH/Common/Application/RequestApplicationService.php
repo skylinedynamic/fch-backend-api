@@ -9,9 +9,11 @@ use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResourc
 use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
+use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class RequestApplicationService
 {
@@ -24,7 +26,7 @@ class RequestApplicationService
      */
     private function getAuthenticatedPartnerId(): int
     {
-        return auth()->user()->partner_id;
+        return Auth::user()->partner_id;
     }
 
     /**
@@ -36,7 +38,7 @@ class RequestApplicationService
         
         $query = PreQualificationRequest::query()
         ->where('status', '!=', PreQualificationRequest::ON_HOLD)
-        ->whereHas('borrower', function ($q) use($partnerId) {
+        ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         });
 
@@ -112,44 +114,44 @@ class RequestApplicationService
      * Get Funding Applications List
      */
     public function getFundingApplicationList(array $filters)
-    {
-        $partnerId = $this->getAuthenticatedPartnerId();
-        
-        $query = FundingApplication::query()
-            ->where('status', '!=', FundingApplication::ON_HOLD)
-            ->whereHas('borrower', function ($q) use($partnerId) {
-                $q->where('partner_id', $partnerId);
-            }); 
+        {
+            $authUser = Auth::user();
+            
+            $query = FundingApplication::query()
+                ->where('status', '!=', FundingApplication::ON_HOLD)
+                ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                    $query->where('partner_id', $authUser->partner_id);
+                });
 
-        // Apply Search
-        if (!empty($filters['search'])) {
-            $search = trim((string) $filters['search']);
-            $query->search($search);
+            // Apply Search
+            if (!empty($filters['search'])) {
+                $search = trim((string) $filters['search']);
+                $query->search($search);
+            }
+
+            $sortField = $filters['sort_field'] ?? 'id';
+            $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+            $advancedFilters = $filters['filters'] ?? [];
+
+            $query = QueryFilter::apply(
+                $query,
+                $sortField,
+                $sortOrder,
+                $advancedFilters,
+                []
+            );
+
+            $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+            $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+            $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+            return $this->respondWithPaginationResource(
+                $paginator,
+                FundingApplicationResource::class,
+                __('application.funding_application_retrieved')
+            );
         }
-
-        $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-        $advancedFilters = $filters['filters'] ?? [];
-
-        $query = QueryFilter::apply(
-            $query,
-            $sortField,
-            $sortOrder,
-            $advancedFilters,
-            []
-        );
-
-        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
-        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
-
-        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
-        return $this->respondWithPaginationResource(
-            $paginator,
-            FundingApplicationResource::class,
-            __('application.funding_application_retrieved')
-        );
-    }
     /**
      * Get Pre-Qualification Application By ID
      */
@@ -158,7 +160,7 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
         
         $application = PreQualificationRequest::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
+           ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
             $q->where('partner_id', $partnerId);
         })
         ->where('id',$id)->first();
@@ -174,17 +176,18 @@ class RequestApplicationService
      */
     public function getFundingApplicationById($id)
     {
-        $partnerId = $this->getAuthenticatedPartnerId();
+        $authUser = Auth::user();
 
-        $application = FundingApplication::with('borrower','coborrowers','fundingDocuments','fundingDocuments.docType')
-           ->whereHas('borrower', function ($q) use($partnerId) {
-            $q->where('partner_id', $partnerId);
-        })
+        $application = FundingApplication::with('commission','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType')
+           ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+            $query->where('partner_id', $authUser->partner_id);
+           })
         ->where('id',$id)->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
         }
+        //return ApiResponse::success($application);
         return ApiResponse::success(new ApplicationFundingApplicationResource($application));
     }
 
@@ -196,9 +199,6 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = PreQualificationRequest::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
-            $q->where('partner_id', $partnerId);
-        })
         ->where('id',$data['id'])->first();
 
         if($application == null){
@@ -222,10 +222,7 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = FundingApplication::with('borrower')
-           ->whereHas('borrower', function ($q) use($partnerId) {
-            $q->where('partner_id', $partnerId);
-        })
-        ->where('id',$data['id'])->first();
+        ->where('id',$data['funding_application_id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
@@ -247,7 +244,7 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $baseQuery = PreQualificationRequest::where('status', '!=', PreQualificationRequest::ON_HOLD)
-            ->whereHas('borrower', function ($q) use($partnerId) {
+            ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
                 $q->where('partner_id', $partnerId);
             });
 
@@ -264,11 +261,11 @@ class RequestApplicationService
      */
     public function getFundingApplicationCardSummary()
     {
-        $partnerId = $this->getAuthenticatedPartnerId();
+        $authUser = Auth::user();
 
         $baseQuery = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
-            ->whereHas('borrower', function ($q) use($partnerId) {
-                $q->where('partner_id', $partnerId);
+            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                $query->where('partner_id', $authUser->partner_id);
             });
 
         return ApiResponse::success([

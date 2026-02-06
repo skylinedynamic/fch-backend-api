@@ -51,7 +51,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name'])
+            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
@@ -242,6 +242,7 @@ class BorrowerService
     {
         DB::beginTransaction();
         try {
+     
             // Handle partner_id assignment
             $authUser = auth()->user();
             if (empty($data['partner_id'])) {
@@ -305,7 +306,6 @@ class BorrowerService
                         'status' => Invoice::STATUS_UNPAID,
                         'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
                         'is_platform_fee' => false,
-                        'cycle' => $enrollmentType,
                     ]);
 
                     $subscription = $this->subscriptionService->startSubscription($borrower, $plan, $enrollmentType, [
@@ -321,14 +321,26 @@ class BorrowerService
                             $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
                             $mailData['amount'] = $invoice->payment_amount;
                             Log::info('📧 Sending Payment Link Mail to Borrower');
-                            Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
+                            try {
+                                Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send payment link email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
+                            }
                         } else {
                             Log::info('📧 Sending Account Created Mail to Borrower');
-                            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                            try {
+                                Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                            } catch (\Exception $e) {
+                                Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
+                            }
                         }
                     } else {
                         Log::info('📧 Sending Default Account Created Mail');
-                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                        try {
+                            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
+                        }
                     }
                 }
             }
@@ -382,11 +394,16 @@ class BorrowerService
                             'phone_number' => $hostPartner->phone_number ?? '',
                             'address_line_1' => $hostPartner->address_line_1 ?? '',
                         ],
-                        'subject' => 'Welcome to Four Corner Holdings, LLC - Borrower Account Updated',
+                        'subject' => 'Your account has been updated - ' . config('app.name'),
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower with new password', ['email' => $user->email]);
-                    Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+
+                    try {
+                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send account update email to borrower with new password', ['email' => $user->email, 'error' => $e->getMessage()]);
+                    }
                 }
             } elseif (!empty($data['email'])) {
                 // Create user if email is provided and user doesn't exist
@@ -410,7 +427,11 @@ class BorrowerService
      */
     public function getDetails(int $id)
     {
-        return Borrower::with('partner')->find($id);
+        return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
+            $query->where('partner_id', auth()->user()->partner_id);
+        })
+            ->with('partner','latestSubscription')
+            ->find($id);
     }
 
     /**

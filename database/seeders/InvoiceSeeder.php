@@ -83,7 +83,6 @@ class InvoiceSeeder extends Seeder
                     'payment_amount' => $totalAmount,
                     'payment_date' => Carbon::now()->subDays(rand(0, 60)),
                     'status' => $this->getRandomStatus(),
-                    'cycle' => $this->getRandomCycle(),
                     'is_platform_fee' => 0,
                     'details' => [
                         'items' => $items,
@@ -105,16 +104,11 @@ class InvoiceSeeder extends Seeder
         }
     }
 
-    private function getRandomCycle()
-    {
-        $cycles = [Invoice::CYCLE_MONTHLY, Invoice::CYCLE_ANNUAL, Invoice::CYCLE_QUARTERLY, Invoice::CYCLE_ONE_TIME];
-        return $cycles[array_rand($cycles)];
-    }
+
 
     private function getRandomStatus()
     {
-        $statuses = ['Paid', 'Pending', 'Overdue', 'Canceled', 'Unpaid'];
-
+        $statuses = [Invoice::STATUS_PAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE, Invoice::STATUS_CANCELED, Invoice::STATUS_UNPAID];
         return $statuses[array_rand($statuses)];
     }
 }

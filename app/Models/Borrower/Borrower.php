@@ -122,4 +122,9 @@ class Borrower extends Model
             self::STATUS_CLOSED
         ];
     }
+
+    public function latestSubscription()
+    {
+        return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+    }
 }

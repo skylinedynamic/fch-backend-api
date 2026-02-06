@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('funding_applications', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('borrower_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('borrower_id')->nullable();
+            $table->unsignedBigInteger('partner_id')->nullable();
             
             // Business Information
             $table->string('full_name')->nullable()->index();
@@ -80,12 +81,21 @@ return new class extends Migration
             $table->boolean('any_outstanding_judgments_owner')->default(false);
             $table->longText('federal_compliance_disclosures_explanation')->nullable();
 
+            // Attestation and authorization
+            $table->boolean('attestation_authorization')->default(false);
+            
             //others
             $table->string('status')->nullable();
             $table->string('status_note')->nullable();
+            $table->date('funded_date')->nullable();
 
-            // Attestation and authorization
-            $table->boolean('attestation_authorization')->default(false);
+            $table->decimal('total_funded_amount', 15, 2)->nullable();
+            $table->string('funded_note')->nullable();
+
+            $table->string('currency')->default('USD')->nullable();
+            $table->string('currency_symbol')->default('$')->nullable();
+            $table->decimal('conversion_rate', 10, 2)->default(1.00)->nullable();
+            
             $table->softDeletes();
             $table->timestamps();
             

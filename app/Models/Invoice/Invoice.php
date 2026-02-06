@@ -25,7 +25,6 @@ class Invoice extends Model
         'payment_date',
         'status',
         'is_partner_paying',
-        'cycle',
         'currency',
         'currency_symbol',
         'conversion_rate',
@@ -65,21 +64,20 @@ class Invoice extends Model
             $q->where('invoices.invoice_id', 'like', "%{$search}%")
                 ->orWhere('invoices.customer_name', 'like', "%{$search}%")
                 ->orWhere('invoices.email', 'like', "%{$search}%")
-                ->orWhere('invoices.cycle', 'like', "%{$search}%")
                 ->orWhere('invoices.payment_amount', 'like', "%{$search}%")
                 ->orWhere('invoices.payment_date', 'like', "%{$search}%")
                 ->orWhere('invoices.created_at', 'like', "%{$search}%");
 
             // Accurate Status Matching: Use exact match if search matches a status to avoid "Paid" matching "Unpaid"
             $statuses = [
-                'Paid',
-                'Unpaid',
-                'Disputed',
-                'Failed',
-                'Pending',
-                'Success',
-                'Canceled',
-                'Overdue'
+                Invoice::STATUS_PAID,
+                Invoice::STATUS_UNPAID,
+                Invoice::STATUS_DISPUTED,
+                Invoice::STATUS_FAILED,
+                Invoice::STATUS_PENDING,
+                Invoice::STATUS_SUCCESS,
+                Invoice::STATUS_CANCELED,
+                Invoice::STATUS_OVERDUE,
             ];
 
             if (in_array(ucfirst(strtolower($search)), $statuses)) {
@@ -110,11 +108,6 @@ class Invoice extends Model
     const STATUS_OVERDUE = 'Overdue';
     const STATUS_ALL = 'All Status';
 
-    const CYCLE_ANNUAL = 'Annual';
-    const CYCLE_MONTHLY = 'Monthly';
-    const CYCLE_QUARTERLY = 'Quarterly';
-    const CYCLE_ONE_TIME = 'One Time';
-    const CYCLE_ALL = 'All Cycle';
 
     const PAYEE_ALL = 'All Payees';
 }

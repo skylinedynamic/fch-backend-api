@@ -16,24 +16,29 @@
     </p>
 
     <!-- Information List -->
-    <div class="info-card">
-        <div class="info-item">
-            <div class="info-label">Full Name</div>
-            <div class="info-value">{{ $user->name }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Email Address</div>
-            <div class="info-value">{{ $user->email }}</div>
-        </div>
-        @if (!empty($user->phone_number))
-            <div class="info-item">
-                <div class="info-label">Phone</div>
-                <div class="info-value">{{ $user->phone_number }}</div>
-            </div>
-        @endif
-        <div class="info-item">
-            <div class="info-label">Temporary Password</div>
-            <div class="info-value">{{ $plainPassword }}</div>
+    <div class="box-light info-card-container">
+        <div class="info-card-header">Account Details</div>
+        <div class="info-card-content">
+            <table class="info-table">
+                <tr>
+                    <td class="label">Full Name</td>
+                    <td class="value">{{ $user->name }}</td>
+                </tr>
+                <tr>
+                    <td class="label">Email Address</td>
+                    <td class="value">{{ $user->email }}</td>
+                </tr>
+                @if (!empty($user->phone_number))
+                    <tr>
+                        <td class="label">Phone</td>
+                        <td class="value">{{ $user->phone_number }}</td>
+                    </tr>
+                @endif
+                <tr>
+                    <td class="label">Temporary Password</td>
+                    <td class="value"><span class="highlight-value">{{ $plainPassword }}</span></td>
+                </tr>
+            </table>
         </div>
     </div>
 

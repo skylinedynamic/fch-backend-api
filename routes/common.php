@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -84,6 +85,13 @@ Route::prefix('v1')->group(function () {
 
             //Borrower document types
             Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
+
+            Route::post('borrowers/personal-details', [BorrowerController::class, 'updatePersonalDetails']);
+            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']); 
+
+            // Separate API for Client Info and Business Financials
+            Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
+            Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
@@ -158,7 +166,7 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('leads', LeadController::class);
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 
-            // 🧾 Invoices
+            //  Invoices
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
             Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
@@ -167,7 +175,7 @@ Route::prefix('v1')->group(function () {
             Route::post('settings', [SettingController::class, 'store']);
             Route::get('settings', [SettingController::class, 'show']);
 
-            // 💳 Payments
+            //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
             Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
@@ -177,6 +185,13 @@ Route::prefix('v1')->group(function () {
             Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
             Route::get('non-host-borrower-plans', [SubscriptionPlanController::class, 'nonHostBorrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
+
+            // Commissions
+            Route::prefix('commissions')->group(function () {
+                Route::get('/{id}', [CommissionController::class, 'show']);
+                Route::post('/', [CommissionController::class, 'index']);
+            });
+
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
