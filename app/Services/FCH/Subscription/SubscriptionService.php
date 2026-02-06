@@ -491,7 +491,6 @@ class SubscriptionService
                 'payment_amount' => $amount,
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => $isPartnerPaying,
-                'cycle' => Invoice::CYCLE_MONTHLY,
                 'is_platform_fee' => $isPlatformFee ? 1 : 0,
             ]);
         });
