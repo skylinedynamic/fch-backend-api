@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
-
+use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 // ✅ Import Role & Permission Controllers
 
 /*
@@ -26,6 +26,9 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 Route::prefix('v1/admin')
     ->middleware(['auth:api', 'admin'])
     ->group(function () {
+
+        // 📊 Dashboard
+        Route::post('dashboard', [DashboardController::class, 'index']);
 
         // 🧭 Partner routes
         Route::post('partners/fetch-partners', [PartnerController::class, 'index']);

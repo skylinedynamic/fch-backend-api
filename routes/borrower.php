@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
@@ -42,6 +43,9 @@ Route::prefix('v1/borrower')->group(function () {
     Route::middleware(['auth:api', 'borrower'])->group(function () {
 
         Route::post('/logout', [AuthController::class, 'logout']);
+
+        // 📊 Dashboard
+        Route::post('/dashboard', [DashboardController::class, 'index']);
 
         // Pre-Qualification
         Route::get('/pre-qualification', [PreQualificationController::class, 'index']);
