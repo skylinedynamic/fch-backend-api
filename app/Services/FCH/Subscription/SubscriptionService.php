@@ -579,4 +579,38 @@ class SubscriptionService
                 }
             });
     }
+
+    /**
+     * Get Subscription Statistics.
+     */
+    public function getStats(): array
+    {
+        $totalSubscriptions = Subscription::count();
+        $totalActive = Subscription::where('status', Subscription::STATUS_ACTIVE)->count();
+
+        // Expiring Soon (within 30 days)
+        $expiringSoon = Subscription::where('status', Subscription::STATUS_ACTIVE)
+            ->whereNotNull('subscription_end_date')
+            ->whereBetween('subscription_end_date', [now(), now()->addDays(30)])
+            ->count();
+
+        // Expired Subscriptions
+        $expiredCount = Subscription::whereNotNull('subscription_end_date')
+            ->where('subscription_end_date', '<', now())
+            ->count();
+
+        // Revenue this month (from paid invoices)
+        $revenueThisMonth = Invoice::where('status', Invoice::STATUS_PAID)
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('payment_amount');
+
+        return [
+            'total_subscriptions' => $totalSubscriptions,
+            'active_subscriptions' => $totalActive,
+            'expiring_soon' => $expiringSoon,
+            'expired_subscriptions' => $expiredCount,
+            'revenue_this_month' => (float) $revenueThisMonth,
+        ];
+    }
 }
