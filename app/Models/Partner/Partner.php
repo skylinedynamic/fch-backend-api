@@ -9,6 +9,10 @@ use App\Models\User\User;
 use App\Models\Business\Business;
 use App\Models\Employee\Employee;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Commission\Commission;
+use App\Models\Lead\Lead;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -171,5 +175,26 @@ class Partner extends Model
     public function getPartnerImageAttribute($value)
     {
         return $value ? asset("storage/{$value}") : null;
+    }
+
+    public function leads(): HasMany
+    {
+        return $this->hasMany(Lead::class, 'partner_id');
+    }
+
+
+    public function commissions(): HasMany
+    {
+        return $this->hasMany(Commission::class, 'partner_id');
+    }
+ 
+    public function fundingApplications()
+    {
+        return $this->hasMany(FundingApplication::class, 'partner_id');
+    }
+
+    public function preQualificationRequests()
+    {
+        return $this->hasMany(PreQualificationRequest::class, 'partner_id');
     }
 }

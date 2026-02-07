@@ -45,7 +45,7 @@ Route::prefix('v1/borrower')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
 
         // 📊 Dashboard
-        Route::post('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
         // Pre-Qualification
         Route::get('/pre-qualification', [PreQualificationController::class, 'index']);

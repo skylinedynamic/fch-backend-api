@@ -23,9 +23,9 @@ class DashboardController extends Controller
     {
         try {
             $data = $this->dashboardService->getStats();
-            return ApiResponse::success($data, __('dashboard.success.stats_retrieved'));
+            return ApiResponse::success($data, __('dashboard.stats_retrieved'));
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('dashboard.error.retrieval_failed') . ': ' . $e->getMessage());
+            return ApiResponse::serverError($e->getMessage());
         }
     }
 }

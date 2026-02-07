@@ -1,7 +1,13 @@
 <?php
 
+
 namespace App\Services\Borrower\Dashboard;
 
+use App\Http\Resources\Borrower\Dashboard\DashboardAppointmentResource;
+use App\Http\Resources\Borrower\Dashboard\DashboardFundingApplicationResource;
+use App\Http\Resources\Borrower\Dashboard\DashboardInvoiceResource;
+use App\Http\Resources\Borrower\Dashboard\DashboardPreQualificationResource;
+use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
@@ -20,44 +26,69 @@ class DashboardService
 
         // Get Borrower Profile
         $borrower = Borrower::where('id', $user->entity_id)
-        ->where('partner_id', $user->partner_id)->first();
+            ->first();
 
         if (!$borrower) {
              throw new \Exception(__('borrower.borrower_not_found'));
         }
 
-        $borrowerId = $borrower->id;
-
         $data = [];
 
         // Counts
-        $data['counts'] = [
-            'total_invoices' => Invoice::where('borrower_id', $borrowerId)->count(),
-            'unpaid_invoices' => Invoice::where('borrower_id', $borrowerId)->where('status', Invoice::STATUS_UNPAID)->count(),
-            'funding_applications' => FundingApplication::where('borrower_id', $borrowerId)->count(),
-            'pre_qualifications' => PreQualificationRequest::where('borrower_id', $borrowerId)->count(),
-            // Add other counts as needed, e.g. Credit Builder Task progress
+        $data['states'] = [
+            'funding_applications' => $borrower->fundingApplications->where('status','!=',FundingApplication::ON_HOLD)->count(),
+            'pre_qualifications' => $borrower->preQualificationRequests->where('status','!=',PreQualificationRequest::ON_HOLD)->count(),
+            'total_requested_amount' => $borrower->fundingApplications->sum('requested_amount'),
+            'total_funded_amount' => $borrower->fundingApplications->sum('total_funded_amount'),
         ];
-
-        // Lists
         
         // Latest Funding Applications
-        $data['latest_funding_applications'] = FundingApplication::where('borrower_id', $borrowerId)
-            ->latest()
-            ->take(5)
-            ->get();
+        $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
+            $borrower->fundingApplications()
+                ->where('status','!=',FundingApplication::ON_HOLD)
+                ->latest()
+                ->limit(5)
+                ->get()
+        );
 
         // Latest Pre-Qualifications
-        $data['latest_pre_qualifications'] = PreQualificationRequest::where('borrower_id', $borrowerId)
-            ->latest()
-            ->take(5)
-            ->get();
+        $data['latest_pre_qualifications'] = DashboardPreQualificationResource::collection(
+            $borrower->preQualificationRequests()
+                ->where('status','!=',PreQualificationRequest::ON_HOLD)
+                ->latest()
+                ->limit(5)
+                ->get()
+        );
             
-        // Latest Invoices
-        $data['latest_invoices'] = Invoice::where('borrower_id', $borrowerId)
-            ->latest()
-            ->take(5)
-            ->get();
+        // Upcoming Meeting
+        $data['upcoming_meeting'] = DashboardAppointmentResource::collection(
+            Appointment::with(['scheduledBy:id,name', 'assignedFor:id,name'])
+                ->where('appointment_date', '>=', now())
+                ->where(function ($q) use ($user) {
+                    $q->where('scheduled_by', $user->id)
+                      ->orWhere('assigned_for', $user->id);
+                })
+                ->orderBy('appointment_date', 'asc')
+                ->limit(5)
+                ->get()
+        );
+
+        // Latest Unpaid Invoices
+        $data['invoices'] = DashboardInvoiceResource::collection(
+            $borrower->invoices()
+                ->where('status',Invoice::STATUS_UNPAID)
+                ->latest()
+                ->limit(5)
+                ->get()
+        );
+
+        $tier = $borrower->tier;
+        $data['tier'] = $tier ? [
+            'id' => $tier->id,
+            'name' => $tier->name,
+            'title' => $tier->title,
+            'tasks_under_review' => $borrower->taskUnderReview()->count(),
+        ] : null;
 
         return $data;
     }

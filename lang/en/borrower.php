@@ -151,4 +151,7 @@ return [
     'file_not_found_on_server' => 'File not found on server.',
     'account_created_subject' => 'Welcome to :company_name',
     'download_failed' => 'Failed to download document. Please try again.',
+
+
+    'borrower_not_found' => 'Borrower not found.',
 ];

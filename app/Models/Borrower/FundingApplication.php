@@ -132,7 +132,7 @@ class FundingApplication extends Model
     public const ON_HOLD = 'On Hold';
 
     // Status Class Constants
-    public const PENDING_CLASS = 'secondary';
+    public const PENDING_CLASS = 'warning';
     public const SUBMITTED_CLASS = 'info';
     public const UNDERWRITING_REVIEW_CLASS = 'primary';
     public const MISSING_DOCUMENTS_CLASS = 'warning';
@@ -218,7 +218,6 @@ class FundingApplication extends Model
     {
         return $this->hasMany(FundingApplicationDocument::class);
     }
-
 
     public function scopeSearch($query, $term)
     {

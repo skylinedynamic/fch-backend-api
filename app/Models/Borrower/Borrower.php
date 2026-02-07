@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\Invoice\Invoice;
 use App\Models\CreditBuilder\Tier;
 use Illuminate\Database\Eloquent\Model;
@@ -86,7 +87,7 @@ class Borrower extends Model
 
     public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\CreditBuilder\BorrowerTaskVerificationRequest::class, 'borrower_id');
+        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id');
     }
 
     /**
@@ -95,6 +96,11 @@ class Borrower extends Model
     public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Invoice::class, 'borrower_id');
+    }
+
+    public function taskUnderReview(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id')->where('status', BorrowerTaskVerificationRequest::PROCESSING);
     }
 
     /**
@@ -126,5 +132,15 @@ class Borrower extends Model
     public function latestSubscription()
     {
         return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+    }
+
+    public function fundingApplications()
+    {
+        return $this->hasMany(FundingApplication::class, 'borrower_id');
+    }
+
+    public function preQualificationRequests()
+    {
+        return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
     }
 }

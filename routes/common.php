@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanCont
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -58,6 +59,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/recovery-codes/regenerate', [V1TwoFaController::class, 'regenerateRecoveryCodes']);
         });
         Route::prefix('common')->group(function () {
+
+            Route::get('dashboard', [DashboardController::class, 'index']);
 
             Route::post('roles/fetch-roles', [RoleController::class, 'fetchRoles']);
             Route::post('roles/destroy', [RoleController::class, 'destroy']);

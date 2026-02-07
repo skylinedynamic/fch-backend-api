@@ -27,9 +27,6 @@ Route::prefix('v1/admin')
     ->middleware(['auth:api', 'admin'])
     ->group(function () {
 
-        // 📊 Dashboard
-        Route::post('dashboard', [DashboardController::class, 'index']);
-
         // 🧭 Partner routes
         Route::post('partners/fetch-partners', [PartnerController::class, 'index']);
         Route::post('partners', [PartnerController::class, 'store']);

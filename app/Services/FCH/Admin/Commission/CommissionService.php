@@ -44,7 +44,7 @@ class CommissionService
                 $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / 100;
                 $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
             } else {
-                $adminCommission = $totalCommission;
+                $adminCommission = 100;
                 $adminCommissionAmount = $totalCommissionAmount;
                 $partnerCommission = 0;
                 $partnerCommissionAmount = 0;
