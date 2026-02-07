@@ -391,15 +391,55 @@ class SubscriptionService
      * @return bool
      */
 
-    protected function invoiceExistsForCycle(Subscription $subscription, bool $isPlatformFee, string $cycleDate): bool
+    protected function createInvoiceIfDue(SubscriptionPhase $phase, bool $isPlatformFee = false): bool
     {
-        return Invoice::where('entity_type', $subscription->entity_type)
+        $today = Carbon::today();
+        $subscription = $phase->subscription;
+
+        // Determine next due date based on type
+        $nextDue = $isPlatformFee 
+            ? $phase->next_platform_fee_date 
+            : $phase->next_installment_date;
+
+        if (!$nextDue) {
+            return false; // no next date defined
+        }
+
+        $nextDue = Carbon::parse($nextDue);
+
+        // Allow generation before the due date (configured days)
+        $generateBeforeDays = config('subscription.generate_before_days', 5);
+        $earliestGenerateDate = $nextDue->copy()->subDays($generateBeforeDays);
+
+        // Only create if we're within the generation window
+        if ($today < $earliestGenerateDate) {
+            return false; // too early to generate
+        }
+
+        // Check if an unpaid invoice already exists for THIS MONTH (when invoice will be created)
+        // This prevents duplicate unpaid invoices in the same calendar month
+        $currentMonth = $today->format('Y-m');
+        $unpaidInvoiceExistsThisMonth = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
             ->where('is_platform_fee', $isPlatformFee ? 1 : 0)
-            ->whereYear('created_at', Carbon::parse($cycleDate)->year)
-            ->whereMonth('created_at', Carbon::parse($cycleDate)->month)
-            ->whereIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_UNPAID])
+            ->where('status', Invoice::STATUS_UNPAID)
+            ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
             ->exists();
+
+        if ($unpaidInvoiceExistsThisMonth) {
+            return false; // unpaid invoice already exists for this month
+        }
+
+        // Check if a paid invoice already exists for this billing cycle
+        $billingCycleMonth = $nextDue->format('Y-m');
+        $paidInvoiceExists = Invoice::where('entity_type', $subscription->entity_type)
+            ->where('entity_id', $subscription->entity_id)
+            ->where('is_platform_fee', $isPlatformFee ? 1 : 0)
+            ->where('status', Invoice::STATUS_PAID)
+            ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$billingCycleMonth])
+            ->exists();
+
+        return !$paidInvoiceExists; // true = should create, false = already paid for this cycle
     }
 
     /**
@@ -412,88 +452,104 @@ class SubscriptionService
 
     protected function createInvoiceForPhase(SubscriptionPhase $phase, string $type): void
     {
-        DB::transaction(function () use ($phase, $type) {
+        try {
+            DB::transaction(function () use ($phase, $type) {
 
-            $subscription = $phase->subscription;
-            $entity = $subscription->entity;
+                $subscription = $phase->subscription;
+                $entity = $subscription->entity;
 
-            if (!$entity || $subscription->status !== 'Active') {
-                return;
-            }
-
-            $isPlatformFee = $type === 'platform_fee';
-
-            $cycleDate = $isPlatformFee
-                ? $phase->next_platform_fee_date
-                : $phase->next_installment_date;
-
-            if (!$cycleDate) {
-                return;
-            }
-
-            $entityType = $subscription->entity_type;
-            $entityId = $subscription->entity_id;
-
-            $invoiceCount = Invoice::where('entity_type', $entityType)
-                ->where('entity_id', $entityId)
-                ->where('is_platform_fee', 0)
-                ->count();
-
-            $totalCount = $subscription->partnerPlan?->total_installments_count;
-
-            if ($totalCount && $invoiceCount >= $totalCount) {
-                return;
-            }
-
-            // Prevent duplicate (paid OR unpaid) for this month
-            if ($this->invoiceExistsForCycle($subscription, $isPlatformFee, $cycleDate)) {
-                return;
-            }
-
-            // Installment limit check (Secondary check using phase state)
-            if (!$isPlatformFee) {
-                if (!$totalCount || $phase->installments_paid >= $totalCount) {
-                    // Switch to platform fee phase
-                    $phase->update([
-                        'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
-                        'next_platform_fee_date' => now()->addMonth()->startOfMonth(),
-                    ]);
+                if (!$entity || $subscription->status !== 'Active') {
                     return;
                 }
-            }
 
-            // Determine who pays
-            $isPartnerPaying = false;
+                $isPlatformFee = $type === 'platform_fee';
 
-            if ($subscription->entity_type === Borrower::class) {
-                $entity->loadMissing('partner');
-                $isPartnerPaying = $entity->partner?->is_host != 1;
-                $partnerId = $entity->partner_id;
-            } else {
-                $isPartnerPaying = $entity->is_host != 1;
-                $partnerId = $entity->id;
-            }
+                $cycleDate = $isPlatformFee
+                    ? $phase->next_platform_fee_date
+                    : $phase->next_installment_date;
 
-            $amount = $isPlatformFee
-                ? $subscription->monthly_platform_fee
-                : $subscription->payable_amount;
+               
+                if (!$cycleDate) {
+                    return;
+                }
 
-            // Create invoice
-            $this->invoiceService->create([
-                'partner_id' => $partnerId,
-                'borrower_id' => $subscription->entity_type === Borrower::class
-                    ? $subscription->entity_id
-                    : null,
-                'entity_type' => $subscription->entity_type,
-                'entity_id' => $subscription->entity_id,
-                'customer_name' => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
-                'email' => $entity->email,
-                'payment_amount' => $amount,
-                'status' => Invoice::STATUS_UNPAID,
-                'is_partner_paying' => $isPartnerPaying,
-                'is_platform_fee' => $isPlatformFee ? 1 : 0,
+                $entityType = $subscription->entity_type;
+                $entityId = $subscription->entity_id;
+
+                $invoiceCount = Invoice::where('entity_type', $entityType)
+                    ->where('entity_id', $entityId)
+                    ->where('is_platform_fee', 0)
+                    ->count();
+
+                $totalCount = $subscription->partnerPlan?->total_installments_count;
+           
+                if ($totalCount && $invoiceCount >= $totalCount) {
+                    return;
+                }
+
+                // Check if we should create invoice (prevents duplicates)
+                if (!$this->createInvoiceIfDue($phase, $isPlatformFee)) {
+                    return;
+                }
+
+                // Installment limit check (Secondary check using phase state)
+                if (!$isPlatformFee) {
+                    if (!$totalCount || $phase->installments_paid >= $totalCount) {
+                        // Switch to platform fee phase
+                        $phase->update([
+                            'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
+                            'next_platform_fee_date' => now()->addMonth()->startOfMonth(),
+                        ]);
+                        return;
+                    }
+                }
+
+                // Determine who pays
+                $isPartnerPaying = false;
+
+                if ($subscription->entity_type === Borrower::class) {
+                    $entity->loadMissing('partner');
+                    $isPartnerPaying = $entity->partner?->is_host != 1;
+                    $partnerId = $entity->partner_id;
+                } else {
+                    $isPartnerPaying = $entity->is_host != 1;
+                    $partnerId = $entity->id;
+                }
+
+                $amount = $isPlatformFee
+                    ? $subscription->monthly_platform_fee
+                    : $subscription->payable_amount;
+
+                // Create invoice
+                $invoice = $this->invoiceService->create([
+                    'partner_id' => $partnerId,
+                    'borrower_id' => $subscription->entity_type === Borrower::class
+                        ? $subscription->entity_id
+                        : null,
+                    'entity_type' => $subscription->entity_type,
+                    'entity_id' => $subscription->entity_id,
+                    'customer_name' => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
+                    'email' => $entity->email,
+                    'payment_amount' => $amount,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'is_partner_paying' => $isPartnerPaying,
+                    'is_platform_fee' => $isPlatformFee ? 1 : 0,
+                ]);
+
+                Log::info('Invoice created successfully', [
+                    'invoice_id' => $invoice->id ?? null,
+                ]);
+            });
+        } catch (\Exception $e) {
+            // Log the error but don't throw - this allows the cron to continue processing other invoices
+            Log::error('Failed to create invoice for subscription phase', [
+                'phase_id' => $phase->id,
+                'subscription_id' => $phase->subscription_id,
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
-        });
+        }
     }
     
     // Cron Job Start

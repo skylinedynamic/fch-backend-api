@@ -25,21 +25,18 @@ class ProcessSubscriptions extends Command
     /**
      * Execute the console command.
      */
-public function handle(SubscriptionService $subscriptionService)
-{
-    $this->info('Starting subscription processing...');
-    $this->info('Force test mode: ' . (config('subscription.force_generate_for_testing') ? 'ON' : 'OFF'));
+    public function handle(SubscriptionService $subscriptionService)
+    {
+        try {
+            $subscriptionService->generateInstallmentInvoices();
+            $subscriptionService->generatePlatformFeeInvoices();
 
-    try {
-        $subscriptionService->generateInstallmentInvoices();
-        $subscriptionService->generatePlatformFeeInvoices();
+            $this->info('Subscription processing completed.');
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
+            return Command::FAILURE;
+        }
 
-        $this->info('Subscription processing completed.');
-    } catch (\Exception $e) {
-        $this->error($e->getMessage());
-        return Command::FAILURE;
+        return Command::SUCCESS;
     }
-
-    return Command::SUCCESS;
-}
 }
