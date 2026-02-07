@@ -56,7 +56,7 @@ class BorrowerController extends Controller
 
             return $this->borrowerService->list($filters);
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.list_failed'));
+            return ApiResponse::serverError(__('borrower.list_failed'));
         }
     }
 
@@ -67,6 +67,7 @@ class BorrowerController extends Controller
     {
         try {
             $data = $request->validated();
+            
             $result = $this->borrowerService->store($data);
 
             $borrower = $result['borrower'];
@@ -75,7 +76,7 @@ class BorrowerController extends Controller
 
             return ApiResponse::success(
                 new BorrowerDetailsResource($borrower),
-                __('borrower.success.created'),
+                __('borrower.created'),
                 201
             );
         } catch (\Exception $e) {
@@ -91,7 +92,7 @@ class BorrowerController extends Controller
         try {
             $borrower = $this->borrowerService->getDetails((int)$id);
             if (!$borrower) {
-                return ApiResponse::notFound(__('borrower.error.not_found'));
+                return ApiResponse::notFound(__('borrower.not_found'));
             }
 
             $data = $request->validated();
@@ -99,10 +100,10 @@ class BorrowerController extends Controller
 
             return ApiResponse::success(
                 new BorrowerDetailsResource($updatedBorrower),
-                __('borrower.success.updated')
+                __('borrower.updated')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.update_failed'));
+            return ApiResponse::serverError(__('borrower.update_failed'));
         }
     }
 
@@ -115,15 +116,15 @@ class BorrowerController extends Controller
             $borrower = $this->borrowerService->getDetails((int)$id);
 
             if (!$borrower) {
-                return ApiResponse::notFound(__('borrower.error.not_found'));
+                return ApiResponse::notFound(__('borrower.not_found'));
             }
 
             return ApiResponse::success(
                 new BorrowerDetailsResource($borrower),
-                __('borrower.success.retrieved_details')
+                __('borrower.retrieved_details')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.fetch_failed'));
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 
@@ -150,10 +151,10 @@ class BorrowerController extends Controller
 
             return ApiResponse::success(
                 $users,
-                __('borrower.success.users_retrieved')
+                __('borrower.users_retrieved')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.users_fetch_failed'));
+            return ApiResponse::serverError(__('borrower.users_fetch_failed'));
         }
     }
 
@@ -191,7 +192,7 @@ class BorrowerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'subject' => __('borrower.account_created_subject', ['company_name' => $businessInfo->company_name]),
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -252,9 +253,9 @@ class BorrowerController extends Controller
     {
         try {
             $documents = $this->borrowerService->getBorrowerDocuments((int)$borrowerId);
-            return ApiResponse::success($documents, 'Documents retrieved successfully');
+            return ApiResponse::success($documents, __('borrower.documents_fetched_successfully'));
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to retrieve documents');
+            return ApiResponse::serverError(__('borrower.documents_fetched_failed'));
         }
     }
 
@@ -268,7 +269,7 @@ class BorrowerController extends Controller
             // Note: Route parameter is named {borrowerId}, but for download it likely refers to the Document ID.
             $document = BorrowerDocument::where('id', $documentId)->first();
             if (!$document) {
-                return ApiResponse::notFound('Document not found');
+                return ApiResponse::notFound(__('borrower.document_not_found'));
             }
 
             // Prefer file_path, fallback to document column if file_path is empty
@@ -276,7 +277,7 @@ class BorrowerController extends Controller
 
             // If still empty
             if (!$urlPath) {
-                return ApiResponse::notFound('File path not found in record');
+                return ApiResponse::notFound(__('borrower.file_path_not_found'));
             }
 
             // Extract relative path from full URL if needed
@@ -291,7 +292,7 @@ class BorrowerController extends Controller
 
             // Check if file exists
             if (!file_exists($filePath)) {
-                return ApiResponse::notFound('File not found on server');
+                return ApiResponse::notFound(__('borrower.file_not_found_on_server'));
             }
 
             // Get MIME type
@@ -310,7 +311,7 @@ class BorrowerController extends Controller
                 ]
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Download failed');
+            return ApiResponse::serverError(__('borrower.download_failed'));
         }
     }
 
@@ -336,7 +337,7 @@ class BorrowerController extends Controller
             $documentService = new BorrowerDocumentService();
             return $documentService->updateStatus($id, $request->validated());
         } catch (\Throwable $e) {
-            return ApiResponse::error('Status update failed');
+            return ApiResponse::error(__('borrower.document_status_update_failed'));
         }
     }
 
@@ -388,15 +389,15 @@ class BorrowerController extends Controller
             $borrower = $this->borrowerService->getDetails((int)$id);
 
             if (!$borrower) {
-                return ApiResponse::notFound(__('borrower.error.not_found'));
+                return ApiResponse::notFound(__('borrower.not_found'));
             }
 
             return ApiResponse::success(
                 new BorrowerPersonalDetailsResource($borrower),
-                __('borrower.success.retrieved_details')
+                __('borrower.retrieved_details')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.fetch_failed'));
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 
@@ -409,15 +410,15 @@ class BorrowerController extends Controller
             $borrower = $this->borrowerService->getDetails((int)$id);
 
             if (!$borrower) {
-                return ApiResponse::notFound(__('borrower.error.not_found'));
+                return ApiResponse::notFound(__('borrower.not_found'));
             }
 
             return ApiResponse::success(
                 new BorrowerBusinessFinancialsResource($borrower),
-                __('borrower.success.retrieved_details')
+                __('borrower.retrieved_details')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('borrower.error.fetch_failed'));
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
     }
 }

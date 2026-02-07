@@ -6,6 +6,8 @@ use App\Traits\PaginatesApi;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\SubscriptionPlan;
+use App\Models\User\User;
+use Illuminate\Support\Facades\Auth;
 
 class SubscriptionPlanService
 {
@@ -33,10 +35,18 @@ class SubscriptionPlanService
      */
     public function borrowerPlans()
     {
-        $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+         if(Auth::user()->user_type == User::PARTNER) {
+            $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+            ->where('is_partner_paying', true)
+            ->where('status', true)
+            ->get();
+            
+         }else{
+            $plans = SubscriptionPlan::where('entity_type', Borrower::class)
             ->where('is_partner_paying', false)
             ->where('status', true)
             ->get();
+         }
 
         return $plans;
     }

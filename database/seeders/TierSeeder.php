@@ -128,7 +128,7 @@ class TierSeeder extends Seeder
                 'title' => 'Starter Vendor Accounts',
                 'subtitle' => 'Open your first tradelines with vendors that report to the business credit bureaus. These small starter accounts help establish your business’s first credit history and build your D-U-N-S file.',
                 'order' => 2,
-                'task_to_complete' => 3,
+                'task_to_complete' => null,
                 'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
@@ -151,13 +151,7 @@ class TierSeeder extends Seeder
                 'task_to_complete' => null,
                 'has_vendor' => true,
                 'status' => 'Active',
-                'tasks' => [
-                    ['title' => 'Home Depot Commercial', 'subtitle' => 'Building materials', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
-                    ['title' => 'Lowe’s Pro / Commercial', 'subtitle' => 'Home improvement', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 2],
-                    ['title' => 'Staples Business Advantage', 'subtitle' => 'Revolving credit', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 3],
-                    ['title' => 'Harbor Freight', 'subtitle' => 'Tools credit', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 4],
-                    ['title' => 'HD Supply', 'subtitle' => 'Maintenance supplies', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 5],
-                ]
+                'tasks' => []
             ],
             [
                 'name' => 'Tier 3',
@@ -168,14 +162,7 @@ class TierSeeder extends Seeder
                 'task_to_complete' => null,
                 'has_vendor' => true,
                 'status' => 'Active',
-                'tasks' => [
-                    ['title' => 'Shell Fleet', 'subtitle' => 'Fuel card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
-                    ['title' => 'Exxon/Mobil (WEX)', 'subtitle' => 'Fuel card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 2],
-                    ['title' => 'Chevron/Texaco (WEX)', 'subtitle' => 'Fuel card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 3],
-                    ['title' => 'BP Business Solutions', 'subtitle' => 'Fuel card','url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 4],
-                    ['title' => 'Fuelman', 'subtitle' => 'Fuel management', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 5],
-                    ['title' => 'WEX Universal', 'subtitle' => 'Universal fleet card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 6],
-                ]
+                'tasks' => []
             ],
             [
                 'name' => 'Tier 4',
@@ -186,15 +173,7 @@ class TierSeeder extends Seeder
                 'task_to_complete' => null,
                 'has_vendor' => true,
                 'status' => 'Active',
-                'tasks' => [
-                    ['title' => 'American Express Business', 'subtitle' => 'Business Card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 1],
-                    ['title' => 'Capital One Business', 'subtitle' => 'Credit Card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 2],
-                    ['title' => 'Chase', 'subtitle' => 'Business Banking', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 3],
-                    ['title' => 'U.S. Bank', 'subtitle' => 'Business Solutions', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 4],
-                    ['title' => 'Bank of America', 'subtitle' => 'Corporate Banking', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 5],
-                    ['title' => 'Corpay One', 'subtitle' => 'Payment Solutions', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 6],
-                    ['title' => 'Ramp', 'subtitle' => 'Corporate Card', 'url' => '', 'button_title' => 'Apply Now', 'estimated_completion_days' => 30, 'order' => 7],
-                ]
+                'tasks' => []
             ],
         ];
 

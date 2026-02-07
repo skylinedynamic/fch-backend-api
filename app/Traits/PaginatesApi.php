@@ -39,7 +39,7 @@ trait PaginatesApi
     }
 
 
-    protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200, ?string $resourceClass = null)
+    protected function respondWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200, ?string $resourceClass = null, array $additionalData = [])
     {
         $meta = [
             'current_page' => $paginator->currentPage(),
@@ -60,12 +60,12 @@ trait PaginatesApi
             }, $items);
         }
 
-        return ApiResponse::successWithPagination($items, $meta, $message, $code);
+        return ApiResponse::successWithPaginationAdditional($items, $meta, $additionalData, $message, $code);
     }
 
-    protected function respondWithPaginationResource(LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200)
+    protected function respondWithPaginationResource(LengthAwarePaginator $paginator, string $resourceClass, string $message = 'Success', int $code = 200, array $additionalData = [])
     {
-        return $this->respondWithPagination($paginator, $message, $code, $resourceClass);
+        return $this->respondWithPagination($paginator, $message, $code, $resourceClass, $additionalData);
     }
 
     protected function buildLinks(LengthAwarePaginator $paginator): array

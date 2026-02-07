@@ -63,12 +63,42 @@ class CommissionService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
+        // Calculate statistics before pagination
+        $amountField = ($authUser && $authUser->user_type === User::PARTNER) 
+            ? 'partner_commission_amount' 
+            : 'admin_commission_amount';
+
+        $rateField = ($authUser && $authUser->user_type === User::PARTNER) 
+            ? 'partner_commission' 
+            : 'admin_commission';    
+
+        $statistics = [
+            'total_commission_amount' => (clone $query)->sum($amountField),
+            'avg_commission_rate' => round((float) ((clone $query)->avg($rateField) ?? 0), 2),
+            'total_deals' => (clone $query)->count(),
+        ];
+
+        if($authUser->user_type == User::ADMIN) {
+            $statistics['partner_commission_amount'] = (clone $query)->sum('partner_commission_amount');
+        }
+
+        $statistics['total_funded_amount'] = (clone $query)
+            ->whereHas('fundingApplication', function ($q) {
+                $q->whereNotNull('total_funded_amount');
+            })
+            ->withSum('fundingApplication as total_funded_amount_sum', 'total_funded_amount')
+            ->get()
+            ->sum('total_funded_amount_sum');
+
+
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         return $this->respondWithPaginationResource(
             $paginator,
             CommissionResource::class,
-            __('commission.retrieved')
+            __('commission.retrieved'),
+            200,
+            ['statistics' => $statistics]
         );
     }
 
