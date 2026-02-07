@@ -105,6 +105,11 @@ class PreQualificationRequest extends Model
         return $this->belongsTo(Borrower::class);
     }
 
+    public function partner()
+    {
+        return $this->belongsTo(\App\Models\Partner\Partner::class);
+    }
+
     /**
      * Scope a query to search across common text fields.
      */

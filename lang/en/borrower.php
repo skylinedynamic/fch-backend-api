@@ -122,7 +122,6 @@ return [
     'documents_fetched_successfully' => 'Documents fetched successfully.',
     'documents_fetched_failed' => 'Failed to fetch documents.',
     'funding_application_id_required' => 'Funding application id is required',
-   'documents_fetched_failed' => 'Failed to fetch documents.',
 
     // Miscellaneous
     'user_id_required' => 'User ID is required.',
@@ -148,7 +147,8 @@ return [
     // Credit Builder Messages
     'task_verify_request_success' => 'Task verify request submitted successfully',
     'task_verify_request_failed' => 'Failed to submit task verify request. Please try again.',
-    'tier_task_list_retrieved' => 'Tier task list retrieved successfully',
-
-
+    'file_path_not_found' => 'File path not found in record.',
+    'file_not_found_on_server' => 'File not found on server.',
+    'account_created_subject' => 'Welcome to :company_name',
+    'download_failed' => 'Failed to download document. Please try again.',
 ];

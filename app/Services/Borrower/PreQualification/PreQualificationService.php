@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Services\Global\Notification\Mail\GenericNotificationMail;
+use Illuminate\Support\Facades\Mail;
 
 class PreQualificationService
 {
@@ -30,12 +32,30 @@ class PreQualificationService
             throw new \Exception(__('borrower.pre_qualification_request_not_found'));
         }
 
-        $zapierResponse = $this->sendToZapier($record);
+        // $zapierResponse = $this->sendToZapier($record);
 
         $record->update(['status' => PreQualificationRequest::PENDING]);
 
+        // Send Email to Partner
+        $record->load('partner');
+        if ($record->partner && $record->partner->email) {
+            try {
+                $mailData = [
+                    'subject' => 'New Pre-Qualification Application Submitted',
+                    'content' => 'A new pre-qualification application has been submitted by ' . $record->first_name . ' ' . $record->last_name . '.',
+                    'user' => $user,
+                    'notification_type' => 'pre_qualification_submitted',
+                    'data' => $record->toArray()
+                ];
+
+                Mail::to($record->partner->email)->send(new GenericNotificationMail($mailData));
+            } catch (\Exception $e) {
+                Log::error('Failed to send pre-qualification email to partner', ['error' => $e->getMessage()]);
+            }
+        }
+
         return ApiResponse::success(
-            $zapierResponse,
+            [],
             __('borrower.pre_qualification_submitted_successfully')
         );
     }
