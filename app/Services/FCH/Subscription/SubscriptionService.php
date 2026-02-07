@@ -231,7 +231,7 @@ class SubscriptionService
      * @param array $additionalData
      * @return Subscription
      */
-    public function startSubscription($entity, $plan, string $enrollmentType, array $additionalData = []): Subscription
+    public function startSubscription($entity, $plan, array $additionalData = []): Subscription
     {
         $subscription = Subscription::where('entity_type', get_class($entity))
             ->where('entity_id', $entity->id)
@@ -240,7 +240,7 @@ class SubscriptionService
         $data = array_merge([
             'subscription_plan_id' => $plan->id ?? null,
             'partner_type' => $plan->partner_type ?? null,
-            'enrollment_type' => $enrollmentType,
+            'enrollment_type' => $plan->enrollment_type ?? null,
             'installment_type' => ($plan && $plan->total_installments_count > 1) ? 1 : 0,
             'monthly_platform_fee' => $plan->platform_fee ?? 0,
             'payable_amount' => $plan->payment_amount ?? 0,
@@ -352,7 +352,6 @@ class SubscriptionService
                 $enrollment_completed_at = now();
                 $next_installment_date = null;
             } else if ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
-
                 $invoiceCount = Invoice::where('entity_type', $subscription->entity_type)
                     ->where('entity_id', $subscription->entity_id)
                     ->where('is_platform_fee', false)
@@ -370,10 +369,6 @@ class SubscriptionService
                     $next_installment_date = null;
                 }
             }
-            // $next_installment_date = null;
-            // $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
-            // $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
-            // $enrollment_completed_at = now();
         }
         $phase->update([
             'phase' => $phaseFee,
@@ -396,28 +391,23 @@ class SubscriptionService
         $today = Carbon::today();
         $subscription = $phase->subscription;
 
-        // Determine next due date based on type
         $nextDue = $isPlatformFee 
             ? $phase->next_platform_fee_date 
             : $phase->next_installment_date;
 
         if (!$nextDue) {
-            return false; // no next date defined
+            return false;
         }
 
         $nextDue = Carbon::parse($nextDue);
 
-        // Allow generation before the due date (configured days)
         $generateBeforeDays = config('subscription.generate_before_days', 5);
         $earliestGenerateDate = $nextDue->copy()->subDays($generateBeforeDays);
 
-        // Only create if we're within the generation window
         if ($today < $earliestGenerateDate) {
-            return false; // too early to generate
+            return false;
         }
 
-        // Check if an unpaid invoice already exists for THIS MONTH (when invoice will be created)
-        // This prevents duplicate unpaid invoices in the same calendar month
         $currentMonth = $today->format('Y-m');
         $unpaidInvoiceExistsThisMonth = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
@@ -427,10 +417,9 @@ class SubscriptionService
             ->exists();
 
         if ($unpaidInvoiceExistsThisMonth) {
-            return false; // unpaid invoice already exists for this month
+            return false;
         }
 
-        // Check if a paid invoice already exists for this billing cycle
         $billingCycleMonth = $nextDue->format('Y-m');
         $paidInvoiceExists = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
@@ -487,7 +476,6 @@ class SubscriptionService
                     return;
                 }
 
-                // Check if we should create invoice (prevents duplicates)
                 if (!$this->createInvoiceIfDue($phase, $isPlatformFee)) {
                     return;
                 }

@@ -136,13 +136,13 @@ class PartnerService
             // Create subscription if enrollment data exists
             if ($enrollmentType) {
 
-                $subscription = $this->subscriptionService->startSubscription($partner, $plan, $enrollmentType, [
+                $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
                     'partner_type' => $plan->partner_type ?? $partnerType,
                     'monthly_platform_fee' => $plan->platform_fee ?? 0,
                     'total_subscription_amount' => $plan->total_amount ?? 0,
-                    'payable_amount' => $enrollmentAmount,
+                    'payable_amount' => $plan->payment_amount ?? 0,
                 ]);
-                Log::info('✅ Partner subscription initialized with phases', ['entity_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
+                Log::info('Partner subscription initialized with phases', ['entity_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
             }
 
             // Determine if host is creating this partner
