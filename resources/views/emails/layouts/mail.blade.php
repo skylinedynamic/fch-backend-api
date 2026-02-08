@@ -41,7 +41,7 @@
             <!-- Bottom Footer -->
             <div class="bottom-footer">
                 @section('footer')
-                    <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+                <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
                 @show
             </div>
         </div>
