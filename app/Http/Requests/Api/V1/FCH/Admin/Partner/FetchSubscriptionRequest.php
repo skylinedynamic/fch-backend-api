@@ -25,7 +25,7 @@ class FetchSubscriptionRequest extends FormRequest
             'partner_id'      => ['nullable', 'integer'],
             'borrower_id'     => ['nullable', 'integer'],
             'search'          => ['nullable', 'string'],
-            'status'          => ['nullable', 'string'],
+            'status'          => ['nullable'],
             'enrollment_type' => ['nullable', 'string'],
             'filters'         => ['nullable', 'array'],
             'page'            => ['nullable', 'integer', 'min:1'],

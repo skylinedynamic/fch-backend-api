@@ -15,9 +15,7 @@ class Subscription extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_ACTIVE = 'Active';
-    const STATUS_INACTIVE = 'Inactive';
-    const STATUS_SUSPENDED = 'Suspended';
-    const STATUS_CANCELLED = 'Cancelled';
+    const STATUS_EXPIRED = 'Expired';
     const STATUS_PENDING = 'Pending';
 
     protected $table = 'subscriptions';

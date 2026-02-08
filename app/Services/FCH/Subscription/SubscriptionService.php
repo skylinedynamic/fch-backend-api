@@ -83,10 +83,19 @@ class SubscriptionService
 
         // Top-level status filter (mapping 1 -> Active, 0 -> Inactive)
         $status = $filters['status'] ?? null;
-        if ($status !== null && $status !== '') {
+
+        if (is_array($status)) {
+            $status = $status['value'] ?? null;
+        }
+
+        // Apply filter ONLY if real value exists
+        if (filled($status)) {
             if (is_numeric($status)) {
-                $status = ((int)$status === 1) ? Subscription::STATUS_ACTIVE : Subscription::STATUS_INACTIVE;
+                $status = ((int) $status === 1)
+                    ? Subscription::STATUS_ACTIVE
+                    : Subscription::STATUS_PENDING;
             }
+
             $query->where('subscriptions.status', $status);
         }
 
@@ -391,8 +400,8 @@ class SubscriptionService
         $today = Carbon::today();
         $subscription = $phase->subscription;
 
-        $nextDue = $isPlatformFee 
-            ? $phase->next_platform_fee_date 
+        $nextDue = $isPlatformFee
+            ? $phase->next_platform_fee_date
             : $phase->next_installment_date;
 
         if (!$nextDue) {
@@ -457,7 +466,7 @@ class SubscriptionService
                     ? $phase->next_platform_fee_date
                     : $phase->next_installment_date;
 
-               
+
                 if (!$cycleDate) {
                     return;
                 }
@@ -471,7 +480,7 @@ class SubscriptionService
                     ->count();
 
                 $totalCount = $subscription->partnerPlan?->total_installments_count;
-           
+
                 if ($totalCount && $invoiceCount >= $totalCount) {
                     return;
                 }
@@ -601,8 +610,8 @@ class SubscriptionService
 
         // Revenue this month (from paid invoices)
         $revenueThisMonth = Invoice::where('status', Invoice::STATUS_PAID)
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
+            ->whereMonth('payment_date', now()->month)
+            ->whereYear('payment_date', now()->year)
             ->sum('payment_amount');
 
         return [
