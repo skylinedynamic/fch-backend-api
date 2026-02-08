@@ -19,7 +19,7 @@ class PartnerAccountUpdateMail extends Mailable
     {
         return new Envelope(
             subject: $this->mailData['subject']
-                ?? 'Welcome to ' . ($this->mailData['business_info']['company_name'] ?? 'Four Corner Holdings, LLC') . ' - Partner Account Created',
+                ?? 'Welcome to ' . ($this->mailData['business_info']['company_name'] ?? config('app.name')) . ' - Partner Account Created',
         );
     }
 

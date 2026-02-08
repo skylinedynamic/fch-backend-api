@@ -15,7 +15,7 @@ class FetchBorrowerRequest extends FormRequest
     {
         return [
             'partner_id'        => ['nullable', 'integer'],
-            'current_tier'      => ['nullable', 'string'],
+            'current_tier'      => ['nullable'],
             'assign_id'         => ['nullable', 'integer'],
             'search'            => ['nullable', 'string'],
             'filters'           => ['nullable', 'array'],

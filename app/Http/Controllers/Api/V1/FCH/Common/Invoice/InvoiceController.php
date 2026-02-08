@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Invoice;
 
 use App\Helpers\ApiResponse;
-use App\Http\Controllers\Controller;
-use App\Http\Resources\FCH\Invoice\InvoiceResource;
-use App\Services\FCH\InvoiceService;
-use App\Http\Requests\Api\V1\FCH\Common\Invoice\FetchInvoiceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Http\Controllers\Controller;
+use App\Services\FCH\InvoiceService;
+use App\Http\Resources\FCH\Invoice\InvoiceResource;
+use App\Http\Resources\FCH\Invoice\InvoiceDetailResource;
+use App\Http\Requests\Api\V1\FCH\Common\Invoice\FetchInvoiceRequest;
 
 class InvoiceController extends Controller
 {
@@ -60,7 +61,7 @@ class InvoiceController extends Controller
             return ApiResponse::notFound(__('invoice.not_found'));
         }
 
-        return ApiResponse::success(new InvoiceResource($invoice), __('invoice.details_retrieved'));
+        return ApiResponse::success(new InvoiceDetailResource($invoice), __('invoice.details_retrieved'));
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Resources\FCH\Subscription;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SubscriptionResource extends JsonResource
@@ -14,10 +15,20 @@ class SubscriptionResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $partner = null;
+        $borrower = null;
+
+        if ($this->entity_type === \App\Models\Partner\Partner::class) {
+            $partner = $this->partner;
+        } elseif ($this->entity_type === \App\Models\Borrower\Borrower::class) {
+            $borrower = $this->borrower;
+            $partner = $borrower?->partner;
+        }
+
         return [
             'id' => $this->id,
-            'partner_id' => $this->partner_id,
-            'borrower_id' => $this->borrower_id,
+            'partner_id' => $partner->id ?? null,
+            'borrower_id' => $borrower->id ?? null,
             'partner_type' => $this->partner_type,
             'enrollment_type' => $this->enrollment_type,
             'monthly_platform_fee' => $this->monthly_platform_fee,
@@ -35,13 +46,13 @@ class SubscriptionResource extends JsonResource
             'enrollment_completed_at' => $this->enrollmentPhase?->enrollment_completed_at?->toDateTimeString(),
             'termination_date' => $this->termination_date?->format('Y-m-d'),
             'status' => $this->status,
-            'partner_name' => $this->partner?->full_name,
-            'company_name' => $this->partner?->company_name,
-            'partner_email' => $this->partner?->email,
-            'borrower_name' => $this->borrower ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : null,
-            'borrower_email' => $this->borrower?->email,
-            'created_at' => $this->created_at?->toDateTimeString(),
-            'updated_at' => $this->updated_at?->toDateTimeString(),
+            'partner_name' => $partner?->full_name,
+            'company_name' => $partner?->company_name,
+            'partner_email' => $partner?->email,
+            'borrower_name' => $borrower ? ($borrower->first_name . ' ' . $borrower->last_name) : null,
+            'borrower_email' => $borrower?->email,
+            'created_at' => $this->created_at?->format('Y-m-d h:i A'),
+            'updated_at' => $this->updated_at?->format('Y-m-d h:i A'),
         ];
     }
 }

@@ -52,6 +52,8 @@ Route::prefix('v1/admin')
         Route::post('partners/subscription', [SubscriptionController::class, 'store']);
         Route::post('partner-subscriptions/{partnerId}', [SubscriptionController::class, 'details']);
 
+        Route::post('partners/subscriptions-stats', [SubscriptionController::class, 'stats']);
+
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
         Route::post('demo-requests/store', [DemoRequestController::class, 'store']);

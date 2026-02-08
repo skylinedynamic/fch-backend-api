@@ -58,7 +58,8 @@ class SubscriptionService
         $query = Subscription::query()
             ->with([
                 'partner:id,full_name,company_name,email',
-                'borrower:id,first_name,last_name,email',
+                'borrower:id,first_name,last_name,email,partner_id',
+                'borrower.partner:id,full_name,company_name,email',
                 'enrollmentPhase',
                 'platformFeePhase'
             ])
@@ -83,10 +84,19 @@ class SubscriptionService
 
         // Top-level status filter (mapping 1 -> Active, 0 -> Inactive)
         $status = $filters['status'] ?? null;
-        if ($status !== null && $status !== '') {
+
+        if (is_array($status)) {
+            $status = $status['value'] ?? null;
+        }
+
+        // Apply filter ONLY if real value exists
+        if (filled($status)) {
             if (is_numeric($status)) {
-                $status = ((int)$status === 1) ? Subscription::STATUS_ACTIVE : Subscription::STATUS_INACTIVE;
+                $status = ((int) $status === 1)
+                    ? Subscription::STATUS_ACTIVE
+                    : Subscription::STATUS_PENDING;
             }
+
             $query->where('subscriptions.status', $status);
         }
 
@@ -101,10 +111,7 @@ class SubscriptionService
 
         // Join Partners if searching or sorting by partner/company name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $query->leftJoin('partners', function ($join) {
-                $join->on('subscriptions.entity_id', '=', 'partners.id')
-                    ->where('subscriptions.entity_type', '=', Partner::class);
-            })->addSelect('partners.full_name as partner_name');
+            $query->withPartner();
 
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
@@ -112,12 +119,20 @@ class SubscriptionService
             }
         }
 
+        // Join Borrowers if searching or sorting by borrower_name
+        if ($sortField === 'borrower_name' || isset($rawFilters['borrower_name'])) {
+            $query->withBorrower();
+
+            if ($sortField === 'borrower_name') {
+                // Concatenate first and last name for sorting
+                $query->orderByRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) {$sortOrder}");
+                $skipSorting = true;
+            }
+        }
+
         // Join Enrollment Phase for next_installment_date
         if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date'])) {
-            $query->leftJoin('subscription_phases as ep', function ($join) {
-                $join->on('subscriptions.id', '=', 'ep.subscription_id')
-                    ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
-            })->addSelect('ep.next_installment_date');
+            $query->withEnrollmentPhase();
 
             if ($sortField === 'next_installment_date') {
                 $query->orderBy('ep.next_installment_date', $sortOrder);
@@ -127,15 +142,27 @@ class SubscriptionService
 
         // Join Platform Fee Phase for next_platform_fee_date
         if ($sortField === 'next_platform_fee_date' || isset($rawFilters['next_platform_fee_date'])) {
-            $query->leftJoin('subscription_phases as pfp', function ($join) {
-                $join->on('subscriptions.id', '=', 'pfp.subscription_id')
-                    ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
-            })->addSelect('pfp.next_platform_fee_date');
+            $query->withPlatformFeePhase();
 
             if ($sortField === 'next_platform_fee_date') {
                 $query->orderBy('pfp.next_platform_fee_date', $sortOrder);
                 $skipSorting = true;
             }
+        }
+
+        // Created At Filter (Format: Y-m-d h:i A)
+        $createdAtFilter = $rawFilters['created_at'] ?? null;
+        $createdAt = null;
+
+        if (is_array($createdAtFilter)) {
+            $createdAt = $createdAtFilter['value'] ?? null;
+        } elseif (is_string($createdAtFilter)) {
+            $createdAt = $createdAtFilter;
+        }
+
+        if (!empty($createdAt) && is_string($createdAt)) {
+            $query->whereRaw("DATE_FORMAT(subscriptions.created_at, '%Y-%m-%d %h:%i %p') LIKE ?", ["%{$createdAt}%"]);
+            unset($rawFilters['created_at']);
         }
 
         return QueryFilter::apply(
@@ -155,7 +182,8 @@ class SubscriptionService
                     'next_platform_fee_date' => 'pfp.next_platform_fee_date',
                 ],
                 'concat_fields' => [
-                    'partner_name' => ['partners.full_name', 'partners.company_name']
+                    'partner_name' => ['partners.full_name', 'partners.company_name'],
+                    'borrower_name' => ['borrowers.first_name', 'borrowers.last_name']
                 ]
             ]
         );
@@ -231,7 +259,7 @@ class SubscriptionService
      * @param array $additionalData
      * @return Subscription
      */
-    public function startSubscription($entity, $plan, string $enrollmentType, array $additionalData = []): Subscription
+    public function startSubscription($entity, $plan, array $additionalData = []): Subscription
     {
         $subscription = Subscription::where('entity_type', get_class($entity))
             ->where('entity_id', $entity->id)
@@ -240,7 +268,7 @@ class SubscriptionService
         $data = array_merge([
             'subscription_plan_id' => $plan->id ?? null,
             'partner_type' => $plan->partner_type ?? null,
-            'enrollment_type' => $enrollmentType,
+            'enrollment_type' => $plan->enrollment_type ?? null,
             'installment_type' => ($plan && $plan->total_installments_count > 1) ? 1 : 0,
             'monthly_platform_fee' => $plan->platform_fee ?? 0,
             'payable_amount' => $plan->payment_amount ?? 0,
@@ -352,7 +380,6 @@ class SubscriptionService
                 $enrollment_completed_at = now();
                 $next_installment_date = null;
             } else if ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
-
                 $invoiceCount = Invoice::where('entity_type', $subscription->entity_type)
                     ->where('entity_id', $subscription->entity_id)
                     ->where('is_platform_fee', false)
@@ -370,10 +397,6 @@ class SubscriptionService
                     $next_installment_date = null;
                 }
             }
-            // $next_installment_date = null;
-            // $next_platform_fee_date = $subscription->platform_fee_start_date ?: now()->copy()->addMonth()->addDay();
-            // $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
-            // $enrollment_completed_at = now();
         }
         $phase->update([
             'phase' => $phaseFee,
@@ -396,28 +419,23 @@ class SubscriptionService
         $today = Carbon::today();
         $subscription = $phase->subscription;
 
-        // Determine next due date based on type
-        $nextDue = $isPlatformFee 
-            ? $phase->next_platform_fee_date 
+        $nextDue = $isPlatformFee
+            ? $phase->next_platform_fee_date
             : $phase->next_installment_date;
 
         if (!$nextDue) {
-            return false; // no next date defined
+            return false;
         }
 
         $nextDue = Carbon::parse($nextDue);
 
-        // Allow generation before the due date (configured days)
         $generateBeforeDays = config('subscription.generate_before_days', 5);
         $earliestGenerateDate = $nextDue->copy()->subDays($generateBeforeDays);
 
-        // Only create if we're within the generation window
         if ($today < $earliestGenerateDate) {
-            return false; // too early to generate
+            return false;
         }
 
-        // Check if an unpaid invoice already exists for THIS MONTH (when invoice will be created)
-        // This prevents duplicate unpaid invoices in the same calendar month
         $currentMonth = $today->format('Y-m');
         $unpaidInvoiceExistsThisMonth = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
@@ -427,10 +445,9 @@ class SubscriptionService
             ->exists();
 
         if ($unpaidInvoiceExistsThisMonth) {
-            return false; // unpaid invoice already exists for this month
+            return false;
         }
 
-        // Check if a paid invoice already exists for this billing cycle
         $billingCycleMonth = $nextDue->format('Y-m');
         $paidInvoiceExists = Invoice::where('entity_type', $subscription->entity_type)
             ->where('entity_id', $subscription->entity_id)
@@ -468,7 +485,7 @@ class SubscriptionService
                     ? $phase->next_platform_fee_date
                     : $phase->next_installment_date;
 
-               
+
                 if (!$cycleDate) {
                     return;
                 }
@@ -482,12 +499,11 @@ class SubscriptionService
                     ->count();
 
                 $totalCount = $subscription->partnerPlan?->total_installments_count;
-           
+
                 if ($totalCount && $invoiceCount >= $totalCount) {
                     return;
                 }
 
-                // Check if we should create invoice (prevents duplicates)
                 if (!$this->createInvoiceIfDue($phase, $isPlatformFee)) {
                     return;
                 }
@@ -590,5 +606,39 @@ class SubscriptionService
                     $this->createInvoiceForPhase($phase, 'platform_fee');
                 }
             });
+    }
+
+    /**
+     * Get Subscription Statistics.
+     */
+    public function getStats(): array
+    {
+        $totalSubscriptions = Subscription::count();
+        $totalActive = Subscription::where('status', Subscription::STATUS_ACTIVE)->count();
+
+        // Expiring Soon (within 30 days)
+        $expiringSoon = Subscription::where('status', Subscription::STATUS_ACTIVE)
+            ->whereNotNull('subscription_end_date')
+            ->whereBetween('subscription_end_date', [now(), now()->addDays(30)])
+            ->count();
+
+        // Expired Subscriptions
+        $expiredCount = Subscription::whereNotNull('subscription_end_date')
+            ->where('subscription_end_date', '<', now())
+            ->count();
+
+        // Revenue this month (from paid invoices)
+        $revenueThisMonth = Invoice::where('status', Invoice::STATUS_PAID)
+            ->whereMonth('payment_date', now()->month)
+            ->whereYear('payment_date', now()->year)
+            ->sum('payment_amount');
+
+        return [
+            'total_subscriptions' => $totalSubscriptions,
+            'active_subscriptions' => $totalActive,
+            'expiring_soon' => $expiringSoon,
+            'expired_subscriptions' => $expiredCount,
+            'revenue_this_month' => (float) $revenueThisMonth,
+        ];
     }
 }

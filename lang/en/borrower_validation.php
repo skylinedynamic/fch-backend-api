@@ -215,8 +215,8 @@ return [
     'status_max' => 'Status cannot exceed 255 characters',
     'current_tier_string' => 'Current tier must be a string',
     'current_tier_max' => 'Current tier cannot exceed 255 characters',
-    'enrollment_type_required' => 'Enrollment type is required',
-    'enrollment_type_string' => 'Enrollment type must be a string',
+    'plan_id_required' => 'Enrollment plan is required',
+    'plan_id_exists' => 'Selected enrollment plan does not exist',
     'additional_data_json' => 'Additional data must be a valid JSON string',
     'notes_string' => 'Notes must be a string',
 
