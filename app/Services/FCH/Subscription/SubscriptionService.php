@@ -58,7 +58,8 @@ class SubscriptionService
         $query = Subscription::query()
             ->with([
                 'partner:id,full_name,company_name,email',
-                'borrower:id,first_name,last_name,email',
+                'borrower:id,first_name,last_name,email,partner_id',
+                'borrower.partner:id,full_name,company_name,email',
                 'enrollmentPhase',
                 'platformFeePhase'
             ])
