@@ -106,7 +106,7 @@ class PartnerService
             if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
                 $partnerData['partner_image'] = "partners/{$partner->id}/" . ltrim($partnerData['partner_image'], '/');
                 $partner->update(['partner_image' => $partnerData['partner_image']]);
-                Log::info('🖼️ Partner image uploaded', ['path' => $partnerData['partner_image']]);
+                Log::info('Partner image uploaded', ['path' => $partnerData['partner_image']]);
             }
 
             // Update user with partner link
@@ -150,20 +150,20 @@ class PartnerService
             $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
 
             // Create invoice and send email if enrollment amount exists
-            
-            $invoice = $this->invoiceService->create([
-                    'partner_id' => $partner->id,
-                    'entity_type' => Partner::class,
-                    'entity_id' => $partner->id,
-                    'customer_name' => $partner->full_name,
-                    'email' => $partner->email,
-                    'country' => $partner->country,
-                    'payment_amount' => $enrollmentAmount,
-                    'is_partner_paying' => $isHostCreating ? false : true,
-                    'status' => Invoice::STATUS_UNPAID,
-                ]);
 
-            Log::info('✅ Partner invoice created', ['invoice_id' => $invoice->id]);
+            $invoice = $this->invoiceService->create([
+                'partner_id' => $partner->id,
+                'entity_type' => Partner::class,
+                'entity_id' => $partner->id,
+                'customer_name' => $partner->full_name,
+                'email' => $partner->email,
+                'country' => $partner->country,
+                'payment_amount' => $enrollmentAmount,
+                'is_partner_paying' => $isHostCreating ? false : true,
+                'status' => Invoice::STATUS_UNPAID,
+            ]);
+
+            Log::info('Partner invoice created', ['invoice_id' => $invoice->id]);
 
             // Prepare email data
             $mailData = [
@@ -181,10 +181,10 @@ class PartnerService
                 ],
             ];
 
-            try{
+            try {
                 Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-            }catch(\Exception $e){
-                Log::error('❌ Partner payment link email failed', ['error' => $e->getMessage()]);
+            } catch (\Exception $e) {
+                Log::error('Partner payment link email failed', ['error' => $e->getMessage()]);
             }
 
             DB::commit();
@@ -196,7 +196,7 @@ class PartnerService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('❌ Partner creation failed', ['error' => $e->getMessage()]);
+            Log::error('Partner creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -227,7 +227,7 @@ class PartnerService
                 ->get();
 
             if ($allowedPermissions->isEmpty()) {
-                Log::warning('⚠️ No API permissions found. Roles will be created without permissions.');
+                Log::warning('No API permissions found. Roles will be created without permissions.');
             }
 
             // Create or update Admin role with filtered permissions
@@ -251,7 +251,7 @@ class PartnerService
                 $user->syncPermissions($allowedPermissions);
             }
 
-            Log::info('✅ Admin role and permissions assigned to user', [
+            Log::info('Admin role and permissions assigned to user', [
                 'user_id' => $user->id,
                 'role_id' => $adminRole->id,
             ]);
@@ -271,7 +271,7 @@ class PartnerService
             // Borrower role gets no permissions (empty sync)
             $borrowerRole->syncPermissions([]);
 
-            Log::info('✅ Partner roles created successfully', [
+            Log::info('Partner roles created successfully', [
                 'partner_id' => $partnerId,
                 'admin_role_id' => $adminRole->id,
                 'borrower_role_id' => $borrowerRole->id,
@@ -283,7 +283,7 @@ class PartnerService
             // Clear cached permissions after role creation
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         } catch (\Exception $e) {
-            Log::error('❌ Failed to create partner roles', [
+            Log::error('Failed to create partner roles', [
                 'partner_id' => $partnerId,
                 'user_id' => $user->id ?? null,
                 'error' => $e->getMessage(),
@@ -328,13 +328,13 @@ class PartnerService
                         'subject' => 'Your Email has been changed - ' . config('app.name', 'Four Corner Holdings, LLC'),
                         'is_update' => true,
                     ];
-                    
-                    Log::info('📧 Sending account update email to partner with new password', ['email' => $updatedUser->email]);
 
-                    try{
+                    Log::info('Sending account update email to partner with new password', ['email' => $updatedUser->email]);
+
+                    try {
                         Mail::to($updatedUser->email)->send(new PartnerAccountUpdateMail($mailData));
-                    }catch(\Exception $e){
-                        Log::error('❌ Partner account update email failed', ['error' => $e->getMessage()]);
+                    } catch (\Exception $e) {
+                        Log::error('Partner account update email failed', ['error' => $e->getMessage()]);
                     }
                 }
             }
@@ -344,12 +344,12 @@ class PartnerService
             $partner->update($partnerData);
 
             DB::commit();
-            Log::info('✅ Partner updated successfully', ['partner_id' => $partner->id]);
+            Log::info('Partner updated successfully', ['partner_id' => $partner->id]);
 
             return $partner->fresh();
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Partner update failed', [
+            Log::error('Partner update failed', [
                 'partner_id' => $partner->id ?? null,
                 'error' => $e->getMessage(),
             ]);
@@ -370,7 +370,7 @@ class PartnerService
      */
     public function getDetails(int $id): ?Partner
     {
-        return Partner::with(['assignedUser', 'partnerUser'])
+        return Partner::with(['assignedUser', 'partnerUser', 'subscription'])
             ->find($id);
     }
 
@@ -394,7 +394,7 @@ class PartnerService
 
             $existingUser->update($userData);
 
-            return ['user' => $existingUser, 'plain_password' => $plainPassword,'is_new'=>false];
+            return ['user' => $existingUser, 'plain_password' => $plainPassword, 'is_new' => false];
         }
 
         // Check if user exists by email
@@ -404,7 +404,7 @@ class PartnerService
         if ($user) {
             $user->update($userData);
 
-            return ['user' => $user, 'plain_password' => null,'is_new'=>false];
+            return ['user' => $user, 'plain_password' => null, 'is_new' => false];
         }
 
         // Create new user
@@ -414,7 +414,7 @@ class PartnerService
 
         $user = User::create($userData);
 
-        return ['user' => $user, 'plain_password' => $plainPassword,'is_new'=>true];
+        return ['user' => $user, 'plain_password' => $plainPassword, 'is_new' => true];
     }
 
     /**

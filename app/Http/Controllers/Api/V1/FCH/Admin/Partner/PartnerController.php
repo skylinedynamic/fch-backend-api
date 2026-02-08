@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
+use Throwable;
 use App\Helpers\ApiResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Partner\PartnerService;
+use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Http\Resources\FCH\Partner\PartnerDetailsResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
-use App\Http\Resources\FCH\Partner\PartnerResource;
-use App\Services\FCH\Partner\PartnerService;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Throwable;
 
 class PartnerController extends Controller
 {
@@ -129,7 +130,7 @@ class PartnerController extends Controller
         }
 
         return ApiResponse::success(
-            new PartnerResource($partner),
+            new PartnerDetailsResource($partner),
             __('partner.success.retrieved')
         );
     }
