@@ -294,7 +294,14 @@ class InvoiceService
 
         $pdfContent = $pdf->output();
 
-        Mail::to($invoice->email)->send(new InvoiceMail($invoice, $pdfContent));
+        // Prioritize Borrower email, then Partner, then invoice table record
+        $recipientEmail = $invoice->borrower?->email ?? ($invoice->partner?->email ?? $invoice->email);
+
+        if (!$recipientEmail) {
+            throw new \Exception("No recipient email found for this invoice");
+        }
+
+        Mail::to($recipientEmail)->send(new InvoiceMail($invoice, $pdfContent));
         return true;
     }
 
