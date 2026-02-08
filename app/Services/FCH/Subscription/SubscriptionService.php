@@ -119,6 +119,17 @@ class SubscriptionService
             }
         }
 
+        // Join Borrowers if searching or sorting by borrower_name
+        if ($sortField === 'borrower_name' || isset($rawFilters['borrower_name'])) {
+            $query->withBorrower();
+
+            if ($sortField === 'borrower_name') {
+                // Concatenate first and last name for sorting
+                $query->orderByRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) {$sortOrder}");
+                $skipSorting = true;
+            }
+        }
+
         // Join Enrollment Phase for next_installment_date
         if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date'])) {
             $query->withEnrollmentPhase();
@@ -171,7 +182,8 @@ class SubscriptionService
                     'next_platform_fee_date' => 'pfp.next_platform_fee_date',
                 ],
                 'concat_fields' => [
-                    'partner_name' => ['partners.full_name', 'partners.company_name']
+                    'partner_name' => ['partners.full_name', 'partners.company_name'],
+                    'borrower_name' => ['borrowers.first_name', 'borrowers.last_name']
                 ]
             ]
         );

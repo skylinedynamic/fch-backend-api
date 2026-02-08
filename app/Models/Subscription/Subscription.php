@@ -5,6 +5,7 @@ namespace App\Models\Subscription;
 use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -117,7 +118,8 @@ class Subscription extends Model
                 ->orWhereHas('borrower', function ($bq) use ($search) {
                     $bq->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere(DB::raw("CONCAT(borrowers.first_name, ' ', borrowers.last_name)"), 'like', "%{$search}%");
                 })
                 ->orWhereHas('enrollmentPhase', function ($sq) use ($search) {
                     $sq->where('next_installment_date', 'like', "%{$search}%");
@@ -158,5 +160,20 @@ class Subscription extends Model
             $join->on('subscriptions.id', '=', 'pfp.subscription_id')
                 ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
         })->addSelect('pfp.next_platform_fee_date');
+    }
+
+    /**
+     * Scope: join borrower table.
+     */
+    public function scopeWithBorrower($query)
+    {
+        return $query->leftJoin('borrowers', function ($join) {
+            $join->on('subscriptions.entity_id', '=', 'borrowers.id')
+                ->where('subscriptions.entity_type', '=', Borrower::class);
+        })->addSelect(
+            'borrowers.first_name',
+            'borrowers.last_name'
+            // We can resolve full name in concatenation or view
+        );
     }
 }
