@@ -111,10 +111,7 @@ class SubscriptionService
 
         // Join Partners if searching or sorting by partner/company name
         if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $query->leftJoin('partners', function ($join) {
-                $join->on('subscriptions.entity_id', '=', 'partners.id')
-                    ->where('subscriptions.entity_type', '=', Partner::class);
-            })->addSelect('partners.full_name as partner_name');
+            $query->withPartner();
 
             if ($sortField === 'partner_name') {
                 $query->orderBy('partners.full_name', $sortOrder);
@@ -124,10 +121,7 @@ class SubscriptionService
 
         // Join Enrollment Phase for next_installment_date
         if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date'])) {
-            $query->leftJoin('subscription_phases as ep', function ($join) {
-                $join->on('subscriptions.id', '=', 'ep.subscription_id')
-                    ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
-            })->addSelect('ep.next_installment_date');
+            $query->withEnrollmentPhase();
 
             if ($sortField === 'next_installment_date') {
                 $query->orderBy('ep.next_installment_date', $sortOrder);
@@ -137,10 +131,7 @@ class SubscriptionService
 
         // Join Platform Fee Phase for next_platform_fee_date
         if ($sortField === 'next_platform_fee_date' || isset($rawFilters['next_platform_fee_date'])) {
-            $query->leftJoin('subscription_phases as pfp', function ($join) {
-                $join->on('subscriptions.id', '=', 'pfp.subscription_id')
-                    ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
-            })->addSelect('pfp.next_platform_fee_date');
+            $query->withPlatformFeePhase();
 
             if ($sortField === 'next_platform_fee_date') {
                 $query->orderBy('pfp.next_platform_fee_date', $sortOrder);

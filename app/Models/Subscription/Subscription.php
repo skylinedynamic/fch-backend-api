@@ -127,4 +127,36 @@ class Subscription extends Model
                 });
         });
     }
+    /**
+     * Scope: join partners table.
+     */
+    public function scopeWithPartner($query)
+    {
+        return $query->leftJoin('partners', function ($join) {
+            $join->on('subscriptions.entity_id', '=', 'partners.id')
+                ->where('subscriptions.entity_type', '=', Partner::class);
+        })->addSelect('partners.full_name as partner_name');
+    }
+
+    /**
+     * Scope: join enrollment phase.
+     */
+    public function scopeWithEnrollmentPhase($query)
+    {
+        return $query->leftJoin('subscription_phases as ep', function ($join) {
+            $join->on('subscriptions.id', '=', 'ep.subscription_id')
+                ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
+        })->addSelect('ep.next_installment_date');
+    }
+
+    /**
+     * Scope: join platform fee phase.
+     */
+    public function scopeWithPlatformFeePhase($query)
+    {
+        return $query->leftJoin('subscription_phases as pfp', function ($join) {
+            $join->on('subscriptions.id', '=', 'pfp.subscription_id')
+                ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
+        })->addSelect('pfp.next_platform_fee_date');
+    }
 }
