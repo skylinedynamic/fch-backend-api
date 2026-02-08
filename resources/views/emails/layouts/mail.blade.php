@@ -18,6 +18,7 @@
         <div class="container">
             <!-- Logo Section -->
             <div class="header-logo">
+                {{-- Logo retrieval logic --}}
                 @php
                     $logoPath = public_path('logo-mail.png');
                     $logoSrc = '';
@@ -25,10 +26,10 @@
                         try {
                             $logoSrc = $message->embed($logoPath);
                         } catch (\Exception $e) {
-                            $logoSrc = asset('logo-mail.png');
+                            $logoSrc = asset('logo_mail.jpeg');
                         }
                     } else {
-                        $logoSrc = asset('logo-mail.png');
+                        $logoSrc = asset('logo_mail.jpeg');
                     }
                 @endphp
                 <img src="{{ $logoSrc }}" alt="{{ config('app.name') }}" class="logo">
