@@ -161,7 +161,7 @@ class GlobalPaymentService
                             'amount' => $payment->amount,
                             'currency' => $payment->currency,
                             'transaction_id' => $payment->transaction_id,
-                            'description' => $paymentIntent->description ?? 'Four Corner Holdings Program Payment',
+                            'description' => $paymentIntent->description ?? config('app.name') . ' Payment',
                             'date' => $payment->transaction_date,
                             'user_name' => $userName,
                             'user_email' => $userEmail,

@@ -140,8 +140,6 @@ class DemoSubscriberSeeder extends Seeder
      */
     protected function createSinglePayment($entity, $type, $user, $subscription): void
     {
-        $date = '2026-01-01';
-
         $invoice = Invoice::create([
             'invoice_id' => 'INV-' . strtoupper(uniqid()),
             'partner_id' => $type === Partner::class ? $entity->id : $entity->partner_id,
@@ -151,11 +149,11 @@ class DemoSubscriberSeeder extends Seeder
             'customer_name' => $type === Partner::class ? $entity->full_name : ($entity->first_name . ' ' . $entity->last_name),
             'email' => $entity->email,
             'payment_amount' => $subscription->payable_amount,
-            'payment_date' => $date,
+            'payment_date' => now()->format('Y-m-d'),
             'status' => Invoice::STATUS_PAID,
             'is_partner_paying' => false,
             'is_platform_fee' => 0,
-            'created_at' => $date,
+            'created_at' => now()->format('Y-m-d'),
         ]);
 
         Payment::create([
@@ -170,9 +168,9 @@ class DemoSubscriberSeeder extends Seeder
             'amount' => $subscription->payable_amount,
             'currency' => 'usd',
             'status' => 'succeeded',
-            'transaction_date' => $date,
+            'transaction_date' => now()->format('Y-m-d'),
             'created_by' => $user->id,
-            'created_at' => $date,
+            'created_at' => now()->format('Y-m-d'),
         ]);
     }
 }

@@ -49,6 +49,12 @@ class Invoice extends Model
         return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
     }
 
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\Subscription\Subscription::class, 'entity_id', 'entity_id')
+            ->whereColumn('entity_type', 'entity_type');
+    }
+
     /**
      * Scope: apply text search across common invoice fields.
      */

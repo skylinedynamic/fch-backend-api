@@ -73,4 +73,17 @@ class SubscriptionController extends Controller
             return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
         }
     }
+
+    /**
+     * Get Subscription Statistics.
+     */
+    public function stats()
+    {
+        try {
+            $stats = $this->subscriptionService->getStats();
+            return ApiResponse::success($stats, __('partner.subscription_stats_retrieved'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
+        }
+    }
 }

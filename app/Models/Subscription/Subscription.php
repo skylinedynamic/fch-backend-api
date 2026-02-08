@@ -5,6 +5,7 @@ namespace App\Models\Subscription;
 use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,9 +16,7 @@ class Subscription extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_ACTIVE = 'Active';
-    const STATUS_INACTIVE = 'Inactive';
-    const STATUS_SUSPENDED = 'Suspended';
-    const STATUS_CANCELLED = 'Cancelled';
+    const STATUS_EXPIRED = 'Expired';
     const STATUS_PENDING = 'Pending';
 
     protected $table = 'subscriptions';
@@ -110,7 +109,7 @@ class Subscription extends Model
             $q->where('subscriptions.status', 'like', "%{$search}%")
                 ->orWhere('subscriptions.enrollment_type', 'like', "%{$search}%")
                 ->orWhere('subscriptions.payable_amount', 'like', "%{$search}%")
-                ->orWhere('subscriptions.created_at', 'like', "%{$search}%")
+                ->orWhereRaw("DATE_FORMAT(subscriptions.created_at, '%Y-%m-%d %h:%i %p') LIKE ?", ["%{$search}%"])
                 ->orWhereHas('partner', function ($pq) use ($search) {
                     $pq->where('full_name', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%")
@@ -119,7 +118,8 @@ class Subscription extends Model
                 ->orWhereHas('borrower', function ($bq) use ($search) {
                     $bq->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere(DB::raw("CONCAT(borrowers.first_name, ' ', borrowers.last_name)"), 'like', "%{$search}%");
                 })
                 ->orWhereHas('enrollmentPhase', function ($sq) use ($search) {
                     $sq->where('next_installment_date', 'like', "%{$search}%");
@@ -128,5 +128,52 @@ class Subscription extends Model
                     $sq->where('next_platform_fee_date', 'like', "%{$search}%");
                 });
         });
+    }
+    /**
+     * Scope: join partners table.
+     */
+    public function scopeWithPartner($query)
+    {
+        return $query->leftJoin('partners', function ($join) {
+            $join->on('subscriptions.entity_id', '=', 'partners.id')
+                ->where('subscriptions.entity_type', '=', Partner::class);
+        })->addSelect('partners.full_name as partner_name');
+    }
+
+    /**
+     * Scope: join enrollment phase.
+     */
+    public function scopeWithEnrollmentPhase($query)
+    {
+        return $query->leftJoin('subscription_phases as ep', function ($join) {
+            $join->on('subscriptions.id', '=', 'ep.subscription_id')
+                ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
+        })->addSelect('ep.next_installment_date');
+    }
+
+    /**
+     * Scope: join platform fee phase.
+     */
+    public function scopeWithPlatformFeePhase($query)
+    {
+        return $query->leftJoin('subscription_phases as pfp', function ($join) {
+            $join->on('subscriptions.id', '=', 'pfp.subscription_id')
+                ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
+        })->addSelect('pfp.next_platform_fee_date');
+    }
+
+    /**
+     * Scope: join borrower table.
+     */
+    public function scopeWithBorrower($query)
+    {
+        return $query->leftJoin('borrowers', function ($join) {
+            $join->on('subscriptions.entity_id', '=', 'borrowers.id')
+                ->where('subscriptions.entity_type', '=', Borrower::class);
+        })->addSelect(
+            'borrowers.first_name',
+            'borrowers.last_name'
+            // We can resolve full name in concatenation or view
+        );
     }
 }

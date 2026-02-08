@@ -52,6 +52,7 @@ class BorrowerDetailsResource extends JsonResource
             'state_file_number'         => $this->state_file_number,
             'business_start_date'       => $this->business_start_date,
             'enrollment_type'           => $this->latestSubscription?->enrollment_type,
+            'payment_amount'            => $this->latestSubscription?->payable_amount,
 
             // Financial
             'currency'                  => $this->currency,

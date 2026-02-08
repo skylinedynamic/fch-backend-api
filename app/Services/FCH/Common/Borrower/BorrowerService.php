@@ -243,7 +243,6 @@ class BorrowerService
         DB::beginTransaction();
         try {
      
-            // Handle partner_id assignment
             $authUser = auth()->user();
             if (empty($data['partner_id'])) {
                 $data['partner_id'] = $authUser->partner_id;
@@ -256,95 +255,90 @@ class BorrowerService
             $data['status'] = Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table
-            $borrowerData = collect($data)->except(['payment_amount', 'enrollment_type'])->toArray();
+            $borrowerData = collect($data)->except(['plan_id'])->toArray();
 
             $borrower = Borrower::create($borrowerData);
-            Log::info('Payment Amount: ' . ($data['payment_amount'] ?? 'N/A'));
             // Create associated User if needed
             $userDataResult = null;
-            if (!empty($data['email'])) {
-                Log::info('Email send');
-                $userDataResult = $this->createOrUpdateUser($data, $borrower);
-                $user = $userDataResult['user'];
-                $plainPassword = $userDataResult['plain_password'];
+            $userDataResult = $this->createOrUpdateUser($data, $borrower);
+            Log::info('User data', ['userDataResult' => $userDataResult]);
+            $user = $userDataResult['user'];
+            $plainPassword = $userDataResult['plain_password'];
 
-                if ($user && $plainPassword) {
-                    $hostPartner = Partner::where('is_host', 1)->first();
-                    $authUser = Auth::user();
-                    $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
+            if ($user && $plainPassword) {
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $authUser = Auth::user();
+                $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
 
-                    $mailData = [
-                        'user' => $user,
-                        'plain_password' => $plainPassword,
-                        'business_info' => [
-                            'company_name' => $hostPartner->company_name ?? config('app.name'),
-                            'company_logo' => $hostPartner->company_logo ?? 'logo.png',
-                            'email' => $hostPartner->email ?? config('mail.from.address'),
-                            'phone_number' => $hostPartner->phone_number ?? '',
-                            'address_line_1' => $hostPartner->address_line_1 ?? '',
-                        ]
-                    ];
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'business_info' => [
+                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                        'email' => $hostPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $hostPartner->phone_number ?? '',
+                        'address_line_1' => $hostPartner->address_line_1 ?? '',
+                    ]
+                ];
 
-                    $enrollmentType = $data['enrollment_type'] ?? null;
+                $planId = $data['plan_id'] ?? null;
 
-                    $plan = SubscriptionPlan::where('entity_type', Borrower::class)
-                        ->where('enrollment_type', $enrollmentType)
-                        ->first();
+                $plan = SubscriptionPlan::where('id', $planId)
+                    ->where('entity_type', Borrower::class)
+                    ->first();
 
-                    $amount = (float) ($data['payment_amount'] ?? ($data['amount'] ?? ($plan->payment_amount ?? 0)));
-                    Log::info('Total Enrollment Amount: ' . $amount);
+                $amount = (float) ($plan->payment_amount ?? 0);
 
-                    $invoice = $this->invoiceService->create([
-                        'partner_id' => $borrower->partner_id,
-                        'borrower_id' => $borrower->id,
-                        'entity_type' => Borrower::class,
-                        'entity_id' => $borrower->id,
-                        'customer_name' => $borrower->full_name,
-                        'email' => $borrower->email,
-                        'country' => $borrower->country,
-                        'payment_amount' => $amount,
-                        'status' => Invoice::STATUS_UNPAID,
-                        'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
-                        'is_platform_fee' => false,
-                    ]);
+                $invoice = $this->invoiceService->create([
+                    'partner_id' => $borrower->partner_id,
+                    'borrower_id' => $borrower->id,
+                    'entity_type' => Borrower::class,
+                    'entity_id' => $borrower->id,
+                    'customer_name' => $borrower->full_name,
+                    'email' => $borrower->email,
+                    'country' => $borrower->country,
+                    'payment_amount' => $amount,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
+                    'is_platform_fee' => false,
+                ]);
 
-                    $subscription = $this->subscriptionService->startSubscription($borrower, $plan, $enrollmentType, [
-                        'monthly_platform_fee' => 0,
-                        'total_subscription_amount' => $plan->total_amount ?? 0,
-                        'payable_amount' => $plan->payment_amount ?? 0,
-                    ]);
-                    Log::info('✅ Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
+                $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [
+                    'monthly_platform_fee' => 0,
+                    'total_subscription_amount' => $plan->total_amount ?? 0,
+                    'payable_amount' => $plan->payment_amount ?? 0,
+                ]);
+                Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
-                    if ($isHostCreating) {
-                        Log::info('Triggering Onboarding Email');
-                        if ($amount > 0) {
-                            $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
-                            $mailData['amount'] = $invoice->payment_amount;
-                            Log::info('📧 Sending Payment Link Mail to Borrower');
-                            try {
-                                Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
-                            } catch (\Exception $e) {
-                                Log::error('Failed to send payment link email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
-                            }
-                        } else {
-                            Log::info('📧 Sending Account Created Mail to Borrower');
-                            try {
-                                Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
-                            } catch (\Exception $e) {
-                                Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
-                            }
+                if ($isHostCreating) {
+                    Log::info('Triggering Onboarding Email');
+                    if ($amount > 0) {
+                        $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
+                        $mailData['amount'] = $invoice->payment_amount;
+                        Log::info('📧 Sending Payment Link Mail to Borrower');
+                        try {
+                            Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send payment link email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
                         }
                     } else {
-                        Log::info('📧 Sending Default Account Created Mail');
+                        Log::info('Sending Account Created Mail to Borrower');
                         try {
                             Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
                         } catch (\Exception $e) {
                             Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
                         }
                     }
+                } else {
+                    Log::info('Sending Default Account Created Mail');
+                    try {
+                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
+                    }
                 }
             }
-
             DB::commit();
 
             return [
@@ -354,7 +348,7 @@ class BorrowerService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('❌ Borrower creation failed', ['error' => $e->getMessage()]);
+            Log::error('Borrower creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -397,7 +391,7 @@ class BorrowerService
                         'subject' => 'Your account has been updated - ' . config('app.name'),
                         'is_update' => true,
                     ];
-                    Log::info('📧 Sending account update email to borrower with new password', ['email' => $user->email]);
+                    Log::info('Sending account update email to borrower with new password', ['email' => $user->email]);
 
                     try {
                         Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
@@ -417,7 +411,7 @@ class BorrowerService
             return $borrower->fresh();
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('❌ Borrower update failed', ['error' => $e->getMessage()]);
+            Log::error('Borrower update failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -483,7 +477,7 @@ class BorrowerService
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
                 $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
                 $userData['password'] = bcrypt($plainPassword);
-                Log::info('🔑 Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
+                Log::info('Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
             }
 
             $existingUser->update($userData);
@@ -503,7 +497,7 @@ class BorrowerService
         $newUser = User::create($userData);
 
         // Assign 'Borrower' role based on partner_id
-        $role = Role::where('name', 'Borrower')
+        $role = Role::where('name', User::BORROWER)
             ->where('partner_id', $borrower->partner_id)
             ->first();
 

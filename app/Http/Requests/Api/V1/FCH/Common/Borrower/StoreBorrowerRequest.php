@@ -35,7 +35,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_start_date'       => ['nullable', 'date'],
             'last_4_ssn'                => ['nullable', 'string', 'max:4'],
             'country_code'              => ['nullable', 'string', 'max:5'], // Matching country_code_max
-            'enrollment_type'           => ['required'],
+            'plan_id'                   => ['required', 'exists:subscription_plans,id'],
             'notes'                     => ['nullable', 'string'],
            
         ];
@@ -94,7 +94,8 @@ class StoreBorrowerRequest extends BaseApiRequest
             'last_4_ssn.max'            => __('borrower_validation.last_4_ssn_max'),
             'country_code.string'       => __('borrower_validation.country_code_string'),
             'country_code.max'          => __('borrower_validation.country_code_max'),
-            'enrollment_type.required'  => __('borrower_validation.enrollment_type_required'),
+            'plan_id.required'          => __('borrower_validation.plan_id_required'),
+            'plan_id.exists'            => __('borrower_validation.plan_id_exists'),
             'notes.string'              => __('borrower_validation.notes_string'),
         ];
     }
