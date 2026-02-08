@@ -13,220 +13,196 @@ return [
     |
     */
 
-    'default' => [
-        'is_host' => 0,
+    'dashboard' => [
         'permissions' => [
-            'view dashboard',
+            ['name' => 'view dashboard', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'partners' => [
-        'is_host' => 1,
         'permissions' => [
-            'view partners',
-            'create partners',
-            'update partners',
-            'delete partners',
+            ['name' => 'view partners', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'create partners', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update partners', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'delete partners', 'is_wl' => 0, 'is_host' => 1],
         ],
     ],
 
     'demo request' => [
-        'is_host' => 1,
         'permissions' => [
-            'view demo request',
-            'create demo request',
-            'update demo request',
-            'delete demo request',
+            ['name' => 'view demo request', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'create demo request', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update demo request', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'delete demo request', 'is_wl' => 0, 'is_host' => 1]
         ],
     ],
 
     'leads' => [
-        'is_host' => 0,
         'permissions' => [
-            'view leads',
-            'create leads',
-            'update leads',
-            'delete leads',
+            ['name' => 'view leads', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create leads', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update leads', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete leads', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'contacts' => [
-        'is_host' => 0,
         'permissions' => [
-            'view contacts',
-            'create contacts',
-            'update contacts',
-            'delete contacts',
+            ['name' => 'view contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete contacts', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'clients' => [
-        'is_host' => 0,
         'permissions' => [
-            'view clients',
-            'create clients',
-            'update clients',
-            'delete clients',
+            ['name' => 'view clients', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create clients', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update clients', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete clients', 'is_wl' => 0, 'is_host' => 0],
+        ],
+    ],
+
+    'intake and review' => [
+        'permissions' => [
+            ['name' => 'view pre qualification', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update pre qualification', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'view funding application', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update funding application', 'is_wl' => 0, 'is_host' => 1],
         ],
     ],
 
     'commission' => [
-        'is_host' => 0,
         'permissions' => [
-            'view commission',
-            'create commission',
-            'update commission',
-            'delete commission',
+            ['name' => 'view commission', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update commission', 'is_wl' => 0, 'is_host' => 1],
         ],
     ],
 
     'payments' => [
-        'is_host' => 0,
         'permissions' => [
-            'view payments',
-            'create payments',
-            'update payments',
-            'delete payments',
+            ['name' => 'view payments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create payments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update payments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete payments', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'invoices' => [
-        'is_host' => 0,
         'permissions' => [
-            'view invoices',
-            'create invoices',
-            'update invoices',
-            'delete invoices',
+            ['name' => 'view invoices', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create invoices', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update invoices', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete invoices', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'subscriptions' => [
-        'is_host' => 1,
         'permissions' => [
-            'view subscriptions',
-            'create subscriptions',
-            'update subscriptions',
-            'delete subscriptions',
+            ['name' => 'view subscriptions', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'create subscriptions', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update subscriptions', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'delete subscriptions', 'is_wl' => 0, 'is_host' => 1],
         ],
     ],
 
     'appointments' => [
-        'is_host' => 0,
         'permissions' => [
-            'view appointments',
-            'create appointments',
-            'update appointments',
-            'delete appointments',
+            ['name' => 'view appointments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create appointments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update appointments', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete appointments', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'training & courses' => [
-        'is_host' => 0,
         'permissions' => [
-            'view training & courses',
-            'create training & courses',
-            'update training & courses',
-            'delete training & courses',
+            ['name' => 'view training & courses', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create training & courses', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update training & courses', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete training & courses', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'support tickets' => [
-        'is_host' => 0,
         'permissions' => [
-            'view support tickets',
-            'create support tickets',
-            'update support tickets',
-            'delete support tickets',
+            ['name' => 'view support tickets', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create support tickets', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update support tickets', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete support tickets', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'resources' => [
-        'is_host' => 0,
         'permissions' => [
-            'view resources',
-            'create resources',
-            'update resources',
-            'delete resources',
+            ['name' => 'view resources', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create resources', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update resources', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete resources', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'employees' => [
-        'is_host' => 0,
         'permissions' => [
-            'view employees',
-            'create employees',
-            'update employees',
-            'delete employees',
+            ['name' => 'view employees', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create employees', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update employees', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete employees', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'users' => [
-        'is_host' => 0,
         'permissions' => [
-            'view users',
-            'create users',
-            'update users',
-            'delete users',
-        ],
-    ],
-
-    'roles & permissions' => [
-        'is_host' => 0,
-        'permissions' => [
-            'view roles & permissions',
-            'create roles & permissions',
-            'update roles & permissions',
-            'delete roles & permissions',
-        ],
-    ],
-
-    'settings' => [
-        'is_host' => 1,
-        'permissions' => [
-            'view settings',
-            'create settings',
-            'update settings',
-            'delete settings',
-        ],
-    ],
-
-    'tiers' => [
-        'is_host' => 1,
-        'permissions' => [
-            'view tiers',
-            'add tiers',
-            'edit tiers',
-            'delete tiers',
-        ],
-    ],
-
-    'verification center' => [
-        'is_host' => 0,
-        'permissions' => [
-            'view verification center',
-            'add verification center',
-            'edit verification center',
-            'delete verification center',
+            ['name' => 'view users', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create users', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update users', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete users', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'borrower documents' => [
-        'is_host' => 0,
         'permissions' => [
-            'view borrower documents',
-            'upload borrower documents',
-            'update borrower documents status',
-            'delete borrower documents',
+            ['name' => 'view borrower documents', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'upload borrower documents', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update borrower documents status', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete borrower documents', 'is_wl' => 0, 'is_host' => 0],
         ],
     ],
 
     'contacts' => [
-        'is_host' => 0,
         'permissions' => [
-            'view contacts',
-            'create contacts',
-            'update contacts',
-            'delete contacts',
+            ['name' => 'view contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update contacts', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete contacts', 'is_wl' => 0, 'is_host' => 0],
+        ],
+    ],
+
+    'credit builder' => [
+        'permissions' => [
+            ['name' => 'view tier', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update tier', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'view verification request', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update verification request', 'is_wl' => 0, 'is_host' => 1],
+        ],
+    ],
+
+    'roles & permissions' => [
+        'permissions' => [
+            ['name' => 'view roles & permissions', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'create roles & permissions', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'update roles & permissions', 'is_wl' => 0, 'is_host' => 0],
+            ['name' => 'delete roles & permissions', 'is_wl' => 0, 'is_host' => 0],
+        ],
+    ],
+
+    'settings' => [
+        'permissions' => [
+            ['name' => 'view settings', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'create settings', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'update settings', 'is_wl' => 0, 'is_host' => 1],
+            ['name' => 'delete settings', 'is_wl' => 0, 'is_host' => 1],
         ],
     ],
 ];

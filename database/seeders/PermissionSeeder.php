@@ -26,7 +26,6 @@ class PermissionSeeder extends Seeder
         // 3) Loop through each module and create permissions
         foreach ($permissionModules as $moduleName => $moduleData) {
             // Get is_host flag (default to 0 if not set)
-            $isHost = $moduleData['is_host'] ?? 0;
 
             // Get permissions array
             $permissions = $moduleData['permissions'] ?? [];
@@ -38,11 +37,20 @@ class PermissionSeeder extends Seeder
             }
 
             // Create each permission
-            foreach ($permissions as $permissionName) {
-                $module = '';
-                if (Str::contains($permissionName, ' ')) {
-                    $module = (string) Str::of($permissionName)->after(' ')->trim();
+            foreach ($permissions as $permission) {
+                // Handle both old string format and new array format
+                if (is_array($permission)) {
+                    $permissionName = $permission['name'];
+                    $isWl = $permission['is_wl'] ?? 0;
+                    $isHost = $permission['is_host'] ?? 0;
+                } else {
+                    // Backward compatibility with string format
+                    $permissionName = $permission;
+                    $isWl = 0;
+                    $isHost = 0;
                 }
+
+                $module = $moduleName;
 
                 Permission::updateOrCreate(
                     [
@@ -52,6 +60,7 @@ class PermissionSeeder extends Seeder
                     [
                         'module' => $module,
                         'is_host' => $isHost,
+                        'is_wl' => $isWl,
                     ]
                 );
             }
