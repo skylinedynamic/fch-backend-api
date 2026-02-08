@@ -196,7 +196,7 @@ class InvoiceService
         if (!empty($filters['date_to'])) {
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
- 
+
         if (!empty($filters['payee']) && $filters['payee'] !== Invoice::PAYEE_ALL) {
             $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
         }
@@ -257,7 +257,8 @@ class InvoiceService
 
     public function find($id)
     {
-        return Invoice::find($id) ?? Invoice::where('invoice_id', $id)->first();
+        return Invoice::with(['partner', 'borrower', 'subscription'])->find($id)
+            ?? Invoice::with(['partner', 'borrower', 'subscription'])->where('invoice_id', $id)->first();
     }
 
     /**
@@ -290,7 +291,7 @@ class InvoiceService
         $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
             ->setPaper('a4')
             ->setWarnings(false);
-        
+
         $pdfContent = $pdf->output();
 
         Mail::to($invoice->email)->send(new InvoiceMail($invoice, $pdfContent));
@@ -312,10 +313,10 @@ class InvoiceService
             $localPath = public_path($businessLogo ?? 'logo.png');
         }
 
-        $businessLogoPath = (file_exists($localPath) && is_file($localPath)) ? $localPath : public_path('logo.png');
+        $businessLogoPath = (file_exists($localPath) && is_file($localPath)) ? $localPath : public_path('logo_mail.jpeg');
 
         return [
-            'company_name'   => 'Four Corner Holdings, LLC',
+            'company_name'   => 'Four Corner Holdings',
             'email'  => 'support@fourcornerholdings.com',
             'phone_number'  => '+1 (01) 234 6789',
             'address_line_1'  => 'California, United States',
