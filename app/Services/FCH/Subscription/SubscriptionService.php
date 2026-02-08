@@ -147,6 +147,21 @@ class SubscriptionService
             }
         }
 
+        // Created At Filter (Format: Y-m-d h:i A)
+        $createdAtFilter = $rawFilters['created_at'] ?? null;
+        $createdAt = null;
+
+        if (is_array($createdAtFilter)) {
+            $createdAt = $createdAtFilter['value'] ?? null;
+        } elseif (is_string($createdAtFilter)) {
+            $createdAt = $createdAtFilter;
+        }
+
+        if (!empty($createdAt) && is_string($createdAt)) {
+            $query->whereRaw("DATE_FORMAT(subscriptions.created_at, '%Y-%m-%d %h:%i %p') LIKE ?", ["%{$createdAt}%"]);
+            unset($rawFilters['created_at']);
+        }
+
         return QueryFilter::apply(
             $query,
             $sortField,

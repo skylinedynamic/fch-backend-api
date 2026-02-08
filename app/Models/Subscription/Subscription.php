@@ -108,7 +108,7 @@ class Subscription extends Model
             $q->where('subscriptions.status', 'like', "%{$search}%")
                 ->orWhere('subscriptions.enrollment_type', 'like', "%{$search}%")
                 ->orWhere('subscriptions.payable_amount', 'like', "%{$search}%")
-                ->orWhere('subscriptions.created_at', 'like', "%{$search}%")
+                ->orWhereRaw("DATE_FORMAT(subscriptions.created_at, '%Y-%m-%d %h:%i %p') LIKE ?", ["%{$search}%"])
                 ->orWhereHas('partner', function ($pq) use ($search) {
                     $pq->where('full_name', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%")
