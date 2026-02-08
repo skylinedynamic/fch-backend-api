@@ -32,14 +32,17 @@ class InvoiceDetailResource extends JsonResource
             'enrollment_type' => $this->subscription?->enrollment_type,
             'monthly_platform_fee' => $this->subscription?->monthly_platform_fee,
             'payable_amount_sub' => $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
+
+            // Consolidated Billing Info (Borrower priority for Preview)
             'name' => $this->borrower
-                ? ($this->borrower->first_name . ' ' . $this->borrower->last_name)
+                ? $this->borrower->full_name
                 : ($this->partner?->full_name ?? $this->partner?->company_name),
             'email' => $this->borrower?->email ?? $this->partner?->email,
             'phone' => $this->borrower?->phone_number ?? $this->partner?->phone_number,
             'address' => $this->borrower
-                ? implode(', ', array_filter([$this->borrower->business_address_line_1, $this->borrower->business_city, $this->borrower->business_state, $this->borrower->business_postal_code]))
-                : ($this->partner ? implode(', ', array_filter([$this->partner->address_line_1, $this->partner->city, $this->partner->state, $this->partner->postal_code])) : null),
+                ? ($this->borrower->business_address_line_1 ?: $this->borrower->business_postal_code)
+                : ($this->partner ? ($this->partner->address_line_1 ?: $this->partner->postal_code) : null),
+
             'created_at' => $this->created_at ? Carbon::parse($this->created_at)->format('Y-m-d') : null,
             // Add any other fields or relations if needed
         ];

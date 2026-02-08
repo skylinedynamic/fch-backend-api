@@ -11,11 +11,11 @@
             line-height: 1.4;
             font-size: 13px;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
 
         .logo {
-            width: 140px;
+            width: 100px;
         }
 
         table {
@@ -24,17 +24,13 @@
         }
 
         .header-section td {
-            vertical-align: top;
+            vertical-align: middle;
         }
 
         .company-info-text {
             text-align: right;
-            font-size: 12px;
-            color: #374151;
-        }
-
-        .company-info-text p {
-            margin: 2px 0;
+            font-size: 13px;
+            color: #6b7280;
         }
 
         .company-info-text strong {
@@ -42,67 +38,68 @@
         }
 
         .address-container {
-            margin-top: 30px;
-            margin-bottom: 30px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border-top: 1px dashed #e5e7eb;
+            padding-top: 20px;
         }
 
         .section-header {
-            color: #9ca3af;
+            color: #6b7280;
             font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .address-box {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
         }
 
         .address-box p {
             margin: 2px 0;
-            color: #4b5563;
+            color: #6b7280;
+            font-size: 13px;
         }
 
         .address-box .name {
             font-weight: bold;
             font-size: 14px;
-            color: #111827;
+            color: #374151;
             margin-bottom: 4px;
         }
 
         .summary-bar {
-            border-top: 1px solid #f3f4f6;
-            border-bottom: 1px solid #f3f4f6;
             margin-bottom: 30px;
-            padding: 10px 0;
+            margin-top: 20px;
         }
 
         .summary-bar td {
-            padding: 10px 15px;
+            padding: 0px 0px;
             vertical-align: top;
         }
 
         .summary-bar .label {
-            color: #9ca3af;
+            color: #6b7280;
             font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
         }
 
         .summary-bar .value {
             font-weight: bold;
-            color: #111827;
-            font-size: 13px;
+            color: #374151;
+            font-size: 14px;
         }
 
         .status-badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 4px;
             font-size: 10px;
             text-transform: uppercase;
             font-weight: bold;
+            background-color: #fffbeb;
+            color: #92400e;
         }
 
         .status-paid {
@@ -110,15 +107,10 @@
             color: #065f46;
         }
 
-        .status-unpaid {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-
         .items-table thead th {
             background-color: #f9fafb;
             text-align: left;
-            padding: 12px 15px;
+            padding: 10px 15px;
             font-size: 11px;
             text-transform: uppercase;
             color: #374151;
@@ -126,13 +118,13 @@
         }
 
         .items-table td {
-            padding: 12px 15px;
-            border-bottom: 1px dotted #e5e7eb;
+            padding: 15px 15px;
+            border-bottom: 1px dashed #e5e7eb;
             color: #4b5563;
         }
 
         .totals-section {
-            margin-top: 30px;
+            margin-top: 10px;
         }
 
         .totals-table {
@@ -141,78 +133,95 @@
         }
 
         .totals-table td {
-            padding: 6px 15px;
+            padding: 8px 15px;
             text-align: right;
         }
 
         .totals-table .label {
             text-align: left;
-            color: #6b7280;
+            color: #4b5563;
+            font-size: 13px;
         }
 
         .totals-table .value {
             font-weight: bold;
             color: #111827;
+            font-size: 13px;
         }
 
         .totals-table .total-label {
             text-align: left;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
-            color: #1e3a8a;
+            color: #111827;
             padding-top: 15px;
         }
 
         .totals-table .total-value {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
-            color: #1e3a8a;
+            color: #111827;
             padding-top: 15px;
         }
 
         .payment-details {
-            margin-top: 60px;
+            margin-top: 40px;
             clear: both;
         }
 
         .payment-details .title {
-            color: #9ca3af;
+            color: #6b7280;
             font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
         .payment-details p {
-            margin: 3px 0;
-            color: #4b5563;
+            margin: 4px 0;
+            color: #6b7280;
+            font-size: 12px;
         }
 
         .payment-details strong {
-            color: #374151;
+            color: #6b7280;
+            font-weight: normal;
+        }
+
+        .payment-details .val {
+            color: #6b7280;
+            font-weight: bold;
         }
 
         .notes-box {
-            margin-top: 40px;
-            background-color: #eff6ff;
-            border: 1px solid #dbeafe;
+            margin-top: 30px;
+            background-color: #e0f2fe;
+            border: 1px solid #bae6fd;
             padding: 15px;
-            border-radius: 6px;
+            border-radius: 4px;
             font-size: 11px;
-            color: #1e40af;
-            line-height: 1.5;
+            color: #0369a1;
+            line-height: 1.6;
         }
 
         .notes-box strong {
-            color: #1e3a8a;
-            display: block;
-            margin-bottom: 4px;
+            color: #0369a1;
+            margin-right: 5px;
         }
 
         .clearfix::after {
             content: "";
             clear: both;
             display: table;
+        }
+
+        .text-end {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
         }
     </style>
 </head>
@@ -223,14 +232,11 @@
         <tr>
             <td>
                 <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
-                <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
-                </div>
+                <!-- <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
+                </div> -->
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>
-                <p><strong>Email:</strong> {{ $business_info['email'] }}</p>
-                <p><strong>Website:</strong> {{ $business_info['website'] }}</p>
-                <p><strong>Contact No:</strong> {{ $business_info['phone_number'] }}</p>
             </td>
         </tr>
     </table>
@@ -241,19 +247,24 @@
             <tr>
                 <td style="width: 50%; vertical-align: top;">
                     <div class="address-box">
-                        <div class="section-header">Address</div>
-                        <p>{{ $business_info['address_line_1'] }}</p>
-                        <p>Zip-code: {{ $business_info['postal_code'] }}</p>
+                        <div class="section-header">ADDRESS</div>
+                        <div class="name">{{ config('app.name') }}</div>
+                        <!-- <p>{{ $business_info['address_line_1'] }}</p> -->
                     </div>
                 </td>
                 <td style="width: 50%; vertical-align: top; text-align: right">
                     <div class="address-box">
-                        <div class="section-header">Billing Address</div>
+                        <div class="section-header">BILLING ADDRESS</div>
                         <div class="name">
-                            {{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}</div>
-                        <p>{{ $invoice->details['billing_address']['street'] ?? 'Address not specified' }}</p>
-                        <p>Phone: {{ $invoice->details['billing_address']['phone'] ?? 'N/A' }}</p>
-                        <p>Country: {{ $invoice->details['billing_address']['country'] ?? 'USA' }}</p>
+                            {{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}
+                        </div>
+                        <p>
+                            {{ $invoice->borrower 
+                                ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
+                                : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
+                        </p>
+                        <p>Phone: {{ $invoice->borrower ? $invoice->borrower->phone_number : ($invoice->partner?->phone_number ?? 'N/A') }}</p>
+                        <p>Email: {{ $invoice->borrower ? $invoice->borrower->email : ($invoice->partner?->email ?? $invoice->email) }}</p>
                     </div>
                 </td>
             </tr>
@@ -264,26 +275,26 @@
     <table class="summary-bar">
         <tr>
             <td style="width: 25%;">
-                <div class="label">Invoice No</div>
+                <div class="label">INVOICE NO</div>
                 <div class="value">#{{ $invoice->invoice_id }}</div>
             </td>
-            <td style="width: 20%;">
-                <div class="label">Date</div>
+            <td style="width: 25%;">
+                <div class="label">DATE</div>
                 <div class="value">
                     {{ $invoice->payment_date ? $invoice->payment_date->format('d M Y') : $invoice->created_at->format('d M Y') }}
                 </div>
             </td>
             <td style="width: 25%;">
-                <div class="label">Payment Status</div>
+                <div class="label">PAYMENT STATUS</div>
                 <div class="value">
                     <span
-                        class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : 'status-unpaid' }}">
+                        class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : '' }}">
                         {{ $invoice->status }}
                     </span>
                 </div>
             </td>
             <td style="text-align: right;">
-                <div class="label">Total Amount</div>
+                <div class="label">TOTAL AMOUNT</div>
                 <div class="value">${{ number_format($invoice->payment_amount, 2) }}</div>
             </td>
         </tr>
@@ -293,26 +304,19 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 30px; text-align: center;">#</th>
-                <th>Product Details</th>
-                <th style="text-align: right; width: 100px;">Rate</th>
-                <th style="text-align: center; width: 80px;">Quantity</th>
-                <th style="text-align: right; width: 100px;">Amount</th>
+                <th style="text-align: left;">Enrollment Details</th>
+                <th style="text-align: right; width: 120px;">Amount</th>
             </tr>
         </thead>
         <tbody>
-            @php $items = $invoice->details['items'] ?? [['description' => 'Platform Service Enrollment', 'rate' => $invoice->payment_amount, 'quantity' => 1, 'amount' => $invoice->payment_amount]]; @endphp
-            @foreach ($items as $index => $item)
-                <tr>
-                    <td style="text-align: center; color: #9ca3af;">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}
-                    </td>
-                    <td>
-                        <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
-                    </td>
-                    <td style="text-align: right;">${{ number_format($item['rate'], 2) }}</td>
-                    <td style="text-align: center;">{{ str_pad($item['quantity'] ?? 1, 2, '0', STR_PAD_LEFT) }}</td>
-                    <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
-                </tr>
+            @php $items = $invoice->details['items'] ?? [['description' => $invoice->subscription->enrollment_type ?? 'Platform Service Enrollment', 'amount' => $invoice->payment_amount]]; @endphp
+            @foreach ($items as $item)
+            <tr>
+                <td>
+                    <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
+                </td>
+                <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
+            </tr>
             @endforeach
         </tbody>
     </table>
@@ -334,21 +338,19 @@
     <!-- Payment Details -->
     <div class="payment-details">
         <div class="title">Payment Details:</div>
-        <p><strong>Payment Method:</strong> {{ $invoice->details['payment_method'] ?? 'Stripe / Card' }}</p>
-        <p><strong>Card Holder:</strong> {{ $invoice->details['billing_address']['name'] ?? $invoice->customer_name }}
-        </p>
+        <p><strong>Payment Method:</strong> <span class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
+        <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
+        <p><strong>Card Holder:</strong> <span class="val">{{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}</span></p>
         @if (!empty($invoice->details['card_last4']))
-            <p><strong>Card Number:</strong> xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</p>
+        <p><strong>Card Number:</strong> <span class="val">xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</span></p>
         @endif
-        <p><strong>Total Amount:</strong> ${{ number_format($invoice->payment_amount, 2) }}</p>
+        <p><strong>Total Amount:</strong> <span class="val">${{ number_format($invoice->payment_amount, 2) }}</span></p>
     </div>
 
     <!-- Notes -->
     <div class="notes-box">
         <strong>NOTES:</strong>
-        All accounts are to be paid within 7 days from receipt of invoice. To be paid by cheque or credit card or direct
-        payment online. If account is not paid within 7 days the credits details supplied as confirmation of work
-        undertaken will be charged the agreed quoted fee noted above.
+        All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted fee noted above.
     </div>
 </body>
 

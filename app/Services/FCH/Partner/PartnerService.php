@@ -173,7 +173,7 @@ class PartnerService
                 'amount' => $invoice->payment_amount,
                 'enrollment_type' => $enrollmentType,
                 'business_info' => [
-                    'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
+                    'company_name' => config('app.name'),
                     'email' => config('mail.from.address'),
                     'phone_number' => config('app.phone_number', ''),
                     'address_line_1' => config('app.address', ''),
@@ -319,13 +319,13 @@ class PartnerService
                         'user' => $updatedUser,
                         'plain_password' => $plainPassword,
                         'business_info' => [
-                            'company_name' => config('app.name', 'Four Corner Holdings, LLC'),
+                            'company_name' => config('app.name'),
                             'email' => config('mail.from.address'),
                             'phone_number' => config('app.phone_number', ''),
                             'address_line_1' => config('app.address', ''),
                             'company_logo' => 'logo.png',
                         ],
-                        'subject' => 'Your Email has been changed - ' . config('app.name', 'Four Corner Holdings, LLC'),
+                        'subject' => 'Your Email has been changed - ' . config('app.name'),
                         'is_update' => true,
                     ];
 

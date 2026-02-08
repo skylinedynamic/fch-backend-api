@@ -316,7 +316,7 @@ class InvoiceService
         $businessLogoPath = (file_exists($localPath) && is_file($localPath)) ? $localPath : public_path('logo_mail.jpeg');
 
         return [
-            'company_name'   => 'Four Corner Holdings',
+            'company_name'   => config('app.name'),
             'email'  => 'support@fourcornerholdings.com',
             'phone_number'  => '+1 (01) 234 6789',
             'address_line_1'  => 'California, United States',
