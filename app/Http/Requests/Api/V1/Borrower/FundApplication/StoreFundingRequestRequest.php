@@ -26,8 +26,8 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',
             'preferred_funding_type' => 'required|string|max:255',
-            'timeframe_needed' => 'required|string|max:255',
-            'collateral_available' => 'required|string|max:500',
+            'timeframe_needed' => 'nullable|string|max:255',
+            'collateral_available' => 'nullable|string|max:500',
         ];
     }
 

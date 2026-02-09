@@ -22,7 +22,7 @@ class BusinessInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-             'id' => ['nullable','exists:pre_qualification_requests,id'],
+            'id' => ['nullable','exists:pre_qualification_requests,id'],
             'business_name' => ['required','string','max:255'],
             'industry_type' => ['required','string','max:255'],
             'business_structure' => ['required','string','max:255'],

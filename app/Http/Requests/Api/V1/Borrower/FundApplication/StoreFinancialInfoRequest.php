@@ -23,12 +23,12 @@ class StoreFinancialInfoRequest extends BaseApiRequest
     {
         return [
             'id' => 'required|exists:funding_applications,id',
-            'annual_revenue' => 'required|numeric|min:0',
+            'annual_revenue' => 'nullable|numeric|min:0',
             'monthly_revenue' => 'required|numeric|min:0',
-            'business_bank_name' => 'required|string|max:255',
+            'business_bank_name' => 'nullable|string|max:255',
             'business_checking_start_date' => 'required|date',
             'self_reported_personal_credit_score' => 'required|string|max:255',
-            'self_reported_business_credit_score' => 'required|string|max:255',
+            'self_reported_business_credit_score' => 'nullable|string|max:255',
             'has_business_debt' => 'required|boolean',
             'debt_balance' => 'required_if:has_business_debt,true|nullable|numeric|min:0',
         ];
