@@ -6,6 +6,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
 use App\Models\Limit\CreditLine;
+use Illuminate\Support\Facades\Auth;
 
 class OverviewService
 {
@@ -66,10 +67,37 @@ class OverviewService
             'total_tasks_remaining' => $totalTasksRemaining,
             'total_complete_percentage' => $totalCompletePercentage,
             'current_tier_estimated_completion_days' => (int) $currentTierEstimatedDays,
-            'current_tier_completed_tasks' => $currentTierCompletedTasks ?? 0,
             'total_completed_tasks' => $totalCompletedTasks,
         ];
     }
 
+    /**
+     * Get task overview for the current tier.
+     *
+     * @return array
+     */
+    public function taskOverview(): array
+    {
+        $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
+        $currentTier = $borrower->tier;
 
+        if (!$currentTier) {
+            return [
+                'tier' => null,
+                'tasks' => collect([]),
+            ];
+        }
+
+        $tasks = $currentTier->tasks()
+            ->with(['borrowerTierTasks' => function ($query) use ($borrower) {
+                $query->where('borrower_id', $borrower->id);
+            }, 'vendor'])
+            ->orderBy('order', 'asc')
+            ->get();
+
+        return [
+            'tier' => $currentTier,
+            'tasks' => $tasks,
+        ];
+    }
 }

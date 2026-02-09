@@ -7,9 +7,7 @@
     <title>@yield('title', config('app.name'))</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        {
-            ! ! file_get_contents(public_path('css/email.css')) ! !
-        }
+        {!! file_get_contents(public_path('css/email.css')) !!}
     </style>
 </head>
 

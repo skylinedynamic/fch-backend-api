@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Borrower\CreditBuilder;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Borrower\CreditBuilder\MyProgressResource;
+use App\Http\Resources\Borrower\CreditBuilder\TaskOverviewResource;
 use App\Services\Borrower\CreditBuilder\OverviewService;
 use Illuminate\Http\Request;
 
@@ -30,5 +31,16 @@ class CreditBuilderOverviewController extends Controller
         );
     }
 
+    /**
+     * Get Task Overview
+     */
+    public function taskOverview()
+    {
+        $data = $this->overviewService->taskOverview();
 
+        return ApiResponse::success(
+            new TaskOverviewResource($data),
+            __('borrower.task_overview_retrieved'),
+        );
+    }
 }

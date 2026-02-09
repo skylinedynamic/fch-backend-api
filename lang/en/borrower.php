@@ -98,6 +98,7 @@ return [
     'stats_retrieved' => 'Stats retrieved successfully.',
     'tiers_retrieved' => 'Tiers retrieved successfully.',
     'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
+    'task_overview_retrieved' => 'Task overview retrieved successfully.',
     'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
     'upload_success' => 'Document uploaded successfully.',
     'document_deleted_successfully' => 'Document deleted successfully.',

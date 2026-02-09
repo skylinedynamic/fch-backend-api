@@ -6,6 +6,7 @@ use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class TierSeeder extends Seeder
 {
@@ -14,6 +15,17 @@ class TierSeeder extends Seeder
      */
     public function run(): void
     {
+        // Ensure logos are copied from public/logos to public/storage/logos
+        $sourcePath = public_path('logos');
+        $destinationPath = public_path('storage/logos');
+
+        if (File::isDirectory($sourcePath)) {
+            if (!File::isDirectory($destinationPath)) {
+                File::makeDirectory($destinationPath, 0755, true, true);
+            }
+            File::copyDirectory($sourcePath, $destinationPath);
+        }
+
         // Clear existing data to prevent duplicates
         // Disable foreign key checks to allow truncation
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
@@ -125,7 +137,7 @@ class TierSeeder extends Seeder
             [
                 'name' => 'Tier 1',
                 'code' => 'T1',
-                'title' => 'Starter Vendor Accounts',
+                'title' => 'Starter Vendor Credit (BUILD)',
                 'subtitle' => 'Open your first tradelines with vendors that report to the business credit bureaus. These small starter accounts help establish your business’s first credit history and build your D-U-N-S file.',
                 'order' => 2,
                 'task_to_complete' => null,
@@ -144,9 +156,9 @@ class TierSeeder extends Seeder
             ],
             [
                 'name' => 'Tier 2',
-                'title' => 'Intermediate Vendors & Revolving Accounts',
+                'title' => 'Aging & Validation (AGE)',
                 'code' => 'T2',
-                'subtitle' => 'Expand your credit profile with additional vendors and store/fleet accounts that report to multiple bureaus. This phase strengthens your payment history and boosts your credit depth.',
+                'subtitle' => 'Let the credit mature without damaging the file.',
                 'order' => 3,
                 'task_to_complete' => null,
                 'has_vendor' => true,
@@ -155,9 +167,9 @@ class TierSeeder extends Seeder
             ],
             [
                 'name' => 'Tier 3',
-                'title' => 'Fleet & Vehicle',
+                'title' => 'Controlled Expansion (EXPAND)',
                 'code' => 'T3',
-                'subtitle' => 'Transition from vendor credit to revolving business credit cards, higher limit Net 55/60 terms, and equipment or fleet financing. This tier proves long term creditworthiness and payment reliability.',
+                'subtitle' => 'Selective growth without blowing up the profile',
                 'order' => 4,
                 'task_to_complete' => null,
                 'has_vendor' => true,
@@ -166,9 +178,9 @@ class TierSeeder extends Seeder
             ],
             [
                 'name' => 'Tier 4',
-                'title' => 'Bank & Institutional Lending',
+                'title' => 'Institutional Readiness (EVALUATE)',
                 'code' => 'T4',
-                'subtitle' => 'Leverage your established credit history to access bank lines of credit, SBA loans, and corporate financing — often without a personal guarantee. This tier is where funding power meets independence.',
+                'subtitle' => 'Decide if the file is lender-ready',
                 'order' => 5,
                 'task_to_complete' => null,
                 'has_vendor' => true,
