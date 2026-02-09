@@ -3,6 +3,7 @@
 namespace App\Http\Resources\FCH\Borrower;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class BorrowerDetailsResource extends JsonResource
@@ -50,7 +51,7 @@ class BorrowerDetailsResource extends JsonResource
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,
             'state_file_number'         => $this->state_file_number,
-            'business_start_date'       => $this->business_start_date,
+            'business_start_date'       => Carbon::parse($this->business_start_date)->format('m-d-Y') ?? null,
             'enrollment_type'           => $this->latestSubscription?->enrollment_type,
             'payment_amount'            => $this->latestSubscription?->payable_amount,
 

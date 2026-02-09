@@ -8,6 +8,7 @@ use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
+use Illuminate\Support\Carbon;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
@@ -242,7 +243,7 @@ class BorrowerService
     {
         DB::beginTransaction();
         try {
-     
+
             $authUser = auth()->user();
             if (empty($data['partner_id'])) {
                 $data['partner_id'] = $authUser->partner_id;
@@ -256,7 +257,7 @@ class BorrowerService
 
             // Filter out fields that are not columns in the borrowers table
             $borrowerData = collect($data)->except(['plan_id'])->toArray();
-
+            $borrowerData['business_start_date'] = isset($data['business_start_date']) ? Carbon::parse($data['business_start_date'])->format('Y-m-d') : null;
             $borrower = Borrower::create($borrowerData);
             // Create associated User if needed
             $userDataResult = null;
@@ -367,6 +368,7 @@ class BorrowerService
                 $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
                 $data['business_logo'] = $upload['path'];
             }
+            $data['business_start_date'] = isset($data['business_start_date']) ? Carbon::parse($data['business_start_date'])->format('Y-m-d') : $borrower->business_start_date;
 
             $borrower->update($data);
 
@@ -424,7 +426,7 @@ class BorrowerService
         return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
             $query->where('partner_id', auth()->user()->partner_id);
         })
-            ->with('partner','latestSubscription')
+            ->with('partner', 'latestSubscription')
             ->find($id);
     }
 
