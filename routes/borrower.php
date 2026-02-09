@@ -87,6 +87,8 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/my-progress', [CreditBuilderOverviewController::class, 'index']);
             Route::get('/tier-wise-tasklist', [CreditBuilderStepGuideController::class, 'index']);
             Route::post('/task-verify-request', [CreditBuilderStepGuideController::class, 'taskVerifyRequest']);
+
+            Route::get('task-overview', [CreditBuilderOverviewController::class, 'taskOverview']);
         });
 
 
