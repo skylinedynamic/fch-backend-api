@@ -23,24 +23,30 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with comprehensive filtering.
+     * 
+     * Supports:
+     * - Search across: Invoice ID, Customer Name, Email, Amount, Date, Status, Partner, Borrower
+     * - Status dropdown filtering (e.g., "Paid", "Unpaid", "All Status")
+     * - Date range filtering (date_from, date_to)
+     * - Advanced column filtering with "contains" matching
+     * - Sorting by any column
      */
     public function index(Request $request)
     {
-        $borrowerId = auth()->user()->entity_id;
+        $filters = [
+            'search' => $request->input('search'),
+            'status' => $request->input('status'),
+            'date_from' => $request->input('date_from'),
+            'date_to' => $request->input('date_to'),
+            'per_page' => $request->input('per_page', 10),
+            'page' => $request->input('page', 1),
+            'sort_field' => $request->input('sort_field', 'id'),
+            'sort_order' => $request->input('sort_order', 'desc'),
+            'filters' => $request->input('filters', []), // Advanced column filters
+        ];
 
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search');
-
-        $invoices = Invoice::where('borrower_id', $borrowerId)
-            ->where('partner_id', auth()->user()->partner_id)
-            ->where('is_partner_paying', false)
-            ->with(['partner']) // Eager load partner if needed
-            ->search($search)
-            ->latest()
-            ->paginate($perPage);
-
-        return InvoiceResource::collection($invoices);
+        return $this->invoiceService->list($filters);
     }
 
 

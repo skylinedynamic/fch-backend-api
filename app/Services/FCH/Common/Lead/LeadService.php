@@ -150,7 +150,7 @@ class LeadService
             return $lead->fresh();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Lead creation failed', ['error' => $e->getMessage()]);
+            Log::error('Lead creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -265,10 +265,10 @@ class LeadService
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
-                'enrollment_type' => $data['enrollment_type'] ?? null,
+                // 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
-                'payment_amount' => $data['payment_amount'] ?? 0,
+                'plan_id' => $data['plan_id'] ?? null,
             ];
 
             $result = $this->borrowerService->store($borrowerData);
@@ -283,7 +283,7 @@ class LeadService
             return $borrower;
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Lead to Borrower conversion failed', ['error' => $e->getMessage()]);
+            Log::error('Lead to Borrower conversion failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -334,6 +334,7 @@ class LeadService
                 'tax_id' => $lead->business_ein,
                 'website' => $lead->domain,
                 'assign_to' => $lead->salesperson_id,
+                'plan_id' => $data['plan_id'] ?? null,
             ];
 
             // Trigger robust Partner storage logic
@@ -346,7 +347,7 @@ class LeadService
             ]);
 
             DB::commit();
-            Log::info('✅ Lead successfully converted to Partner', [
+            Log::info('Lead successfully converted to Partner', [
                 'lead_id' => $lead->id,
                 'partner_id' => $partner->id
             ]);
@@ -354,7 +355,7 @@ class LeadService
             return $partner;
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Lead to Partner conversion failed', ['error' => $e->getMessage()]);
+            Log::error('Lead to Partner conversion failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\Invoice;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,7 @@ class InvoiceResource extends JsonResource
             'country' => $this->country,
             'payment_amount' => $this->payment_amount,
             'payment_date' => $this->payment_date,
+            'created_at' => Carbon::parse($this->created_at)->format('Y-m-d'),
             'status' => $this->status,
             'details' => $this->details,
         ];
