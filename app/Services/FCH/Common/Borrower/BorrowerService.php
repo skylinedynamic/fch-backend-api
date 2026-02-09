@@ -315,7 +315,7 @@ class BorrowerService
                 if ($isHostCreating) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
-                        $mailData['payment_link'] = config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id;
+                        $mailData['payment_link'] = config('app.frontend_borrower_url') . '/invoices?invoice_id=' . $invoice->id;
                         $mailData['amount'] = $invoice->payment_amount;
                         Log::info('📧 Sending Payment Link Mail to Borrower');
                         try {
