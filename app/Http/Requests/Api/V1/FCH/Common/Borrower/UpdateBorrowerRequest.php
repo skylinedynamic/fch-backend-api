@@ -24,6 +24,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'country_code'              => ['nullable', 'string', 'max:255'],
             'state'                     => ['nullable', 'string', 'max:255'],
             'city'                      => ['nullable', 'string', 'max:255'],
+            'other_city'                => ['nullable', 'string', 'max:255'],
             'postal_code'               => ['nullable', 'string', 'max:255'],
             'home_address'              => ['nullable', 'string', 'max:255'],
             'home_phone'                => ['nullable', 'string', 'max:255'],

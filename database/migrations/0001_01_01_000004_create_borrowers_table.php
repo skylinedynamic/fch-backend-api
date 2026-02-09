@@ -23,6 +23,7 @@ return new class extends Migration {
             $table->string('country_code')->nullable();
             $table->string('state')->nullable();
             $table->string('city')->nullable();
+            $table->string('other_city')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('home_address')->nullable();
             $table->string('home_phone')->nullable();

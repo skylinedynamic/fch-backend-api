@@ -17,7 +17,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             // Personal Info
             'first_name'                => ['required', 'string', 'max:255'],
             'last_name'                 => ['required', 'string', 'max:255'],
-            'email'                     => ['required','unique:borrowers,email', 'email', 'max:255'],
+            'email'                     => ['required', 'unique:borrowers,email', 'email', 'max:255'],
             'phone_number'              => ['required', 'string', 'max:20'], // Matching phone_number_max
             'business_website'          => ['nullable', 'url', 'max:255'],
             'business_name'             => ['nullable', 'string', 'max:255'],
@@ -28,6 +28,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'country'                   => ['required', 'string', 'max:255'],
             'state'                     => ['required', 'string', 'max:255'],
             'city'                      => ['required', 'string', 'max:255'],
+            'other_city'                => ['nullable', 'string', 'max:255'],
             'business_postal_code'      => ['nullable', 'string', 'max:20'], // Matching business_postal_code_max
             'business_phone'            => ['nullable', 'string', 'max:20'], // Matching business_phone_max
             'business_entity_type'      => ['nullable', 'string', 'max:255'],
@@ -36,8 +37,8 @@ class StoreBorrowerRequest extends BaseApiRequest
             'last_4_ssn'                => ['nullable', 'string', 'max:4'],
             'country_code'              => ['nullable', 'string', 'max:5'], // Matching country_code_max
             'plan_id'                   => ['required', 'exists:subscription_plans,id'],
-            'notes'                     => ['nullable', 'string'],
-           
+            'notes'                     => ['nullable'],
+
         ];
     }
 
@@ -58,7 +59,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'phone_number.required'     => __('borrower_validation.phone_number_required'),
             'phone_number.string'       => __('borrower_validation.phone_number_string'),
             'phone_number.max'          => __('borrower_validation.phone_number_max'),
-            
+
             // Business Info
             'business_website.url'      => __('borrower_validation.business_website_url'),
             'business_website.max'      => __('borrower_validation.business_website_max'),
@@ -96,7 +97,6 @@ class StoreBorrowerRequest extends BaseApiRequest
             'country_code.max'          => __('borrower_validation.country_code_max'),
             'plan_id.required'          => __('borrower_validation.plan_id_required'),
             'plan_id.exists'            => __('borrower_validation.plan_id_exists'),
-            'notes.string'              => __('borrower_validation.notes_string'),
         ];
     }
 }
