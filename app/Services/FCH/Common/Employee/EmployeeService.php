@@ -117,7 +117,7 @@ class EmployeeService
             $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
 
             $employee = Employee::create($employeeData);
-            Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
+            Log::info('Employee created successfully', ['employee_id' => $employee->id]);
             $user = null;
 
             $plainPassword = $userData['plain_password'] ?? null;
@@ -145,7 +145,7 @@ class EmployeeService
             // 3️⃣ Upload image if provided
             if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
                 $employee->update(['image' => 'employees/' . $employee->id . '/' . $employeeData['image']]);
-                Log::info('🖼️ Employee image uploaded', ['path' => $upload['path']]);
+                Log::info('Employee image uploaded', ['path' => $upload['path']]);
             }
 
             DB::commit();
@@ -157,7 +157,7 @@ class EmployeeService
             ];
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Employee creation failed', ['error' => $e->getMessage()]);
+            Log::error('Employee creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -198,7 +198,10 @@ class EmployeeService
             // 2️⃣ Update employee data
             $employee->fill($employeeData);
             $isEmployeeDirty = $employee->isDirty([
-                'first_name', 'last_name', 'email', 'phone_number',
+                'first_name',
+                'last_name',
+                'email',
+                'phone_number',
             ]);
 
             // 3️⃣ Handle user creation if needed
@@ -206,7 +209,7 @@ class EmployeeService
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
-                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1,
                     'password' => Hash::make($plainPassword),
@@ -226,7 +229,7 @@ class EmployeeService
             // 4️⃣ Sync existing user if employee changed
             if ($user && $isEmployeeDirty) {
                 $user->update([
-                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number,
                 ]);
