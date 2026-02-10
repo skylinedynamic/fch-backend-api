@@ -7,9 +7,10 @@ use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use App\Traits\PaginatesApi;
-use App\Models\Partner\Partner;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -104,7 +105,18 @@ class UserService
      */
     public function list(int $partnerId, array $filters)
     {
-        $query = User::query()->where('partner_id', $partnerId)->with(['roles', 'partner', 'entity']);
+        $query = User::query()
+            ->where('partner_id', $partnerId)
+            ->with([
+                'roles',
+                'partner',
+                'entity' => function ($morphTo) {
+                    $morphTo->morphWith([
+                        Borrower::class => ['subscription.enrollmentPhase', 'subscription.platformFeePhase'],
+                        Partner::class  => ['subscription'],
+                    ]);
+                }
+            ]);
 
         if (!Auth::user()->hasRole('Developer')) {
             $query->whereDoesntHave('roles', function ($q) {
