@@ -40,7 +40,7 @@ class StoreContactRequest extends BaseApiRequest
             'country' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', 'max:20'],
-            'website' => ['nullable', 'url', 'max:255'],
+            'website' => ['nullable'],
             'notes' => ['nullable', 'string'],
             'image' => ['nullable'],
             'address' => ['required', 'string', 'max:500'],

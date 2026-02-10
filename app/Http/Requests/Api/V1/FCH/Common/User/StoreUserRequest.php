@@ -4,10 +4,11 @@ namespace App\Http\Requests\Api\V1\FCH\Common\User;
 
 use App\Helpers\ApiResponse;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
-class StoreUserRequest extends FormRequest
+class StoreUserRequest extends  BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -39,17 +40,5 @@ class StoreUserRequest extends FormRequest
             'role_id.required'     => __('user.role_required'),
             'role_id.exists'       => __('user.role_not_found'),
         ];
-    }
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('user.validation_failed'))
-        );
     }
 }

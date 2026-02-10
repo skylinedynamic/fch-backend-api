@@ -14,13 +14,14 @@ use App\Http\Resources\FCH\User\UserResource;
 use App\Services\FCH\Common\User\UserService;
 use App\Http\Requests\Api\V1\FCH\Common\User\FetchUser;
 use Illuminate\Http\Request; // ✅ this is the correct one
+use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\Api\V1\FCH\Common\User\StoreUserRequest;
 use App\Http\Requests\Api\V1\FCH\Common\User\UpdateUserRequest;
 
 class UserController extends Controller
 {
 
-   
+
     /**
      * PermissionController constructor.
      *
@@ -28,12 +29,9 @@ class UserController extends Controller
      */
     use PaginatesApi;
 
-    public function __construct(protected UserService $userService)
-    {
-        
-    }
+    public function __construct(protected UserService $userService) {}
 
-     /**
+    /**
      * All User
      */
 
@@ -45,7 +43,7 @@ class UserController extends Controller
             return ApiResponse::serverError(__('user.user_list_failed'));
         }
     }
-     /**
+    /**
      * User with Pagination
      */
 
@@ -70,10 +68,9 @@ class UserController extends Controller
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,
             ];
-      
+
 
             return $this->userService->list($partnerId, $filters);
-
         } catch (Throwable $e) {
             return ApiResponse::serverError(__('user.failed_to_retrieve_users'), 500);
         }
@@ -105,7 +102,7 @@ class UserController extends Controller
         }
 
         return ApiResponse::success(
-            new UserResource($user->load([ 'roles', 'permissions'])),
+            new UserResource($user->load(['roles', 'permissions'])),
             __('user.user_retrieved')
         );
     }
@@ -117,9 +114,16 @@ class UserController extends Controller
     {
         $data = $request->validated();
 
-        if (empty($data['password'] ?? null)) {
+        // Handle password change logic accurately
+        if ($request->boolean('change_password') && !empty($data['new_password'])) {
+            $data['password'] = $data['new_password'];
+        } else {
+            // Always remove password field if not specifically changing it
             unset($data['password']);
         }
+
+        // Clean up temporary fields before service call
+        unset($data['change_password'], $data['new_password'], $data['confirm_password']);
 
         $user = User::findOrFail($id);
         try {
@@ -138,19 +142,19 @@ class UserController extends Controller
     public function multipleDelete(Request $request)
     {
         try {
-           $query = User::whereIn('id', $request->ids);
-           
-           if (!Auth::user()->hasRole('Developer')) {
-               $query->whereDoesntHave('roles', function ($q) {
-                   $q->where('code', 'developer');
-               });
-           }
+            $query = User::whereIn('id', $request->ids);
 
-           $query->delete();
-           return ApiResponse::success(
-             [],
-            __('user.user_deleted')
-           );
+            if (!Auth::user()->hasRole('Developer')) {
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->where('code', 'developer');
+                });
+            }
+
+            $query->delete();
+            return ApiResponse::success(
+                [],
+                __('user.user_deleted')
+            );
         } catch (\Throwable $e) {
             return ApiResponse::serverError(__('user.user_delete_failed'), 500);
         }

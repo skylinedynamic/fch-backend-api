@@ -117,7 +117,7 @@ class EmployeeService
             $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
 
             $employee = Employee::create($employeeData);
-            Log::info('✅ Employee created successfully', ['employee_id' => $employee->id]);
+            Log::info('Employee created successfully', ['employee_id' => $employee->id]);
             $user = null;
 
             $plainPassword = $userData['plain_password'] ?? null;
@@ -135,17 +135,17 @@ class EmployeeService
                     'user_type' => auth()->user()->user_type ?? '',
                 ]);
 
-                Log::info('✅ User created successfully', ['user_id' => $user->id]);
+                Log::info('User created successfully', ['user_id' => $user->id]);
 
                 if ($roleId) {
                     $this->assignRoleAndPermissions($user, $roleId);
                 }
             }
 
-            // 3️⃣ Upload image if provided
-            if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                $employee->update(['image' => 'employees/' . $employee->id . '/' . $employeeData['image']]);
-                Log::info('🖼️ Employee image uploaded', ['path' => $upload['path']]);
+            if (isset($employeeData['image'])) {
+                $imageName = ltrim($employeeData['image'], '/');
+                $employeeData['image'] = 'employees/' . $employee->id . '/' . $imageName;
+                $employee->update(['image' => $employeeData['image']]);
             }
 
             DB::commit();
@@ -157,7 +157,7 @@ class EmployeeService
             ];
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Employee creation failed', ['error' => $e->getMessage()]);
+            Log::error('Employee creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -187,18 +187,20 @@ class EmployeeService
             }
 
             // 1️⃣ Handle image upload
-            if (isset($employeeData['image']) && $employeeData['image'] instanceof UploadedFile) {
-                // if ($employee->image) {
-                //     $this->deleteFile($employee->getRawOriginal('image'), 'public');
-                // }
-                // $upload = $this->uploadFile($employeeData['image'], "employees/{$employee->id}", 'public');
-                $employeeData['image'] =  'employees/' . $employee->id . '/' . $employeeData['image'];
+            if (isset($employeeData['image'])) {
+
+                $imageName = ltrim($employeeData['image'], '/');
+
+                $employeeData['image'] = 'employees/' . $employee->id . '/' . $imageName;
             }
 
             // 2️⃣ Update employee data
             $employee->fill($employeeData);
             $isEmployeeDirty = $employee->isDirty([
-                'first_name', 'last_name', 'email', 'phone_number',
+                'first_name',
+                'last_name',
+                'email',
+                'phone_number',
             ]);
 
             // 3️⃣ Handle user creation if needed
@@ -206,7 +208,7 @@ class EmployeeService
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
-                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1,
                     'password' => Hash::make($plainPassword),
@@ -216,7 +218,7 @@ class EmployeeService
                     'partner_id' => $employee->partner_id,
                 ]);
 
-                Log::info('✅ New user created for employee', ['employee_id' => $employee->id]);
+                Log::info('New user created for employee', ['employee_id' => $employee->id]);
 
                 // Send welcome mail only for new user
                 app(EmployeeController::class)
@@ -226,11 +228,11 @@ class EmployeeService
             // 4️⃣ Sync existing user if employee changed
             if ($user && $isEmployeeDirty) {
                 $user->update([
-                    'name' => trim($employee->first_name.' '.$employee->last_name),
+                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number,
                 ]);
-                Log::info('🔁 Existing user synced with employee changes', [
+                Log::info('Existing user synced with employee changes', [
                     'employee_id' => $employee->id,
                 ]);
             }
@@ -244,7 +246,7 @@ class EmployeeService
             $employee->save();
 
             DB::commit();
-            Log::info('✅ Employee updated successfully', ['employee_id' => $employee->id]);
+            Log::info('Employee updated successfully', ['employee_id' => $employee->id]);
 
             return [
                 'employee' => $employee->fresh(),
@@ -252,7 +254,7 @@ class EmployeeService
             ];
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Employee update failed', [
+            Log::error('Employee update failed', [
                 'employee_id' => $employee->id ?? null,
                 'error' => $e->getMessage(),
             ]);
@@ -270,16 +272,16 @@ class EmployeeService
         try {
             if ($employee->image) {
                 $this->deleteFile($employee->getRawOriginal('image'), 'public');
-                Log::info('🗑️ Employee image deleted', ['employee_id' => $employee->id]);
+                Log::info('Employee image deleted', ['employee_id' => $employee->id]);
             }
 
             $user = $employee->user;
             $employee->delete();
-            Log::info('✅ Employee record deleted', ['employee_id' => $employee->id]);
+            Log::info('Employee record deleted', ['employee_id' => $employee->id]);
 
             if ($deleteUser && $user) {
                 $user->delete();
-                Log::info('🗑️ Linked user deleted', ['user_id' => $user->id]);
+                Log::info('Linked user deleted', ['user_id' => $user->id]);
             }
 
             DB::commit();
@@ -287,7 +289,7 @@ class EmployeeService
             return true;
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Employee deletion failed', [
+            Log::error('Employee deletion failed', [
                 'employee_id' => $employee->id ?? null,
                 'error' => $e->getMessage(),
             ]);
@@ -312,7 +314,7 @@ class EmployeeService
         $user->syncPermissions($permissions);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Log::info('🔒 User role and permissions synced', ['user_id' => $user->id, 'role_id' => $roleId]);
+        Log::info('User role and permissions synced', ['user_id' => $user->id, 'role_id' => $roleId]);
     }
 
     /**

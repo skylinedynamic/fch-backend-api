@@ -103,10 +103,10 @@ class PartnerService
             $partner = Partner::create($partnerData);
 
             // Handle partner_image upload
-            if (isset($partnerData['partner_image']) && $partnerData['partner_image'] instanceof UploadedFile) {
-                $partnerData['partner_image'] = "partners/{$partner->id}/" . ltrim($partnerData['partner_image'], '/');
+            if (isset($partnerData['partner_image'])) {
+                $imageName = ltrim($partnerData['partner_image'], '/');
+                $partnerData['partner_image'] = 'partners/' . $partner->id . '/' . $imageName;
                 $partner->update(['partner_image' => $partnerData['partner_image']]);
-                Log::info('Partner image uploaded', ['path' => $partnerData['partner_image']]);
             }
 
             // Update user with partner link
@@ -300,8 +300,12 @@ class PartnerService
         DB::beginTransaction();
         try {
             // Handle partner_image upload
-            if (isset($data['partner_image']) && $data['partner_image'] instanceof UploadedFile) {
-                $data['partner_image'] = "partners/{$partner->id}/" . ltrim($data['partner_image'], '/');
+
+            if (isset($data['partner_image'])) {
+
+                $imageName = ltrim($data['partner_image'], '/');
+
+                $data['partner_image'] = 'partners/' . $partner->id . '/' . $imageName;
             }
 
             // Update user

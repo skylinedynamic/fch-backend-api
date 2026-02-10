@@ -60,12 +60,12 @@ class ContactService
 
         // Sorting
         $sortField = $filters['sort_field'] ? $filters['sort_field'] : 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         if ($sortField === 'full_name') {
-             $query->orderBy('first_name', $sortOrder)->orderBy('last_name', $sortOrder);
+            $query->orderBy('first_name', $sortOrder)->orderBy('last_name', $sortOrder);
         } else {
-             $query->orderBy($sortField, $sortOrder);
+            $query->orderBy($sortField, $sortOrder);
         }
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -93,7 +93,7 @@ class ContactService
             $contactData['updated_by'] = auth()->id();
 
             $contact = Contact::create($contactData);
-            Log::info('✅ Contact created successfully', ['contact_id' => $contact->id]);
+            Log::info('Contact created successfully', ['contact_id' => $contact->id]);
 
             // // Handling Image Upload
             // if (isset($contactData['image']) && $contactData['image'] instanceof UploadedFile) {
@@ -105,7 +105,7 @@ class ContactService
             return $contact->fresh();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Contact creation failed', ['error' => $e->getMessage()]);
+            Log::error('Contact creation failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -122,20 +122,20 @@ class ContactService
                 if ($contact->image) {
                     $this->deleteFile($contact->getRawOriginal('image'), 'public');
                 }
-                 $this->uploadContactImage($contact, $contactData['image']);
-                 unset($contactData['image']); // Remove from data to avoid double update if fillable
+                $this->uploadContactImage($contact, $contactData['image']);
+                unset($contactData['image']); // Remove from data to avoid double update if fillable
             }
 
             $contactData['updated_by'] = auth()->id();
             $contact->update($contactData);
 
             DB::commit();
-            Log::info('✅ Contact updated successfully', ['contact_id' => $contact->id]);
+            Log::info('Contact updated successfully', ['contact_id' => $contact->id]);
 
             return $contact->fresh();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Contact update failed', [
+            Log::error('Contact update failed', [
                 'contact_id' => $contact->id ?? null,
                 'error' => $e->getMessage(),
             ]);
@@ -154,11 +154,11 @@ class ContactService
             }
 
             $contact->delete();
-            Log::info('✅ Contact deleted', ['contact_id' => $contact->id]);
+            Log::info('Contact deleted', ['contact_id' => $contact->id]);
 
             return true;
         } catch (Throwable $e) {
-            Log::error('❌ Contact deletion failed', [
+            Log::error('Contact deletion failed', [
                 'contact_id' => $contact->id ?? null,
                 'error' => $e->getMessage(),
             ]);

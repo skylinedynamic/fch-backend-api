@@ -3,12 +3,13 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Employee;
 
 use App\Helpers\ApiResponse;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
-class UpdateEmployeeRequest extends FormRequest
+class UpdateEmployeeRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -76,17 +77,5 @@ class UpdateEmployeeRequest extends FormRequest
             'role_id.required_if' => __('employee.role_required_if_create_account'),
             'role_id.exists' => __('employee.role_exists'),
         ];
-    }
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

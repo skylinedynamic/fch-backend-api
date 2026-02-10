@@ -525,10 +525,10 @@ class SubscriptionService
 
                 if ($subscription->entity_type === Borrower::class) {
                     $entity->loadMissing('partner');
-                    $isPartnerPaying = $entity->partner?->is_host != 1;
+                    // $isPartnerPaying = $entity->partner?->is_host != 1;
                     $partnerId = $entity->partner_id;
                 } else {
-                    $isPartnerPaying = $entity->is_host != 1;
+                    // $isPartnerPaying = $entity->is_host != 1;
                     $partnerId = $entity->id;
                 }
 

@@ -174,7 +174,7 @@ class Partner extends Model
      */
     public function getPartnerImageAttribute($value)
     {
-        return $value ? asset("storage/{$value}") : null;
+        return $value ? encodeUrl(asset("storage/{$value}")) : null;
     }
 
     public function leads(): HasMany
