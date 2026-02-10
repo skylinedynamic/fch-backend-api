@@ -3,10 +3,9 @@
 @section('title', $content['subject'] ?? 'Notification')
 
 @section('content')
-    <div class="appointment-title mt-3">{{ $content['subject'] ?? 'Notification' }}</div>
 
     @if (isset($content['greeting']))
-        <h2>{{ $content['greeting'] }}</h2>
+        <h4>{{ $content['greeting'] }}</h4>
     @endif
 
     <div class="description-card">
@@ -46,11 +45,4 @@
     <p style="margin-top: 30px; font-size: 12px; color: #878a99;">
         This email was sent to {{ $user->email }}. If you did not expect this email, please contact our support team.
     </p>
-@endsection
-
-@section('footer')
-    @if (isset($content['salutation']))
-        <div class="salutation" style="margin-bottom: 20px;">{!! $content['salutation'] !!}</div>
-    @endif
-    @parent
 @endsection

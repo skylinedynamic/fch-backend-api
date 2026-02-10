@@ -5,7 +5,7 @@
 @section('content')
     <div class="appointment-title mt-3">New Demo Request Received</div>
 
-    <h2>Hello {{ $assignedUser->name ?? 'Team' }},</h2>
+    <h4>Hello {{ $assignedUser->name ?? 'Team' }},</h4>
     <p>
         A new demo request has been submitted by <strong>{{ $demoRequest->customer_name }}</strong>.
         Below are the request details:
@@ -31,7 +31,7 @@
                 </tr>
                 <tr>
                     <td class="label">Email:</td>
-                    <td class="value"><a href="mailto:{{ $demoRequest->email }}">{{ $demoRequest->email }}</a></td>
+                    <td class="value">{{ $demoRequest->email }}</td>
                 </tr>
                 @if (!empty($demoRequest->country))
                     <tr>

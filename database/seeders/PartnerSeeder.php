@@ -25,7 +25,7 @@ class PartnerSeeder extends Seeder
         DB::table('partners')->insert([
             [
                 'is_host' => true,
-                'company_name' => 'FCH Host Partner',
+                'company_name' => 'Four Corner Funding',
                 'email' => 'host@fch.com',
                 'phone_number' => '+1000000000',
                 'company_logo' => 'logo.png',

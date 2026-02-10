@@ -4,9 +4,7 @@
 
 @section('content')
     <div class="description-card">
-        <p class="mb-3">
-            Hello <strong>{{ $first_name }}</strong>,
-        </p>
+        <h4 class="mb-3">Hello <strong>{{ $first_name }}</strong>,</h4>
 
         <p class="mb-5">
             This is a confirmation that your payment was successfully processed.

@@ -3,9 +3,8 @@
 @section('title', 'Welcome to ' . $business_info['company_name'])
 
 @section('content')
-    <div class="appointment-title mt-3">{{ $business_info['company_name'] }}</div>
 
-    <h2>Hello {{ $user->name }}!</h2>
+    <h4>Hello {{ $user->name }}!</h4>
     <p>
         Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
         Your account has been successfully created. Below are your login details:
@@ -23,7 +22,7 @@
                 </tr>
                 <tr>
                     <td class="label">Email:</td>
-                    <td class="value"><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></td>
+                    <td class="value">{{ $user->email }}</td>
                 </tr>
                 @if (!empty($user->phone_number))
                     <tr>
@@ -49,13 +48,4 @@
         <p class="highlight">Please login and change your password for security.</p>
         <a href="{{ $loginUrl }}" class="btn">Login to Your Account</a>
     </div>
-@endsection
-
-@section('footer')
-    <p>
-        {{ $business_info['company_name'] }} | {{ $business_info['phone_number'] }} |
-        <a href="mailto:{{ $business_info['email'] }}">{{ $business_info['email'] }}</a><br>
-        {{ $business_info['address_line_1'] }}
-    </p>
-    <p>&copy; {{ date('Y') }} {{ $business_info['company_name'] }}. All rights reserved.</p>
 @endsection
