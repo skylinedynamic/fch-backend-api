@@ -2,13 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\User;
 
-use App\Helpers\ApiResponse;
-use Illuminate\Validation\Rule;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Contracts\Validation\Validator;
-use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class UpdateUserRequest extends FormRequest
+class UpdateUserRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -17,40 +13,35 @@ class UpdateUserRequest extends FormRequest
 
     public function rules(): array
     {
-        
-        return [
-            'name'         => ['sometimes', 'string', 'max:255'],
-             'email' => ['nullable', 'max:255'],
-            'phone_number' => [
-                'nullable',
-                'string',
-                'max:50'
-            ],
-            'user_id'      => ['nullable', 'string', 'max:255'],
-            'password'     => ['nullable'],
-            'role_id'      => ['nullable'],
-            'status'      => ['nullable'],
+        $rules = [
+            'name'             => ['sometimes', 'string', 'max:255'],
+            'email'            => ['nullable', 'max:255'],
+            'phone_number'     => ['nullable', 'string', 'max:50'],
+            'user_id'          => ['nullable', 'string', 'max:255'],
+            'role_id'          => ['nullable'],
+            'status'           => ['nullable'],
+            'change_password'  => ['nullable'],
         ];
+
+        // Explicitly add password rules if change_password is provided and true
+        if ($this->boolean('change_password')) {
+            $rules['new_password'] = ['required', 'string', 'min:8'];
+            $rules['confirm_password'] = ['required', 'string', 'same:new_password'];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
     {
         return [
-            'email.unique'      => __('user.email_taken'),
-            'phone_number.unique' => __('user.phone_number_taken'),
-            'password.min'      => __('user.password_min'),
+            'email.unique'              => __('user.email_taken'),
+            'phone_number.unique'       => __('user.phone_number_taken'),
+            'password.min'              => __('user.password_min'),
+            'new_password.required'     => __('user.new_password_required'),
+            'new_password.min'          => __('user.new_password_min'),
+            'confirm_password.required' => __('user.confirm_password_required'),
+            'confirm_password.same'     => __('user.confirm_password_same'),
         ];
-    }
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

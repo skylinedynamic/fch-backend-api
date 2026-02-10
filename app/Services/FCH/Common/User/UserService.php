@@ -28,47 +28,58 @@ class UserService
      * Create a new user and optionally link to employee
      */
 
-     use PaginatesApi;
-     
-     /**
+    use PaginatesApi;
+
+    /**
      * Create User
      */
     public function create(array $data, ?int $roleId = null): User
     {
-    //   $role =  Role::where('partner_id', Auth::user()->partner_id)->where('name',$roleId)->first();
-        DB::beginTransaction();
-        try {
-            $plainPassword = $data['password'] ?? bin2hex(random_bytes(4));
+        $authUser = auth()->user();
+        $plainPassword = $data['password'] ?? bin2hex(random_bytes(4));
 
+        DB::beginTransaction();
+
+        try {
             $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'user_id' => $data['user_id'] ?? null,
+                'name'         => $data['name'],
+                'email'        => $data['email'],
+                'user_id'      => $data['user_id'] ?? null,
                 'phone_number' => $data['phone_number'] ?? null,
-                'user_type' => auth()->user()->user_type ?? null,
-                'password' => Hash::make($plainPassword),
-                'partner_id' => auth()->user()->partner_id,
-                'status' => User::STATUS['active'],
-                'entity_type' => NULL,
-                'entity_id' => NULL,
+                'user_type'    => $authUser->user_type,
+                'password'     => Hash::make($plainPassword),
+                'partner_id'   => $authUser->partner_id,
+                'status'       => User::STATUS['active'],
+                'entity_type'  => null,
+                'entity_id'    => null,
             ]);
-            $partnerInfo = Partner::find(auth()->user()->partner_id);
-            $this->sendCreatedMail($user, $partnerInfo, $plainPassword);
 
             $roleId = $data['role_id'] ?? null;
-           
-            // Assign role & permissions
+
             if ($roleId) {
-                $this->assignRoleAndPermissions($user, $data['role_id']);
+                $this->assignRoleAndPermissions($user, $roleId);
             }
 
             DB::commit();
-            return $user;
         } catch (Throwable $e) {
             DB::rollBack();
-            throw $e;
+            throw $e; // user not created if DB fails
         }
+
+        // ✅ AFTER COMMIT — email section
+        try {
+            $partnerInfo = Partner::find($authUser->partner_id);
+            $this->sendCreatedMail($user, $partnerInfo, $plainPassword);
+        } catch (Throwable $e) {
+            Log::error('User created but email failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
+        return $user;
     }
+
 
     /**
      * Get All
@@ -76,17 +87,16 @@ class UserService
 
     public function getAll()
     {
-         $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles', 'entity'])->orderBy('id', 'desc');
-         
-         if (!Auth::user()->hasRole('Developer')) {
-             $query->whereDoesntHave('roles', function ($q) {
-                 $q->where('code', 'developer');
-             });
-         }
+        $query = User::query()->where('partner_id', Auth::user()->partner_id)->with(['roles', 'entity'])->orderBy('id', 'desc');
 
-         $users = $query->get();
-         return ApiResponse::success(UserResource::collection($users),__('user.user_list_retrieved'));
+        if (!Auth::user()->hasRole('Developer')) {
+            $query->whereDoesntHave('roles', function ($q) {
+                $q->where('code', 'developer');
+            });
+        }
 
+        $users = $query->get();
+        return ApiResponse::success(UserResource::collection($users), __('user.user_list_retrieved'));
     }
 
     /**
@@ -120,7 +130,7 @@ class UserService
         $sortField = $filters['sort_field']  ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
-       // Handle custom filters manually
+        // Handle custom filters manually
         $rawFilters = $filters['filters'] ?? [];
         if (is_string($rawFilters)) {
             $rawFilters = json_decode($rawFilters, true) ?? [];
@@ -145,7 +155,7 @@ class UserService
             $entityConstraints = $rawFilters['entity_type']['constraints'] ?? [];
             foreach ($entityConstraints as $constraint) {
                 $value = $constraint['value'] ?? null;
-                
+
                 // Map frontend values to backend class names
                 $map = [
                     'Employee' => Employee::class,
@@ -162,7 +172,7 @@ class UserService
                         $query->where('entity_type', $mappedValue);
                     }
                 } elseif ($value) {
-                     // Fallback for direct search
+                    // Fallback for direct search
                     $query->where('entity_type', 'like', "%{$value}%");
                 }
             }
@@ -171,7 +181,7 @@ class UserService
 
         if ($filters['sort_field'] === 'role_name') {
             $query->withMin('roles', 'name')
-                  ->orderBy('roles_min_name', $sortOrder);
+                ->orderBy('roles_min_name', $sortOrder);
         } else {
             $query = QueryFilter::apply($query, $sortField, $sortOrder, $rawFilters);
         }
@@ -179,7 +189,7 @@ class UserService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
-    
+
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         return $this->respondWithPaginationResource(
@@ -214,7 +224,6 @@ class UserService
 
             DB::commit();
             return $user;
-
         } catch (Throwable $e) {
             DB::rollBack();
             throw $e;
@@ -227,7 +236,7 @@ class UserService
     protected function assignRoleAndPermissions(User $user, int $roleId)
     {
         $role = Role::where('partner_id', auth()->user()->partner_id)->findOrFail($roleId);
-       
+
         // Use assignRole to ensure model_type is populated correctly in polymorphic pivot
         $user->assignRole($role);
 
@@ -243,7 +252,7 @@ class UserService
     /**
      * Delete User
      */
-     public function delete(User $user): bool
+    public function delete(User $user): bool
     {
         DB::beginTransaction();
 
