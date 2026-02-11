@@ -11,6 +11,25 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $numericFields = [
+            'monthly_revenue',
+            'annual_revenue',
+            'avg_bank_balance',
+            'current_business_debt',
+            'profit_margin'
+        ];
+
+        foreach ($numericFields as $field) {
+            if ($this->has($field) && is_string($this->input($field))) {
+                $this->merge([
+                    $field => str_replace(',', '', $this->input($field))
+                ]);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
