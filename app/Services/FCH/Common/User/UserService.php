@@ -67,7 +67,7 @@ class UserService
             throw $e; // user not created if DB fails
         }
 
-        // ✅ AFTER COMMIT — email section
+        // AFTER COMMIT — email section
         try {
             $partnerInfo = Partner::find($authUser->partner_id);
             $this->sendCreatedMail($user, $partnerInfo, $plainPassword);

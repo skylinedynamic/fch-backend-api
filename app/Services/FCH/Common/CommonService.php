@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common;
 
 use App\Models\User\User;
+use App\Models\Partner\Partner;
 use App\Models\Employee\Employee;
 
 class CommonService
@@ -16,8 +17,8 @@ class CommonService
         $users = User::query()
             ->where('partner_id', auth()->user()->partner_id)
             ->where(function ($query) {
-                $query->where('entity_type', Employee::class)
-                    ->orWhereNull('entity_type');
+                $query->whereNull('entity_type')
+                    ->orWhere('entity_type', Partner::class);
             })
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
