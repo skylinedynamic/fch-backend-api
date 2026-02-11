@@ -419,6 +419,15 @@ class BorrowerService
     }
 
     /**
+     * Update borrower business financials.
+     */
+    public function updateBusinessFinancials(Borrower $borrower, array $data)
+    {
+        $borrower->update($data);
+        return $borrower->fresh();
+    }
+
+    /**
      * Get borrower details.
      */
     public function getDetails(int $id)

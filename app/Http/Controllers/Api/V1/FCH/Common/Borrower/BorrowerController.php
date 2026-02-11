@@ -20,6 +20,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateDocumentStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
 
 class BorrowerController extends Controller
 {
@@ -67,7 +68,7 @@ class BorrowerController extends Controller
     {
         try {
             $data = $request->validated();
-            
+
             $result = $this->borrowerService->store($data);
 
             $borrower = $result['borrower'];
@@ -81,6 +82,29 @@ class BorrowerController extends Controller
             );
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage());
+        }
+    }
+
+    /**
+     * Update Borrower Business Financials.
+     */
+    public function BusinessFinancials(UpdateBorrowerBusinessFinancialsRequest $request, string $id)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails((int)$id);
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $data = $request->validated();
+            $updatedBorrower = $this->borrowerService->updateBusinessFinancials($borrower, $data);
+
+            return ApiResponse::success(
+                new BorrowerBusinessFinancialsResource($updatedBorrower),
+                __('borrower.updated')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.update_failed'));
         }
     }
 
