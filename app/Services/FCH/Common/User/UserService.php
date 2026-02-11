@@ -107,6 +107,10 @@ class UserService
     {
         $query = User::query()
             ->where('partner_id', $partnerId)
+            ->where(function ($query) {
+                $query->whereNull('entity_type')
+                    ->orWhere('entity_type', Partner::class);
+            })
             ->with([
                 'roles',
                 'partner',
