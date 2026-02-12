@@ -3,6 +3,8 @@
 namespace App\Services\Global\Notification\Types;
 
 use App\Models\User\User;
+use Illuminate\Support\Facades\Log;
+use PgSql\Lob;
 
 class PasswordResetNotification implements NotificationTypeInterface
 {
@@ -89,15 +91,14 @@ class PasswordResetNotification implements NotificationTypeInterface
     private function getFrontendUrlByUserType(?string $userType): string
     {
         // Handle null user type by defaulting to Partner
-        if ($userType === null) {
+        if ($userType == null) {
             $userType = User::PARTNER;
         }
         
         return match ($userType) {
-            User::ADMIN => config('app.frontend_admin_url'),
+            User::ADMIN => config('app.frontend_partner_url'),
             User::PARTNER => config('app.frontend_partner_url'),
             User::BORROWER => config('app.frontend_borrower_url'),
-            default => config('app.frontend_partner_url'), // Default fallback
         };
     }
 }
