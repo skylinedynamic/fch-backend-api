@@ -90,7 +90,7 @@ Route::prefix('v1')->group(function () {
             Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
 
             Route::post('borrowers/personal-details', [BorrowerController::class, 'updatePersonalDetails']);
-            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']); 
+            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']);
 
             // Separate API for Client Info and Business Financials
             Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
@@ -100,6 +100,7 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
+            Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
@@ -194,7 +195,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [CommissionController::class, 'show']);
                 Route::post('/', [CommissionController::class, 'index']);
             });
-
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);

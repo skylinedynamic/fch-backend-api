@@ -26,6 +26,7 @@ class LeadResource extends JsonResource
             'status' => $this->status,
             // 'salesperson' => new UserResource($this->salesperson),
             'salesperson_name' => $this->salesperson?->name,
+            'salesperson_id' => $this->salesperson?->id,
             'company_name' => $this->company_name,
             'domain' => $this->domain,
             'lead_source' => $this->lead_source,

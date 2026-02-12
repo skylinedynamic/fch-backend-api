@@ -51,19 +51,6 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'state_file_number'         => ['nullable', 'string', 'max:255'],
             'business_start_date'       => ['nullable', 'date'],
 
-            // Financial Info
-            'currency'                  => ['nullable', 'string', 'max:255'],
-            'years_in_business'         => ['nullable', 'string', 'max:255'],
-            'monthly_revenue'           => ['nullable', 'numeric', 'min:0'],
-            'annual_revenue'            => ['nullable', 'numeric', 'min:0'],
-            'avg_bank_balance'          => ['nullable', 'numeric', 'min:0'],
-            'profit_margin'             => ['nullable', 'numeric'],
-            'current_business_debt'     => ['nullable', 'numeric', 'min:0'],
-            'fico_score'                => ['nullable', 'integer', 'min:0'],
-            'paydex_score'              => ['nullable', 'integer', 'min:0'],
-            'number_of_employees'       => ['nullable', 'integer', 'min:0'],
-            'nsf_days'                  => ['nullable', 'integer', 'min:0'],
-            'funding_urgency'           => ['nullable', 'string', 'max:255'],
 
             // Other
             'partner_id'                => ['nullable', 'integer', 'exists:partners,id'],

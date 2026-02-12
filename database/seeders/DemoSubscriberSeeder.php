@@ -36,7 +36,7 @@ class DemoSubscriberSeeder extends Seeder
         if (!$partner) return;
 
         // 2. Register/Get User
-        $user = User::where('email', 'john.p@example.com')->first();
+        $user = User::where('email', 'contact@techsolutions.com')->first();
         if (!$user) {
             $user = User::create([
                 'name' => 'John Partner',

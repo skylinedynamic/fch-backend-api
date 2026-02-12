@@ -67,7 +67,7 @@ class UserService
             throw $e; // user not created if DB fails
         }
 
-        // ✅ AFTER COMMIT — email section
+        // AFTER COMMIT — email section
         try {
             $partnerInfo = Partner::find($authUser->partner_id);
             $this->sendCreatedMail($user, $partnerInfo, $plainPassword);
@@ -107,6 +107,10 @@ class UserService
     {
         $query = User::query()
             ->where('partner_id', $partnerId)
+            ->where(function ($query) {
+                $query->whereNull('entity_type')
+                    ->orWhere('entity_type', Partner::class);
+            })
             ->with([
                 'roles',
                 'partner',
