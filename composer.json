@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "anhskohbo/no-captcha": "^3.7",
+        "aws/aws-sdk-php": "^3.369",
         "bacon/bacon-qr-code": "^3.0",
         "barryvdh/laravel-dompdf": "*",
         "dedoc/scramble": "^0.12.35",
