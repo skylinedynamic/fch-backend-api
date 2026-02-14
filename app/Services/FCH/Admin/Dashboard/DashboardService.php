@@ -61,7 +61,7 @@ class DashboardService
         );
 
         $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
-            $partner->fundingApplications()
+            $partner->fundingApplications()->with('partner')    
                 ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->latest()
                 ->take(5)
@@ -69,7 +69,7 @@ class DashboardService
         );
 
         $data['latest_pre_qualifications'] = DashboardPreQualificationResource::collection(
-            $partner->preQualificationRequests()
+            $partner->preQualificationRequests()->with('partner')
                 ->where('status', '!=', PreQualificationRequest::ON_HOLD)
                 ->latest()
                 ->take(5)

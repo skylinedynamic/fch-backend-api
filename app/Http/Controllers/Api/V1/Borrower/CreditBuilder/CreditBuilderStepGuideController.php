@@ -36,11 +36,17 @@ class CreditBuilderStepGuideController extends Controller
      */
     public function taskVerifyRequest(TaskVerifyRequest $request)
     {
-        $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids);
+        try {
+            $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids);
 
-        return ApiResponse::success(
-            TaskVerificationResource::collection($verificationRequests),
-            __('borrower.task_verify_request_success')
-        );
+            return ApiResponse::success(
+                TaskVerificationResource::collection($verificationRequests),
+                __('borrower.task_verify_request_success')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(
+                __('borrower.task_verify_request_failed')
+            );
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models\Borrower;
 
 use App\Models\Commission\Commission;
+use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
@@ -246,5 +247,10 @@ class FundingApplication extends Model
     public function commission()
     {
         return $this->hasOne(Commission::class,'funding_application_id','id');
+    }
+
+    public function partner()
+    {
+        return $this->belongsTo(Partner::class);
     }
 }

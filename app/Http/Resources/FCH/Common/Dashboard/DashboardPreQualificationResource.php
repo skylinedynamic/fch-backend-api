@@ -16,6 +16,8 @@ class DashboardPreQualificationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'borrower' => $this->first_name . ' ' . $this->last_name,
+            'partner' => $this->partner?->full_name,
             'purpose_of_funding' => $this->purpose_of_funding,
             'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,

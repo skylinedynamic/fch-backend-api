@@ -18,7 +18,7 @@ class TierTaskResource extends JsonResource
     public function toArray(Request $request): array
     {
         // Get status from the eager loaded relationship, default to pending
-        $borrower_task = $this->borrowerTierTasks->where('borrower_id', auth()->user()->entity_id)->first();
+        $borrower_task = $this->latestBorrowerTierTasks;
 
         return [
             'id' => $this->id,
