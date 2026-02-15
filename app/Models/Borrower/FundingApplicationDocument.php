@@ -10,9 +10,21 @@ class FundingApplicationDocument extends Model
 {
     use SoftDeletes;
 
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted()
+    {
+        static::created(function ($document) {
+            $document->document_number = 'DOC-' . str_pad($document->id, 5, '0', STR_PAD_LEFT) . $document->id;
+            $document->saveQuietly();
+        });
+    }
+
     protected $table = 'funding_application_documents';
 
     protected $fillable = [
+        'document_number',
         'funding_application_id',
         'borrower_id',
         'borrower_doc_type_id',

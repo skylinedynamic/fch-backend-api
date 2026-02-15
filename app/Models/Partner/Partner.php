@@ -94,6 +94,10 @@ class Partner extends Model
         return $this->hasMany(User::class, 'partner_id');
     }
 
+    public static function host()
+    {
+        return static::where('is_host', true)->first();
+    }
 
     /**
      * Assigned user for this partner (via partners.assign_to).

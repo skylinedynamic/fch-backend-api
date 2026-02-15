@@ -140,4 +140,6 @@ return [
     'frontend_admin_url' => env('APP_FRONTEND_ADMIN_URL', 'http://localhost:8000/api/v1'),
     'frontend_partner_url' => env('APP_FRONTEND_PARTNER_URL', 'http://localhost:5173'),
     'frontend_borrower_url' => env('APP_FRONTEND_BORROWER_URL', 'http://localhost:8000/api'),
+
+    'mail_to_doc' => env('MAIL_TO_DOC', 'docs@fourcornerfunding.com'),
 ];

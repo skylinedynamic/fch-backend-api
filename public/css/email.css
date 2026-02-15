@@ -493,8 +493,8 @@ h1 {
 }
 
 .info-table .value {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     color: #0f172a;
     text-align: right;
     padding-right: 10px;
@@ -511,4 +511,30 @@ h1 {
 .amount-value {
     color: #1e3a8a;
     font-size: 16px;
+}
+
+/* Document Upload Template Styles */
+.info-table.compact td {
+    padding: 4px;
+    border-bottom: none;
+}
+
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.doc-table th {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.doc-table td {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+p{
+    line-height: 1.5;
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Borrower\FundApplication;
 
 use App\Helpers\ApiResponse;
+use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 
@@ -10,9 +11,11 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Mail;
+use PhpParser\Builder\Param;
 
 class FundingApplicationService
 {
@@ -91,7 +94,35 @@ class FundingApplicationService
             }
 
             if($fundingApplication){
-                $doc = $this->createFundingApplicationDocumentDir($fundingApplication->id);
+                $this->createFundingApplicationDocumentDir($fundingApplication->id);
+            }
+
+            // Send email if submitted
+            if ($fundingApplication->status === FundingApplication::PENDING) {
+                try {
+                    $recipients = [];
+                    
+                    // Add Partner Email
+                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
+                        $recipients[] = $fundingApplication->partner->email;
+                    }
+
+                    // Add Configured Email
+                    $host = Partner::host();
+                    
+                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                        $recipients[] = $host->email;
+                    }
+
+                    if (!empty($recipients)) {
+                        Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Failed to send funding application submission email', [
+                        'application_id' => $fundingApplication->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
             }
 
             return $fundingApplication;

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('borrower_documents', function (Blueprint $table) {
             $table->id();
+            $table->string('document_number')->unique()->nullable();
             $table->unsignedBigInteger('document_type_id')->nullable();
             $table->unsignedBigInteger('borrower_id')->nullable();
             $table->unsignedBigInteger('application_id')->nullable();

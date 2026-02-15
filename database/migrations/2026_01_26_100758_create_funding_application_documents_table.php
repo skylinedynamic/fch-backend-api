@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('funding_application_documents', function (Blueprint $table) {
             $table->id();
+            $table->string('document_number')->unique()->nullable();
             $table->foreignId('funding_application_id')->constrained('funding_applications')->cascadeOnDelete();
             $table->foreignId('borrower_id')->constrained('borrowers')->cascadeOnDelete();
             $table->foreignId('borrower_doc_type_id')->nullable()->constrained('borrower_doc_types')->nullOnDelete();

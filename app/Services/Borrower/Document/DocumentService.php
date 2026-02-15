@@ -6,10 +6,13 @@ use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
+use App\Mail\Borrower\BorrowerDocumentsUploadedMail;
+use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentService
@@ -45,6 +48,33 @@ class DocumentService
                     'error' => $e->getMessage(),
                 ]);
                 throw new \RuntimeException($e->getMessage());
+            }
+        }
+
+        if (!empty($documents)) {
+            try {
+                $recipients = [];
+                $borrower = Borrower::with('partner')->find($user->entity_id);
+                // Add partner email if exists
+                if ($borrower->partner && $borrower->partner->email) {
+                        $recipients[] = $borrower->partner->email;
+                    }
+
+                // Add configured doc email
+                $docEmail = config('app.mail_to_doc');
+                if (!empty($docEmail)) {
+                    $recipients[] = $docEmail;
+                }
+
+                if (!empty($recipients)) {
+                    // Send to recipients
+                    Mail::to($recipients)->send(new BorrowerDocumentsUploadedMail($user, $documents));
+                }
+            } catch (\Throwable $e) {
+                Log::error('Failed to send document upload notification', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 

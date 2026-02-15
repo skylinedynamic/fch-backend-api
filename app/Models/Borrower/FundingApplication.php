@@ -11,8 +11,20 @@ use Illuminate\Database\Eloquent\Builder;
 class FundingApplication extends Model
 {
     use SoftDeletes;
+    
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted()
+    {
+        static::created(function ($application) {
+            $application->application_number = 'FUND-' . str_pad($application->id, 5, '0', STR_PAD_LEFT) . $application->id;
+            $application->saveQuietly();
+        });
+    }
 
     protected $fillable = [
+        'application_number',
         'borrower_id',
         'partner_id',
         'status',

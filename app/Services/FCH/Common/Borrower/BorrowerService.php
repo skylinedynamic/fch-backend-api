@@ -673,6 +673,7 @@ class BorrowerService
 
                 return [
                     'id' => $doc->id,
+                    'document_number' => $doc->document_number,
                     'document_name' => $doc->file_name ?: ($doc->getRawOriginal('file_path') ? basename($doc->getRawOriginal('file_path')) : 'N/A'),
                     'type' => $doc->documentType->name ?? 'Other',
                     'rejection_reason' => $doc->rejection_reason ?? '',

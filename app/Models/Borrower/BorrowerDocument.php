@@ -10,6 +10,17 @@ use Illuminate\Support\Facades\Storage;
 class BorrowerDocument extends Model
 {
     use SoftDeletes;
+    
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted()
+    {
+        static::created(function ($document) {
+            $document->document_number = 'DOC-' . str_pad($document->id, 5, '0', STR_PAD_LEFT) . $document->id;
+            $document->saveQuietly();
+        });
+    }
 
     protected $table = 'borrower_documents';
 
@@ -26,6 +37,7 @@ class BorrowerDocument extends Model
     ];
 
     protected $fillable = [
+        'document_number',
         'document_type_id',
         'borrower_id',
         'application_id',

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('funding_applications', function (Blueprint $table) {
             $table->id();
+            $table->string('application_number')->unique()->nullable();
 
             $table->unsignedBigInteger('borrower_id')->nullable();
             $table->unsignedBigInteger('partner_id')->nullable();

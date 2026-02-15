@@ -33,7 +33,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_phone'            => ['nullable', 'string', 'max:20'], // Matching business_phone_max
             'business_entity_type'      => ['nullable', 'string', 'max:255'],
             'business_industry_type'    => ['nullable', 'string', 'max:255'],
-            'business_start_date'       => ['nullable', 'date'],
+            'business_start_date'       => ['nullable', 'date_format:m-d-Y'],
             'last_4_ssn'                => ['nullable', 'string', 'max:4'],
             'country_code'              => ['nullable', 'string', 'max:5'], // Matching country_code_max
             'plan_id'                   => ['required', 'exists:subscription_plans,id'],
