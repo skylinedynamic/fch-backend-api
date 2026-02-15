@@ -7,6 +7,7 @@ use App\Models\Common\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\FCH\Permission\PermissionResource;
+use App\Models\Partner\Partner;
 
 class PermissionService
 {
@@ -26,6 +27,11 @@ class PermissionService
 
         if (!$isDeveloper && !$isHostPartner) {
             $query->where('is_host', 0);
+            if($user->partner?->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL){
+                $query->where('is_wl', 1);
+            }else{
+                $query->where('is_wl', 0);
+            }
         }
 
         $permissions = $query->get();

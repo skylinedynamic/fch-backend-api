@@ -10,6 +10,23 @@ use Spatie\Permission\Models\Role as SpatieRole;
 
 class Role extends SpatieRole
 {
+    public static function create(array $attributes = [])
+    {
+        $attributes['guard_name'] = $attributes['guard_name'] ?? 'api';
+        $attributes['partner_id'] = $attributes['partner_id'] ?? null;
+
+        $exists = static::where('name', $attributes['name'])
+            ->where('guard_name', $attributes['guard_name'])
+            ->where('partner_id', $attributes['partner_id'])
+            ->exists();
+
+        if ($exists) {
+            throw new \Exception("A role `{$attributes['name']}` already exists for guard `{$attributes['guard_name']}` and partner `{$attributes['partner_id']}`.");
+        }
+
+        return static::query()->create($attributes);
+    }
+
     protected $fillable = ['name', 'description', 'guard_name', 'partner_id', 'code', 'is_static'];
 
     public function partner(): BelongsTo

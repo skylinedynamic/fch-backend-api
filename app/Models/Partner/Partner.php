@@ -86,6 +86,9 @@ class Partner extends Model
     const STATUS_SUSPENDED = 'Suspended';
     const STATUS_CLOSED = 'Closed';
 
+    const PARTNER_TYPE_CERTIFIED = 'Certified Partner';
+    const PARTNER_TYPE_WHITE_LABEL = 'White-Label Partner (WL)';
+
     /**
      * Users that belong to this partner (via users.partner_id).
      */

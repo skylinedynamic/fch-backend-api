@@ -219,12 +219,21 @@ class PartnerService
                 throw new \Exception("Partner with ID {$partnerId} not found");
             }
 
-            // Filter permissions based on is_host status
-            // Host partners (is_host = 1) get ALL permissions
-            // Regular partners (is_host = 0) only get permissions where is_host = 0
-            $allowedPermissions = Permission::where('guard_name', 'api')
+            if($partner->partner_type == Partner::PARTNER_TYPE_CERTIFIED){
+
+                $allowedPermissions = Permission::where('guard_name', 'api')
                 ->where('is_host', 0)
+                ->where('is_wl', 0)
                 ->get();
+
+            }else{
+
+                $allowedPermissions = Permission::where('guard_name', 'api')
+                ->where('is_host', 0)
+                ->where('is_wl', 1)
+                ->get();
+
+            }
 
             if ($allowedPermissions->isEmpty()) {
                 Log::warning('No API permissions found. Roles will be created without permissions.');
@@ -248,6 +257,7 @@ class PartnerService
 
             // Also sync permissions directly to user (like EmployeeService)
             if ($allowedPermissions->isNotEmpty()) {
+                $adminRole->syncPermissions($allowedPermissions);
                 $user->syncPermissions($allowedPermissions);
             }
 
@@ -256,29 +266,6 @@ class PartnerService
                 'role_id' => $adminRole->id,
             ]);
 
-            // Create or update Borrower role with no permissions
-            $borrowerRole = Role::updateOrCreate(
-                ['name' => 'Borrower', 'guard_name' => 'api', 'partner_id' => $partnerId],
-                [
-                    'name' => 'Borrower',
-                    'guard_name' => 'api',
-                    'partner_id' => $partnerId,
-                    'code' => 'borrower',
-                    'is_static' => false,
-                ]
-            );
-
-            // Borrower role gets no permissions (empty sync)
-            $borrowerRole->syncPermissions([]);
-
-            Log::info('Partner roles created successfully', [
-                'partner_id' => $partnerId,
-                'admin_role_id' => $adminRole->id,
-                'borrower_role_id' => $borrowerRole->id,
-                'user_id' => $user->id,
-                'permissions_assigned' => $allowedPermissions->count(),
-                'is_host' => $partner->is_host,
-            ]);
 
             // Clear cached permissions after role creation
             app(PermissionRegistrar::class)->forgetCachedPermissions();

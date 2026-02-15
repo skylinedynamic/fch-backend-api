@@ -195,6 +195,12 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [CommissionController::class, 'show']);
                 Route::post('/', [CommissionController::class, 'index']);
             });
+
+
+            // auth profile
+            Route::prefix('auth-profile')->group(function () {
+                Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
+            });
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
@@ -205,9 +211,5 @@ Route::prefix('v1')->group(function () {
         });
 
 
-        // auth profile
-        Route::prefix('auth-profile')->group(function () {
-            Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
-        });
     });
 });

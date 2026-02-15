@@ -69,9 +69,11 @@ class RoleService
             $data['guard_name'] = 'api';
             $data['name'] = trim((string) ($data['name'] ?? ''));
             $permissionIds = array_values(array_unique(array_filter(array_map('intval', $data['permission_ids'] ?? []), function ($id) { return $id > 0; })));
+            
             $role = Role::create([
                 'name' => $data['name'],
-                'description' => $data['description'],
+                'code' => $data['code'] ?? strtolower(str_replace(' ', '_', $data['name'])),
+                'description' => $data['description'] ?? '',
                 'guard_name' => $data['guard_name'],
                 'partner_id' => $data['partner_id'],
             ]);
@@ -91,7 +93,7 @@ class RoleService
             return ApiResponse::success($role, __('role_permission.role_created'), 201);
         } catch (\Throwable $e) {
             DB::rollBack();
-            return ApiResponse::error(__('role_permission.role_create_error'), 400);
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 
