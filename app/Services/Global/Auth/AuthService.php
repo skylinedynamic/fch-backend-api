@@ -94,12 +94,13 @@ class AuthService
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         // Eager-load relations needed by UserResource to avoid lazy loading
-        $relations = ['roles.permissions', 'permissions', 'partner'];
-
-        if (in_array($user->entity_type, [Borrower::class, Partner::class])) {
-            $relations[] = 'entity.subscription.enrollmentPhase';
-            $relations[] = 'entity.subscription.platformFeePhase';
-        }
+        $relations = [
+            'roles' => function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id);
+            },
+            'roles.permissions',
+            'partner.subscription.phases',
+        ];
 
         $user->load($relations);
 

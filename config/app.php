@@ -145,4 +145,5 @@ return [
     'for_free_certified_user_count' => env('FOR_FREE_CERTIFIED_USER_COUNT', 5),
 
     'mail_to_doc' => env('MAIL_TO_DOC', 'docs@fourcornerfunding.com'),
+    'per_user_price' => env('PER_USER_PRICE', 49.97),
 ];

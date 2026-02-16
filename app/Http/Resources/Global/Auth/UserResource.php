@@ -3,8 +3,9 @@
 namespace App\Http\Resources\Global\Auth;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\Borrower\Borrower;
 use Illuminate\Support\Collection;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 /** @mixin \App\Models\User\User */
 class UserResource extends JsonResource
@@ -37,14 +38,21 @@ class UserResource extends JsonResource
             ->unique()
             ->values();
 
-        $subscription = $this->entity?->subscription;
+        // Determine subscription based on user type
+        $subscription = null;
+        if ($this->entity_type === Borrower::class) {
+            $subscription = $this->entity?->subscription;
+        } else {
+            // For Partners, Employees, or users with null entity_type but valid partner_id
+            $subscription = $this->partner?->subscription;
+        }
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->email,
+            'name' => $this->partner ? $this->partner->full_name : $this->name,
+            'email' => $this->partner ? $this->partner->email : $this->email,
             'partner_id' => $this->partner_id,
-            'phone_number' => $this->phone_number,
+            'phone_number' => $this->partner ? $this->partner->phone_number : $this->phone_number,
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
@@ -54,16 +62,16 @@ class UserResource extends JsonResource
             'subscription_status' => $subscription?->status,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
             'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $subscription?->enrollmentPhase?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $subscription?->platformFeePhase?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $subscription?->enrollmentPhase?->enrollment_completed_at?->toDateString(),
+            'next_installment_date' => $subscription?->phases?->next_installment_date?->toDateString(),
+            'next_platform_fee_date' => $subscription?->phases?->next_platform_fee_date?->toDateString(),
+            'enrollment_completed_at' => $subscription?->phases?->enrollment_completed_at?->toDateString(),
             'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
-            'phase' => $subscription?->enrollmentPhase?->phase,
+            'phase' => $subscription?->phases?->phase,
             'status' => $this->status,
-            'image' => $this->image,
+            'image' => $this->partner ? $this->partner->partner_image : $this->image,
             'role_id' => $roleId,
             'role_name' => $roleName,
             'permissions' => $permissionNames,

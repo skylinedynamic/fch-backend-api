@@ -35,12 +35,13 @@ class UserDetailResource extends JsonResource
         $permissionNames = $allPerms->pluck('name')
             ->unique()
             ->values();
+    
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'email' => $this->email,
-            'phone_number' => $this->phone_number,
+            'name' => $this->partner ? $this->partner->full_name : $this->name,
+            'email' => $this->partner ? $this->partner->email : $this->email,
+            'phone_number' => $this->partner ? $this->partner->phone_number : $this->phone_number,
             'partner_id' => $this->partner_id,
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
@@ -51,16 +52,16 @@ class UserDetailResource extends JsonResource
             'subscription_status' => $this->partner?->subscription?->status,
             'first_payment_date' => $this->partner?->subscription?->first_payment_date?->toDateString(),
             'platform_fee_start_date' => $this->partner?->subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $this->partner?->subscription?->enrollmentPhase?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $this->partner?->subscription?->platformFeePhase?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $this->partner?->subscription?->enrollmentPhase?->enrollment_completed_at?->toDateString(),
+            'next_installment_date' => $this->partner?->subscription?->phases?->next_installment_date?->toDateString(),
+            'next_platform_fee_date' => $this->partner?->subscription?->phases?->next_platform_fee_date?->toDateString(),
+            'enrollment_completed_at' => $this->partner?->subscription?->phases?->enrollment_completed_at?->toDateString(),
             'subscription_start_date' => $this->partner?->subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $this->partner?->subscription?->subscription_end_date?->toDateString(),
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
-            'phase' => $this->partner?->subscription?->enrollmentPhase?->phase,
+            'phase' => $this->partner?->subscription?->phases?->phase,
             'status' => $this->status,
-            'image' => $this->image,
+            'image' => $this->partner ? $this->partner->partner_image : $this->image,
             'role_id' => $roleId,
             'role_name' => $roleName,
             'permissions' => $permissionNames,

@@ -79,9 +79,14 @@ class Subscription extends Model
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_plan_id');
     }
 
-    public function phases()
+    public function allPhases()
     {
         return $this->hasMany(SubscriptionPhase::class);
+    }
+
+    public function phases()
+    {
+        return $this->hasOne(SubscriptionPhase::class)->latestOfMany();
     }
 
     public function enrollmentPhase()
