@@ -29,3 +29,21 @@ if (!function_exists('formatComma')) {
         return number_format((float)$value, $decimal, '.', ',');
     }
 }
+
+
+if (!function_exists('currencyFormat')) {
+    /**
+     * Format number with commas.
+     *
+     * @param mixed $value
+     * @param int $decimal
+     * @return string|null
+     */
+    function currencyFormat($value, int $decimal = 2, string $symbol = '$', $conversionRate = 1, $thousandSeparator = ','): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return $symbol . number_format((float)$value * $conversionRate, $decimal, '.', $thousandSeparator);
+    }
+}

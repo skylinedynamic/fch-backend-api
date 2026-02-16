@@ -462,24 +462,37 @@ class AppointmentService
     public function getSelectableUsers(array $data)
     {
         $user = auth()->user();
-        $query = User::where('partner_id', $user->partner_id);
-
-        if ($user->entity_type == Partner::class) {
+        
+         if ($user->entity_type == Borrower::class) {
+            $query = User::where('partner_id', $user->partner_id);
+            $borrower = $user->entity;
+            if ($borrower) {
+                $query->where(function ($q) {
+                    $q->where('entity_type', '!=', Borrower::class)
+                    ->orWhereNull('entity_type');
+                });
+            }
+            
+        }
+        elseif ($user->entity_type == Partner::class) {
 
             $isHost = (int) $user->partner->is_host;
 
             if ($isHost == 1) {
+                // Admin Partner
+                $query = User::query();
 
-                $query->when(!$data['meeting_with_host'], function ($q) {
-                    $q->where(function ($sub) {
-                        $sub->where('entity_type', Borrower::class)
-                            ->orWhereNull('entity_type');
+                if(isset($data['meeting_with']) &&  $data['meeting_with']){
+                    $query->where('user_type', User::PARTNER);
+                }else{
+                    $query->where('user_type', User::ADMIN)->where(function ($q) {
+                        $q->where('entity_type','!=',Partner::class)
+                        ->orWhereNull('entity_type');
                     });
-                }, function ($q) {
-                    $q->where('entity_type', Partner::class);
-                });
+                }
 
             } else {
+                $query = User::query();
                 $query->where(function ($q) use ($data) {
 
                     if (!$data['meeting_with_host']) {
@@ -500,20 +513,9 @@ class AppointmentService
                     }
                 });
             }
-        } elseif ($user->entity_type == Borrower::class) {
-            $borrower = $user->entity;
-            if ($borrower) {
-                $query->where(function ($q) {
-                    $q->where('entity_type', '!=', Borrower::class)
-                    ->orWhereNull('entity_type');
-                });
-            }
-            
-        }else{
-
         }
 
-        $results = $query->get(['id', 'name', 'entity_type', 'entity_id']);
+        $results = $query->get(['id', 'name', 'entity_type', 'entity_id','user_type']);
 
         return ApiResponse::success(
             AppointmentUserResource::collection($results),
