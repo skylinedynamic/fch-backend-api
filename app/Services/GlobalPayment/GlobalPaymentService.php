@@ -263,4 +263,127 @@ class GlobalPaymentService
 
         Log::info('Borrower Status Activated via Payment', ['borrower_id' => $borrower->id]);
     }
+
+    /**
+     * Create and process a Stripe payment for users.
+     */
+    /**
+     * Create and process a Stripe payment for users (Seat Purchase).
+     */
+    public function processPaymentForUsers(array $data)
+    {
+        $setting = Setting::where('status', true)->first();
+
+        if (!$setting) {
+            throw new \Exception('Payment settings not found or inactive.');
+        }
+
+        $secretKey = ($setting->payment_mode === 'production')
+            ? $setting->stripe_secret_production
+            : $setting->stripe_secret_sandbox;
+
+        if (!$secretKey) {
+            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
+        }
+
+        Stripe::setApiKey($secretKey);
+
+        $partnerId = $data['partner_id'] ?? null;
+        $partner = Partner::find($partnerId);
+
+        if (!$partner) {
+            throw new \Exception('Partner not found for seat purchase.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Create Stripe PaymentIntent
+            $paymentIntent = PaymentIntent::create([
+                'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? 'usd',
+                'payment_method' => $data['payment_method_id'],
+                'description' => $data['description'] ?? 'User Seat Purchase',
+                'confirm' => true,
+                'automatic_payment_methods' => [
+                    'enabled' => true,
+                    'allow_redirects' => 'never',
+                ],
+                'metadata' => [
+                    'partner_id' => $partnerId,
+                    'quantity' => $data['quantity'] ?? 1,
+                    'entity_type' => $data['entity_type'],
+                    'entity_id' => $data['entity_id'] ?? null,
+                ],
+            ]);
+
+            if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+                // 2. Create Invoice
+                $invoiceId = 'INV-' . strtoupper(uniqid());
+                $invoice = Invoice::create([
+                    'invoice_id' => $invoiceId,
+                    'partner_id' => $partner->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $partner->id,
+                    'customer_name' => $partner->full_name,
+                    'email' => $partner->email,
+                    'payment_amount' => $data['amount'] / 100,
+                    'payment_date' => now(),
+                    'status' => Invoice::STATUS_PAID,
+                    'currency' => $paymentIntent->currency,
+                    'created_by' => Auth::id(),
+                    'created_at' => null,
+                ]);
+
+                // 3. Create Payment
+                $payment = Payment::create([
+                    'partner_id' => $partner->id,
+                    'invoice_id' => $invoice->invoice_id,
+                    'entity_type' => 'UserSeatPurchase',
+                    'entity_id' => $partner->id,
+                    'transaction_id' => $paymentIntent->id,
+                    'payment_from' => 'Stripe',
+                    'payment_type' => 'Card',
+                    'amount' => $data['amount'] / 100,
+                    'currency' => $paymentIntent->currency,
+                    'details' => $paymentIntent->toArray(),
+                    'status' => 'succeeded',
+                    'transaction_date' => now(),
+                    'created_by' => Auth::id(),
+                ]);
+
+                // 4. Update Partner Paid User Count
+                $quantity = (int) ($data['quantity'] ?? 1);
+                $partner->increment('total_paid_users', $quantity);
+
+                // 5. Send Email
+                try {
+                    $paymentData = [
+                        'amount' => $payment->amount,
+                        'currency' => $payment->currency,
+                        'transaction_id' => $payment->transaction_id,
+                        'description' => $paymentIntent->description,
+                        'date' => $payment->transaction_date,
+                        'user_name' => $partner->full_name,
+                        'user_email' => $partner->email,
+                    ];
+                    Mail::to($partner->email)->send(new PaymentSuccessMail($paymentData));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
+                }
+
+                DB::commit();
+                return $payment;
+            }
+
+            throw new \Exception('Payment status: ' . $paymentIntent->status);
+        } catch (ApiErrorException $e) {
+            DB::rollBack();
+            Log::error('Stripe Seat Purchase Error: ' . $e->getMessage());
+            throw $e;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Seat Purchase Processing Error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
 }

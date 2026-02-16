@@ -205,6 +205,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
+        Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {

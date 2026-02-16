@@ -25,4 +25,18 @@ class GlobalPaymentController extends Controller
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
+
+    /**
+     * Process a payment for users (Seat Purchase).
+     */
+    public function processPaymentForUsers(GlobalPaymentRequest $request): JsonResponse
+    {
+        try {
+            $payment = $this->paymentService->processPaymentForUsers($request->validated());
+
+            return ApiResponse::success($payment, __('payment.processed'));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
 }
