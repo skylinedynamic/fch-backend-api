@@ -33,7 +33,7 @@ class CommonService
         $user = auth()->user();
 
         if ($user->partner && $user->partner->is_host == 0) {
-            $count = User::where('partner_id', $user->partner_id)->count();
+            $count = User::where('partner_id', $user->partner_id)->withoutTrashed()->count();
             return [
                 'count' => $count,
                 'per_user_price' => config('app.per_user_price'),

@@ -49,10 +49,10 @@ class UserResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->partner ? $this->partner->full_name : $this->name,
-            'email' => $this->partner ? $this->partner->email : $this->email,
+            'name' => $this->name,
+            'email' => $this->email,
             'partner_id' => $this->partner_id,
-            'phone_number' => $this->partner ? $this->partner->phone_number : $this->phone_number,
+            'phone_number' => $this->phone_number,
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,

@@ -352,8 +352,11 @@ class GlobalPaymentService
                 ]);
 
                 // 4. Update Partner Paid User Count
+                Log::info('Partner Paid User Count Updated', ['partner_id' => $partner->id, 'quantity' => $data['quantity']]);
                 $quantity = (int) ($data['quantity'] ?? 1);
-                $partner->increment('total_paid_users', $quantity);
+                $partner->update([
+                    'total_paid_users' => $partner->total_paid_users + $quantity,
+                ]);
 
                 // 5. Send Email
                 try {

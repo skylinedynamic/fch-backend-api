@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\GlobalPayment;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\GlobalPayment\GlobalPaymentRequest;
-use App\Services\GlobalPayment\GlobalPaymentService;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use App\Http\Controllers\Controller;
+use App\Services\GlobalPayment\GlobalPaymentService;
+use App\Http\Requests\Api\V1\GlobalPayment\GlobalPaymentRequest;
+use App\Http\Requests\Api\V1\GlobalPayment\GlobalPaymentForUserRequest;
 
 class GlobalPaymentController extends Controller
 {
@@ -29,7 +30,7 @@ class GlobalPaymentController extends Controller
     /**
      * Process a payment for users (Seat Purchase).
      */
-    public function processPaymentForUsers(GlobalPaymentRequest $request): JsonResponse
+    public function processPaymentForUsers(GlobalPaymentForUserRequest $request): JsonResponse
     {
         try {
             $payment = $this->paymentService->processPaymentForUsers($request->validated());
