@@ -5,6 +5,7 @@ namespace App\Services\Global\Auth;
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
+use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -93,7 +94,14 @@ class AuthService
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         // Eager-load relations needed by UserResource to avoid lazy loading
-        $user->load(['roles.permissions', 'permissions', 'partner', 'entity.subscription.enrollmentPhase', 'entity.subscription.platformFeePhase']);
+        $relations = ['roles.permissions', 'permissions', 'partner'];
+
+        if (in_array($user->entity_type, [Borrower::class, Partner::class])) {
+            $relations[] = 'entity.subscription.enrollmentPhase';
+            $relations[] = 'entity.subscription.platformFeePhase';
+        }
+
+        $user->load($relations);
 
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);

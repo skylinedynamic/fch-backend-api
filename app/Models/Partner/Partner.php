@@ -62,7 +62,9 @@ class Partner extends Model
         'assign_to',
         'partner_image',
         'tax_id',
-        'website'
+        'website',
+        'total_free_users',
+        'total_paid_users'
     ];
 
     /**
@@ -194,7 +196,7 @@ class Partner extends Model
     {
         return $this->hasMany(Commission::class, 'partner_id');
     }
- 
+
     public function fundingApplications()
     {
         return $this->hasMany(FundingApplication::class, 'partner_id');
