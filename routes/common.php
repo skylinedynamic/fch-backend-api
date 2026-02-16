@@ -159,6 +159,7 @@ Route::prefix('v1')->group(function () {
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
+            Route::get('user-count', [CommonController::class, 'getUserCount']);
             Route::get('user-details', [UserDetailController::class, '__invoke']);
 
             // Statistics routes
@@ -209,7 +210,5 @@ Route::prefix('v1')->group(function () {
         Route::prefix('notifications')->group(function () {
             Route::post('/test-email', [V1NotificationController::class, 'sendTestEmail']);
         });
-
-
     });
 });

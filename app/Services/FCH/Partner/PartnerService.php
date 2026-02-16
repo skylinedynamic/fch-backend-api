@@ -224,15 +224,17 @@ class PartnerService
             if ($partner->partner_type == Partner::PARTNER_TYPE_CERTIFIED) {
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
-                    ->where('is_host', 0)
-                    ->where('is_wl', 0)
-                    ->get();
-            } else {
+                ->where('is_host', 0)
+                // ->where('is_wl', 0)
+                ->get();
+
+            }else{
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
-                    ->where('is_host', 0)
-                    ->where('is_wl', 1)
-                    ->get();
+                ->where('is_host', 0)
+                // ->where('is_wl', 1)
+                ->get();
+
             }
 
             if ($allowedPermissions->isEmpty()) {

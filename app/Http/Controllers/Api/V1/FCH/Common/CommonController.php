@@ -27,4 +27,21 @@ class CommonController extends Controller
             return ApiResponse::serverError('Failed to retrieve users.');
         }
     }
+
+    /**
+     * Get User Count
+     */
+    public function getUserCount()
+    {
+        try {
+            $data = $this->commonService->getUserCount();
+            $message = $data['count'] !== null
+                ? __('common.user_count_retrieved')
+                : __('common.user_count_not_applicable');
+
+            return ApiResponse::success($data, $message);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('common.user_count_failed'));
+        }
+    }
 }

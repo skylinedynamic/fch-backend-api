@@ -23,7 +23,20 @@ class CommonService
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();
+    }
 
-        return $users;
+    /**
+     * Get User Count
+     */
+    public function getUserCount()
+    {
+        $user = auth()->user();
+
+        if ($user->partner && $user->partner->is_host == 0) {
+            $count = User::where('partner_id', $user->partner_id)->count();
+            return ['count' => $count];
+        }
+
+        return ['count' => null];
     }
 }
