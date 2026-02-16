@@ -179,8 +179,8 @@ class User extends Authenticatable implements OAuthenticatable
 
         // For SMS/Email verification
         if (in_array($twoFactorSetting->method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
-            return $twoFactorSetting->code === $code && 
-                   !$twoFactorSetting->isCodeExpired();
+            return $twoFactorSetting->code === $code &&
+                !$twoFactorSetting->isCodeExpired();
         }
 
         return false;
@@ -424,7 +424,7 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function partner()
     {
-        return $this->belongsTo(Partner::class, 'entity_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     /**
