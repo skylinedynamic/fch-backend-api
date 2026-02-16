@@ -42,6 +42,13 @@ class ProfileService
 
             // Update the user
             Borrower::where('id', $user->entity_id)->update($updateData);
+
+            // Update the user
+            User::where('id', $user->id)->update([
+                'name' => $data['first_name']." ".$data['last_name'],
+                // 'email' => $data['email'],
+                'phone_number' => $data['phone_number'],
+            ]);
             
             DB::commit();
             return $user->fresh();

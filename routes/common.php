@@ -61,6 +61,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('common')->group(function () {
 
             Route::get('dashboard', [DashboardController::class, 'index']);
+            Route::get('refresh-user', [CommonController::class, 'refreshUser']);
 
             Route::post('roles/fetch-roles', [RoleController::class, 'fetchRoles']);
             Route::post('roles/destroy', [RoleController::class, 'destroy']);

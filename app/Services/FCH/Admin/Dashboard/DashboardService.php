@@ -33,9 +33,9 @@ class DashboardService
             // --- HOST VIEW ---
             $data['counts'] = [
                 'total_partners' => $partner->count(),
-                'total_clients' => $partner->borrowers->count(),
-                'total_leads' => $partner->leads->count(),
-                'total_commission' => $partner->commissions->where('status', Commission::PAYMENT_STATUS_PAID)->sum('admin_commission_amount'),
+                'total_clients' => Borrower::count(),
+                'total_leads' => Lead::count(),
+                'total_commission' => Commission::where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('admin_commission_amount'),
             ];
 
         } else {
@@ -43,7 +43,7 @@ class DashboardService
             $data['counts'] = [
                 'total_clients' => $partner->borrowers->count(),
                 'total_leads' => $partner->leads->count(),
-                'total_commission' => $partner->commissions->where('status', Commission::PAYMENT_STATUS_PAID)->sum('partner_commission_amount'),
+                'total_commission' => $partner->commissions->where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('partner_commission_amount'),
                 'total_appointments' => Appointment::where('partner_id', $partner->id)->count(),
             ];
         }
