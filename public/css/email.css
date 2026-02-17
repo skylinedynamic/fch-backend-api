@@ -253,17 +253,69 @@ h1 {
         width: 100% !important;
     }
 
+    .wrapper {
+        padding: 10px 0 !important;
+    }
+
     .content {
-        padding: 25px 20px;
+        padding: 20px 15px !important;
     }
 
-    .info-item {
-        flex-direction: column;
+    .header-logo {
+        padding: 15px !important;
     }
 
-    .info-label {
-        margin-bottom: 5px;
-        width: 100%;
+    .logo {
+        width: 150px !important;
+    }
+
+    /* Table Stacking for Mobile */
+    .detail-table, .info-table {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .detail-table tr, .info-table tr {
+        display: block !important;
+        margin-bottom: 15px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+
+    .detail-table tr:last-child, .info-table tr:last-child {
+        border-bottom: none !important;
+    }
+
+    .detail-table td, .info-table td {
+        display: block !important;
+        width: 100% !important;
+        text-align: left !important;
+        padding: 5px 0 !important;
+        border-bottom: none !important;
+    }
+
+    .detail-table .label, .info-table .label {
+        width: 100% !important;
+        margin-bottom: 2px !important;
+        padding-left: 0 !important;
+    }
+
+    .detail-table .value, .info-table .value {
+        width: 100% !important;
+        text-align: left !important;
+        padding-right: 0 !important;
+    }
+
+    .box-light, .box-primary, .info-card-content {
+        padding: 15px !important;
+    }
+
+    .info-card-header {
+        padding: 15px !important;
+        font-size: 14px !important;
+    }
+
+    .appointment-title {
+        font-size: 18px !important;
     }
 }
 

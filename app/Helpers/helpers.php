@@ -39,7 +39,7 @@ if (!function_exists('currencyFormat')) {
      * @param int $decimal
      * @return string|null
      */
-    function currencyFormat($value, int $decimal = 2, string $symbol = '$', $conversionRate = 1, $thousandSeparator = ','): ?string
+    function currencyFormat($value, $decimal = 2, $symbol = '$', $conversionRate = 1, $thousandSeparator = ','): ?string
     {
         if ($value === null || $value === '') {
             return null;
