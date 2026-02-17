@@ -56,13 +56,13 @@ class UserService
                 'user_type'    => $authUser->user_type,
                 'password'     => Hash::make($plainPassword),
                 'partner_id'   => $authUser->partner_id,
-                'status'       => User::STATUS['inactive'],
+                'status'       => isset($data['is_paid']) && $data['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
                 'entity_type'  => null,
                 'entity_id'    => null,
-                'is_paid'      => $data['is_paid'] ?? false,
-                'payment_status' => $data['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
-                'start_date'   => $data['is_paid'] ? now() : null,
-                'end_date'     => $data['is_paid'] ? now()->addMonths($data['months']) : null,
+                'is_paid'      => isset($data['is_paid']) ? $data['is_paid'] : false,
+                'payment_status' => isset($data['is_paid']) && $data['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
+                'start_date'   => isset($data['is_paid']) && $data['is_paid'] ? now() : null,
+                'end_date'     => isset($data['is_paid']) && $data['is_paid'] ? now()->addMonths($data['months']) : null,
             ]);
 
             $roleId = $data['role_id'] ?? null;
@@ -70,21 +70,23 @@ class UserService
             if ($roleId) {
                 $this->assignRoleAndPermissions($user, $roleId);
             }
-            if ($data['is_paid']) {
+            if (isset($data['is_paid']) && $data['is_paid']) {
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
                     'partner_id' => $authUser->partner_id,
                     'entity_type' => User::class,
                     'entity_id' => $user->id,
-                    'customer_name' => $user->full_name,
+                    'customer_name' => $user->name,
                     'email' => $user->email,
                     'payment_amount' => $data['amount'],
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,
                     'created_by' => Auth::id(),
-                    'created_at' => null,
                 ]);
+                $user->invoice_id = $invoice->id;
+            } else {
+                $user->invoice_id = null;
             }
 
             DB::commit();

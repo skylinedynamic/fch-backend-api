@@ -298,9 +298,6 @@ class GlobalPaymentService
             throw new \Exception('Partner not found for seat purchase.');
         }
 
-        Log::info($data);
-        Log::info('Arafat');
-
         DB::beginTransaction();
         try {
             // 1. Create Stripe PaymentIntent
@@ -337,8 +334,8 @@ class GlobalPaymentService
                 $payment = Payment::create([
                     'partner_id' => $partner->id,
                     'invoice_id' => $invoice->invoice_id,
-                    'entity_type' => 'UserSeatPurchase',
-                    'entity_id' => $partner->id,
+                    'entity_type' => User::class,
+                    'entity_id' => $data['user_id'],
                     'transaction_id' => $paymentIntent->id,
                     'payment_from' => 'Stripe',
                     'payment_type' => 'Card',
@@ -351,15 +348,13 @@ class GlobalPaymentService
                 ]);
 
                 // 4. Update Partner Paid User Count
-                Log::info('Partner Paid User Count Updated', ['partner_id' => $partner->id, 'quantity' => $data['quantity']]);
                 $quantity = (int) ($data['quantity'] ?? 1);
                 $partner->update([
                     'total_paid_users' => $partner->total_paid_users + $quantity,
                 ]);
 
-                User::where('partner_id', $partner->id)->where('is_paid', true)->update([
+                User::where('id', $data['user_id'])->where('partner_id', $partner->id)->update([
                     'status' => User::STATUS['active'],
-                    'is_paid' => true,
                     'payment_status' => User::PAYMENT_STATUS_PAID,
                 ]);
 

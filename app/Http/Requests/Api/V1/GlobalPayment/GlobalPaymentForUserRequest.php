@@ -33,6 +33,7 @@ class GlobalPaymentForUserRequest extends BaseApiRequest
             'entity_type' => 'nullable|string',
             'entity_id' => 'nullable|integer',
             'quantity' => 'nullable',
+            'user_id' => 'nullable',
         ];
     }
 

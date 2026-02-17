@@ -18,7 +18,7 @@ class UserResource extends JsonResource
             'phone_number' => $this->phone_number,
             'role'         => $this->getRoleNames()->first(),
             'status'        => $this->status,
-            'image'         => (function($user) {
+            'image'         => (function ($user) {
                 if (!$user || !$user->entity) return null;
                 $entity = $user->entity;
                 if ($entity instanceof Partner) {
@@ -28,6 +28,7 @@ class UserResource extends JsonResource
                 }
                 return null;
             })($this->resource),
+            'invoice_id'    => $this->invoice_id,
         ];
     }
 }
