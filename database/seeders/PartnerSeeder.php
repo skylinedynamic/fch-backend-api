@@ -26,7 +26,7 @@ class PartnerSeeder extends Seeder
             [
                 'is_host' => true,
                 'company_name' => 'Four Corner Funding',
-                'email' => 'host@fch.com',
+                'email' => 'craig@fourcornerfunding.com',
                 'phone_number' => '+1000000000',
                 'company_logo' => 'logo.png',
                 'full_name' => 'Host Admin',

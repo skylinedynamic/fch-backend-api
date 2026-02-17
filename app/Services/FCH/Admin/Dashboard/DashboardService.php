@@ -44,7 +44,7 @@ class DashboardService
                 'total_clients' => $partner->borrowers->count(),
                 'total_leads' => $partner->leads->count(),
                 'total_commission' => $partner->commissions->where('payment_status', Commission::PAYMENT_STATUS_PAID)->sum('partner_commission_amount'),
-                'total_appointments' => Appointment::where('partner_id', $partner->id)->count(),
+                'funding_application' => FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)->where('partner_id', $partner->id)->count(),
             ];
         }
 

@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
         // 1) Link Admin to Host Partner via polymorphic mapping
         $hostPartner = DB::table('partners')->where('is_host', true)->first();
         User::updateOrCreate(
-            ['email' => 'craig@fourcornerholdings.com'],
+            ['email' => 'craig@fourcornerfunding.com'],
             [
                 'name' => $hostPartner?->full_name ?: $hostPartner?->company_name,
                 'phone_number' => $hostPartner?->phone_number,
