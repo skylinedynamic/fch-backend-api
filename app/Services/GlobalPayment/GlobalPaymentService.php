@@ -3,15 +3,17 @@
 namespace App\Services\GlobalPayment;
 
 use Stripe\Stripe;
+use App\Models\User\User;
 use Stripe\PaymentIntent;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\Setting\Setting;
-use App\Models\Borrower\Borrower;
 
+use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\FCH\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
@@ -21,7 +23,8 @@ use App\Services\FCH\Subscription\SubscriptionService;
 class GlobalPaymentService
 {
     public function __construct(
-        protected SubscriptionService $subscriptionService
+        protected SubscriptionService $subscriptionService,
+        protected InvoiceService $invoiceService
     ) {}
 
     /**
@@ -295,6 +298,9 @@ class GlobalPaymentService
             throw new \Exception('Partner not found for seat purchase.');
         }
 
+        Log::info($data);
+        Log::info('Arafat');
+
         DB::beginTransaction();
         try {
             // 1. Create Stripe PaymentIntent
@@ -302,7 +308,7 @@ class GlobalPaymentService
                 'amount' => $data['amount'],
                 'currency' => $data['currency'] ?? 'usd',
                 'payment_method' => $data['payment_method_id'],
-                'description' => $data['description'] ?? 'User Seat Purchase',
+                'description' => $data['description'] ?? '',
                 'confirm' => true,
                 'automatic_payment_methods' => [
                     'enabled' => true,
@@ -317,21 +323,14 @@ class GlobalPaymentService
             ]);
 
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
-                // 2. Create Invoice
-                $invoiceId = 'INV-' . strtoupper(uniqid());
-                $invoice = Invoice::create([
-                    'invoice_id' => $invoiceId,
-                    'partner_id' => $partner->id,
-                    'entity_type' => Partner::class,
-                    'entity_id' => $partner->id,
-                    'customer_name' => $partner->full_name,
-                    'email' => $partner->email,
-                    'payment_amount' => $data['amount'] / 100,
+                $invoice = Invoice::where('id', $data['invoice_id'])->first();
+                $invoice->update([
+                    // 'payment_amount' => $data['amount'] / 100,
                     'payment_date' => now(),
                     'status' => Invoice::STATUS_PAID,
                     'currency' => $paymentIntent->currency,
                     'created_by' => Auth::id(),
-                    'created_at' => null,
+                    'updated_by' => Auth::id(),
                 ]);
 
                 // 3. Create Payment
@@ -356,6 +355,12 @@ class GlobalPaymentService
                 $quantity = (int) ($data['quantity'] ?? 1);
                 $partner->update([
                     'total_paid_users' => $partner->total_paid_users + $quantity,
+                ]);
+
+                User::where('partner_id', $partner->id)->where('is_paid', true)->update([
+                    'status' => User::STATUS['active'],
+                    'is_paid' => true,
+                    'payment_status' => User::PAYMENT_STATUS_PAID,
                 ]);
 
                 // 5. Send Email

@@ -25,6 +25,11 @@ class StoreUserRequest extends  BaseApiRequest
             'password'     => ['required', 'string', 'min:6'],
             'role_id'      => ['required', 'exists:roles,id'],
             'employee_id'  => ['nullable', 'exists:employees,id'],
+            'is_paid'      => ['nullable', 'boolean'],
+            'start_date'   => ['nullable', 'date'],
+            'end_date'     => ['nullable', 'date'],
+            'months'       => ['nullable'],
+            'amount'       => ['nullable'],
         ];
     }
 
