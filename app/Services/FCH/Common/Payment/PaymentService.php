@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Payment;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -30,10 +31,12 @@ class PaymentService
 
         // RBAC: Partner Wise (Accurate Code following Borrowers)
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host == 1) {
-                if (!empty($filters['partner_id'])) {
-                    $query->where('payments.partner_id', $filters['partner_id']);
-                }
+
+            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
+
+            if ($isEmployee) {
+                $query->where('payments.entity_id', $authUser->id)
+                    ->where('payments.status', Payment::STATUS_SUCCEEDED);
             } else {
                 $query->where('payments.partner_id', $authUser->partner_id);
             }
@@ -210,8 +213,16 @@ class PaymentService
         $authUser = Auth::user();
         $query = Payment::query();
 
-        if ($authUser && $authUser->partner && $authUser->partner->is_host != 1) {
-            $query->where('partner_id', $authUser->partner_id);
+        if ($authUser && $authUser->partner) {
+
+            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
+
+            if ($isEmployee) {
+                $query->where('payments.entity_id', $authUser->id)
+                    ->where('payments.status', Payment::STATUS_SUCCEEDED);
+            } else {
+                $query->where('payments.partner_id', $authUser->partner_id);
+            }
         }
 
         // Apply same filters as list if needed

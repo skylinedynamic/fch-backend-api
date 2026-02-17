@@ -51,7 +51,6 @@ class UserService
             $user = User::create([
                 'name'         => $data['name'],
                 'email'        => $data['email'],
-                'user_id'      => $data['user_id'] ?? null,
                 'phone_number' => $data['phone_number'] ?? null,
                 'user_type'    => $authUser->user_type,
                 'password'     => Hash::make($plainPassword),

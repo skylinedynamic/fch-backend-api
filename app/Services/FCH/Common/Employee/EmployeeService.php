@@ -2,29 +2,35 @@
 
 namespace App\Services\FCH\Common\Employee;
 
-use App\Helpers\ApiResponse;
-use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
-use App\Http\Resources\FCH\Employee\EmployeeResource;
-use App\Models\Business\Business;
-use App\Models\Common\Permission;
-use App\Models\Common\Role;
-use App\Models\Employee\Employee;
+use Throwable;
+use Carbon\Carbon;
 use App\Models\User\User;
-use App\Services\Global\Datatable\QueryFilter;
+use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
-use Carbon\Carbon;
+use App\Models\Invoice\Invoice;
+use App\Models\Business\Business;
+use App\Models\Common\Permission;
+use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Services\FCH\InvoiceService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
-use Throwable;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 class EmployeeService
 {
     use PaginatesApi, UploadsFiles;
+
+    public function __construct(
+        protected InvoiceService $invoiceService
+    ) {}
 
     public function getAll()
     {
@@ -85,7 +91,6 @@ class EmployeeService
             EmployeeResource::class,
             __('employee.employee_listed')
         );
-
     }
 
     /**
@@ -133,6 +138,11 @@ class EmployeeService
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
+                    'is_paid'   => isset($userData['is_paid']) ? $userData['is_paid'] : false,
+                    'status'    => isset($userData['is_paid']) && $userData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                    'start_date' => isset($userData['is_paid']) && $userData['is_paid'] ? Carbon::now()->format('Y-m-d') : null,
+                    'end_date' => isset($userData['is_paid']) && $userData['is_paid'] ? now()->addMonths($userData['months']) : null,
+                    'payment_status' => isset($userData['is_paid']) && $userData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
                 ]);
 
                 Log::info('User created successfully', ['user_id' => $user->id]);
@@ -140,6 +150,25 @@ class EmployeeService
                 if ($roleId) {
                     $this->assignRoleAndPermissions($user, $roleId);
                 }
+            }
+
+            if (isset($userData['is_paid']) && $userData['is_paid']) {
+                $invoiceId = $this->invoiceService->generateInvoiceId();
+                $invoice = Invoice::create([
+                    'invoice_id' => $invoiceId,
+                    'partner_id' => auth()->user()->partner_id,
+                    'entity_type' => Employee::class,
+                    'entity_id' => $employee->id,
+                    'customer_name' => $employee->name,
+                    'email' => $employee->email,
+                    'payment_amount' => $userData['amount'],
+                    'payment_date' => null,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'created_by' => Auth::id(),
+                ]);
+                $user->invoice_id = $invoice->id;
+            } else {
+                $user->invoice_id = null;
             }
 
             if (isset($employeeData['image'])) {

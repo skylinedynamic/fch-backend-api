@@ -22,6 +22,12 @@ class Payment extends Model
         'details' => 'array',
     ];
 
+    public const STATUS_SUCCEEDED = 'succeeded';
+    public const STATUS_FAILED = 'failed';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_DISPUTED = 'disputed';
+    public const STATUS_REFUNDED = 'refunded';
+
     public function partner()
     {
         return $this->belongsTo(Partner::class, 'partner_id', 'id');
