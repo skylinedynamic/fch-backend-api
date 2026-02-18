@@ -85,7 +85,7 @@ class EmployeeController extends Controller
      */
     public function store(StoreEmployeeRequest $request)
     {
-        $partnerId = $request->user()->partnet_id;
+        $partnerId = $request->user()->partner_id;
         $partnerInfo = auth()->user()->partner;
         // ✅ Include all extended employee fields
         $fields = [
@@ -219,9 +219,9 @@ class EmployeeController extends Controller
      */
     public function destroy(Request $request, Employee $employee)
     {
-        $businessId = $request->user()->partnet_id;
+        $businessId = $request->user()->partner_id;
 
-        if ($employee->partnet_id !== $businessId) {
+        if ($employee->partner_id !== $businessId) {
             return response()->json([
                 'status' => false,
                 'message' => __('employee.unauthorized'),

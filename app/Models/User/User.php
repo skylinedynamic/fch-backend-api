@@ -444,6 +444,11 @@ class User extends Authenticatable implements OAuthenticatable
         return $this->belongsTo(Borrower::class, 'entity_id');
     }
 
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'entity_id');
+    }
+
     /**
      * Polymorphic relation to the associated entity model.
      */

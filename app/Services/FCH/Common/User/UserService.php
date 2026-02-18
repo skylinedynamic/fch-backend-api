@@ -94,16 +94,18 @@ class UserService
             throw $e; // user not created if DB fails
         }
 
-        // AFTER COMMIT — email section
-        // try {
-        //     $userInfo = User::find($user->id);
-        //     $this->sendCreatedMail($userInfo, $userInfo, $plainPassword);
-        // } catch (Throwable $e) {
-        //     Log::error('User created but email failed', [
-        //         'user_id' => $user->id,
-        //         'error'   => $e->getMessage(),
-        //     ]);
-        // }
+        if ($user && !$user->is_paid) {
+            // AFTER COMMIT — email section
+            try {
+                $userInfo = User::find($user->id);
+                $this->sendCreatedMail($userInfo, $userInfo, $plainPassword);
+            } catch (Throwable $e) {
+                Log::error('User created but email failed', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+        }
 
         return $user;
     }
@@ -257,7 +259,7 @@ class UserService
             if (isset($data['password']) && $data['password'] !== null) {
                 $data['password'] = Hash::make($data['password']);
             }
-            
+
 
             $user->update($data);
 
@@ -268,7 +270,7 @@ class UserService
             return $user;
         } catch (Throwable $e) {
             Log::info('-----------------Error: ' . $e->getMessage());
- 
+
             throw $e;
         }
     }

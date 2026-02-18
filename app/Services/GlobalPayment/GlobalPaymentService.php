@@ -15,9 +15,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
 use App\Mail\Payment\PaymentSuccessMail;
+use App\Mail\Payment\PaymentSuccessUserMail;
 use App\Services\FCH\Subscription\SubscriptionService;
 
 class GlobalPaymentService
@@ -353,9 +355,12 @@ class GlobalPaymentService
                     'total_paid_users' => $partner->total_paid_users + $quantity,
                 ]);
 
-                User::where('id', $data['user_id'])->where('partner_id', $partner->id)->update([
+                $user = User::where('id', $data['user_id'])->where('partner_id', $partner->id)->with('employee')->first();
+                $plainPassword = bin2hex(random_bytes(4)); // 8 chars
+                $user->update([
                     'status' => User::STATUS['active'],
                     'payment_status' => User::PAYMENT_STATUS_PAID,
+                    'password' => Hash::make($plainPassword),
                 ]);
 
                 // 5. Send Email
@@ -366,10 +371,12 @@ class GlobalPaymentService
                         'transaction_id' => $payment->transaction_id,
                         'description' => $paymentIntent->description,
                         'date' => $payment->transaction_date,
-                        'user_name' => $partner->full_name,
-                        'user_email' => $partner->email,
+                        'user_name' => $user->name,
+                        'user_email' => $user->email,
+                        'plainPassword' => $plainPassword,
+                        'user' => $user,
                     ];
-                    Mail::to($partner->email)->send(new PaymentSuccessMail($paymentData));
+                    Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData));
                 } catch (\Exception $e) {
                     Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
                 }

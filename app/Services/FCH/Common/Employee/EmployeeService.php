@@ -136,11 +136,11 @@ class EmployeeService
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
-                    'is_paid'   => isset($employeeData['is_paid']) ? $employeeData['is_paid'] : false,
-                    'status'    => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
-                    'start_date'   => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? now() : null,
-                    'end_date'     => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? now()->addMonths((int)$employeeData['months']) : null,
-                    'payment_status' => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
+                    'is_paid'   => isset($employeeData['is_paid']) ? (bool) $employeeData['is_paid'] : false,
+                    'status'    => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                    'start_date'   => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now() : null,
+                    'end_date'     => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now()->addMonths((int)$employeeData['months']) : null,
+                    'payment_status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
                 ]);
 
                 Log::info('User created successfully', ['user_id' => $user->id]);
@@ -150,7 +150,7 @@ class EmployeeService
                 }
             }
 
-            if (isset($userData['is_paid']) && $userData['is_paid']) {
+            if (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid']) {
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
