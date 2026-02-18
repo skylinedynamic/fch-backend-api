@@ -30,16 +30,8 @@ class PaymentService
             ->select('payments.*');
 
         // RBAC: Partner Wise (Accurate Code following Borrowers)
-        if ($authUser && $authUser->partner) {
-
-            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
-
-            if ($isEmployee) {
-                $query->where('payments.entity_id', $authUser->id)
-                    ->where('payments.status', Payment::STATUS_SUCCEEDED);
-            } else {
-                $query->where('payments.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('partner_id', $authUser->partner_id);
         }
 
         // Accurate Date Range: transaction_date (Consistent with InvoiceService)
@@ -213,16 +205,8 @@ class PaymentService
         $authUser = Auth::user();
         $query = Payment::query();
 
-        if ($authUser && $authUser->partner) {
-
-            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
-
-            if ($isEmployee) {
-                $query->where('payments.entity_id', $authUser->id)
-                    ->where('payments.status', Payment::STATUS_SUCCEEDED);
-            } else {
-                $query->where('payments.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('partner_id', $authUser->partner_id);
         }
 
         // Apply same filters as list if needed

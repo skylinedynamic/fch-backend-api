@@ -42,16 +42,8 @@ class InvoiceService
             ->select('invoices.*');
 
         // RBAC: Partner Wise (Accurate Code)
-        if ($authUser && $authUser->partner) {
-
-            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
-
-            if ($isEmployee) {
-                $query->where('invoices.entity_id', $authUser->id)
-                    ->where('invoices.status', Invoice::STATUS_PAID);
-            } else {
-                $query->where('invoices.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('invoices.partner_id', $authUser->partner_id);
         }
 
         // Accurate Date Range: created_at (Following User Request)
@@ -184,16 +176,8 @@ class InvoiceService
         $query = Invoice::query();
 
         // RBAC: Partner Wise (Accurate Code)
-        if ($authUser && $authUser->partner) {
-
-            $isEmployee = $authUser->entity_type === null || $authUser->entity_type === Employee::class;
-
-            if ($isEmployee) {
-                $query->where('invoices.entity_id', $authUser->id)
-                    ->where('invoices.status', Invoice::STATUS_PAID);
-            } else {
-                $query->where('invoices.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('invoices.partner_id', $authUser->partner_id);
         }
 
         if (!empty($filters['date_from'])) {
