@@ -5,10 +5,11 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Employee;
 use App\Helpers\ApiResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
-class StoreEmployeeRequest extends FormRequest
+class StoreEmployeeRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -52,6 +53,9 @@ class StoreEmployeeRequest extends FormRequest
             'create_account' => ['sometimes', 'boolean'],
             'role_id'        => ['required_if:create_account,1', 'nullable', 'exists:roles,id'],
             'address'        => ['required', 'string', 'max:500'],
+            'is_paid'        => ['nullable'],
+            'months'         => ['nullable'],
+            'amount'         => ['nullable'],
         ];
     }
 
@@ -73,17 +77,5 @@ class StoreEmployeeRequest extends FormRequest
             'role_id.required_if' => __('employee.role_required_if_create_account'),
             'role_id.exists' => __('employee.role_exists'),
         ];
-    }
-
-    protected function failedValidation(Validator $validator)
-    {
-        $errors = [];
-        foreach ($validator->errors()->messages() as $field => $messages) {
-            $errors[$field] = $messages[0];
-        }
-
-        throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
-        );
     }
 }

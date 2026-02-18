@@ -118,15 +118,13 @@ class EmployeeService
             if (! isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
-
             $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
-
+            // $employeeData = collect($employeeData)->except(['months', 'is_paid', 'amount'])->toArray();
             $employee = Employee::create($employeeData);
             Log::info('Employee created successfully', ['employee_id' => $employee->id]);
             $user = null;
 
             $plainPassword = $userData['plain_password'] ?? null;
-
             // 1️⃣ Create user if needed
             if ($userData) {
                 $user = User::create([
@@ -138,11 +136,11 @@ class EmployeeService
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
-                    'is_paid'   => isset($userData['is_paid']) ? $userData['is_paid'] : false,
-                    'status'    => isset($userData['is_paid']) && $userData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
-                    'start_date' => isset($userData['is_paid']) && $userData['is_paid'] ? Carbon::now()->format('Y-m-d') : null,
-                    'end_date' => isset($userData['is_paid']) && $userData['is_paid'] ? now()->addMonths($userData['months']) : null,
-                    'payment_status' => isset($userData['is_paid']) && $userData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
+                    'is_paid'   => isset($employeeData['is_paid']) ? $employeeData['is_paid'] : false,
+                    'status'    => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                    'start_date'   => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? now() : null,
+                    'end_date'     => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? now()->addMonths((int)$employeeData['months']) : null,
+                    'payment_status' => isset($employeeData['is_paid']) && $employeeData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
                 ]);
 
                 Log::info('User created successfully', ['user_id' => $user->id]);
@@ -161,7 +159,7 @@ class EmployeeService
                     'entity_id' => $employee->id,
                     'customer_name' => $employee->name,
                     'email' => $employee->email,
-                    'payment_amount' => $userData['amount'],
+                    'payment_amount' => $employeeData['amount'],
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,
                     'created_by' => Auth::id(),

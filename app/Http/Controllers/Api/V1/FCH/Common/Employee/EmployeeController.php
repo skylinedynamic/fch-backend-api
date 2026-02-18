@@ -31,7 +31,6 @@ class EmployeeController extends Controller
     {
         try {
             return $this->employeeService->getAll();
-
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('employee.employee_list_failed'));
         }
@@ -76,7 +75,6 @@ class EmployeeController extends Controller
             ];
 
             return $this->employeeService->list($partnerId, $filters);
-
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('employee.employee_list_failed'));
         }
@@ -114,6 +112,9 @@ class EmployeeController extends Controller
             'role_id',
             'address',
             'country_code',
+            'months',
+            'is_paid',
+            'amount',
         ];
 
         $employeeData = $request->only($fields);
@@ -127,7 +128,7 @@ class EmployeeController extends Controller
             $plainPassword = bin2hex(random_bytes(4));
 
             $userData = [
-                'name' => trim($request->first_name.' '.$request->last_name) ?: $request->email,
+                'name' => trim($request->first_name . ' ' . $request->last_name) ?: $request->email,
                 'email' => $request->email,
                 'phone_number' => $request->phone_number,
                 'plain_password' => $plainPassword,
@@ -238,7 +239,7 @@ class EmployeeController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to '.$businessInfo->company_name,
+            'subject' => 'Welcome to ' . $businessInfo->company_name,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
