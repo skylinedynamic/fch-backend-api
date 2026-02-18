@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Payment;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -29,14 +30,8 @@ class PaymentService
             ->select('payments.*');
 
         // RBAC: Partner Wise (Accurate Code following Borrowers)
-        if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host == 1) {
-                if (!empty($filters['partner_id'])) {
-                    $query->where('payments.partner_id', $filters['partner_id']);
-                }
-            } else {
-                $query->where('payments.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('partner_id', $authUser->partner_id);
         }
 
         // Accurate Date Range: transaction_date (Consistent with InvoiceService)
@@ -210,7 +205,7 @@ class PaymentService
         $authUser = Auth::user();
         $query = Payment::query();
 
-        if ($authUser && $authUser->partner && $authUser->partner->is_host != 1) {
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
             $query->where('partner_id', $authUser->partner_id);
         }
 

@@ -3,8 +3,10 @@
 namespace App\Services\Global\Auth;
 
 use App\Models\User\User;
+use Illuminate\Support\Carbon;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
+use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -58,6 +60,24 @@ class AuthService
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
         }
 
+        if ($user->is_paid && $user->payment_status != User::PAYMENT_STATUS_PAID) {
+            $partner = $user->partner;
+            // Only block if partner is NOT a host
+            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                return ApiResponse::loginError(__('auth.payment_not_completed', ['partner' => $partnerName]), 'email');
+            }
+        }
+
+        if ($user->is_paid && $user->end_date && Carbon::parse($user->end_date)->isPast()) {
+            $partner = $user->partner;
+            // Only block if partner is NOT a host
+            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
+            }
+        }
+
 
 
         if (!Auth::attempt($authCredentials)) {
@@ -93,7 +113,15 @@ class AuthService
         $token = $user->createToken(__('auth.token_name'))->accessToken;
 
         // Eager-load relations needed by UserResource to avoid lazy loading
-        $user->load(['roles.permissions', 'permissions', 'partner', 'entity.subscription.enrollmentPhase', 'entity.subscription.platformFeePhase']);
+        $relations = [
+            'roles' => function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id);
+            },
+            'roles.permissions',
+            'partner.subscription.phases',
+        ];
+
+        $user->load($relations);
 
         $attempts = RateLimiter::attempts($key);
         $remainingAttempts = max(0, $maxAttempts - $attempts);

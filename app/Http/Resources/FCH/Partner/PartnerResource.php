@@ -42,6 +42,8 @@ class PartnerResource extends JsonResource
             'tax_id'                       => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website'                      => $this->website ?? null, // Assuming model accessor or field exists
             'is_host'                      => $this->is_host,
+            'total_paid_users'             => $this->total_paid_users,
+            'total_free_users'             => $this->total_free_users,
             'created_at'                   => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,

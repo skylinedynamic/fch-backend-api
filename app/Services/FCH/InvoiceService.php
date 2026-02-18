@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH;
 
+use App\Models\User\User;
 use Illuminate\Support\Str;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Carbon;
@@ -11,13 +12,14 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Mail\Invoice\InvoiceMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
+use App\Models\Employee\Employee;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class InvoiceService
@@ -40,14 +42,8 @@ class InvoiceService
             ->select('invoices.*');
 
         // RBAC: Partner Wise (Accurate Code)
-        if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host == 1) {
-                if (!empty($filters['partner_id'])) {
-                    $query->where('invoices.partner_id', $filters['partner_id']);
-                }
-            } else {
-                $query->where('invoices.partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('invoices.partner_id', $authUser->partner_id);
         }
 
         // Accurate Date Range: created_at (Following User Request)
@@ -180,14 +176,8 @@ class InvoiceService
         $query = Invoice::query();
 
         // RBAC: Partner Wise (Accurate Code)
-        if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host == 1) {
-                if (!empty($filters['partner_id'])) {
-                    $query->where('partner_id', $filters['partner_id']);
-                }
-            } else {
-                $query->where('partner_id', $authUser->partner_id);
-            }
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('invoices.partner_id', $authUser->partner_id);
         }
 
         if (!empty($filters['date_from'])) {

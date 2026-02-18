@@ -100,6 +100,8 @@ class PartnerService
             // Create partner
             $partnerData = $this->mapPartnerData($data);
             $partnerData['status'] = Partner::STATUS_ONBOARDING;
+            $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED  ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
+            $partnerData['total_paid_users'] = 0;
             $partner = Partner::create($partnerData);
 
             // Handle partner_image upload
@@ -219,7 +221,7 @@ class PartnerService
                 throw new \Exception("Partner with ID {$partnerId} not found");
             }
 
-            if($partner->partner_type == Partner::PARTNER_TYPE_CERTIFIED){
+            if ($partner->partner_type == Partner::PARTNER_TYPE_CERTIFIED) {
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
                 ->where('is_host', 0)

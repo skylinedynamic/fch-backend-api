@@ -2,26 +2,28 @@
 
 namespace App\Services\FCH\Common\User;
 
-use App\Helpers\ApiResponse;
 use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
+use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
-use App\Models\Common\Permission;
-use App\Models\Employee\Employee;
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Common\Permission;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\FCH\InvoiceService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
 use App\Services\Global\Datatable\QueryFilter;
+use App\Http\Resources\Global\Auth\UserResource;
 use Illuminate\Http\Request; // ✅ this is the correct one
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
-use App\Http\Resources\Global\Auth\UserResource;
-use Illuminate\Support\Facades\Auth;
 
 class UserService
 {
@@ -30,6 +32,10 @@ class UserService
      */
 
     use PaginatesApi;
+
+    public function __construct(
+        protected InvoiceService $invoiceService
+    ) {}
 
     /**
      * Create User
@@ -45,20 +51,41 @@ class UserService
             $user = User::create([
                 'name'         => $data['name'],
                 'email'        => $data['email'],
-                'user_id'      => $data['user_id'] ?? null,
                 'phone_number' => $data['phone_number'] ?? null,
                 'user_type'    => $authUser->user_type,
                 'password'     => Hash::make($plainPassword),
                 'partner_id'   => $authUser->partner_id,
-                'status'       => User::STATUS['active'],
+                'status'       => isset($data['is_paid']) && $data['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
                 'entity_type'  => null,
                 'entity_id'    => null,
+                'is_paid'      => isset($data['is_paid']) ? $data['is_paid'] : false,
+                'payment_status' => isset($data['is_paid']) && $data['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
+                'start_date'   => isset($data['is_paid']) && $data['is_paid'] ? now() : null,
+                'end_date'     => isset($data['is_paid']) && $data['is_paid'] ? now()->addMonths($data['months']) : null,
             ]);
 
             $roleId = $data['role_id'] ?? null;
 
             if ($roleId) {
                 $this->assignRoleAndPermissions($user, $roleId);
+            }
+            if (isset($data['is_paid']) && $data['is_paid']) {
+                $invoiceId = $this->invoiceService->generateInvoiceId();
+                $invoice = Invoice::create([
+                    'invoice_id' => $invoiceId,
+                    'partner_id' => $authUser->partner_id,
+                    'entity_type' => User::class,
+                    'entity_id' => $user->id,
+                    'customer_name' => $user->name,
+                    'email' => $user->email,
+                    'payment_amount' => $data['amount'],
+                    'payment_date' => null,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'created_by' => Auth::id(),
+                ]);
+                $user->invoice_id = $invoice->id;
+            } else {
+                $user->invoice_id = null;
             }
 
             DB::commit();
@@ -67,15 +94,17 @@ class UserService
             throw $e; // user not created if DB fails
         }
 
-        // AFTER COMMIT — email section
-        try {
-            $partnerInfo = Partner::find($authUser->partner_id);
-            $this->sendCreatedMail($user, $partnerInfo, $plainPassword);
-        } catch (Throwable $e) {
-            Log::error('User created but email failed', [
-                'user_id' => $user->id,
-                'error'   => $e->getMessage(),
-            ]);
+        if ($user && !$user->is_paid) {
+            // AFTER COMMIT — email section
+            try {
+                $userInfo = User::find($user->id);
+                $this->sendCreatedMail($userInfo, $userInfo, $plainPassword);
+            } catch (Throwable $e) {
+                Log::error('User created but email failed', [
+                    'user_id' => $user->id,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
         }
 
         return $user;
@@ -230,7 +259,7 @@ class UserService
             if (isset($data['password']) && $data['password'] !== null) {
                 $data['password'] = Hash::make($data['password']);
             }
-            
+
 
             $user->update($data);
 
@@ -241,7 +270,7 @@ class UserService
             return $user;
         } catch (Throwable $e) {
             Log::info('-----------------Error: ' . $e->getMessage());
- 
+
             throw $e;
         }
     }

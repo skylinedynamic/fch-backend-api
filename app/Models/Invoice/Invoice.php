@@ -34,6 +34,18 @@ class Invoice extends Model
         'updated_by',
     ];
 
+    const INVOICE_TYPE_PARTNER_MONTHLY_ENROLLMENT = 'partner monthly enrollment';
+    const INVOICE_TYPE_PARTNER_ENROLLMENT_RENEWAL = 'partner enrollment renewal';
+    const INVOICE_TYPE_PARTNER_ONE_TIME_ENROLLMENT = 'partner one time enrollment';
+    const INVOICE_TYPE_PARTNER_PLATFORM_FEE = 'partner platform fee';
+
+    const INVOICE_TYPE_BORROWER_MONTHLY_ENROLLMENT = 'borrower monthly enrollment';
+    const INVOICE_TYPE_BORROWER_ENROLLMENT_RENEWAL = 'borrower enrollment renewal';
+    const INVOICE_TYPE_BORROWER_ONE_TIME_ENROLLMENT = 'borrower one time enrollment';
+
+    const INVOICE_TYPE_ADDITIONAL_USER_ENROLLMENT = 'additional user enrollment';
+
+
     protected $casts = [
         'details' => 'array',
         'payment_date' => 'date',

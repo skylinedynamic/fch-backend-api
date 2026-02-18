@@ -23,7 +23,13 @@ class UserDetailService
         }
 
         // Eager-load relations needed for the resource
-        $user->load(['roles.permissions', 'permissions', 'partner.subscription']);
+        $user->load([
+            'roles' => function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id);
+            },
+            'roles.permissions',
+            'partner.subscription.phases'
+        ]);
 
         return ApiResponse::success([
             'user' => new UserDetailResource($user),

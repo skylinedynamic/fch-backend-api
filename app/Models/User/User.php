@@ -49,6 +49,10 @@ class User extends Authenticatable implements OAuthenticatable
         'partner_id',
         'entity_type',
         'entity_id',
+        'is_paid',
+        'start_date',
+        'end_date',
+        'payment_status',
     ];
 
     /**
@@ -72,6 +76,9 @@ class User extends Authenticatable implements OAuthenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
+            'is_paid' => 'boolean',
+            'start_date' => 'date',
+            'end_date' => 'date',
         ];
     }
 
@@ -181,8 +188,8 @@ class User extends Authenticatable implements OAuthenticatable
 
         // For SMS/Email verification
         if (in_array($twoFactorSetting->method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
-            return $twoFactorSetting->code === $code && 
-                   !$twoFactorSetting->isCodeExpired();
+            return $twoFactorSetting->code === $code &&
+                !$twoFactorSetting->isCodeExpired();
         }
 
         return false;
@@ -426,7 +433,7 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function partner()
     {
-        return $this->belongsTo(Partner::class, 'entity_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     /**
@@ -435,6 +442,11 @@ class User extends Authenticatable implements OAuthenticatable
     public function borrower()
     {
         return $this->belongsTo(Borrower::class, 'entity_id');
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'entity_id');
     }
 
     /**
@@ -497,4 +509,7 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return $this->roles->first()?->name;
     }
+
+    public const PAYMENT_STATUS_PAID = 'Paid';
+    public const PAYMENT_STATUS_UNPAID = 'Unpaid';
 }
