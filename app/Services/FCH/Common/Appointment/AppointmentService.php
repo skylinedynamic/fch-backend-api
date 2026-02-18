@@ -461,63 +461,49 @@ class AppointmentService
      */
     public function getSelectableUsers(array $data)
     {
-        $query = User::query();
         $user = auth()->user();
-
-        if ($user->entity_type === Partner::class) {
-            $isHost = (int) $user->partner->is_host;
-            $authPartnerId = $user->partner->id;
-
-            if ($isHost === 1) {
-                $query->where(function ($q) use ($authPartnerId, $data) {
-                    if (empty($data['meeting_with'])) {
-                        $q->where(function ($sub) use ($authPartnerId) {
-                            $sub->where(function ($e) {
-                                $e->where('entity_type', Borrower::class)
-                                ->orWhereNull('entity_type');
-                            })
-                            ->where('partner_id', $authPartnerId);
-                        });
-                    } else {
-                        $q->where('entity_type', Partner::class)
-                        ->where('partner_id', '!=', $authPartnerId);
-                    }
-                });
-            } else {
-                $query->where(function ($q) use ($authPartnerId, $data) {
-
-                    if (empty($data['meeting_with_host'])) {
-
-                        $q->where(function ($sub) use ($authPartnerId) {
-                            $sub->where(function ($e) {
-                                $e->where('entity_type', Borrower::class)
-                                ->orWhereNull('entity_type');
-                            })
-                            ->where('partner_id', $authPartnerId);
-                        });
-                    } else {
-                        $hostId =  1;
-                        $q->orWhere(function ($sub) use ($hostId) {
-                            $sub->where('entity_id', $hostId)
-                                ->where('entity_type', Partner::class)
-                                ->where('name', '!=', 'Developer')
-                                ->where('partner_id', $hostId);
-                        });
-                    }
-                });
-            }
-        } elseif ($user->entity_type === Borrower::class) {
+        
+         if ($user->entity_type == Borrower::class) {
+            $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
             if ($borrower) {
-                $query->where(function ($q) use ($borrower) {
-                    $authPartnerId = auth()->user()->partner->id;
-                    $q->where('entity_type', Partner::class)
-                        ->where('partner_id',   $authPartnerId);
+                $query->where(function ($q) {
+                    $q->where('entity_type', '!=', Borrower::class)
+                    ->orWhereNull('entity_type');
                 });
+            }
+            
+        }
+        elseif ($user->entity_type == Partner::class) {
+
+            $isHost = (int) $user->partner->is_host;
+
+            if ($isHost == 1) {
+                // Admin Partner
+                $query = User::query();
+
+                if(isset($data['meeting_with']) &&  $data['meeting_with']){
+                    $query->where('user_type', User::PARTNER);
+                }else{
+                    $query->where('entity_type','!=',Partner::class)
+                        ->orWhereNull('entity_type');
+                }
+
+            } else {
+                $query = User::query();
+
+                if(isset($data['meeting_with_host']) && $data['meeting_with_host']){
+                    $query->where('user_type', User::ADMIN)->where('entity_type', '!=', Borrower::class);
+                }else{
+                    $query->where('partner_id', $user->partner_id)->where(function($q){
+                        $q->where('entity_type', '!=', Partner::class)
+                        ->orWhereNull('entity_type');
+                    });
+                }
             }
         }
 
-        $results = $query->get(['id', 'name', 'entity_type', 'entity_id']);
+        $results = $query->with('partner')->get(['id', 'name', 'entity_type', 'entity_id','user_type']);
 
         return ApiResponse::success(
             AppointmentUserResource::collection($results),

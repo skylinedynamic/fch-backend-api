@@ -248,22 +248,361 @@ h1 {
     font-weight: 700;
 }
 
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
 @media only screen and (max-width: 600px) {
+    
+    /* Base Typography - Improve readability on mobile */
+    body {
+        font-size: 16px !important;
+        line-height: 1.6 !important;
+        -webkit-text-size-adjust: 100% !important;
+        -ms-text-size-adjust: 100% !important;
+    }
+
+    /* Container & Layout */
     .container {
         width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .wrapper {
+        padding: 10px 0 !important;
     }
 
     .content {
-        padding: 25px 20px;
+        padding: 20px 15px !important;
     }
 
-    .info-item {
-        flex-direction: column;
+    /* Header & Logo */
+    .header-logo {
+        padding: 15px !important;
     }
 
-    .info-label {
-        margin-bottom: 5px;
-        width: 100%;
+    .logo {
+        width: 150px !important;
+        max-width: 80% !important;
+        height: auto !important;
+    }
+
+    /* Headings - Scale down for mobile */
+    h1 {
+        font-size: 20px !important;
+    }
+
+    h4 {
+        font-size: 16px !important;
+    }
+
+    .appointment-title {
+        font-size: 18px !important;
+        margin-bottom: 20px !important;
+    }
+
+    /* Paragraphs & Text */
+    p {
+        font-size: 16px !important;
+        line-height: 1.7 !important;
+        margin-bottom: 14px !important;
+    }
+
+    /* Section Labels */
+    .section-label {
+        font-size: 12px !important;
+    }
+
+    /* Buttons - Touch-friendly (min 44x44px) */
+    .btn {
+        display: block !important;
+        width: 100% !important;
+        max-width: 280px !important;
+        margin: 0 auto 15px auto !important;
+        padding: 14px 32px !important;
+        font-size: 16px !important;
+        text-align: center !important;
+        box-sizing: border-box !important;
+    }
+
+    .btn-container {
+        margin: 25px 0 !important;
+        text-align: center !important;
+    }
+
+    .btn-container .highlight {
+        font-size: 15px !important;
+        margin-bottom: 15px !important;
+        padding: 0 10px !important;
+    }
+
+    /* Tables - Stack on Mobile */
+    .detail-table, .info-table {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .detail-table tr, .info-table tr {
+        display: block !important;
+        margin-bottom: 15px !important;
+        padding-bottom: 15px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+
+    .detail-table tr:last-child, .info-table tr:last-child {
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+    }
+
+    .detail-table td, .info-table td {
+        display: block !important;
+        width: 100% !important;
+        text-align: left !important;
+        padding: 5px 0 !important;
+        border-bottom: none !important;
+    }
+
+    .detail-table .label, .info-table .label {
+        width: 100% !important;
+        margin-bottom: 5px !important;
+        padding-left: 0 !important;
+        font-size: 13px !important;
+    }
+
+    .detail-table .value, .info-table .value {
+        width: 100% !important;
+        text-align: left !important;
+        padding-right: 0 !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Document Table */
+    .doc-table {
+        font-size: 14px !important;
+    }
+
+    .doc-table th,
+    .doc-table td {
+        padding: 10px 5px !important;
+        font-size: 14px !important;
+    }
+
+    /* Detail Grid - Stack Items */
+    .detail-grid {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .detail-grid tr {
+        display: block !important;
+    }
+
+    .detail-item {
+        display: block !important;
+        width: 100% !important;
+        padding: 12px 0 !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+
+    .detail-item:last-child {
+        border-bottom: none !important;
+    }
+
+    .detail-item-container {
+        display: table !important;
+        width: 100% !important;
+    }
+
+    .detail-icon {
+        font-size: 24px !important;
+    }
+
+    .detail-label {
+        font-size: 12px !important;
+    }
+
+    .detail-value {
+        font-size: 15px !important;
+    }
+
+    /* Boxes & Cards - Reduce padding */
+    .box-light {
+        padding: 16px !important;
+        margin-bottom: 20px !important;
+        border-radius: 6px !important;
+    }
+
+    .box-primary {
+        padding: 16px !important;
+        margin-bottom: 20px !important;
+        border-radius: 6px !important;
+    }
+
+    .box-note {
+        padding: 14px 16px !important;
+        margin-top: 20px !important;
+        margin-bottom: 20px !important;
+    }
+
+    /* Info Cards */
+    .info-card-container {
+        margin-bottom: 20px !important;
+    }
+
+    .info-card-header {
+        padding: 16px !important;
+        font-size: 15px !important;
+    }
+
+    .info-card-content {
+        padding: 16px !important;
+    }
+
+    /* Invoice Summary Card */
+    .invoice-summary-header {
+        padding: 20px 15px !important;
+    }
+
+    .invoice-summary-amount {
+        font-size: 24px !important;
+    }
+
+    .invoice-summary-content {
+        padding: 15px !important;
+    }
+
+    /* Lists in Boxes */
+    .box-light ul,
+    .box-primary ul {
+        padding-left: 18px !important;
+        font-size: 15px !important;
+    }
+
+    .box-light li,
+    .box-primary li {
+        margin-bottom: 8px !important;
+        line-height: 1.6 !important;
+    }
+
+    /* Temp Password Display */
+    .temp-password {
+        font-size: 15px !important;
+        padding: 8px 12px !important;
+        display: inline-block !important;
+        word-break: break-all !important;
+    }
+
+    /* Highlight Text */
+    .highlight {
+        font-size: 15px !important;
+    }
+
+    .highlight-value {
+        font-size: 15px !important;
+        padding: 6px 10px !important;
+    }
+
+    .amount-value {
+        font-size: 17px !important;
+    }
+
+    /* Top Bar */
+    .top-bar {
+        padding: 10px 15px !important;
+        font-size: 12px !important;
+    }
+
+    /* Footer */
+    .footer-strip {
+        padding: 12px 15px !important;
+        font-size: 13px !important;
+    }
+
+    .bottom-footer {
+        padding: 15px 15px !important;
+        font-size: 12px !important;
+    }
+
+    .bottom-footer p {
+        margin: 8px 0 !important;
+    }
+
+    /* Alerts */
+    .alert {
+        padding: 12px 15px !important;
+        font-size: 15px !important;
+        margin-bottom: 15px !important;
+    }
+
+    /* Description Card */
+    .description-card {
+        margin-bottom: 20px !important;
+    }
+
+    .description-card p {
+        font-size: 16px !important;
+    }
+
+    /* Utility Classes */
+    .text-muted {
+        font-size: 14px !important;
+    }
+
+    .small {
+        font-size: 13px !important;
+    }
+
+    /* Spacing Utilities */
+    .mb-3 {
+        margin-bottom: 12px !important;
+    }
+
+    .mb-4 {
+        margin-bottom: 18px !important;
+    }
+
+    .mb-5 {
+        margin-bottom: 24px !important;
+    }
+
+    .mt-3 {
+        margin-top: 12px !important;
+    }
+
+    .mt-4 {
+        margin-top: 18px !important;
+    }
+
+    .mt-5 {
+        margin-top: 24px !important;
+    }
+
+    /* Links - Make touch-friendly */
+    a {
+        color: #1e3a8a !important;
+        text-decoration: underline !important;
+    }
+
+    /* Images - Responsive */
+    img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+}
+
+/* Additional Mobile Fixes for Specific Email Clients */
+
+/* iOS Mail Specific */
+@media only screen and (max-device-width: 600px) {
+    body {
+        -webkit-text-size-adjust: none !important;
+    }
+}
+
+/* Prevent auto-scale on orientation change */
+@media only screen and (orientation: landscape) and (max-width: 900px) {
+    body {
+        -webkit-text-size-adjust: 100% !important;
     }
 }
 

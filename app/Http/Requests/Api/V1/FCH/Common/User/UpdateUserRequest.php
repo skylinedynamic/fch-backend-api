@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\User;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends BaseApiRequest
 {
@@ -13,13 +15,14 @@ class UpdateUserRequest extends BaseApiRequest
 
     public function rules(): array
     {
+
         $rules = [
-            'name'             => ['sometimes', 'string', 'max:255'],
-            'email'            => ['nullable', 'max:255'],
-            'phone_number'     => ['nullable', 'string', 'max:50'],
+            'name'             => ['required', 'string', 'max:255'],
+            'email'            => ['required','email',Rule::unique('users', 'email')->ignore($this->user->id)],
+            'phone_number'     => ['required', 'string', 'max:50'],
             'user_id'          => ['nullable', 'string', 'max:255'],
-            'role_id'          => ['nullable'],
-            'status'           => ['nullable'],
+            'role_id'          => ['required'],
+            'status'           => ['required'],
             'change_password'  => ['nullable'],
         ];
 

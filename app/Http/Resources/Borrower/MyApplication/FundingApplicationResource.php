@@ -53,7 +53,7 @@ class FundingApplicationResource extends JsonResource
             'self_reported_business_credit_score'        => $this->self_reported_business_credit_score,
             'has_business_debt'                          => (bool) $this->has_business_debt,
             'debt_balance'                               => $this->debt_balance,
-            'requested_amount'                           => $this->requested_amount,
+            'requested_amount'                           => currencyFormat($this->requested_amount),
             'purpose_of_funds'                           => $this->purpose_of_funds,
             'preferred_funding_type'                     => $this->preferred_funding_type,
             'timeframe_needed'                           => $this->timeframe_needed,

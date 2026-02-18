@@ -95,7 +95,9 @@ class User extends Authenticatable implements OAuthenticatable
 
     public const ADMIN = 'Admin';
     public const PARTNER = 'Partner';
+    public const USER = 'User';
     public const BORROWER = 'Borrower';
+    public const EMPLOYEE = 'Employee';
 
     /**
      * Send the password reset notification.

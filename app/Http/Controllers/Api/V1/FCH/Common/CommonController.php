@@ -7,6 +7,8 @@ use App\Services\FCH\Common\CommonService;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 
+use App\Http\Resources\Global\Auth\UserResource;
+
 class CommonController extends Controller
 {
     public function __construct(protected CommonService $commonService) {}
@@ -26,6 +28,19 @@ class CommonController extends Controller
         } catch (\Exception $e) {
             return ApiResponse::serverError('Failed to retrieve users.');
         }
+    }
+
+    /**
+     * Refresh User Data
+     */
+    public function refreshUser(Request $request)
+    {
+        $user = $request->user();
+
+        return ApiResponse::success(
+            new UserResource($user),
+            'User data refreshed successfully.'
+        );
     }
 
     /**

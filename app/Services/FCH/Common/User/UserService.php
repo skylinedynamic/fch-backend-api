@@ -251,13 +251,13 @@ class UserService
             throw new \Exception(__('user.not_authorized_to_update_developer'));
         }
 
-        DB::beginTransaction();
+
 
         try {
-            // 1️⃣ Hash password if provided
-            if (!empty($data['password'])) {
+            if (isset($data['password']) && $data['password'] !== null) {
                 $data['password'] = Hash::make($data['password']);
             }
+            
 
             $user->update($data);
 
@@ -265,10 +265,10 @@ class UserService
                 $this->assignRoleAndPermissions($user, $roleId);
             }
 
-            DB::commit();
             return $user;
         } catch (Throwable $e) {
-            DB::rollBack();
+            Log::info('-----------------Error: ' . $e->getMessage());
+ 
             throw $e;
         }
     }
@@ -278,18 +278,21 @@ class UserService
      */
     protected function assignRoleAndPermissions(User $user, int $roleId)
     {
-        $role = Role::where('partner_id', auth()->user()->partner_id)->findOrFail($roleId);
+        try {
+            $authUser = auth()->user();
 
-        // Use assignRole to ensure model_type is populated correctly in polymorphic pivot
-        $user->assignRole($role);
+            $role = Role::where('partner_id', $authUser->partner_id)->findOrFail($roleId);
+            $user->syncRoles([$role->id]);
 
-        $permissionIds = DB::table('role_has_permissions')
-            ->where('role_id', $roleId)
-            ->pluck('permission_id');
-        $permissions = Permission::whereIn('id', $permissionIds)->get();
-        $user->syncPermissions($permissions);
+            $permissionIds = $role->permissions->pluck('id');
+            $permissions = Permission::whereIn('id', $permissionIds)->get();
+            $user->syncPermissions($permissions);
+            $user->load('roles', 'permissions');
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+        } catch (Throwable $e) {
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+            throw $e;
+        }
     }
 
     /**

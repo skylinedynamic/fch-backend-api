@@ -15,7 +15,7 @@
         }
 
         .logo {
-            width: 100px;
+            width: 200px;
         }
 
         table {
@@ -231,7 +231,7 @@
     <table class="header-section">
         <tr>
             <td>
-                <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
+                <img src="{{ public_path('logo-mail.png') }}" class="logo" alt="Logo">
                 <!-- <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
                 </div> -->
             </td>

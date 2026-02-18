@@ -52,7 +52,6 @@
         </p>
 
         <p class="text-muted mt-4 mb-0">
-            —<br>
             <strong>{{ $business_info['company_name'] }}</strong><br>
             Business Credit & Funding Platform
         </p>

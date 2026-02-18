@@ -92,6 +92,10 @@ class FundingApplicationService
                     ]);
                 }
             }
+            else{
+                $fundingApplication->update(['has_co_borrower'=>false]);
+                FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)->forceDelete();
+            }
 
             if($fundingApplication){
                 $this->createFundingApplicationDocumentDir($fundingApplication->id);

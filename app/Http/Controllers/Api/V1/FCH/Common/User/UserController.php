@@ -110,7 +110,7 @@ class UserController extends Controller
     /**
      * Update User
      */
-    public function update(UpdateUserRequest $request, int $id)
+    public function update(UpdateUserRequest $request, User $user)
     {
         $data = $request->validated();
 
@@ -124,8 +124,7 @@ class UserController extends Controller
 
         // Clean up temporary fields before service call
         unset($data['change_password'], $data['new_password'], $data['confirm_password']);
-
-        $user = User::findOrFail($id);
+        
         try {
             $updated = $this->userService->update($user, $data, $request->role_id);
             return ApiResponse::success(

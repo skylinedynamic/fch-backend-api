@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Global\Auth;
 
+use App\Models\User\User;
 use Illuminate\Http\Request;
 use App\Models\Borrower\Borrower;
 use Illuminate\Support\Collection;
@@ -56,7 +57,7 @@ class UserResource extends JsonResource
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
-            'is_host' => $this->partner?->is_host,
+            'is_host' => $this->user_type == User::BORROWER ? 0 : $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,

@@ -40,7 +40,7 @@ class BorrowerSeeder extends Seeder
                 // Personal Info
                 'first_name' => 'Michael',
                 'last_name' => 'Chen',
-                'email' => 'craig-borrower@fourcornerholdings.com',
+                'email' => 'craig-borrower@fourcornerfunding.com',
                 'phone_number' => '(546) 456-5465',
                 'country' => $loc1['country_name'],
                 'country_code' => '+1',
