@@ -41,12 +41,12 @@ class PermissionSeeder extends Seeder
                 // Handle both old string format and new array format
                 if (is_array($permission)) {
                     $permissionName = $permission['name'];
-                    $isWl = $permission['is_wl'] ?? 0;
+                    $isCertified = $permission['is_certified'] ?? 0;
                     $isHost = $permission['is_host'] ?? 0;
                 } else {
                     // Backward compatibility with string format
                     $permissionName = $permission;
-                    $isWl = 0;
+                    $isCertified = 0;
                     $isHost = 0;
                 }
 
@@ -60,7 +60,7 @@ class PermissionSeeder extends Seeder
                     [
                         'module' => $module,
                         'is_host' => $isHost,
-                        'is_wl' => $isWl,
+                        'is_certified' => $isCertified,
                     ]
                 );
             }

@@ -27,10 +27,8 @@ class PermissionService
 
         if (!$isDeveloper && !$isHostPartner) {
             $query->where('is_host', 0);
-            if($user->partner?->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL){
-                $query->where('is_wl', 1);
-            }else{
-                $query->where('is_wl', 0);
+            if($user->partner?->partner_type == Partner::PARTNER_TYPE_CERTIFIED){
+                $query->where('is_certified', 1);
             }
         }
 
