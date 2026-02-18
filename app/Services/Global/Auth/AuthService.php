@@ -60,12 +60,12 @@ class AuthService
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
         }
 
-        // Logic check: Non-host users with expired paid subscription
         if ($user->is_paid && $user->end_date && Carbon::parse($user->end_date)->isPast()) {
             $partner = $user->partner;
             // Only block if partner is NOT a host
             if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                return ApiResponse::loginError(__('auth.subscription_expired'), 'email');
+                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
             }
         }
 
