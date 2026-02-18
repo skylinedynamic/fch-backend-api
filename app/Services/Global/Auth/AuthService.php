@@ -3,6 +3,7 @@
 namespace App\Services\Global\Auth;
 
 use App\Models\User\User;
+use Illuminate\Support\Carbon;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use App\Models\Partner\Partner;
@@ -57,6 +58,15 @@ class AuthService
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
+        }
+
+        // Logic check: Non-host users with expired paid subscription
+        if ($user->is_paid && $user->end_date && Carbon::parse($user->end_date)->isPast()) {
+            $partner = $user->partner;
+            // Only block if partner is NOT a host
+            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                return ApiResponse::loginError(__('auth.subscription_expired'), 'email');
+            }
         }
 
 

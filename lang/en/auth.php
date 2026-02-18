@@ -14,7 +14,8 @@ return [
     'access_denied_partner_privileges_required' => 'Access denied. Partner privileges required',
     'access_denied_borrower_privileges_required' => 'Access denied. Borrower privileges required',
     'user_not_found' => 'User not found',
-    
+    'subscription_expired' => 'Your subscription has expired. Please contact your partner for renewal.',
+
     // Validation messages
     'email_required' => 'Email is required.',
     'email_invalid' => 'Please enter a valid email address.',
@@ -22,7 +23,7 @@ return [
     'password_min' => 'Password must be at least 6 characters.',
     'too_many_login_attempts' => 'Too many login attempts. Please try again after :time minutes.',
     'validation_failed' => 'Validation failed.',
-    
+
     // Registration validation messages
     'signup_id_required' => 'Signup ID is required.',
     'signup_id_exists' => 'Invalid signup ID provided.',
@@ -37,13 +38,13 @@ return [
     'image_image' => 'The uploaded file must be an image.',
     'image_mimes' => 'Image must be a file of type: jpeg, png, jpg, gif.',
     'image_max' => 'Image size must not exceed 2MB.',
-    
+
     // reCAPTCHA messages
     'recaptcha_required' => 'Please complete the reCAPTCHA verification.',
     'recaptcha_invalid' => 'reCAPTCHA verification failed. Please try again.',
     'recaptcha_secret_not_configured' => 'reCAPTCHA secret key is not configured.',
     'recaptcha_verification_failed' => 'reCAPTCHA verification failed. Please try again.',
-    
+
     // Two-factor authentication messages
     'method_required' => 'Two-factor authentication method is required.',
     'method_in' => 'Invalid two-factor authentication method selected',
@@ -63,7 +64,7 @@ return [
     '2fa_recovery_codes' => 'Two-factor authentication recovery codes',
     'recovery_codes_regenerated' => 'Two-factor authentication recovery codes regenerated',
     '2fa_status' => 'Two-factor authentication status',
-    
+
     // Login 2FA confirmation validation messages
     'login_2fa_user_id_required' => 'User ID is required.',
     'login_2fa_user_id_integer' => 'User ID must be an integer.',
@@ -72,7 +73,7 @@ return [
     'login_2fa_method_in' => 'Invalid two-factor authentication method selected.',
     'login_2fa_code_required' => 'Verification code is required.',
     'login_2fa_code_string' => 'Verification code must be a string.',
-    
+
     // General reusable (for 2FA emails)
     'greeting_hello_name' => 'Hello :name!',
     'salutation_thank_you_regards_team' => 'Thank you for using our application!<br>Regards,<br>:appName Team',
