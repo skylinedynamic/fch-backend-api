@@ -15,6 +15,7 @@ return [
     'access_denied_borrower_privileges_required' => 'Access denied. Borrower privileges required',
     'user_not_found' => 'User not found',
     'subscription_expired' => 'Your subscription package has expired. Please contact :partner for renewal.',
+    'payment_not_completed' => 'Your payment was not completed. Please contact :partner for assistance.',
 
     // Validation messages
     'email_required' => 'Email is required.',
