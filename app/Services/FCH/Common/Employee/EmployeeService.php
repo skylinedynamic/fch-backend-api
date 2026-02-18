@@ -165,8 +165,6 @@ class EmployeeService
                     'created_by' => Auth::id(),
                 ]);
                 $user->invoice_id = $invoice->id;
-            } else {
-                $user->invoice_id = null;
             }
 
             if (isset($employeeData['image'])) {
