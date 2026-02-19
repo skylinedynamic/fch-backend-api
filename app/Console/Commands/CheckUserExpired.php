@@ -96,11 +96,6 @@ class CheckUserExpired extends Command
                     'created_by' => null,
                 ]);
 
-                // Update user payment status to Unpaid
-                $user->update([
-                    'payment_status' => User::PAYMENT_STATUS_UNPAID,
-                ]);
-
                 $this->info("Created renewal invoice for user: " . $user->email);
             } catch (\Exception $e) {
                 Log::error("Failed to create renewal invoice for user: " . $user->email, ['error' => $e->getMessage()]);
