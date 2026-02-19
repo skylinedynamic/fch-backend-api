@@ -138,7 +138,7 @@ class EmployeeController extends Controller
 
         $result = $this->employeeService->create($employeeData, $userData, $request->role_id ?? null);
 
-        if (! empty($result['user']) && !$employeeData['is_paid']) {
+        if (!empty($result['user']) && !isset($employeeData['is_paid'])) {
             $this->sendAccountCreatedMail($result['user'], $partnerInfo, $plainPassword);
         }
 
