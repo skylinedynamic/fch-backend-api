@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common;
 
 use App\Models\User\User;
 use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 
 class CommonService
@@ -33,7 +34,13 @@ class CommonService
         $user = auth()->user();
 
         if ($user->partner && $user->partner->is_host == 0) {
-            $count = User::where('partner_id', $user->partner_id)->withoutTrashed()->count();
+            $count = User::where('partner_id', $user->partner->id)
+                ->where(function ($query) {
+                    $query->whereIn('entity_type', [Partner::class, Employee::class])
+                        ->orWhereNull('entity_type');
+                })
+                ->count();
+
             return [
                 'count' => $count,
                 'per_user_price' => config('app.per_user_price'),
