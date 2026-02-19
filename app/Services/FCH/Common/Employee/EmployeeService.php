@@ -157,7 +157,7 @@ class EmployeeService
                     'partner_id' => auth()->user()->partner_id,
                     'entity_type' => Employee::class,
                     'entity_id' => $employee->id,
-                    'customer_name' => $employee->name,
+                    'customer_name' => $employee->first_name . ' ' . $employee->last_name,
                     'email' => $employee->email,
                     'payment_amount' => $employeeData['amount'],
                     'payment_date' => null,
