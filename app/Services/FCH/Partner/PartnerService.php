@@ -395,6 +395,7 @@ class PartnerService
         $user = User::where('email', $data['email'])->first();
 
         if ($user) {
+            $userData['is_refresh'] = true;
             $user->update($userData);
 
             return ['user' => $user, 'plain_password' => null, 'is_new' => false];

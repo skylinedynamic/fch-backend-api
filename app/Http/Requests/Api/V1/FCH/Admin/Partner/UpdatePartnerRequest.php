@@ -35,7 +35,11 @@ class UpdatePartnerRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('partners', 'email')->ignore($this->id)
+                Rule::unique('partners', 'email')->ignore($this->id),
+                Rule::unique('users', 'email')->where(function ($query) {
+                    return $query->where('partner_id', '!=', $this->id)
+                        ->orWhereNull('partner_id');
+                })
             ],
             'phone_number'                => ['sometimes', 'required', 'string', 'max:50'],
             'status'                      => ['nullable', 'string', 'max:255'],
@@ -69,6 +73,7 @@ class UpdatePartnerRequest extends BaseApiRequest
             'company_name.required' => __('partner.validation.company_name.required'),
             'email.required' => __('partner.validation.email.required'),
             'email.email' => __('partner.validation.email.email'),
+            'email.unique' => __('partner.validation.email.unique'),
             'phone_number.required' => __('partner.validation.phone_number.required'),
             'partner_type.required' => __('partner.validation.partner_type.required'),
             'state.required' => __('partner.validation.state.required'),

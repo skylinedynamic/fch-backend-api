@@ -13,11 +13,11 @@ return [
     |
     */
 
-    'dashboard' => [
-        'permissions' => [
-            ['name' => 'view dashboard', 'is_certified' => 1, 'is_host' => 0],
-        ],
-    ],
+    // 'dashboard' => [
+    //     'permissions' => [
+    //         ['name' => 'view dashboard', 'is_certified' => 1, 'is_host' => 0],
+    //     ],
+    // ],
 
     'partners' => [
         'permissions' => [

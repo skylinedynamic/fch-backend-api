@@ -7,4 +7,6 @@ return [
     'user_count_retrieved' => 'User count retrieved.',
     'user_count_not_applicable' => 'User count not applicable.',
     'user_count_failed' => 'Failed to retrieve user count.',
+    'user_data_refreshed' => 'User data refreshed successfully.',
+    'user_data_refresh_failed' => 'Failed to retrieve users.',
 ];

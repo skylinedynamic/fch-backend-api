@@ -14,6 +14,7 @@ return [
         'email' => [
             'required' => 'Email address is required.',
             'email' => 'Please provide a valid email address.',
+            'unique' => 'The email has already been taken by another user.',
         ],
         'phone_number' => [
             'required' => 'Phone number is required.',

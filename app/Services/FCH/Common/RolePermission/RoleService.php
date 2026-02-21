@@ -120,6 +120,8 @@ class RoleService
             
             foreach ($role->users as $user) {
                 $user->syncPermissions($permissions);
+                $user->is_refresh = true;
+                $user->save();
             }
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();

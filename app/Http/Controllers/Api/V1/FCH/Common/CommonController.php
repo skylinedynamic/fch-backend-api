@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 
 use App\Http\Resources\Global\Auth\UserResource;
+use Illuminate\Support\Facades\Auth;
 
 class CommonController extends Controller
 {
@@ -26,20 +27,32 @@ class CommonController extends Controller
                 __('common.users_retrieved')
             );
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to retrieve users.');
+            return ApiResponse::serverError(__('common.user_data_refresh_failed'));
         }
     }
 
     /**
      * Refresh User Data
      */
-    public function refreshUser(Request $request)
+    public function refreshUser()
     {
-        $user = $request->user();
+        $user = Auth::user();
+        $user->is_refresh = false;
+        $user->save();
 
+        $relations = [
+            'roles' => function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id);
+            },
+            'roles.permissions',
+            'partner.subscription.phases',
+        ];
+
+        $user->load($relations);
+        
         return ApiResponse::success(
             new UserResource($user),
-            'User data refreshed successfully.'
+            __('common.user_data_refreshed')
         );
     }
 

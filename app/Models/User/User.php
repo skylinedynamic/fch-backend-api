@@ -52,6 +52,7 @@ class User extends Authenticatable implements OAuthenticatable
         'is_paid',
         'start_date',
         'end_date',
+        'is_refresh',
         'payment_status',
     ];
 

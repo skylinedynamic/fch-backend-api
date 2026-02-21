@@ -27,6 +27,7 @@ class UserDetailResource extends JsonResource
             'phase' => $this->partner?->subscription?->enrollmentPhase?->phase,
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
+            'is_refresh' => $this->is_refresh,
         ];
     }
 }

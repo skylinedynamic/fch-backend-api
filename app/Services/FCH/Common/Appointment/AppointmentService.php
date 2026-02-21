@@ -474,7 +474,7 @@ class AppointmentService
             }
             
         }
-        elseif ($user->entity_type == Partner::class) {
+        else{
 
             $isHost = (int) $user->partner->is_host;
 

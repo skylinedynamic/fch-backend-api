@@ -51,6 +51,9 @@ class UserPermissionService
 
         // Sync permissions to user
         $user->syncPermissions($perms);
+        
+        $user->is_refresh = true;
+        $user->save();
 
         // Forget Spatie cache
         app(PermissionRegistrar::class)->forgetCachedPermissions();

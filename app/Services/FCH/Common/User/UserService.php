@@ -289,6 +289,10 @@ class UserService
             $permissionIds = $role->permissions->pluck('id');
             $permissions = Permission::whereIn('id', $permissionIds)->get();
             $user->syncPermissions($permissions);
+            
+            $user->is_refresh = true;
+            $user->save();
+
             $user->load('roles', 'permissions');
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         } catch (Throwable $e) {

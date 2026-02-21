@@ -24,6 +24,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('user_type')->nullable();
             $table->string('password');
+            $table->string('is_refresh')->default(0);
             $table->string('status')->default(User::STATUS['active']);
             $table->rememberToken();
             $table->softDeletes();
