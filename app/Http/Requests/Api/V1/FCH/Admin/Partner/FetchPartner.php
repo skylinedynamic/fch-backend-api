@@ -22,8 +22,8 @@ class FetchPartner extends FormRequest
     public function rules(): array
     {
         return [
-            'partner_id'        => ['nullable', 'integer'],
-            'assigned_user_id'  => ['nullable', 'integer'],
+            'partner_id'        => ['nullable'],
+            'assigned_user_id'  => ['nullable'],
             'search'            => ['nullable', 'string'],
             'filters'           => ['nullable', 'array'],
             'page'              => ['nullable', 'integer', 'min:1'],

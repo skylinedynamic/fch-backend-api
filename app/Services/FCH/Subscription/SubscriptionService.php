@@ -10,6 +10,8 @@ use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\CronJobFailureMail;
 use App\Services\FCH\InvoiceService;
 use App\Models\Subscription\Subscription;
 use App\Models\Subscription\SubscriptionPhase;
@@ -565,6 +567,32 @@ class SubscriptionService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            // Send granular failure email
+            $emails = explode(',', config('app.cron_notify_emails', ''));
+            $emails = array_filter(array_map('trim', $emails));
+
+            if (!empty($emails)) {
+                $subscription = $phase->subscription;
+                $entity = $subscription->entity;
+
+                $data = [
+                    'job_name' => 'ProcessSubscriptions (subscriptions:process) - Phase Failure',
+                    'error_message' => $e->getMessage(),
+                    'timestamp' => now()->toDateTimeString(),
+                    'stack_trace' => $e->getTraceAsString(),
+                    'user_email' => $entity->email ?? 'N/A',
+                    'user_id' => $entity->id ?? 'N/A',
+                ];
+
+                if ($subscription->entity_type === Borrower::class) {
+                    $data['partner_name'] = $entity->partner?->full_name ?? 'N/A';
+                } else {
+                    $data['partner_name'] = $entity->full_name ?? 'N/A';
+                }
+
+                Mail::to($emails)->send(new CronJobFailureMail($data));
+            }
         }
     }
     

@@ -355,30 +355,52 @@ class GlobalPaymentService
                     'total_paid_users' => $partner->total_paid_users + $quantity,
                 ]);
 
-                $user = User::where('id', $data['user_id'])->where('partner_id', $partner->id)->with('employee')->first();
-                $plainPassword = bin2hex(random_bytes(4)); // 8 chars
-                $user->update([
-                    'status' => User::STATUS['active'],
-                    'payment_status' => User::PAYMENT_STATUS_PAID,
-                    'password' => Hash::make($plainPassword),
-                ]);
+                // 5. Update User Status and Password
+                $user = User::where('id', $data['user_id'])->where('partner_id', $partner->id)->first();
 
-                // 5. Send Email
-                try {
-                    $paymentData = [
-                        'amount' => $payment->amount,
-                        'currency' => $payment->currency,
-                        'transaction_id' => $payment->transaction_id,
-                        'description' => $paymentIntent->description,
-                        'date' => $payment->transaction_date,
-                        'user_name' => $user->name,
-                        'user_email' => $user->email,
-                        'plainPassword' => $plainPassword,
-                        'user' => $user,
-                    ];
-                    Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData));
-                } catch (\Exception $e) {
-                    Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
+                // If not found by ID, try finding by entity reference (Employee/Borrower)
+                if (!$user && !empty($data['entity_id']) && !empty($data['entity_type'])) {
+                    $user = User::where('entity_id', $data['entity_id'])
+                        ->where('entity_type', $data['entity_type'])
+                        ->where('partner_id', $partner->id)
+                        ->first();
+                }
+
+                $plainPassword = null;
+                if ($user) {
+                    $plainPassword = bin2hex(random_bytes(4)); // 8 chars
+                    $user->update([
+                        'status' => User::STATUS['active'],
+                        'payment_status' => User::PAYMENT_STATUS_PAID,
+                        'password' => Hash::make($plainPassword),
+                    ]);
+                    Log::info('User activated and password set', ['user_id' => $user->id]);
+                } else {
+                    Log::warning('User not found for seat purchase activation', [
+                        'user_id' => $data['user_id'] ?? null,
+                        'entity_id' => $data['entity_id'] ?? null,
+                        'partner_id' => $partner->id
+                    ]);
+                }
+
+                // 6. Send Email
+                if ($user) {
+                    try {
+                        $paymentData = [
+                            'amount' => $payment->amount,
+                            'currency' => $payment->currency,
+                            'transaction_id' => $payment->transaction_id,
+                            'description' => $paymentIntent->description,
+                            'date' => $payment->transaction_date,
+                            'user_name' => $user->name,
+                            'user_email' => $user->email,
+                            'plainPassword' => $plainPassword,
+                            'user' => $user,
+                        ];
+                        Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData));
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
+                    }
                 }
 
                 DB::commit();

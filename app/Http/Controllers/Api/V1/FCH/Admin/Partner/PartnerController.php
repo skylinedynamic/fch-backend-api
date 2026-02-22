@@ -41,8 +41,8 @@ class PartnerController extends Controller
                 'per_page' => $perPage,
                 'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
                 'search' => isset($input['search']) ? trim((string) $input['search']) : null,
-                'partner_id' => $input['partner_id'] ?? null,
-                'assigned_user_id' => $input['assigned_user_id'] ?? null,
+                'partner_id' => $this->normalizeFilterValue($input['partner_id'] ?? null),
+                'assigned_user_id' => $this->normalizeFilterValue($input['assigned_user_id'] ?? null),
                 'filters' => $input['filters'] ?? null, // array expected per request rules
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,
@@ -138,7 +138,7 @@ class PartnerController extends Controller
                 'per_page' => $request->input('per_page'),
                 'page' => $request->input('page'),
                 'search' => $request->input('search'),
-                'partner_id' => $request->input('partner_id'),
+                'partner_id' => $this->normalizeFilterValue($request->input('partner_id')),
                 'sort_field' => $request->input('sort_field'),
                 'sort_order' => $request->input('sort_order'),
                 'filters' => $request->input('filters') ?? null,
@@ -225,5 +225,17 @@ class PartnerController extends Controller
         } catch (\Throwable $e) {
             return ApiResponse::serverError('Failed to retrieve next partner ID', 500);
         }
+    }
+
+    /**
+     * Normalize filter value (handles object {value: ...} or direct value)
+     */
+    private function normalizeFilterValue($value)
+    {
+        if (is_array($value) && array_key_exists('value', $value)) {
+            return $value['value'];
+        }
+
+        return $value;
     }
 }
