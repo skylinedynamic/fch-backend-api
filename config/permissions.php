@@ -100,10 +100,10 @@ return [
 
     'subscriptions' => [
         'permissions' => [
-            ['name' => 'view subscriptions', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create subscriptions', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'update subscriptions', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete subscriptions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'view subscriptions', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create subscriptions', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update subscriptions', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete subscriptions', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 
