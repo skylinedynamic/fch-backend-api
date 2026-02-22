@@ -6,6 +6,7 @@ use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
+use Illuminate\Support\Facades\Auth;
 
 class CommonService
 {
@@ -15,15 +16,21 @@ class CommonService
      */
     public function getAllUsers()
     {
+        $user = Auth::user();
         $users = User::query()
-            ->where('partner_id', auth()->user()->partner_id)
-            ->where(function ($query) {
-                $query->whereNull('entity_type')
-                    ->orWhere('entity_type', Partner::class);
+            ->when($user->partner->is_host == 1, function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id)
+                    ->where('user_type',User::ADMIN);
+            })
+            ->when($user->partner->is_host == 0, function ($query) use ($user) {
+                $query->where('partner_id', $user->partner_id)
+                    ->where('user_type',User::PARTNER);
             })
             ->select('id', 'name', 'email', 'phone_number')
             ->orderBy('name', 'asc')
             ->get();
+
+        return $users;
     }
 
     /**
