@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Http\Resources\FCH\CreditBuilder\BorrowerTaskVerificationRequestResource;
+use App\Models\Borrower\MigratedTask;
 use App\Models\CreditBuilder\TierTask;
+use Illuminate\Support\Facades\Auth;
 
 class VerificationCenterService
 {
@@ -274,7 +276,7 @@ class VerificationCenterService
 
         $verificationRequest->update($updateData);
 
-        $this->tierUpdate($verificationRequest, $data['status']);
+        $data['status'] == BorrowerTaskVerificationRequest::COMPLETED ? $this->tierUpdate($verificationRequest, $data['status']) : null;
 
         return $verificationRequest;
     }
@@ -284,11 +286,15 @@ class VerificationCenterService
      */
     protected function tierUpdate(BorrowerTaskVerificationRequest $verificationRequest, string $status)
     {
-        // Check if all tasks in the current tier are verified
-        if ($status === BorrowerTaskVerificationRequest::COMPLETED) {
-            $tierId = $verificationRequest->tier_id;
-            $borrowerId = $verificationRequest->borrower_id;
+        $tierId = $verificationRequest->tier_id;
+        $borrowerId = $verificationRequest->borrower_id;
 
+        $taskTier = Tier::find($tierId);
+        $borrower = Borrower::with('tier')->find($borrowerId);
+
+        // Check if all tasks in the current tier are verified
+        if ($verificationRequest->tier_id == 1) {
+            
             // Count total tasks in this tier
             $totalTasks = TierTask::where('tier_id', $tierId)->count();
 
@@ -298,8 +304,6 @@ class VerificationCenterService
                 ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
                 ->count();
 
-            $taskTier = Tier::find($tierId);
-            $borrower = Borrower::with('tier')->find($borrowerId);
 
             if ($taskTier && $borrower) {
                 // Determine mandatory task count for progression
@@ -319,6 +323,20 @@ class VerificationCenterService
                     }
                 }
             }
+        }else{
+            $task = TierTask::find($verificationRequest->task_id);
+            
+            MigratedTask::create([
+                'borrower_id' => $verificationRequest->borrower_id,
+                'partner_id' => $verificationRequest->partner_id,
+                'task_id' => $task->id,
+                'vendor_id' => $task->vendor_id,
+                'tier_from' => $verificationRequest->tier_id,
+                'tier_to' => $task->tier_id + 1,
+                'migrated_by' => Auth::id(),
+                'status' => BorrowerTaskVerificationRequest::PENDING
+            ]);
+
         }
     }
 }

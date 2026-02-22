@@ -85,7 +85,7 @@ class BorrowerSeeder extends Seeder
                 'assign_id' => null,
                 'additional_data' => null,
                 'notes' => 'High growth potential, recently closed Series A funding.',
-                'current_tier' => 2,
+                'current_tier' => 1,
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

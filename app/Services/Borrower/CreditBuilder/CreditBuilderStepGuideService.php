@@ -11,6 +11,8 @@ use App\Models\CreditBuilder\TaskRelatedApi;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Services\Global\MicroBilt\MicroBiltVerificationFactory;
 use App\Http\Resources\Borrower\CreditBuilder\TaskVerificationResource;
+use App\Http\Resources\Borrower\CreditBuilder\TierResource;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -23,14 +25,18 @@ class CreditBuilderStepGuideService
      */
     public function getTierWiseTaskList()
     {
-        $borrower = Borrower::where('id', auth()->user()->entity_id)->first();
+        $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
         
-        return Tier::with(['tasks' => function ($query) {
+        $tierData = Tier::with(['tasks' => function ($query) {
              $query->orderBy('order', 'asc');
         }, 'tasks.latestBorrowerTierTasks' => function ($query) use ($borrower) {
              $query->where('borrower_id', $borrower->id);
         },'tasks.vendor'])
         ->orderBy('order', 'asc')->get();
+
+        $response = TierResource::collection($tierData);
+
+        
     }
 
     /**
@@ -42,7 +48,7 @@ class CreditBuilderStepGuideService
      */
     public function taskVerifyRequest(array $taskIds)
     {
-        $borrower = Borrower::where('id', auth()->user()->entity_id)->first();
+        $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
         
         $verificationRequests = [];
 
