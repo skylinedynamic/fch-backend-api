@@ -38,7 +38,7 @@ class CommonService
      */
     public function getUserCount()
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         if ($user->partner && $user->partner->is_host == 0) {
             $count = User::where('partner_id', $user->partner->id)
