@@ -47,7 +47,6 @@ class BorrowerService
      */
     public function list(array $filters)
     {
-
         // Get authenticated user to determine filter logic
         $authUser = auth()->user();
 
@@ -62,7 +61,6 @@ class BorrowerService
                 if (! empty($filters['partner_id'])) {
                     $query->where('borrowers.partner_id', $filters['partner_id']);
                 }
-                // If no partner_id filter provided, show all borrowers (no restriction)
             } else {
                 // If user is not a host, only show borrowers from their own partner
                 $query->where('borrowers.partner_id', $authUser->partner_id);
@@ -86,47 +84,7 @@ class BorrowerService
             $query->where('borrowers.assign_id', $filters['assign_id']);
         }
 
-        // Determine sorting and joins
-        $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-        if ($sortField === 'full_name') {
-            $sortField = 'first_name';
-        }
-
-        $skipSorting = false;
-        $rawFilters = $filters['filters'] ?? [];
-
-        // Join Tiers if sorting or filtering by current_tier_name
-        if ($sortField === 'current_tier_name' || isset($rawFilters['current_tier_name'])) {
-            $query->leftJoin('tiers', 'borrowers.current_tier', '=', 'tiers.id')
-                ->addSelect('tiers.name as current_tier_name');
-            if ($sortField === 'current_tier_name') {
-                $query->orderBy('tiers.name', $sortOrder);
-                $skipSorting = true;
-            }
-        }
-
-        // Join Partners if sorting or filtering by partner_name
-        if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $query->leftJoin('partners', 'borrowers.partner_id', '=', 'partners.id')
-                ->addSelect('partners.full_name as partner_name');
-            if ($sortField === 'partner_name') {
-                $query->orderBy('partners.full_name', $sortOrder);
-                $skipSorting = true;
-            }
-        }
-
-        // Join Users if sorting or filtering by assign_name
-        if ($sortField === 'assign_name' || isset($rawFilters['assign_name'])) {
-            $query->leftJoin('users as assigned_users', 'borrowers.assign_id', '=', 'assigned_users.id')
-                ->addSelect('assigned_users.name as assign_name');
-            if ($sortField === 'assign_name') {
-                $query->orderBy('assigned_users.name', $sortOrder);
-                $skipSorting = true;
-            }
-        }
-
-        // Search across multiple fields
+        // Apply Search
         if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
@@ -146,67 +104,8 @@ class BorrowerService
             });
         }
 
-        // 🔍 Filter by assign_name (related user name)
-        if (isset($filters['filters']['assign_name'])) {
-            $assignNameFilter = $filters['filters']['assign_name'];
-            if (isset($assignNameFilter['constraints']) && is_array($assignNameFilter['constraints'])) {
-                $hasActiveConstraint = false;
-                foreach ($assignNameFilter['constraints'] as $c) {
-                    if (!empty($c['value'])) {
-                        $hasActiveConstraint = true;
-                        break;
-                    }
-                }
-
-                if ($hasActiveConstraint) {
-                    $query->whereHas('assignedUser', function ($q) use ($assignNameFilter) {
-                        $q->where(function ($subQ) use ($assignNameFilter) {
-                            foreach ($assignNameFilter['constraints'] as $constraint) {
-                                $value = $constraint['value'] ?? null;
-                                $matchMode = $constraint['matchMode'] ?? 'contains';
-
-                                if ($value) {
-                                    $likeContains = "%{$value}%";
-                                    $likeStarts = "{$value}%";
-                                    $likeEnds = "%{$value}";
-
-                                    if ($matchMode === 'contains') {
-                                        $subQ->where('name', 'like', $likeContains);
-                                    } elseif ($matchMode === 'startsWith') {
-                                        $subQ->where('name', 'like', $likeStarts);
-                                    } elseif ($matchMode === 'endsWith') {
-                                        $subQ->where('name', 'like', $likeEnds);
-                                    } else {
-                                        $subQ->where('name', '=', $value);
-                                    }
-                                }
-                            }
-                        });
-                    });
-                }
-            }
-            unset($filters['filters']['assign_name']);
-        }
-
-        // Build aliases dynamically based on which joins are present
-        $aliases = [
-            'email' => 'borrowers.email',
-            'phone_number' => 'borrowers.phone_number',
-            'first_name' => 'borrowers.first_name',
-            'last_name' => 'borrowers.last_name',
-            'status' => 'borrowers.status',
-        ];
-
-        // Add join-dependent aliases only when those joins exist
-        if ($sortField === 'current_tier_name' || isset($rawFilters['current_tier_name'])) {
-            $aliases['current_tier_name'] = 'tiers.name';
-        }
-        if ($sortField === 'partner_name' || isset($rawFilters['partner_name'])) {
-            $aliases['partner_name'] = 'partners.full_name';
-        }
-        if ($sortField === 'assign_name' || isset($rawFilters['assign_name'])) {
-            $aliases['assign_name'] = 'assigned_users.name';
-        }
+        $sortField = $filters['sort_field'] ?? 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         $query = QueryFilter::apply(
             $query,
@@ -217,13 +116,25 @@ class BorrowerService
                 'concat_fields' => [
                     'full_name' => ['borrowers.first_name', 'borrowers.last_name'],
                 ],
-                'aliases' => $aliases,
-                'skip_sorting' => $skipSorting,
+                'aliases' => [
+                    'email' => 'borrowers.email',
+                    'phone_number' => 'borrowers.phone_number',
+                    'first_name' => 'borrowers.first_name',
+                    'last_name' => 'borrowers.last_name',
+                    'status' => 'borrowers.status',
+                    'created_at' => 'date_range',
+                ],
             ]
         );
 
+        // Calculate statistics before pagination
+        $statistics = [
+            'total_borrowers' => (clone $query)->count(),
+            'active_borrowers' => (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count(),
+            'inactive_borrowers' => (clone $query)->where('status', '!=', Borrower::STATUS_ACTIVE)->count(),
+            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+        ];
 
-        // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -232,8 +143,31 @@ class BorrowerService
         return $this->respondWithPaginationResource(
             $paginator,
             BorrowerResource::class,
-            __('borrower.success.retrieved')
+            __('borrower.success.retrieved'),
+            200,
+            ['statistics' => $statistics]
         );
+    }
+
+    public function getBorrowerProfileStats(int $id)
+    {
+        $borrower = Borrower::findOrFail($id);
+        $borrowerClass = Borrower::class;
+
+        $stats = DB::table('borrowers as b')
+            ->select([
+                'b.id',
+                DB::raw("(SELECT COUNT(*) FROM appointments WHERE assigned_for IN (SELECT id FROM users WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id)) as total_meetings"),
+                DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id) as total_invoices"),
+                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions WHERE entity_type = 'App\\\\Models\\\\Partner\\\\Partner' AND entity_id = b.partner_id ORDER BY id DESC LIMIT 1), 'N/A')) as enrollment_type"),
+                DB::raw("(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification"),
+                DB::raw("0 as total_tickets"),
+                DB::raw("(SELECT COUNT(*) FROM borrower_documents WHERE borrower_id = b.id) as total_documents")
+            ])
+            ->where('b.id', $id)
+            ->first();
+
+        return $stats;
     }
 
     /**
@@ -556,87 +490,6 @@ class BorrowerService
         return $users;
     }
 
-    /**
-     * Get Borrower Statistics Counts.
-     */
-    public function getBorrowerStats($partnerId = null): array
-    {
-        $today = now();
-        $startOfMonth = $today->copy()->startOfMonth();
-        $endOfMonth = $today->copy()->endOfMonth();
-
-        // Base query
-        $query = Borrower::query();
-
-        // Check user type
-        $user = auth()->user();
-
-        // If user is Partner, use their partner_id
-        if ($user && $user->user_type === 'Partner' && !$partnerId) {
-            if ($user->entity_type === 'App\\Models\\Partner\\Partner' && $user->entity_id) {
-                $partnerId = $user->entity_id;
-            }
-        }
-
-        // Filter by partner_id if provided
-        if ($partnerId) {
-            $query->where('partner_id', $partnerId);
-        }
-
-        // Clone query for different counts
-        $totalBorrowers = (clone $query)->count();
-        $newThisMonth = (clone $query)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
-
-        // Active count: borrowers with STATUS_ACTIVE
-        $activeCount = (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count();
-
-        return [
-            'total_borrowers' => $totalBorrowers,
-            'new_this_month' => $newThisMonth,
-            'active_count' => $activeCount,
-            'inactive_count' => $totalBorrowers - $activeCount,
-        ];
-    }
-
-    /**
-     * Get Borrower Profile Statistics.
-     */
-    /**
-     * Get Borrower Profile Statistics.
-     */
-    public function getBorrowerProfileStats(int $id)
-    {
-        // Use addslashes to properly escape backslashes for the SQL string literal
-        $entityType = addslashes(Borrower::class);
-
-        $stats = DB::table('borrowers as b')
-            ->select(
-                'b.id',
-                // Meetings: linked via User (assigned_for).
-                DB::raw("(SELECT COUNT(*) FROM appointments WHERE assigned_for IN (SELECT id FROM users WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id)) as total_meetings"),
-
-                // Invoices: linked via entity_type and entity_id
-                DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = 'App\\\\\\Models\\\\\\Borrower\\\\\\Borrower' AND entity_id = b.id) as total_invoices"),
-
-                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions 
-                          WHERE entity_type = 'App\\\\\\Models\\\\\\Partner\\\\\\Partner' AND entity_id = b.partner_id 
-                          ORDER BY id DESC 
-                          LIMIT 1), 'N/A')) as enrollment_type"),
-
-                // Prequalification Requests
-                DB::raw('(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification'),
-
-                // Tickets: Placeholder for future support tickets implementation
-                DB::raw('0 as total_tickets'),
-
-                // Documents
-                DB::raw('(SELECT COUNT(*) FROM borrower_documents WHERE borrower_id = b.id) as total_documents')
-            )
-            ->where('b.id', $id)
-            ->first();
-
-        return $stats;
-    }
 
     /**
      * Get Borrower Documents.

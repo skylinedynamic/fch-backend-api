@@ -105,7 +105,6 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
-            Route::post('borrowers-stats', [BorrowerController::class, 'stats']);
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);

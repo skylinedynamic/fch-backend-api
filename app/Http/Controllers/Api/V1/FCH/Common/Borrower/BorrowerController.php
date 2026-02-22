@@ -36,26 +36,7 @@ class BorrowerController extends Controller
     public function index(FetchBorrowerRequest $request)
     {
         try {
-            $input = $request->validated();
-
-            // Sanitize pagination
-            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
-            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null;
-
-            $filters = [
-                'per_page' => $perPage,
-                'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
-                'search' => isset($input['search']) ? trim((string) $input['search']) : null,
-                'partner_id' => $input['partner_id'] ?? null,
-                'partner_name' => $input['partner_name'] ?? null,
-                'current_tier' => $input['current_tier'] ?? null,
-                'assign_id' => $input['assign_id'] ?? null,
-                'filters' => $input['filters'] ?? null,
-                'sort_field' => $input['sort_field'] ?? null,
-                'sort_order' => $input['sort_order'] ?? null,
-            ];
-
-            return $this->borrowerService->list($filters);
+            return $this->borrowerService->list($request->validated());
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.list_failed'));
         }
@@ -236,31 +217,12 @@ class BorrowerController extends Controller
             ]);
         }
     }
-    /**
-     * Get Borrower Count Statistics.
-     * Automatically filtered based on authenticated user type:
-     * - Borrower: Returns zeros
-     * - Partner: Returns counts for their partner_id
-     * - Admin: Returns all counts
-     */
-    public function stats()
-    {
-        try {
-            // Service automatically handles filtering based on auth user type
-            $data = $this->borrowerService->getBorrowerStats();
-
-            return ApiResponse::success($data, __('borrower.stats_retrieved') ?? 'Stats retrieved successfully');
-        } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('borrower.stats_retrieved_failed') ?? 'Failed to retrieve stats', 500);
-        }
-    }
 
     /**
      * Profile States Count
      */
     public function profileStatsCount(int $borrowerId)
     {
-
         try {
             $data = $this->borrowerService->getBorrowerProfileStats($borrowerId);
 
