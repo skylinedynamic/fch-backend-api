@@ -27,7 +27,7 @@ class CreditBuilderStepGuideService
     {
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
         
-        $tierData = Tier::with(['tasks' => function ($query) {
+        return  Tier::with(['tasks' => function ($query) {
              $query->orderBy('order', 'asc');
         }, 'tasks.latestBorrowerTierTasks' => function ($query) use ($borrower) {
              $query->where('borrower_id', $borrower->id);
