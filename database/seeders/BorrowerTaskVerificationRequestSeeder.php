@@ -38,7 +38,7 @@ class BorrowerTaskVerificationRequestSeeder extends Seeder
                     ],
                     [
                         'partner_id' => $borrower->partner_id,
-                        'status' => $borrower->id == 1 ? BorrowerTaskVerificationRequest::COMPLETED : BorrowerTaskVerificationRequest::PROCESSING,
+                        'status' => BorrowerTaskVerificationRequest::PROCESSING,
                         'verified_by' => $borrower->id == 1 ? 1 : null,
                         'verified_at' => $borrower->id == 1 ? now() : null,
                     ]
