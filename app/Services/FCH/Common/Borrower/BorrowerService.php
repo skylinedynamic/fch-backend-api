@@ -571,16 +571,6 @@ class BorrowerService
         // Check user type
         $user = auth()->user();
 
-        // If user is a Borrower, they should only see their own data
-        if ($user && $user->user_type === 'Borrower') {
-            return [
-                'total_borrowers' => 0,
-                'new_this_month' => 0,
-                'active_count' => 0,
-                'inactive_count' => 0,
-            ];
-        }
-
         // If user is Partner, use their partner_id
         if ($user && $user->user_type === 'Partner' && !$partnerId) {
             if ($user->entity_type === 'App\\Models\\Partner\\Partner' && $user->entity_id) {
