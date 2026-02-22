@@ -80,8 +80,9 @@ class BorrowerService
         }
 
         // Filter by assign_id
-        if (! empty($filters['assign_id'])) {
-            $query->where('borrowers.assign_id', $filters['assign_id']);
+        $assignId = $filters['assigned_user_id'] ?? ($filters['assign_id'] ?? null);
+        if (! empty($assignId)) {
+            $query->where('borrowers.assign_id', $assignId);
         }
 
         // Apply Search

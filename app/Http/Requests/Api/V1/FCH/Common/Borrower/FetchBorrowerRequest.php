@@ -17,6 +17,7 @@ class FetchBorrowerRequest extends FormRequest
             'partner_id'        => ['nullable', 'integer'],
             'current_tier'      => ['nullable'],
             'assign_id'         => ['nullable', 'integer'],
+            'assigned_user_id'  => ['nullable'],
             'search'            => ['nullable', 'string'],
             'filters'           => ['nullable', 'array'],
             'page'              => ['nullable', 'integer', 'min:1'],
