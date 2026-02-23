@@ -23,12 +23,7 @@ class CreditBuilderStepGuideController extends Controller
      */
     public function index()
     {
-        $data = $this->stepGuideService->getTierWiseTaskList();
-
-        return ApiResponse::success(
-            TierResource::collection($data),
-            __('borrower.tier_task_list_retrieved')
-        );
+        return $this->stepGuideService->getTierWiseTaskList();
     }
 
     /**

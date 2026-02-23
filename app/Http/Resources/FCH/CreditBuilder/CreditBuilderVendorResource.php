@@ -24,7 +24,7 @@ class CreditBuilderVendorResource extends JsonResource
             'tier_id' => $this->tier_id,
             'status' => $this->status,
             'description' => $this->description,
-            'general_url' => $this->general_url,
+            'general_url' => $this->general_url, 
             'affiliate_url' => $this->affiliate_url,
             'logo' => $this->logo ? asset('storage/' . $this->logo) : null,
         ];

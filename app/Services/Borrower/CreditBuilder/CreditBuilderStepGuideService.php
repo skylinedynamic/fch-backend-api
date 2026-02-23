@@ -12,6 +12,8 @@ use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Services\Global\MicroBilt\MicroBiltVerificationFactory;
 use App\Http\Resources\Borrower\CreditBuilder\TaskVerificationResource;
 use App\Http\Resources\Borrower\CreditBuilder\TierResource;
+use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
+use App\Models\Borrower\MigratedTask;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,16 +29,63 @@ class CreditBuilderStepGuideService
     {
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
         
-        return  Tier::with(['tasks' => function ($query) {
+        $tierData = Tier::with(['tasks' => function ($query) {
              $query->orderBy('order', 'asc');
-        }, 'tasks.latestBorrowerTierTasks' => function ($query) use ($borrower) {
+        }, 'tasks.latestBorrowerTierTask' => function ($query) use ($borrower) {
              $query->where('borrower_id', $borrower->id);
         },'tasks.vendor'])
         ->orderBy('order', 'asc')->get();
 
-        $response = TierResource::collection($tierData);
+        // Resolve the resource collection into a plain PHP array so we can
+        // directly mutate the 'tasks' key for migrated-task tiers below.
+        $response = TierResource::collection($tierData)->resolve();
 
-        
+        $migratedTask = MigratedTask::with([
+            'task.vendor',
+            'task.latestBorrowerTierTask' => function ($query) use ($borrower) {
+                $query->where('borrower_id', $borrower->id);
+            },
+        ])->where('borrower_id', $borrower->id)->get();
+
+        if ($migratedTask->isNotEmpty()) {
+
+            foreach ($response as $key => $res) {
+                $newTasks = [];
+                foreach ($migratedTask as $mTask) {
+                    if ($mTask->tier_to == $res['id']) {
+
+                        /** @var \App\Models\CreditBuilder\BorrowerTaskVerificationRequest|null $borrower_task */
+                        $borrower_task = $mTask->task?->latestBorrowerTierTask;
+
+                        $newTasks[] = [
+                            'id'                       => $mTask->task->id,
+                            'title'                    => $mTask->task->title,
+                            'subtitle'                 => $mTask->task->subtitle,
+                            'description'              => $mTask->task->description,
+                            'status'                   => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
+                            'rejection_reason'         => $borrower_task ? $borrower_task->rejection_reason : null,
+                            'completed_at'             => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
+                            'url'                      => $mTask->task->url,
+                            'logo'                     => $mTask->task->logo ? asset('/' . encodeUrl($mTask->task->logo)) : null,
+                            'button_title'             => $mTask->task->button_title,
+                            'estimated_completion_days' => $mTask->task->estimated_completion_days,
+                            'order'                    => $mTask->task->order,
+                            'vendor'                   => CreditBuilderVendorResource::make($mTask->task?->vendor),
+                        ];
+                    }
+                }
+                if(count($newTasks)){
+                    $response[$key]['tasks'] = $newTasks;
+                }
+            }
+        }
+
+        return ApiResponse::success(
+            $response,
+            __('borrower.tier_task_list_retrieved')
+        );
+
+       
     }
 
     /**

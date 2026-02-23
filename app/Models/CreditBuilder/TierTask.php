@@ -40,7 +40,7 @@ class TierTask extends Model
         return $this->hasMany(BorrowerTaskVerificationRequest::class, 'task_id', 'id');
     }
 
-    public function latestBorrowerTierTasks()
+    public function latestBorrowerTierTask()
     {
         return $this->hasOne(BorrowerTaskVerificationRequest::class, 'task_id', 'id')->latest();
     }
