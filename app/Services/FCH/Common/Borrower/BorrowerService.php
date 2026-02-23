@@ -141,12 +141,41 @@ class BorrowerService
             unset($rawFilters['current_tier_name']);
         }
 
+        // Handle Relation Sorting
+        $skipSorting = false;
+        if ($sortField === 'assign_name') {
+            $query->orderBy(
+                User::select('name')
+                    ->whereColumn('users.id', 'borrowers.assign_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        } elseif ($sortField === 'partner_name') {
+            $query->orderBy(
+                Partner::select('full_name')
+                    ->whereColumn('partners.id', 'borrowers.partner_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        } elseif ($sortField === 'current_tier_name') {
+            $query->orderBy(
+                Tier::select('name')
+                    ->whereColumn('tiers.id', 'borrowers.current_tier')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        }
+
         $query = QueryFilter::apply(
             $query,
             $sortField,
             $sortOrder,
             $rawFilters,
             [
+                'skip_sorting' => $skipSorting,
                 'concat_fields' => [
                     'full_name' => ['borrowers.first_name', 'borrowers.last_name'],
                 ],
