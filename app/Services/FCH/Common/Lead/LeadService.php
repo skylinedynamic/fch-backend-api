@@ -150,7 +150,7 @@ class LeadService
                 'aliases' => [
                     'email' => 'leads.email',
                     'phone_number' => 'leads.phone_number',
-                    'contact_name' => 'leads.contact_person',
+                    'contact_person' => 'leads.contact_person',
                     'opportunity' => 'leads.tasks_no',
                     'lead_id' => 'leads.lead_id',
                     'lead_type' => 'leads.lead_type',
