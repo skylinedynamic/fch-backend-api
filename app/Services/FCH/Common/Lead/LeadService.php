@@ -48,50 +48,87 @@ class LeadService
 
         // Filter based on host status
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host != 1) {
+            if ($authUser->partner->is_host == false) {
                 // Non-hosts see only Borrower leads and their own partner's leads
                 $query->where('leads.lead_type', 'Borrower');
                 $query->where('leads.partner_id', $authUser->partner_id);
-            } else {
-                // Hosts can see all or filter by partner_id
-                if (! empty($filters['partner_id'])) {
-                    $query->where('leads.partner_id', $filters['partner_id']);
-                }
             }
         }
 
         // Top-level Dropdown Filters
-        if (! empty($filters['lead_type'])) {
+        if (!empty($filters['lead_type'])) {
             $query->where('leads.lead_type', $filters['lead_type']);
         }
 
-        if (! empty($filters['status'])) {
+        if (!empty($filters['status'])) {
             $query->where('leads.status', $filters['status']);
         }
 
-        if (! empty($filters['salesperson_id'])) {
+        if (!empty($filters['salesperson_id'])) {
             $query->where('leads.salesperson_id', $filters['salesperson_id']);
         }
 
         // Search scope (Model defined)
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
 
-        // Sorting and Joins for Salesperson Name
+        // Sorting configuration
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $skipSorting = false;
-        $rawFilters = $filters['filters'] ?? [];
 
-        // Join Users if sorting or filtering by salesperson_name
-        if ($sortField === 'salesperson_name' || isset($rawFilters['salesperson_name'])) {
-            $query->leftJoin('users as salespersons', 'leads.salesperson_id', '=', 'salespersons.id')
-                ->addSelect('salespersons.name as salesperson_name');
-            if ($sortField === 'salesperson_name') {
-                $query->orderBy('salespersons.name', $sortOrder);
-                $skipSorting = true;
+        // Manual column filters handling
+        $rawFilters = $filters['filters'] ?? [];
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true) ?? [];
+        }
+
+        // 1. Filter by Salesperson Name
+        if (isset($rawFilters['salesperson_name'])) {
+            $constraints = $rawFilters['salesperson_name']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('salesperson', function ($q) use ($value) {
+                        $q->where('name', 'like', "%{$value}%");
+                    });
+                }
             }
+            unset($rawFilters['salesperson_name']);
+        }
+
+        // 2. Filter by Partner Name
+        if (isset($rawFilters['partner_name'])) {
+            $constraints = $rawFilters['partner_name']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('partner', function ($q) use ($value) {
+                        $q->where('full_name', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['partner_name']);
+        }
+
+        // Handle Relation Sorting
+        if ($sortField === 'salesperson_name') {
+            $query->orderBy(
+                User::select('name')
+                    ->whereColumn('users.id', 'leads.salesperson_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        } elseif ($sortField === 'partner_name') {
+            $query->orderBy(
+                Partner::select('full_name')
+                    ->whereColumn('partners.id', 'leads.partner_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
         }
 
         $query = QueryFilter::apply(
@@ -109,7 +146,6 @@ class LeadService
                     'lead_type' => 'leads.lead_type',
                     'status' => 'leads.status',
                     'probability' => 'leads.probability',
-                    'salesperson_name' => 'salespersons.name',
                 ],
                 'skip_sorting' => $skipSorting,
             ]
@@ -123,7 +159,9 @@ class LeadService
         return $this->respondWithPaginationResource(
             $paginator,
             LeadResource::class,
-            __('lead.lead_listed')
+            __('lead.lead_listed'),
+            200,
+            ['statistics' => $this->getStats()]
         );
     }
 
@@ -387,7 +425,8 @@ class LeadService
         $authUser = Auth::user();
         $query = Lead::query();
 
-        if ($authUser && $authUser->partner) {
+        if ($authUser && $authUser->partner && $authUser->partner->is_host == false) {
+            $query->where('leads.lead_type', 'Borrower');
             $query->where('partner_id', $authUser->partner_id);
         }
 

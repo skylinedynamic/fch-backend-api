@@ -69,6 +69,9 @@ class Lead extends Model
                 ->orWhere('leads.status', 'like', "%{$search}%")
                 ->orWhereHas('salesperson', function ($sq) use ($search) {
                     $sq->where('name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('partner', function ($sq) use ($search) {
+                    $sq->where('full_name', 'like', "%{$search}%");
                 });
         });
     }
