@@ -37,6 +37,7 @@ class Subscription extends Model
         'subscription_start_date',
         'subscription_end_date',
         'status',
+        'is_custom',
     ];
 
     protected $casts = [
@@ -49,6 +50,7 @@ class Subscription extends Model
         'total_subscription_amount' => 'decimal:2',
         'payable_amount' => 'decimal:2',
         'installment_type' => 'integer',
+        'is_custom' => 'boolean',
     ];
 
     public function partner()
