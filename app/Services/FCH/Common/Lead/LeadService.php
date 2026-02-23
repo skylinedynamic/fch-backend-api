@@ -46,29 +46,39 @@ class LeadService
             ->with(['salesperson', 'partner'])
             ->select('leads.*');
 
-        // Filter based on host status
+        // Top-level Dropdown Filters (Robust Normalization)
+        $leadType = is_array($filters['lead_type'] ?? null) ? ($filters['lead_type']['value'] ?? null) : ($filters['lead_type'] ?? null);
+        $statusValue = is_array($filters['status'] ?? null) ? ($filters['status']['value'] ?? null) : ($filters['status'] ?? null);
+        $salespersonId = is_array($filters['salesperson_id'] ?? null) ? ($filters['salesperson_id']['value'] ?? null) : ($filters['salesperson_id'] ?? null);
+        $partnerId = is_array($filters['partner_id'] ?? null) ? ($filters['partner_id']['value'] ?? null) : ($filters['partner_id'] ?? null);
+
+        // Access Control & Partner Filtering
         if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host == false) {
-                // Non-hosts see only Borrower leads and their own partner's leads
-                $query->where('leads.lead_type', 'Borrower');
+            if ($authUser->partner->is_host) {
+                // Host can filter by Partner
+                if ($partnerId !== null && $partnerId !== '') {
+                    $query->where('leads.partner_id', $partnerId);
+                }
+            } else {
+                // Non-hosts see only their own partner's leads
                 $query->where('leads.partner_id', $authUser->partner_id);
             }
         }
 
-        // Top-level Dropdown Filters
-        if (!empty($filters['lead_type'])) {
-            $query->where('leads.lead_type', $filters['lead_type']);
+        // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
+        if ($leadType !== null && $leadType !== '') {
+            $query->where('leads.lead_type', $leadType);
         }
 
-        if (!empty($filters['status'])) {
-            $query->where('leads.status', $filters['status']);
+        if ($statusValue !== null && $statusValue !== '') {
+            $query->where('leads.status', $statusValue);
         }
 
-        if (!empty($filters['salesperson_id'])) {
-            $query->where('leads.salesperson_id', $filters['salesperson_id']);
+        if ($salespersonId !== null && $salespersonId !== '') {
+            $query->where('leads.salesperson_id', $salespersonId);
         }
 
-        // Search scope (Model defined)
+        // Apply Global Search
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
@@ -154,6 +164,9 @@ class LeadService
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
+        // Calculate statistics based on the filtered query (before pagination)
+        $statistics = $this->getStats(clone $query);
+
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         return $this->respondWithPaginationResource(
@@ -161,7 +174,7 @@ class LeadService
             LeadResource::class,
             __('lead.lead_listed'),
             200,
-            ['statistics' => $this->getStats()]
+            ['statistics' => $statistics]
         );
     }
 
@@ -418,16 +431,17 @@ class LeadService
     }
 
     /**
-     * Get Leads Statistics
+     * Get Leads Statistics based on a query.
      */
-    public function getStats(): array
+    public function getStats($query = null): array
     {
-        $authUser = Auth::user();
-        $query = Lead::query();
+        if (!$query) {
+            $authUser = Auth::user();
+            $query = Lead::query();
 
-        if ($authUser && $authUser->partner && $authUser->partner->is_host == false) {
-            $query->where('leads.lead_type', 'Borrower');
-            $query->where('partner_id', $authUser->partner_id);
+            if ($authUser && $authUser->partner && $authUser->partner->is_host == false) {
+                $query->where('partner_id', $authUser->partner_id);
+            }
         }
 
         $baseQuery = clone $query;

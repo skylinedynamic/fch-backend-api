@@ -56,10 +56,11 @@ class BorrowerService
 
         // Filter based on authenticated user's partner and host status
         if ($authUser && $authUser->partner) {
+            $partnerId = $filters['partner_id']['value'] ?? ($filters['partner_id'] ?? null);
             if ($authUser->partner->is_host == 1) {
                 // If user is a host, filter by partner_id if provided, otherwise show all
-                if (! empty($filters['partner_id'])) {
-                    $query->where('borrowers.partner_id', $filters['partner_id']);
+                if ($partnerId !== null && $partnerId !== '') {
+                    $query->where('borrowers.partner_id', $partnerId);
                 }
             } else {
                 // If user is not a host, only show borrowers from their own partner
@@ -68,8 +69,8 @@ class BorrowerService
         }
 
         // Filter by current_tier (supports ID or Name)
-        if (! empty($filters['current_tier'])) {
-            $currentTier = $filters['current_tier'];
+        $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
+        if ($currentTier !== null && $currentTier !== '') {
             if (is_numeric($currentTier)) {
                 $query->where('borrowers.current_tier', $currentTier);
             } else {
@@ -80,8 +81,8 @@ class BorrowerService
         }
 
         // Filter by assign_id
-        $assignId = $filters['assigned_user_id'] ?? ($filters['assign_id'] ?? null);
-        if (! empty($assignId)) {
+        $assignId = $filters['assigned_user_id']['value'] ?? ($filters['assigned_user_id'] ?? ($filters['assign_id']['value'] ?? ($filters['assign_id'] ?? null)));
+        if ($assignId !== null && $assignId !== '') {
             $query->where('borrowers.assign_id', $assignId);
         }
 
