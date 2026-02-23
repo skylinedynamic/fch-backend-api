@@ -2,15 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Invoice\Invoice;
 use App\Models\User\User;
-use App\Services\FCH\InvoiceService;
-use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\CronJobFailureMail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
+use App\Models\Invoice\Invoice;
+use Illuminate\Console\Command;
+use App\Mail\CronJobFailureMail;
+use App\Models\Employee\Employee;
+use Illuminate\Support\Facades\Log;
+use App\Services\FCH\InvoiceService;
+use Illuminate\Support\Facades\Mail;
 
 class CheckUserExpired extends Command
 {
@@ -52,6 +53,10 @@ class CheckUserExpired extends Command
             // Logic: Filter users with is_paid = 1 and end_date <= today + generate_before_days
             $users = User::where('is_paid', 1)
                 ->where('end_date', '<=', $targetDate)
+                ->where(function ($query) {
+                    $query->where('entity_type', Employee::class)
+                        ->orWhereNull('entity_type');
+                })
                 ->whereHas('partner', function ($query) {
                     $query->where('is_host', 0);
                 })
@@ -61,10 +66,19 @@ class CheckUserExpired extends Command
 
             foreach ($users as $user) {
                 // Requirement: Only one invoice per month per user
-                $invoiceExistsThisMonth = Invoice::where('entity_type', User::class)
-                    ->where('entity_id', $user->id)
+                $invoiceExistsThisMonth = Invoice::where(function ($query) use ($user) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('entity_type', User::class)
+                            ->where('entity_id', $user->id);
+                    })
+                        ->orWhere(function ($q) use ($user) {
+                            $q->where('entity_type', Employee::class)
+                                ->where('entity_id', $user->entity_id);
+                        });
+                })
                     ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
                     ->exists();
+
 
                 if ($invoiceExistsThisMonth) {
                     $this->info("Invoice already exists for this month for user: " . $user->email);
@@ -72,10 +86,20 @@ class CheckUserExpired extends Command
                 }
 
                 // Find last paid invoice to get the amount (Accurate Code Pattern)
-                $lastInvoice = Invoice::where('entity_type', User::class)
-                    ->where('entity_id', $user->id)
+                $lastInvoice = Invoice::where(function ($query) use ($user) {
+                    $query->where(function ($q) use ($user) {
+                        // Case 1: Invoice stored as User
+                        $q->where('entity_type', User::class)
+                            ->where('entity_id', $user->id);
+                    })
+                        ->orWhere(function ($q) use ($user) {
+                            // Case 2: Invoice stored as Employee
+                            $q->where('entity_type', Employee::class)
+                                ->where('entity_id', $user->entity_id);
+                        });
+                })
                     ->where('status', Invoice::STATUS_PAID)
-                    ->orderBy('id', 'desc')
+                    ->orderByDesc('id')
                     ->first();
 
                 $amount = $lastInvoice ? $lastInvoice->payment_amount : 0;
@@ -90,8 +114,8 @@ class CheckUserExpired extends Command
                     Invoice::create([
                         'invoice_id' => $invoiceId,
                         'partner_id' => $user->partner_id,
-                        'entity_type' => User::class,
-                        'entity_id' => $user->id,
+                        'entity_type' => $user->entity_type,
+                        'entity_id' => $user->entity_id,
                         'customer_name' => $user->name,
                         'email' => $user->email,
                         'payment_amount' => $amount,

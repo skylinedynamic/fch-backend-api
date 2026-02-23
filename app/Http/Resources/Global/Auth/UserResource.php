@@ -4,6 +4,7 @@ namespace App\Http\Resources\Global\Auth;
 
 use App\Models\User\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Models\Borrower\Borrower;
 use Illuminate\Support\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -70,6 +71,9 @@ class UserResource extends JsonResource
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
+            'is_paid'           => $this->is_paid,
+            'start_date'        => $this->start_date ? $this->start_date->format('Y-m-d') : null,
+            'end_date'          => $this->end_date ? $this->end_date->format('Y-m-d') : null,
             'phase' => $subscription?->phases?->phase,
             'status' => $this->status,
             'image' => $this->partner ? $this->partner->partner_image : $this->image,

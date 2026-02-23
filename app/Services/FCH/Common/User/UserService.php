@@ -138,7 +138,10 @@ class UserService
             ->where('partner_id', $partnerId)
             ->where(function ($query) {
                 $query->whereNull('entity_type')
-                    ->orWhere('entity_type', Partner::class);
+                    ->orWhereIn('entity_type', [
+                        Partner::class,
+                        Employee::class,
+                    ]);
             })
             ->with([
                 'roles',
@@ -147,6 +150,7 @@ class UserService
                     $morphTo->morphWith([
                         Borrower::class => ['subscription.enrollmentPhase', 'subscription.platformFeePhase'],
                         Partner::class  => ['subscription'],
+                        Employee::class => [], // optional (add relations if needed)
                     ]);
                 }
             ]);
@@ -224,6 +228,33 @@ class UserService
             unset($rawFilters['entity_type']); // Remove so QueryFilter doesn't process it
         }
 
+        // 3. Filter by Start Date (Search in both start_date and end_date)
+        if (isset($rawFilters['start_date'])) {
+            $constraints = $rawFilters['start_date']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->where(function ($q) use ($value) {
+                        $q->where('start_date', 'like', "%{$value}%")
+                            ->orWhere('end_date', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['start_date']);
+        }
+
+        // 4. Filter by End Date
+        if (isset($rawFilters['end_date'])) {
+            $constraints = $rawFilters['end_date']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->where('end_date', 'like', "%{$value}%");
+                }
+            }
+            unset($rawFilters['end_date']);
+        }
+
         if ($filters['sort_field'] === 'role_name') {
             $query->withMin('roles', 'name')
                 ->orderBy('roles_min_name', $sortOrder);
@@ -289,7 +320,7 @@ class UserService
             $permissionIds = $role->permissions->pluck('id');
             $permissions = Permission::whereIn('id', $permissionIds)->get();
             $user->syncPermissions($permissions);
-            
+
             $user->is_refresh = true;
             $user->save();
 
