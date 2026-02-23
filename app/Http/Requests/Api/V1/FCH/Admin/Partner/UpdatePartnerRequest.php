@@ -60,6 +60,8 @@ class UpdatePartnerRequest extends BaseApiRequest
             'company_logo'                => ['nullable'], // 2MB max
             'partner_image'               => ['nullable'], // 2MB max
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
+            'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
+            'monthly_platform_fee'        => ['nullable', 'numeric', 'min:0'],
         ];
     }
 

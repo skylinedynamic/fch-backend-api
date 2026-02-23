@@ -2,7 +2,6 @@
 
 namespace App\Services\FCH\Partner;
 
-use enrollment;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use Illuminate\Support\Str;
@@ -97,11 +96,13 @@ class PartnerService
             $plainPassword = $userResult['plain_password'];
             $isNew = $userResult['is_new'];
 
-            // Create partner
+            // Create partner record
             $partnerData = $this->mapPartnerData($data);
             $partnerData['status'] = Partner::STATUS_ONBOARDING;
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED  ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
+
+            Log::info('Partner creation payload', $partnerData);
             $partner = Partner::create($partnerData);
 
             // Handle partner_image upload
@@ -133,18 +134,46 @@ class PartnerService
                     ->first();
             }
 
-            $enrollmentAmount = (float) ($data['enrollment_amount'] ?? ($plan->payment_amount ?? 0));
+            // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
+            $enrollmentAmount = (float) ($plan->payment_amount ?? 0);
+            $monthlyPlatformFee = (float) ($plan->platform_fee ?? 0);
+            $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+            $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
+            $isCustom = false;
+
+            if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
+                $requestedEnrollment = (float) $data['enrollment_amount'];
+                if ($plan && abs($requestedEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) {
+                    $isCustom = true;
+                }
+                $enrollmentAmount = $requestedEnrollment;
+                // Calculate total based on custom enrollment and installment count
+                $totalSubscriptionAmount = $enrollmentAmount * $totalInstallments;
+            }
+
+            if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
+                $requestedPlatformFee = (float) $data['monthly_platform_fee'];
+                if ($plan && abs($requestedPlatformFee - (float)($plan->platform_fee ?? 0)) > 0.01) {
+                    $isCustom = true;
+                }
+                $monthlyPlatformFee = $requestedPlatformFee;
+            }
 
             // Create subscription if enrollment data exists
             if ($enrollmentType) {
-
                 $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
                     'partner_type' => $plan->partner_type ?? $partnerType,
-                    'monthly_platform_fee' => $plan->platform_fee ?? 0,
-                    'total_subscription_amount' => $plan->total_amount ?? 0,
-                    'payable_amount' => $plan->payment_amount ?? 0,
+                    'monthly_platform_fee' => $monthlyPlatformFee,
+                    'payable_amount' => $enrollmentAmount,
+                    'total_subscription_amount' => $totalSubscriptionAmount,
+                    'is_custom' => $isCustom,
                 ]);
-                Log::info('Partner subscription initialized with phases', ['entity_id' => $partner->id, 'plan_id' => $plan->id ?? 'N/A']);
+                Log::info('Partner subscription initialized', [
+                    'entity_id' => $partner->id,
+                    'is_custom' => $isCustom,
+                    'enrollment_amount' => $enrollmentAmount,
+                    'monthly_fee' => $monthlyPlatformFee
+                ]);
             }
 
             // Determine if host is creating this partner
@@ -224,17 +253,15 @@ class PartnerService
             if ($partner->partner_type == Partner::PARTNER_TYPE_CERTIFIED) {
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
-                ->where('is_host', 0)
-                // ->where('is_certified', 0)
-                ->get();
-
-            }else{
+                    ->where('is_host', 0)
+                    // ->where('is_certified', 0)
+                    ->get();
+            } else {
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
-                ->where('is_host', 0)
-                // ->where('is_certified', 1)
-                ->get();
-
+                    ->where('is_host', 0)
+                    // ->where('is_certified', 1)
+                    ->get();
             }
 
             if ($allowedPermissions->isEmpty()) {
@@ -335,6 +362,52 @@ class PartnerService
             // Update partner
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
+
+            // Update subscription if custom amounts are provided
+            $subscription = $partner->subscription;
+            if ($subscription) {
+                $plan = $subscription->subscriptionPlan;
+                $updateSubData = [];
+
+                // Determine final values to reassess is_custom status
+                $finalEnrollment = (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '')
+                    ? (float)$data['enrollment_amount']
+                    : (float)$subscription->payable_amount;
+
+                $finalMonthly = (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '')
+                    ? (float)$data['monthly_platform_fee']
+                    : (float)$subscription->monthly_platform_fee;
+
+                // Mark as custom if any value differs from the original plan
+                $isCustom = false;
+                if ($plan) {
+                    $isCustom = (abs($finalEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($finalMonthly - (float)($plan->platform_fee ?? 0)) > 0.01);
+                }
+
+                if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
+                    $updateSubData['payable_amount'] = $finalEnrollment;
+
+                    // Re-calculate total based on new installment amount and existing plan installment count
+                    $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                    $updateSubData['total_subscription_amount'] = $finalEnrollment * $totalInstallments;
+                }
+
+                if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
+                    $updateSubData['monthly_platform_fee'] = $finalMonthly;
+                }
+
+                // Always update is_custom status if reassessed
+                $updateSubData['is_custom'] = $isCustom;
+
+                $subscription->update($updateSubData);
+                Log::info('Partner subscription reassessed and updated', [
+                    'subscription_id' => $subscription->id,
+                    'is_custom' => $isCustom,
+                    'payable' => $finalEnrollment,
+                    'monthly' => $finalMonthly
+                ]);
+            }
 
             DB::commit();
             Log::info('Partner updated successfully', ['partner_id' => $partner->id]);

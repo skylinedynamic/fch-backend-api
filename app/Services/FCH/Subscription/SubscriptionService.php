@@ -434,6 +434,7 @@ class SubscriptionService
         $generateBeforeDays = config('subscription.generate_before_days', 5);
         $earliestGenerateDate = $nextDue->copy()->subDays($generateBeforeDays);
 
+
         if ($today < $earliestGenerateDate) {
             return false;
         }

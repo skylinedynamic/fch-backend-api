@@ -48,6 +48,7 @@ class StorePartnerRequest extends BaseApiRequest
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
             'enrollment_type'             => ['required', 'string', 'max:255'],
             'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
+            'monthly_platform_fee'        => ['nullable', 'numeric', 'min:0'],
             'total_free_users'            => ['nullable', 'integer', 'min:0'],
             'total_paid_users'            => ['nullable', 'integer', 'min:0'],
         ];
