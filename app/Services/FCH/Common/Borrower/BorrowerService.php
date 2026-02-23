@@ -86,33 +86,66 @@ class BorrowerService
         }
 
         // Apply Search
-        if (! empty($filters['search'])) {
-            $search = trim((string) $filters['search']);
-            $query->where(function ($q) use ($search) {
-                $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
-                    ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
-                    ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
-                    ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
-                    ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
-                    ->orWhereHas('partner', function ($q) use ($search) {
-                        $q->where('full_name', 'LIKE', "%{$search}%");
-                    })
-                    ->orWhereHas('tier', function ($q) use ($search) {
-                        $q->where('name', 'LIKE', "%{$search}%");
-                    })
-                    // Search concatenated full_name (first_name + last_name)
-                    ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
-            });
+        if (!empty($filters['search'])) {
+            $query->search($filters['search']);
         }
 
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
+        // Manual column filters handling
+        $rawFilters = $filters['filters'] ?? [];
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true) ?? [];
+        }
+
+        // 1. Filter by Partner Name
+        if (isset($rawFilters['partner_name'])) {
+            $constraints = $rawFilters['partner_name']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('partner', function ($q) use ($value) {
+                        $q->where('full_name', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['partner_name']);
+        }
+
+        // 2. Filter by Assigned User Name
+        if (isset($rawFilters['assign_name'])) {
+            $constraints = $rawFilters['assign_name']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('assignedUser', function ($q) use ($value) {
+                        $q->where('name', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['assign_name']);
+        }
+
+        // 3. Filter by Current Tier Name
+        if (isset($rawFilters['current_tier_name'])) {
+            $constraints = $rawFilters['current_tier_name']['constraints'] ?? [];
+            foreach ($constraints as $constraint) {
+                $value = $constraint['value'] ?? null;
+                if ($value) {
+                    $query->whereHas('tier', function ($q) use ($value) {
+                        $q->where('name', 'like', "%{$value}%");
+                    });
+                }
+            }
+            unset($rawFilters['current_tier_name']);
+        }
+
         $query = QueryFilter::apply(
             $query,
             $sortField,
             $sortOrder,
-            $filters['filters'] ?? [],
+            $rawFilters,
             [
                 'concat_fields' => [
                     'full_name' => ['borrowers.first_name', 'borrowers.last_name'],

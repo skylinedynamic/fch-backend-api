@@ -143,4 +143,31 @@ class Borrower extends Model
     {
         return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
     }
+
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
+                ->orWhereHas('partner', function ($q) use ($search) {
+                    $q->where('full_name', 'LIKE', "%{$search}%");
+                })
+                ->orWhereHas('tier', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                })
+                ->orWhereHas('assignedUser', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
+                })
+                ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+        });
+    }
 }
