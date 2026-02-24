@@ -33,10 +33,11 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_phone'            => ['nullable', 'string', 'max:20'], // Matching business_phone_max
             'business_entity_type'      => ['nullable', 'string', 'max:255'],
             'business_industry_type'    => ['nullable', 'string', 'max:255'],
-            'business_start_date'       => ['nullable', 'date_format:m-d-Y'],
+            'business_start_date'       => ['nullable'],
             'last_4_ssn'                => ['nullable', 'string', 'max:4'],
             'country_code'              => ['nullable', 'string', 'max:5'], // Matching country_code_max
             'plan_id'                   => ['required', 'exists:subscription_plans,id'],
+            'enrollment_payment'        => ['required', 'numeric', 'gt:0'],
             'notes'                     => ['nullable'],
 
         ];
@@ -90,13 +91,15 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_entity_type.max'  => __('borrower_validation.business_entity_type_max'),
             'business_industry_type.string' => __('borrower_validation.business_industry_type_string'),
             'business_industry_type.max' => __('borrower_validation.business_industry_type_max'),
-            'business_start_date.date'  => __('borrower_validation.business_start_date_date'),
             'last_4_ssn.string'         => __('borrower_validation.last_4_ssn_string'),
             'last_4_ssn.max'            => __('borrower_validation.last_4_ssn_max'),
             'country_code.string'       => __('borrower_validation.country_code_string'),
             'country_code.max'          => __('borrower_validation.country_code_max'),
             'plan_id.required'          => __('borrower_validation.plan_id_required'),
             'plan_id.exists'            => __('borrower_validation.plan_id_exists'),
+            'enrollment_payment.required' => __('borrower_validation.enrollment_payment_required'),
+            'enrollment_payment.numeric' => __('borrower_validation.enrollment_payment_numeric'),
+            'enrollment_payment.gt'      => __('borrower_validation.enrollment_payment_gt'),
         ];
     }
 }

@@ -54,6 +54,7 @@ class BorrowerDetailsResource extends JsonResource
             'business_start_date'       => Carbon::parse($this->business_start_date)->format('m-d-Y') ?? null,
             'enrollment_type'           => $this->latestSubscription?->enrollment_type,
             'payment_amount'            => $this->latestSubscription?->payable_amount,
+            'total_subscription_amount' => $this->latestSubscription?->total_subscription_amount,
 
             // Financial
             'currency'                  => $this->currency,

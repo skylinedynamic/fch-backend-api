@@ -47,8 +47,8 @@ class StorePartnerRequest extends BaseApiRequest
             'partner_image'               => ['nullable'], // 2MB max
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
             'enrollment_type'             => ['required', 'string', 'max:255'],
-            'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
-            'monthly_platform_fee'        => ['nullable', 'numeric', 'min:0'],
+            'enrollment_amount'           => ['required', 'numeric', 'gt:0'],
+            'monthly_platform_fee'        => ['required', 'numeric', 'gt:0'],
             'total_free_users'            => ['nullable', 'integer', 'min:0'],
             'total_paid_users'            => ['nullable', 'integer', 'min:0'],
         ];
@@ -71,6 +71,12 @@ class StorePartnerRequest extends BaseApiRequest
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
             'enrollment_type.required' => __('partner.validation.enrollment_type.required'),
+            'enrollment_amount.required' => __('partner.validation.enrollment_amount.required'),
+            'enrollment_amount.numeric' => __('partner.validation.enrollment_amount.numeric'),
+            'enrollment_amount.gt' => __('partner.validation.enrollment_amount.gt'),
+            'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee.required'),
+            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee.numeric'),
+            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee.gt'),
         ];
     }
 }

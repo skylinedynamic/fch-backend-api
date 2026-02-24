@@ -45,6 +45,8 @@ class PartnerDetailsResource extends JsonResource
             'plan_id'                      => $this->subscription?->subscription_plan_id ?? null,
             'enrollment_type'              => $this->subscription?->enrollment_type ?? null,
             'payable_amount'              => $this->subscription?->payable_amount ?? null,
+            'total_subscription_amount'   => $this->subscription?->total_subscription_amount ?? null,
+            'monthly_platform_fee'        => $this->subscription?->monthly_platform_fee ?? null,
             'created_at'                   => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,

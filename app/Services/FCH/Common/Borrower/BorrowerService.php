@@ -254,8 +254,8 @@ class BorrowerService
             $data['status'] = Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table
-            $borrowerData = collect($data)->except(['plan_id'])->toArray();
-            $borrowerData['business_start_date'] = isset($data['business_start_date']) ? Carbon::parse($data['business_start_date'])->format('Y-m-d') : null;
+            $borrowerData = collect($data)->except(['plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount'])->toArray();
+            $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrower = Borrower::create($borrowerData);
             // Create associated User if needed
             $userDataResult = null;
@@ -287,7 +287,23 @@ class BorrowerService
                     ->where('entity_type', Borrower::class)
                     ->first();
 
+                // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
                 $amount = (float) ($plan->payment_amount ?? 0);
+                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
+
+                if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
+                    $amount = (float) $data['enrollment_payment'];
+                    // Calculate total based on custom enrollment and installment count
+                    $totalSubscriptionAmount = $amount * $totalInstallments;
+                }
+
+                // Mark as custom if any value differs from the original plan
+                $isCustom = false;
+                if ($plan) {
+                    $isCustom = (abs($amount - (float)($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($totalSubscriptionAmount - (float)($plan->total_amount ?? 0)) > 0.01);
+                }
 
                 $invoice = $this->invoiceService->create([
                     'partner_id' => $borrower->partner_id,
@@ -299,14 +315,15 @@ class BorrowerService
                     'country' => $borrower->country,
                     'payment_amount' => $amount,
                     'status' => Invoice::STATUS_UNPAID,
-                    'is_partner_paying' => auth()->user()->partner->is_host == 1 ? false : true,
+                    'is_partner_paying' => $isHostCreating ? false : true,
                     'is_platform_fee' => false,
                 ]);
 
                 $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [
                     'monthly_platform_fee' => 0,
-                    'total_subscription_amount' => $plan->total_amount ?? 0,
-                    'payable_amount' => $plan->payment_amount ?? 0,
+                    'total_subscription_amount' => $totalSubscriptionAmount,
+                    'payable_amount' => $amount,
+                    'is_custom' => $isCustom,
                 ]);
                 Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
@@ -366,9 +383,46 @@ class BorrowerService
                 $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
                 $data['business_logo'] = $upload['path'];
             }
-            $data['business_start_date'] = isset($data['business_start_date']) ? Carbon::parse($data['business_start_date'])->format('Y-m-d') : $borrower->business_start_date;
+            $data['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
 
-            $borrower->update($data);
+            $borrowerData = collect($data)->except(['enrollment_payment', 'plan_id', 'is_partner_paying'])->toArray();
+            $borrower->update($borrowerData);
+
+            // Update subscription if custom enrollment payment is provided
+            $subscription = $borrower->latestSubscription;
+            if ($subscription) {
+                $plan = $subscription->subscriptionPlan;
+                $updateSubData = [];
+
+                // Determine final values to reassess is_custom status
+                $finalEnrollment = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
+                    ? (float)$data['enrollment_payment']
+                    : (float)$subscription->payable_amount;
+
+                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                $finalTotal = $finalEnrollment * $totalInstallments;
+
+                // Mark as custom if enrollment payment or total differs from the original plan
+                $isCustom = false;
+                if ($plan) {
+                    $isCustom = (abs($finalEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($finalTotal - (float)($plan->total_amount ?? 0)) > 0.01);
+                }
+
+                $updateSubData = [
+                    'payable_amount' => $finalEnrollment,
+                    'total_subscription_amount' => $finalTotal,
+                    'is_custom' => $isCustom,
+                ];
+
+                $subscription->update($updateSubData);
+                Log::info('Borrower subscription reassessed and updated', [
+                    'subscription_id' => $subscription->id,
+                    'is_custom' => $isCustom,
+                    'payable' => $finalEnrollment,
+                    'total' => $finalTotal
+                ]);
+            }
 
             // Update associated User if exists
             if ($borrower->user) {

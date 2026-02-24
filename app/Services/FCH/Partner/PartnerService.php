@@ -139,24 +139,23 @@ class PartnerService
             $monthlyPlatformFee = (float) ($plan->platform_fee ?? 0);
             $totalInstallments = (int) ($plan->total_installments_count ?? 1);
             $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
-            $isCustom = false;
 
             if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
-                $requestedEnrollment = (float) $data['enrollment_amount'];
-                if ($plan && abs($requestedEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) {
-                    $isCustom = true;
-                }
-                $enrollmentAmount = $requestedEnrollment;
+                $enrollmentAmount = (float) $data['enrollment_amount'];
                 // Calculate total based on custom enrollment and installment count
                 $totalSubscriptionAmount = $enrollmentAmount * $totalInstallments;
             }
 
             if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
-                $requestedPlatformFee = (float) $data['monthly_platform_fee'];
-                if ($plan && abs($requestedPlatformFee - (float)($plan->platform_fee ?? 0)) > 0.01) {
-                    $isCustom = true;
-                }
-                $monthlyPlatformFee = $requestedPlatformFee;
+                $monthlyPlatformFee = (float) $data['monthly_platform_fee'];
+            }
+
+            // Mark as custom if any value differs from the original plan
+            $isCustom = false;
+            if ($plan) {
+                $isCustom = (abs($enrollmentAmount - (float)($plan->payment_amount ?? 0)) > 0.01) ||
+                    (abs($monthlyPlatformFee - (float)($plan->platform_fee ?? 0)) > 0.01) ||
+                    (abs($totalSubscriptionAmount - (float)($plan->total_amount ?? 0)) > 0.01);
             }
 
             // Create subscription if enrollment data exists
@@ -378,27 +377,23 @@ class PartnerService
                     ? (float)$data['monthly_platform_fee']
                     : (float)$subscription->monthly_platform_fee;
 
+                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                $finalTotal = $finalEnrollment * $totalInstallments;
+
                 // Mark as custom if any value differs from the original plan
                 $isCustom = false;
                 if ($plan) {
                     $isCustom = (abs($finalEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($finalMonthly - (float)($plan->platform_fee ?? 0)) > 0.01);
+                        (abs($finalMonthly - (float)($plan->platform_fee ?? 0)) > 0.01) ||
+                        (abs($finalTotal - (float)($plan->total_amount ?? 0)) > 0.01);
                 }
 
-                if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
-                    $updateSubData['payable_amount'] = $finalEnrollment;
-
-                    // Re-calculate total based on new installment amount and existing plan installment count
-                    $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-                    $updateSubData['total_subscription_amount'] = $finalEnrollment * $totalInstallments;
-                }
-
-                if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
-                    $updateSubData['monthly_platform_fee'] = $finalMonthly;
-                }
-
-                // Always update is_custom status if reassessed
-                $updateSubData['is_custom'] = $isCustom;
+                $updateSubData = [
+                    'payable_amount' => $finalEnrollment,
+                    'monthly_platform_fee' => $finalMonthly,
+                    'total_subscription_amount' => $finalTotal,
+                    'is_custom' => $isCustom,
+                ];
 
                 $subscription->update($updateSubData);
                 Log::info('Partner subscription reassessed and updated', [
@@ -741,7 +736,11 @@ class PartnerService
         foreach ($this->partnerFieldMapping as $requestField => $partnerField) {
 
             if (array_key_exists($requestField, $data)) {
-                $partnerData[$partnerField] = $data[$requestField];
+                $value = $data[$requestField];
+                if ($partnerField === 'joining_date' && !empty($value)) {
+                    $value = normalizeDate($value);
+                }
+                $partnerData[$partnerField] = $value;
             }
         }
 

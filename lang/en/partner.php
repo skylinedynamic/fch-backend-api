@@ -48,8 +48,10 @@ return [
             'max' => 'Enrollment type must not exceed 255 characters.',
         ],
         'monthly_platform_fee' => [
+            'required' => 'Monthly platform fee is required.',
             'numeric' => 'Monthly platform fee must be a number.',
             'min' => 'Monthly platform fee must be greater than or equal to 0.',
+            'gt' => 'Monthly platform fee must be greater than 0.',
         ],
         'document_file' => [
             'required' => 'Document file is required.',
@@ -108,6 +110,7 @@ return [
             'required' => 'Enrollment amount is required.',
             'numeric' => 'Enrollment amount must be a number.',
             'min' => 'Enrollment amount must be greater than or equal to 0.',
+            'gt' => 'Enrollment amount must be greater than 0.',
         ],
     ],
 

@@ -49,7 +49,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'tax_identification_number' => ['nullable', 'string', 'max:255'],
             'duns_number'               => ['nullable', 'string', 'max:255'],
             'state_file_number'         => ['nullable', 'string', 'max:255'],
-            'business_start_date'       => ['nullable', 'date'],
+            'business_start_date'       => ['nullable'],
 
 
             // Other

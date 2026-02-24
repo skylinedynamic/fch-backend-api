@@ -22,13 +22,13 @@ return [
     'full_name_required' => 'Full name is required',
     'full_name_string' => 'Full name must be a string',
     'full_name_max' => 'Full name cannot exceed 255 characters',
-    
+
     // Email
     'email_required' => 'Email is required',
     'email_email' => 'Email must be a valid email address',
     'email_unique' => 'Email is already taken',
     'email_max' => 'Email cannot exceed 255 characters',
-    
+
     // Physical Address
     'home_address_required' => 'Home address is required',
     'home_address_string' => 'Home address must be a string',
@@ -51,7 +51,7 @@ return [
     'country_code_required' => 'Country code is required',
     'country_code_string' => 'Country code must be a string',
     'country_code_max' => 'Country code cannot exceed 5 characters',
-    
+
     // Phone
     'home_phone_required' => 'Home phone is required',
     'home_phone_string' => 'Home phone must be a string',
@@ -64,7 +64,7 @@ return [
     'phone_required' => 'Phone is required',
     'phone_string' => 'Phone must be a string',
     'phone_max' => 'Phone cannot exceed 25 characters',
-    
+
     // Identity
     'last_4_ssn_required' => 'Last 4 digits of SSN is required',
     'last_4_ssn_string' => 'Last 4 digits of SSN must be a string',
@@ -75,7 +75,7 @@ return [
     'date_of_birth_date' => 'Date of birth must be a valid date',
     'date_of_birth_before' => 'Date of birth must be before today',
     'date_of_birth_date_format' => 'Date of birth must be in the format Y-m-d',
-    
+
     // Business Basic
     'business_name_required' => 'Business name is required',
     'business_name_string' => 'Business name must be a string',
@@ -91,7 +91,7 @@ return [
     'business_logo_mimes' => 'Business logo must be a file of type: jpg, jpeg, png, svg',
     'business_logo_max' => 'Business logo size must not exceed 5MB',
     'business_logo_file' => 'Business logo must be a file',
-    
+
     'business_description_string' => 'Business description must be a string',
     'business_registration_number_string' => 'Business registration number must be a string',
     'business_registration_number_max' => 'Business registration number cannot exceed 255 characters',
@@ -118,7 +118,7 @@ return [
     'business_email_max' => 'Business email cannot exceed 255 characters',
     'duns_number_string' => 'DUNS number must be a string',
     'duns_number_max' => 'DUNS number cannot exceed 255 characters',
-    
+
     // Business Categorization
     'business_entity_type_required' => 'Business entity type is required',
     'business_entity_type_string' => 'Business entity type must be a string',
@@ -151,7 +151,7 @@ return [
     'years_in_business_required' => 'Years in business is required',
     'years_in_business_string' => 'Years in business must be a string',
     'years_in_business_max' => 'Years in business cannot exceed 255 characters',
-    
+
     'avg_bank_balance_numeric' => 'Average bank balance must be a number',
     'avg_bank_balance_min' => 'Average bank balance cannot be negative',
     'profit_margin_numeric' => 'Profit margin must be a number',
@@ -169,6 +169,9 @@ return [
     'funding_urgency_max' => 'Funding urgency cannot exceed 255 characters',
     'payment_amount_numeric' => 'Payment amount must be a number',
     'payment_amount_min' => 'Payment amount cannot be negative',
+    'enrollment_payment_required' => 'Enrollment payment is required',
+    'enrollment_payment_numeric' => 'Enrollment payment must be a number',
+    'enrollment_payment_gt' => 'Enrollment payment must be greater than 0',
 
     // Funding
     'funding_requested_amount_required' => 'Funding requested amount is required',
@@ -265,7 +268,7 @@ return [
     'entity_type_max' => 'Entity type cannot exceed 255 characters',
     'number_of_employees_integer' => 'Number of employees must be an integer',
     'funding_application_id_exists' => 'The selected funding application ID does not exist',
-    
+
     // Funding Application Ownership Info
     'ssn_string' => 'SSN must be a string',
     'ssn_digits' => 'SSN must be 9 digits',
