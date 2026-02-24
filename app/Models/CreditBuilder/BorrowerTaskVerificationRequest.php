@@ -3,6 +3,7 @@
 namespace App\Models\CreditBuilder;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\MigratedTask;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,7 @@ class BorrowerTaskVerificationRequest extends Model
         'verified_by',
         'verified_at',
         'rejection_reason',
+        'migrated_task_id',
     ];
 
     protected $casts = [
@@ -64,5 +66,10 @@ class BorrowerTaskVerificationRequest extends Model
     public function verifiedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function migratedTask(): BelongsTo
+    {
+        return $this->belongsTo(MigratedTask::class, 'migrated_task_id');
     }
 }

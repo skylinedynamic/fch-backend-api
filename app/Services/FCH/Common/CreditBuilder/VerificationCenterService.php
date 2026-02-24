@@ -304,7 +304,7 @@ class VerificationCenterService
 
          if($verificationRequest->tier_id > 1){
             $task = $verificationRequest->task;
-            
+
             MigratedTask::create([
                 'borrower_id' => $verificationRequest->borrower_id,
                 'partner_id' => $verificationRequest->partner_id,

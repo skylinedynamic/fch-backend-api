@@ -34,6 +34,7 @@ class TierTaskResource extends JsonResource
             'estimated_completion_days' => $this->estimated_completion_days,
             'order' => $this->order,
             'vendor' => CreditBuilderVendorResource::make($this->whenLoaded('vendor')),
+            'migrated_task_id' => null,
         ];
     }
 }
