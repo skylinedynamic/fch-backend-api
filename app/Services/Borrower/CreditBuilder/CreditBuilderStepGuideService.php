@@ -32,7 +32,7 @@ class CreditBuilderStepGuideService
         $tierData = Tier::with(['tasks' => function ($query) {
              $query->orderBy('order', 'asc');
         }, 'tasks.latestBorrowerTierTask' => function ($query) use ($borrower) {
-             $query->where('borrower_id', $borrower->id);
+             $query->where('borrower_id', $borrower->id)->whereNull('migrate_task_id');
         },'tasks.vendor'])
         ->orderBy('order', 'asc')->get();
 
@@ -43,9 +43,10 @@ class CreditBuilderStepGuideService
         $migratedTask = MigratedTask::with([
             'task.vendor',
             'task.latestBorrowerTierTask' => function ($query) use ($borrower) {
-                $query->where('borrower_id', $borrower->id);
+                $query->where('borrower_id', $borrower->id)->whereNotNull('migrate_task_id');
             },
         ])->where('borrower_id', $borrower->id)->get();
+
 
         if ($migratedTask->isNotEmpty()) {
 
@@ -55,7 +56,7 @@ class CreditBuilderStepGuideService
                     if ($mTask->tier_to == $res['id']) {
 
                         /** @var \App\Models\CreditBuilder\BorrowerTaskVerificationRequest|null $borrower_task */
-                        $borrower_task = $mTask->task?->latestBorrowerTierTask;
+                        $borrower_task = $mTask->task?->latestBorrowerTierTask?->where('migrate_task_id', $mTask->id)->first();
 
                         $newTasks[] = [
                             'id'                       => $mTask->task->id,
@@ -95,7 +96,7 @@ class CreditBuilderStepGuideService
      * @return \Illuminate\Support\Collection
      * @throws \Exception
      */
-    public function taskVerifyRequest(array $taskIds)
+    public function taskVerifyRequest(array $taskIds, $tierId = null)
     {
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
         
@@ -141,17 +142,25 @@ class CreditBuilderStepGuideService
                         }
                     }
                 }
+
+
+                $migratable_task = MigratedTask::where('borrower_id',$borrower->id)
+                ->where('task_id',$taskId)
+                ->where('tier_to',$tierId)
+                ->latest()
+                ->first();
                 
                 // Create new request
                 $verificationRequest = BorrowerTaskVerificationRequest::create([
                     'borrower_id' => $borrower->id,
                     'partner_id' => $borrower->partner_id,
-                    'tier_id' => $task->tier_id,
+                    'tier_id' => $tierId,
                     'task_id' => $taskId,
                     'status' => $status,
                     'verified_by' => $verifiedBy,
                     'verified_at' => $verifiedAt,
                     'rejection_reason' => null,
+                    'migrate_task_id' => $migratable_task ? $migratable_task->id : null,
                 ]);
 
                 $verificationRequests[] = $verificationRequest;

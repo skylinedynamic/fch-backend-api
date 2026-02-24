@@ -32,7 +32,7 @@ class CreditBuilderStepGuideController extends Controller
     public function taskVerifyRequest(TaskVerifyRequest $request)
     {
         try {
-            $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids);
+            $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids, $request->tier_id);
 
             return ApiResponse::success(
                 TaskVerificationResource::collection($verificationRequests),
