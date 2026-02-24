@@ -319,7 +319,8 @@ class LeadService
                 // 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
-                'plan_id' => $data['plan_id'] ?? null,
+                'plan_id'            => $data['plan_id'] ?? null,
+                'enrollment_payment' => $data['enrollment_amount'] ?? null,  // frontend sends enrollment_amount → maps to enrollment_payment
             ];
 
             $result = $this->borrowerService->store($borrowerData);
@@ -368,9 +369,10 @@ class LeadService
                 'contact_person_relation' => $lead->contact_person_relation ?? 'Primary',
 
                 // Conversion Options from payload
-                'partner_type' => $data['partner_type'] ?? 'Referral Partner',
-                'enrollment_type' => $data['enrollment_type'] ?? 'Monthly Platform Fee', // Default or from data
-                'enrollment_amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? 0),
+                'partner_type'         => $data['partner_type'] ?? 'Referral Partner',
+                'enrollment_type'      => $data['enrollment_type'] ?? 'Monthly Platform Fee',
+                'enrollment_amount'    => $data['enrollment_amount'],
+                'monthly_platform_fee' => $data['monthly_platform_fee'],
 
                 'status' => Partner::STATUS_ONBOARDING,
                 'joining_date' => now(),

@@ -18,6 +18,7 @@ use App\Http\Resources\FCH\Lead\ConvertedBorrowerResource;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\FetchLeadRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\ConvertLeadRequest;
 
 class LeadController extends Controller
 {
@@ -116,12 +117,12 @@ class LeadController extends Controller
     /**
      * Convert Lead (Generic)
      */
-    public function convert(Request $request, $id)
+    public function convert(ConvertLeadRequest $request, $id)
     {
         Log::info('Convert lead: ' . $id);
         try {
             $lead = Lead::findOrFail($id);
-            $result = $this->leadService->convert($lead, $request->all());
+            $result = $this->leadService->convert($lead, $request->validated());
 
             if ($result instanceof Borrower) {
                 return ApiResponse::success(new ConvertedBorrowerResource($result), __('lead.converted_to_borrower'));
