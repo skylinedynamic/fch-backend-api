@@ -73,6 +73,7 @@ class VerificationCenterController extends Controller
      */
     public function statusUpdate(UpdateVerificationStatusRequest $request)
     {
+        // return ApiResponse::success($request->validated());
         try {
             $this->verificationCenterService->updateStatus($request->validated());
 
