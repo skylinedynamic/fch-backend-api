@@ -292,25 +292,37 @@ class VerificationCenterService
         $taskTier = Tier::find($tierId);
         $borrower = Borrower::with('tier')->find($borrowerId);
 
-        // Check if all tasks in the current tier are verified
-        if ($verificationRequest->tier_id == 1) {
-            
-            // Count total tasks in this tier
-            $totalTasks = TierTask::where('tier_id', $tierId)->count();
+        // Count total tasks in this tier
+        $totalTasks = TierTask::where('tier_id', $tierId)->count();
 
-            // Count verified tasks for this borrower in this tier
-            $verifiedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrowerId)
-                ->where('tier_id', $tierId)
-                ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
-                ->count();
+        // Count verified tasks for this borrower in this tier
+        $verifiedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrowerId)
+            ->where('tier_id', $tierId)
+            ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
+            ->count();
 
 
-            if ($taskTier && $borrower) {
+         if($verificationRequest->tier_id > 1){
+            $task = $verificationRequest->task;
+
+            MigratedTask::create([
+                'borrower_id' => $verificationRequest->borrower_id,
+                'partner_id' => $verificationRequest->partner_id,
+                'task_id' => $task->id,
+                'vendor_id' => $task->vendor_id,
+                'tier_from' => $verificationRequest->tier_id,
+                'tier_to' => $task->tier_id + 1,
+                'migrated_by' => Auth::id(),
+                'status' => BorrowerTaskVerificationRequest::PENDING
+            ]);
+         }   
+
+        if ($taskTier && $borrower) {
                 // Determine mandatory task count for progression
                 $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
 
                 // If verified tasks equal or exceed required amount, move to next tier
-                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0) {
+                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0 && $borrower->current_tier < 4) {
                     // Find the next tier based on order
                     $nextTier = Tier::where('order', '>', $borrower->tier->order)
                         ->orderBy('order', 'asc')
@@ -323,20 +335,5 @@ class VerificationCenterService
                     }
                 }
             }
-        }else{
-            $task = TierTask::find($verificationRequest->task_id);
-            
-            MigratedTask::create([
-                'borrower_id' => $verificationRequest->borrower_id,
-                'partner_id' => $verificationRequest->partner_id,
-                'task_id' => $task->id,
-                'vendor_id' => $task->vendor_id,
-                'tier_from' => $verificationRequest->tier_id,
-                'tier_to' => $task->tier_id + 1,
-                'migrated_by' => Auth::id(),
-                'status' => BorrowerTaskVerificationRequest::PENDING
-            ]);
-
-        }
     }
 }

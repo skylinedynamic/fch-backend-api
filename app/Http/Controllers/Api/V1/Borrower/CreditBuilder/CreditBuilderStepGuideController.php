@@ -23,12 +23,7 @@ class CreditBuilderStepGuideController extends Controller
      */
     public function index()
     {
-        $data = $this->stepGuideService->getTierWiseTaskList();
-
-        return ApiResponse::success(
-            TierResource::collection($data),
-            __('borrower.tier_task_list_retrieved')
-        );
+        return $this->stepGuideService->getTierWiseTaskList();
     }
 
     /**
@@ -37,7 +32,7 @@ class CreditBuilderStepGuideController extends Controller
     public function taskVerifyRequest(TaskVerifyRequest $request)
     {
         try {
-            $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids);
+            $verificationRequests = $this->stepGuideService->taskVerifyRequest($request->task_ids, $request->tier_id, $request->migrated_task_id);
 
             return ApiResponse::success(
                 TaskVerificationResource::collection($verificationRequests),

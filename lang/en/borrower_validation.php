@@ -338,4 +338,12 @@ return [
     'co_borrower_city_required' => 'City is required.',
     'co_borrower_zip_code_required' => 'Zip code is required.',
     'co_borrower_validation_success' => 'Co-borrower validation successful.',
+
+    'tier_id_required' => 'Tier ID is required.',
+    'tier_id_must_be_integer' => 'Tier ID must be an integer.',
+    'tier_id_not_found' => 'The selected tier ID does not exist.',
+
+    'migrated_task_id_must_be_integer' => 'Migrated task ID must be an integer.',
+    'migrated_task_id_not_found' => 'The selected migrated task ID does not exist.',
 ];
+

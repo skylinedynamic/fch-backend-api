@@ -24,6 +24,8 @@ class TaskVerifyRequest extends FormRequest
         return [
             'task_ids' => 'required|array|min:1',
             'task_ids.*' => 'required|integer|exists:tier_tasks,id',
+            'tier_id' => 'required|integer|exists:tiers,id',
+            'migrated_task_id' => 'nullable|integer|exists:migrated_tasks,id',
         ];
     }
 
@@ -41,6 +43,11 @@ class TaskVerifyRequest extends FormRequest
             'task_ids.*.required' => __('borrower_validation.task_id_required'),
             'task_ids.*.integer' => __('borrower_validation.task_id_must_be_integer'),
             'task_ids.*.exists' => __('borrower_validation.task_id_not_found'),
+            'tier_id.required' => __('borrower_validation.tier_id_required'),
+            'tier_id.integer' => __('borrower_validation.tier_id_must_be_integer'),
+            'tier_id.exists' => __('borrower_validation.tier_id_not_found'),
+            'migrated_task_id.integer' => __('borrower_validation.migrated_task_id_must_be_integer'),
+            'migrated_task_id.exists' => __('borrower_validation.migrated_task_id_not_found'),
         ];
     }
 }

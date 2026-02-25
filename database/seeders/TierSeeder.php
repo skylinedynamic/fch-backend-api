@@ -161,7 +161,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Let the credit mature without damaging the file.',
                 'order' => 3,
                 'task_to_complete' => null,
-                'has_vendor' => true,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
             ],
@@ -172,7 +172,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Selective growth without blowing up the profile',
                 'order' => 4,
                 'task_to_complete' => null,
-                'has_vendor' => true,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
             ],
@@ -183,7 +183,7 @@ class TierSeeder extends Seeder
                 'subtitle' => 'Decide if the file is lender-ready',
                 'order' => 5,
                 'task_to_complete' => null,
-                'has_vendor' => true,
+                'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
             ],

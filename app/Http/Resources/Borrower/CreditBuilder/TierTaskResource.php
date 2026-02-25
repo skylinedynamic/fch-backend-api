@@ -18,7 +18,7 @@ class TierTaskResource extends JsonResource
     public function toArray(Request $request): array
     {
         // Get status from the eager loaded relationship, default to pending
-        $borrower_task = $this->latestBorrowerTierTasks;
+        $borrower_task = $this->latestBorrowerTierTask;
 
         return [
             'id' => $this->id,
@@ -34,6 +34,7 @@ class TierTaskResource extends JsonResource
             'estimated_completion_days' => $this->estimated_completion_days,
             'order' => $this->order,
             'vendor' => CreditBuilderVendorResource::make($this->whenLoaded('vendor')),
+            'migrated_task_id' => null,
         ];
     }
 }
