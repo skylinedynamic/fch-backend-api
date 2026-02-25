@@ -21,6 +21,7 @@ use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
+use Illuminate\Support\Facades\Auth;
 
 class AppointmentService
 {
@@ -461,7 +462,7 @@ class AppointmentService
      */
     public function getSelectableUsers(array $data)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         
          if ($user->entity_type == Borrower::class) {
             $query = User::where('partner_id', $user->partner_id);
@@ -476,7 +477,7 @@ class AppointmentService
         }
         else{
 
-            $isHost = (int) $user->partner->is_host;
+            $isHost = $user->partner?->is_host;
 
             if ($isHost == 1) {
                 // Admin Partner
