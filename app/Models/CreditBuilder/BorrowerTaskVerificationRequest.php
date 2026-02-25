@@ -23,12 +23,13 @@ class BorrowerTaskVerificationRequest extends Model
         'status',
         'verified_by',
         'verified_at',
-        'rejection_reason',
+        'note',
         'migrated_task_id',
     ];
 
     protected $casts = [
         'verified_at' => 'datetime',
+        'note' => 'string',
     ];
 
     public const PENDING = 'pending';

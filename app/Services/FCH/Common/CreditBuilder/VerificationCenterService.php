@@ -262,23 +262,26 @@ class VerificationCenterService
      */
     public function updateStatus(array $data)
     {
-        $verificationRequest = BorrowerTaskVerificationRequest::findOrFail($data['request_id']);
+        $requestIds = (array) $data['request_id'];
+        
+        $verificationRequests = BorrowerTaskVerificationRequest::whereIn('id', $requestIds)->get();
 
-        $updateData = [
-            'status' => $data['status'],
-            'verified_by' => auth()->id(),
-            'verified_at' => now(),
-        ];
+        foreach ($verificationRequests as $verificationRequest) {
+            $updateData = [
+                'status' => $data['status'],
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+                'note' => $data['note'] ?? null,
+            ];
 
-        if ($data['status'] === BorrowerTaskVerificationRequest::REJECTED) {
-            $updateData['rejection_reason'] = $data['rejection_reason'] ?? null;
+            $verificationRequest->update($updateData);
+
+            if ($data['status'] == BorrowerTaskVerificationRequest::COMPLETED) {
+                $this->tierUpdate($verificationRequest, $data['status']);
+            }
         }
 
-        $verificationRequest->update($updateData);
-
-        $data['status'] == BorrowerTaskVerificationRequest::COMPLETED ? $this->tierUpdate($verificationRequest, $data['status']) : null;
-
-        return $verificationRequest;
+        return true;
     }
 
     /**

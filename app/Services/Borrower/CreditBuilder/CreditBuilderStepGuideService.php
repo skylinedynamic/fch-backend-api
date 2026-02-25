@@ -117,32 +117,32 @@ class CreditBuilderStepGuideService
                 $verifiedAt = null;
                 $verifiedBy = null;
 
-                if(!$task->manual_verification && $task->related_api_id){
-                    $api_details = TaskRelatedApi::where('id', $task->related_api_id)->first();
+                // if(!$task->manual_verification && $task->related_api_id){
+                //     $api_details = TaskRelatedApi::where('id', $task->related_api_id)->first();
             
-                    if($api_details && $api_details->provider == 'MicroBilt'){
-                        try {
-                            $strategy = \App\Services\Global\MicroBilt\MicroBiltVerificationFactory::make($api_details->name);
+                //     if($api_details && $api_details->provider == 'MicroBilt'){
+                //         try {
+                //             $strategy = \App\Services\Global\MicroBilt\MicroBiltVerificationFactory::make($api_details->name);
 
-                            if ($strategy) {
-                                /** @var \App\Services\Global\MicroBilt\MicroBiltService $microBiltService */
-                                $microBiltService = app(MicroBiltService::class);
+                //             if ($strategy) {
+                //                 /** @var \App\Services\Global\MicroBilt\MicroBiltService $microBiltService */
+                //                 $microBiltService = app(MicroBiltService::class);
                                 
-                                $response = $strategy->execute($microBiltService, $borrower);
+                //                 $response = $strategy->execute($microBiltService, $borrower);
 
-                                Log::info("MicroBilt {$api_details->name} Response", ['response' => $response]);
+                //                 Log::info("MicroBilt {$api_details->name} Response", ['response' => $response]);
 
-                                if (isset($response['VerificationFlags']['VerificationFlag']) && $response['VerificationFlags']['VerificationFlag'] === 'Y') {
-                                    $status = BorrowerTaskVerificationRequest::COMPLETED;
-                                    $verifiedAt = now();
-                                    $verifiedBy = auth()->id();
-                                }
-                            }
-                        } catch (\Exception $e) {
-                            Log::error("MicroBilt {$api_details->name} Failed", ['error' => $e->getMessage()]);
-                        }
-                    }
-                }
+                //                 if (isset($response['VerificationFlags']['VerificationFlag']) && $response['VerificationFlags']['VerificationFlag'] === 'Y') {
+                //                     $status = BorrowerTaskVerificationRequest::COMPLETED;
+                //                     $verifiedAt = now();
+                //                     $verifiedBy = auth()->id();
+                //                 }
+                //             }
+                //         } catch (\Exception $e) {
+                //             Log::error("MicroBilt {$api_details->name} Failed", ['error' => $e->getMessage()]);
+                //         }
+                //     }
+                // }
                 
                 // Create new request
                 $verificationRequest = BorrowerTaskVerificationRequest::create([
