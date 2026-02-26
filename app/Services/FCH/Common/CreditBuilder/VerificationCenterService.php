@@ -171,7 +171,7 @@ class VerificationCenterService
             $query->where('status', $filters['status']);
         }
 
-        // Apply partner security filter if not already filtered or restricted
+        // Apply partner security filter if not already filt`ered or restricted
         $authUser = auth()->user();
         if ($authUser && $authUser->partner && $authUser->partner->is_host != 1) {
             $query->where('partner_id', $authUser->partner_id);
