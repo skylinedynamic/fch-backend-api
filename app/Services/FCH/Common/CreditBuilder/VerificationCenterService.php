@@ -11,8 +11,12 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Http\Resources\FCH\CreditBuilder\BorrowerTaskVerificationRequestResource;
 use App\Models\Borrower\MigratedTask;
+use App\Models\CreditBuilder\TierRelatedApi;
 use App\Models\CreditBuilder\TierTask;
+use App\Services\Global\MicroBilt\MicroBiltService;
+use App\Services\Global\MicroBilt\MicroBiltVerificationFactory;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class VerificationCenterService
 {
@@ -156,7 +160,7 @@ class VerificationCenterService
     public function fetchBorrowerRequests(array $filters)
     {
         $query = BorrowerTaskVerificationRequest::query()
-            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name', 'task:id,title','partner:id,full_name']);
+            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name,code', 'task:id,title,related_api_id','partner:id,full_name']);
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
@@ -257,31 +261,148 @@ class VerificationCenterService
         );
     }
 
+
+    public function updateMicrobiltStatus($borrower, $task, $tier, $api)
+    {
+        try {
+            $strategy = MicroBiltVerificationFactory::make($api->name);
+
+            if ($strategy) {
+                $microBiltService = app(MicroBiltService::class);             
+                $response = $strategy->execute($microBiltService, $borrower);
+                Log::info("MicroBilt {$api->name} Response", ['response' => $response]);
+
+                // Check StatusCode and StatusDesc in the response
+                // Structure expected: {"response": {"MsgRsHdr": {"Status": {"StatusCode": 0, "StatusDesc": "OK"}}}}
+                // We handle both direct and 'response'-wrapped responses.
+                $msgRsHdr = $response['MsgRsHdr'] ?? $response['response']['MsgRsHdr'] ?? null;
+                $status = $msgRsHdr['Status'] ?? null;
+
+                if ($status && isset($status['StatusCode']) && $status['StatusCode'] === 0 && ($status['StatusDesc'] ?? '') === 'OK') {
+                    return true;
+                }
+                
+                $errorDesc = $status['StatusDesc'] ?? 'Unknown status';
+                Log::warning("MicroBilt {$api->name} Status Not OK", ['status' => $status]);
+                throw new \Exception("MicroBilt {$api->name} verification returned error: {$errorDesc}");
+            }
+        } catch (\Exception $e) {
+            Log::error("MicroBilt {$api->name} Failed", ['error' => $e->getMessage()]);
+            throw $e;
+        }
+
+        return false;       
+    }
+
     /**
      * Update verification request status.
      */
     public function updateStatus(array $data)
     {
-        $requestIds = (array) $data['request_id'];
+        $requestIds = (array) $data['request_ids'];
+        $isApi = filter_var($data['is_api'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $statusToSet = $data['status'];
         
-        $verificationRequests = BorrowerTaskVerificationRequest::whereIn('id', $requestIds)->get();
+        $verificationRequests = BorrowerTaskVerificationRequest::with('task.api','tier','task.vendor','borrower')
+            ->whereIn('id', $requestIds)
+            ->get();
+
+        if ($verificationRequests->isEmpty()) {
+            return [];
+        }
+
+        $borrower = $verificationRequests->first()->borrower;
+        $results = [];
 
         foreach ($verificationRequests as $verificationRequest) {
-            $updateData = [
-                'status' => $data['status'],
-                'verified_by' => auth()->id(),
-                'verified_at' => now(),
-                'note' => $data['note'] ?? null,
-            ];
+            $task = $verificationRequest->task;
+            $tier = $verificationRequest->tier;
+            $taskName = $task->title ?? 'Unknown Task';
 
-            $verificationRequest->update($updateData);
+            if ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) {
+                $results[] = [
+                    'task_name' => $taskName,
+                    'is_verified' => true,
+                    'message' => __('verification_center.already_verified'),
+                ];
+                continue;
+            }
 
-            if ($data['status'] == BorrowerTaskVerificationRequest::COMPLETED) {
-                $this->tierUpdate($verificationRequest, $data['status']);
+            if ($verificationRequest->status == BorrowerTaskVerificationRequest::REJECTED) {
+                $results[] = [
+                    'task_name' => $taskName,
+                    'is_verified' => false,
+                    'message' => __('verification_center.already_rejected'),
+                ];
+                continue;
+            }
+            
+            $canUpdateStatus = false;
+            $errorMessage = '';
+
+            if ($isApi && $statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
+                // Only T0 will be api verification
+                if ($tier->code == 'T0') {
+                    $api = $task->api;
+
+                    if ($api) {
+                        try {
+                            if ($api->provider == TierRelatedApi::PROVIDER_MICROBILT) {
+                                $success = $this->updateMicrobiltStatus($borrower, $task, $tier, $api);
+                                if ($success) {
+                                    $canUpdateStatus = true;
+                                } else {
+                                    $errorMessage = __('verification_center.not_verified');
+                                }
+                            } else {
+                                $errorMessage = __('verification_center.not_verified');
+                            }
+                        } catch (\Exception $e) {
+                            $errorMessage = __('verification_center.not_verified');
+                        }
+                    } else {
+                        // If null do not verify keep their status unchanged
+                        $errorMessage = __('verification_center.no_api_assigned');
+                        $canUpdateStatus = false; 
+                    }
+                } else {
+                    $errorMessage = __('verification_center.not_verified');
+                    $canUpdateStatus = false;
+                }
+            } else {
+                // Manual verification or non-completed status update
+                $canUpdateStatus = true;
+            }
+
+            if ($canUpdateStatus) {
+                $updateData = [
+                    'status' => $statusToSet,
+                    'verified_by' => auth()->id(),
+                    'verified_at' => now(),
+                    'note' => $data['note'] ?? null,
+                ];
+
+                $verificationRequest->update($updateData);
+
+                if ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
+                    $this->tierUpdate($verificationRequest, $statusToSet);
+                }
+
+                $results[] = [
+                    'task_name' => $taskName,
+                    'is_verified' => true,
+                    'message' => __('verification_center.verified'),
+                ];
+            } else {
+                $results[] = [
+                    'task_name' => $taskName,
+                    'is_verified' => false,
+                    'message' => $errorMessage ?: __('verification_center.verification_failed'),
+                ];
             }
         }
 
-        return true;
+        return $results;
     }
 
     /**

@@ -11,6 +11,10 @@ trait LocationHelper
     public array $locationData = [
         'USA' => [
             'name' => "United States",
+            "code" => "USA",
+            "currency" => "USD",
+            "phone_code" => "+1",
+            "flag" => "🇺🇸.svg",
             'states' => [
                 'AL' => ['name' => "Alabama", 'cities' => ["Birmingham", "Montgomery", "Mobile", "Huntsville", "Tuscaloosa", "Hoover", "Dothan", "Auburn", "Decatur", "Madison"]],
                 'AK' => ['name' => "Alaska", 'cities' => ["Anchorage", "Fairbanks", "Juneau", "Sitka", "Ketchikan", "Wasilla", "Kenai", "Kodiak", "Bethel", "Palmer"]],
@@ -67,6 +71,10 @@ trait LocationHelper
         ],
         'Canada' => [
             'name' => "Canada",
+            "code" => "CAN",
+            "currency" => "CAD",
+            "phone_code" => "+1",
+            "flag" => "🇨🇦.svg",
             'states' => [
                 'AB' => ['name' => "Alberta", 'cities' => ["Calgary", "Edmonton", "Red Deer", "Lethbridge", "St. Albert", "Medicine Hat", "Grande Prairie", "Airdrie", "Spruce Grove", "Leduc"]],
                 'BC' => ['name' => "British Columbia", 'cities' => ["Vancouver", "Victoria", "Surrey", "Burnaby", "Richmond", "Kelowna", "Abbotsford", "Coquitlam", "Saanich", "Langley"]],
@@ -105,5 +113,24 @@ trait LocationHelper
             'state' => $state['name'],
             'city' => $city,
         ];
+    }
+
+    /**
+     * Get state short form (code) from state name.
+     *
+     * @param string $stateName
+     * @return string|null
+     */
+    public function getStateCode(string $stateName): ?string
+    {
+        foreach ($this->locationData as $country) {
+            foreach ($country['states'] as $code => $state) {
+                if ($state['name'] === $stateName) {
+                    return $code;
+                }
+            }
+        }
+
+        return null;
     }
 }

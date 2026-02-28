@@ -75,9 +75,9 @@ class VerificationCenterController extends Controller
     {
         // return ApiResponse::success($request->validated());
         try {
-            $this->verificationCenterService->updateStatus($request->validated());
+            $results = $this->verificationCenterService->updateStatus($request->validated());
 
-            return ApiResponse::success([], __('verification_center.success_status_updated'));
+            return ApiResponse::success($results, __('verification_center.success_status_updated'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('verification_center.error_status_update_failed'));
         }

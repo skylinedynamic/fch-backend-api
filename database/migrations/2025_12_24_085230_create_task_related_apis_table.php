@@ -16,9 +16,6 @@ return new class extends Migration
             $table->id();
             $table->string('name')->nullable();
             $table->string('provider')->nullable();
-            $table->string('base_url')->nullable();
-            $table->string('client_id')->nullable();
-            $table->string('client_secret')->nullable();
             $table->text('additional_info')->nullable();
             $table->unsignedBigInteger('tier_id')->nullable();
             $table->unsignedBigInteger('deleted_by')->nullable();

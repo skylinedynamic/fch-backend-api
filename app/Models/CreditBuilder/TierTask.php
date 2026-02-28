@@ -49,4 +49,9 @@ class TierTask extends Model
     {
         return $this->belongsTo(CreditBuilderVendor::class);
     }
+
+    public function api()
+    {
+        return $this->belongsTo(TierRelatedApi::class, 'related_api_id');
+    }
 }

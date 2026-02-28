@@ -5,8 +5,12 @@ namespace App\Http\Controllers\Api\V1\Global\General;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+use Database\Seeders\LocationHelper;
+
 class LocationController extends Controller
 {
+    use LocationHelper;
+
     /**
      * Get all locations (Countries, States, Cities).
      *
@@ -14,7 +18,6 @@ class LocationController extends Controller
      */
     public function index()
     {
-        $locations = config('locations');
-        return response()->json($locations);
+        return response()->json($this->locationData);
     }
 }

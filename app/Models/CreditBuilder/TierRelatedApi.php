@@ -14,20 +14,17 @@ class TierRelatedApi extends Model
 
     protected $table = 'task_related_apis'; // Note: Using task_related_apis table
 
+    public const PROVIDER_EXPERIAN = 'Experian';
+    public const PROVIDER_MICROBILT = 'MicroBilt';
+
     protected $fillable = [
         'name',
         'provider',
-        'base_url',
-        'client_id',
-        'client_secret',
         'additional_info',
         'tier_id',
         'deleted_by',
     ];
 
-    protected $hidden = [
-        'client_secret',
-    ];
 
     protected $casts = [
         'additional_info' => 'array',

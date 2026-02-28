@@ -5,7 +5,7 @@ namespace App\Services\Global\MicroBilt\Strategies;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Models\Borrower\Borrower;
 
-class PhoneVerificationByAddress implements VerificationStrategyInterface
+class BusinessPhoneVerification implements VerificationStrategyInterface
 {
     /**
      * Execute the verification strategy.
@@ -16,12 +16,9 @@ class PhoneVerificationByAddress implements VerificationStrategyInterface
      */
     public function execute(MicroBiltService $service, Borrower $borrower): array
     {
-        return $service->verifyPhoneByAddress(
-            $borrower->business_phone ?? '',
-            $borrower->business_address ?? '',
-            $borrower->business_city ?? '',
-            $borrower->business_state ?? '',
-            $borrower->business_postal_code ?? ''
+        return $service->businessPhoneVerification(
+            $borrower->business_name ?? '',
+            preg_replace('/[^0-9]/', '', $borrower->business_phone ?? '')
         );
     }
 }

@@ -24,10 +24,11 @@ class UpdateVerificationStatusRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'request_id' => 'required|array',
-            'request_id.*' => 'required|integer|exists:borrower_task_verification_requests,id',
+            'request_ids' => 'required|array',
+            'request_ids.*' => 'required|integer|exists:borrower_task_verification_requests,id',
             'status' => ['required', Rule::in(array_values(BorrowerTaskVerificationRequest::STATUS))],
             'note' => 'required_if:status,' . BorrowerTaskVerificationRequest::REJECTED . '|nullable|string',
+            'is_api' => 'nullable|boolean',
         ];
     }
 
@@ -39,11 +40,11 @@ class UpdateVerificationStatusRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'request_id.required' => __('verification_center.request_id_required'),
-            'request_id.array' => __('verification_center.request_id_array'),
-            'request_id.*.required' => __('verification_center.request_id_invalid'),
-            'request_id.*.integer' => __('verification_center.request_id_invalid'),
-            'request_id.*.exists' => __('verification_center.request_id_invalid'),
+            'request_ids.required' => __('verification_center.request_ids_required'),
+            'request_ids.array' => __('verification_center.request_ids_array'),
+            'request_ids.*.required' => __('verification_center.request_ids_invalid'),
+            'request_ids.*.integer' => __('verification_center.request_ids_invalid'),
+            'request_ids.*.exists' => __('verification_center.request_ids_invalid'),
             'status.required' => __('verification_center.status_required'),
             'status.in' => __('verification_center.status_invalid'),
             'note.required_if' => __('verification_center.note_required'),

@@ -107,46 +107,88 @@ class MicroBiltService
         }
     }
 
-    /**
-     * Verify Phone Name.
-     *
-     * @param string $phone
-     * @param string $firstName
-     * @param string $lastName
-     * @param string $middleName
-     * @return array
-     */
-    public function verifyPhoneByName(string $phone, string $firstName, string $lastName, string $middleName = '')
+
+    public function einVerification(string $companyName, string $ein)
     {
-        return $this->sendRequest('PhoneNameVerification', [
-            'PhoneNumber' => $phone,
-            'Name' => [
-                'FirstName' => $firstName,
-                'MiddleName' => $middleName,
-                'LastName' => $lastName,
+        return $this->sendRequest('MBBusinessReport/GetReport', [
+            'MsgRqHdr' => [
+                'ProductID' => 'BUSRVTXID'
             ],
+            'CorporateDetails' => [
+                'CompanyName' => $companyName,
+            ],
+            'FEIN' => $ein,
         ]);
     }
 
-     /**
-     * Verify Phone Name.
-     *
-     * @param string $address
-     * @param string $city
-     * @param string $state
-     * @param string $zip
-     * @return array
-     */
-    public function verifyPhoneByAddress(string $phone, string $address, string $city, string $state, string $zip)
-    {      
-        return $this->sendRequest('PhoneAddressVerification', [
-            'PhoneNumber' => $phone,
-            'Address' => [
-                'Addr1' => $address,
-                'City' => $city,
-                'State' => $state,
-                'Zip' => $zip,
+    public function businessAddressVerification(string $companyName, string $address, string $city, string $state, string $postalCode)
+    {
+        return $this->sendRequest('MBBusinessReport/GetReport', [
+            'MsgRqHdr' => [
+                'ProductID' => 'BUSSRCH'
             ],
+            'CorporateDetails' => [
+                'CompanyName' => $companyName,
+                'CorporateAddress' => [
+                    [
+                        'Addr1' => $address,
+                        'City' => $city,
+                        'StateProv' => $state,
+                        'PostalCode' => $postalCode,
+                    ]
+                ]
+            ]
+        ]);
+    }
+
+    public function businessPhoneVerification(string $companyName, string $phone)
+    {
+        return $this->sendRequest('MBBusinessReport/GetReport', [
+            'MsgRqHdr' => [
+                'ProductID' => 'BUSSRCH'
+            ],
+            'CorporateDetails' => [
+                'CompanyName' => $companyName,
+                'ContactInfo' => [
+                    'Phone' => [
+                        'PhoneInfo' => [
+                            'PhoneNumber' => $phone
+                        ]
+                    ]
+                ]
+            ]
+        ]);
+    }
+
+    public function businessIdentityVerification(string $companyName, string $ein, string $city, string $state)
+    {
+        return $this->sendRequest('MBBusinessReport/GetReport', [
+            'MsgRqHdr' => [
+                'ProductID' => 'BUSSRCH'
+            ],
+            'CorporateDetails' => [
+                'CompanyName' => $companyName,
+                'CorporateAddress' => [
+                    [
+                        'City' => $city,
+                        'StateProv' => $state,
+                    ]
+                ]
+            ],
+            'FEIN' => $ein,
+        ]);
+    }
+
+    public function activeLegalEntityVerification(string $companyName, string $ein)
+    {
+        return $this->sendRequest('MBBusinessReport/GetReport', [
+            'MsgRqHdr' => [
+                'ProductID' => 'BUSSOS'
+            ],
+            'CorporateDetails' => [
+                'CompanyName' => $companyName,
+            ],
+            'FEIN' => $ein,
         ]);
     }
 }
