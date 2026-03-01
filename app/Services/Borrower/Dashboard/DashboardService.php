@@ -74,13 +74,18 @@ class DashboardService
         );
 
         // Latest Unpaid Invoices
-        $data['invoices'] = DashboardInvoiceResource::collection(
-            $borrower->invoices()
-                ->where('status',Invoice::STATUS_UNPAID)
-                ->latest()
-                ->limit(5)
-                ->get()
-        );
+        if($borrower->partner->is_host){
+            
+            $data['invoices'] = DashboardInvoiceResource::collection(
+                $borrower->invoices()
+                    ->where('status',Invoice::STATUS_UNPAID)
+                    ->latest()
+                    ->limit(5)
+                    ->get()
+            );
+        }else{
+            $data['invoices'] = [];
+        }
 
         $tier = $borrower->tier;
         $data['tier'] = $tier ? [

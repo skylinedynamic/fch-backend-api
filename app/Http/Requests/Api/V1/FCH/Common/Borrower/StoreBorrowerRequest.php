@@ -19,7 +19,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'last_name'                 => ['required', 'string', 'max:255'],
             'email'                     => ['required', 'unique:borrowers,email', 'email', 'max:255'],
             'phone_number'              => ['required', 'string', 'max:20'], // Matching phone_number_max
-            'business_website'          => ['nullable', 'url', 'max:255'],
+            'business_website'          => ['nullable', 'max:255'],
             'business_name'             => ['nullable', 'string', 'max:255'],
             'business_ein'              => ['nullable', 'string', 'max:255'],
             'state_file_number'         => ['nullable', 'string', 'max:255'],

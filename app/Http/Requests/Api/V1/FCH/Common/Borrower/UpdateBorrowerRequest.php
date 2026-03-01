@@ -40,7 +40,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_state'            => ['nullable', 'string', 'max:255'],
             'business_postal_code'      => ['nullable', 'string', 'max:255'],
             'business_email'            => ['nullable', 'email', 'max:255'],
-            'business_website'          => ['nullable', 'url', 'max:255'],
+            'business_website'          => ['nullable', 'max:255'],
             'business_entity_type'      => ['nullable', 'string', 'max:255'],
             'business_industry_type'    => ['nullable', 'string', 'max:255'],
             'business_description'      => ['nullable', 'string'],

@@ -101,6 +101,7 @@ return [
     'task_overview_retrieved' => 'Task overview retrieved successfully.',
     'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
     'upload_success' => 'Document uploaded successfully.',
+    'document_uploaded_successfully' => 'Document uploaded successfully.',
     'document_deleted_successfully' => 'Document deleted successfully.',
 
     // Error Messages

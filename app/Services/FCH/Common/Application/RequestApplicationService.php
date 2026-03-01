@@ -270,9 +270,9 @@ class RequestApplicationService
 
         return ApiResponse::success([
             'total_applications' => (clone $baseQuery)->count(),
-            'approved' => (clone $baseQuery)->where('status', FundingApplication::APPROVED)->count(),
+            'approved' => (clone $baseQuery)->where('status', FundingApplication::CLOSED_COMPLETED)->count(),
             'pending' => (clone $baseQuery)->where('status', FundingApplication::PENDING)->count(),
-            'approved_amount' => (clone $baseQuery)->where('status', FundingApplication::APPROVED)->sum('requested_amount'),
+            'approved_amount' => currencyFormat((clone $baseQuery)->where('status', FundingApplication::CLOSED_COMPLETED)->sum('requested_amount')),
         ]);
     }
 }

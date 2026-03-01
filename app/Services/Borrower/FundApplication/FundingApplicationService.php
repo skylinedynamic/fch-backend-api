@@ -68,32 +68,38 @@ class FundingApplicationService
             );
 
 
-            if(isset($data['has_co_borrower']) && $data['has_co_borrower'] && count($data['co_borrowers']) > 0){
-                foreach ($data['co_borrowers'] as $coBorrower) {
-                    $coBorrower['funding_application_id'] = $fundingApplication->id;
-
-                    FundingApplicationCoBorrower::updateOrCreate(['id' => $coBorrower['id'] ?? null], [
-                        'funding_application_id' => $fundingApplication->id,
-                        'first_name' => $coBorrower['first_name'] ?? null,
-                        'last_name' => $coBorrower['last_name'] ?? null,
-                        'title_role' => $coBorrower['role'] ?? null,
-                        'ownership_percentage' => $coBorrower['ownership'] ?? null,
-                        'email' => $coBorrower['email'] ?? null,
-                        'mobile_phone' => $coBorrower['mobile_phone'] ?? null,
-                        'home_phone' => $coBorrower['home_phone'] ?? null,
-                        'date_of_birth' => $coBorrower['date_of_birth'] ?? null,
-                        'ssn' => $coBorrower['ssn'] ?? null,
-                        'street_address' => $coBorrower['street_address'] ?? null,
-                        'city' => $coBorrower['city'] ?? null,
-                        'state' => $coBorrower['state'] ?? null,
-                        'zip_code' => $coBorrower['zip_code'] ?? null,
-                        'drivers_license_number' => $coBorrower['drivers_license_number'] ?? null,
-                        'drivers_license_state' => $coBorrower['drivers_license_state'] ?? null,
-                    ]);
+            if (isset($data['has_co_borrower']) && $data['has_co_borrower']) {
+                $coBorrowerIds = [];
+                if (!empty($data['co_borrowers'])) {
+                    foreach ($data['co_borrowers'] as $coBorrower) {
+                        $record = FundingApplicationCoBorrower::updateOrCreate(['id' => $coBorrower['id'] ?? null], [
+                            'funding_application_id' => $fundingApplication->id,
+                            'first_name' => $coBorrower['first_name'] ?? null,
+                            'last_name' => $coBorrower['last_name'] ?? null,
+                            'title_role' => $coBorrower['role'] ?? null,
+                            'ownership_percentage' => $coBorrower['ownership'] ?? null,
+                            'email' => $coBorrower['email'] ?? null,
+                            'mobile_phone' => $coBorrower['mobile_phone'] ?? null,
+                            'home_phone' => $coBorrower['home_phone'] ?? null,
+                            'date_of_birth' => $coBorrower['date_of_birth'] ?? null,
+                            'ssn' => $coBorrower['ssn'] ?? null,
+                            'street_address' => $coBorrower['street_address'] ?? null,
+                            'city' => $coBorrower['city'] ?? null,
+                            'state' => $coBorrower['state'] ?? null,
+                            'zip_code' => $coBorrower['zip_code'] ?? null,
+                            'drivers_license_number' => $coBorrower['drivers_license_number'] ?? null,
+                            'drivers_license_state' => $coBorrower['drivers_license_state'] ?? null,
+                        ]);
+                        $coBorrowerIds[] = $record->id;
+                    }
                 }
-            }
-            else{
-                $fundingApplication->update(['has_co_borrower'=>false]);
+                
+                // Sync: Delete co-borrowers that are not in the provided data
+                FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)
+                    ->whereNotIn('id', $coBorrowerIds)
+                    ->forceDelete();
+            } else if (isset($data['has_co_borrower']) && !$data['has_co_borrower']) {
+                // If has_co_borrower is specifically set to false, remove all co-borrowers
                 FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)->forceDelete();
             }
 

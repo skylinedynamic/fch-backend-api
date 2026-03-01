@@ -366,8 +366,16 @@ class VerificationCenterService
                         $canUpdateStatus = false; 
                     }
                 } else {
-                    $errorMessage = __('verification_center.not_verified');
-                    $canUpdateStatus = false;
+                    $api = $task->api;
+
+                    if($api){
+                        $errorMessage = __('verification_center.not_verified');
+                        $canUpdateStatus = false;
+                    }else{
+                        $errorMessage = __('verification_center.no_api_assigned');
+                        $canUpdateStatus = false; 
+                    }
+                    
                 }
             } else {
                 // Manual verification or non-completed status update
@@ -426,7 +434,7 @@ class VerificationCenterService
             ->count();
 
 
-         if($verificationRequest->tier_id > 1){
+         if($taskTier->code != 'T0'){
             $task = $verificationRequest->task;
 
             MigratedTask::create([
@@ -446,17 +454,32 @@ class VerificationCenterService
                 $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
 
                 // If verified tasks equal or exceed required amount, move to next tier
-                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0 && $borrower->current_tier < 4) {
-                    // Find the next tier based on order
-                    $nextTier = Tier::where('order', '>', $borrower->tier->order)
-                        ->orderBy('order', 'asc')
-                        ->first();
+                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0 ) {
 
-                    if ($nextTier) {
-                        $borrower->update([
-                            'current_tier' => $nextTier->id
-                        ]);
+                     if($taskTier->code == 'T0'){
+                        // Find the next tier based on order
+                        $nextTier = Tier::where('order', '>', $borrower->tier->order)
+                            ->orderBy('order', 'asc')
+                            ->first();
+
+                        if ($nextTier) {
+                            $borrower->update([
+                                'current_tier' => $nextTier->id
+                            ]);
+                        }
+                    }else{
+                        if($borrower->current_tier <= $taskTier->tier_id && $borrower->current_tier < 5){
+
+                            $nextTier = Tier::where('order', '>', $borrower->tier->order)
+                            ->orderBy('order', 'asc')
+                            ->first();
+
+                            $borrower->update([
+                                'current_tier' => $nextTier->id
+                            ]);
+                        }
                     }
+
                 }
             }
     }
