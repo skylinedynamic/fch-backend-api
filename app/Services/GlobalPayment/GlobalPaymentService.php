@@ -171,7 +171,11 @@ class GlobalPaymentService
                             'user_name' => $userName,
                             'user_email' => $userEmail,
                         ];
-                        Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData));
+                        if ($invoice->is_partner_paying) {
+                            Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData));
+                        } else {
+                            Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData));
+                        }
                     } catch (\Exception $e) {
                         Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
                     }
