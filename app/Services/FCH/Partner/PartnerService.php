@@ -14,7 +14,6 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
@@ -605,6 +604,14 @@ class PartnerService
             ]
         );
 
+        // Calculate statistics before pagination
+        $statistics = [
+            'total_partners' => (clone $query)->count(),
+            'active_partners' => (clone $query)->where('status', Partner::STATUS_ACTIVE)->count(),
+            'inactive_partners' => (clone $query)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
+            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+        ];
+
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -613,7 +620,9 @@ class PartnerService
         return $this->respondWithPaginationResource(
             $paginator,
             PartnerResource::class,
-            __('partner.success.retrieved')
+            __('partner.success.retrieved'),
+            200,
+            ['statistics' => $statistics]
         );
     }
 
@@ -859,50 +868,28 @@ class PartnerService
         return $results;
     }
 
-    /**
-     * Get Partner Statistics Counts.
-     */
-    public function getPartnerStats(): array
-    {
-        $today = now();
-        $startOfMonth = $today->copy()->startOfMonth();
-        $endOfMonth = $today->copy()->endOfMonth();
 
-        return [
-            'active_count' => Partner::where('status', 'active')->count(),
-            'new_this_month' => Partner::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count(),
-            'total_partners' => Partner::count(),
-            'inactive_count' => Partner::where('status', 'inactive')->count(),
-        ];
-    }
 
     public function getPartnerProfileStats(int $id)
     {
-        $authId = auth()->id();
+        $partnerClass = addslashes(\App\Models\Partner\Partner::class);
 
         $stats = DB::table('partners as p')
             ->select(
                 'p.id',
-                DB::raw('(SELECT COUNT(*) FROM appointments WHERE scheduled_by = ?) AS total_meetings'),
-                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = ?) AS total_clients'),
-                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
-                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
-                DB::raw('(SELECT COALESCE(
+                DB::raw("(SELECT COUNT(DISTINCT id) FROM appointments WHERE (entity_type = '{$partnerClass}' AND entity_id = p.id) OR scheduled_by IN (SELECT id FROM users WHERE partner_id = p.id) OR assigned_for IN (SELECT id FROM users WHERE partner_id = p.id)) AS total_meetings"),
+                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = p.id) AS total_clients'),
+                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = p.id) AS total_invoice'),
+                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = p.id) AS total_tickets'),
+                DB::raw("(SELECT COALESCE(
                     (SELECT enrollment_type
                     FROM subscriptions
-                    WHERE entity_id = ? AND entity_type = "App\\\Models\\\Partner\\\Partner"
+                    WHERE entity_id = p.id AND entity_type = '{$partnerClass}'
                     ORDER BY id DESC
                     LIMIT 1),
-                    "N/A"
-                    )) AS enrollment_type')
+                    'N/A'
+                    )) AS enrollment_type")
             )
-            ->setBindings([
-                $authId,
-                $id,
-                $id,
-                $id,
-                $id
-            ])
             ->where('p.id', $id)
             ->first();
 

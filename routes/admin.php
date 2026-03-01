@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Setting\SettingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
@@ -10,7 +9,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 // ✅ Import Role & Permission Controllers
 
 /*
@@ -35,7 +33,7 @@ Route::prefix('v1/admin')
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners/check-deletable', [PartnerController::class, 'checkDeletable']);
-        Route::post('partners-stats', [PartnerController::class, 'stats']);
+
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
 
