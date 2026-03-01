@@ -147,6 +147,19 @@ class BorrowerController extends Controller
     }
 
     /**
+     * Check if multiple borrowers are deletable (for modal)
+     */
+    public function checkDeletable(Request $request)
+    {
+        try {
+            $results = $this->borrowerService->checkDeletable($request->ids);
+            return ApiResponse::success($results, __('borrower.retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
      * Get All Users
      */
     public function getAllUsers(Request $request)

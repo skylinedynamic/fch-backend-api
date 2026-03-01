@@ -124,7 +124,7 @@ class UserController extends Controller
 
         // Clean up temporary fields before service call
         unset($data['change_password'], $data['new_password'], $data['confirm_password']);
-        
+
         try {
             $updated = $this->userService->update($user, $data, $request->role_id);
             return ApiResponse::success(
@@ -138,24 +138,29 @@ class UserController extends Controller
     /**
      * Delete User
      */
+    /**
+     * Delete Multiple Users
+     */
     public function multipleDelete(Request $request)
     {
         try {
-            $query = User::whereIn('id', $request->ids);
-
-            if (!Auth::user()->hasRole('Developer')) {
-                $query->whereDoesntHave('roles', function ($q) {
-                    $q->where('code', 'developer');
-                });
-            }
-
-            $query->delete();
-            return ApiResponse::success(
-                [],
-                __('user.user_deleted')
-            );
+            $this->userService->deleteMultiple($request->ids);
+            return ApiResponse::success([], __('user.user_deleted'));
         } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('user.user_delete_failed'), 500);
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Check if multiple users are deletable (for modal)
+     */
+    public function checkDeletable(Request $request)
+    {
+        try {
+            $results = $this->userService->checkDeletable($request->ids);
+            return ApiResponse::success($results, __('user.user_list_retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 }

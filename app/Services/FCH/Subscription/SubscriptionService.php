@@ -479,8 +479,27 @@ class SubscriptionService
                 $entity = $subscription->entity;
 
                 if (!$entity || $subscription->status !== 'Active') {
-                    return;
+                    return; // Ignore if subscription not active or entity missing
                 }
+
+                // --------- ADDED STATUS CHECKS ---------
+                if ($subscription->entity_type === Borrower::class) {
+                    // It's a borrower. Check if Borrower is Active AND Partner is Active
+                    if ($entity->status !== Borrower::STATUS_ACTIVE) {
+                        return;
+                    }
+
+                    $partner = $entity->partner;
+                    if (!$partner || $partner->status !== Partner::STATUS_ACTIVE) {
+                        return;
+                    }
+                } elseif ($subscription->entity_type === Partner::class) {
+                    // It's a partner. Check if Partner is Active
+                    if ($entity->status !== Partner::STATUS_ACTIVE) {
+                        return;
+                    }
+                }
+                // ----------------------------------------
 
                 $isPlatformFee = $type === 'platform_fee';
 
