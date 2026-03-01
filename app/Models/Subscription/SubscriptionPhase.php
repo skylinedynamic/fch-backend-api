@@ -4,11 +4,12 @@ namespace App\Models\Subscription;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Subscription\Subscription;
 
 class SubscriptionPhase extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     const PHASE_ENROLLMENT = 'enrollment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
@@ -30,6 +31,6 @@ class SubscriptionPhase extends Model
 
     public function subscription()
     {
-        return $this->belongsTo(Subscription::class,'subscription_id','id');
+        return $this->belongsTo(Subscription::class, 'subscription_id', 'id');
     }
 }

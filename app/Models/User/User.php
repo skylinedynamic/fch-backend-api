@@ -4,24 +4,27 @@ namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use OTPHP\TOTP;
-use App\Models\Common\Role;
-use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Common\Role;
 use App\Models\Employee\Employee;
-use Laravel\Passport\HasApiTokens;
-use Spatie\Permission\Traits\HasRoles;
-use Illuminate\Notifications\Notifiable;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Laravel\Passport\Contracts\OAuthenticatable;
+use App\Services\Global\Notification\NotificationService;
+use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use App\Services\Global\Notification\NotificationService;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
+use OTPHP\TOTP;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements OAuthenticatable
 {
@@ -510,6 +513,113 @@ class User extends Authenticatable implements OAuthenticatable
     public function getFirstRoleAttribute()
     {
         return $this->roles->first()?->name;
+    }
+
+    /**
+     * Get the invoices for the user.
+     */
+    public function invoices(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(\App\Models\Invoice\Invoice::class, 'entity');
+    }
+
+    /**
+     * Get the subscriptions for the user.
+     */
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Subscription::class, 'entity');
+    }
+
+    /**
+     * Check if the user is deletable based on invoice status.
+     * Checks direct and related entity invoices.
+     */
+    public function isDeletable(): bool
+    {
+        // 1. Direct invoices
+        if ($this->invoices()->where('status', Invoice::STATUS_PAID)->exists()) {
+            return false;
+        }
+
+        // 2. Partner invoices if linked
+        if ($this->partner_id) {
+            if (Invoice::where('partner_id', $this->partner_id)->where('status', Invoice::STATUS_PAID)->exists()) {
+                return false;
+            }
+        }
+
+        // 3. Borrower invoices if linked
+        if ($this->entity_type === Borrower::class && $this->entity_id) {
+            if (Invoice::where('borrower_id', $this->entity_id)->where('status', Invoice::STATUS_PAID)->exists()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static $isCascading = false;
+
+    /**
+     * Delete user and all relations ONLY if no paid invoices exist.
+     */
+    public function safeDeleteWithRelations(): bool
+    {
+        if (self::$isCascading) {
+            return true;
+        }
+
+        if (!$this->isDeletable()) {
+            throw new \Exception("You can’t delete this — try marking it as Suspended or Inactive.");
+        }
+
+        DB::beginTransaction();
+        try {
+            self::$isCascading = true;
+
+            // 1. If this user is linked to an entity (Partner/Borrower), delete the entity instead
+            // This ensures everything (Partner -> Borrower -> User) is cleaned up together
+            if ($this->entity_type && $this->entity_id) {
+                $entity = $this->entity;
+                if ($entity && method_exists($entity, 'safeDeleteWithRelations')) {
+                    $entity->safeDeleteWithRelations();
+                }
+            }
+
+            // 2. Delete Subscriptions & Phases (Direct or via Entity)
+            // This ensures we clean up the entity's financial records if we are its face
+            $targetType = $this->entity_type ?: self::class;
+            $targetId = $this->entity_id ?: $this->id;
+
+            Subscription::where('entity_type', $targetType)
+                ->where('entity_id', $targetId)
+                ->get()
+                ->each(function ($sub) {
+                    $sub->allPhases()->delete();
+                    $sub->delete();
+                });
+
+            // 3. Delete Invoices (Unpaid only - checked by isDeletable above)
+            Invoice::where('entity_type', $targetType)
+                ->where('entity_id', $targetId)
+                ->delete();
+
+            // 4. Detach Roles & Permissions
+            $this->roles()->detach();
+            $this->permissions()->detach();
+
+            // 5. Finally Delete User record
+            $this->delete();
+
+            DB::commit();
+            self::$isCascading = false;
+            return true;
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            self::$isCascading = false;
+            throw $e;
+        }
     }
 
     public const PAYMENT_STATUS_PAID = 'Paid';

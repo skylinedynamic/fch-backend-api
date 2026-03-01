@@ -34,6 +34,7 @@ Route::prefix('v1/admin')
         Route::get('partners-details/{id}', [PartnerController::class, 'details']);
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
+        Route::post('partners/check-deletable', [PartnerController::class, 'checkDeletable']);
         Route::post('partners-stats', [PartnerController::class, 'stats']);
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
@@ -88,7 +89,4 @@ Route::prefix('v1/admin')
         Route::prefix('funding-application')->group(function () {
             Route::post('save-commission', [CommissionController::class, 'saveCommission']);
         });
-
-
-
     });

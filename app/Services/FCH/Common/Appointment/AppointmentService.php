@@ -45,15 +45,15 @@ class AppointmentService
         $userId = auth()->id();
         $query->where(function ($q) use ($userId) {
             $q->where('scheduled_by', $userId)
-              ->orWhere('assigned_for', $userId);
+                ->orWhere('assigned_for', $userId);
         });
 
         if (!empty($filters['search'])) {
             $search = trim($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('subject', 'like', "%{$search}%")
-                  ->orWhere('appointment_code', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('appointment_code', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -102,7 +102,7 @@ class AppointmentService
             );
             $data['appointment_code'] = $this->generateNextAppointmentCode();
             $data['scheduled_by'] = auth()->id();
-            
+
             $appointment = Appointment::create($data);
             Log::info('[DEMO] Appointment record created in database. Code: ' . $appointment->appointment_code);
 
@@ -124,7 +124,7 @@ class AppointmentService
             $this->sendNotification($appointment, 'created');
 
             DB::commit();
-            
+
             // Add sync status to the object temporarily for the controller to read
             $appointment->sync_successful = $syncResult;
 
@@ -146,7 +146,7 @@ class AppointmentService
         $lastAppointment = Appointment::withTrashed()
             ->orderBy('id', 'desc')
             ->first();
-        
+
         if (!$lastAppointment) {
             return 'APP-0001';
         }
@@ -175,13 +175,13 @@ class AppointmentService
             /*
             $syncResult = $this->syncWithMicrosoft($appointment);
             */
-            $syncResult = false; 
+            $syncResult = false;
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'updated');
 
             DB::commit();
-            
+
             $appointment->sync_successful = $syncResult;
 
             return $appointment->fresh();
@@ -231,7 +231,7 @@ class AppointmentService
             ]);
 
             // Send Email Notification to Assigned User
-             $this->sendNotification($appointment, 'deleted');
+            $this->sendNotification($appointment, 'deleted');
 
             DB::commit();
             return true;
@@ -251,7 +251,7 @@ class AppointmentService
      */
     protected function syncWithMicrosoft(Appointment $appointment): bool
     {
-       
+
         // $serviceEmail = config('services.microsoft.calendar_service_email');
         $targetEmail = ($appointment->assignedFor->email ?? null);
         if (!$targetEmail) {
@@ -337,7 +337,7 @@ class AppointmentService
         try {
             $user = auth()->user();
             $partner = $user ? $user->partner : $appointment->scheduledBy->partner;
-            
+
             // Fallback empty if no partner found (e.g. system admin?)
             $businessInfo = [
                 'company_name' => $partner->company_name ?? 'Our Company',
@@ -350,7 +350,7 @@ class AppointmentService
             Mail::to($appointment->assignedFor->email)->send(
                 new AppointmentNotification($appointment, $action, $businessInfo)
             );
-            
+
             Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
         } catch (Throwable $e) {
             Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
@@ -367,9 +367,9 @@ class AppointmentService
         $conflictCount = AppointmentDetail::where('appointment_date', $appointmentDateOnly)
             ->where(function ($query) use ($scheduledBy, $assignedFor) {
                 $query->where('scheduled_by', $scheduledBy)
-                      ->orWhere('scheduled_by', $assignedFor)
-                      ->orWhere('assigned_for', $scheduledBy)
-                      ->orWhere('assigned_for', $assignedFor);
+                    ->orWhere('scheduled_by', $assignedFor)
+                    ->orWhere('assigned_for', $scheduledBy)
+                    ->orWhere('assigned_for', $assignedFor);
             })
             ->whereIn('status', [
                 AppointmentDetail::STATUS_PENDING,
@@ -390,12 +390,12 @@ class AppointmentService
         $appointmentDate = Carbon::parse($data['appointment_date'])->format('Y-m-d');
         $assignedFor = $data['assigned_for'] ?? null;
         $scheduledBy = auth()->id();
-        
+
         // Check conflicts for Scheduler
         $schedulerConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
             ->where(function ($q) use ($scheduledBy) {
                 $q->where('scheduled_by', $scheduledBy)
-                  ->orWhere('assigned_for', $scheduledBy);
+                    ->orWhere('assigned_for', $scheduledBy);
             })
             ->with(['scheduledBy', 'assignedFor'])
             ->get();
@@ -405,7 +405,7 @@ class AppointmentService
             $assigneeConflicts = Appointment::whereDate('appointment_date', $appointmentDate)
                 ->where(function ($q) use ($assignedFor) {
                     $q->where('scheduled_by', $assignedFor)
-                      ->orWhere('assigned_for', $assignedFor);
+                        ->orWhere('assigned_for', $assignedFor);
                 })
                 ->with(['scheduledBy', 'assignedFor'])
                 ->get();
@@ -431,7 +431,7 @@ class AppointmentService
         $schedulerBusySlots = Appointment::whereDate('appointment_date', $date)
             ->where(function ($q) use ($scheduledBy) {
                 $q->where('scheduled_by', $scheduledBy)
-                  ->orWhere('assigned_for', $scheduledBy);
+                    ->orWhere('assigned_for', $scheduledBy);
             })
             ->when($excludeId, function ($q) use ($excludeId) {
                 $q->where('id', '!=', $excludeId);
@@ -443,7 +443,7 @@ class AppointmentService
             $assigneeBusySlots = Appointment::whereDate('appointment_date', $date)
                 ->where(function ($q) use ($assignedFor) {
                     $q->where('scheduled_by', $assignedFor)
-                      ->orWhere('assigned_for', $assignedFor);
+                        ->orWhere('assigned_for', $assignedFor);
                 })
                 ->when($excludeId, function ($q) use ($excludeId) {
                     $q->where('id', '!=', $excludeId);
@@ -463,19 +463,18 @@ class AppointmentService
     public function getSelectableUsers(array $data)
     {
         $user = Auth::user();
-        
-         if ($user->entity_type == Borrower::class) {
+
+
+        if ($user->entity_type == Borrower::class) {
             $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
             if ($borrower) {
                 $query->where(function ($q) {
                     $q->where('entity_type', '!=', Borrower::class)
-                    ->orWhereNull('entity_type');
+                        ->orWhereNull('entity_type');
                 });
             }
-            
-        }
-        else{
+        } else {
 
             $isHost = $user->partner?->is_host;
 
@@ -483,28 +482,28 @@ class AppointmentService
                 // Admin Partner
                 $query = User::query();
 
-                if(isset($data['meeting_with']) &&  $data['meeting_with']){
+                if (isset($data['meeting_with']) &&  $data['meeting_with']) {
                     $query->where('user_type', User::PARTNER);
-                }else{
-                    $query->where('entity_type','!=',Partner::class)
+                } else {
+                    $query->where('entity_type', '!=', Partner::class)
                         ->orWhereNull('entity_type');
                 }
-
             } else {
                 $query = User::query();
 
-                if(isset($data['meeting_with_host']) && $data['meeting_with_host']){
+                if (isset($data['meeting_with_host']) && $data['meeting_with_host']) {
                     $query->where('user_type', User::ADMIN)->where('entity_type', '!=', Borrower::class);
-                }else{
-                    $query->where('partner_id', $user->partner_id)->where(function($q){
+                } else {
+                    $query->where('partner_id', $user->partner_id)->where(function ($q) {
                         $q->where('entity_type', '!=', Partner::class)
-                        ->orWhereNull('entity_type');
+                            ->orWhereNull('entity_type');
                     });
                 }
             }
         }
 
-        $results = $query->with('partner')->get(['id', 'name', 'entity_type', 'entity_id','user_type']);
+        $results = $query->with('entity')->get(['id', 'name', 'entity_type', 'entity_id', 'user_type']);
+
 
         return ApiResponse::success(
             AppointmentUserResource::collection($results),
@@ -529,7 +528,7 @@ class AppointmentService
         if (!empty($data['entity_type']) && !empty($data['entity_id'])) {
             $temp = new Appointment(['entity_type' => $data['entity_type']]);
             $normalizedType = $temp->entity_type;
-            
+
             $data['entity_type'] = $normalizedType;
 
             if (empty($data['assigned_for'])) {

@@ -195,7 +195,7 @@ class BorrowerService
         $statistics = [
             'total_borrowers' => (clone $query)->count(),
             'active_borrowers' => (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count(),
-            'inactive_borrowers' => (clone $query)->where('status', '!=', Borrower::STATUS_ACTIVE)->count(),
+            'inactive_borrowers' => (clone $query)->whereIn('status', [Borrower::STATUS_INACTIVE, Borrower::STATUS_SUSPENDED])->count(),
             'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
@@ -424,16 +424,17 @@ class BorrowerService
                 ]);
             }
 
-            // Update associated User if exists
-            if ($borrower->user) {
-                $userResult = $this->createOrUpdateUser($data, $borrower, $borrower->user);
-                $user = $userResult['user'];
+            // 1. Update associated User if exists
+            $user = $borrower->user;
+            if ($user) {
+                $userResult = $this->createOrUpdateUser($data, $borrower, $user);
+                $updatedUser = $userResult['user'];
                 $plainPassword = $userResult['plain_password'];
 
                 if ($plainPassword) {
                     $hostPartner = Partner::where('is_host', 1)->first();
                     $mailData = [
-                        'user' => $user,
+                        'user' => $updatedUser,
                         'plain_password' => $plainPassword,
                         'business_info' => [
                             'company_name' => $hostPartner->company_name ?? config('app.name'),
@@ -442,15 +443,15 @@ class BorrowerService
                             'phone_number' => $hostPartner->phone_number ?? '',
                             'address_line_1' => $hostPartner->address_line_1 ?? '',
                         ],
-                        'subject' => 'Your account has been updated - ' . config('app.name'),
+                        'subject' => 'Your Email has been changed - ' . config('app.name'),
                         'is_update' => true,
                     ];
-                    Log::info('Sending account update email to borrower with new password', ['email' => $user->email]);
+                    Log::info('📧 Sending account update email to borrower due to email change', ['email' => $updatedUser->email]);
 
                     try {
-                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
+                        Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData));
                     } catch (\Exception $e) {
-                        Log::error('Failed to send account update email to borrower with new password', ['email' => $user->email, 'error' => $e->getMessage()]);
+                        Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
                     }
                 }
             } elseif (!empty($data['email'])) {
@@ -497,14 +498,40 @@ class BorrowerService
     public function delete(array $ids)
     {
         try {
-            // Delete associated users first
-            User::where('entity_type', Borrower::class)->whereIn('entity_id', $ids)->delete();
-            Borrower::whereIn('id', $ids)->delete();
+            DB::beginTransaction();
+            $borrowers = Borrower::whereIn('id', $ids)->get();
+            foreach ($borrowers as $borrower) {
+                $borrower->safeDeleteWithRelations();
+            }
+            DB::commit();
 
             return ApiResponse::success([], __('borrower.success.deleted'));
         } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('borrower.error.delete_failed'), 500);
+            DB::rollBack();
+            Log::error('Borrower deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+            return ApiResponse::error($e->getMessage(), 400);
         }
+    }
+
+    /**
+     * Check if multiple borrowers are deletable
+     */
+    public function checkDeletable(array $ids): array
+    {
+        $borrowers = Borrower::whereIn('id', $ids)->get();
+        $results = [];
+
+        foreach ($borrowers as $borrower) {
+            $is_deletable = $borrower->isDeletable();
+            $results[] = [
+                'id' => $borrower->id,
+                'name' => $borrower->full_name,
+                'is_deletable' => $is_deletable,
+                'reason' => !$is_deletable ? "You can’t delete this — try marking it as Suspended or Inactive." : null
+            ];
+        }
+
+        return $results;
     }
 
     /**

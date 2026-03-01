@@ -79,14 +79,16 @@ class Partner extends Model
     ];
 
     public const STATUS = [
-        'active' => 'active',
-        'inactive' => 'inactive',
+        'active' => 'Active',
+        'inactive' => 'Inactive',
+        'suspended' => 'Suspended',
+        'onboarding' => 'OnBoarding',
     ];
 
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';
-    const STATUS_CLOSED = 'Closed';
+    const STATUS_INACTIVE = 'Inactive';
 
     const PARTNER_TYPE_CERTIFIED = 'Certified Partner';
     const PARTNER_TYPE_WHITE_LABEL = 'White-Label Partner (WL)';
@@ -165,9 +167,20 @@ class Partner extends Model
     /**
      * Get the subscription for the partner.
      */
+    /**
+     * Get the subscription for the partner (latest).
+     */
     public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
-        return $this->morphOne(Subscription::class, 'entity');
+        return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+    }
+
+    /**
+     * Get all subscriptions for the partner.
+     */
+    public function subscriptions(): MorphMany
+    {
+        return $this->morphMany(Subscription::class, 'entity');
     }
 
     // /**
@@ -205,5 +218,80 @@ class Partner extends Model
     public function preQualificationRequests()
     {
         return $this->hasMany(PreQualificationRequest::class, 'partner_id');
+    }
+
+    /**
+     * Get the invoices for the partner.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'partner_id');
+    }
+
+    /**
+     * Check if the partner is deletable based on invoice status.
+     */
+    public function isDeletable(): bool
+    {
+        return !$this->invoices()->where('status', \App\Models\Invoice\Invoice::STATUS_PAID)->exists();
+    }
+
+    /**
+     * Delete partner and all related data ONLY if no paid invoices exist.
+     */
+    public function safeDeleteWithRelations(): bool
+    {
+        if (\App\Models\User\User::$isCascading) {
+            return true;
+        }
+
+        if (!$this->isDeletable()) {
+            throw new \Exception("You can’t delete this — try marking it as Suspended or Inactive.");
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            \App\Models\User\User::$isCascading = true;
+            // 1. Delete Borrowers and their related data recursively
+            $this->borrowers->each(function ($borrower) {
+                $borrower->safeDeleteWithRelations();
+            });
+
+            // 2. Delete Users directly linked to partner_id recursively
+            $this->users->each(function ($user) {
+                // Each user cleans up their own subscriptions/invoices
+                $user->safeDeleteWithRelations();
+            });
+
+            // 3. Delete Subscriptions & Phases
+            $this->subscriptions()->each(function ($sub) {
+                $sub->allPhases()->delete();
+                $sub->delete();
+            });
+
+            // 4. Delete Invoices (Unpaid only - checked by isDeletable above)
+            $this->invoices()->delete();
+
+            // 5. Delete other related tables
+            $this->leads()->delete();
+            $this->commissions()->delete();
+            $this->fundingApplications()->delete();
+            $this->preQualificationRequests()->delete();
+            $this->documents()->delete();
+
+            // Delete Roles linked to partner
+            \App\Models\Common\Role::where('partner_id', $this->id)->delete();
+
+            // 6. Finally Delete Partner record
+            $this->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+            \App\Models\User\User::$isCascading = false;
+            return true;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \App\Models\User\User::$isCascading = false;
+            throw $e;
+        }
     }
 }

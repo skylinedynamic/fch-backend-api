@@ -12,18 +12,16 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use \Illuminate\Support\Facades\DB;
+use \Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use Spatie\Permission\PermissionRegistrar;
+use \Illuminate\Support\Facades\Auth;
+use \Illuminate\Support\Facades\Hash;
+use \Illuminate\Support\Facades\Mail;
+use \Spatie\Permission\PermissionRegistrar;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Global\Auth\UserResource;
-use Illuminate\Http\Request; // ✅ this is the correct one
-use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
-use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use \App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 
 class UserService
 {
@@ -287,10 +285,21 @@ class UserService
 
 
         try {
-            if (isset($data['password']) && $data['password'] !== null) {
-                $data['password'] = Hash::make($data['password']);
-            }
+            $emailChanged = isset($data['email']) && $user->email !== $data['email'];
+            $passwordUpdated = false;
+            $plainPassword = null;
 
+            if (isset($data['password']) && $data['password'] !== null) {
+                $plainPassword = $data['password'];
+                $data['password'] = Hash::make($plainPassword);
+                $passwordUpdated = true;
+                Log::info('🔑 Password explicitly updated for User', ['user_id' => $user->id]);
+            } elseif ($emailChanged) {
+                $plainPassword = bin2hex(random_bytes(4));
+                $data['password'] = Hash::make($plainPassword);
+                $passwordUpdated = true;
+                Log::info('🔑 Password reset for User due to email change', ['user_id' => $user->id]);
+            }
 
             $user->update($data);
 
@@ -298,10 +307,16 @@ class UserService
                 $this->assignRoleAndPermissions($user, $roleId);
             }
 
+            // 📧 Send update notification if password or email changed
+            if ($passwordUpdated || $emailChanged) {
+                $subject = ($emailChanged ? 'Your Email has been changed' : 'Your Password has been updated') . ' - ' . config('app.name');
+                $partner = $user->partner ?: \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $this->sendCreatedMail($user, $partner, $plainPassword, $subject);
+            }
+
             return $user;
         } catch (Throwable $e) {
-            Log::info('-----------------Error: ' . $e->getMessage());
-
+            Log::error('UserService update failed: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -337,23 +352,57 @@ class UserService
      */
     public function delete(User $user): bool
     {
-        DB::beginTransaction();
-
         try {
-
-            $user->delete();
-            DB::commit();
-            return true;
-        } catch (Throwable $e) {
-            DB::rollBack();
+            return $user->safeDeleteWithRelations();
+        } catch (\Throwable $e) {
+            Log::error('User deletion failed', ['id' => $user->id, 'error' => $e->getMessage()]);
             throw $e;
         }
     }
 
-    public function sendCreatedMail($user, $businessInfo, string $plainPassword): void
+    /**
+     * Delete Multiple Users
+     */
+    public function deleteMultiple(array $ids): bool
+    {
+        $users = User::whereIn('id', $ids)->get();
+
+        foreach ($users as $user) {
+            // Check if user is a developer and auth user is not
+            if (!auth()->user()->hasRole('Developer') && $user->hasRole('Developer')) {
+                continue;
+            }
+            $this->delete($user);
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if multiple users are deletable
+     */
+    public function checkDeletable(array $ids): array
+    {
+        $users = User::whereIn('id', $ids)->get();
+        $results = [];
+
+        foreach ($users as $user) {
+            $is_deletable = $user->isDeletable();
+            $results[] = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'is_deletable' => $is_deletable,
+                'reason' => !$is_deletable ? "You can’t delete this — try marking it as Suspended or Inactive." : null
+            ];
+        }
+
+        return $results;
+    }
+
+    public function sendCreatedMail($user, $businessInfo, string $plainPassword, ?string $subject = null): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'subject' => $subject ?? ('Welcome to ' . $businessInfo->company_name),
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [

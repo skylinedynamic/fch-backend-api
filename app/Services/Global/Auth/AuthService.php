@@ -2,18 +2,19 @@
 
 namespace App\Services\Global\Auth;
 
-use App\Models\User\User;
-use Illuminate\Support\Carbon;
 use App\Helpers\ApiResponse;
-use Illuminate\Http\Request;
-use App\Models\Partner\Partner;
-use App\Models\Borrower\Borrower;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
-use App\Models\TwoFaAuth\TwoFaAuthSetting;
-use Illuminate\Support\Facades\RateLimiter;
-use App\Services\Global\TwoFaAuth\TwoFaService;
 use App\Http\Resources\Global\Auth\UserResource;
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
+use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use App\Models\User\User;
+use App\Services\Global\TwoFaAuth\TwoFaService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AuthService
 {
@@ -78,6 +79,28 @@ class AuthService
             }
         }
 
+        $partner = $user->partner;
+
+        // 1. Check User Account Status
+        if ($user->status !== User::STATUS['active']) {
+            return ApiResponse::loginError(__('auth.user_inactive'), 'email');
+        }
+
+        // 2. Check Associated Entity Status (Partner, Employee, Borrower)
+        $checks = [
+            [$partner?->status, Partner::STATUS_SUSPENDED, 'auth.partner_suspended', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']],
+            [$partner?->status, Partner::STATUS_INACTIVE, 'auth.partner_inactive', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']],
+            [$user->employee?->job_status, Employee::STATUS_INACTIVE, 'auth.employee_inactive', []],
+            [$user->employee?->job_status, Employee::STATUS_SUSPENDED, 'auth.employee_suspended', []],
+            [$user->borrower?->status, Borrower::STATUS_INACTIVE, 'auth.borrower_inactive', []],
+            [$user->borrower?->status, Borrower::STATUS_SUSPENDED, 'auth.borrower_suspended', []],
+        ];
+
+        foreach ($checks as [$value, $disallowed, $message, $params]) {
+            if ($value === $disallowed) {
+                return ApiResponse::loginError(__($message, $params ?? []), 'email');
+            }
+        }
 
 
         if (!Auth::attempt($authCredentials)) {

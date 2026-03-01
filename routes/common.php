@@ -78,6 +78,7 @@ Route::prefix('v1')->group(function () {
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
+            Route::post('users/check-deletable', [UserController::class, 'checkDeletable']);
             Route::apiResource('users', UserController::class);
 
             Route::post('permissions', [PermissionController::class, 'index']);
@@ -104,6 +105,7 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
+            Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);

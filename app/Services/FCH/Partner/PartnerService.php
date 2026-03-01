@@ -820,25 +820,43 @@ class PartnerService
     public function delete(array $ids)
     {
         try {
-            // Get partners to delete their images
+            DB::beginTransaction();
             $partners = Partner::whereIn('id', $ids)->get();
             foreach ($partners as $partner) {
                 if ($partner->partner_image) {
                     $this->deleteFile($partner->partner_image, 'public');
                 }
+                $partner->safeDeleteWithRelations();
             }
+            DB::commit();
 
-            // Delete partner records and associated users
-            User::whereIn('partner_id', $ids)->delete();
-            Partner::whereIn('id', $ids)->delete();
-
-            return ApiResponse::success(
-                [],
-                __('partner.success.deleted')
-            );
+            return ApiResponse::success([], __('partner.success.deleted'));
         } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
+            DB::rollBack();
+            Log::error('Partner deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+            return ApiResponse::error($e->getMessage(), 400);
         }
+    }
+
+    /**
+     * Check if multiple partners are deletable
+     */
+    public function checkDeletable(array $ids): array
+    {
+        $partners = Partner::whereIn('id', $ids)->get();
+        $results = [];
+
+        foreach ($partners as $partner) {
+            $is_deletable = $partner->isDeletable();
+            $results[] = [
+                'id' => $partner->id,
+                'name' => $partner->full_name,
+                'is_deletable' => $is_deletable,
+                'reason' => !$is_deletable ? "You can’t delete this — try marking it as Suspended or Inactive." : null
+            ];
+        }
+
+        return $results;
     }
 
     /**

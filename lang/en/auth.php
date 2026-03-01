@@ -16,6 +16,13 @@ return [
     'user_not_found' => 'User not found',
     'subscription_expired' => 'Your subscription package has expired. Please contact :partner for renewal.',
     'payment_not_completed' => 'Your payment was not completed. Please contact :partner for assistance.',
+    'partner_suspended' => 'Your account has been suspended. Please contact :partner for more information.',
+    'partner_inactive' => 'Your account is currently inactive. Please contact :partner for activation.',
+    'user_inactive' => 'Your account is currently inactive. Please contact administrator.',
+    'employee_inactive' => 'Your account is currently inactive. Please contact administrator.',
+    'employee_suspended' => 'Your account has been suspended. Please contact administrator.',
+    'borrower_inactive' => 'Your account is currently inactive. Please contact administrator.',
+    'borrower_suspended' => 'Your account has been suspended. Please contact administrator.',
 
     // Validation messages
     'email_required' => 'Email is required.',

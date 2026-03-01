@@ -46,6 +46,10 @@ class Employee extends Model
         'deleted_at' => 'datetime',
     ];
 
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_INACTIVE = 'Inactive';
+    const STATUS_SUSPENDED = 'Suspended';
+
     /**
      * 🔹 Relationship: each employee belongs to a user.
      */
@@ -98,7 +102,7 @@ class Employee extends Model
 
         $number = (int) str_replace('EMP-', '', $lastEmployee->employee_code);
 
-        return 'EMP-'.str_pad($number + 1, 5, '0', STR_PAD_LEFT);
+        return 'EMP-' . str_pad($number + 1, 5, '0', STR_PAD_LEFT);
     }
 
     /**
