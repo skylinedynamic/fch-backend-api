@@ -170,7 +170,7 @@ class Borrower extends Model
         }
 
         if (!$this->isDeletable()) {
-            throw new \Exception("You can’t delete this — try marking it as Suspended or Inactive.");
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();

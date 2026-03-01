@@ -852,7 +852,7 @@ class PartnerService
                 'id' => $partner->id,
                 'name' => $partner->full_name,
                 'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? "You can’t delete this — try marking it as Suspended or Inactive." : null
+                'reason' => !$is_deletable ? "This record cannot be deleted. Please mark it as Suspended or Inactive instead." : null
             ];
         }
 

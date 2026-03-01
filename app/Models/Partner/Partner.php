@@ -79,10 +79,10 @@ class Partner extends Model
     ];
 
     public const STATUS = [
-        'active' => 'Active',
-        'inactive' => 'Inactive',
-        'suspended' => 'Suspended',
-        'onboarding' => 'OnBoarding',
+        'Active' => 'Active',
+        'Inactive' => 'Inactive',
+        'Suspended' => 'Suspended',
+        'OnBoarding' => 'OnBoarding',
     ];
 
     const STATUS_ONBOARDING = 'OnBoarding';
@@ -142,6 +142,7 @@ class Partner extends Model
                 ->orWhere('contact_person_email', 'LIKE', "%{$search}%")
                 ->orWhere('contact_person_phone_number', 'LIKE', "%{$search}%")
                 ->orWhere('partner_type', 'LIKE', "%{$search}%")
+                ->orWhere('status', 'LIKE', "%{$search}%")
                 ->orWhereHas('assignedUser', function ($userQ) use ($search) {
                     $userQ->where('name', 'LIKE', "%{$search}%")
                         ->orWhere('email', 'LIKE', "%{$search}%");
@@ -246,7 +247,7 @@ class Partner extends Model
         }
 
         if (!$this->isDeletable()) {
-            throw new \Exception("You can’t delete this — try marking it as Suspended or Inactive.");
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();

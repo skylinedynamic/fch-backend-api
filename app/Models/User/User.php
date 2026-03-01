@@ -5,7 +5,6 @@ namespace App\Models\User;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
 use App\Models\Borrower\Borrower;
-use App\Models\Common\Role;
 use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
@@ -14,7 +13,6 @@ use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -537,6 +535,13 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function isDeletable(): bool
     {
+        // 0. Free User or Free Employee always deletable
+        if ($this->is_paid == 0) {
+            if ($this->entity_type === null || $this->entity_type === Employee::class) {
+                return true;
+            }
+        }
+
         // 1. Direct invoices
         if ($this->invoices()->where('status', Invoice::STATUS_PAID)->exists()) {
             return false;
@@ -571,19 +576,24 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if (!$this->isDeletable()) {
-            throw new \Exception("You can’t delete this — try marking it as Suspended or Inactive.");
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         DB::beginTransaction();
         try {
             self::$isCascading = true;
 
-            // 1. If this user is linked to an entity (Partner/Borrower), delete the entity instead
+            // 1. If this user is linked to an entity (Partner/Borrower/Employee), delete the entity instead
             // This ensures everything (Partner -> Borrower -> User) is cleaned up together
             if ($this->entity_type && $this->entity_id) {
                 $entity = $this->entity;
-                if ($entity && method_exists($entity, 'safeDeleteWithRelations')) {
-                    $entity->safeDeleteWithRelations();
+                if ($entity) {
+                    if (method_exists($entity, 'safeDeleteWithRelations')) {
+                        $entity->safeDeleteWithRelations();
+                    } elseif ($this->entity_type === Employee::class) {
+                        // For employees, we delete the record directly if they don't have safeDeleteWithRelations
+                        $entity->delete();
+                    }
                 }
             }
 
