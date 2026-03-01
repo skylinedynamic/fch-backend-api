@@ -2,7 +2,7 @@
 
 return [
     // Common reusable strings
-    'greeting_hello_name' => 'Hello :name!',
+    'greeting_hello_name' => 'Hello :name,',
     'salutation_best_regards_team' => 'Best regards,<br>:appName Team',
     'invalid_channel' => 'Invalid notification channel',
 

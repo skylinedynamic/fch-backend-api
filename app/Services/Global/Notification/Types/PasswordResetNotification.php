@@ -49,7 +49,7 @@ class PasswordResetNotification implements NotificationTypeInterface
 
         return [
             'greeting' => __('notification.greeting_hello_name', [
-                'name' => $user->first_name,
+                'name' => $user->name,
             ]),
             'lines' => [
                 __('notification.password_reset.email_lines.line_1'),
