@@ -227,6 +227,7 @@ class Borrower extends Model
                 ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
                 ->orWhereHas('partner', function ($q) use ($search) {
                     $q->where('full_name', 'LIKE', "%{$search}%");
                 })
