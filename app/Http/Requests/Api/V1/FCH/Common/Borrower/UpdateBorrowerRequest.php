@@ -20,7 +20,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'first_name'                => ['sometimes', 'required', 'string', 'max:255'],
             'last_name'                 => ['sometimes', 'required', 'string', 'max:255'],
             // 'email'                     => ['sometimes', 'required', 'email', 'max:255'],
-            'phone_number'              => ['sometimes', 'required', 'string', 'max:255'],
+            'phone_number'              => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'email'                     => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . User::where('entity_type', Borrower::class)->where('entity_id', (int) $this->route('id'))->value('id')],
 
             // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
@@ -38,7 +38,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             // Business Info
             'business_name'             => ['nullable', 'string', 'max:255'],
             'business_ein'              => ['nullable', 'string', 'max:255'],
-            'business_phone'            => ['nullable', 'string', 'max:255'],
+            'business_phone'            => ['nullable', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'business_address'          => ['nullable', 'string', 'max:255'],
             'business_city'             => ['nullable', 'string', 'max:255'],
             'business_state'            => ['nullable', 'string', 'max:255'],
@@ -76,6 +76,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'email.email'               => __('borrower_validation.email_email'),
             'email.unique'              => __('borrower_validation.email_unique'),
             'phone_number.required'     => __('borrower_validation.phone_number_required'),
+            'phone_number.regex'        => __('borrower_validation.phone_number_regex'),
             'signup_id.required'        => __('borrower_validation.signup_id_required'),
             'signup_id.unique'          => __('borrower_validation.signup_id_unique'),
             'country.required'          => __('borrower_validation.country_required'),
@@ -88,6 +89,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'monthly_revenue.numeric'   => __('borrower_validation.monthly_revenue_numeric'),
             'annual_revenue.numeric'    => __('borrower_validation.annual_revenue_numeric'),
             'partner_id.exists'         => __('borrower_validation.partner_id_exists'),
+            'business_phone.regex'        => __('borrower_validation.business_phone_regex'),
             'assign_id.exists'          => __('borrower_validation.assign_id_exists'),
         ];
     }

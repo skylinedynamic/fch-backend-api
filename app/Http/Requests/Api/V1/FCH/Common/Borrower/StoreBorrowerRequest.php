@@ -18,7 +18,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'first_name'                => ['required', 'string', 'max:255'],
             'last_name'                 => ['required', 'string', 'max:255'],
             'email'                     => ['required', 'unique:borrowers,email', 'email', 'max:255'],
-            'phone_number'              => ['required', 'string', 'max:20'], // Matching phone_number_max
+            'phone_number'              => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'], // Matching phone_number_max
             'business_website'          => ['nullable', 'max:255'],
             'business_name'             => ['nullable', 'string', 'max:255'],
             'business_ein'              => ['nullable', 'string', 'max:255'],
@@ -30,7 +30,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'city'                      => ['required', 'string', 'max:255'],
             'other_city'                => ['nullable', 'string', 'max:255'],
             'business_postal_code'      => ['nullable', 'string', 'max:20'], // Matching business_postal_code_max
-            'business_phone'            => ['nullable', 'string', 'max:20'], // Matching business_phone_max
+            'business_phone'            => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'], // Matching business_phone_max
             'business_entity_type'      => ['nullable', 'string', 'max:255'],
             'business_industry_type'    => ['nullable', 'string', 'max:255'],
             'business_start_date'       => ['nullable'],
@@ -60,6 +60,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'phone_number.required'     => __('borrower_validation.phone_number_required'),
             'phone_number.string'       => __('borrower_validation.phone_number_string'),
             'phone_number.max'          => __('borrower_validation.phone_number_max'),
+            'phone_number.regex'        => __('borrower_validation.phone_number_regex'),
 
             // Business Info
             'business_website.url'      => __('borrower_validation.business_website_url'),
@@ -87,6 +88,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_postal_code.max'  => __('borrower_validation.business_postal_code_max'),
             'business_phone.string'     => __('borrower_validation.business_phone_string'),
             'business_phone.max'        => __('borrower_validation.business_phone_max'),
+            'business_phone.regex'        => __('borrower_validation.business_phone_regex'),
             'business_entity_type.string' => __('borrower_validation.business_entity_type_string'),
             'business_entity_type.max'  => __('borrower_validation.business_entity_type_max'),
             'business_industry_type.string' => __('borrower_validation.business_industry_type_string'),
