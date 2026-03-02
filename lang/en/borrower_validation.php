@@ -186,6 +186,8 @@ return [
     'purpose_of_funding_required' => 'Purpose of funding is required',
     'purpose_of_funding_string' => 'Purpose of funding must be a string',
     'purpose_of_funding_max' => 'Purpose of funding cannot exceed 255 characters',
+    'purpose_note_required' => 'Purpose note is required when "Other" is selected.',
+    'purpose_note_max' => 'Purpose note cannot exceed 1000 characters',
     'funding_purpose_required' => 'Funding purpose is required',
     'funding_purpose_string' => 'Funding purpose must be a string',
     'funding_purpose_max' => 'Funding purpose cannot exceed 255 characters',

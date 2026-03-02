@@ -32,6 +32,7 @@ class PreQualificationRequestResource extends JsonResource
             'funding_requested_amount' => currencyFormat($this->funding_requested_amount),
             'funding_urgency' => $this->funding_urgency,
             'purpose_of_funding' => $this->purpose_of_funding,
+            'purpose_note' => $this->purpose_note,
             'personal_credit_score' => $this->personal_credit_score,
             'estimated_business_credit_score' => $this->estimated_business_credit_score,
             'existing_business_debt' => $this->existing_business_debt,

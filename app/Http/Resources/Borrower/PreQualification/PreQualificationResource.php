@@ -25,17 +25,18 @@ class PreQualificationResource extends JsonResource
             'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,
             'years_in_business' => $this->years_in_business,
-            'monthly_revenue' => $this->monthly_revenue,
-            'annual_revenue' => $this->annual_revenue,
+            'monthly_revenue' => $this->monthly_revenue ? currencyFormat($this->monthly_revenue) : null,
+            'annual_revenue' => $this->annual_revenue ? currencyFormat($this->annual_revenue) : null,
 
             // Financial Info
-            'funding_requested_amount' => $this->funding_requested_amount,
+            'funding_requested_amount' => $this->funding_requested_amount ? currencyFormat($this->funding_requested_amount) : null,
             'funding_urgency' => $this->funding_urgency,
             'purpose_of_funding' => $this->purpose_of_funding,
+            'purpose_note' => $this->purpose_note,
             'personal_credit_score' => $this->personal_credit_score,
             'estimated_business_credit_score' =>$this->estimated_business_credit_score,
             'existing_business_debt' => $this->existing_business_debt,
-            'debt_balance' => $this->debt_balance,
+            'debt_balance' => $this->debt_balance ? currencyFormat($this->debt_balance) : null,
 
             //others
             'notes' => $this->notes,
