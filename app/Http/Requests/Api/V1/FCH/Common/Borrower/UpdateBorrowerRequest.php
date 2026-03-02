@@ -17,8 +17,10 @@ class UpdateBorrowerRequest extends BaseApiRequest
             // Personal Info
             'first_name'                => ['sometimes', 'required', 'string', 'max:255'],
             'last_name'                 => ['sometimes', 'required', 'string', 'max:255'],
-            'email'                     => ['sometimes', 'required', 'email', 'max:255'],
+            // 'email'                     => ['sometimes', 'required', 'email', 'max:255'],
             'phone_number'              => ['sometimes', 'required', 'string', 'max:255'],
+            'email'                     => ['sometimes', 'required', 'string', 'max:255', 'unique:users,email,' . $this->route('borrower')->id],
+
             // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
             'country'                   => ['nullable', 'string', 'max:255'],
             'country_code'              => ['nullable', 'string', 'max:255'],

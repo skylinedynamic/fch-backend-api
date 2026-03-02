@@ -256,6 +256,11 @@ class BorrowerService
             // Filter out fields that are not columns in the borrowers table
             $borrowerData = collect($data)->except(['plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount'])->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
+            $borrowerData['business_country'] = $data['country'];
+            $borrowerData['business_country_code'] = $data['country_code'];
+            $borrowerData['business_state'] = $data['state'];
+            $borrowerData['business_city'] = $data['city'];
+
             $borrower = Borrower::create($borrowerData);
             // Create associated User if needed
             $userDataResult = null;
@@ -386,6 +391,10 @@ class BorrowerService
             $data['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
 
             $borrowerData = collect($data)->except(['enrollment_payment', 'plan_id', 'is_partner_paying'])->toArray();
+            $borrowerData['business_country'] = isset($data['country']) ? $data['country'] : $borrower->business_country;
+            $borrowerData['business_country_code'] = isset($data['country_code']) ? $data['country_code'] : $borrower->business_country_code;
+            $borrowerData['business_state'] = isset($data['state']) ? $data['state'] : $borrower->business_state;
+            $borrowerData['business_city'] = isset($data['city']) ? $data['city'] : $borrower->business_city;
             $borrower->update($borrowerData);
 
             // Update subscription if custom enrollment payment is provided
