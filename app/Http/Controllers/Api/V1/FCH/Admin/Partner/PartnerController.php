@@ -185,7 +185,20 @@ class PartnerController extends Controller
         try {
             return $this->partnerService->delete($request->ids);
         } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Check if multiple partners are deletable (for modal)
+     */
+    public function checkDeletable(Request $request)
+    {
+        try {
+            $results = $this->partnerService->checkDeletable($request->ids);
+            return ApiResponse::success($results, __('partner.success.retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 

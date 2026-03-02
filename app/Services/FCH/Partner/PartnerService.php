@@ -14,7 +14,6 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
@@ -605,6 +604,14 @@ class PartnerService
             ]
         );
 
+        // Calculate statistics before pagination
+        $statistics = [
+            'total_partners' => (clone $query)->count(),
+            'active_partners' => (clone $query)->where('status', Partner::STATUS_ACTIVE)->count(),
+            'inactive_partners' => (clone $query)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
+            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+        ];
+
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -613,7 +620,9 @@ class PartnerService
         return $this->respondWithPaginationResource(
             $paginator,
             PartnerResource::class,
-            __('partner.success.retrieved')
+            __('partner.success.retrieved'),
+            200,
+            ['statistics' => $statistics]
         );
     }
 
@@ -820,71 +829,67 @@ class PartnerService
     public function delete(array $ids)
     {
         try {
-            // Get partners to delete their images
+            DB::beginTransaction();
             $partners = Partner::whereIn('id', $ids)->get();
             foreach ($partners as $partner) {
                 if ($partner->partner_image) {
                     $this->deleteFile($partner->partner_image, 'public');
                 }
+                $partner->safeDeleteWithRelations();
             }
+            DB::commit();
 
-            // Delete partner records and associated users
-            User::whereIn('partner_id', $ids)->delete();
-            Partner::whereIn('id', $ids)->delete();
-
-            return ApiResponse::success(
-                [],
-                __('partner.success.deleted')
-            );
+            return ApiResponse::success([], __('partner.success.deleted'));
         } catch (\Throwable $e) {
-            return ApiResponse::serverError(__('partner.partner_delete_failed'), 500);
+            DB::rollBack();
+            Log::error('Partner deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 
     /**
-     * Get Partner Statistics Counts.
+     * Check if multiple partners are deletable
      */
-    public function getPartnerStats(): array
+    public function checkDeletable(array $ids): array
     {
-        $today = now();
-        $startOfMonth = $today->copy()->startOfMonth();
-        $endOfMonth = $today->copy()->endOfMonth();
+        $partners = Partner::whereIn('id', $ids)->get();
+        $results = [];
 
-        return [
-            'active_count' => Partner::where('status', 'active')->count(),
-            'new_this_month' => Partner::whereBetween('created_at', [$startOfMonth, $endOfMonth])->count(),
-            'total_partners' => Partner::count(),
-            'inactive_count' => Partner::where('status', 'inactive')->count(),
-        ];
+        foreach ($partners as $partner) {
+            $is_deletable = $partner->isDeletable();
+            $results[] = [
+                'id' => $partner->id,
+                'name' => $partner->full_name,
+                'is_deletable' => $is_deletable,
+                'reason' => !$is_deletable ? "This record cannot be deleted. Please mark it as Suspended or Inactive instead." : null
+            ];
+        }
+
+        return $results;
     }
+
+
 
     public function getPartnerProfileStats(int $id)
     {
-        $authId = auth()->id();
+        $partnerClass = addslashes(\App\Models\Partner\Partner::class);
 
         $stats = DB::table('partners as p')
             ->select(
                 'p.id',
-                DB::raw('(SELECT COUNT(*) FROM appointments WHERE scheduled_by = ?) AS total_meetings'),
-                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = ?) AS total_clients'),
-                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = ?) AS total_invoice'),
-                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = ?) AS total_tickets'),
-                DB::raw('(SELECT COALESCE(
+                DB::raw("(SELECT COUNT(DISTINCT id) FROM appointments WHERE (entity_type = '{$partnerClass}' AND entity_id = p.id) OR scheduled_by IN (SELECT id FROM users WHERE partner_id = p.id) OR assigned_for IN (SELECT id FROM users WHERE partner_id = p.id)) AS total_meetings"),
+                DB::raw('(SELECT COUNT(*) FROM borrowers WHERE partner_id = p.id) AS total_clients'),
+                DB::raw('(SELECT COUNT(*) FROM invoices WHERE partner_id = p.id) AS total_invoice'),
+                DB::raw('(SELECT COUNT(*) FROM support_tickets WHERE partner_id = p.id) AS total_tickets'),
+                DB::raw("(SELECT COALESCE(
                     (SELECT enrollment_type
                     FROM subscriptions
-                    WHERE entity_id = ? AND entity_type = "App\\\Models\\\Partner\\\Partner"
+                    WHERE entity_id = p.id AND entity_type = '{$partnerClass}'
                     ORDER BY id DESC
                     LIMIT 1),
-                    "N/A"
-                    )) AS enrollment_type')
+                    'N/A'
+                    )) AS enrollment_type")
             )
-            ->setBindings([
-                $authId,
-                $id,
-                $id,
-                $id,
-                $id
-            ])
             ->where('p.id', $id)
             ->first();
 

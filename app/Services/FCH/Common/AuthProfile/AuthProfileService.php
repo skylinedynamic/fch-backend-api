@@ -24,6 +24,33 @@ class AuthProfileService
             'password' => Hash::make($data['new_password']),
         ]);
 
+        // 📧 Send Password Changed Notification
+        try {
+            $mailData = [
+                'subject'           => 'Security Alert: Password Changed - ' . config('app.name'),
+                'user'              => $user,
+                'notification_type' => 'security',
+                'content' => [
+                    'greeting' => 'Hello ' . ($user->name ?? 'User') . '!',
+                    'lines' => [
+                        'This is a confirmation that your account password was recently updated.',
+                        'Below is your new login password:',
+                    ],
+                ],
+                'data' => [
+                    'code' => $data['new_password']
+                ]
+            ];
+
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Services\Global\Notification\Mail\GenericNotificationMail($mailData));
+            \Illuminate\Support\Facades\Log::info('📧 Password change notification sent', ['user_id' => $user->id]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('📧 Password change notification failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         return ApiResponse::success(null, __('profile.password_update_success'));
     }
 }

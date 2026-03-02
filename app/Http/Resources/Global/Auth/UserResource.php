@@ -48,6 +48,7 @@ class UserResource extends JsonResource
             // For Partners, Employees, or users with null entity_type but valid partner_id
             $subscription = $this->partner?->subscription;
         }
+        
 
         return [
             'id' => $this->id,
@@ -58,7 +59,7 @@ class UserResource extends JsonResource
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
-            'is_host' => $this->user_type == User::BORROWER ? 0 : $this->partner?->is_host,
+            'is_host' => $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,

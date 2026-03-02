@@ -2,15 +2,15 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User\User;
-use Illuminate\Support\Str;
-use Illuminate\Support\Carbon;
-use App\Models\Invoice\Invoice;
-use Illuminate\Console\Command;
 use App\Mail\CronJobFailureMail;
 use App\Models\Employee\Employee;
-use Illuminate\Support\Facades\Log;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
 use App\Services\FCH\InvoiceService;
+use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class CheckUserExpired extends Command
@@ -50,15 +50,18 @@ class CheckUserExpired extends Command
             $targetDate = Carbon::today()->addDays($generateBeforeDays)->toDateString();
             $currentMonth = Carbon::today()->format('Y-m');
 
-            // Logic: Filter users with is_paid = 1 and end_date <= today + generate_before_days
+            // Logic: Filter active users with is_paid = 1 and end_date <= today + generate_before_days
+            // User must be Active AND Partner must be Active
             $users = User::where('is_paid', 1)
+                ->where('status', User::STATUS['active'])
                 ->where('end_date', '<=', $targetDate)
                 ->where(function ($query) {
                     $query->where('entity_type', Employee::class)
                         ->orWhereNull('entity_type');
                 })
                 ->whereHas('partner', function ($query) {
-                    $query->where('is_host', 0);
+                    $query->where('is_host', 0)
+                        ->where('status', Partner::STATUS_ACTIVE);
                 })
                 ->get();
 

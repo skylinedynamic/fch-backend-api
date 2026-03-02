@@ -45,7 +45,7 @@ class Borrower extends Model
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';
-    const STATUS_CLOSED = 'Closed';
+    const STATUS_INACTIVE = 'Inactive';
 
 
     /**
@@ -125,7 +125,7 @@ class Borrower extends Model
             self::STATUS_ONBOARDING,
             self::STATUS_ACTIVE,
             self::STATUS_SUSPENDED,
-            self::STATUS_CLOSED
+            self::STATUS_INACTIVE,
         ];
     }
 
@@ -142,6 +142,75 @@ class Borrower extends Model
     public function preQualificationRequests()
     {
         return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
+    }
+
+    /**
+     * Get all subscriptions for the borrower.
+     */
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Subscription::class, 'entity');
+    }
+
+    /**
+     * Check if the borrower is deletable based on invoice status.
+     */
+    public function isDeletable(): bool
+    {
+        return !$this->invoices()->where('status', Invoice::STATUS_PAID)->exists();
+    }
+
+    /**
+     * Delete borrower and all related data ONLY if no paid invoices exist.
+     */
+    public function safeDeleteWithRelations(): bool
+    {
+        if (\App\Models\User\User::$isCascading) {
+            return true;
+        }
+
+        if (!$this->isDeletable()) {
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            \App\Models\User\User::$isCascading = true;
+
+            // 1. Delete associated User recursively
+            if ($this->user) {
+                // Use safeDelete to clean up user's own relations if any
+                $this->user->safeDeleteWithRelations();
+            }
+
+            // 2. Delete Documents
+            BorrowerDocument::where('borrower_id', $this->id)->delete();
+
+            // 3. Delete Subscriptions & Phases
+            $this->subscriptions()->each(function ($sub) {
+                $sub->allPhases()->delete();
+                $sub->delete();
+            });
+
+            // 4. Delete Invoices (Unpaid only - checked by isDeletable above)
+            $this->invoices()->delete();
+
+            // 5. Delete other relations
+            $this->fundingApplications()->delete();
+            $this->preQualificationRequests()->delete();
+            $this->verificationRequests()->delete();
+
+            // 6. Finally Delete Borrower record
+            $this->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+            \App\Models\User\User::$isCascading = false;
+            return true;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \App\Models\User\User::$isCascading = false;
+            throw $e;
+        }
     }
 
     public function scopeSearch($query, ?string $search)

@@ -12,6 +12,7 @@ use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\User\User;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
@@ -226,6 +227,11 @@ class RequestApplicationService
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        if($data['status'] == FundingApplication::CLOSED_COMPLETED){
+            $application->total_funded_amount = $data['funded_amount'];
+            $application->funded_date = Carbon::now();
         }
 
         $application->status = $data['status'];

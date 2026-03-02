@@ -17,23 +17,24 @@ class AppointmentUserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $type = User::USER;
-        if($this->entity_type == Borrower::class){
+        
+        if ($this->entity_type == Borrower::class) {
             $type = User::BORROWER;
         }
-        if($this->entity_type == Employee::class){
+        if ($this->entity_type == Employee::class) {
             $type = User::EMPLOYEE;
         }
-        if($this->entity_type == Partner::class){
-            if($this->partner->is_host){
+        if ($this->entity_type == Partner::class) {
+            if ($this->entity->is_host) {
                 $type = User::ADMIN;
-            }else{
+            } else {
                 $type = User::PARTNER;
             }
         }
 
         return [
             'id' => $this->id,
-            'name' => $this->name . ' ('.$type.')',
+            'name' => $this->name . ' (' . $type . ')',
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
         ];

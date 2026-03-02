@@ -252,14 +252,33 @@ class EmployeeService
 
             // 4️⃣ Sync existing user if employee changed
             if ($user && $isEmployeeDirty) {
-                $user->update([
+                $emailChanged = isset($employeeData['email']) && $user->email !== $employeeData['email'];
+                $plainPassword = null;
+
+                $updateData = [
                     'name' => trim($employee->first_name . ' ' . $employee->last_name),
                     'email' => $employee->email,
-                    'phone_number' => $employee->phone_number,
-                ]);
+                    'phone_number' => $employee->phone_number_1 ?? $employee->phone_number,
+                ];
+
+                if ($emailChanged) {
+                    $plainPassword = bin2hex(random_bytes(4));
+                    $updateData['password'] = Hash::make($plainPassword);
+                    Log::info('🔑 Password reset for Employee user due to email change', ['user_id' => $user->id]);
+                }
+
+                $user->update($updateData);
+
                 Log::info('Existing user synced with employee changes', [
                     'employee_id' => $employee->id,
+                    'email_changed' => $emailChanged,
                 ]);
+
+                // 📧 Send update notification if email was changed
+                if ($emailChanged && $plainPassword) {
+                    app(\App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController::class)
+                        ->sendAccountCreatedMail($user, $partner, $plainPassword);
+                }
             }
 
             // 5️⃣ Assign or update role
