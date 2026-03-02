@@ -422,6 +422,11 @@ class VerificationCenterService
         $borrowerId = $verificationRequest->borrower_id;
 
         $taskTier = Tier::find($tierId);
+
+        if($taskTier->code == 'T4'){
+            return true;
+        }
+
         $borrower = Borrower::with('tier')->find($borrowerId);
 
         // Count total tasks in this tier
@@ -443,9 +448,9 @@ class VerificationCenterService
                 'task_id' => $task->id,
                 'vendor_id' => $task->vendor_id,
                 'tier_from' => $verificationRequest->tier_id,
-                'tier_to' => $task->tier_id + 1,
+                'tier_to' => $verificationRequest->tier_id + 1,
                 'migrated_by' => Auth::id(),
-                'status' => BorrowerTaskVerificationRequest::PENDING
+                'status' => BorrowerTaskVerificationRequest::PENDING //still no use
             ]);
          }   
 
@@ -454,8 +459,7 @@ class VerificationCenterService
                 $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
 
                 // If verified tasks equal or exceed required amount, move to next tier
-                if ($verifiedTasks >= $requiredTasks && $totalTasks > 0 ) {
-
+                if ($verifiedTasks >= $requiredTasks) {
                      if($taskTier->code == 'T0'){
                         // Find the next tier based on order
                         $nextTier = Tier::where('order', '>', $borrower->tier->order)
@@ -468,8 +472,7 @@ class VerificationCenterService
                             ]);
                         }
                     }else{
-                        if($borrower->current_tier <= $taskTier->tier_id && $borrower->current_tier < 5){
-
+                        if($borrower->current_tier <= $taskTier->id){
                             $nextTier = Tier::where('order', '>', $borrower->tier->order)
                             ->orderBy('order', 'asc')
                             ->first();

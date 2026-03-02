@@ -64,7 +64,7 @@ class CreditBuilderStepGuideService
                             'subtitle'                 => $mTask->task->subtitle,
                             'description'              => $mTask->task->description,
                             'status'                   => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
-                            'rejection_reason'         => $borrower_task ? $borrower_task->rejection_reason : null,
+                            'note'                     => $borrower_task ? $borrower_task->note : null,
                             'completed_at'             => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
                             'url'                      => $mTask->task->url,
                             'logo'                     => $mTask->task->logo ? asset('/' . encodeUrl($mTask->task->logo)) : null,

@@ -140,7 +140,7 @@ class TierSeeder extends Seeder
                 'title' => 'Starter Vendor Credit (BUILD)',
                 'subtitle' => 'Open your first tradelines with vendors that report to the business credit bureaus. These small starter accounts help establish your business’s first credit history and build your D-U-N-S file.',
                 'order' => 2,
-                'task_to_complete' => null,
+                'task_to_complete' => 1,
                 'has_vendor' => true,
                 'status' => 'Active',
                 'tasks' => [
@@ -160,7 +160,7 @@ class TierSeeder extends Seeder
                 'code' => 'T2',
                 'subtitle' => 'Let the credit mature without damaging the file.',
                 'order' => 3,
-                'task_to_complete' => null,
+                'task_to_complete' => 1,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
@@ -171,7 +171,7 @@ class TierSeeder extends Seeder
                 'code' => 'T3',
                 'subtitle' => 'Selective growth without blowing up the profile',
                 'order' => 4,
-                'task_to_complete' => null,
+                'task_to_complete' => 1,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
@@ -182,7 +182,7 @@ class TierSeeder extends Seeder
                 'code' => 'T4',
                 'subtitle' => 'Decide if the file is lender-ready',
                 'order' => 5,
-                'task_to_complete' => null,
+                'task_to_complete' => 1,
                 'has_vendor' => false,
                 'status' => 'Active',
                 'tasks' => []
