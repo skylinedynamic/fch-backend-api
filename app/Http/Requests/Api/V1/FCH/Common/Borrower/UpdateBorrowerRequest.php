@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\Borrower;
+use App\Models\User\User;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -19,7 +21,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'last_name'                 => ['sometimes', 'required', 'string', 'max:255'],
             // 'email'                     => ['sometimes', 'required', 'email', 'max:255'],
             'phone_number'              => ['sometimes', 'required', 'string', 'max:255'],
-            'email'                     => ['sometimes', 'required', 'string', 'max:255', 'unique:users,email,' . $this->route('borrower')->id],
+            'email'                     => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . User::where('entity_type', Borrower::class)->where('entity_id', (int) $this->route('id'))->value('id')],
 
             // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
             'country'                   => ['nullable', 'string', 'max:255'],
@@ -72,6 +74,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'last_name.required'        => __('borrower_validation.last_name_required'),
             'email.required'            => __('borrower_validation.email_required'),
             'email.email'               => __('borrower_validation.email_email'),
+            'email.unique'              => __('borrower_validation.email_unique'),
             'phone_number.required'     => __('borrower_validation.phone_number_required'),
             'signup_id.required'        => __('borrower_validation.signup_id_required'),
             'signup_id.unique'          => __('borrower_validation.signup_id_unique'),
