@@ -316,7 +316,7 @@ class LeadService
                 'last_4_ssn' => $lead->ssn_last_4,
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
-                'country_code' => $lead->country_code,
+                'country_code' => $lead->country_code ?? '+1',
                 'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
