@@ -257,6 +257,7 @@ class BorrowerService
             $borrowerData = collect($data)->except(['plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount'])->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrowerData['business_country'] = $data['country'];
+            isset($data['country_code']) && $borrowerData['country_code'] = isset($data['country_code']) ? $data['country_code'] : null;
             $borrowerData['business_country_code'] = $data['country_code'];
             $borrowerData['business_state'] = $data['state'];
             $borrowerData['business_city'] = $data['city'];
