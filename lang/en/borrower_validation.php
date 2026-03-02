@@ -294,6 +294,8 @@ return [
     'requested_amount_min' => 'Requested amount cannot be negative',
     'purpose_of_funds_string' => 'Purpose of funds must be a string',
     'purpose_of_funds_max' => 'Purpose of funds cannot exceed 500 characters',
+    'purpose_note_string' => 'Purpose note must be a string',
+    'purpose_note_max' => 'Purpose note cannot exceed 500 characters',
     'preferred_funding_type_string' => 'Preferred funding type must be a string',
     'preferred_funding_type_max' => 'Preferred funding type cannot exceed 255 characters',
     'timeframe_needed_string' => 'Timeframe needed must be a string',

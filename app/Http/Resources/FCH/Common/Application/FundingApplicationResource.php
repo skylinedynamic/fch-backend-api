@@ -55,6 +55,7 @@ class FundingApplicationResource extends JsonResource
             'debt_balance' => $this->debt_balance,
             'requested_amount' => $this->requested_amount,
             'purpose_of_funds' => $this->purpose_of_funds,
+            'purpose_note' => $this->purpose_note,
             'preferred_funding_type' => $this->preferred_funding_type,
             'timeframe_needed' => $this->timeframe_needed,
             'collateral_available' => $this->collateral_available,

@@ -17,25 +17,21 @@ class TaskOverviewResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $tasks = $this->resource['tasks'];
+        $requests = $this->resource['requests'];
 
         return [
             'tier' => TierResource::make($this->resource['tier']),
-            'verified' => TaskOverviewItemResource::collection($tasks->filter(function ($task) {
-                $verification = $task->borrowerTierTasks->first();
-                return $verification && $verification->status === BorrowerTaskVerificationRequest::COMPLETED;
+            'verified' => TaskOverviewItemResource::collection($requests->filter(function ($request) {
+                return $request->status === BorrowerTaskVerificationRequest::COMPLETED;
             })),
-            'processing' => TaskOverviewItemResource::collection($tasks->filter(function ($task) {
-                $verification = $task->borrowerTierTasks->first();
-                return $verification && $verification->status === BorrowerTaskVerificationRequest::PROCESSING;
+            'processing' => TaskOverviewItemResource::collection($requests->filter(function ($request) {
+                return $request->status === BorrowerTaskVerificationRequest::PROCESSING;
             })),
-            'pending' => TaskOverviewItemResource::collection($tasks->filter(function ($task) {
-                $verification = $task->borrowerTierTasks->first();
-                return !$verification || $verification->status === BorrowerTaskVerificationRequest::PENDING;
+            'pending' => TaskOverviewItemResource::collection($requests->filter(function ($request) {
+                return $request->status === BorrowerTaskVerificationRequest::PENDING;
             })),
-            'rejected' => TaskOverviewItemResource::collection($tasks->filter(function ($task) {
-                $verification = $task->borrowerTierTasks->first();
-                return $verification && $verification->status === BorrowerTaskVerificationRequest::REJECTED;
+            'rejected' => TaskOverviewItemResource::collection($requests->filter(function ($request) {
+                return $request->status === BorrowerTaskVerificationRequest::REJECTED;
             })),
         ];
     }

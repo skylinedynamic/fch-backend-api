@@ -3,8 +3,10 @@
 namespace App\Services\Borrower\CreditBuilder;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\MigratedTask;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
+use App\Models\CreditBuilder\TierTask;
 use App\Models\Limit\CreditLine;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,7 +24,8 @@ class OverviewService
         $tiers = Tier::orderBy('order', 'asc')->withCount('tasks')->get();
 
         // Total Program Stats
-        $totalProgramTasks = $tiers->sum('tasks_count');
+        $migratableTask = MigratedTask::where('borrower_id', $borrower->id)->count();
+        $totalProgramTasks = $tiers->sum('tasks_count') + $migratableTask;
         $totalCompletedTasks = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
             ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
             ->count();
@@ -88,16 +91,11 @@ class OverviewService
             ];
         }
 
-        $tasks = $currentTier->tasks()
-            ->with(['borrowerTierTasks' => function ($query) use ($borrower) {
-                $query->where('borrower_id', $borrower->id);
-            }, 'vendor'])
-            ->orderBy('order', 'asc')
-            ->get();
+        $requests = BorrowerTaskVerificationRequest::with('task','tier')->where('borrower_id', $borrower->id)->get();
 
         return [
             'tier' => $currentTier,
-            'tasks' => $tasks,
+            'requests' => $requests,
         ];
     }
 }

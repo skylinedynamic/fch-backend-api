@@ -72,6 +72,7 @@ class FundingApplication extends Model
         'debt_balance',
         'requested_amount',
         'purpose_of_funds',
+        'purpose_note',
         'preferred_funding_type',
         'timeframe_needed',
         'collateral_available',
@@ -201,6 +202,15 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::ON_HOLD => self::ON_HOLD,
+    ];
+
+    public const PURPOSE_OF_FUNDING_OPTIONS = [
+        'Working Capital' => 'Working Capital',
+        'Equipment'       => 'Equipment',
+        'Inventory'       => 'Inventory',
+        'Marketing'       => 'Marketing',
+        'Expansion'       => 'Expansion',
+        'Other'           => 'Other',
     ];
 
     public function getStatusClassAttribute(): string
