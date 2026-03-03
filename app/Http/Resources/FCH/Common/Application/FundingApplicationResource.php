@@ -17,7 +17,7 @@ class FundingApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'partner_id' => $this->borrower->partner_id,
+            'partner_id' => $this->partner_id,
             'borrower_id' => $this->borrower_id,
             'full_name' => $this->full_name,
             'business_name' => $this->business_name,

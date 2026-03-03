@@ -93,6 +93,7 @@ class RequestApplicationController extends Controller
         try {
             return $this->requestApplicationService->getFundingApplicationById($id);
         } catch (\Exception $e) {
+            
             return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
         }
     }
