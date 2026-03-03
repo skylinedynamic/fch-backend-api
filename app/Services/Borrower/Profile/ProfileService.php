@@ -2,11 +2,16 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ProfileService
 {
@@ -55,14 +60,14 @@ class ProfileService
             if ($emailChanged) {
                 $plainPassword = bin2hex(random_bytes(4)); // 8 chars
                 $userData['email'] = $data['email'];
-                $userData['password'] = \Illuminate\Support\Facades\Hash::make($plainPassword);
-                \Illuminate\Support\Facades\Log::info('Password reset for Borrower user due to email change via Profile', ['user_id' => $user->id]);
+                $userData['password'] = Hash::make($plainPassword);
+                Log::info('Password reset for Borrower user due to email change via Profile', ['user_id' => $user->id]);
             }
 
             User::where('id', $user->id)->update($userData);
 
             if ($emailChanged) {
-                $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $hostPartner = Partner::where('is_host', 1)->first();
                 $updatedUser = User::where('id', $user->id)->first();
 
                 $mailData = [
@@ -78,12 +83,12 @@ class ProfileService
                     'subject' => 'Your Email has been changed - ' . config('app.name'),
                     'is_update' => true,
                 ];
-                \Illuminate\Support\Facades\Log::info('📧 Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
+                Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
 
                 try {
-                    \Illuminate\Support\Facades\Mail::to($updatedUser->email)->send(new \App\Mail\Borrower\BorrowerAccountCreatedMail($mailData));
+                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData));
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
+                    Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
                 }
             }
 

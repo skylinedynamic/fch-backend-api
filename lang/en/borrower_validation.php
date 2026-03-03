@@ -85,6 +85,7 @@ return [
     'business_ein_max' => 'Business EIN cannot exceed 255 characters',
     'business_phone_string' => 'Business phone must be a string',
     'business_phone_max' => 'Business phone cannot exceed 20 characters',
+    'business_phone_regex' => 'Business phone must be a valid phone number',
     'business_email_email' => 'Business email must be a valid email address',
     'business_website_url' => 'Business website must be a valid URL',
     'business_website_max' => 'Business website cannot exceed 255 characters',
@@ -348,4 +349,3 @@ return [
     'migrated_task_id_must_be_integer' => 'Migrated task ID must be an integer.',
     'migrated_task_id_not_found' => 'The selected migrated task ID does not exist.',
 ];
-
