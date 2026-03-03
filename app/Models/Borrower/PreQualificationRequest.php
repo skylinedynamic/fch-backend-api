@@ -34,6 +34,7 @@ class PreQualificationRequest extends Model
         'funding_requested_amount',
         'funding_urgency',
         'purpose_of_funding',
+        'purpose_note',
         'personal_credit_score',
         'estimated_business_credit_score',
         'existing_business_debt',
@@ -82,6 +83,15 @@ class PreQualificationRequest extends Model
         self::IN_REVIEW => self::IN_REVIEW,
         self::APPROVED => self::APPROVED,
         self::DECLINED => self::DECLINED,
+    ];
+
+      public const PURPOSE_OF_FUNDING_OPTIONS = [
+        'Working Capital' => 'Working Capital',
+        'Equipment'       => 'Equipment',
+        'Inventory'       => 'Inventory',
+        'Marketing'       => 'Marketing',
+        'Expansion'       => 'Expansion',
+        'Other'           => 'Other',
     ];
 
     public function getStatusClassAttribute(): string

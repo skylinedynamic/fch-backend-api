@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\PreQualificationRequest;
 
 class FundingInfoRequest extends BaseApiRequest
 {
@@ -26,6 +27,7 @@ class FundingInfoRequest extends BaseApiRequest
             'funding_requested_amount' => ['required','numeric','gt:0'],
             'funding_urgency' => ['required','string','max:255'],
             'purpose_of_funding' => ['required','string','max:255'],
+            'purpose_note' => ['required_if:purpose_of_funding,' . PreQualificationRequest::PURPOSE_OF_FUNDING_OPTIONS['Other'],'nullable','string','max:1000'],
             'personal_credit_score' => ['required','string','max:255'],
             'estimated_business_credit_score' => ['required','string','max:255'],
             'existing_business_debt' => ['required','boolean'],
@@ -49,6 +51,8 @@ class FundingInfoRequest extends BaseApiRequest
             'purpose_of_funding.required' => __('borrower_validation.purpose_of_funding_required'),
             'purpose_of_funding.string' => __('borrower_validation.purpose_of_funding_string'),
             'purpose_of_funding.max' => __('borrower_validation.purpose_of_funding_max'),
+            'purpose_note.required_if' => __('borrower_validation.purpose_note_required'),
+            'purpose_note.max' => __('borrower_validation.purpose_note_max'),
 
             'personal_credit_score.required' => __('borrower_validation.personal_credit_score_required'),
             'personal_credit_score.string' => __('borrower_validation.personal_credit_score_string'),
