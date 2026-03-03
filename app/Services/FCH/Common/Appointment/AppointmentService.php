@@ -67,17 +67,11 @@ class AppointmentService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'appointment_date';
-        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $sortOrder = $filters['sort_order'] ?? 'asc';
 
-        $query = QueryFilter::apply(
-            $query,
-            $sortField,
-            $sortOrder,
-            $filters['filters'] ?? []
-        );
 
         // Retrieve all records without pagination
-        $results = $query->get();
+        $results = $query->orderBy('appointment_date', 'asc')->get();
 
         return ApiResponse::success(
             AppointmentResource::collection($results),
