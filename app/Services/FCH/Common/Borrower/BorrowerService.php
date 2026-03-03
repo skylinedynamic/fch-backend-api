@@ -261,6 +261,9 @@ class BorrowerService
             $borrowerData['business_country_code'] = $data['country_code'];
             $borrowerData['business_state'] = $data['state'];
             $borrowerData['business_city'] = $data['city'];
+            if (isset($data['business_postal_code'])) {
+                $borrowerData['postal_code'] = $data['business_postal_code'];
+            }
 
             $borrower = Borrower::create($borrowerData);
             // Create associated User if needed
@@ -396,6 +399,10 @@ class BorrowerService
             $borrowerData['business_country_code'] = isset($data['country_code']) ? $data['country_code'] : $borrower->business_country_code;
             $borrowerData['business_state'] = isset($data['state']) ? $data['state'] : $borrower->business_state;
             $borrowerData['business_city'] = isset($data['city']) ? $data['city'] : $borrower->business_city;
+            if (isset($data['business_postal_code']) || isset($data['postal_code'])) {
+                $borrowerData['postal_code'] = $data['postal_code'];
+                $borrowerData['postal_code'] = $data['business_postal_code'];
+            }
             $borrower->update($borrowerData);
 
             // Update subscription if custom enrollment payment is provided
