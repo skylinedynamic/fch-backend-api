@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -158,6 +159,12 @@ Route::prefix('v1')->group(function () {
             Route::post('contacts/fetch-contacts', [ContactController::class, 'fetchContacts']);
             Route::post('contacts/multiple-delete', [ContactController::class, 'multipleDelete']);
             Route::apiResource('contacts', ContactController::class);
+
+            // Activity Log routes
+            Route::get('activity-logs', [ActivityLogController::class, 'index']);
+            Route::get('activity-logs/{id}', [ActivityLogController::class, 'show']);
+            Route::post('activity-logs/activity', [ActivityLogController::class, 'storeActivity']);
+            Route::post('activity-logs/email', [ActivityLogController::class, 'storeEmail']);
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
