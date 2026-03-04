@@ -8,4 +8,5 @@ return [
     'created' => 'Invoice created successfully.',
     'updated' => 'Invoice updated successfully.',
     'deleted' => 'Invoice deleted successfully.',
+    'sent_success' => 'Invoice sent successfully.',
 ];
