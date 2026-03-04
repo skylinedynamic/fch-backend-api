@@ -29,7 +29,9 @@ class StoreLeadRequest extends BaseApiRequest
             'email' => [
                 'nullable',
                 'email',
-                'max:255'
+                'max:255',
+                'unique:leads,email',
+                'unique:users,email',
             ],
             'legal_business_name' => ['nullable', 'string', 'max:255'],
             'business_ein' => ['nullable', 'string', 'max:20'],
@@ -49,6 +51,13 @@ class StoreLeadRequest extends BaseApiRequest
             'ssn_last_4' => ['nullable', 'string', 'max:4'],
             'requirement_details' => ['nullable', 'string'],
             'lead_source_note' => ['nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.unique' => __('lead.email_taken'),
         ];
     }
 }

@@ -30,7 +30,13 @@ class UpdateLeadRequest extends BaseApiRequest
             'email' => [
                 'nullable',
                 'email',
-                'max:255'
+                'max:255',
+                Rule::unique('leads', 'email')->ignore($this->route('lead')),
+                Rule::unique('users', 'email')->ignore(
+                    \App\Models\User\User::where('entity_type', \App\Models\Lead\Lead::class)
+                        ->where('entity_id', (int) $this->route('lead'))
+                        ->value('id')
+                ),
             ],
             'legal_business_name' => ['nullable', 'string', 'max:255'],
             'business_ein' => ['nullable', 'string', 'max:20'],
@@ -50,6 +56,13 @@ class UpdateLeadRequest extends BaseApiRequest
             'ssn_last_4' => ['nullable', 'string', 'max:4'],
             'requirement_details' => ['nullable', 'string'],
             'lead_source_note' => ['nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.unique' => __('lead.email_taken'),
         ];
     }
 }
