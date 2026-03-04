@@ -179,9 +179,9 @@ class LeadService
     }
 
     /**
-     * Create a new lead.
+     * Create a new lead from Lead Details tab.
      */
-    public function create(array $data): Lead
+    public function storeDetails(array $data): Lead
     {
         DB::beginTransaction();
         try {
@@ -201,15 +201,15 @@ class LeadService
             return $lead->fresh();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('Lead creation failed', ['error' => $e->getMessage()]);
+            Log::error('Lead store details failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }
 
     /**
-     * Update lead.
+     * Update lead from Lead Details tab.
      */
-    public function update(Lead $lead, array $data): Lead
+    public function updateDetails(Lead $lead, array $data): Lead
     {
         DB::beginTransaction();
         try {
@@ -219,7 +219,25 @@ class LeadService
             return $lead->fresh();
         } catch (Throwable $e) {
             DB::rollBack();
-            Log::error('❌ Lead update failed', ['error' => $e->getMessage()]);
+            Log::error('❌ Lead update details failed', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Update lead from Contact Info tab.
+     */
+    public function updateContactInfo(Lead $lead, array $data): Lead
+    {
+        DB::beginTransaction();
+        try {
+            $data['updated_by'] = Auth::id();
+            $lead->update($data);
+            DB::commit();
+            return $lead->fresh();
+        } catch (Throwable $e) {
+            DB::rollBack();
+            Log::error('❌ Lead update contact info failed', ['error' => $e->getMessage()]);
             throw $e;
         }
     }

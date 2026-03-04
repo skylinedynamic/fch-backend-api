@@ -16,8 +16,9 @@ use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Http\Resources\FCH\Lead\ConvertedBorrowerResource;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\FetchLeadRequest;
-use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadRequest;
-use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadDetailsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadDetailsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadContactInfoRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\ConvertLeadRequest;
 
 class LeadController extends Controller
@@ -50,12 +51,12 @@ class LeadController extends Controller
     }
 
     /**
-     * Store Lead
+     * Store Lead Details
      */
-    public function store(StoreLeadRequest $request)
+    public function storeDetails(StoreLeadDetailsRequest $request)
     {
         try {
-            $lead = $this->leadService->create($request->validated());
+            $lead = $this->leadService->storeDetails($request->validated());
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_created'), Response::HTTP_CREATED);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('lead.lead_create_failed'));
@@ -63,13 +64,27 @@ class LeadController extends Controller
     }
 
     /**
-     * Update Lead
+     * Update Lead Details
      */
-    public function update(UpdateLeadRequest $request, $id)
+    public function updateDetails(UpdateLeadDetailsRequest $request, $id)
     {
         try {
             $lead = Lead::findOrFail($id);
-            $lead = $this->leadService->update($lead, $request->validated());
+            $lead = $this->leadService->updateDetails($lead, $request->validated());
+            return ApiResponse::success(new LeadResource($lead), __('lead.lead_updated'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('lead.lead_update_failed'));
+        }
+    }
+
+    /**
+     * Update Lead Contact Info
+     */
+    public function updateContactInfo(UpdateLeadContactInfoRequest $request, $id)
+    {
+        try {
+            $lead = Lead::findOrFail($id);
+            $lead = $this->leadService->updateContactInfo($lead, $request->validated());
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_updated'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('lead.lead_update_failed'));

@@ -170,7 +170,16 @@ Route::prefix('v1')->group(function () {
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
             Route::get('leads-stats', [LeadController::class, 'stats']);
-            Route::apiResource('leads', LeadController::class);
+            
+            // Explicitly define Leads Resource and separate split endpoints
+            Route::get('leads', [LeadController::class, 'index']);
+            Route::get('leads/{id}', [LeadController::class, 'show']);
+            Route::delete('leads/{id}', [LeadController::class, 'destroy']);
+            
+            Route::post('leads/details', [LeadController::class, 'storeDetails']);
+            Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
+            Route::post('leads/{id}/contact-info', [LeadController::class, 'updateContactInfo']);
+            
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 
             //  Invoices
