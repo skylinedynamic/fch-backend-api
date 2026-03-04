@@ -25,6 +25,7 @@ class BorrowerTaskVerificationRequestDetailResource extends JsonResource
             'tier_id' => $this->tier_id,
             'tier_name' => $this->tier?->name,
             'status' => $this->status,
+            'note' => $this->note,
             'borrower_status' => $this->borrower?->status,
             'partner_id' => $this->partner_id,
             'partner_name' => $this->partner?->full_name,

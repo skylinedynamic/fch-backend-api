@@ -469,25 +469,31 @@ class AppointmentService
             $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
             if ($borrower) {
-                $query->where(function ($q) {
-                    $q->where('entity_type', '!=', Borrower::class)
-                        ->orWhereNull('entity_type');
+                $query->where(function ($q) use($borrower) {
+                    $q->where('id', $borrower->assign_id);
                 });
             }
         } else {
 
             $isHost = $user->partner?->is_host;
 
-            if ($isHost == 1) {
+            if ($isHost) {
                 // Admin Partner
-                $query = User::query();
 
-                if (isset($data['meeting_with']) &&  $data['meeting_with']) {
-                    $query->where('user_type', User::PARTNER);
-                } else {
-                    $query->where('entity_type', '!=', Partner::class)
-                        ->orWhereNull('entity_type');
+                if($user->entity_type == Partner::class){
+                        $query = User::query();
+                        if (isset($data['meeting_with']) &&  $data['meeting_with']) {
+                                $query->where('id','!=',$user->id)->where('entity_type', Partner::class);
+                        } else {
+                            $query->where('partner_id',$user->partner_id)->where(function($q){
+                                $q->where('entity_type', '!=', Partner::class)
+                                ->orWhereNull('entity_type');
+                            });
+                        }
+                }else{
+                    
                 }
+        
             } else {
                 $query = User::query();
 
