@@ -47,8 +47,8 @@ class StorePartnerRequest extends BaseApiRequest
             'partner_image'               => ['nullable'], // 2MB max
             'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
             'enrollment_type'             => ['required', 'string', 'max:255'],
-            'enrollment_amount'           => ['required', 'numeric', 'gt:0'],
-            'monthly_platform_fee'        => ['required', 'numeric', 'gt:0'],
+            'enrollment_amount'           => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'monthly_platform_fee'        => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'total_free_users'            => ['nullable', 'integer', 'min:0'],
             'total_paid_users'            => ['nullable', 'integer', 'min:0'],
         ];
@@ -70,13 +70,15 @@ class StorePartnerRequest extends BaseApiRequest
             'city.required' => __('partner.validation.city.required'),
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
-            'enrollment_type.required' => __('partner.validation.enrollment_type.required'),
-            'enrollment_amount.required' => __('partner.validation.enrollment_amount.required'),
-            'enrollment_amount.numeric' => __('partner.validation.enrollment_amount.numeric'),
-            'enrollment_amount.gt' => __('partner.validation.enrollment_amount.gt'),
-            'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee.required'),
-            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee.numeric'),
-            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee.gt'),
+            'enrollment_type.required' => __('partner.validation.enrollment_type_required'),
+            'enrollment_amount.required' => __('partner.validation.enrollment_amount_required'),
+            'enrollment_amount.numeric' => __('partner.validation.enrollment_amount_numeric'),
+            'enrollment_amount.gt' => __('partner.validation.enrollment_amount_gt'),
+            'enrollment_amount.regex'   => __('partner.validation.enrollment_amount_regex'),
+            'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
+            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
+            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
+            'monthly_platform_fee.regex'   => __('partner.validation.monthly_platform_fee_regex'),
         ];
     }
 }

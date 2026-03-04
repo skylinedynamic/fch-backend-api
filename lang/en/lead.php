@@ -39,4 +39,6 @@ return [
     'entity_type_note_required' => 'Entity Type Details is required when Other is selected.',
     'industry_type_required' => 'Industry Type is required.',
     'industry_type_note_required' => 'Industry Type Details is required when Other is selected.',
+    'partner_type_required' => 'Partner Type is required.',
+    'enrollment_type_required' => 'Enrollment Type is required.',
 ];

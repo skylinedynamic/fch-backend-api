@@ -37,7 +37,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'last_4_ssn'                => ['nullable', 'string', 'max:4'],
             'country_code'              => ['nullable', 'string', 'max:5'], // Matching country_code_max
             'plan_id'                   => ['required', 'exists:subscription_plans,id'],
-            'enrollment_payment'        => ['required', 'numeric', 'gt:0'],
+            'enrollment_payment'        => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'notes'                     => ['nullable'],
 
         ];
@@ -102,6 +102,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'enrollment_payment.required' => __('borrower_validation.enrollment_payment_required'),
             'enrollment_payment.numeric' => __('borrower_validation.enrollment_payment_numeric'),
             'enrollment_payment.gt'      => __('borrower_validation.enrollment_payment_gt'),
+            'enrollment_payment.regex'   => __('borrower_validation.enrollment_payment_regex'),
         ];
     }
 }

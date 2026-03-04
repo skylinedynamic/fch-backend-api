@@ -112,6 +112,15 @@ return [
             'min' => 'Enrollment amount must be greater than or equal to 0.',
             'gt' => 'Enrollment amount must be greater than 0.',
         ],
+        'enrollment_type_required' => 'Enrollment type is required.',
+        'enrollment_amount_required' => 'Enrollment amount is required.',
+        'enrollment_amount_numeric' => 'Enrollment amount must be a number.',
+        'enrollment_amount_gt' => 'Enrollment amount must be greater than 0.',
+        'enrollment_amount_regex' => 'Enrollment amount must be a number greater than 0 and cannot be -0.',
+        'monthly_platform_fee_required' => 'Monthly platform fee is required.',
+        'monthly_platform_fee_numeric' => 'Monthly platform fee must be a number.',
+        'monthly_platform_fee_gt' => 'Monthly platform fee must be greater than 0.',
+        'monthly_platform_fee_regex' => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
     ],
 
     /*

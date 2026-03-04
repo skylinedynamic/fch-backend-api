@@ -51,7 +51,7 @@ class ConvertLeadRequest extends BaseApiRequest
     {
         return [
             'plan_id'           => ['required', 'exists:subscription_plans,id'],
-            'enrollment_amount' => ['required', 'numeric', 'gt:0'],
+            'enrollment_amount' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
         ];
     }
 
@@ -65,8 +65,8 @@ class ConvertLeadRequest extends BaseApiRequest
             'plan_id'              => ['required', 'exists:subscription_plans,id'],
             'partner_type'         => ['required', 'string', 'max:255'],
             'enrollment_type'      => ['required', 'string', 'max:255'],
-            'enrollment_amount'    => ['required', 'numeric', 'gt:0'],
-            'monthly_platform_fee' => ['required', 'numeric', 'min:0'],  // 0 is valid for some plans
+            'enrollment_amount'    => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'monthly_platform_fee' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
         ];
     }
 
@@ -82,15 +82,16 @@ class ConvertLeadRequest extends BaseApiRequest
 
             // Borrower — field name is enrollment_amount (mapped internally to enrollment_payment)
             'enrollment_amount.required'    => __('partner.validation.enrollment_amount.required'),
-            'enrollment_amount.numeric'     => __('partner.validation.enrollment_amount.numeric'),
             'enrollment_amount.gt'          => __('partner.validation.enrollment_amount.gt'),
+            'enrollment_amount.regex'       => 'Enrollment amount must be a number greater than 0 and cannot be -0.',
 
             // Partner
-            'partner_type.required'         => __('partner.validation.partner_type.required'),
-            'enrollment_type.required'      => __('partner.validation.enrollment_type.required'),
+            'partner_type.required'         => __('lead.partner_type_required'),
+            'enrollment_type.required'      => __('lead.enrollment_type_required'),
             'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee.required'),
             'monthly_platform_fee.numeric'  => __('partner.validation.monthly_platform_fee.numeric'),
-            'monthly_platform_fee.min'      => 'Monthly platform fee cannot be negative.',
+            'monthly_platform_fee.gt'       => __('partner.validation.monthly_platform_fee.gt'),
+            'monthly_platform_fee.regex'    => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
         ];
     }
 }

@@ -350,4 +350,5 @@ return [
 
     'migrated_task_id_must_be_integer' => 'Migrated task ID must be an integer.',
     'migrated_task_id_not_found' => 'The selected migrated task ID does not exist.',
+    'enrollment_payment_regex' => 'Enrollment payment must be a number greater than 0 and cannot be -0.',
 ];
