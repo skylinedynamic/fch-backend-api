@@ -42,7 +42,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'entity_type_note' => ['required_if:entity_type,Other / Unknown', 'nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['required_if:industry_type,Other / Unknown', 'nullable', 'string'],
-            'business_start_date' => ['nullable', 'date'],
+            'business_start_date' => ['nullable'],
             'ssn_last_4' => ['nullable', 'string', 'max:4'],
         ];
     }
