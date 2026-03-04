@@ -198,7 +198,7 @@ class PartnerService
             $mailData = [
                 'user' => $user,
                 'plain_password' => $plainPassword,
-                'payment_link' => config('app.frontend_partner_url') . '/invoices?invoice_id=' . $invoice->id,
+                'payment_link' => config('app.frontend_partner_url') . '/invoices',
                 'amount' => $invoice->payment_amount,
                 'enrollment_type' => $enrollmentType,
                 'business_info' => [
