@@ -463,36 +463,48 @@ class AppointmentService
             $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
             if ($borrower) {
-                $query->where(function ($q) {
-                    $q->where('entity_type', '!=', Borrower::class)
-                        ->orWhereNull('entity_type');
+                $query->where(function ($q) use($borrower) {
+                    $q->where('id', $borrower->assign_id);
                 });
             }
         } else {
 
             $isHost = $user->partner?->is_host;
 
-            if ($isHost == 1) {
+            if ($isHost) {
                 // Admin Partner
-                $query = User::query();
 
-                if (isset($data['meeting_with']) &&  $data['meeting_with']) {
-                    $query->where('user_type', User::PARTNER);
-                } else {
-                    $query->where('entity_type', '!=', Partner::class)
-                        ->orWhereNull('entity_type');
+                if($user->entity_type == Partner::class){
+                        $query = User::query();
+                        if (isset($data['meeting_with']) &&  $data['meeting_with']) {
+                                $query->where('id','!=',$user->id)->where('entity_type', Partner::class);
+                        } else {
+                            $query->where('partner_id',$user->partner_id)->where(function($q){
+                                $q->where('entity_type', '!=', Partner::class)
+                                ->orWhereNull('entity_type');
+                            });
+                        }
+                }else{
+                    $query = User::where('partner_id',$user->partner_id)->where(fn($qn) => $qn->where('entity_type', Partner::class)->orWhere('entity_type', Borrower::class)->wherehas('borrower',fn($q) => $q->where('assign_id', $user->id)));
                 }
+        
             } else {
                 $query = User::query();
 
-                if (isset($data['meeting_with_host']) && $data['meeting_with_host']) {
-                    $query->where('user_type', User::ADMIN)->where('entity_type', '!=', Borrower::class);
-                } else {
-                    $query->where('partner_id', $user->partner_id)->where(function ($q) {
-                        $q->where('entity_type', '!=', Partner::class)
-                            ->orWhereNull('entity_type');
-                    });
+                if($user->entity_type == Partner::class){
+                    if (isset($data['meeting_with_host']) && $data['meeting_with_host']) {
+                        $query->where('entity_type', Partner::class)->where('user_type', User::ADMIN);
+                    } else {
+                        $query->where('partner_id', $user->partner_id)->where(function ($q) {
+                            $q->where('entity_type', '!=', Partner::class)
+                                ->orWhereNull('entity_type');
+                        });
+                    }
+                }else{
+                    $query = User::where('partner_id',$user->partner_id)->where('entity_type',Partner::class)->orWhere(fn($qn) => $qn->where('entity_type', Borrower::class)->wherehas('borrower',fn($q) => $q->where('assign_id', $user->id)));
                 }
+
+                
             }
         }
 

@@ -15,8 +15,10 @@ use App\Models\CreditBuilder\TierRelatedApi;
 use App\Models\CreditBuilder\TierTask;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Services\Global\MicroBilt\MicroBiltVerificationFactory;
+use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class VerificationCenterService
 {
@@ -319,25 +321,21 @@ class VerificationCenterService
             $tier = $verificationRequest->tier;
             $taskName = $task->title ?? 'Unknown Task';
 
-            if ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) {
+            // Do not verify or reject any task that is already Completed or Rejected
+            if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
                 $results[] = [
-                    'task_name' => $taskName,
-                    'is_verified' => true,
-                    'message' => __('verification_center.already_verified'),
-                ];
-                continue;
-            }
-
-            if ($verificationRequest->status == BorrowerTaskVerificationRequest::REJECTED) {
-                $results[] = [
-                    'task_name' => $taskName,
-                    'is_verified' => false,
-                    'message' => __('verification_center.already_rejected'),
+                    'task_name'   => $taskName,
+                    'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
+                    'message'     => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) 
+                                     ? __('verification_center.already_verified') 
+                                     : __('verification_center.already_rejected'),
+                    'skipped'     => true,
                 ];
                 continue;
             }
             
             $canUpdateStatus = false;
+            $shouldSkipUpdate = false;
             $errorMessage = '';
 
             if ($isApi && $statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
@@ -352,28 +350,31 @@ class VerificationCenterService
                                 if ($success) {
                                     $canUpdateStatus = true;
                                 } else {
-                                    $errorMessage = __('verification_center.not_verified');
+                                    $errorMessage = __('verification_center.no_matching_business_record');
+                                    $canUpdateStatus = false;
                                 }
                             } else {
-                                $errorMessage = __('verification_center.not_verified');
+                                $errorMessage = __('verification_center.no_matching_business_record');
+                                $canUpdateStatus = false;
                             }
                         } catch (\Exception $e) {
-                            $errorMessage = __('verification_center.not_verified');
+                            $errorMessage = __('verification_center.no_matching_business_record');
+                            $canUpdateStatus = false;
                         }
                     } else {
                         // If null do not verify keep their status unchanged
                         $errorMessage = __('verification_center.no_api_assigned');
-                        $canUpdateStatus = false; 
+                        $shouldSkipUpdate = true;
                     }
                 } else {
                     $api = $task->api;
 
                     if($api){
-                        $errorMessage = __('verification_center.not_verified');
+                        $errorMessage = __('verification_center.no_matching_business_record');
                         $canUpdateStatus = false;
                     }else{
                         $errorMessage = __('verification_center.no_api_assigned');
-                        $canUpdateStatus = false; 
+                        $shouldSkipUpdate = true;
                     }
                     
                 }
@@ -382,35 +383,98 @@ class VerificationCenterService
                 $canUpdateStatus = true;
             }
 
-            if ($canUpdateStatus) {
-                $updateData = [
-                    'status' => $statusToSet,
-                    'verified_by' => auth()->id(),
+            if (!$shouldSkipUpdate) {
+                // Always update status and note in database for every request
+                $statusToWrite = $canUpdateStatus ? $statusToSet : BorrowerTaskVerificationRequest::REJECTED;
+                
+                // Only trigger tier update if it's successfully transitioning to COMPLETED
+                $shouldTriggerTierUpdate = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED && $verificationRequest->status != BorrowerTaskVerificationRequest::COMPLETED);
+
+                $noteToSave = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED) 
+                    ? ($data['note'] ?? null) 
+                    : __('verification_center.no_matching_business_record');
+
+                $verificationRequest->update([
+                    'status'      => $statusToWrite,
+                    'verified_by' => Auth::id(),
                     'verified_at' => now(),
-                    'note' => $data['note'] ?? null,
-                ];
+                    'note'        => $noteToSave,
+                ]);
 
-                $verificationRequest->update($updateData);
-
-                if ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
-                    $this->tierUpdate($verificationRequest, $statusToSet);
+                if ($shouldTriggerTierUpdate) {
+                    $this->tierUpdate($verificationRequest, BorrowerTaskVerificationRequest::COMPLETED);
                 }
 
+                $isVerified = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
-                    'task_name' => $taskName,
-                    'is_verified' => true,
-                    'message' => __('verification_center.verified'),
+                    'task_name'   => $taskName,
+                    'is_verified' => $isVerified,
+                    'message'     => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
                 ];
             } else {
                 $results[] = [
-                    'task_name' => $taskName,
+                    'task_name'   => $taskName,
                     'is_verified' => false,
-                    'message' => $errorMessage ?: __('verification_center.verification_failed'),
+                    'message'     => $errorMessage ?: __('verification_center.no_api_assigned'),
+                    'skipped'     => true,
                 ];
             }
         }
 
+        // Send a consolidated verification status email to the borrower
+        $this->sendVerificationStatusMail($borrower, $statusToSet, $data['note'] ?? null, $results);
+
         return $results;
+    }
+
+    /**
+     * Send verification status notification email to the borrower.
+     */
+    protected function sendVerificationStatusMail($borrower, string $status, ?string $note, array $taskResults): void
+    {
+        try {
+            // Only send if borrower has an email
+            $email = $borrower?->email ?? $borrower?->user?->email ?? null;
+
+            if (!$email) {
+                Log::warning('VerificationCenterService: No email found for borrower', [
+                    'borrower_id' => $borrower?->id,
+                ]);
+                return;
+            }
+
+            $borrowerName = trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower';
+
+            $statusLabel = match ($status) {
+                BorrowerTaskVerificationRequest::COMPLETED => __('verification_center.verified'),
+                BorrowerTaskVerificationRequest::REJECTED  => __('verification_center.rejected'),
+                BorrowerTaskVerificationRequest::PROCESSING => __('verification_center.processing'),
+                BorrowerTaskVerificationRequest::PENDING   => __('verification_center.pending'),
+                default => ucfirst($status),
+            };
+
+            // Only send mail for tasks that were not skipped
+            $filteredResults = array_filter($taskResults, function($result) {
+                return !($result['skipped'] ?? false);
+            });
+
+            if (empty($filteredResults)) {
+                return;
+            }
+
+            Mail::to($email)->send(new BorrowerVerificationStatusMail([
+                'subject'      => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
+                'borrower_name' => $borrowerName,
+                'status'       => $status,
+                'note'         => $note,
+                'task_results' => $filteredResults,
+            ]));
+        } catch (\Exception $e) {
+            Log::error('VerificationCenterService: Failed to send verification status mail', [
+                'borrower_id' => $borrower?->id,
+                'error'       => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
