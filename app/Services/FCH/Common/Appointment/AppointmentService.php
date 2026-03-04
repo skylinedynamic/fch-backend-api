@@ -469,9 +469,7 @@ class AppointmentService
             $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
             if ($borrower) {
-                $query->where(function ($q) use($borrower) {
-                    $q->where('id', $borrower->assign_id);
-                });
+                $query->where('entity_type', Partner::class)->orWhere('id', $borrower->assign_id);
             }
         } else {
 
