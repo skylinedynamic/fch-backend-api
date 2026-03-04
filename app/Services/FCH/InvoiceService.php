@@ -284,8 +284,15 @@ class InvoiceService
 
         $pdfContent = $pdf->output();
 
-        // Prioritize Borrower email, then Partner, then invoice table record
-        $recipientEmail = $invoice->borrower?->email ?? ($invoice->partner?->email ?? $invoice->email);
+        // Condition strictly requested by user:
+        if ($invoice->is_partner_paying) {
+            $recipientEmail = $invoice->partner?->email;
+        } else {
+            $recipientEmail = $invoice->borrower?->email;
+        }
+        
+        // Fallback fallback just in case the specific relation email is missing
+        $recipientEmail = $recipientEmail ?? $invoice->email;
 
         if (!$recipientEmail) {
             throw new \Exception("No recipient email found for this invoice");
