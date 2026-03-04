@@ -16,7 +16,13 @@
     {{-- Invoice Details --}}
     <div class="box-light invoice-summary-card">
         <div class="invoice-summary-header">
-            <span class="label invoice-summary-label">Amount Due</span>
+            <span class="label invoice-summary-label">
+                @if($invoice->status === 'Paid')
+                    Amount Paid
+                @else
+                    Amount Due
+                @endif
+            </span>
             <span class="value invoice-summary-amount">${{ number_format($invoice->payment_amount, 2) }}</span>
         </div>
         <div class="invoice-summary-content">
@@ -35,10 +41,16 @@
 
     {{-- Action Section --}}
     <div class="box-primary">
-        <p class="mb-4">You can securely view and pay your invoice online through our partner portal.</p>
-        <a href="{{ config('app.frontend_partner_url') }}/invoices/{{ $invoice->id }}" class="btn">View & Pay
-            Invoice</a>
-        <p class="text-muted small mt-4 mb-0">Invoice Status: <strong>Pending Payment</strong></p>
+        @if($invoice->status === 'Paid')
+            <p class="mb-4">You can securely view your paid invoice online through our partner portal.</p>
+            <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn">View Invoice</a>
+            <p class="text-muted small mt-4 mb-0">Invoice Status: <strong style="color: #28a745;">Paid</strong></p>
+        @else
+            <p class="mb-4">You can securely view and pay your invoice online through our partner portal.</p>
+            <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn">View & Pay
+                Invoice</a>
+            <p class="text-muted small mt-4 mb-0">Invoice Status: <strong>{{ $invoice->status ?? 'Pending Payment' }}</strong></p>
+        @endif
     </div>
 
 
