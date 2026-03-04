@@ -42,11 +42,11 @@
     {{-- Action Section --}}
     <div class="box-primary">
         @if($invoice->status === 'Paid')
-            <p class="mb-4">You can securely view your paid invoice online through our partner portal.</p>
+            <p class="mb-4">You can securely access and view your paid invoice in the Invoices section.</p>
             <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn">View Invoice</a>
             <p class="text-muted small mt-4 mb-0">Invoice Status: <strong style="color: #28a745;">Paid</strong></p>
         @else
-            <p class="mb-4">You can securely view and pay your invoice online through our partner portal.</p>
+            <p class="mb-4">You can securely view and pay your invoice online through the Invoice section.</p>
             <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn">View & Pay
                 Invoice</a>
             <p class="text-muted small mt-4 mb-0">Invoice Status: <strong>{{ $invoice->status ?? 'Pending Payment' }}</strong></p>
