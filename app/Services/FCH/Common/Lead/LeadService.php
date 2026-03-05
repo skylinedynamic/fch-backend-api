@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
+use Carbon\Carbon;
 use Throwable;
 
 class LeadService
@@ -214,6 +215,13 @@ class LeadService
         DB::beginTransaction();
         try {
             $data['updated_by'] = Auth::id();
+            if (!empty($data['business_start_date'])) {
+                try {
+                    $data['business_start_date'] = Carbon::parse(str_replace('-', '/', $data['business_start_date']))->format('Y-m-d');
+                } catch (\Exception $e) {
+                    unset($data['business_start_date']);
+                }
+            }
             $lead->update($data);
             DB::commit();
             return $lead->fresh();
@@ -232,6 +240,13 @@ class LeadService
         DB::beginTransaction();
         try {
             $data['updated_by'] = Auth::id();
+            if (!empty($data['business_start_date'])) {
+                try {
+                    $data['business_start_date'] = Carbon::parse(str_replace('-', '/', $data['business_start_date']))->format('Y-m-d');
+                } catch (\Exception $e) {
+                    unset($data['business_start_date']);
+                }
+            }
             $lead->update($data);
             DB::commit();
             return $lead->fresh();
