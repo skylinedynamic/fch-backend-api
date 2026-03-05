@@ -19,4 +19,9 @@ return [
     'no_api_assigned' => 'No Verification Api Assigned',
     'verified' => 'Verified',
     'verification_failed' => 'Verification failed.',
+    'no_matching_business_record' => 'No matching business record found.',
+    'verification_status_update' => 'Verification Status Update',
+    'rejected' => 'Rejected',
+    'processing' => 'Processing',
+    'pending' => 'Pending',
 ];

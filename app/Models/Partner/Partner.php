@@ -13,6 +13,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
 use App\Models\Lead\Lead;
+use App\Models\Partner\PartnerDocument;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;

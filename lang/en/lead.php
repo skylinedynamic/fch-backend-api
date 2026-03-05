@@ -19,6 +19,7 @@ return [
     'converted_to_borrower' => 'Lead successfully converted to Borrower.',
     'converted_to_partner' => 'Lead successfully converted to Partner.',
     'conversion_failed' => 'Failed to convert lead.',
+    'cannot_delete_converted_paid_lead' => 'This record cannot be deleted. Please mark it as Suspended or Inactive instead.',
 
     // Validations
     'probability_required' => 'Probability is required.',
@@ -34,6 +35,7 @@ return [
     'email_taken' => 'Email is already taken.',
     'country_required' => 'Country is required.',
     'city_required' => 'City is required.',
+    'other_city_required' => 'Others City is required.',
     'state_required' => 'State is required.',
     'entity_type_required' => 'Entity Type is required.',
     'entity_type_note_required' => 'Entity Type Details is required when Other is selected.',

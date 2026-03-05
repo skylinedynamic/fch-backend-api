@@ -35,6 +35,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'business_address' => ['nullable', 'string', 'max:500'],
             'country' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
+            'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', 'max:20'],
             'business_phone' => ['nullable', 'string', 'max:20'],
@@ -42,9 +43,22 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'entity_type_note' => ['required_if:entity_type,Other / Unknown', 'nullable', 'string'],
             'industry_type' => ['nullable', 'string', 'max:255'],
             'industry_type_note' => ['required_if:industry_type,Other / Unknown', 'nullable', 'string'],
-            'business_start_date' => ['nullable', 'date'],
+            'business_start_date' => ['nullable'],
             'ssn_last_4' => ['nullable', 'string', 'max:4'],
         ];
+    }
+
+    public function validated($key = null, $default = null): array
+    {
+        $data = parent::validated($key, $default);
+
+        if (($data['city'] ?? '') === 'Others' && !empty($data['other_city'])) {
+            $data['city'] = $data['other_city'];
+        }
+
+        unset($data['other_city']);
+
+        return $data;
     }
     
     public function messages(): array
@@ -58,6 +72,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'country.required' => __('lead.country_required'),
             'city.required' => __('lead.city_required'),
             'state.required' => __('lead.state_required'),
+            'other_city.required_if' => __('lead.other_city_required'),
             'entity_type_note.required_if' => __('lead.entity_type_note_required'),
             'industry_type_note.required_if' => __('lead.industry_type_note_required'),
         ];

@@ -40,6 +40,7 @@ class StoreLeadRequest extends BaseApiRequest
             'business_address' => ['nullable', 'string', 'max:500'],
             'country' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
+            'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
             'zip_code' => ['nullable', 'string', 'max:20'],
             'business_phone' => ['nullable', 'string', 'max:20'],
@@ -54,10 +55,24 @@ class StoreLeadRequest extends BaseApiRequest
         ];
     }
 
+    public function validated($key = null, $default = null): array
+    {
+        $data = parent::validated($key, $default);
+
+        if (($data['city'] ?? '') === 'Others' && !empty($data['other_city'])) {
+            $data['city'] = $data['other_city'];
+        }
+
+        unset($data['other_city']);
+
+        return $data;
+    }
+
     public function messages(): array
     {
         return [
             'email.unique' => __('lead.email_taken'),
+            'other_city.required_if' => __('lead.other_city_required'),
         ];
     }
 }
