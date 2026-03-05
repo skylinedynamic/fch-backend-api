@@ -12,10 +12,9 @@ class ActivityLogResource extends JsonResource
     {
         return [
             'id'            => $this->id,
-            'type'          => $this->type,
+            'log_name'      => $this->log_name,
             'partner_id'    => $this->partner_id,
             'borrower_id'   => $this->borrower_id,
-            'lead_id'       => $this->lead_id,
             // Activity fields
             'reference'     => $this->reference,
             'category'      => $this->category,
@@ -25,8 +24,7 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->assignedUser?->id,
                 'name' => $this->assignedUser?->name,
             ]),
-            'summary'       => $this->summary,
-            'message_body'  => $this->message_body,
+            'description'   => $this->description,
             // Email fields
             'to_emails'     => $this->to_emails,
             'subject'       => $this->subject,

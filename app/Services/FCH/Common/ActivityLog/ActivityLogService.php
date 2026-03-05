@@ -22,11 +22,25 @@ class ActivityLogService
      */
     public function list(array $filters)
     {
-        $query = ActivityLog::with(['creator', 'assignedUser'])
-            ->where('partner_id', Auth::user()->partner->id);
-        // Searc
+        $query = ActivityLog::with(['creator', 'assignedUser']);
+
+        // Explicit entity filters take priority
+        if (!empty($filters['borrower_id'])) {
+            $query->where('borrower_id', $filters['borrower_id']);
+        } elseif (!empty($filters['partner_id'])) {
+            $query->where('partner_id', $filters['partner_id']);
+        } else {
+            // No explicit entity - scope to authenticated user's partner
+            if (Auth::user()->user_type !== 'Admin' && Auth::user()->partner_id) {
+                $query->where('partner_id', Auth::user()->partner_id);
+            }
+        }
+
+        if (!empty($filters['log_name'])) {
+            $query->where('log_name', $filters['log_name']);
+        }
+
         $logs = $query->orderBy('created_at', 'desc')->limit(15)->get();
-    
 
         return ApiResponse::success(
             ActivityLogResource::collection($logs),
@@ -41,11 +55,10 @@ class ActivityLogService
     {
         DB::beginTransaction();
         try {
-            $data['type']       = ActivityLog::TYPE_ACTIVITY;
-            $data['partner_id'] = Auth::user()->partner_id;
+            $data['log_name']   = ActivityLog::TYPE_ACTIVITY;
+            $data['partner_id'] = $data['partner_id'] ?? Auth::user()->partner_id;
             $data['created_by'] = Auth::id();
             $data['updated_by'] = Auth::id();
-            $data['description'] = $data['summary'] ?? 'Activity';
 
             $log = ActivityLog::create($data);
             DB::commit();
@@ -65,19 +78,21 @@ class ActivityLogService
     {
         DB::beginTransaction();
         try {
-            $data['type']        = ActivityLog::TYPE_EMAIL;
-            $data['partner_id']  = Auth::user()->partner_id;
+            $data['log_name']    = ActivityLog::TYPE_EMAIL;
+            $data['partner_id']  = $data['partner_id'] ?? Auth::user()->partner_id;
             $data['created_by']  = Auth::id();
             $data['updated_by']  = Auth::id();
-            $data['status']      = 'sent';
-            $data['description'] = $data['subject'] ?? 'Email';
+            $data['status']      = ActivityLog::STATUS_SENT;
 
             $log = ActivityLog::create($data);
 
             // Send actual email to each recipient
             $recipients = $data['to_emails'] ?? [];
-            $subject    = $data['subject'];
-            $body       = $data['message_body'];
+            if (is_string($recipients)) {
+                $recipients = json_decode($recipients, true) ?? [];
+            }
+            $subject = $data['subject'];
+            $body    = $data['description'] ?? '';
 
             foreach ($recipients as $recipient) {
                 Mail::html($body, function ($mail) use ($recipient, $subject) {
@@ -100,7 +115,7 @@ class ActivityLogService
      */
     public function find(int $id): ActivityLog
     {
-        return ActivityLog::with(['creator', 'assignedUser', 'lead', 'partner', 'borrower'])
+        return ActivityLog::with(['creator', 'assignedUser', 'partner', 'borrower'])
             ->findOrFail($id);
     }
 }

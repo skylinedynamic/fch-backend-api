@@ -22,9 +22,9 @@ class ActivityLogController extends Controller
     {
         try {
             $filters = [
-                'type'        => $request->input('type'),
-                'lead_id'     => $request->input('lead_id'),
+                'log_name'    => $request->input('log_name'),
                 'borrower_id' => $request->input('borrower_id'),
+                'partner_id'  => $request->input('partner_id'),
                 'search'      => $request->input('search'),
                 'sort_field'  => $request->input('sort_field', 'id'),
                 'sort_order'  => $request->input('sort_order', 'desc'),

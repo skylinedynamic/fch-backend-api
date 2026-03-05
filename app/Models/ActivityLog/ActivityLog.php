@@ -15,43 +15,45 @@ class ActivityLog extends Model
     const TYPE_EMAIL    = 'email';
     const TYPE_ACTIVITY = 'activity';
 
+    const STATUS_SENT     = 'sent';
+    const STATUS_PENDING  = 'pending';
+    const STATUS_FAILED   = 'failed';
+
     protected $fillable = [
-        'type',
         'partner_id',
         'borrower_id',
-        'lead_id',
-        'entity_type',
-        'entity_id',
-        // Activity fields
+        'log_name',
+        'description',
+        'properties',
         'reference',
         'category',
         'activity_date',
         'assigned_to',
-        'summary',
-        'message_body',
-        // Email fields
         'to_emails',
         'subject',
         'attachments',
         'status',
-        // Audit
         'created_by',
         'updated_by',
-        // Spatie fields (keep compatibility)
-        'log_name',
-        'description',
-        'properties',
     ];
 
-    protected $casts = [
-        'to_emails'     => 'array',
-        'attachments'   => 'array',
-        'properties'    => 'array',
-        'activity_date' => 'date',
-        'created_at'    => 'datetime',
-        'updated_at'    => 'datetime',
-        'deleted_at'    => 'datetime',
-    ];
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'to_emails'     => 'array',
+            'attachments'   => 'array',
+            'properties'    => 'array',
+            'activity_date' => 'date',
+            'created_at'    => 'datetime',
+            'updated_at'    => 'datetime',
+            'deleted_at'    => 'datetime',
+        ];
+    }
 
     public function partner()
     {
@@ -63,10 +65,6 @@ class ActivityLog extends Model
         return $this->belongsTo(\App\Models\Borrower\Borrower::class, 'borrower_id');
     }
 
-    public function lead()
-    {
-        return $this->belongsTo(\App\Models\Lead\Lead::class, 'lead_id');
-    }
 
     public function assignedUser()
     {

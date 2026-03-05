@@ -14,12 +14,11 @@ class StoreEmailRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'lead_id'       => ['nullable', 'exists:leads,id'],
             'borrower_id'   => ['nullable', 'exists:borrowers,id'],
-            'to_emails'     => ['required', 'array', 'min:1'],
-            'to_emails.*'   => ['required', 'email'],
+            'partner_id'    => ['nullable', 'exists:partners,id'],
+            'to_emails'     => ['required'],
             'subject'       => ['required', 'string', 'max:500'],
-            'message_body'  => ['required', 'string'],
+            'description'   => ['required', 'string'],
             'attachments'   => ['nullable', 'array'],
             'attachments.*' => ['string'],
         ];
@@ -29,10 +28,8 @@ class StoreEmailRequest extends BaseApiRequest
     {
         return [
             'to_emails.required'   => __('activity_log.to_emails_required'),
-            'to_emails.min'        => __('activity_log.to_emails_min'),
-            'to_emails.*.email'    => __('activity_log.to_emails_invalid'),
             'subject.required'     => __('activity_log.subject_required'),
-            'message_body.required' => __('activity_log.message_body_required'),
+            'description.required' => __('activity_log.description_required'),
         ];
     }
 }
