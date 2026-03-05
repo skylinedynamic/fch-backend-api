@@ -34,6 +34,7 @@ return [
     'email_taken' => 'Email is already taken.',
     'country_required' => 'Country is required.',
     'city_required' => 'City is required.',
+    'other_city_required' => 'Others City is required.',
     'state_required' => 'State is required.',
     'entity_type_required' => 'Entity Type is required.',
     'entity_type_note_required' => 'Entity Type Details is required when Other is selected.',
