@@ -101,7 +101,7 @@ class LeadController extends Controller
             $this->leadService->delete($lead);
             return ApiResponse::success([], __('lead.lead_deleted'));
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('lead.lead_update_failed'));
+            return ApiResponse::error($e->getMessage() ?: __('lead.lead_update_failed'));
         }
     }
 
@@ -111,10 +111,14 @@ class LeadController extends Controller
     public function multipleDelete(Request $request)
     {
         $ids = $request->input('ids', []);
-        if ($this->leadService->deleteMultiple($ids)) {
-            return ApiResponse::success([], __('lead.lead_deleted'));
+        try {
+            if ($this->leadService->deleteMultiple($ids)) {
+                return ApiResponse::success([], __('lead.lead_deleted'));
+            }
+            return ApiResponse::error(__('lead.multiple_delete_failed'), 422);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage() ?: __('lead.multiple_delete_failed'), 422);
         }
-        return ApiResponse::error(__('lead.multiple_delete_failed'), 422);
     }
 
     /**

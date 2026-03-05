@@ -262,6 +262,13 @@ class LeadService
      */
     public function delete(Lead $lead): bool
     {
+
+        if ($this->cannotDeleteConvertedLead($lead)) {
+            throw new \Exception(__('lead.cannot_delete_converted_paid_lead'));
+        }
+
+        $this->cleanupConvertedLeadData($lead);
+
         return $lead->delete();
     }
 
@@ -271,7 +278,84 @@ class LeadService
     public function deleteMultiple(array $ids): bool
     {
         if (empty($ids)) return false;
+
+        $leads = Lead::whereIn('id', $ids)->get();
+        foreach ($leads as $lead) {
+            if ($this->cannotDeleteConvertedLead($lead)) {
+                throw new \Exception(__('lead.cannot_delete_converted_paid_lead'));
+            }
+        }
+
+        foreach ($leads as $lead) {
+            $this->cleanupConvertedLeadData($lead);
+        }
+
         return Lead::whereIn('id', $ids)->delete();
+    }
+
+    /**
+     * Check if a converted lead cannot be deleted (e.g., already paid).
+     */
+    private function cannotDeleteConvertedLead(Lead $lead): bool
+    {
+        if (!empty($lead->convert_to) && $lead->email) {
+            $isPaid = Invoice::where('email', $lead->email)
+                ->where('status', Invoice::STATUS_PAID)
+                ->exists();
+
+            if ($isPaid) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Clean up data associated with a converted lead if unpaid.
+     */
+    private function cleanupConvertedLeadData(Lead $lead): void
+    {
+       
+        if (!empty($lead->convert_to) && $lead->email) {
+            // First clean up the target entity (Borrower/Partner) directly if it has a safe cascader
+            if ($lead->convert_to === 'Partner') {
+                $partner = Partner::where('email', $lead->email)->first();
+                if ($partner && method_exists($partner, 'safeDeleteWithRelations')) {
+                    $partner->safeDeleteWithRelations();
+                } elseif ($partner) {
+                    $partner->delete();
+                }
+            } elseif ($lead->convert_to === 'Borrower') {
+                $borrower = Borrower::where('email', $lead->email)->first();
+         
+                if ($borrower && method_exists($borrower, 'safeDeleteWithRelations')) {
+                    $borrower->safeDeleteWithRelations();
+                } elseif ($borrower) {
+                    $borrower->delete();
+                }
+            }
+
+            // Clean up the User, which also handles stray Subscriptions/Invoices if the entity failed
+            $user = User::where('email', $lead->email)->first();
+ 
+            if ($user) {
+                $user->delete();
+            } elseif ($user) {
+                Invoice::where('email', $lead->email)->delete();
+                
+                \App\Models\Subscription\Subscription::where('entity_type', User::class)
+                    ->where('entity_id', $user->id)->get()->each(function ($sub) {
+                        $sub->allPhases()->delete();
+                        $sub->delete();
+                    });
+
+                $user->delete();
+            }
+            
+            // Absolute fail-safe for orphaned Invoices with this email
+            Invoice::where('email', $lead->email)->delete();
+        }
     }
 
     /**

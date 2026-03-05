@@ -19,6 +19,7 @@ return [
     'converted_to_borrower' => 'Lead successfully converted to Borrower.',
     'converted_to_partner' => 'Lead successfully converted to Partner.',
     'conversion_failed' => 'Failed to convert lead.',
+    'cannot_delete_converted_paid_lead' => 'Cannot delete a lead that has been converted and paid.',
 
     // Validations
     'probability_required' => 'Probability is required.',
