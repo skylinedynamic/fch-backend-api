@@ -8,6 +8,8 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
+use Illuminate\Validation\Rule;
+
 class StorePartnerRequest extends BaseApiRequest
 {
     /**
@@ -26,7 +28,13 @@ class StorePartnerRequest extends BaseApiRequest
         return [
             'full_name'                   => ['required', 'string', 'max:255'],
             'company_name'                => ['required', 'string', 'max:255'],
-            'email'                       => ['required', 'email', 'max:255', 'unique:partners,email', 'unique:users,email'],
+            'email'                       => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('partners', 'email')->whereNull('deleted_at'),
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'phone_number'                => ['required', 'string', 'max:50'],
             'status'                      => ['nullable', 'string', 'max:255'],
             'contact_person'              => ['nullable', 'string', 'max:255'],

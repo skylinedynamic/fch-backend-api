@@ -37,7 +37,7 @@ class UpdateEmployeeRequest extends BaseApiRequest
                 'max:50',
                 Rule::unique('employees')
                     ->ignore($employeeId)
-                    ->where(fn($q) => $q->where('partner_id', $partnerId)),
+                    ->where(fn($q) => $q->where('partner_id', $partnerId)->whereNull('deleted_at')),
             ],
             'phone_number_2' => ['nullable', 'string', 'max:20'],
             'passport_number'=> ['nullable', 'string', 'max:255'],

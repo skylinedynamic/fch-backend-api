@@ -35,10 +35,12 @@ class UpdatePartnerRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('partners', 'email')->ignore($this->id),
+                Rule::unique('partners', 'email')->ignore($this->id)->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->where(function ($query) {
-                    return $query->where('partner_id', '!=', $this->id)
-                        ->orWhereNull('partner_id');
+                    return $query->where(function ($q) {
+                        $q->where('partner_id', '!=', $this->id)
+                            ->orWhereNull('partner_id');
+                    })->whereNull('deleted_at');
                 })
             ],
             'phone_number'                => ['sometimes', 'required', 'string', 'max:50'],

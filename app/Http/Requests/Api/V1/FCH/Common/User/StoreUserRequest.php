@@ -8,6 +8,8 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
+use Illuminate\Validation\Rule;
+
 class StoreUserRequest extends  BaseApiRequest
 {
     public function authorize(): bool
@@ -19,9 +21,9 @@ class StoreUserRequest extends  BaseApiRequest
     {
         return [
             'name'         => ['required', 'string', 'max:255'],
-            'email'        => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email'        => ['required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'user_id'      => ['nullable', 'string', 'max:255'],
-            'phone_number' => ['nullable', 'string', 'max:50', 'unique:users,phone_number'],
+            'phone_number' => ['nullable', 'string', 'max:50', Rule::unique('users', 'phone_number')->whereNull('deleted_at')],
             'password'     => ['required', 'string', 'min:6'],
             'role_id'      => ['required', 'exists:roles,id'],
             'employee_id'  => ['nullable', 'exists:employees,id'],

@@ -535,33 +535,14 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function isDeletable(): bool
     {
-        // 0. Free User or Free Employee always deletable
-        if ($this->is_paid == 0) {
-            if ($this->entity_type === null || $this->entity_type === Employee::class) {
-                return true;
-            }
-        }
+        $targetType = $this->entity_type ?: self::class;
+        $targetId = $this->entity_id ?: $this->id;
 
-        // 1. Direct invoices
-        if ($this->invoices()->where('status', Invoice::STATUS_PAID)->exists()) {
-            return false;
-        }
-
-        // 2. Partner invoices if linked
-        if ($this->partner_id) {
-            if (Invoice::where('partner_id', $this->partner_id)->where('status', Invoice::STATUS_PAID)->exists()) {
-                return false;
-            }
-        }
-
-        // 3. Borrower invoices if linked
-        if ($this->entity_type === Borrower::class && $this->entity_id) {
-            if (Invoice::where('borrower_id', $this->entity_id)->where('status', Invoice::STATUS_PAID)->exists()) {
-                return false;
-            }
-        }
-
-        return true;
+        // Check for Paid or Successful invoices linked to this user or their entity
+        return !Invoice::where('entity_type', $targetType)
+            ->where('entity_id', $targetId)
+            ->whereIn('status', [Invoice::STATUS_PAID])
+            ->exists();
     }
 
     public static $isCascading = false;
@@ -571,28 +552,26 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function safeDeleteWithRelations(): bool
     {
-        if (self::$isCascading) {
-            return true;
-        }
-
         if (!$this->isDeletable()) {
             throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         DB::beginTransaction();
         try {
+            $isAlreadyCascading = self::$isCascading;
             self::$isCascading = true;
 
-            // 1. If this user is linked to an entity (Partner/Borrower/Employee), delete the entity instead
-            // This ensures everything (Partner -> Borrower -> User) is cleaned up together
-            if ($this->entity_type && $this->entity_id) {
-                $entity = $this->entity;
-                if ($entity) {
-                    if (method_exists($entity, 'safeDeleteWithRelations')) {
-                        $entity->safeDeleteWithRelations();
-                    } elseif ($this->entity_type === Employee::class) {
-                        // For employees, we delete the record directly if they don't have safeDeleteWithRelations
-                        $entity->delete();
+            // 1. If NOT already cascading, call entity safeDelete
+            // This prevents infinite loops while still ensuring the primary side is deleted
+            if (!$isAlreadyCascading) {
+                if ($this->entity_type && $this->entity_id) {
+                    $entity = $this->entity;
+                    if ($entity) {
+                        if (method_exists($entity, 'safeDeleteWithRelations')) {
+                            $entity->safeDeleteWithRelations();
+                        } elseif ($this->entity_type === Employee::class) {
+                            $entity->delete();
+                        }
                     }
                 }
             }
@@ -610,9 +589,10 @@ class User extends Authenticatable implements OAuthenticatable
                     $sub->delete();
                 });
 
-            // 3. Delete Invoices (Unpaid only - checked by isDeletable above)
+            // 3. Delete Invoices (Unpaid only - double checked for safety)
             Invoice::where('entity_type', $targetType)
                 ->where('entity_id', $targetId)
+                ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
                 ->delete();
 
             // 4. Detach Roles & Permissions
@@ -623,11 +603,11 @@ class User extends Authenticatable implements OAuthenticatable
             $this->delete();
 
             DB::commit();
-            self::$isCascading = false;
+            self::$isCascading = $isAlreadyCascading;
             return true;
         } catch (\Throwable $e) {
             DB::rollBack();
-            self::$isCascading = false;
+            self::$isCascading = $isAlreadyCascading;
             throw $e;
         }
     }

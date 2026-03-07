@@ -235,7 +235,10 @@ class Partner extends Model
      */
     public function isDeletable(): bool
     {
-        return !$this->invoices()->where('status', \App\Models\Invoice\Invoice::STATUS_PAID)->exists();
+        // Check if there are any Paid or Successful invoices for this partner
+        return !$this->invoices()
+            ->whereIn('status', [\App\Models\Invoice\Invoice::STATUS_PAID])
+            ->exists();
     }
 
     /**
@@ -243,27 +246,33 @@ class Partner extends Model
      */
     public function safeDeleteWithRelations(): bool
     {
-        if (\App\Models\User\User::$isCascading) {
-            return true;
-        }
-
         if (!$this->isDeletable()) {
             throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            $isAlreadyCascading = \App\Models\User\User::$isCascading;
             \App\Models\User\User::$isCascading = true;
+
             // 1. Delete Borrowers and their related data recursively
             $this->borrowers->each(function ($borrower) {
                 $borrower->safeDeleteWithRelations();
             });
 
-            // 2. Delete Users directly linked to partner_id recursively
-            $this->users->each(function ($user) {
-                // Each user cleans up their own subscriptions/invoices
-                $user->safeDeleteWithRelations();
-            });
+            // 2. Delete Users directly linked to partner_id recursively 
+            // (Only if not already cascading FROM a user)
+            if (!$isAlreadyCascading) {
+                // Check if we have a primary user for this entity
+                if ($this->partnerUser) {
+                    $this->partnerUser->safeDeleteWithRelations();
+                }
+
+                // Delete other users linked to this partner
+                $this->users->each(function ($user) {
+                    $user->safeDeleteWithRelations();
+                });
+            }
 
             // 3. Delete Subscriptions & Phases
             $this->subscriptions()->each(function ($sub) {
@@ -271,8 +280,10 @@ class Partner extends Model
                 $sub->delete();
             });
 
-            // 4. Delete Invoices (Unpaid only - checked by isDeletable above)
-            $this->invoices()->delete();
+            // 4. Delete Invoices (Unpaid only - double checked for safety)
+            $this->invoices()
+                ->whereNotIn('status', [\App\Models\Invoice\Invoice::STATUS_PAID, \App\Models\Invoice\Invoice::STATUS_SUCCESS])
+                ->delete();
 
             // 5. Delete other related tables
             $this->leads()->delete();
@@ -288,11 +299,11 @@ class Partner extends Model
             $this->delete();
 
             \Illuminate\Support\Facades\DB::commit();
-            \App\Models\User\User::$isCascading = false;
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
             return true;
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\DB::rollBack();
-            \App\Models\User\User::$isCascading = false;
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
             throw $e;
         }
     }

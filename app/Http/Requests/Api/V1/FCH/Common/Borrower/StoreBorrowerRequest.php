@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Rule;
 
 class StoreBorrowerRequest extends BaseApiRequest
 {
@@ -17,7 +18,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             // Personal Info
             'first_name'                => ['required', 'string', 'max:255'],
             'last_name'                 => ['required', 'string', 'max:255'],
-            'email'                     => ['required', 'unique:borrowers,email', 'email', 'max:255'],
+            'email'                     => ['required', Rule::unique('borrowers', 'email')->whereNull('deleted_at'), 'email', 'max:255'],
             'phone_number'              => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'], // Matching phone_number_max
             'business_website'          => ['nullable', 'max:255'],
             'business_name'             => ['nullable', 'string', 'max:255'],
