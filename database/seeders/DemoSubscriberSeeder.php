@@ -159,7 +159,7 @@ class DemoSubscriberSeeder extends Seeder
         Payment::create([
             'partner_id' => $invoice->partner_id,
             'borrower_id' => $invoice->borrower_id,
-            'invoice_id' => $invoice->invoice_id,
+            'invoice_id' => $invoice->id,
             'entity_type' => $type,
             'entity_id' => $entity->id,
             'transaction_id' => 'TXN_' . strtoupper(uniqid()),
