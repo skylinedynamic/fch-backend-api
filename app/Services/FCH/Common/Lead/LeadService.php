@@ -239,6 +239,7 @@ class LeadService
     {
         DB::beginTransaction();
         try {
+            $oldEmail = $lead->email;
             $data['updated_by'] = Auth::id();
             if (!empty($data['business_start_date'])) {
                 try {
@@ -248,6 +249,57 @@ class LeadService
                 }
             }
             $lead->update($data);
+
+            // If lead is already converted, sync changes to related records
+            if (!empty($lead->convert_to)) {
+                $newEmail = $data['email'] ?? $lead->email;
+                $newPhone = $data['phone_number'] ?? $lead->phone_number;
+                $newBusinessPhone = $data['business_phone'] ?? $lead->business_phone;
+                $newName = $data['contact_person'] ?? $lead->contact_person;
+
+                if ($lead->convert_to === 'Partner') {
+                    $partner = Partner::where('email', $oldEmail)->first();
+                    if ($partner) {
+                        $partner->update([
+                            'email' => $newEmail,
+                            'phone_number' => $newPhone,
+                            'full_name' => $newName,
+                            'contact_person' => $newName,
+                        ]);
+
+                        if ($partner->partnerUser) {
+                            $partner->partnerUser->update([
+                                'email' => $newEmail,
+                                'phone_number' => $newPhone,
+                                'name' => $newName,
+                            ]);
+                        }
+                    }
+                } elseif ($lead->convert_to === 'Borrower') {
+                    $borrower = Borrower::where('email', $oldEmail)->first();
+                    if ($borrower) {
+                        $borrower->update([
+                            'email' => $newEmail,
+                            'phone_number' => $newPhone,
+                            'first_name' => $this->getFirstName($newName),
+                            'last_name' => $this->getLastName($newName),
+                        ]);
+
+                        if ($borrower->user) {
+                            $borrower->user->update([
+                                'email' => $newEmail,
+                                'phone_number' => $newPhone,
+                                'name' => $newName,
+                            ]);
+                        }
+                    }
+                }
+
+                // Sync Invoice email
+                Invoice::where('email', $oldEmail)
+                    ->update(['email' => $newEmail]);
+            }
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {

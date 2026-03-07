@@ -23,8 +23,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
                 'max:255',
                 Rule::unique('leads', 'email')->ignore($this->route('id'))->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->ignore(
-                    \App\Models\User\User::where('entity_type', \App\Models\Lead\Lead::class)
-                        ->where('entity_id', (int) $this->route('id'))
+                    \App\Models\User\User::where('email', \App\Models\Lead\Lead::where('id', $this->route('id'))->value('email'))
                         ->value('id')
                 )->whereNull('deleted_at'),
             ],
