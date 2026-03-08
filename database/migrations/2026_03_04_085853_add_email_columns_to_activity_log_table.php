@@ -13,25 +13,45 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('activity_log', function (Blueprint $table) {
-            // Reorganizing for "accurate code" (leaning down, removing type, adding subject)
-            $table->unsignedBigInteger('partner_id')->nullable()->after('id')->index();
-            $table->unsignedBigInteger('borrower_id')->nullable()->after('partner_id')->index();
-            $table->text('to_emails')->nullable()->after('borrower_id');
+            // Drop Spatie/Old Columns if they exist
+            $columnsToDrop = [
+                'log_name', 'description', 'subject_type', 'subject_id', 
+                'causer_type', 'causer_id', 'event', 'batch_uuid'
+            ];
+
+            foreach ($columnsToDrop as $column) {
+                if (Schema::hasColumn('activity_log', $column)) {
+                    $table->dropColumn($column);
+                }
+            }
+
+            // Add requested columns if they don't exist
+            if (!Schema::hasColumn('activity_log', 'entity_type')) {
+                $table->string('entity_type')->nullable()->after('id')->index();
+            }
+            if (!Schema::hasColumn('activity_log', 'entity_id')) {
+                $table->unsignedBigInteger('entity_id')->nullable()->after('entity_type')->index();
+            }
+            if (!Schema::hasColumn('activity_log', 'partner_id')) {
+                $table->unsignedBigInteger('partner_id')->nullable()->after('entity_id')->index();
+            }
+            if (!Schema::hasColumn('activity_log', 'borrower_id')) {
+                $table->unsignedBigInteger('borrower_id')->nullable()->after('partner_id')->index();
+            }
             
-            // Add subject line for activities/emails after log_name
-            $table->string('subject')->nullable()->after('log_name');
+            if (!Schema::hasColumn('activity_log', 'status')) {
+                $table->string('status')->default('sent')->after('properties');
+            }
             
-            // reference, category, activity_date from activity form
-            $table->string('reference')->nullable()->after('properties');
-            $table->date('activity_date')->nullable()->after('reference');
-            $table->string('category')->nullable()->after('activity_date'); 
-            $table->json('attachments')->nullable()->after('category');
-            $table->string('status')->default('sent')->after('attachments');
-            
-            // Audit and Soft Deletes
-            $table->unsignedBigInteger('created_by')->nullable()->after('status');
-            $table->unsignedBigInteger('updated_by')->nullable()->after('created_by');
-            $table->softDeletes()->after('updated_by');
+            if (!Schema::hasColumn('activity_log', 'created_by')) {
+                $table->unsignedBigInteger('created_by')->nullable()->after('status');
+            }
+            if (!Schema::hasColumn('activity_log', 'updated_by')) {
+                $table->unsignedBigInteger('updated_by')->nullable()->after('created_by');
+            }
+            if (!Schema::hasColumn('activity_log', 'deleted_at')) {
+                $table->softDeletes()->after('updated_by');
+            }
         });
     }
 
@@ -39,10 +59,16 @@ return new class extends Migration
     {
         Schema::table('activity_log', function (Blueprint $table) {
             $table->dropColumn([
-                'partner_id', 'borrower_id', 'to_emails', 'subject',
-                'reference', 'activity_date', 'category', 'attachments', 
+                'entity_type', 'entity_id', 'partner_id', 'borrower_id', 
                 'status', 'created_by', 'updated_by', 'deleted_at'
             ]);
+            
+            $table->string('log_name')->nullable();
+            $table->text('description')->nullable();
+            $table->nullableMorphs('subject', 'subject');
+            $table->nullableMorphs('causer', 'causer');
+            $table->string('event')->nullable();
+            $table->uuid('batch_uuid')->nullable();
         });
     }
 };

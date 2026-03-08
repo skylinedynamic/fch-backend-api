@@ -4,8 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ActivityLog;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityRequest;
-use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreEmailRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
@@ -21,17 +20,7 @@ class ActivityLogController extends Controller
     public function index(Request $request)
     {
         try {
-            $filters = [
-                'log_name'    => $request->input('log_name'),
-                'borrower_id' => $request->input('borrower_id'),
-                'partner_id'  => $request->input('partner_id'),
-                'search'      => $request->input('search'),
-                'sort_field'  => $request->input('sort_field', 'id'),
-                'sort_order'  => $request->input('sort_order', 'desc'),
-                'per_page'    => $request->input('per_page', 10),
-                'page'        => $request->input('page', 1),
-                'filters'     => $request->input('filters', []),
-            ];
+            $filters = $request->all();
 
             return $this->activityLogService->list($filters);
         } catch (\Exception $e) {
@@ -53,28 +42,22 @@ class ActivityLogController extends Controller
     }
 
     /**
-     * Store New Activity
+     * Store a new Activity Log (Activity or Email)
      */
-    public function storeActivity(StoreActivityRequest $request)
+    public function store(StoreActivityLogRequest $request)
     {
         try {
-            $log = $this->activityLogService->createActivity($request->validated());
-            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.activity_created'), Response::HTTP_CREATED);
+            $log = $this->activityLogService->store($request->validated());
+            $messageKey = $request->log_type === 'email' ? 'activity_log.email_sent' : 'activity_log.activity_created';
+            
+            return ApiResponse::success(
+                new ActivityLogResource($log), 
+                __($messageKey), 
+                Response::HTTP_CREATED
+            );
         } catch (\Exception $e) {
-            return ApiResponse::serverError(__('activity_log.activity_create_failed'));
-        }
-    }
-
-    /**
-     * Store New Email (log and send)
-     */
-    public function storeEmail(StoreEmailRequest $request)
-    {
-        try {
-            $log = $this->activityLogService->createEmail($request->validated());
-            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.email_sent'), Response::HTTP_CREATED);
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('activity_log.email_send_failed'));
+            $errorKey = $request->log_type === 'email' ? 'activity_log.email_send_failed' : 'activity_log.activity_create_failed';
+            return ApiResponse::serverError(__($errorKey));
         }
     }
 }

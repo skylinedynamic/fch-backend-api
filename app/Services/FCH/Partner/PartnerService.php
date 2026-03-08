@@ -117,6 +117,16 @@ class PartnerService
             $user->entity_id = $partner->id;
             $user->save();
 
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Partner\Partner::class,
+                $partner->id,
+                $partner->id,
+                null,
+                'Partner Created',
+                'A new partner was created.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_CREATE
+            );
+
             $this->createPartnerRoles($partner->id, $user);
 
             $partnerType = $data['partner_type'] ?? null;
@@ -403,8 +413,19 @@ class PartnerService
                 ]);
             }
 
-            DB::commit();
             Log::info('Partner updated successfully', ['partner_id' => $partner->id]);
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Partner\Partner::class,
+                $partner->id,
+                $partner->id,
+                null,
+                'Partner Updated',
+                'Partner info was updated.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_UPDATE
+            );
+
+            DB::commit();
 
             return $partner->fresh();
         } catch (\Throwable $e) {

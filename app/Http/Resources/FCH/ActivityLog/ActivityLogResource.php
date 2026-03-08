@@ -10,25 +10,51 @@ class ActivityLogResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $partnerImage = null;
+        if ($this->relationLoaded('partner') && $this->partner) {
+            $partnerImage = $this->partner->partner_image 
+                ?? asset('avatar/avater-profile.png');
+        }
+
+        $borrowerImage = null;
+        if ($this->relationLoaded('borrower') && $this->borrower) {
+            $borrowerImage = $this->borrower->business_logo 
+                ? asset('storage/' . $this->borrower->business_logo) 
+                : asset('avatar/avater-profile.png');
+        }
+
+        $leadImage = null;
+        if ($this->entity_type === \App\Models\Lead\Lead::class && $this->entity_id) {
+            $lead = \App\Models\Lead\Lead::find($this->entity_id);
+            if ($lead) {
+                $leadImage = asset('avatar/avater-profile.png');
+            } else {
+                $leadImage = asset('avatar/avater-profile.png');
+            }
+        }
+
         return [
             'id'            => $this->id,
-            'log_name'      => $this->log_name,
+            'log_type'      => $this->log_type,
             'partner_id'    => $this->partner_id,
+            'partner_image' => $partnerImage,
             'borrower_id'   => $this->borrower_id,
+            'borrower_image'=> $borrowerImage,
+            'lead_image'    => $leadImage,
             // Activity fields
-            'reference'     => $this->reference,
-            'category'      => $this->category,
-            'activity_date' => $this->activity_date?->format('Y-m-d'),
-            'assigned_to'   => $this->assigned_to,
+            'reference'     => $this->properties['reference'] ?? null,
+            'category'      => $this->properties['category'] ?? null,
+            'activity_date' => isset($this->properties['activity_date']) ? \Carbon\Carbon::parse($this->properties['activity_date'])->format('Y-m-d') : null,
+            'assigned_to'   => $this->properties['assigned_to'] ?? null,
             'assigned_user' => $this->whenLoaded('assignedUser', fn() => [
                 'id'   => $this->assignedUser?->id,
                 'name' => $this->assignedUser?->name,
             ]),
-            'description'   => $this->description,
+            'description'   => $this->properties['description'] ?? null,
             // Email fields
-            'to_emails'     => $this->to_emails,
-            'subject'       => $this->subject,
-            'attachments'   => $this->attachments,
+            'to_emails'     => $this->properties['to_emails'] ?? null,
+            'subject'       => $this->properties['subject'] ?? null,
+            'attachments'   => $this->properties['attachments'] ?? null,
             'status'        => $this->status,
             // Audit
             'created_by'    => $this->created_by,

@@ -163,8 +163,7 @@ Route::prefix('v1')->group(function () {
             // Activity Log routes
             Route::get('activity-logs', [ActivityLogController::class, 'index']);
             Route::get('activity-logs/{id}', [ActivityLogController::class, 'show']);
-            Route::post('activity-logs/activity', [ActivityLogController::class, 'storeActivity']);
-            Route::post('activity-logs/email', [ActivityLogController::class, 'storeEmail']);
+            Route::post('activity-logs', [ActivityLogController::class, 'store']);
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);

@@ -266,6 +266,17 @@ class BorrowerService
             }
 
             $borrower = Borrower::create($borrowerData);
+            
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Borrower\Borrower::class,
+                $borrower->id,
+                $borrower->partner_id,
+                $borrower->id,
+                'Borrower Created',
+                'A new borrower was created.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_CREATE
+            );
+            
             // Create associated User if needed
             $userDataResult = null;
             $userDataResult = $this->createOrUpdateUser($data, $borrower);
@@ -476,6 +487,16 @@ class BorrowerService
                 $this->createOrUpdateUser($data, $borrower);
             }
 
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Borrower\Borrower::class,
+                $borrower->id,
+                $borrower->partner_id,
+                $borrower->id,
+                'Borrower Updated',
+                'Borrower info was updated.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_UPDATE
+            );
+
             DB::commit();
 
             // Return consistent format or just borrower? Controller expects resource.
@@ -494,6 +515,17 @@ class BorrowerService
     public function updateBusinessFinancials(Borrower $borrower, array $data)
     {
         $borrower->update($data);
+
+        app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+            \App\Models\Borrower\Borrower::class,
+            $borrower->id,
+            $borrower->partner_id,
+            $borrower->id,
+            'Borrower Financials Updated',
+            'Borrower business financials were updated.',
+            \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_UPDATE
+        );
+
         return $borrower->fresh();
     }
 

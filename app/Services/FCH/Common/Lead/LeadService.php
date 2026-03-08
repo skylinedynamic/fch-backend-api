@@ -198,6 +198,17 @@ class LeadService
             }
 
             $lead = Lead::create($data);
+            
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Lead\Lead::class,
+                $lead->id,
+                $lead->partner_id,
+                null,
+                'Lead Created',
+                'A new lead was created.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CREATE
+            );
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
@@ -223,6 +234,17 @@ class LeadService
                 }
             }
             $lead->update($data);
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Lead\Lead::class,
+                $lead->id,
+                $lead->partner_id,
+                null,
+                'Lead Updated',
+                'Lead details were updated.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_UPDATE
+            );
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
@@ -248,6 +270,17 @@ class LeadService
                 }
             }
             $lead->update($data);
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                \App\Models\Lead\Lead::class,
+                $lead->id,
+                $lead->partner_id,
+                null,
+                'Lead Updated',
+                'Lead contact info was updated.',
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_UPDATE
+            );
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
