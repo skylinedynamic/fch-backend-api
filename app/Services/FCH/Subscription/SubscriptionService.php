@@ -18,13 +18,18 @@ use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
 
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+
 class SubscriptionService
 {
     use PaginatesApi;
 
     public function __construct(
-        protected InvoiceService $invoiceService
+        protected InvoiceService $invoiceService,
+        protected ActivityLogService $activityLogService
     ) {}
+
 
     /**
      * List subscriptions with pagination and filters.
@@ -577,6 +582,19 @@ class SubscriptionService
                 Log::info('Invoice created successfully', [
                     'invoice_id' => $invoice->id ?? null,
                 ]);
+
+                // Log System Event for Batch Process Invoice Creation
+                $this->activityLogService->logSystemEvent(
+                    Invoice::class,
+                    $invoice->id,
+                    $invoice->partner_id,
+                    $invoice->borrower_id,
+                    'Batch Process Invoice Created',
+                    "System generated a {$type} invoice ({$invoice->invoice_id}) for {$invoice->customer_name} via batch process.",
+                    ActivityLog::LOG_TYPE_BATCH_PROCESS,
+                    null, // System generated constraint
+                    ['model_status' => $invoice->status]
+                );
             });
         } catch (\Exception $e) {
             // Log the error but don't throw - this allows the cron to continue processing other invoices

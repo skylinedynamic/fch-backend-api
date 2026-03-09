@@ -12,6 +12,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class CheckUserExpired extends Command
 {
@@ -34,10 +36,16 @@ class CheckUserExpired extends Command
      */
     protected $invoiceService;
 
-    public function __construct(InvoiceService $invoiceService)
+    /**
+     * @var ActivityLogService
+     */
+    protected $activityLogService;
+
+    public function __construct(InvoiceService $invoiceService, ActivityLogService $activityLogService)
     {
         parent::__construct();
         $this->invoiceService = $invoiceService;
+        $this->activityLogService = $activityLogService;
     }
 
     /**
@@ -114,7 +122,7 @@ class CheckUserExpired extends Command
 
                 try {
                     $invoiceId = $this->invoiceService->generateInvoiceId();
-                    Invoice::create([
+                    $invoice = Invoice::create([
                         'invoice_id' => $invoiceId,
                         'partner_id' => $user->partner_id,
                         'entity_type' => $user->entity_type,
@@ -126,6 +134,19 @@ class CheckUserExpired extends Command
                         'status' => Invoice::STATUS_UNPAID,
                         'created_by' => null,
                     ]);
+
+                    // Log System Event for Batch Process Invoice Creation
+                    $this->activityLogService->logSystemEvent(
+                        Invoice::class,
+                        $invoice->id,
+                        $invoice->partner_id,
+                        null,
+                        'Batch Process User Invoice Created',
+                        "System generated a renewal invoice ({$invoice->invoice_id}) for user {$invoice->customer_name} via batch process.",
+                        ActivityLog::LOG_TYPE_BATCH_PROCESS,
+                        null, // System generated constraint
+                        ['model_status' => $invoice->status]
+                    );
 
                     $this->info("Created renewal invoice for user: " . $user->email);
                 } catch (\Exception $e) {
