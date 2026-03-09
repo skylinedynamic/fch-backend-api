@@ -24,12 +24,16 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+
 class EmployeeService
 {
     use PaginatesApi, UploadsFiles;
 
     public function __construct(
-        protected InvoiceService $invoiceService
+        protected InvoiceService $invoiceService,
+        protected ActivityLogService $activityLogService
     ) {}
 
     public function getAll()
@@ -173,6 +177,19 @@ class EmployeeService
                 $employee->update(['image' => $employeeData['image']]);
             }
 
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Employee::class,
+                $employee->id,
+                $employee->partner_id,
+                null,
+                'Employee Created',
+                "New employee profile created for {$employee->first_name} {$employee->last_name}",
+                ActivityLog::LOG_TYPE_EMPLOYEE_CREATE,
+                $user?->id,
+                ['model_status' => $employee->job_status]
+            );
+
             DB::commit();
 
             return [
@@ -289,6 +306,19 @@ class EmployeeService
             // 6️⃣ Save employee
             $employee->save();
 
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Employee::class,
+                $employee->id,
+                $employee->partner_id,
+                null,
+                'Employee Updated',
+                "Employee profile updated for {$employee->first_name} {$employee->last_name}",
+                ActivityLog::LOG_TYPE_EMPLOYEE_UPDATE,
+                $user?->id,
+                ['model_status' => $employee->job_status]
+            );
+
             DB::commit();
             Log::info('Employee updated successfully', ['employee_id' => $employee->id]);
 
@@ -327,6 +357,19 @@ class EmployeeService
                 $user->delete();
                 Log::info('Linked user deleted', ['user_id' => $user->id]);
             }
+
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Employee::class,
+                $employee->id,
+                $employee->partner_id,
+                null,
+                'Employee Deleted',
+                "Employee profile deleted for {$employee->first_name} {$employee->last_name}",
+                ActivityLog::LOG_TYPE_EMPLOYEE_DELETE,
+                $user?->id,
+                ['model_status' => 'deleted']
+            );
 
             DB::commit();
 

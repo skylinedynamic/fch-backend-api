@@ -12,16 +12,18 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
-use \Illuminate\Support\Facades\DB;
-use \Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Services\FCH\InvoiceService;
-use \Illuminate\Support\Facades\Auth;
-use \Illuminate\Support\Facades\Hash;
-use \Illuminate\Support\Facades\Mail;
-use \Spatie\Permission\PermissionRegistrar;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Models\ActivityLog\ActivityLog;
+use Spatie\Permission\PermissionRegistrar;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Global\Auth\UserResource;
-use \App\Services\Global\Notification\Mail\UserCreateNotificationMail;
+use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class UserService
 {
@@ -32,7 +34,8 @@ class UserService
     use PaginatesApi;
 
     public function __construct(
-        protected InvoiceService $invoiceService
+        protected InvoiceService $invoiceService,
+        protected ActivityLogService $activityLogService
     ) {}
 
     /**
@@ -85,6 +88,19 @@ class UserService
             } else {
                 $user->invoice_id = null;
             }
+
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                User::class,
+                $user->id,
+                $user->partner_id,
+                null,
+                'User Created',
+                "New user account created for {$user->name} ({$user->email})",
+                ActivityLog::LOG_TYPE_USER_CREATE,
+                $user->id,
+                ['model_status' => $user->status]
+            );
 
             DB::commit();
         } catch (Throwable $e) {
@@ -306,6 +322,19 @@ class UserService
             if ($roleId) {
                 $this->assignRoleAndPermissions($user, $roleId);
             }
+
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                User::class,
+                $user->id,
+                $user->partner_id,
+                null,
+                'User Updated',
+                "User account details updated for {$user->name}",
+                ActivityLog::LOG_TYPE_USER_UPDATE,
+                $user->id,
+                ['model_status' => $user->status]
+            );
 
             // 📧 Send update notification if password or email changed
             if ($passwordUpdated || $emailChanged) {

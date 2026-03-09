@@ -26,6 +26,19 @@ class ActivityLog extends Model
     const LOG_TYPE_LEAD_UPDATE      = 'lead_update';
     const LOG_TYPE_BATCH_PROCESS    = 'batch_process';
     const LOG_TYPE_INVOICE_CREATE   = 'invoice_create';
+    const LOG_TYPE_USER_CREATE      = 'user_create';
+    const LOG_TYPE_USER_UPDATE      = 'user_update';
+    const LOG_TYPE_APPOINTMENT_CREATE = 'appointment_create';
+    const LOG_TYPE_APPOINTMENT_UPDATE = 'appointment_update';
+    const LOG_TYPE_APPOINTMENT_DELETE = 'appointment_delete';
+    const LOG_TYPE_ROLE_CREATE      = 'role_create';
+    const LOG_TYPE_ROLE_UPDATE      = 'role_update';
+    const LOG_TYPE_PERMISSION_UPDATE = 'permission_update';
+    const LOG_TYPE_EMPLOYEE_CREATE  = 'employee_create';
+    const LOG_TYPE_EMPLOYEE_UPDATE  = 'employee_update';
+    const LOG_TYPE_EMPLOYEE_DELETE  = 'employee_delete';
+    const LOG_TYPE_PARTNER_PAYMENT  = 'partner_payment';
+    const LOG_TYPE_BORROWER_PAYMENT = 'borrower_payment';
 
     const STATUS_SENT     = 'sent';
     const STATUS_PENDING  = 'pending';

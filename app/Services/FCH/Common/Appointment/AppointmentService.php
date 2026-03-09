@@ -21,18 +21,17 @@ use App\Mail\Appointment\AppointmentNotification;
 use App\Http\Resources\FCH\Appointment\AppointmentResource;
 use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
-use Illuminate\Support\Facades\Auth;
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class AppointmentService
 {
     use PaginatesApi;
 
-    protected $microsoftCalendarService;
-
-    public function __construct(MicrosoftCalendarService $microsoftCalendarService)
-    {
-        $this->microsoftCalendarService = $microsoftCalendarService;
-    }
+    public function __construct(
+        protected MicrosoftCalendarService $microsoftCalendarService,
+        protected ActivityLogService $activityLogService
+    ) {}
 
     /**
      * List Appointments
@@ -114,6 +113,19 @@ class AppointmentService
             */
             $syncResult = false;
 
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Appointment::class,
+                $appointment->id,
+                $appointment->scheduledBy?->partner_id,
+                null,
+                'Appointment Created',
+                "Appointment created: {$appointment->appointment_code} - {$appointment->subject}",
+                ActivityLog::LOG_TYPE_APPOINTMENT_CREATE,
+                $appointment->assigned_for,
+                ['model_status' => $appointment->status, 'appointment_code' => $appointment->appointment_code]
+            );
+
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'created');
 
@@ -171,6 +183,19 @@ class AppointmentService
             */
             $syncResult = false;
 
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Appointment::class,
+                $appointment->id,
+                $appointment->scheduledBy?->partner_id,
+                null,
+                'Appointment Updated',
+                "Appointment updated: {$appointment->appointment_code} - {$appointment->subject}",
+                ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE,
+                $appointment->assigned_for,
+                ['model_status' => $appointment->status, 'appointment_code' => $appointment->appointment_code]
+            );
+
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'updated');
 
@@ -226,6 +251,19 @@ class AppointmentService
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'deleted');
+
+            // Log System Event
+            $this->activityLogService->logSystemEvent(
+                Appointment::class,
+                $appointment->id,
+                $appointment->scheduledBy?->partner_id,
+                null,
+                'Appointment Deleted',
+                "Appointment deleted: {$appointment->appointment_code} - {$appointment->subject}",
+                ActivityLog::LOG_TYPE_APPOINTMENT_DELETE,
+                $appointment->assigned_for,
+                ['model_status' => 'deleted', 'appointment_code' => $appointment->appointment_code]
+            );
 
             DB::commit();
             return true;

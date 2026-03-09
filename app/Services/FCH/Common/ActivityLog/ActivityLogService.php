@@ -200,11 +200,17 @@ class ActivityLogService
         return $query->findOrFail($id);
     }
 
-    /**
-     * Log system-generated events directly.
-     */
-    public function logSystemEvent(string $entityType, int $entityId, ?int $partnerId, ?int $borrowerId, string $subject, string $description, string $logType = ActivityLog::TYPE_ACTIVITY, ?int $createdTo = null): void
-    {
+    public function logSystemEvent(
+        string $entityType,
+        int $entityId,
+        ?int $partnerId,
+        ?int $borrowerId,
+        string $subject,
+        string $description,
+        string $logType = ActivityLog::TYPE_ACTIVITY,
+        ?int $createdTo = null,
+        array $extraProperties = []
+    ): void {
         try {
             // Resolution Logic: If it's a Partner event, resolve the Partner's main User ID for created_to
             $finalPartnerId = $partnerId;
@@ -218,14 +224,17 @@ class ActivityLogService
             }
 
             // Strictly enforce null for Lead and Borrower create/update events as requested
-            if (in_array($logType, [
-                ActivityLog::LOG_TYPE_LEAD_CREATE, 
-                ActivityLog::LOG_TYPE_LEAD_UPDATE, 
-                ActivityLog::LOG_TYPE_BORROWER_CREATE, 
+            $excludeList = [
+                ActivityLog::LOG_TYPE_LEAD_CREATE,
+                ActivityLog::LOG_TYPE_LEAD_UPDATE,
+                ActivityLog::LOG_TYPE_BORROWER_CREATE,
                 ActivityLog::LOG_TYPE_BORROWER_UPDATE,
-                ActivityLog::LOG_TYPE_INVOICE_CREATE // borrower payment context
-            ])) {
-                $finalPartnerId = null; 
+                ActivityLog::LOG_TYPE_INVOICE_CREATE, // borrower payment context
+                ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
+            ];
+
+            if (in_array($logType, $excludeList)) {
+                $finalPartnerId = null;
                 $finalCreatedTo  = null;
             }
 
@@ -238,10 +247,10 @@ class ActivityLogService
                 'created_by'  => Auth::id() ?? 1,
                 'created_to'  => $finalCreatedTo,
                 'updated_by'  => Auth::id() ?? 1,
-                'properties'  => [
+                'properties'  => array_merge([
                     'subject'     => $subject,
                     'description' => $description,
-                ],
+                ], $extraProperties),
             ]);
         } catch (\Throwable $e) {
             Log::error('System Activity log failed', ['error' => $e->getMessage()]);
