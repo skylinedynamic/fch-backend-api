@@ -46,8 +46,11 @@ return new class extends Migration
             if (!Schema::hasColumn('activity_log', 'created_by')) {
                 $table->unsignedBigInteger('created_by')->nullable()->after('status');
             }
+            if (!Schema::hasColumn('activity_log', 'created_to')) {
+                $table->unsignedBigInteger('created_to')->nullable()->after('created_by');
+            }
             if (!Schema::hasColumn('activity_log', 'updated_by')) {
-                $table->unsignedBigInteger('updated_by')->nullable()->after('created_by');
+                $table->unsignedBigInteger('updated_by')->nullable()->after('created_to');
             }
             if (!Schema::hasColumn('activity_log', 'deleted_at')) {
                 $table->softDeletes()->after('updated_by');
@@ -60,7 +63,7 @@ return new class extends Migration
         Schema::table('activity_log', function (Blueprint $table) {
             $table->dropColumn([
                 'entity_type', 'entity_id', 'partner_id', 'borrower_id', 
-                'status', 'created_by', 'updated_by', 'deleted_at'
+                'status', 'created_by','created_to', 'updated_by', 'deleted_at'
             ]);
             
             $table->string('log_name')->nullable();

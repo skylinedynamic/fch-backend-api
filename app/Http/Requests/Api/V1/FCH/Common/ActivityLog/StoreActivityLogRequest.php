@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\ActivityLog;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\ActivityLog\ActivityLog;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\UploadedFile;
 
 class StoreActivityLogRequest extends BaseApiRequest
 {
@@ -21,12 +22,10 @@ class StoreActivityLogRequest extends BaseApiRequest
             'entity_id'     => ['nullable', 'integer'],
             'borrower_id'   => ['nullable', 'exists:borrowers,id'],
             'partner_id'    => ['nullable', 'exists:partners,id'],
-            
-            // Shared required fields
+
             'subject'       => ['required', 'string', 'max:500'],
             'description'   => ['required', 'string'],
-            
-            // Form specific fields
+
             'to_emails' => [
                 Rule::requiredIf($this->log_type === ActivityLog::TYPE_EMAIL),
                 'nullable',
@@ -34,7 +33,6 @@ class StoreActivityLogRequest extends BaseApiRequest
                 'email',
                 'max:255'
             ],
-            
             'reference'     => [
                 Rule::requiredIf($this->log_type === ActivityLog::TYPE_ACTIVITY),
                 'nullable',
@@ -48,8 +46,10 @@ class StoreActivityLogRequest extends BaseApiRequest
             ],
             'category'      => ['nullable', 'string', 'max:255'],
             'assigned_to'   => ['nullable', 'exists:users,id'],
+
+            // Attachments array
             'attachments'   => ['nullable', 'array'],
-            'attachments.*' => ['string'],
+            'attachments.*' => ['file'], // basic file check
         ];
     }
 
@@ -61,6 +61,39 @@ class StoreActivityLogRequest extends BaseApiRequest
             'activity_date.required' => __('activity_log.activity_date_required'),
             'subject.required'       => __('activity_log.subject_required'),
             'description.required'   => __('activity_log.description_required'),
+            'attachments.*.file'     => __('activity_log.attachment_file'),
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $allowedExtensions = [
+                'jpg','jpeg','png','pdf','gif','webp','svg',
+                'xls','xlsx','doc','docx','ppt','pptx','txt',
+                'zip','rar','csv'
+            ];
+            $maxSizeBytes = 5 * 1024 * 1024; // 5MB
+
+            $attachments = $this->file('attachments', []);
+
+            foreach ($attachments as $index => $file) {
+                if (!($file instanceof UploadedFile)) {
+                    $validator->errors()->add("attachments.{$index}", "File could not be read.");
+                    continue;
+                }
+
+                $ext = strtolower($file->getClientOriginalExtension());
+                $name = $file->getClientOriginalName();
+
+                if (!in_array($ext, $allowedExtensions)) {
+                    $validator->errors()->add("attachments.{$index}", "File \"{$name}\" has a restricted extension (.{$ext}). Allowed: " . implode(', ', $allowedExtensions));
+                }
+
+                if ($file->getSize() > $maxSizeBytes) {
+                    $validator->errors()->add("attachments.{$index}", "File \"{$name}\" exceeds max size of 5MB.");
+                }
+            }
+        });
     }
 }

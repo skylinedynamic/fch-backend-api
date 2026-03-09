@@ -161,9 +161,12 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('contacts', ContactController::class);
 
             // Activity Log routes
-            Route::get('activity-logs', [ActivityLogController::class, 'index']);
-            Route::get('activity-logs/{id}', [ActivityLogController::class, 'show']);
-            Route::post('activity-logs', [ActivityLogController::class, 'store']);
+            Route::prefix('activity-logs')->group(function () {
+                Route::post('attachments/download', [ActivityLogController::class, 'downloadAttachment']);
+                Route::get('/', [ActivityLogController::class, 'index']);
+                Route::get('/{id}', [ActivityLogController::class, 'show']);
+                Route::post('/', [ActivityLogController::class, 'store']);
+            });
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);

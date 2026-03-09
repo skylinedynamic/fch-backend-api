@@ -40,6 +40,7 @@ class ActivityLog extends Model
         'properties',
         'status',
         'created_by',
+        'created_to',
         'updated_by',
     ];
 
@@ -77,6 +78,11 @@ class ActivityLog extends Model
     public function creator()
     {
         return $this->belongsTo(\App\Models\User\User::class, 'created_by');
+    }
+
+    public function targetUser()
+    {
+        return $this->belongsTo(\App\Models\User\User::class, 'created_to');
     }
 
     public function scopeSearch($query, ?string $search)

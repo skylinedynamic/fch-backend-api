@@ -124,7 +124,8 @@ class PartnerService
                 null,
                 'Partner Created',
                 'A new partner was created.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_CREATE
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_CREATE,
+                $user->id
             );
 
             $this->createPartnerRoles($partner->id, $user);
@@ -422,7 +423,8 @@ class PartnerService
                 null,
                 'Partner Updated',
                 'Partner info was updated.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_UPDATE
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_UPDATE,
+                $user?->id
             );
 
             DB::commit();

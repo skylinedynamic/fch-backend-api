@@ -21,4 +21,7 @@ return [
     'description_required'    => 'Message is required.',
     // keep old key for backward compat
     'message_body_required'   => 'Message is required.',
+    'attachment_file'         => 'Each attachment must be a file.',
+    'attachment_max'          => 'Each attachment may not be greater than 5MB.',
+    'attachment_mimes'        => 'Attachments must be a file of type: jpg, jpeg, png, pdf, gif, webp, svg, xls, xlsx, doc, docx, ppt, pptx, txt.',
 ];

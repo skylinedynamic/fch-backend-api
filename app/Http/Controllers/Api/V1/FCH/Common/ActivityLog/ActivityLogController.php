@@ -9,6 +9,7 @@ use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Log;
 
 class ActivityLogController extends Controller
 {
@@ -41,13 +42,20 @@ class ActivityLogController extends Controller
         }
     }
 
-    /**
-     * Store a new Activity Log (Activity or Email)
-     */
     public function store(StoreActivityLogRequest $request)
     {
         try {
-            $log = $this->activityLogService->store($request->validated());
+            // validated() already includes validated file objects from attachments.*
+            // Do NOT re-fetch via $request->file() as it bypasses mimes/size validation
+            $data = $request->validated();
+
+            // Merge validated files back in (file inputs are validated but returned
+            // as UploadedFile objects when they pass mimes/max checks)
+            if ($request->hasFile('attachments')) {
+                $data['attachments'] = $request->validated()['attachments'] ?? [];
+            }
+
+            $log = $this->activityLogService->store($data);
             $messageKey = $request->log_type === 'email' ? 'activity_log.email_sent' : 'activity_log.activity_created';
             
             return ApiResponse::success(
@@ -58,6 +66,25 @@ class ActivityLogController extends Controller
         } catch (\Exception $e) {
             $errorKey = $request->log_type === 'email' ? 'activity_log.email_send_failed' : 'activity_log.activity_create_failed';
             return ApiResponse::serverError(__($errorKey));
+        }
+    }
+
+    /**
+     * Download activity log attachment
+     */
+    public function downloadAttachment(Request $request)
+    {
+        try {
+            $logId = $request->input('activity_log_id');
+            $path  = $request->input('path');
+
+            if (!$logId || !$path) {
+                return ApiResponse::error("activity_log_id and path are required");
+            }
+
+            return $this->activityLogService->downloadAttachment((int)$logId, $path);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), $e->getCode() ?: 400);
         }
     }
 }
