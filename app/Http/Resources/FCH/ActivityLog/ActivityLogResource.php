@@ -10,26 +10,23 @@ class ActivityLogResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $partnerImage = null;
+        $images = null;
         if ($this->relationLoaded('partner') && $this->partner) {
-            $partnerImage = $this->partner->partner_image 
-                ?? asset('avatar/avater-profile.png');
+            $images = asset('avatar/avater-partner.png');
         }
 
         $borrowerImage = null;
         if ($this->relationLoaded('borrower') && $this->borrower) {
-            $borrowerImage = $this->borrower->business_logo 
-                ? asset('storage/' . $this->borrower->business_logo) 
-                : asset('avatar/avater-profile.png');
+            $borrowerImage = asset('avatar/avater-borrower.jpg');
         }
 
         $leadImage = null;
         if ($this->entity_type === \App\Models\Lead\Lead::class && $this->entity_id) {
             $lead = \App\Models\Lead\Lead::find($this->entity_id);
             if ($lead) {
-                $leadImage = asset('avatar/avater-profile.png');
+                $leadImage = asset('avatar/avater-partner.png');
             } else {
-                $leadImage = asset('avatar/avater-profile.png');
+                $leadImage = asset('avatar/avater-partner.png');
             }
         }
 
@@ -37,7 +34,7 @@ class ActivityLogResource extends JsonResource
             'id'            => $this->id,
             'log_type'      => $this->log_type,
             'partner_id'    => $this->partner_id,
-            'partner_image' => $partnerImage,
+            'partner_image' => $images,
             'borrower_id'   => $this->borrower_id,
             'borrower_image'=> $borrowerImage,
             'lead_image'    => $leadImage,
