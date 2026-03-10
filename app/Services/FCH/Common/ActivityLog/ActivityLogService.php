@@ -38,10 +38,14 @@ class ActivityLogService
             });
         }
 
-        $logs = $query->orderBy('id', 'desc')->limit(15)->get();
+        $limit = $filters['limit'] ?? 15;
+        $page = $filters['page'] ?? 1;
 
-        return ApiResponse::success(
-            ActivityLogResource::collection($logs),
+        $logs = $query->orderBy('id', 'desc')->paginate($limit, ['*'], 'page', $page);
+
+        return $this->respondWithPaginationResource(
+            $logs, 
+            ActivityLogResource::class, 
             __('activity_log.listed')
         );
     }
