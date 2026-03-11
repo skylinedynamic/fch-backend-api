@@ -79,9 +79,6 @@ class PreQualificationService
                 'status' => PreQualificationRequest::PENDING,
             ]);
 
-            // 3. Update Lead status to Qualified
-            $lead->update(['status' => 'Qualified']);
-
             DB::commit();
 
             return [
