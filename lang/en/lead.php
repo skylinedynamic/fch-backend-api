@@ -43,4 +43,38 @@ return [
     'industry_type_note_required' => 'Industry Type Details is required when Other is selected.',
     'partner_type_required' => 'Partner Type is required.',
     'enrollment_type_required' => 'Enrollment Type is required.',
+    'contact_person_website_required' => 'The contact person field is required.',
+    'email_website_required' => 'The email field is required.',
+    'phone_number_format_invalid' => 'The phone number must be a valid USA/Canada format (e.g., (XXX) XXX-XXXX).',
+    'personal_info_saved' => 'Personal information saved successfully.',
+    'personal_info_updated' => 'Personal information updated successfully.',
+    'business_info_updated' => 'Business information updated successfully.',
+    'funding_requirements_submitted' => 'Funding requirements submitted successfully.',
+
+    // Pre-Qualification - Personal Information
+    'first_name_required' => 'First Name is required.',
+    'last_name_required' => 'Last Name is required.',
+    'email_prequal_required' => 'Email Address is required.',
+    'email_prequal_email' => 'Please enter a valid email address.',
+    'phone_number_prequal_required' => 'Phone Number is required.',
+    'state_of_incorporation_required' => 'State of Incorporation is required.',
+
+    // Pre-Qualification - Business Information
+    'business_name_required' => 'Business Name is required.',
+    'industry_type_prequal_required' => 'Industry Type is required.',
+    'business_structure_required' => 'Business Structure is required.',
+    'years_in_business_required' => 'Time in Business is required.',
+    'monthly_revenue_required' => 'Monthly Revenue is required.',
+    'monthly_revenue_numeric' => 'Monthly Revenue must be a number.',
+    'annual_revenue_required' => 'Annual Revenue is required.',
+    'annual_revenue_numeric' => 'Annual Revenue must be a number.',
+
+    // Pre-Qualification - Funding Requirements
+    'funding_requested_amount_required' => 'Funding Requested Amount is required.',
+    'funding_requested_amount_numeric' => 'Funding Requested Amount must be a number.',
+    'funding_urgency_required' => 'Funding Urgency is required.',
+    'purpose_of_funding_required' => 'Purpose of Funding is required.',
+    'personal_credit_score_required' => 'Personal Credit Score is required.',
+    'estimated_business_credit_score_required' => 'Estimated Business Credit Score is required.',
+    'existing_business_debt_required' => 'Existing Business Debt field is required.',
 ];

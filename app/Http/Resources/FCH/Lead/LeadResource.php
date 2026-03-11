@@ -60,7 +60,7 @@ class LeadResource extends JsonResource
             // Partner Details
             'partner' => [
                 'id' => $this->partner_id,
-                'full_name' => $this->partner->full_name,
+                'full_name' => $this->partner?->full_name,
             ],
 
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),

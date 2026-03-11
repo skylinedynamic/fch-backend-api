@@ -18,6 +18,7 @@ class PreQualificationRequest extends Model
     protected $fillable = [
         'borrower_id',
         'partner_id',
+        'lead_id',
         'business_id',
         'first_name',
         'last_name',
@@ -118,6 +119,11 @@ class PreQualificationRequest extends Model
     public function partner()
     {
         return $this->belongsTo(\App\Models\Partner\Partner::class);
+    }
+
+    public function lead()
+    {
+        return $this->belongsTo(\App\Models\Lead\Lead::class);
     }
 
     /**
