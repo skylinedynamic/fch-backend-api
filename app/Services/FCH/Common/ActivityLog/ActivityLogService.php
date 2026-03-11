@@ -220,26 +220,20 @@ class ActivityLogService
             $finalPartnerId = $partnerId;
             $finalCreatedTo = $createdTo;
 
-            if (!$finalCreatedTo && $finalPartnerId) {
+            if (!$finalCreatedTo && $finalPartnerId && !$borrowerId) {
                 $partner = \App\Models\Partner\Partner::find($finalPartnerId);
                 if ($partner && $partner->partnerUser) {
                     $finalCreatedTo = $partner->partnerUser->id;
                 }
             }
 
-            // Strictly enforce null for Lead and Borrower create/update events as requested
-            $excludeList = [
-                ActivityLog::LOG_TYPE_LEAD_CREATE,
-                ActivityLog::LOG_TYPE_LEAD_UPDATE,
-                ActivityLog::LOG_TYPE_BORROWER_CREATE,
-                ActivityLog::LOG_TYPE_BORROWER_UPDATE,
-                ActivityLog::LOG_TYPE_INVOICE_CREATE, // borrower payment context
-                ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
-            ];
+            if (!$finalPartnerId && Auth::check() && Auth::user()->partner_id) {
+                $finalPartnerId = Auth::user()->partner_id;
+            }
 
-            if (in_array($logType, $excludeList)) {
-                $finalPartnerId = null;
-                $finalCreatedTo  = null;
+            // Strictly enforce null for Lead and Borrower related events as requested
+            if ($borrowerId || str_contains($logType, 'lead') || str_contains($logType, 'borrower')) {
+                $finalCreatedTo = null;
             }
 
             ActivityLog::create([

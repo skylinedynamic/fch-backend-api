@@ -494,6 +494,7 @@ class SubscriptionService
                         return;
                     }
 
+                    $entity->loadMissing('partner');
                     $partner = $entity->partner;
                     if (!$partner || $partner->status !== Partner::STATUS_ACTIVE) {
                         return;
@@ -551,7 +552,6 @@ class SubscriptionService
                 $isPartnerPaying = false;
 
                 if ($subscription->entity_type === Borrower::class) {
-                    $entity->loadMissing('partner');
                     // $isPartnerPaying = $entity->partner?->is_host != 1;
                     $partnerId = $entity->partner_id;
                 } else {

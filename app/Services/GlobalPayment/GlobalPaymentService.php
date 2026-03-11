@@ -381,6 +381,8 @@ class GlobalPaymentService
                     'created_by' => Auth::id(),
                 ]);
 
+                $quantity = (int) ($data['quantity'] ?? 1);
+
                 // Log Activity Event
                 $this->activityLogService->logSystemEvent(
                     Payment::class,
@@ -401,7 +403,6 @@ class GlobalPaymentService
                 );
 
                 // 4. Update Partner Paid User Count
-                $quantity = (int) ($data['quantity'] ?? 1);
                 $partner->update([
                     'total_paid_users' => $partner->total_paid_users + $quantity,
                 ]);
