@@ -26,7 +26,8 @@ class PaymentService
         $query = Payment::where('is_partner_paying', false)
             ->with([
                 'partner:id,full_name',
-                'borrower:id,first_name,last_name'
+                'borrower:id,first_name,last_name',
+                'invoice:id,invoice_id'
             ])
             ->where('payments.borrower_id', $borrowerId)
             ->select('payments.*');
@@ -74,6 +75,23 @@ class PaymentService
         $rawFilters = $filters['filters'] ?? [];
         unset($rawFilters['global']);
 
+        // Handle structured filter for invoice_id (INV-...)
+        if (isset($rawFilters['invoice_id'])) {
+            $invoiceFilter = $rawFilters['invoice_id'];
+            $constraints = $invoiceFilter['constraints'] ?? [$invoiceFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('invoice', function ($q) use ($value) {
+                            $q->where('invoice_id', 'like', "%{$value}%");
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['invoice_id']);
+        }
+
         // Manual Date Handling for structured filters
         if (isset($rawFilters['date'])) {
             $dateFilter = $rawFilters['date'];
@@ -109,6 +127,13 @@ class PaymentService
             $actualSortField = 'payments.' . $actualSortField;
         }
 
+        $skipSorting = false;
+        if ($sortField === 'invoice_id') {
+            $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
+                ->orderBy('invoices.invoice_id', $sortOrder);
+            $skipSorting = true;
+        }
+
         // Apply remaining filters via QueryFilter
         $query = QueryFilter::apply(
             $query,
@@ -116,6 +141,7 @@ class PaymentService
             $sortOrder,
             $rawFilters,
             [
+                'skip_sorting' => $skipSorting,
                 'aliases' => [
                     'from' => 'payment_from',
                     'transaction_id' => 'transaction_id',
@@ -179,7 +205,7 @@ class PaymentService
         $authUser = Auth::user();
         $borrowerId = $authUser->entity_id;
 
-        $payment = Payment::with(['partner', 'borrower'])
+        $payment = Payment::with(['partner', 'borrower', 'invoice'])
             ->where('partner_id', auth()->user()->partner_id)
             ->where('borrower_id', $borrowerId)
             ->find($id);

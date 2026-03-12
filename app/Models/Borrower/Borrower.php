@@ -160,7 +160,10 @@ class Borrower extends Model
      */
     public function isDeletable(): bool
     {
-        return !$this->invoices()->where('status', Invoice::STATUS_PAID)->exists();
+        // Check if there are any Paid or Successful invoices
+        return !$this->invoices()
+            ->whereIn('status', [Invoice::STATUS_PAID])
+            ->exists();
     }
 
     /**
@@ -168,20 +171,17 @@ class Borrower extends Model
      */
     public function safeDeleteWithRelations(): bool
     {
-        if (\App\Models\User\User::$isCascading) {
-            return true;
-        }
-
         if (!$this->isDeletable()) {
             throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
         }
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            $isAlreadyCascading = \App\Models\User\User::$isCascading;
             \App\Models\User\User::$isCascading = true;
 
-            // 1. Delete associated User recursively
-            if ($this->user) {
+            // 1. Delete associated User recursively (only if not already cascading)
+            if (!$isAlreadyCascading && $this->user) {
                 // Use safeDelete to clean up user's own relations if any
                 $this->user->safeDeleteWithRelations();
             }
@@ -195,8 +195,10 @@ class Borrower extends Model
                 $sub->delete();
             });
 
-            // 4. Delete Invoices (Unpaid only - checked by isDeletable above)
-            $this->invoices()->delete();
+            // 4. Delete Invoices (Unpaid only - double checked for safety)
+            $this->invoices()
+                ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
+                ->delete();
 
             // 5. Delete other relations
             $this->fundingApplications()->delete();
@@ -207,11 +209,11 @@ class Borrower extends Model
             $this->delete();
 
             \Illuminate\Support\Facades\DB::commit();
-            \App\Models\User\User::$isCascading = false;
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
             return true;
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\DB::rollBack();
-            \App\Models\User\User::$isCascading = false;
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
             throw $e;
         }
     }

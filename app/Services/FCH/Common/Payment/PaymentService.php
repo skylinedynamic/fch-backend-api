@@ -25,7 +25,8 @@ class PaymentService
         $query = Payment::query()
             ->with([
                 'partner:id,full_name',
-                'borrower:id,first_name,last_name'
+                'borrower:id,first_name,last_name',
+                'invoice:id,invoice_id'
             ])
             ->select('payments.*');
 
@@ -112,12 +113,66 @@ class PaymentService
             unset($rawFilters['date']);
         }
 
+        // Handle structured filter for invoice_id (INV-...)
+        if (isset($rawFilters['invoice_id'])) {
+            $invoiceFilter = $rawFilters['invoice_id'];
+            $constraints = $invoiceFilter['constraints'] ?? [$invoiceFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('invoice', function ($q) use ($value) {
+                            $q->where('invoice_id', 'like', "%{$value}%");
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['invoice_id']);
+        }
+
+        // Handle "partner_name" filter
+        if (isset($rawFilters['partner_name'])) {
+            $partnerNameFilter = $rawFilters['partner_name'];
+            $constraints = $partnerNameFilter['constraints'] ?? [$partnerNameFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('partner', function ($pq) use ($value) {
+                            $pq->where('full_name', 'like', "%{$value}%");
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['partner_name']);
+        }
+
+        // Handle "borrower_name" filter
+        if (isset($rawFilters['borrower_name'])) {
+            $borrowerNameFilter = $rawFilters['borrower_name'];
+            $constraints = $borrowerNameFilter['constraints'] ?? [$borrowerNameFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('borrower', function ($bq) use ($value) {
+                            $bq->where('first_name', 'like', "%{$value}%")
+                                ->orWhere('last_name', 'like', "%{$value}%")
+                                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$value}%"]);
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['borrower_name']);
+        }
+
         // Handle "company" filter specifically
         if (isset($rawFilters['company'])) {
             $companyFilter = $rawFilters['company'];
-            if (isset($companyFilter['constraints']) && is_array($companyFilter['constraints'])) {
-                foreach ($companyFilter['constraints'] as $constraint) {
-                    $value = $constraint['value'] ?? null;
+            $constraints = $companyFilter['constraints'] ?? [$companyFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
                     if ($value) {
                         $query->where(function ($q) use ($value) {
                             $q->whereHas('partner', function ($pq) use ($value) {
@@ -159,11 +214,23 @@ class PaymentService
         }
         $skipSorting = false;
 
-        // Company Sorting
+        // Sorting for Custom Fields
         if ($sortField === 'company') {
             $query->leftJoin('partners', 'payments.partner_id', '=', 'partners.id')
                 ->leftJoin('borrowers', 'payments.borrower_id', '=', 'borrowers.id')
                 ->orderBy(DB::raw('COALESCE(partners.company_name, borrowers.business_name)'), $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'invoice_id') {
+            $query->leftJoin('invoices', 'payments.invoice_id', '=', 'invoices.id')
+                ->orderBy('invoices.invoice_id', $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'partner_name') {
+            $query->leftJoin('partners', 'payments.partner_id', '=', 'partners.id')
+                ->orderBy('partners.full_name', $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'borrower_name') {
+            $query->leftJoin('borrowers', 'payments.borrower_id', '=', 'borrowers.id')
+                ->orderBy(DB::raw("CONCAT(borrowers.first_name, ' ', borrowers.last_name)"), $sortOrder);
             $skipSorting = true;
         }
 
@@ -239,7 +306,7 @@ class PaymentService
      */
     public function find($id)
     {
-        $payment = Payment::with(['partner', 'borrower'])->find($id);
+        $payment = Payment::with(['partner', 'borrower', 'invoice'])->find($id);
         return $payment ? new PaymentResource($payment) : null;
     }
 }

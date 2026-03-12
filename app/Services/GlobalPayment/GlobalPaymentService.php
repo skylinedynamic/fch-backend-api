@@ -120,7 +120,7 @@ class GlobalPaymentService
                 $payment = Payment::create([
                     'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                     'borrower_id' => $borrowerId,
-                    'invoice_id' => $invoice ? $invoice->invoice_id : null,
+                    'invoice_id' => $invoice ? $data['invoice_id'] : null,
                     'entity_type' => $invoice->entity_type,
                     'entity_id' => $invoice->entity_id,
                     'transaction_id' => $paymentIntent->id,
@@ -239,7 +239,7 @@ class GlobalPaymentService
             Payment::create([
                 'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
                 'borrower_id' => $invoice->borrower_id ?? null,
-                'invoice_id' => $invoice ? $invoice->invoice_id : null,
+                'invoice_id' => $invoice ? $data['invoice_id'] : null,
                 'entity_type' => $data['entity_type'] ?? null,
                 'entity_id' => $data['entity_id'] ?? null,
                 'transaction_id' => 'FAILED_' . uniqid(),
@@ -367,7 +367,7 @@ class GlobalPaymentService
                 // 3. Create Payment
                 $payment = Payment::create([
                     'partner_id' => $partner->id,
-                    'invoice_id' => $invoice->invoice_id,
+                    'invoice_id' => $data['invoice_id'],
                     'entity_type' => User::class,
                     'entity_id' => $data['user_id'],
                     'transaction_id' => $paymentIntent->id,
