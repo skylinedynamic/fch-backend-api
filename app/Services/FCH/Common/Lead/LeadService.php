@@ -15,8 +15,6 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Partner\PartnerService;
-use App\Services\FCH\InvoiceService;
-use App\Models\Invoice\Invoice;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use Illuminate\Support\Facades\Auth;
@@ -33,8 +31,7 @@ class LeadService
 
     public function __construct(
         protected BorrowerService $borrowerService,
-        protected PartnerService $partnerService,
-        protected InvoiceService $invoiceService
+        protected PartnerService $partnerService
     ) {}
 
     /**
@@ -250,56 +247,6 @@ class LeadService
             }
             $lead->update($data);
 
-            // If lead is already converted, sync changes to related records
-            // if (!empty($lead->convert_to)) {
-            //     $newEmail = $data['email'] ?? $lead->email;
-            //     $newPhone = $data['phone_number'] ?? $lead->phone_number;
-            //     $newBusinessPhone = $data['business_phone'] ?? $lead->business_phone;
-            //     $newName = $data['contact_person'] ?? $lead->contact_person;
-
-            //     if ($lead->convert_to === 'Partner') {
-            //         $partner = Partner::where('email', $oldEmail)->first();
-            //         if ($partner) {
-            //             $partner->update([
-            //                 'email' => $newEmail,
-            //                 'phone_number' => $newPhone,
-            //                 'full_name' => $newName,
-            //                 'contact_person' => $newName,
-            //             ]);
-
-            //             if ($partner->partnerUser) {
-            //                 $partner->partnerUser->update([
-            //                     'email' => $newEmail,
-            //                     'phone_number' => $newPhone,
-            //                     'name' => $newName,
-            //                 ]);
-            //             }
-            //         }
-            //     } elseif ($lead->convert_to === 'Borrower') {
-            //         $borrower = Borrower::where('email', $oldEmail)->first();
-            //         if ($borrower) {
-            //             $borrower->update([
-            //                 'email' => $newEmail,
-            //                 'phone_number' => $newPhone,
-            //                 'first_name' => $this->getFirstName($newName),
-            //                 'last_name' => $this->getLastName($newName),
-            //             ]);
-
-            //             if ($borrower->user) {
-            //                 $borrower->user->update([
-            //                     'email' => $newEmail,
-            //                     'phone_number' => $newPhone,
-            //                     'name' => $newName,
-            //                 ]);
-            //             }
-            //         }
-            //     }
-
-            //     // Sync Invoice email
-            //     Invoice::where('email', $oldEmail)
-            //         ->update(['email' => $newEmail]);
-            // }
-
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
@@ -314,13 +261,6 @@ class LeadService
      */
     public function delete(Lead $lead): bool
     {
-
-        if ($this->cannotDeleteConvertedLead($lead)) {
-            throw new \Exception(__('lead.cannot_delete_converted_paid_lead'));
-        }
-
-        $this->cleanupConvertedLeadData($lead);
-
         return $lead->delete();
     }
 
@@ -331,84 +271,9 @@ class LeadService
     {
         if (empty($ids)) return false;
 
-        $leads = Lead::whereIn('id', $ids)->get();
-        foreach ($leads as $lead) {
-            if ($this->cannotDeleteConvertedLead($lead)) {
-                throw new \Exception(__('lead.cannot_delete_converted_paid_lead'));
-            }
-        }
-
-        foreach ($leads as $lead) {
-            $this->cleanupConvertedLeadData($lead);
-        }
-
         return Lead::whereIn('id', $ids)->delete();
     }
 
-    /**
-     * Check if a converted lead cannot be deleted (e.g., already paid).
-     */
-    private function cannotDeleteConvertedLead(Lead $lead): bool
-    {
-        if (!empty($lead->convert_to) && $lead->email) {
-            $isPaid = Invoice::where('email', $lead->email)
-                ->where('status', Invoice::STATUS_PAID)
-                ->exists();
-
-            if ($isPaid) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Clean up data associated with a converted lead if unpaid.
-     */
-    private function cleanupConvertedLeadData(Lead $lead): void
-    {
-       
-        if (!empty($lead->convert_to) && $lead->email) {
-            // First clean up the target entity (Borrower/Partner) directly if it has a safe cascader
-            if ($lead->convert_to === 'Partner') {
-                $partner = Partner::where('email', $lead->email)->first();
-                if ($partner && method_exists($partner, 'safeDeleteWithRelations')) {
-                    $partner->safeDeleteWithRelations();
-                } elseif ($partner) {
-                    $partner->delete();
-                }
-            } elseif ($lead->convert_to === 'Borrower') {
-                $borrower = Borrower::where('email', $lead->email)->first();
-         
-                if ($borrower && method_exists($borrower, 'safeDeleteWithRelations')) {
-                    $borrower->safeDeleteWithRelations();
-                } elseif ($borrower) {
-                    $borrower->delete();
-                }
-            }
-
-            // Clean up the User, which also handles stray Subscriptions/Invoices if the entity failed
-            $user = User::where('email', $lead->email)->first();
- 
-            if ($user) {
-                $user->delete();
-            } elseif ($user) {
-                Invoice::where('email', $lead->email)->delete();
-                
-                \App\Models\Subscription\Subscription::where('entity_type', User::class)
-                    ->where('entity_id', $user->id)->get()->each(function ($sub) {
-                        $sub->allPhases()->delete();
-                        $sub->delete();
-                    });
-
-                $user->delete();
-            }
-            
-            // Absolute fail-safe for orphaned Invoices with this email
-            Invoice::where('email', $lead->email)->delete();
-        }
-    }
 
     /**
      * Find lead by ID.
