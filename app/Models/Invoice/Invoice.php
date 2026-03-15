@@ -67,6 +67,11 @@ class Invoice extends Model
             ->whereColumn('entity_type', 'entity_type');
     }
 
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Payment\Payment::class, 'invoice_id');
+    }
+
     /**
      * Scope: apply text search across common invoice fields.
      */

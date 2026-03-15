@@ -546,6 +546,7 @@ class BorrowerService
      */
     public function delete(array $ids)
     {
+      
         try {
             DB::beginTransaction();
             $borrowers = Borrower::whereIn('id', $ids)->get();

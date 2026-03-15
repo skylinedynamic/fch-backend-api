@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
+use Illuminate\Validation\Rule;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -21,7 +22,13 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'last_name'                 => ['sometimes', 'required', 'string', 'max:255'],
             // 'email'                     => ['sometimes', 'required', 'email', 'max:255'],
             'phone_number'              => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
-            'email'                     => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . User::where('entity_type', Borrower::class)->where('entity_id', (int) $this->route('id'))->value('id')],
+            'email'                     => [
+                'sometimes',
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore(User::where('entity_type', Borrower::class)->where('entity_id', (int)$this->route('id'))->value('id'))->whereNull('deleted_at')
+            ],
 
             // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
             'country'                   => ['nullable', 'string', 'max:255'],

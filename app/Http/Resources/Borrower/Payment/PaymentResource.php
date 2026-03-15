@@ -24,7 +24,8 @@ class PaymentResource extends JsonResource
             'payment_type' => $this->payment_type ?? __('payment.na'),
             'company' => $this->getCompanyName(),
             'details' => $this->getPaymentDetails(),
-            'invoice_id' => $this->invoice_id,
+            'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
+            'invoice_no' => $this->invoice?->invoice_id,
             'transaction_id' => $this->transaction_id,
             'amount' => $this->amount,
             'currency' => $this->currency,
@@ -52,7 +53,11 @@ class PaymentResource extends JsonResource
 
     private function getPaymentDetails(): string
     {
-        // Try to find if there's an invoice linked
+        if ($this->invoice) {
+            return __('payment.invoice') . ' ' . $this->invoice->invoice_id;
+        }
+
+        // Fallback for older data or missing relations
         $invoice = Invoice::where('entity_id', $this->entity_id)
             ->where('entity_type', $this->entity_type)
             ->where('status', 'Paid')

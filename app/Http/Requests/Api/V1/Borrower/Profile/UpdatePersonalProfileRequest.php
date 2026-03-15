@@ -30,7 +30,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users', 'email')->ignore(Auth::id())
+                Rule::unique('users', 'email')->ignore(Auth::id())->whereNull('deleted_at')
             ],
             'phone_number' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'country' => 'required|string|max:255',

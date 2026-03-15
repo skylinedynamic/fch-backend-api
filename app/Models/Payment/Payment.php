@@ -43,6 +43,11 @@ class Payment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function invoice()
+    {
+        return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'invoice_id');
+    }
+
     /**
      * Scope: apply text search across common payment fields.
      */
@@ -59,7 +64,6 @@ class Payment extends Model
                 ->orWhere('payments.payment_from', 'like', "%{$search}%")
                 ->orWhere('payments.payment_type', 'like', "%{$search}%")
                 ->orWhere('payments.amount', 'like', "%{$search}%")
-                ->orWhere('payments.invoice_id', 'like', "%{$search}%")
                 ->orWhere('payments.transaction_date', 'like', "%{$search}%");
 
             // Accurate Status Matching: Prevent "Paid" from matching "Unpaid"
@@ -79,6 +83,9 @@ class Payment extends Model
                         ->orWhere('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+                })
+                ->orWhereHas('invoice', function ($iq) use ($search) {
+                    $iq->where('invoice_id', 'like', "%{$search}%");
                 });
         });
     }

@@ -31,12 +31,12 @@ class UpdateLeadRequest extends BaseApiRequest
                 'nullable',
                 'email',
                 'max:255',
-                Rule::unique('leads', 'email')->ignore($this->route('lead')),
+                Rule::unique('leads', 'email')->ignore($this->route('lead'))->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->ignore(
                     \App\Models\User\User::where('entity_type', \App\Models\Lead\Lead::class)
                         ->where('entity_id', (int) $this->route('lead'))
                         ->value('id')
-                ),
+                )->whereNull('deleted_at'),
             ],
             'legal_business_name' => ['nullable', 'string', 'max:255'],
             'business_ein' => ['nullable', 'string', 'max:20'],

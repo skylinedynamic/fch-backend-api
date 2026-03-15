@@ -22,7 +22,7 @@ class BorrowerRegistrationRequest extends BaseApiRequest
             'signup_id' => ['required','string',Rule::exists('signup_ids', 'signup_id')],
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => ['required', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')],
             'phone_number' => 'required|string|max:20',
             'state' => 'required|string|max:255',
             'country' => 'required|string|max:255',
