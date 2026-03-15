@@ -236,7 +236,14 @@ class LeadService
             $newProbability = $data['probability'] ?? $oldProbability;
             $isProbChange = $oldProbability != $newProbability;
 
+            $oldFirstName = $lead->first_name;
+            $oldLastName = $lead->last_name;
+            $oldCompany = $lead->company_name;
+
             $lead->update($data);
+
+            $isNameChange = $oldFirstName != $lead->first_name || $oldLastName != $lead->last_name;
+            $isCompanyChange = $oldCompany != $lead->company_name;
 
             $customDescription = null;
             if ($isStatusChange && $isSalespersonChange) {
@@ -247,14 +254,19 @@ class LeadService
                 $customDescription = "Lead assigned salesperson was changed.";
             } elseif ($isProbChange) {
                 $customDescription = "Lead conversion probability updated to {$newProbability}.";
+            } elseif ($isNameChange && $isCompanyChange) {
+                $customDescription = "Lead name and company profile were updated.";
+            } elseif ($isNameChange) {
+                $customDescription = "Lead name was updated to {$lead->full_name}.";
+            } elseif ($isCompanyChange) {
+                $customDescription = "Lead company name was updated to {$lead->company_name}.";
             }
 
             // Log Lead Update ONLY if relevant details changed
-            if ($isStatusChange || $isSalespersonChange || $isProbChange) {
+            if ($isStatusChange || $isSalespersonChange || $isProbChange || $isNameChange || $isCompanyChange) {
                 $this->activityLogService->logModelEvent(
                     $lead, 
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
-                    null,
                     [],
                     null,
                     $customDescription

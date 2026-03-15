@@ -369,17 +369,40 @@ class PartnerService
             $newEmail = $data['email'] ?? $oldEmail;
             $isEmailChange = $oldEmail !== $newEmail;
 
+            $oldFirstName = $partner->first_name;
+            $oldLastName = $partner->last_name;
+            $oldCompany = $partner->company_name;
+
             // Update partner
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
+
+            $isNameChange = $oldFirstName != $partner->first_name || $oldLastName != $partner->last_name;
+            $isCompanyChange = $oldCompany != $partner->company_name;
 
             // Log Email Update ONLY if email changes
             if ($isEmailChange) {
                 $this->activityLogService->logModelEvent(
                     $partner, 
                     ActivityLog::LOG_TYPE_EMAIL_UPDATE,
-                    null,
                     ['new_email' => $newEmail]
+                );
+            } elseif ($isNameChange || $isCompanyChange) {
+                $customDesc = null;
+                if ($isNameChange && $isCompanyChange) {
+                    $customDesc = "Partner name and company profile were updated.";
+                } elseif ($isNameChange) {
+                    $customDesc = "Partner name was updated to {$partner->full_name}.";
+                } elseif ($isCompanyChange) {
+                    $customDesc = "Partner company name was updated to {$partner->company_name}.";
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $partner, 
+                    ActivityLog::LOG_TYPE_PARTNER_UPDATE,
+                    [],
+                    null,
+                    $customDesc
                 );
             }
 

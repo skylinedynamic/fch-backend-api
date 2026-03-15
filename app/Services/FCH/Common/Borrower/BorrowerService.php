@@ -416,15 +416,38 @@ class BorrowerService
             $newEmail = $data['email'] ?? $oldEmail;
             $isEmailChange = $oldEmail !== $newEmail;
 
+            $oldFirstName = $borrower->first_name;
+            $oldLastName = $borrower->last_name;
+            $oldBusiness = $borrower->business_name;
+
             $borrower->update($borrowerData);
+
+            $isNameChange = $oldFirstName != $borrower->first_name || $oldLastName != $borrower->last_name;
+            $isBusinessChange = $oldBusiness != $borrower->business_name;
 
             // Log Email Update ONLY if email changes
             if ($isEmailChange) {
                 $this->activityLogService->logModelEvent(
                     $borrower, 
                     ActivityLog::LOG_TYPE_EMAIL_UPDATE,
-                    null,
                     ['new_email' => $newEmail]
+                );
+            } elseif ($isNameChange || $isBusinessChange) {
+                $customDesc = null;
+                if ($isNameChange && $isBusinessChange) {
+                    $customDesc = "Client name and business profile were updated.";
+                } elseif ($isNameChange) {
+                    $customDesc = "Client name was updated to {$borrower->full_name}.";
+                } elseif ($isBusinessChange) {
+                    $customDesc = "Client business name was updated to {$borrower->business_name}.";
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $borrower, 
+                    ActivityLog::LOG_TYPE_BORROWER_UPDATE,
+                    [],
+                    null,
+                    $customDesc
                 );
             }
 
