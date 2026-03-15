@@ -20,6 +20,9 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 use App\Models\Subscription\Subscription;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 class Partner extends Model
 {
@@ -306,5 +309,11 @@ class Partner extends Model
             \App\Models\User\User::$isCascading = $isAlreadyCascading;
             throw $e;
         }
+    }
+
+
+    public function getEntityImage(): string
+    {
+        return $this->partner_image ?? asset('avatar/avater-partner.png');
     }
 }

@@ -94,16 +94,9 @@ class RoleService
             }
             
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Role::class,
-                $role->id,
-                $role->partner_id,
-                null,
-                'Role Created',
-                "New role created: {$role->name} ({$role->code})",
-                ActivityLog::LOG_TYPE_ROLE_CREATE,
-                null,
-                ['model_status' => 'active']
+            $this->activityLogService->logModelEvent(
+                $role,
+                ActivityLog::LOG_TYPE_ROLE_CREATE
             );
 
             DB::commit();
@@ -146,16 +139,9 @@ class RoleService
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Role::class,
-                $role->id,
-                $role->partner_id,
-                null,
-                'Role Updated',
-                "Role updated: {$role->name}",
-                ActivityLog::LOG_TYPE_ROLE_UPDATE,
-                null,
-                ['model_status' => 'active']
+            $this->activityLogService->logModelEvent(
+                $role,
+                ActivityLog::LOG_TYPE_ROLE_UPDATE
             );
 
             return $role->load('permissions');
@@ -242,17 +228,7 @@ class RoleService
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Role::class,
-                $role->id,
-                $role->partner_id,
-                null,
-                'Permissions Assigned to Role',
-                "New permissions assigned to role: {$role->name}",
-                ActivityLog::LOG_TYPE_PERMISSION_UPDATE,
-                null,
-                ['model_status' => 'active']
-            );
+            $this->activityLogService->logModelEvent($role, ActivityLog::LOG_TYPE_PERMISSION_UPDATE);
 
             return $role->load('permissions');
         });

@@ -25,6 +25,7 @@ use App\Models\Partner\SubscriptionPlan;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\BorrowerSignupId;
 use App\Models\Subscription\Subscription;
+use App\Models\ActivityLog\ActivityLog;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
@@ -39,7 +40,8 @@ class BorrowerService
 
     public function __construct(
         protected InvoiceService $invoiceService,
-        protected SubscriptionService $subscriptionService
+        protected SubscriptionService $subscriptionService,
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
     ) {}
 
     /**
@@ -266,16 +268,9 @@ class BorrowerService
             }
 
             $borrower = Borrower::create($borrowerData);
-            
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
-                \App\Models\Borrower\Borrower::class,
-                $borrower->id,
-                $borrower->partner_id,
-                $borrower->id,
-                'Borrower Created',
-                'A new borrower was created.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_CREATE
-            );
+
+            // Log Borrower Creation
+            $this->activityLogService->logModelEvent($borrower, ActivityLog::LOG_TYPE_BORROWER_CREATE);
             
             // Create associated User if needed
             $userDataResult = null;
@@ -338,6 +333,9 @@ class BorrowerService
                     'is_partner_paying' => $isHostCreating ? false : true,
                     'is_platform_fee' => false,
                 ]);
+
+                // Log Invoice Creation
+                $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
                 $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [
                     'monthly_platform_fee' => 0,
@@ -416,6 +414,9 @@ class BorrowerService
             }
             $borrower->update($borrowerData);
 
+            // Log Borrower Update
+            $this->activityLogService->logModelEvent($borrower, ActivityLog::LOG_TYPE_BORROWER_UPDATE);
+
             // Update subscription if custom enrollment payment is provided
             $subscription = $borrower->latestSubscription;
             if ($subscription) {
@@ -487,16 +488,6 @@ class BorrowerService
                 $this->createOrUpdateUser($data, $borrower);
             }
 
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
-                \App\Models\Borrower\Borrower::class,
-                $borrower->id,
-                $borrower->partner_id,
-                $borrower->id,
-                'Borrower Updated',
-                'Borrower info was updated.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_UPDATE
-            );
-
             DB::commit();
 
             // Return consistent format or just borrower? Controller expects resource.
@@ -515,17 +506,6 @@ class BorrowerService
     public function updateBusinessFinancials(Borrower $borrower, array $data)
     {
         $borrower->update($data);
-
-        app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
-            \App\Models\Borrower\Borrower::class,
-            $borrower->id,
-            $borrower->partner_id,
-            $borrower->id,
-            'Borrower Financials Updated',
-            'Borrower business financials were updated.',
-            \App\Models\ActivityLog\ActivityLog::LOG_TYPE_BORROWER_UPDATE
-        );
-
         return $borrower->fresh();
     }
 

@@ -32,6 +32,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'entity_id'     => ['nullable', 'integer'],
             'borrower_id'   => ['nullable', 'exists:borrowers,id'],
             'partner_id'    => ['nullable', 'exists:partners,id'],
+            'lead_id'       => ['nullable', 'exists:leads,id'],
 
             'subject'       => ['required', 'string', 'max:500'],
             'description'   => ['required', 'string'],

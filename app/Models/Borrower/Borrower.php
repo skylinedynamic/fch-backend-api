@@ -10,9 +10,12 @@ use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Borrower\BorrowerDocument;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Subscription\Subscription;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 
 class Borrower extends Model
@@ -244,5 +247,16 @@ class Borrower extends Model
                 })
                 ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
         });
+    }
+
+
+    public function getEntityImage(): string
+    {
+        return $this->image ?? asset('avatar/avater-borrower.jpg');
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $value ? encodeUrl(asset("storage/{$value}")) : null;
     }
 }

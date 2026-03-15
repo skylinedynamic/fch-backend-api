@@ -8,10 +8,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 class Lead extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, LogsActivity;
 
     protected $table = 'leads';
 
@@ -74,5 +77,40 @@ class Lead extends Model
                     $sq->where('full_name', 'like', "%{$search}%");
                 });
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontLogIfAttributesChangedOnly(['updated_at'])
+            ->useLogName('lead');
+    }
+
+    public function tapActivity(Activity $activity, string $eventName)
+    {
+        $activity->entity_type = \App\Models\Lead\Lead::class;
+        $activity->entity_id   = $this->id;
+        $activity->partner_id  = $this->partner_id;
+
+        $isStatusUpdate = $this->isDirty('status');
+        $isAgentUpdate = $this->isDirty('salesperson_id');
+
+        if ($eventName === 'updated') {
+            if ($isStatusUpdate && $isAgentUpdate) {
+                $activity->description = "Lead status and assigned salesperson were updated.";
+            } elseif ($isStatusUpdate) {
+                $activity->description = "Lead status updated to {$this->status}.";
+            } elseif ($isAgentUpdate) {
+                $activity->description = "Lead assigned salesperson was changed.";
+            }
+        }
+
+        $activity->log_type = match($eventName) {
+            'created' => \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CREATE,
+            'updated' => \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_UPDATE,
+            default   => \App\Models\ActivityLog\ActivityLog::LOG_TYPE_ACTIVITY,
+        };
     }
 }

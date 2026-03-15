@@ -136,16 +136,9 @@ class CheckUserExpired extends Command
                     ]);
 
                     // Log System Event for Batch Process Invoice Creation
-                    $this->activityLogService->logSystemEvent(
-                        Invoice::class,
-                        $invoice->id,
-                        $invoice->partner_id,
-                        null,
-                        'Batch Process User Invoice Created',
-                        "System generated a renewal invoice ({$invoice->invoice_id}) for user {$invoice->customer_name} via batch process.",
-                        ActivityLog::LOG_TYPE_BATCH_PROCESS,
-                        null, // System generated constraint
-                        ['model_status' => $invoice->status]
+                    $this->activityLogService->logModelEvent(
+                        $invoice,
+                        ActivityLog::LOG_TYPE_BATCH_PROCESS
                     );
 
                     $this->info("Created renewal invoice for user: " . $user->email);

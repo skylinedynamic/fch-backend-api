@@ -584,16 +584,9 @@ class SubscriptionService
                 ]);
 
                 // Log System Event for Batch Process Invoice Creation
-                $this->activityLogService->logSystemEvent(
-                    Invoice::class,
-                    $invoice->id,
-                    $invoice->partner_id,
-                    $invoice->borrower_id,
-                    'Batch Process Invoice Created',
-                    "System generated a {$type} invoice ({$invoice->invoice_id}) for {$invoice->customer_name} via batch process.",
-                    ActivityLog::LOG_TYPE_BATCH_PROCESS,
-                    null, // System generated constraint
-                    ['model_status' => $invoice->status]
+                $this->activityLogService->logModelEvent(
+                    $invoice,
+                    ActivityLog::LOG_TYPE_BATCH_PROCESS
                 );
             });
         } catch (\Exception $e) {

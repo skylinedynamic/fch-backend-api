@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
+use App\Models\ActivityLog\ActivityLog;
 use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
@@ -35,7 +36,8 @@ class PartnerService
 
     public function __construct(
         protected InvoiceService $invoiceService,
-        protected SubscriptionService $subscriptionService
+        protected SubscriptionService $subscriptionService,
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
     ) {}
 
     /**
@@ -104,6 +106,8 @@ class PartnerService
             Log::info('Partner creation payload', $partnerData);
             $partner = Partner::create($partnerData);
 
+            // Log Partner Creation
+            $this->activityLogService->logModelEvent($partner, ActivityLog::LOG_TYPE_PARTNER_CREATE);
             // Handle partner_image upload
             if (isset($partnerData['partner_image'])) {
                 $imageName = ltrim($partnerData['partner_image'], '/');
@@ -116,17 +120,6 @@ class PartnerService
             $user->entity_type = Partner::class;
             $user->entity_id = $partner->id;
             $user->save();
-
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
-                \App\Models\Partner\Partner::class,
-                $partner->id,
-                $partner->id,
-                null,
-                'Partner Created',
-                'A new partner was created.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_CREATE,
-                $user->id
-            );
 
             $this->createPartnerRoles($partner->id, $user);
 
@@ -189,42 +182,46 @@ class PartnerService
             $authUser = Auth::user();
             $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
 
-            // Create invoice and send email if enrollment amount exists
+            // Create invoice and send email if enrollment type exists or amount > 0
+            if ($enrollmentType || $enrollmentAmount > 0) {
+                $invoice = $this->invoiceService->create([
+                    'partner_id' => $partner->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $partner->id,
+                    'customer_name' => $partner->full_name,
+                    'email' => $partner->email,
+                    'country' => $partner->country,
+                    'payment_amount' => $enrollmentAmount,
+                    'is_partner_paying' => $isHostCreating ? false : true,
+                    'status' => Invoice::STATUS_UNPAID,
+                ]);
 
-            $invoice = $this->invoiceService->create([
-                'partner_id' => $partner->id,
-                'entity_type' => Partner::class,
-                'entity_id' => $partner->id,
-                'customer_name' => $partner->full_name,
-                'email' => $partner->email,
-                'country' => $partner->country,
-                'payment_amount' => $enrollmentAmount,
-                'is_partner_paying' => $isHostCreating ? false : true,
-                'status' => Invoice::STATUS_UNPAID,
-            ]);
+                // Log Invoice Creation
+                $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
-            Log::info('Partner invoice created', ['invoice_id' => $invoice->id]);
+                Log::info('Partner invoice created', ['invoice_id' => $invoice->id]);
 
-            // Prepare email data
-            $mailData = [
-                'user' => $user,
-                'plain_password' => $plainPassword,
-                'payment_link' => config('app.frontend_partner_url') . '/invoices',
-                'amount' => $invoice->payment_amount,
-                'enrollment_type' => $enrollmentType,
-                'business_info' => [
-                    'company_name' => config('app.name'),
-                    'email' => config('mail.from.address'),
-                    'phone_number' => config('app.phone_number', ''),
-                    'address_line_1' => config('app.address', ''),
-                    'company_logo' => 'logo.png',
-                ],
-            ];
+                // Prepare email data and send payment link
+                $mailData = [
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'payment_link' => config('app.frontend_partner_url') . '/invoices',
+                    'amount' => $invoice->payment_amount,
+                    'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
+                    'business_info' => [
+                        'company_name' => config('app.name'),
+                        'email' => config('mail.from.address'),
+                        'phone_number' => config('app.phone_number', ''),
+                        'address_line_1' => config('app.address', ''),
+                        'company_logo' => 'logo.png',
+                    ],
+                ];
 
-            try {
-                Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-            } catch (\Exception $e) {
-                Log::error('Partner payment link email failed', ['error' => $e->getMessage()]);
+                try {
+                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
+                } catch (\Exception $e) {
+                    Log::error('Partner payment link email failed', ['error' => $e->getMessage()]);
+                }
             }
 
             DB::commit();
@@ -372,6 +369,9 @@ class PartnerService
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
 
+            // Log Partner Update
+            $this->activityLogService->logModelEvent($partner, ActivityLog::LOG_TYPE_PARTNER_UPDATE);
+
             // Update subscription if custom amounts are provided
             $subscription = $partner->subscription;
             if ($subscription) {
@@ -415,17 +415,6 @@ class PartnerService
             }
 
             Log::info('Partner updated successfully', ['partner_id' => $partner->id]);
-
-            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
-                \App\Models\Partner\Partner::class,
-                $partner->id,
-                $partner->id,
-                null,
-                'Partner Updated',
-                'Partner info was updated.',
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_PARTNER_UPDATE,
-                $user?->id
-            );
 
             DB::commit();
 

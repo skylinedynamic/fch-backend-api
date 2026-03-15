@@ -169,6 +169,12 @@ class EmployeeService
                     'created_by' => Auth::id(),
                 ]);
                 $user->invoice_id = $invoice->id;
+
+                // Log Invoice Creation
+                $this->activityLogService->logModelEvent(
+                    $invoice,
+                    ActivityLog::LOG_TYPE_INVOICE_CREATE
+                );
             }
 
             if (isset($employeeData['image'])) {
@@ -178,16 +184,10 @@ class EmployeeService
             }
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Employee::class,
-                $employee->id,
-                $employee->partner_id,
-                null,
-                'Employee Created',
-                "New employee profile created for {$employee->first_name} {$employee->last_name}",
+            $this->activityLogService->logModelEvent(
+                $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_CREATE,
-                $user?->id,
-                ['model_status' => $employee->job_status]
+                $user?->id
             );
 
             DB::commit();
@@ -307,16 +307,10 @@ class EmployeeService
             $employee->save();
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Employee::class,
-                $employee->id,
-                $employee->partner_id,
-                null,
-                'Employee Updated',
-                "Employee profile updated for {$employee->first_name} {$employee->last_name}",
+            $this->activityLogService->logModelEvent(
+                $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_UPDATE,
-                $user?->id,
-                ['model_status' => $employee->job_status]
+                $user?->id
             );
 
             DB::commit();
@@ -359,13 +353,8 @@ class EmployeeService
             }
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Employee::class,
-                $employee->id,
-                $employee->partner_id,
-                null,
-                'Employee Deleted',
-                "Employee profile deleted for {$employee->first_name} {$employee->last_name}",
+            $this->activityLogService->logModelEvent(
+                $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_DELETE,
                 $user?->id,
                 ['model_status' => 'deleted']

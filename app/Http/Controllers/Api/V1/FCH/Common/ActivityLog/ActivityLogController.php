@@ -25,6 +25,10 @@ class ActivityLogController extends Controller
 
             return $this->activityLogService->list($filters);
         } catch (\Exception $e) {
+            Log::error('ActivityLog index error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return ApiResponse::serverError(__('activity_log.list_failed'));
         }
     }

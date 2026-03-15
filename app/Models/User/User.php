@@ -614,4 +614,12 @@ class User extends Authenticatable implements OAuthenticatable
 
     public const PAYMENT_STATUS_PAID = 'Paid';
     public const PAYMENT_STATUS_UNPAID = 'Unpaid';
+
+    public function getEntityImage(): string
+    {
+        if ($this->entity && method_exists($this->entity, 'getEntityImage')) {
+            return $this->entity->getEntityImage();
+        }
+        return asset('avatar/avater-partner.png');
+    }
 }

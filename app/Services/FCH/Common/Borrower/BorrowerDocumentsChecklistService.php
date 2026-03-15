@@ -79,6 +79,13 @@ class BorrowerDocumentsChecklistService
 
             DB::commit();
 
+            // Accurate Code: Log a summary event for the checklist update
+            $borrower = \App\Models\Borrower\Borrower::find($borrowerId);
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
+                $borrower,
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_CHECKLIST_UPDATE
+            );
+
             return [
                 'success' => true,
                 'message' => __('borrower.checklist.saved_success'),

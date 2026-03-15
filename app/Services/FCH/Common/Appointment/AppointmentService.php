@@ -100,6 +100,9 @@ class AppointmentService
             $appointment = Appointment::create($data);
             Log::info('[DEMO] Appointment record created in database. Code: ' . $appointment->appointment_code);
 
+            // Log Appointment Creation
+            $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_CREATE);
+
             $appointmentDateOnly = Carbon::parse($data['appointment_date'])->format('Y-m-d');
 
             AppointmentDetail::create([
@@ -113,19 +116,6 @@ class AppointmentService
             /*
             */
             $syncResult = false;
-
-            // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Appointment::class,
-                $appointment->id,
-                $appointment->scheduledBy?->partner_id,
-                null,
-                'Appointment Created',
-                "Appointment created: {$appointment->appointment_code} - {$appointment->subject}",
-                ActivityLog::LOG_TYPE_APPOINTMENT_CREATE,
-                $appointment->assigned_for,
-                ['model_status' => $appointment->status, 'appointment_code' => $appointment->appointment_code]
-            );
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'created');
@@ -178,24 +168,14 @@ class AppointmentService
         try {
             $appointment->update($data);
 
+            // Log Appointment Update
+            $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE);
+
             // Sync with Microsoft 365 (SKIPPED as per requirement)
             /*
             $syncResult = $this->syncWithMicrosoft($appointment);
             */
             $syncResult = false;
-
-            // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Appointment::class,
-                $appointment->id,
-                $appointment->scheduledBy?->partner_id,
-                null,
-                'Appointment Updated',
-                "Appointment updated: {$appointment->appointment_code} - {$appointment->subject}",
-                ActivityLog::LOG_TYPE_APPOINTMENT_UPDATE,
-                $appointment->assigned_for,
-                ['model_status' => $appointment->status, 'appointment_code' => $appointment->appointment_code]
-            );
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'updated');
@@ -245,6 +225,9 @@ class AppointmentService
 
             // Soft delete the appointment
             $appointment->delete();
+
+            // Log Appointment Deletion
+            $this->activityLogService->logModelEvent($appointment, ActivityLog::LOG_TYPE_APPOINTMENT_DELETE);
             Log::info('[APPOINTMENT] Appointment deleted successfully', [
                 'appointment_id' => $appointment->id,
                 'appointment_code' => $appointment->appointment_code
@@ -252,19 +235,6 @@ class AppointmentService
 
             // Send Email Notification to Assigned User
             $this->sendNotification($appointment, 'deleted');
-
-            // Log System Event
-            $this->activityLogService->logSystemEvent(
-                Appointment::class,
-                $appointment->id,
-                $appointment->scheduledBy?->partner_id,
-                null,
-                'Appointment Deleted',
-                "Appointment deleted: {$appointment->appointment_code} - {$appointment->subject}",
-                ActivityLog::LOG_TYPE_APPOINTMENT_DELETE,
-                $appointment->assigned_for,
-                ['model_status' => 'deleted', 'appointment_code' => $appointment->appointment_code]
-            );
 
             DB::commit();
             return true;

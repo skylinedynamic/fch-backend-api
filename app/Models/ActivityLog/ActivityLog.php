@@ -2,13 +2,54 @@
 
 namespace App\Models\ActivityLog;
 
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ActivityLog extends Model
+class ActivityLog extends Activity
 {
     use HasFactory, SoftDeletes;
+
+    protected static function booted()
+    {
+        static::creating(function ($activity) {
+            // Accurate Code: Automatically infer partner_id if missing to ensure timeline visibility
+            if (!$activity->partner_id) {
+                $subject = $activity->subject;
+                
+                // If subject is not loaded, try to find it
+                if (!$subject && $activity->subject_type && $activity->subject_id) {
+                    try {
+                        $modelClass = $activity->subject_type;
+                        $subject = $modelClass::find($activity->subject_id);
+                    } catch (\Throwable $e) {}
+                }
+
+                if ($subject) {
+                    if ($subject instanceof \App\Models\Partner\Partner) {
+                        $activity->partner_id = $subject->id;
+                    } elseif (isset($subject->partner_id)) {
+                        $activity->partner_id = $subject->partner_id;
+                    } elseif (method_exists($subject, 'partner')) {
+                        $activity->partner_id = $subject->partner?->id;
+                    }
+
+                    // Special case for Appointments: check entity_type
+                    if ($subject instanceof \App\Models\Appointment\Appointment) {
+                        if ($subject->entity_type === \App\Models\Partner\Partner::class) {
+                            $activity->partner_id = $subject->entity_id;
+                        }
+                    }
+                }
+            }
+
+            // Ensure causer_id/type are set if manual log missed them
+            if (!$activity->causer_id && auth()->check()) {
+                $activity->causer_id = auth()->id();
+                $activity->causer_type = get_class(auth()->user());
+            }
+        });
+    }
 
     protected $table = 'activity_log';
 
@@ -39,22 +80,28 @@ class ActivityLog extends Model
     const LOG_TYPE_EMPLOYEE_DELETE  = 'employee_delete';
     const LOG_TYPE_PARTNER_PAYMENT  = 'partner_payment';
     const LOG_TYPE_BORROWER_PAYMENT = 'borrower_payment';
+    const LOG_TYPE_BUSINESS_UPDATE  = 'business_update';
+    const LOG_TYPE_DOCUMENT_UPLOAD  = 'document_upload';
+    const LOG_TYPE_CHECKLIST_UPDATE = 'checklist_update';
 
     const STATUS_SENT     = 'sent';
     const STATUS_PENDING  = 'pending';
     const STATUS_FAILED   = 'failed';
 
     protected $fillable = [
+        'description',
+        'subject_type',
+        'subject_id',
+        'causer_type',
+        'causer_id',
         'log_type',
-        'entity_type',
-        'entity_id',
         'partner_id',
         'borrower_id',
         'properties',
         'status',
-        'created_by',
         'created_to',
-        'updated_by',
+        'event',
+        'batch_uuid',
     ];
 
     /**
@@ -88,9 +135,9 @@ class ActivityLog extends Model
         return $this->belongsTo(\App\Models\User\User::class, 'assigned_to');
     }
 
-    public function creator()
+    public function causer(): \Illuminate\Database\Eloquent\Relations\MorphTo
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'created_by');
+        return $this->morphTo();
     }
 
     public function targetUser()

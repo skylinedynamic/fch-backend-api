@@ -7,9 +7,41 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Storage;
 
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
+
 class BorrowerDocument extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->useLogName('borrower_document');
+    }
+
+    public function tapActivity(Activity $activity, string $eventName)
+    {
+        $activity->entity_type = \App\Models\Borrower\Borrower::class;
+        $activity->entity_id   = $this->borrower_id;
+        $activity->partner_id  = $this->borrower?->partner_id;
+        $activity->borrower_id = $this->borrower_id;
+
+        $docTypeName = $this->documentType?->name ?? 'Document';
+
+        $activity->description = match($eventName) {
+            'created' => "A new document '{$docTypeName}' was submitted.",
+            'updated' => "Document '{$docTypeName}' status was updated to {$this->status}.",
+            'deleted' => "Document '{$docTypeName}' was removed.",
+            default   => $activity->description,
+        };
+
+        $activity->log_type = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD;
+    }
     
     /**
      * The "booted" method of the model.
@@ -57,6 +89,11 @@ class BorrowerDocument extends Model
     public function getFilePathAttribute($value)
     {
         return $value ? asset("storage/borrowers/{$this->borrower_id}/{$value}") : null;
+    }
+
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class);
     }
 
     public function documentType()

@@ -37,14 +37,69 @@ class PartnerDocumentService
             if (is_array($data['file_path'])) {
                     
                 foreach ($data['file_path'] as $file) {
-                   
-                    $documents[] = $this->createDocument($partnerId, $file, $data);
+                    $doc = $this->createDocument($partnerId, $file, $data);
+                    $documents[] = $doc;
                 }
+
+                // Accurate Code: Store in attachments format — same as email attachments
+                // so the frontend renders them as downloadable file chips automatically
+                $attachmentFiles = collect($documents)->map(fn($d) => [
+                    'name' => $d->document_name,
+                    // Accurate Code: Full URL so the frontend can call the download API directly
+                    'path' => url('api/v1/admin/partners/documents/download/' . $d->id),
+                    'id'   => $d->id,
+                ])->values()->toArray();
+
+                $count = count($documents);
+                $readableDesc = $count === 1 
+                    ? "Document was uploaded to the partner profile." 
+                    : "Documents were uploaded to the partner profile.";
+
+                $partner = \App\Models\Partner\Partner::find($partnerId);
+                app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
+                    $partner,
+                    \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
+                    null,
+                    [
+                        'attachments' => [
+                            'count' => count($attachmentFiles),
+                            'files' => $attachmentFiles,
+                        ],
+                    ],
+                    'Partner Document Uploaded',
+                    $readableDesc
+                );
+
                 return collect($documents);
             }
       
             // single string
-            return $this->createDocument($partnerId, $data['file_path'], $data);
+            $doc = $this->createDocument($partnerId, $data['file_path'], $data);
+            
+            // Accurate Code: Store in attachments format — same as email attachments
+            $attachmentFiles = [[
+                'name' => $doc->document_name,
+                // Accurate Code: Full URL so the frontend can call the download API directly
+                'path' => url('api/v1/admin/partners/documents/download/' . $doc->id),
+                'id'   => $doc->id,
+            ]];
+
+            $partner = \App\Models\Partner\Partner::find($partnerId);
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
+                $partner,
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
+                null,
+                [
+                    'attachments' => [
+                        'count' => 1,
+                        'files' => $attachmentFiles,
+                    ],
+                ],
+                'Partner Document Uploaded',
+                "Document {$doc->document_name} was uploaded to the partner profile."
+            );
+
+            return $doc;
         }
 
         return null;
@@ -119,7 +174,9 @@ class PartnerDocumentService
      */
     private function createDocument(int $partnerId, $file, array $data): PartnerDocument
     {
-        $filename = basename($file);
+        // Accurate Code: Use human-readable document name if provided, else use the raw basename
+        $rawFilename = basename($file instanceof \Illuminate\Http\UploadedFile ? $file->getClientOriginalName() : $file);
+        $filename    = !empty($data['document_name']) ? $data['document_name'] : $rawFilename;
         $size = null;
         $partnerPath = $this->normalizePath($partnerId, $file);
         
@@ -157,10 +214,29 @@ class PartnerDocumentService
     public function delete(PartnerDocument $document): bool
     {
         try {
+            $partnerId = $document->partner_id;
+            $docName = $document->document_name;
+
             if ($document->getRawOriginal('file_path')) {
                 $this->deleteFile($document->getRawOriginal('file_path'), 'public');
             }
-            return $document->delete();
+            
+            $deleted = $document->delete();
+
+            if ($deleted) {
+                // Accurate Code: Log the delete action
+                $partner = \App\Models\Partner\Partner::find($partnerId);
+                app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
+                    $partner,
+                    \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
+                    null,
+                    [],
+                    'Partner Document Removed',
+                    "Document {$docName} was removed from the partner profile."
+                );
+            }
+
+            return $deleted;
         } catch (\Exception $e) {
             Log::error('❌ Partner document deletion failed', ['error' => $e->getMessage()]);
             throw $e;

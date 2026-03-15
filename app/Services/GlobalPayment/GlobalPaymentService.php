@@ -151,23 +151,11 @@ class GlobalPaymentService
                 }
 
                 // Log Activity Event
-                $logType = ($invoice->entity_type === Partner::class) ? ActivityLog::LOG_TYPE_PARTNER_PAYMENT : ActivityLog::LOG_TYPE_BORROWER_PAYMENT;
-                $subject = ($invoice->entity_type === Partner::class) ? 'Partner Payment Successful' : 'Borrower Payment Successful';
-                $description = ($invoice->entity_type === Partner::class) 
-                    ? "Partner payment of {$payment->amount} {$payment->currency} processed successfully for invoice {$payment->invoice_id}."
-                    : "Borrower payment of {$payment->amount} {$payment->currency} processed successfully for invoice {$payment->invoice_id}.";
-
-                $this->activityLogService->logSystemEvent(
-                    Payment::class,
-                    $payment->id,
-                    $payment->partner_id,
-                    $payment->borrower_id,
-                    $subject,
-                    $description,
-                    $logType,
+                $this->activityLogService->logModelEvent(
+                    $payment,
+                    ($invoice->entity_type === Partner::class) ? ActivityLog::LOG_TYPE_PARTNER_PAYMENT : ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
                     Auth::id(),
                     [
-                        'model_status' => $payment->status,
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,
                         'currency' => $payment->currency
@@ -384,22 +372,17 @@ class GlobalPaymentService
                 $quantity = (int) ($data['quantity'] ?? 1);
 
                 // Log Activity Event
-                $this->activityLogService->logSystemEvent(
-                    Payment::class,
-                    $payment->id,
-                    $payment->partner_id,
-                    null,
-                    'Seat Purchase Successful',
-                    "Payment of {$payment->amount} {$payment->currency} for {$quantity} user seat(s) processed successfully.",
+                $this->activityLogService->logModelEvent(
+                    $payment,
                     ActivityLog::LOG_TYPE_PARTNER_PAYMENT,
                     Auth::id(),
                     [
-                        'model_status' => $payment->status,
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,
                         'currency' => $payment->currency,
                         'quantity' => $quantity
-                    ]
+                    ],
+                    'Seat Purchase Successful'
                 );
 
                 // 4. Update Partner Paid User Count

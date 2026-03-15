@@ -89,17 +89,21 @@ class UserService
                 $user->invoice_id = null;
             }
 
+            // Log Invoice Creation if present
+            if ($user->invoice_id) {
+                $createdInvoice = Invoice::find($user->invoice_id);
+                if ($createdInvoice) {
+                    $this->activityLogService->logModelEvent(
+                        $createdInvoice,
+                        ActivityLog::LOG_TYPE_INVOICE_CREATE
+                    );
+                }
+            }
+
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                User::class,
-                $user->id,
-                $user->partner_id,
-                null,
-                'User Created',
-                "New user account created for {$user->name} ({$user->email})",
-                ActivityLog::LOG_TYPE_USER_CREATE,
-                $user->id,
-                ['model_status' => $user->status]
+            $this->activityLogService->logModelEvent(
+                $user,
+                ActivityLog::LOG_TYPE_USER_CREATE
             );
 
             DB::commit();
@@ -324,16 +328,9 @@ class UserService
             }
 
             // Log System Event
-            $this->activityLogService->logSystemEvent(
-                User::class,
-                $user->id,
-                $user->partner_id,
-                null,
-                'User Updated',
-                "User account details updated for {$user->name}",
-                ActivityLog::LOG_TYPE_USER_UPDATE,
-                $user->id,
-                ['model_status' => $user->status]
+            $this->activityLogService->logModelEvent(
+                $user,
+                ActivityLog::LOG_TYPE_USER_UPDATE
             );
 
             // 📧 Send update notification if password or email changed
