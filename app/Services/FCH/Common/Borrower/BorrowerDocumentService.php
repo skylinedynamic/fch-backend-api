@@ -45,7 +45,13 @@ class BorrowerDocumentService
     {
         $size = null;
         $borrowerPath = $this->normalizePath($borrowerId, $file);
-        
+        $dbPath = str_replace("borrowers/{$borrowerId}/", "", $borrowerPath);
+
+        // Actually store the file if it's an UploadedFile
+        if ($file instanceof \Illuminate\Http\UploadedFile) {
+            $file->storeAs("borrowers/{$borrowerId}", $dbPath, 'public');
+        }
+
         if (Storage::disk('public')->exists($borrowerPath)) {
              try {
                 $size = $this->formatSize(Storage::disk('public')->size($borrowerPath));
@@ -60,13 +66,11 @@ class BorrowerDocumentService
              }
         }
 
-        $dbPath = str_replace("borrowers/{$borrowerId}/", "", $borrowerPath);
-
         $createData = [
             'borrower_id'      => $borrowerId,
             'file_name'        => $docName,
             'document_type_id' => $data['document_type_id'] ?? null,
-            'file_path'        => $dbPath,
+            'file_path'        => $dbPath, // Stored as just the filename
             'file_size'        => $size,
             'status'           => BorrowerDocument::STATUS_UPLOADED,
             'created_by'       => Auth::id(),

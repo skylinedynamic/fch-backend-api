@@ -218,14 +218,14 @@ class BorrowerService
     public function getBorrowerProfileStats(int $id)
     {
         $borrower = Borrower::findOrFail($id);
-        $borrowerClass = Borrower::class;
+        $borrowerClass = str_replace('\\', '\\\\', Borrower::class);
 
         $stats = DB::table('borrowers as b')
             ->select([
                 'b.id',
-                DB::raw("(SELECT COUNT(*) FROM appointments WHERE assigned_for IN (SELECT id FROM users WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id)) as total_meetings"),
-                DB::raw("(SELECT COUNT(*) FROM invoices WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id) as total_invoices"),
-                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions WHERE entity_type = 'App\\\\Models\\\\Partner\\\\Partner' AND entity_id = b.partner_id ORDER BY id DESC LIMIT 1), 'N/A')) as enrollment_type"),
+                DB::raw("(SELECT COUNT(*) FROM appointments WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id) as total_meetings"),
+                DB::raw("(SELECT COUNT(*) FROM invoices WHERE borrower_id = b.id OR (entity_type = '{$borrowerClass}' AND entity_id = b.id)) as total_invoices"),
+                DB::raw("(SELECT COALESCE((SELECT enrollment_type FROM subscriptions WHERE entity_type = '{$borrowerClass}' AND entity_id = b.id ORDER BY id DESC LIMIT 1), 'N/A')) as enrollment_type"),
                 DB::raw("(SELECT COUNT(*) FROM pre_qualification_requests WHERE borrower_id = b.id) as total_prequalification"),
                 DB::raw("0 as total_tickets"),
                 DB::raw("(SELECT COUNT(*) FROM borrower_documents WHERE borrower_id = b.id) as total_documents")
@@ -698,7 +698,9 @@ class BorrowerService
                     'size' => $doc->file_size ?: '0 KB',
                     'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
                     'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
-                    'document_url' => $doc->file_path, // Uses accessor to return full URL
+                    'document_url' => $doc->file_path, 
+                    'url' => $doc->file_path,
+                    'download_url' => url("api/v1/common/borrowers-documents/download/{$doc->id}"),
                 ];
             });
 

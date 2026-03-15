@@ -15,12 +15,16 @@ return [
         'batch_process' => 'Batch Process :model Created',
         'permission_update' => 'Permissions Assigned to Role',
         'checklist_update' => 'Document Checklist Updated',
+        'lead_details_update' => 'Lead Details Updated',
+        'lead_contact_update' => 'Lead Contact Info Updated',
         'default' => ':model :action',
     ],
 
     'descriptions' => [
         'permission_update' => 'New permissions assigned to role: :display_name',
         'checklist_update' => 'The borrower document checklist was updated with new requirements.',
+        'lead_details_update' => 'Lead profile details were updated for :display_name.',
+        'lead_contact_update' => 'Lead contact information was updated for :display_name.',
         'batch_invoice' => 'System generated a renewal invoice (:invoice_id) for user :display_name via batch process.',
         'appointment' => 'Appointment (:subject) :action for :entity_name on :time.',
         'payment' => ':model of :amount :currency :action successfully.',

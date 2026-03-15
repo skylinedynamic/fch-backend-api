@@ -65,6 +65,8 @@ class ActivityLog extends Activity
     const LOG_TYPE_BORROWER_UPDATE  = 'borrower_update';
     const LOG_TYPE_LEAD_CREATE      = 'lead_create';
     const LOG_TYPE_LEAD_UPDATE      = 'lead_update';
+    const LOG_TYPE_LEAD_DETAILS_UPDATE = 'lead_details_update';
+    const LOG_TYPE_LEAD_CONTACT_UPDATE = 'lead_contact_update';
     const LOG_TYPE_BATCH_PROCESS    = 'batch_process';
     const LOG_TYPE_INVOICE_CREATE   = 'invoice_create';
     const LOG_TYPE_USER_CREATE      = 'user_create';

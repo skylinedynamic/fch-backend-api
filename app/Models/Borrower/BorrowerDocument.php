@@ -34,9 +34,9 @@ class BorrowerDocument extends Model
         $docTypeName = $this->documentType?->name ?? 'Document';
 
         $activity->description = match($eventName) {
-            'created' => "A new document '{$docTypeName}' was submitted.",
-            'updated' => "Document '{$docTypeName}' status was updated to {$this->status}.",
-            'deleted' => "Document '{$docTypeName}' was removed.",
+            'created' => "New document {$docTypeName} was submitted.",
+            'updated' => "Document {$docTypeName}' status was updated to {$this->status}.",
+            'deleted' => "Document {$docTypeName} was removed.",
             default   => $activity->description,
         };
 

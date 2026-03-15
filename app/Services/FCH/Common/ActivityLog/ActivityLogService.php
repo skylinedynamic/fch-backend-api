@@ -286,6 +286,14 @@ class ActivityLogService
              $action = $actionMap['update'] ?? 'Updated';
              $descriptionAction = $actionMap['checklist'] ?? 'checklist updated';
              $customSubject = $customSubject ?? config('activity_messages.subjects.checklist_update');
+        } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE) {
+             $action = $actionMap['update'] ?? 'Updated';
+             $descriptionAction = 'details updated';
+             $customSubject = $customSubject ?? config('activity_messages.subjects.lead_details_update');
+        } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE) {
+             $action = $actionMap['update'] ?? 'Updated';
+             $descriptionAction = 'contact updated';
+             $customSubject = $customSubject ?? config('activity_messages.subjects.lead_contact_update');
         } else {
              $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
              $descriptionAction = strtolower($action);
@@ -297,6 +305,7 @@ class ActivityLogService
         $displayName = $model->name 
             ?? $model->full_name 
             ?? $model->company_name 
+            ?? $model->contact_person
             ?? $model->subject
             ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record'));
         
@@ -307,6 +316,12 @@ class ActivityLogService
             $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } elseif ($logType === ActivityLog::LOG_TYPE_CHECKLIST_UPDATE) {
             $description = $customDescription ?? config('activity_messages.descriptions.checklist_update', 'The borrower document checklist was updated with new requirements.');
+        } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE) {
+            $descPattern = config('activity_messages.descriptions.lead_details_update', 'Lead profile details were updated for :display_name.');
+            $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
+        } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE) {
+            $descPattern = config('activity_messages.descriptions.lead_contact_update', 'Lead contact information was updated for :display_name.');
+            $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } else {
             $description = $customDescription ?? str_replace(
                 [':model', ':action', ':display_name'], 

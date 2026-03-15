@@ -224,10 +224,40 @@ class LeadService
                     unset($data['business_start_date']);
                 }
             }
+            $oldStatus = $lead->status;
+            $newStatus = $data['status'] ?? $oldStatus;
+            $isStatusChange = $oldStatus != $newStatus;
+
+            $oldSalesperson = $lead->salesperson_id;
+            $newSalesperson = $data['salesperson_id'] ?? $oldSalesperson;
+            $isSalespersonChange = $oldSalesperson != $newSalesperson;
+
+            $oldProbability = $lead->probability;
+            $newProbability = $data['probability'] ?? $oldProbability;
+            $isProbChange = $oldProbability != $newProbability;
+
             $lead->update($data);
 
+            $customDescription = null;
+            if ($isStatusChange && $isSalespersonChange) {
+                $customDescription = "Lead status updated to {$newStatus} and assigned salesperson was changed.";
+            } elseif ($isStatusChange) {
+                $customDescription = "Lead status updated to {$newStatus}.";
+            } elseif ($isSalespersonChange) {
+                $customDescription = "Lead assigned salesperson was changed.";
+            } elseif ($isProbChange) {
+                $customDescription = "Lead conversion probability updated to {$newProbability}%.";
+            }
+
             // Log Lead Update
-            $this->activityLogService->logModelEvent($lead, \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_UPDATE);
+            $this->activityLogService->logModelEvent(
+                $lead, 
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
+                null,
+                [],
+                null,
+                $customDescription
+            );
             
             DB::commit();
             return $lead->fresh();
@@ -245,7 +275,6 @@ class LeadService
     {
         DB::beginTransaction();
         try {
-            // $oldEmail = $lead->email;
             $data['updated_by'] = Auth::id();
             if (!empty($data['business_start_date'])) {
                 try {
@@ -254,10 +283,34 @@ class LeadService
                     unset($data['business_start_date']);
                 }
             }
+            $oldEmail = $lead->email;
+            $newEmail = $data['email'] ?? $oldEmail;
+            $isEmailChange = $oldEmail != $newEmail;
+
+            $oldPhone = $lead->phone_number;
+            $newPhone = $data['phone_number'] ?? $oldPhone;
+            $isPhoneChange = $oldPhone != $newPhone;
+
             $lead->update($data);
 
+            $customDescription = null;
+            if ($isEmailChange && $isPhoneChange) {
+                $customDescription = "Lead contact email and phone number were updated.";
+            } elseif ($isEmailChange) {
+                $customDescription = "Lead contact email was updated to {$newEmail}.";
+            } elseif ($isPhoneChange) {
+                $customDescription = "Lead contact phone number was updated to {$newPhone}.";
+            }
+
             // Log Lead Update
-            $this->activityLogService->logModelEvent($lead, \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_UPDATE);
+            $this->activityLogService->logModelEvent(
+                $lead, 
+                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE,
+                null,
+                [],
+                null,
+                $customDescription
+            );
 
             DB::commit();
             return $lead->fresh();
