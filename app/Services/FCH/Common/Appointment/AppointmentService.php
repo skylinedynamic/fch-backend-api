@@ -23,6 +23,7 @@ use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use Illuminate\Support\Facades\Auth;
 
 class AppointmentService
 {
