@@ -161,8 +161,8 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('contacts', ContactController::class);
 
             // Activity Log routes
-            Route::post('activity-logs/fetch-all-activities', [ActivityLogController::class, 'index']);
             Route::prefix('activity-logs')->group(function () {
+                Route::post('fetch-all-activities', [ActivityLogController::class, 'index']);
                 Route::post('attachments/download', [ActivityLogController::class, 'downloadAttachment']);
                 Route::get('/', [ActivityLogController::class, 'index']);
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
