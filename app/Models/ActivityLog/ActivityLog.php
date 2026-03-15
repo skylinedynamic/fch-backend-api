@@ -57,6 +57,7 @@ class ActivityLog extends Activity
     const TYPE_ACTIVITY = 'activity';
     
     // New Log Types
+    const LOG_TYPE_EMAIL_UPDATE     = 'email_update';
     const LOG_TYPE_PARTNER_CREATE   = 'partner_create';
     const LOG_TYPE_PARTNER_UPDATE   = 'partner_update';
     const LOG_TYPE_EMAIL_SENT       = 'email_sent';

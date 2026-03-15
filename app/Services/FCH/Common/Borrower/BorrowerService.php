@@ -412,10 +412,21 @@ class BorrowerService
                 $borrowerData['postal_code'] = $data['postal_code'];
                 $borrowerData['postal_code'] = $data['business_postal_code'];
             }
+            $oldEmail = $borrower->email;
+            $newEmail = $data['email'] ?? $oldEmail;
+            $isEmailChange = $oldEmail !== $newEmail;
+
             $borrower->update($borrowerData);
 
-            // Log Borrower Update
-            $this->activityLogService->logModelEvent($borrower, ActivityLog::LOG_TYPE_BORROWER_UPDATE);
+            // Log Email Update ONLY if email changes
+            if ($isEmailChange) {
+                $this->activityLogService->logModelEvent(
+                    $borrower, 
+                    ActivityLog::LOG_TYPE_EMAIL_UPDATE,
+                    null,
+                    ['new_email' => $newEmail]
+                );
+            }
 
             // Update subscription if custom enrollment payment is provided
             $subscription = $borrower->latestSubscription;

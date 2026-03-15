@@ -265,6 +265,7 @@ class ActivityLogService
 
         // Generate default descriptions if not provided
         $modelName = class_basename($model);
+        if ($modelName === 'Borrower') $modelName = 'Client';
         
         // Fetch from config
         $actionMap = config('activity_messages.actions', []);
@@ -294,6 +295,10 @@ class ActivityLogService
              $action = $actionMap['update'] ?? 'Updated';
              $descriptionAction = 'contact updated';
              $customSubject = $customSubject ?? config('activity_messages.subjects.lead_contact_update');
+        } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
+             $action = 'Updated';
+             $descriptionAction = 'contact email updated';
+             $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.email_update', ':model Contact Information Updated'));
         } else {
              $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
              $descriptionAction = strtolower($action);
@@ -322,6 +327,14 @@ class ActivityLogService
         } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE) {
             $descPattern = config('activity_messages.descriptions.lead_contact_update', 'Lead contact information was updated for :display_name.');
             $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
+        } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
+            $descPattern = config('activity_messages.descriptions.email_update', ':model contact email was updated to :new_email for :display_name.');
+            $newEmail = $extraProperties['new_email'] ?? 'N/A';
+            $description = $customDescription ?? str_replace(
+                [':model', ':new_email', ':display_name'], 
+                [$modelName, $newEmail, $displayName], 
+                $descPattern
+            );
         } else {
             $description = $customDescription ?? str_replace(
                 [':model', ':action', ':display_name'], 

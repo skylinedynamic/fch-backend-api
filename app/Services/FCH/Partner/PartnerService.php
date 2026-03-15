@@ -365,12 +365,23 @@ class PartnerService
                 }
             }
 
+            $oldEmail = $partner->email;
+            $newEmail = $data['email'] ?? $oldEmail;
+            $isEmailChange = $oldEmail !== $newEmail;
+
             // Update partner
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
 
-            // Log Partner Update
-            $this->activityLogService->logModelEvent($partner, ActivityLog::LOG_TYPE_PARTNER_UPDATE);
+            // Log Email Update ONLY if email changes
+            if ($isEmailChange) {
+                $this->activityLogService->logModelEvent(
+                    $partner, 
+                    ActivityLog::LOG_TYPE_EMAIL_UPDATE,
+                    null,
+                    ['new_email' => $newEmail]
+                );
+            }
 
             // Update subscription if custom amounts are provided
             $subscription = $partner->subscription;

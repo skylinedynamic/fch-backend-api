@@ -246,18 +246,20 @@ class LeadService
             } elseif ($isSalespersonChange) {
                 $customDescription = "Lead assigned salesperson was changed.";
             } elseif ($isProbChange) {
-                $customDescription = "Lead conversion probability updated to {$newProbability}%.";
+                $customDescription = "Lead conversion probability updated to {$newProbability}.";
             }
 
-            // Log Lead Update
-            $this->activityLogService->logModelEvent(
-                $lead, 
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
-                null,
-                [],
-                null,
-                $customDescription
-            );
+            // Log Lead Update ONLY if relevant details changed
+            if ($isStatusChange || $isSalespersonChange || $isProbChange) {
+                $this->activityLogService->logModelEvent(
+                    $lead, 
+                    \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
+                    null,
+                    [],
+                    null,
+                    $customDescription
+                );
+            }
             
             DB::commit();
             return $lead->fresh();
@@ -294,23 +296,30 @@ class LeadService
             $lead->update($data);
 
             $customDescription = null;
+            $logType = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE;
+            $extraProps = [];
+
             if ($isEmailChange && $isPhoneChange) {
                 $customDescription = "Lead contact email and phone number were updated.";
+                $extraProps['new_email'] = $newEmail;
             } elseif ($isEmailChange) {
-                $customDescription = "Lead contact email was updated to {$newEmail}.";
+                $logType = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_EMAIL_UPDATE;
+                $extraProps['new_email'] = $newEmail;
             } elseif ($isPhoneChange) {
                 $customDescription = "Lead contact phone number was updated to {$newPhone}.";
             }
 
-            // Log Lead Update
-            $this->activityLogService->logModelEvent(
-                $lead, 
-                \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE,
-                null,
-                [],
-                null,
-                $customDescription
-            );
+            // Log Lead Update ONLY if relevant contact info changed
+            if ($isEmailChange || $isPhoneChange) {
+                $this->activityLogService->logModelEvent(
+                    $lead, 
+                    $logType,
+                    null,
+                    $extraProps,
+                    null,
+                    $customDescription
+                );
+            }
 
             DB::commit();
             return $lead->fresh();

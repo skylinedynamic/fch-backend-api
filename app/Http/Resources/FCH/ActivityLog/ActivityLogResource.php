@@ -96,6 +96,7 @@ class ActivityLogResource extends JsonResource
         // 2. Handle manual logs type check
         if ($this->log_type === 'email') return "Email Sent";
         if ($this->log_type === 'activity') return "Activity Created";
+        if ($this->log_type === \App\Models\ActivityLog\ActivityLog::LOG_TYPE_EMAIL_UPDATE) return "Email Updated";
 
         // 3. Fallback for Spatie/Legacy logs - handle raw snake_case
         $cleanType = str_replace('_', ' ', $this->log_type ?? 'activity');

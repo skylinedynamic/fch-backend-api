@@ -17,6 +17,7 @@ return [
         'checklist_update' => 'Document Checklist Updated',
         'lead_details_update' => 'Lead Details Updated',
         'lead_contact_update' => 'Lead Contact Info Updated',
+        'email_update' => ':model Email Address Updated',
         'default' => ':model :action',
     ],
 
@@ -25,6 +26,7 @@ return [
         'checklist_update' => 'The borrower document checklist was updated with new requirements.',
         'lead_details_update' => 'Lead profile details were updated for :display_name.',
         'lead_contact_update' => 'Lead contact information was updated for :display_name.',
+        'email_update' => ':model contact email was updated to :new_email for :display_name.',
         'batch_invoice' => 'System generated a renewal invoice (:invoice_id) for user :display_name via batch process.',
         'appointment' => 'Appointment (:subject) :action for :entity_name on :time.',
         'payment' => ':model of :amount :currency :action successfully.',
