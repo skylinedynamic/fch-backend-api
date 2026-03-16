@@ -12,58 +12,52 @@ class ActivityLog extends Activity
     protected static function booted()
     {
         static::creating(function ($activity) {
-            $props = $activity->properties ?? [];
+            $props = is_array($activity->properties) ? $activity->properties : [];
+            
+            // 1. Move virtual fields into properties bag with type safety
+            foreach (['partner_id', 'borrower_id', 'status', 'log_type'] as $field) {
+                if (isset($activity->{$field})) {
+                    $val = $activity->{$field};
+                    if (in_array($field, ['partner_id', 'borrower_id'])) {
+                        $val = $val ? (int)$val : null;
+                    }
+                    $props[$field] = $val;
+                    unset($activity->{$field});
+                }
+            }
 
-            // Automatically infer partner_id if missing to ensure timeline visibility
-            if (empty($props['partner_id'])) {
-                $subject = $activity->subject;
-                
-                // If subject is not loaded, try to find it
+            // 2. Infer IDs if missing
+            if (empty($props['partner_id']) || empty($props['borrower_id'])) {
+                $subject = $activity->subject ?? null;
                 if (!$subject && $activity->subject_type && $activity->subject_id) {
-                    try {
-                        $modelClass = $activity->subject_type;
-                        $subject = $modelClass::find($activity->subject_id);
-                    } catch (\Throwable $e) {}
+                    $subject = ($activity->subject_type)::find($activity->subject_id);
                 }
 
                 if ($subject) {
-                    $inferredPartnerId = null;
-                    if ($subject instanceof \App\Models\Partner\Partner) {
-                        $inferredPartnerId = $subject->id;
-                    } elseif (isset($subject->partner_id)) {
-                        $inferredPartnerId = $subject->partner_id;
-                    } elseif (method_exists($subject, 'partner')) {
-                        $inferredPartnerId = $subject->partner?->id;
-                    }
-
-                    // Special case for Appointments: check entity_type
-                    if ($subject instanceof \App\Models\Appointment\Appointment) {
-                        if ($subject->entity_type === \App\Models\Partner\Partner::class) {
-                            $inferredPartnerId = $subject->entity_id;
+                    // Infer Partner
+                    if (empty($props['partner_id'])) {
+                        if ($subject instanceof \App\Models\Partner\Partner) $props['partner_id'] = $subject->id;
+                        elseif (isset($subject->partner_id)) $props['partner_id'] = (int)$subject->partner_id;
+                        elseif ($subject instanceof \App\Models\Appointment\Appointment && $subject->entity_type === \App\Models\Partner\Partner::class) {
+                            $props['partner_id'] = (int)$subject->entity_id;
                         }
                     }
-
-                    if ($inferredPartnerId) {
-                        $props['partner_id'] = $inferredPartnerId;
+                    // Infer Borrower
+                    if (empty($props['borrower_id'])) {
+                        if ($subject instanceof \App\Models\Borrower\Borrower) $props['borrower_id'] = $subject->id;
+                        elseif (isset($subject->borrower_id)) $props['borrower_id'] = (int)$subject->borrower_id;
+                        elseif ($subject instanceof \App\Models\Invoice\Invoice) $props['borrower_id'] = (int)$subject->borrower_id;
                     }
                 }
             }
 
-            // Move fields into properties to avoid DB column errors
-            if (isset($activity->partner_id)) $props['partner_id'] = $activity->partner_id;
-            if (isset($activity->borrower_id)) $props['borrower_id'] = $activity->borrower_id;
-            if (isset($activity->status)) $props['status'] = $activity->status;
-            if (isset($activity->log_type)) $activity->log_name = $activity->log_type;
+            if (isset($props['log_type'])) {
+                $activity->log_name = $props['log_type'];
+            }
 
             $activity->properties = $props;
 
-            // Remove virtual columns from the model attributes so they aren't part of the SQL insert
-            unset($activity->partner_id);
-            unset($activity->borrower_id);
-            unset($activity->log_type);
-            unset($activity->status);
-
-            // Ensure causer_id/type are set if manual log missed them
+            // 3. System User Fallback
             if (!$activity->causer_id && auth()->check()) {
                 $activity->causer_id = auth()->id();
                 $activity->causer_type = get_class(auth()->user());

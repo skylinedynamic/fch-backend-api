@@ -50,10 +50,11 @@ class ActivityLogService
             $pId = (int)$filters['partner_id'];
             $query->where(function ($q) use ($pId) {
                 $q->where('properties->partner_id', $pId)
-                    ->orWhere(function ($sq) use ($pId) {
-                        $sq->where('subject_type', Partner::class)
-                            ->where('subject_id', $pId);
-                    });
+                  ->orWhere('properties->partner_id', (string)$pId)
+                  ->orWhere(function ($sq) use ($pId) {
+                      $sq->where('subject_type', Partner::class)
+                         ->where('subject_id', $pId);
+                  });
             });
         }
 
@@ -61,10 +62,11 @@ class ActivityLogService
             $bId = (int)$filters['borrower_id'];
             $query->where(function ($q) use ($bId) {
                 $q->where('properties->borrower_id', $bId)
-                    ->orWhere(function ($sq) use ($bId) {
-                        $sq->where('subject_type', Borrower::class)
-                            ->where('subject_id', $bId);
-                    });
+                  ->orWhere('properties->borrower_id', (string)$bId)
+                  ->orWhere(function ($sq) use ($bId) {
+                      $sq->where('subject_type', Borrower::class)
+                         ->where('subject_id', $bId);
+                  });
             });
         }
 

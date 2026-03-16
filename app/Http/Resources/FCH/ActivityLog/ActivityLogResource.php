@@ -20,30 +20,30 @@ class ActivityLogResource extends JsonResource
 
         $subject = $this->relationLoaded('subject') ? $this->subject : null;
 
-        // 1. Resolve Partner Image
+        // 1. Resolve Partner Image (Return NULL if not set)
         if ($subject instanceof Partner) {
-            $partnerImage = $subject->partner_image ?? asset('avatar/avatar-partner.jpg');
+            $partnerImage = $subject->partner_image;
         } elseif ($this->partner_id) {
             // Check if subject belongs to this partner
             if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id) {
-                 $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-partner.jpg'); // if relation exists
+                 $partnerImage = $subject->partner->partner_image ?? null;
             } else {
                  $partner = Partner::find($this->partner_id);
-                 $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
+                 $partnerImage = $partner ? ($partner->partner_image ?? null) : null;
             }
         }
 
-        // 2. Resolve Borrower/Client Image
+        // 2. Resolve Borrower/Client Image (Return NULL if not set)
         if ($subject instanceof Borrower) {
-            $borrowerImage = $subject->image ?? asset('avatar/avatar-borrower.jpg');
+            $borrowerImage = $subject->image;
         } elseif ($this->borrower_id) {
              $borrower = Borrower::find($this->borrower_id);
-             $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
+             $borrowerImage = $borrower ? ($borrower->image ?? null) : null;
         }
 
         // 3. Resolve Lead Image
         if ($subject instanceof Lead) {
-             $leadImage = asset('avatar/avatar-partner.jpg'); // Leads use generic partner/temp avatar for now per design
+             $leadImage = asset('avatar/avatar-partner.jpg'); 
         }
 
         return [
