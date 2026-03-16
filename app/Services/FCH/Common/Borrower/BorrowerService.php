@@ -412,42 +412,47 @@ class BorrowerService
                 $borrowerData['postal_code'] = $data['postal_code'];
                 $borrowerData['postal_code'] = $data['business_postal_code'];
             }
-            $oldEmail = $borrower->email;
-            $newEmail = $data['email'] ?? $oldEmail;
-            $isEmailChange = $oldEmail !== $newEmail;
-
-            $oldFirstName = $borrower->first_name;
-            $oldLastName = $borrower->last_name;
-            $oldBusiness = $borrower->business_name;
-
             $borrower->update($borrowerData);
 
-            $isNameChange = $oldFirstName != $borrower->first_name || $oldLastName != $borrower->last_name;
-            $isBusinessChange = $oldBusiness != $borrower->business_name;
+            $changes = $borrower->getChanges();
+            unset($changes['updated_at']);
 
-            // Log Email Update ONLY if email changes
-            if ($isEmailChange) {
-                $this->activityLogService->logModelEvent(
-                    $borrower, 
-                    ActivityLog::LOG_TYPE_EMAIL_UPDATE,
-                    ['new_email' => $newEmail]
-                );
-            } elseif ($isNameChange || $isBusinessChange) {
-                $customDesc = null;
-                if ($isNameChange && $isBusinessChange) {
-                    $customDesc = "Client name and business profile were updated.";
-                } elseif ($isNameChange) {
-                    $customDesc = "Client name was updated to {$borrower->full_name}.";
-                } elseif ($isBusinessChange) {
-                    $customDesc = "Client business name was updated to {$borrower->business_name}.";
+            if (!empty($changes)) {
+                $extraProps = [];
+                if (isset($changes['email'])) {
+                    $extraProps['new_email'] = $changes['email'];
                 }
 
+                $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
+                $contactFields = ['email', 'phone_number', 'business_phone'];
+                
+                $changedKeys = array_keys($changes);
+                $isContactOnly = count(array_diff($changedKeys, $contactFields)) === 0;
+
+                $logType = ActivityLog::LOG_TYPE_BORROWER_UPDATE;
+                if ($isEmailOnly) {
+                    $logType = ActivityLog::LOG_TYPE_EMAIL_UPDATE;
+                } elseif ($isContactOnly) {
+                    $logType = ActivityLog::LOG_TYPE_BORROWER_CONTACT_UPDATE;
+                }
+
+                $changedFields = [];
+                foreach ($changes as $field => $newValue) {
+                    $name = ucwords(str_replace('_', ' ', $field));
+                    $val = (string) $newValue;
+                    $val = $val === '' ? 'empty' : $val;
+                    $changedFields[] = "{$name} was updated to {$val}";
+                }
+                $fieldsList = implode(', ', $changedFields);
+                
+                $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+
                 $this->activityLogService->logModelEvent(
-                    $borrower, 
-                    ActivityLog::LOG_TYPE_BORROWER_UPDATE,
-                    [],
+                    $borrower,
+                    $logType,
+                    $extraProps,
                     null,
-                    $customDesc
+                    $customDescription
                 );
             }
 

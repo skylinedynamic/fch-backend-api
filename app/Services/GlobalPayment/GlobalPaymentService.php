@@ -154,7 +154,6 @@ class GlobalPaymentService
                 $this->activityLogService->logModelEvent(
                     $payment,
                     ($invoice->entity_type === Partner::class) ? ActivityLog::LOG_TYPE_PARTNER_PAYMENT : ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
-                    Auth::id(),
                     [
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,
@@ -375,7 +374,6 @@ class GlobalPaymentService
                 $this->activityLogService->logModelEvent(
                     $payment,
                     ActivityLog::LOG_TYPE_PARTNER_PAYMENT,
-                    Auth::id(),
                     [
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,

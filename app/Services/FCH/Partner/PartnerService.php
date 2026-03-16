@@ -365,44 +365,58 @@ class PartnerService
                 }
             }
 
-            $oldEmail = $partner->email;
-            $newEmail = $data['email'] ?? $oldEmail;
-            $isEmailChange = $oldEmail !== $newEmail;
-
-            $oldFirstName = $partner->first_name;
-            $oldLastName = $partner->last_name;
-            $oldCompany = $partner->company_name;
-
             // Update partner
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
 
-            $isNameChange = $oldFirstName != $partner->first_name || $oldLastName != $partner->last_name;
-            $isCompanyChange = $oldCompany != $partner->company_name;
+            $changes = $partner->getChanges();
+            unset($changes['updated_at']);
 
-            // Log Email Update ONLY if email changes
-            if ($isEmailChange) {
-                $this->activityLogService->logModelEvent(
-                    $partner, 
-                    ActivityLog::LOG_TYPE_EMAIL_UPDATE,
-                    ['new_email' => $newEmail]
-                );
-            } elseif ($isNameChange || $isCompanyChange) {
-                $customDesc = null;
-                if ($isNameChange && $isCompanyChange) {
-                    $customDesc = "Partner name and company profile were updated.";
-                } elseif ($isNameChange) {
-                    $customDesc = "Partner name was updated to {$partner->full_name}.";
-                } elseif ($isCompanyChange) {
-                    $customDesc = "Partner company name was updated to {$partner->company_name}.";
+            if (!empty($changes)) {
+                $extraProps = [];
+                if (isset($changes['email'])) {
+                    $extraProps['new_email'] = $changes['email'];
                 }
 
+                $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
+                $contactFields = ['email', 'phone_number', 'contact_person', 'contact_person_email', 'contact_person_phone_number', 'contact_person_relation'];
+                
+                $changedKeys = array_keys($changes);
+                $isContactOnly = count(array_diff($changedKeys, $contactFields)) === 0;
+
+                $logType = ActivityLog::LOG_TYPE_PARTNER_UPDATE;
+                if ($isEmailOnly) {
+                    $logType = ActivityLog::LOG_TYPE_EMAIL_UPDATE;
+                } elseif ($isContactOnly) {
+                    $logType = ActivityLog::LOG_TYPE_PARTNER_CONTACT_UPDATE;
+                }
+
+                $changedFields = [];
+                foreach ($changes as $field => $newValue) {
+                    $name = $field === 'assign_to' ? 'Assigned User' : ucwords(str_replace('_', ' ', $field));
+                    
+                    if ($field === 'assign_to') {
+                        $changedFields[] = "{$name} was changed";
+                    } elseif ($field === 'full_name') {
+                        $val = (string) $newValue;
+                        $val = $val === '' ? 'empty' : $val;
+                        $changedFields[] = "Name was updated to {$val}";
+                    } else {
+                        $val = (string) $newValue;
+                        $val = $val === '' ? 'empty' : $val;
+                        $changedFields[] = "{$name} was updated to {$val}";
+                    }
+                }
+                $fieldsList = implode(', ', $changedFields);
+                
+                $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+
                 $this->activityLogService->logModelEvent(
-                    $partner, 
-                    ActivityLog::LOG_TYPE_PARTNER_UPDATE,
-                    [],
+                    $partner,
+                    $logType,
+                    $extraProps,
                     null,
-                    $customDesc
+                    $customDescription
                 );
             }
 

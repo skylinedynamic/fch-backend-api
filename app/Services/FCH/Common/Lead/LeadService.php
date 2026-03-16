@@ -224,46 +224,27 @@ class LeadService
                     unset($data['business_start_date']);
                 }
             }
-            $oldStatus = $lead->status;
-            $newStatus = $data['status'] ?? $oldStatus;
-            $isStatusChange = $oldStatus != $newStatus;
-
-            $oldSalesperson = $lead->salesperson_id;
-            $newSalesperson = $data['salesperson_id'] ?? $oldSalesperson;
-            $isSalespersonChange = $oldSalesperson != $newSalesperson;
-
-            $oldProbability = $lead->probability;
-            $newProbability = $data['probability'] ?? $oldProbability;
-            $isProbChange = $oldProbability != $newProbability;
-
-            $oldFirstName = $lead->first_name;
-            $oldLastName = $lead->last_name;
-            $oldCompany = $lead->company_name;
-
             $lead->update($data);
 
-            $isNameChange = $oldFirstName != $lead->first_name || $oldLastName != $lead->last_name;
-            $isCompanyChange = $oldCompany != $lead->company_name;
+            $changes = $lead->getChanges();
+            unset($changes['updated_at'], $changes['updated_by']);
 
-            $customDescription = null;
-            if ($isStatusChange && $isSalespersonChange) {
-                $customDescription = "Lead status updated to {$newStatus} and assigned salesperson was changed.";
-            } elseif ($isStatusChange) {
-                $customDescription = "Lead status updated to {$newStatus}.";
-            } elseif ($isSalespersonChange) {
-                $customDescription = "Lead assigned salesperson was changed.";
-            } elseif ($isProbChange) {
-                $customDescription = "Lead conversion probability updated to {$newProbability}.";
-            } elseif ($isNameChange && $isCompanyChange) {
-                $customDescription = "Lead name and company profile were updated.";
-            } elseif ($isNameChange) {
-                $customDescription = "Lead name was updated to {$lead->full_name}.";
-            } elseif ($isCompanyChange) {
-                $customDescription = "Lead company name was updated to {$lead->company_name}.";
-            }
+            if (!empty($changes)) {
+                $changedFields = [];
+                foreach ($changes as $field => $newValue) {
+                    $name = $field === 'salesperson_id' ? 'Assigned Salesperson' : ucwords(str_replace('_', ' ', $field));
+                    
+                    if ($field === 'salesperson_id') {
+                        $changedFields[] = "{$name} was changed";
+                    } else {
+                        $val = (string) $newValue;
+                        $val = $val === '' ? 'empty' : $val;
+                        $changedFields[] = "{$name} was updated to {$val}";
+                    }
+                }
+                $fieldsList = implode(', ', $changedFields);
+                $customDescription = "{$fieldsList}.";
 
-            // Log Lead Update ONLY if relevant details changed
-            if ($isStatusChange || $isSalespersonChange || $isProbChange || $isNameChange || $isCompanyChange) {
                 $this->activityLogService->logModelEvent(
                     $lead, 
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
@@ -297,36 +278,33 @@ class LeadService
                     unset($data['business_start_date']);
                 }
             }
-            $oldEmail = $lead->email;
-            $newEmail = $data['email'] ?? $oldEmail;
-            $isEmailChange = $oldEmail != $newEmail;
-
-            $oldPhone = $lead->phone_number;
-            $newPhone = $data['phone_number'] ?? $oldPhone;
-            $isPhoneChange = $oldPhone != $newPhone;
-
             $lead->update($data);
 
-            $customDescription = null;
-            $logType = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE;
-            $extraProps = [];
+            $changes = $lead->getChanges();
+            unset($changes['updated_at'], $changes['updated_by']);
 
-            if ($isEmailChange && $isPhoneChange) {
-                $customDescription = "Lead contact email and phone number were updated.";
-                $extraProps['new_email'] = $newEmail;
-            } elseif ($isEmailChange) {
-                $logType = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_EMAIL_UPDATE;
-                $extraProps['new_email'] = $newEmail;
-            } elseif ($isPhoneChange) {
-                $customDescription = "Lead contact phone number was updated to {$newPhone}.";
-            }
+            if (!empty($changes)) {
+                $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
+                $logType = $isEmailOnly ? \App\Models\ActivityLog\ActivityLog::LOG_TYPE_EMAIL_UPDATE : \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE;
+                
+                $extraProps = [];
+                if (isset($changes['email'])) {
+                    $extraProps['new_email'] = $changes['email'];
+                }
 
-            // Log Lead Update ONLY if relevant contact info changed
-            if ($isEmailChange || $isPhoneChange) {
+                $changedFields = [];
+                foreach ($changes as $field => $newValue) {
+                    $name = ucwords(str_replace('_', ' ', $field));
+                    $val = (string) $newValue;
+                    $val = $val === '' ? 'empty' : $val;
+                    $changedFields[] = "{$name} was updated to {$val}";
+                }
+                $fieldsList = implode(', ', $changedFields);
+                $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+
                 $this->activityLogService->logModelEvent(
                     $lead, 
                     $logType,
-                    null,
                     $extraProps,
                     null,
                     $customDescription

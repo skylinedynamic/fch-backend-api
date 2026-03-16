@@ -187,7 +187,7 @@ class EmployeeService
             $this->activityLogService->logModelEvent(
                 $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_CREATE,
-                $user?->id
+                ['user_id' => $user?->id]
             );
 
             DB::commit();
@@ -310,7 +310,7 @@ class EmployeeService
             $this->activityLogService->logModelEvent(
                 $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_UPDATE,
-                $user?->id
+                ['user_id' => $user?->id]
             );
 
             DB::commit();
@@ -356,8 +356,7 @@ class EmployeeService
             $this->activityLogService->logModelEvent(
                 $employee,
                 ActivityLog::LOG_TYPE_EMPLOYEE_DELETE,
-                $user?->id,
-                ['model_status' => 'deleted']
+                ['user_id' => $user?->id, 'model_status' => 'deleted']
             );
 
             DB::commit();

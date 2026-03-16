@@ -620,6 +620,11 @@ class User extends Authenticatable implements OAuthenticatable
         if ($this->entity && method_exists($this->entity, 'getEntityImage')) {
             return $this->entity->getEntityImage();
         }
-        return asset('avatar/avater-partner.png');
+
+        if ($this->entity_type === \App\Models\Borrower\Borrower::class || $this->user_type === self::BORROWER) {
+             return asset('avatar/avatar-borrower.jpg');
+        }
+
+        return asset('avatar/avatar-partner.jpg');
     }
 }

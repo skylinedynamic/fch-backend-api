@@ -13,7 +13,7 @@ class ActivityLog extends Activity
     protected static function booted()
     {
         static::creating(function ($activity) {
-            // Accurate Code: Automatically infer partner_id if missing to ensure timeline visibility
+            // Automatically infer partner_id if missing to ensure timeline visibility
             if (!$activity->partner_id) {
                 $subject = $activity->subject;
                 
@@ -60,10 +60,13 @@ class ActivityLog extends Activity
     const LOG_TYPE_EMAIL_UPDATE     = 'email_update';
     const LOG_TYPE_PARTNER_CREATE   = 'partner_create';
     const LOG_TYPE_PARTNER_UPDATE   = 'partner_update';
+    const LOG_TYPE_PARTNER_CONTACT_UPDATE = 'partner_contact_update';
+    const LOG_TYPE_PARTNER_DELETE   = 'partner_delete';
     const LOG_TYPE_EMAIL_SENT       = 'email_sent';
     const LOG_TYPE_ACTIVITY         = 'activity';
     const LOG_TYPE_BORROWER_CREATE  = 'borrower_create';
     const LOG_TYPE_BORROWER_UPDATE  = 'borrower_update';
+    const LOG_TYPE_BORROWER_CONTACT_UPDATE = 'borrower_contact_update';
     const LOG_TYPE_LEAD_CREATE      = 'lead_create';
     const LOG_TYPE_LEAD_UPDATE      = 'lead_update';
     const LOG_TYPE_LEAD_DETAILS_UPDATE = 'lead_details_update';
@@ -102,7 +105,6 @@ class ActivityLog extends Activity
         'borrower_id',
         'properties',
         'status',
-        'created_to',
         'event',
         'batch_uuid',
     ];
@@ -143,10 +145,6 @@ class ActivityLog extends Activity
         return $this->morphTo();
     }
 
-    public function targetUser()
-    {
-        return $this->belongsTo(\App\Models\User\User::class, 'created_to');
-    }
 
     public function scopeSearch($query, ?string $search)
     {

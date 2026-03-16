@@ -252,7 +252,7 @@ class Borrower extends Model
 
     public function getEntityImage(): string
     {
-        return $this->image ?? asset('avatar/avater-borrower.jpg');
+        return $this->image ?? asset('avatar/avatar-borrower.jpg');
     }
 
     public function getImageAttribute($value)

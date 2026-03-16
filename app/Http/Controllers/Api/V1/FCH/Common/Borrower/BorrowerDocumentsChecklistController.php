@@ -72,16 +72,26 @@ class BorrowerDocumentsChecklistController extends Controller
             ], 404);
         }
 
+        // If no documentation data is provided, return early with success
+        if (!$request->has('checked_doc_type_ids')) {
+            return response()->json([
+                'success' => true,
+                'message' => __('borrower.checklist.no_data_provided'),
+            ], 200);
+        }
+
         $validated = $request->validate([
-            'checked_doc_type_ids' => 'required|array',
+            'checked_doc_type_ids' => 'nullable|array',
             'checked_doc_type_ids.*' => 'integer|exists:borrower_doc_types,id',
         ]);
 
         try {
+            $ids = $validated['checked_doc_type_ids'] ?? [];
+            
             $result = $this->checklistService->saveChecklist(
                 $borrower->id,
                 auth()->user()->partner_id,
-                $validated['checked_doc_type_ids']
+                $ids
             );
 
             if (!$result['success']) {

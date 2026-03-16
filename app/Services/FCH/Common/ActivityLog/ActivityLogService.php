@@ -8,6 +8,11 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
+use App\Models\Employee\Employee;
+use App\Models\Invoice\Invoice;
+use App\Models\Payment\Payment;
+use App\Models\Appointment\Appointment;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -24,9 +29,7 @@ class ActivityLogService
      */
     public function list(array $filters)
     {
-        Log::info('ActivityLogService@list filters:', $filters);
-
-        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower', 'targetUser']);
+        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower']);
         
         $user = Auth::user();
 
@@ -38,7 +41,6 @@ class ActivityLogService
         if (isset($user->partner) && (int) ($user->partner->is_host ?? 0) !== 1) {
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
-                    ->orWhere('created_to', $user->id)
                     ->orWhere('partner_id', $user->partner_id);
             });
         }
@@ -72,13 +74,6 @@ class ActivityLogService
                     ->where('subject_id', $filters['lead_id']);
             });
         }
-
-        // Debug Final SQL
-        Log::info('ActivityLog Final SQL:', [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings(),
-            'filters' => $filters
-        ]);
 
         $limit = $filters['limit'] ?? 15;
         $page  = $filters['page'] ?? 1;
@@ -123,48 +118,35 @@ class ActivityLogService
             }
             $attachmentsCount = count($attachmentFiles);
 
-            $createdTo = $data['created_to'] ?? null;
+            $subjectType = $data['subject_type'] ?? null;
+            $subjectId = $data['subject_id'] ?? null;
+
             $targetPartnerId = $data['partner_id'] ?? Auth::user()->partner_id ?? null;
             $targetBorrowerId = $data['borrower_id'] ?? null;
-            $entityType = $data['entity_type'] ?? null;
-            $entityId = $data['entity_id'] ?? null;
 
             // Resolve Lead ID if provided explicitly
             if (!empty($data['lead_id'])) {
-                $entityType = \App\Models\Lead\Lead::class;
-                $entityId = $data['lead_id'];
+                $subjectType = \App\Models\Lead\Lead::class;
+                $subjectId = $data['lead_id'];
                 
                 // If logging for a lead, try to find the partner it belongs to for the timeline
                 if (!$targetPartnerId) {
-                    $lead = \App\Models\Lead\Lead::find($entityId);
+                    $lead = \App\Models\Lead\Lead::find($subjectId);
                     if ($lead && $lead->partner_id) {
                         $targetPartnerId = $lead->partner_id;
                     }
                 }
             }
 
-            // Resolve Partner User for created_to if needed
-            if (!$createdTo && $targetPartnerId) {
-                $partner = \App\Models\Partner\Partner::find($targetPartnerId);
-                if ($partner && $partner->partnerUser) {
-                    $createdTo = $partner->partnerUser->id;
-                }
-            }
-
-            // Enforce null created_to for certain modules if required by business logic
-            if ($entityType === \App\Models\Borrower\Borrower::class || $entityType === \App\Models\Lead\Lead::class) {
-                $createdTo = null;
-            }
 
             $logData = [
                 'log_type'     => $logType,
-                'subject_type' => $entityType,
-                'subject_id'   => $entityId,
+                'subject_type' => $subjectType,
+                'subject_id'   => $subjectId,
                 'partner_id'   => $targetPartnerId,
                 'borrower_id'  => $targetBorrowerId,
                 'causer_id'    => Auth::id(),
                 'causer_type'  => Auth::check() ? get_class(Auth::user()) : null,
-                'created_to'   => $createdTo,
                 'status'       => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
                 'description'  => $data['description'] ?? $data['subject'] ?? 'Activity Log',
                 'properties'   => [
@@ -192,7 +174,7 @@ class ActivityLogService
 
             DB::commit();
 
-            $load = $logType === ActivityLog::TYPE_EMAIL ? ['causer'] : ['causer', 'assignedUser', 'partner', 'borrower', 'targetUser'];
+            $load = $logType === ActivityLog::TYPE_EMAIL ? ['causer'] : ['causer', 'assignedUser', 'partner', 'borrower'];
             return $log->fresh($load);
         } catch (Throwable $e) {
             DB::rollBack();
@@ -205,14 +187,13 @@ class ActivityLogService
      * Log a system-triggered event (e.g., Partner Update, Lead Status Change).
      */
     public function logSystemEvent(
-        ?string $entityType,
-        ?int $entityId,
+        ?string $subjectType,
+        ?int $subjectId,
         ?int $partnerId,
         ?int $borrowerId,
         string $subject,
         string $description,
         string $logType = ActivityLog::LOG_TYPE_ACTIVITY,
-        ?int $createdTo = null,
         array $properties = []
     ): ActivityLog {
         $mergedProperties = array_merge([
@@ -223,13 +204,12 @@ class ActivityLogService
 
         return ActivityLog::create([
             'log_type'     => $logType,
-            'subject_type' => $entityType,
-            'subject_id'   => $entityId,
+            'subject_type' => $subjectType,
+            'subject_id'   => $subjectId,
             'partner_id'   => $partnerId,
             'borrower_id'  => $borrowerId,
             'causer_id'    => Auth::id() ?: 1, // Fallback to system user
             'causer_type'  => Auth::check() ? get_class(Auth::user()) : \App\Models\User\User::class,
-            'created_to'   => $createdTo,
             'status'       => 'log',
             'event'        => $subject, // Human-readable subject
             'description'  => $description, // Detailed description for UI gray box
@@ -243,25 +223,32 @@ class ActivityLogService
     public function logModelEvent(
         $model,
         string $logType,
-        ?int $createdTo = null,
         array $extraProperties = [],
         ?string $customSubject = null,
         ?string $customDescription = null
     ): ActivityLog {
-        $entityType = get_class($model);
-        $entityId   = $model->id;
+        $subjectType = get_class($model);
+        $subjectId   = $model->id;
         $partnerId  = $model->partner_id ?? null;
         $borrowerId = $model->borrower_id ?? null;
 
-        // Resolve Partner ID for User if missing
-        if (!$partnerId && $model instanceof \App\Models\User\User) {
-            $partnerId = $model->partner_id;
+        // Resolve ID attribution for images and scoping
+        if (!$partnerId) {
+            if ($model instanceof Partner) {
+                $partnerId = $model->id;
+            } elseif ($model instanceof User || $model instanceof Employee) {
+                $partnerId = $model->partner_id;
+            } elseif ($model instanceof Payment) {
+                $partnerId = $model->partner_id;
+                $borrowerId = $model->borrower_id;
+            }
         }
 
-        // Handle User specifics for created_to
-        if ($model instanceof \App\Models\User\User) {
-            $createdTo = $createdTo ?? $model->id;
+        if (!$borrowerId && $model instanceof Borrower) {
+             $borrowerId = $model->id;
+             $partnerId = $partnerId ?: $model->partner_id;
         }
+
 
         // Generate default descriptions if not provided
         $modelName = class_basename($model);
@@ -295,10 +282,22 @@ class ActivityLogService
              $action = $actionMap['update'] ?? 'Updated';
              $descriptionAction = 'contact updated';
              $customSubject = $customSubject ?? config('activity_messages.subjects.lead_contact_update');
+        } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_CONTACT_UPDATE) {
+             $action = $actionMap['update'] ?? 'Updated';
+             $descriptionAction = 'contact updated';
+             $customSubject = $customSubject ?? 'Partner Contact Information Updated';
+        } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_CONTACT_UPDATE) {
+             $action = $actionMap['update'] ?? 'Updated';
+             $descriptionAction = 'contact updated';
+             $customSubject = $customSubject ?? 'Client Contact Information Updated';
         } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
              $action = 'Updated';
              $descriptionAction = 'contact email updated';
              $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.email_update', ':model Contact Information Updated'));
+        } elseif (in_array($logType, [ActivityLog::LOG_TYPE_PARTNER_PAYMENT, ActivityLog::LOG_TYPE_BORROWER_PAYMENT])) {
+             $action = 'Paid';
+             $descriptionAction = 'payment successful';
+             $customSubject = $customSubject ?? ($logType === ActivityLog::LOG_TYPE_PARTNER_PAYMENT ? 'Partner Subscription Payment Successful' : 'Client Subscription Payment Successful');
         } else {
              $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
              $descriptionAction = strtolower($action);
@@ -335,6 +334,20 @@ class ActivityLogService
                 [$modelName, $newEmail, $displayName], 
                 $descPattern
             );
+        } elseif ($model instanceof Employee) {
+            $descPattern = config('activity_messages.descriptions.employee_default', 'Employee profile :action for :display_name.');
+            $description = $customDescription ?? str_replace(
+                [':action', ':display_name'], 
+                [$descriptionAction, $displayName], 
+                $descPattern
+            );
+        } elseif ($model instanceof User) {
+            $descPattern = config('activity_messages.descriptions.user_default', 'User account :action for :display_name.');
+            $description = $customDescription ?? str_replace(
+                [':action', ':display_name'], 
+                [$descriptionAction, $displayName], 
+                $descPattern
+            );
         } else {
             $description = $customDescription ?? str_replace(
                 [':model', ':action', ':display_name'], 
@@ -344,7 +357,7 @@ class ActivityLogService
         }
 
         // Specialized descriptions per Model Type (overrides default if applicable)
-        if ($model instanceof \App\Models\Invoice\Invoice) {
+        if ($model instanceof Invoice) {
             if ($logType === ActivityLog::LOG_TYPE_BATCH_PROCESS) {
                 $batchDescPattern = config('activity_messages.descriptions.batch_invoice', 'System generated a renewal invoice (:invoice_id) for user :display_name via batch process.');
                 $description = $customDescription ?? str_replace(
@@ -360,7 +373,7 @@ class ActivityLogService
                     $invoiceDescPattern
                 );
             }
-        } elseif ($model instanceof \App\Models\Appointment\Appointment) {
+        } elseif ($model instanceof Appointment) {
             $timeStr = !empty($model->appointment_date) ? \Carbon\Carbon::parse($model->appointment_date)->format('M d, Y h:i A') : 'N/A';
             $entity = $model->entity;
             $entityName = $entity?->full_name ?? $entity?->name ?? $entity?->company_name ?? (isset($entity->first_name) ? "{$entity->first_name} {$entity->last_name}" : 'Client');
@@ -371,7 +384,7 @@ class ActivityLogService
                 [$model->subject, $descriptionAction, $entityName, $timeStr], 
                 $appointmentDescPattern
             );
-        } elseif ($model instanceof \App\Models\Payment\Payment) {
+        } elseif ($model instanceof Payment) {
             $currency = $model->currency ?? 'USD';
             $paymentDescPattern = config('activity_messages.descriptions.payment', ':model of :amount :currency :action successfully.');
             $description = $customDescription ?? str_replace(
@@ -387,14 +400,13 @@ class ActivityLogService
         ], $extraProperties);
 
         return $this->logSystemEvent(
-            $entityType,
-            $entityId,
+            $subjectType,
+            $subjectId,
             $partnerId,
             $borrowerId,
             $subject,
             $description,
             $logType,
-            $createdTo,
             $properties
         );
     }
@@ -438,7 +450,7 @@ class ActivityLogService
      */
     public function find(int $id): ActivityLog
     {
-        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower', 'targetUser']);
+        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower']);
         $user = Auth::user();
 
         if (!$user) {
@@ -450,7 +462,6 @@ class ActivityLogService
 
     /**
      * Download attachment.
-     * Accurate Code: Robustly handles:
      * - Regular storage attachments (email logs)
      * - Partner document links (document upload logs)
      * Supports both old relative paths and new full URLs.
@@ -460,7 +471,7 @@ class ActivityLogService
         $log = ActivityLog::findOrFail($logId);
         $files = $this->getLogFiles($log);
 
-        // Accurate Code: match by path OR by URL (extremely resilient matching)
+        // Match by path OR by URL (extremely resilient matching)
         $file = collect($files)->first(function ($f) use ($path) {
             $fPath = $f['path'] ?? '';
             return $fPath === $path 
@@ -474,7 +485,7 @@ class ActivityLogService
             throw new \Exception("File not found in this activity log", 404);
         }
 
-        // Accurate Code: Resolve Partner Document ID (even if missing from properties)
+        // Resolve Partner Document ID (even if missing from properties)
         $partnerDocumentId = $file['id'] ?? null;
         if (!$partnerDocumentId && preg_match('/documents\/download\/(\d+)/', $path, $matches)) {
             $partnerDocumentId = $matches[1];
@@ -489,7 +500,7 @@ class ActivityLogService
             // Get the raw path from DB
             $rawPath = $document->getRawOriginal('file_path');
             
-            // Accurate Code: Check multiple possible locations for maximum robustness
+            // Check multiple possible locations for maximum robustness
             $possiblePaths = [
                 public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
                 storage_path('app/public/partners/' . $document->partner_id . '/' . $rawPath),

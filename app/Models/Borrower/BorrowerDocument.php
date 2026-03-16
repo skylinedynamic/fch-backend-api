@@ -26,8 +26,6 @@ class BorrowerDocument extends Model
 
     public function tapActivity(Activity $activity, string $eventName)
     {
-        $activity->entity_type = \App\Models\Borrower\Borrower::class;
-        $activity->entity_id   = $this->borrower_id;
         $activity->partner_id  = $this->borrower?->partner_id;
         $activity->borrower_id = $this->borrower_id;
 
@@ -39,6 +37,19 @@ class BorrowerDocument extends Model
             'deleted' => "Document {$docTypeName} was removed.",
             default   => $activity->description,
         };
+
+        if ($eventName === 'created') {
+            $activity->properties = array_merge($activity->properties->toArray(), [
+                 'attachments' => [
+                     'count' => 1,
+                     'files' => [[
+                         'name' => $this->file_name,
+                         'path' => $this->url,
+                         'id'   => $this->id,
+                     ]]
+                 ]
+            ]);
+        }
 
         $activity->log_type = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD;
     }

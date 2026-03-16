@@ -28,8 +28,6 @@ class StoreActivityLogRequest extends BaseApiRequest
     {
         return [
             'log_type'      => ['required', Rule::in([ActivityLog::TYPE_ACTIVITY, ActivityLog::TYPE_EMAIL])],
-            'entity_type'   => ['nullable', 'string', 'max:255'],
-            'entity_id'     => ['nullable', 'integer'],
             'borrower_id'   => ['nullable', 'exists:borrowers,id'],
             'partner_id'    => ['nullable', 'exists:partners,id'],
             'lead_id'       => ['nullable', 'exists:leads,id'],

@@ -16,23 +16,23 @@ class ActivityLogResource extends JsonResource
     {
         $partnerImage = null;
         if ($this->relationLoaded('partner') && $this->partner) {
-            $partnerImage = $this->partner->partner_image ?? asset('avatar/avater-partner.png');
+            $partnerImage = $this->partner->partner_image ?? asset('avatar/avatar-partner.jpg');
         } elseif ($this->partner_id) {
             $partner = Partner::find($this->partner_id);
-            $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avater-partner.png')) : asset('avatar/avater-partner.png');
+            $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
         }
 
         $borrowerImage = null;
         if ($this->relationLoaded('borrower') && $this->borrower) {
-            $borrowerImage = $this->borrower->image ?? asset('avatar/avater-borrower.jpg');
+            $borrowerImage = $this->borrower->image ?? asset('avatar/avatar-borrower.jpg');
         } elseif ($this->borrower_id) {
             $borrower = Borrower::find($this->borrower_id);
-            $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avater-borrower.jpg')) : asset('avatar/avater-borrower.jpg');
+            $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
         }
 
         $leadImage = null;
         if (($this->subject_type === Lead::class || $this->subject_type === 'Lead') && $this->subject_id) {
-            $leadImage = asset('avatar/avater-partner.png'); 
+            $leadImage = asset('avatar/avatar-partner.jpg'); 
         }
 
         return [
@@ -60,19 +60,13 @@ class ActivityLogResource extends JsonResource
             'attachments'       => $this->properties['attachments']['files'] ?? [],
             'attachments_count' => $this->properties['attachments']['count'] ?? 0,
             'status'            => $this->status,
-            'created_to'        => $this->created_to,
-            'target_user'       => $this->whenLoaded('targetUser', fn() => $this->targetUser ? [
-                'id'    => $this->targetUser->id,
-                'name'  => $this->targetUser->name,
-                'email' => $this->targetUser->email,
-            ] : null),
             // Timeline specific
             'causer_name'   => ($this->relationLoaded('causer') && $this->causer) 
                                 ? ($this->causer->name ?? 'System') 
                                 : 'System',
             'causer_image'  => ($this->relationLoaded('causer') && $this->causer && method_exists($this->causer, 'getEntityImage')) 
                                 ? $this->causer->getEntityImage() 
-                                : asset('avatar/avater-partner.png'),
+                                : ($borrowerImage ?? $partnerImage ?? asset('avatar/avatar-partner.jpg')),
             'event_label'   => $this->getEventLabel(),
             'changes'       => $this->properties['attributes'] ?? null,
             'old_values'    => $this->properties['old'] ?? null,

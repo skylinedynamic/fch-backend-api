@@ -112,4 +112,9 @@ class Employee extends Model
     {
         return $value ? encodeUrl(asset("storage/{$value}")) : null;
     }
+
+    public function getEntityImage(): string
+    {
+        return $this->image ?? asset('avatar/avatar-partner.jpg');
+    }
 }

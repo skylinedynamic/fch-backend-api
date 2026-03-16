@@ -59,7 +59,6 @@ class PartnerDocumentService
                 app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
                     $partner,
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
-                    null,
                     [
                         'attachments' => [
                             'count' => count($attachmentFiles),
@@ -88,7 +87,6 @@ class PartnerDocumentService
             app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
                 $partner,
                 \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
-                null,
                 [
                     'attachments' => [
                         'count' => 1,
@@ -229,7 +227,6 @@ class PartnerDocumentService
                 app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logModelEvent(
                     $partner,
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD,
-                    null,
                     [],
                     'Partner Document Removed',
                     "Document {$docName} was removed from the partner profile."

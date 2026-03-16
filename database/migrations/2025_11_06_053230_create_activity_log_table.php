@@ -22,15 +22,9 @@ class CreateActivityLogTable extends Migration
 
             // Custom Business Logic Columns
             $table->string('log_type')->nullable()->index();
-            $table->string('entity_type')->nullable()->index();
-            $table->unsignedBigInteger('entity_id')->nullable()->index();
             $table->unsignedBigInteger('partner_id')->nullable()->index();
             $table->unsignedBigInteger('borrower_id')->nullable()->index();
             $table->string('status')->nullable();
-            
-            $table->unsignedBigInteger('created_by')->nullable()->index();
-            $table->unsignedBigInteger('created_to')->nullable()->index();
-            $table->unsignedBigInteger('updated_by')->nullable()->index();
 
             $table->timestamps();
             $table->softDeletes();

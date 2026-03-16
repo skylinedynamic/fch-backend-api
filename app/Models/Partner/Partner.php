@@ -314,6 +314,6 @@ class Partner extends Model
 
     public function getEntityImage(): string
     {
-        return $this->partner_image ?? asset('avatar/avater-partner.png');
+        return $this->partner_image ?? asset('avatar/avatar-partner.jpg');
     }
 }
