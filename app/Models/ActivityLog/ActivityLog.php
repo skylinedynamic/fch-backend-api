@@ -4,17 +4,18 @@ namespace App\Models\ActivityLog;
 
 use Spatie\Activitylog\Models\Activity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ActivityLog extends Activity
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected static function booted()
     {
         static::creating(function ($activity) {
+            $props = $activity->properties ?? [];
+
             // Automatically infer partner_id if missing to ensure timeline visibility
-            if (!$activity->partner_id) {
+            if (empty($props['partner_id'])) {
                 $subject = $activity->subject;
                 
                 // If subject is not loaded, try to find it
@@ -26,22 +27,41 @@ class ActivityLog extends Activity
                 }
 
                 if ($subject) {
+                    $inferredPartnerId = null;
                     if ($subject instanceof \App\Models\Partner\Partner) {
-                        $activity->partner_id = $subject->id;
+                        $inferredPartnerId = $subject->id;
                     } elseif (isset($subject->partner_id)) {
-                        $activity->partner_id = $subject->partner_id;
+                        $inferredPartnerId = $subject->partner_id;
                     } elseif (method_exists($subject, 'partner')) {
-                        $activity->partner_id = $subject->partner?->id;
+                        $inferredPartnerId = $subject->partner?->id;
                     }
 
                     // Special case for Appointments: check entity_type
                     if ($subject instanceof \App\Models\Appointment\Appointment) {
                         if ($subject->entity_type === \App\Models\Partner\Partner::class) {
-                            $activity->partner_id = $subject->entity_id;
+                            $inferredPartnerId = $subject->entity_id;
                         }
+                    }
+
+                    if ($inferredPartnerId) {
+                        $props['partner_id'] = $inferredPartnerId;
                     }
                 }
             }
+
+            // Move fields into properties to avoid DB column errors
+            if (isset($activity->partner_id)) $props['partner_id'] = $activity->partner_id;
+            if (isset($activity->borrower_id)) $props['borrower_id'] = $activity->borrower_id;
+            if (isset($activity->status)) $props['status'] = $activity->status;
+            if (isset($activity->log_type)) $activity->log_name = $activity->log_type;
+
+            $activity->properties = $props;
+
+            // Remove virtual columns from the model attributes so they aren't part of the SQL insert
+            unset($activity->partner_id);
+            unset($activity->borrower_id);
+            unset($activity->log_type);
+            unset($activity->status);
 
             // Ensure causer_id/type are set if manual log missed them
             if (!$activity->causer_id && auth()->check()) {
@@ -95,16 +115,13 @@ class ActivityLog extends Activity
     const STATUS_FAILED   = 'failed';
 
     protected $fillable = [
+        'log_name',
         'description',
         'subject_type',
         'subject_id',
         'causer_type',
         'causer_id',
-        'log_type',
-        'partner_id',
-        'borrower_id',
         'properties',
-        'status',
         'event',
         'batch_uuid',
     ];
@@ -120,29 +137,63 @@ class ActivityLog extends Activity
             'properties'    => 'array',
             'created_at'    => 'datetime',
             'updated_at'    => 'datetime',
-            'deleted_at'    => 'datetime',
         ];
     }
 
-    public function partner()
+    public function getPartnerIdAttribute()
     {
-        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
+        return $this->properties['partner_id'] ?? null;
     }
 
-    public function borrower()
+    public function setPartnerIdAttribute($value)
     {
-        return $this->belongsTo(\App\Models\Borrower\Borrower::class, 'borrower_id');
+        $props = $this->properties ?? [];
+        $props['partner_id'] = $value;
+        $this->properties = $props;
     }
 
-
-    public function assignedUser()
+    public function getBorrowerIdAttribute()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'assigned_to');
+        return $this->properties['borrower_id'] ?? null;
+    }
+
+    public function setBorrowerIdAttribute($value)
+    {
+        $props = $this->properties ?? [];
+        $props['borrower_id'] = $value;
+        $this->properties = $props;
+    }
+
+    public function getStatusAttribute()
+    {
+        return $this->properties['status'] ?? null;
+    }
+
+    public function setStatusAttribute($value)
+    {
+        $props = $this->properties ?? [];
+        $props['status'] = $value;
+        $this->properties = $props;
     }
 
     public function causer(): \Illuminate\Database\Eloquent\Relations\MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function subject(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    public function getLogTypeAttribute()
+    {
+        return $this->log_name;
+    }
+
+    public function setLogTypeAttribute($value)
+    {
+        $this->attributes['log_name'] = $value;
     }
 
 

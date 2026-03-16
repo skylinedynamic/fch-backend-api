@@ -15,24 +15,35 @@ class ActivityLogResource extends JsonResource
     public function toArray(Request $request): array
     {
         $partnerImage = null;
-        if ($this->relationLoaded('partner') && $this->partner) {
-            $partnerImage = $this->partner->partner_image ?? asset('avatar/avatar-partner.jpg');
-        } elseif ($this->partner_id) {
-            $partner = Partner::find($this->partner_id);
-            $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
-        }
-
         $borrowerImage = null;
-        if ($this->relationLoaded('borrower') && $this->borrower) {
-            $borrowerImage = $this->borrower->image ?? asset('avatar/avatar-borrower.jpg');
-        } elseif ($this->borrower_id) {
-            $borrower = Borrower::find($this->borrower_id);
-            $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
+        $leadImage = null;
+
+        $subject = $this->relationLoaded('subject') ? $this->subject : null;
+
+        // 1. Resolve Partner Image
+        if ($subject instanceof Partner) {
+            $partnerImage = $subject->partner_image ?? asset('avatar/avatar-partner.jpg');
+        } elseif ($this->partner_id) {
+            // Check if subject belongs to this partner
+            if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id) {
+                 $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-partner.jpg'); // if relation exists
+            } else {
+                 $partner = Partner::find($this->partner_id);
+                 $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
+            }
         }
 
-        $leadImage = null;
-        if (($this->subject_type === Lead::class || $this->subject_type === 'Lead') && $this->subject_id) {
-            $leadImage = asset('avatar/avatar-partner.jpg'); 
+        // 2. Resolve Borrower/Client Image
+        if ($subject instanceof Borrower) {
+            $borrowerImage = $subject->image ?? asset('avatar/avatar-borrower.jpg');
+        } elseif ($this->borrower_id) {
+             $borrower = Borrower::find($this->borrower_id);
+             $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
+        }
+
+        // 3. Resolve Lead Image
+        if ($subject instanceof Lead) {
+             $leadImage = asset('avatar/avatar-partner.jpg'); // Leads use generic partner/temp avatar for now per design
         }
 
         return [

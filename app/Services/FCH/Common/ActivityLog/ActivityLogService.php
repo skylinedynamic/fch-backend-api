@@ -29,7 +29,7 @@ class ActivityLogService
      */
     public function list(array $filters)
     {
-        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower']);
+        $query = ActivityLog::with(['causer', 'subject']);
         
         $user = Auth::user();
 
@@ -41,7 +41,7 @@ class ActivityLogService
         if (isset($user->partner) && (int) ($user->partner->is_host ?? 0) !== 1) {
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
-                    ->orWhere('partner_id', $user->partner_id);
+                    ->orWhere('properties->partner_id', $user->partner_id);
             });
         }
 
@@ -49,7 +49,7 @@ class ActivityLogService
         if (!empty($filters['partner_id'])) {
             $pId = (int)$filters['partner_id'];
             $query->where(function ($q) use ($pId) {
-                $q->where('partner_id', $pId)
+                $q->where('properties->partner_id', $pId)
                     ->orWhere(function ($sq) use ($pId) {
                         $sq->where('subject_type', Partner::class)
                             ->where('subject_id', $pId);
@@ -60,7 +60,7 @@ class ActivityLogService
         if (!empty($filters['borrower_id'])) {
             $bId = (int)$filters['borrower_id'];
             $query->where(function ($q) use ($bId) {
-                $q->where('borrower_id', $bId)
+                $q->where('properties->borrower_id', $bId)
                     ->orWhere(function ($sq) use ($bId) {
                         $sq->where('subject_type', Borrower::class)
                             ->where('subject_id', $bId);
@@ -121,26 +121,36 @@ class ActivityLogService
             $subjectType = $data['subject_type'] ?? null;
             $subjectId = $data['subject_id'] ?? null;
 
-            $targetPartnerId = $data['partner_id'] ?? Auth::user()->partner_id ?? null;
-            $targetBorrowerId = $data['borrower_id'] ?? null;
-
-            // Resolve Lead ID if provided explicitly
+            // Resolve Subject ID and Type more comprehensively
             if (!empty($data['lead_id'])) {
                 $subjectType = \App\Models\Lead\Lead::class;
                 $subjectId = $data['lead_id'];
-                
-                // If logging for a lead, try to find the partner it belongs to for the timeline
-                if (!$targetPartnerId) {
+            } elseif (!empty($data['borrower_id'])) {
+                $subjectType = \App\Models\Borrower\Borrower::class;
+                $subjectId = $data['borrower_id'];
+            } elseif (!empty($data['partner_id'])) {
+                $subjectType = \App\Models\Partner\Partner::class;
+                $subjectId = $data['partner_id'];
+            }
+
+            // Sync targets
+            $targetPartnerId = $data['partner_id'] ?? Auth::user()->partner_id ?? null;
+            $targetBorrowerId = $data['borrower_id'] ?? null;
+
+            // If logging for a lead/borrower, try to find the partner it belongs to for the timeline
+            if (!$targetPartnerId) {
+                if ($subjectType === \App\Models\Lead\Lead::class) {
                     $lead = \App\Models\Lead\Lead::find($subjectId);
-                    if ($lead && $lead->partner_id) {
-                        $targetPartnerId = $lead->partner_id;
-                    }
+                    if ($lead && $lead->partner_id) $targetPartnerId = $lead->partner_id;
+                } elseif ($subjectType === \App\Models\Borrower\Borrower::class) {
+                    $borrower = \App\Models\Borrower\Borrower::find($subjectId);
+                    if ($borrower && $borrower->partner_id) $targetPartnerId = $borrower->partner_id;
                 }
             }
 
 
             $logData = [
-                'log_type'     => $logType,
+                'log_name'     => $logType,
                 'subject_type' => $subjectType,
                 'subject_id'   => $subjectId,
                 'partner_id'   => $targetPartnerId,
@@ -148,6 +158,7 @@ class ActivityLogService
                 'causer_id'    => Auth::id(),
                 'causer_type'  => Auth::check() ? get_class(Auth::user()) : null,
                 'status'       => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
+                'event'        => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
                 'description'  => $data['description'] ?? $data['subject'] ?? 'Activity Log',
                 'properties'   => [
                     'subject'       => $data['subject'] ?? null,
@@ -162,6 +173,8 @@ class ActivityLogService
                     'activity_date' => $data['activity_date'] ?? null,
                     'assigned_to'   => $data['assigned_to'] ?? null,
                     'to_emails'     => $data['to_emails'] ?? null,
+                    'partner_id'    => $targetPartnerId,
+                    'borrower_id'   => $targetBorrowerId,
                 ],
             ];
 
@@ -174,7 +187,7 @@ class ActivityLogService
 
             DB::commit();
 
-            $load = $logType === ActivityLog::TYPE_EMAIL ? ['causer'] : ['causer', 'assignedUser', 'partner', 'borrower'];
+            $load = $logType === ActivityLog::TYPE_EMAIL ? ['causer'] : ['causer', 'subject'];
             return $log->fresh($load);
         } catch (Throwable $e) {
             DB::rollBack();
@@ -203,7 +216,7 @@ class ActivityLogService
         ], $properties);
 
         return ActivityLog::create([
-            'log_type'     => $logType,
+            'log_name'     => $logType,
             'subject_type' => $subjectType,
             'subject_id'   => $subjectId,
             'partner_id'   => $partnerId,
@@ -450,7 +463,7 @@ class ActivityLogService
      */
     public function find(int $id): ActivityLog
     {
-        $query = ActivityLog::with(['causer', 'assignedUser', 'partner', 'borrower']);
+        $query = ActivityLog::with(['causer', 'subject']);
         $user = Auth::user();
 
         if (!$user) {
