@@ -20,25 +20,25 @@ class ActivityLogResource extends JsonResource
 
         $subject = $this->relationLoaded('subject') ? $this->subject : null;
 
-        // 1. Resolve Partner Image (Return NULL if not set)
+        // 1. Resolve Partner Image
         if ($subject instanceof Partner) {
-            $partnerImage = $subject->partner_image;
+            $partnerImage = $subject->partner_image ?? asset('avatar/avatar-partner.jpg');
         } elseif ($this->partner_id) {
             // Check if subject belongs to this partner
             if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id) {
-                 $partnerImage = $subject->partner->partner_image ?? null;
+                 $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-partner.jpg');
             } else {
                  $partner = Partner::find($this->partner_id);
-                 $partnerImage = $partner ? ($partner->partner_image ?? null) : null;
+                 $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
             }
         }
 
-        // 2. Resolve Borrower/Client Image (Return NULL if not set)
+        // 2. Resolve Borrower/Client Image
         if ($subject instanceof Borrower) {
-            $borrowerImage = $subject->image;
+            $borrowerImage = $subject->image ?? asset('avatar/avatar-borrower.jpg');
         } elseif ($this->borrower_id) {
              $borrower = Borrower::find($this->borrower_id);
-             $borrowerImage = $borrower ? ($borrower->image ?? null) : null;
+             $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
         }
 
         // 3. Resolve Lead Image
