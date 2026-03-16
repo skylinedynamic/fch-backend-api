@@ -114,20 +114,30 @@ class CheckUserExpired extends Command
 
                 try {
                     $invoiceId = $this->invoiceService->generateInvoiceId();
-                    Invoice::create([
+                    $newInvoice = Invoice::create([
                         'invoice_id' => $invoiceId,
                         'partner_id' => $user->partner_id,
-                        'entity_type' => $user->entity_type,
-                        'entity_id' => $user->entity_id,
+                        'entity_type' => $user->entity_type ?? User::class,
+                        'entity_id' => $user->entity_id ?? $user->id,
                         'customer_name' => $user->name,
                         'email' => $user->email,
                         'payment_amount' => $amount,
                         'payment_date' => null,
                         'status' => Invoice::STATUS_UNPAID,
+                        'is_partner_paying' => 1,
                         'created_by' => null,
                     ]);
 
                     $this->info("Created renewal invoice for user: " . $user->email);
+
+                    // Accurate Code: Automatically send the renewal invoice email
+                    try {
+                        $this->invoiceService->sendInvoice($newInvoice->id);
+                        $this->info("Renewal invoice email sent to Partner: " . $newInvoice->partner?->email);
+                    } catch (\Exception $e) {
+                        Log::error("Failed to send renewal invoice email to: " . $user->email, ['error' => $e->getMessage()]);
+                        $this->error("Error sending email to user: " . $user->email);
+                    }
                 } catch (\Exception $e) {
                     Log::error("Failed to create renewal invoice for user: " . $user->email, ['error' => $e->getMessage()]);
                     $this->error("Error creating invoice for user: " . $user->email);
