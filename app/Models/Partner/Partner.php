@@ -41,6 +41,7 @@ class Partner extends Model
      */
     protected $fillable = [
         'is_host',
+        'has_sign',
         'full_name',
         'company_name',
         'email',
@@ -74,6 +75,8 @@ class Partner extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'is_host'    => 'boolean',
+        'has_sign'   => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
