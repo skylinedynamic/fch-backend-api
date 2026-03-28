@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationContr
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
+use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 
 
 /*
@@ -40,7 +41,7 @@ Route::prefix('v1/borrower')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
     // Protected routes (authentication required)
-    Route::middleware(['auth:api', 'borrower'])->group(function () {
+    Route::group(['middleware' => ['auth:api', 'borrower']], function () {
 
         Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -143,6 +144,14 @@ Route::prefix('v1/borrower')->group(function () {
         // auth profile
         Route::prefix('auth-profile')->group(function () {
             Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
+        });
+
+        // 📄 Agreement Signing
+        Route::prefix('agreement-sign')->group(function () {
+            Route::get('/check', [AgreementSignController::class, 'checkAgreementSign']);
+            Route::post('/submit', [AgreementSignController::class, 'submitSign']);
+            Route::get('/signed-html', [AgreementSignController::class, 'getSignedHtml']);
+            Route::get('/download', [AgreementSignController::class, 'downloadAgreement']);
         });
     });
 });

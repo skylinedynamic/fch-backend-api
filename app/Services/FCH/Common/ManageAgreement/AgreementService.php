@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\ManageAgreement;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Common\AgreementSign;
 use App\Models\Common\AgreementTemplate;
 use App\Models\Common\AppConfiguration;
@@ -26,20 +27,26 @@ class AgreementService
     {
         try {
             // 1. Validate Entity Type
-            if ($user->entity_type !== Partner::class) {
-                return $this->noSignNeeded('User is not a Partner entity.');
+            if ($user->entity_type === Partner::class) {
+                $entity = $user->partner;
+                if (!$entity) {
+                    return $this->noSignNeeded('Partner profile not found for this user.');
+                }
+                if ($entity->is_host) {
+                    return $this->noSignNeeded('Host partners (Platform Owners) are exempt from signing.');
+                }
+                $slug = 'partner';
+            } elseif ($user->entity_type === Borrower::class) {
+                $entity = $user->borrower;
+                if (!$entity) {
+                    return $this->noSignNeeded('Borrower profile not found for this user.');
+                }
+                $slug = 'borrower';
+            } else {
+                return $this->noSignNeeded('User entity type is not eligible for agreement signing.');
             }
 
-            $partner = $user->partner;
-            if (!$partner) {
-                return $this->noSignNeeded('Partner profile not found for this user.');
-            }
-
-            if ($partner->is_host) {
-                return $this->noSignNeeded('Host partners (Platform Owners) are exempt from signing.');
-            }
-
-            if ($partner->has_sign) {
+            if ($entity->has_sign) {
                 return $this->noSignNeeded('Agreement has already been successfully signed.');
             }
 
@@ -55,10 +62,10 @@ class AgreementService
                 return $this->noSignNeeded('The agreement signing feature is currently disabled globally.');
             }
 
-            // 4. Fetch Active "Partner" Agreement Template
-            $template = $this->getActiveTemplate($hostPartner->id, 'partner');
+            // 4. Fetch Active Agreement Template (Partner or Borrower)
+            $template = $this->getActiveTemplate($hostPartner->id, $slug);
             if (!$template) {
-                return $this->noSignNeeded('No active partner agreement template is currently available for signing.');
+                return $this->noSignNeeded("No active {$slug} agreement template is currently available for signing.");
             }
 
             return [
@@ -83,7 +90,7 @@ class AgreementService
         // 1. Pre-Signature Validations
         $this->validateUserForSigning($user);
 
-        $partner = $user->partner;
+        $entity = ($user->entity_type === Partner::class) ? $user->partner : $user->borrower;
         $templateId = $data['agreement_template_id'] ?? null;
 
         $template = AgreementTemplate::where('id', '=', $templateId)
@@ -95,7 +102,7 @@ class AgreementService
         }
 
         // 2. Atomic Transaction for Signature & Status Update
-        return DB::transaction(function () use ($user, $partner, $template, $ip, $data) {
+        return DB::transaction(function () use ($user, $entity, $template, $ip, $data) {
             AgreementSign::create([
                 'user_id'               => $user->id,
                 'entity_type'           => $user->entity_type, // Use user type for relationship
@@ -107,7 +114,7 @@ class AgreementService
 
             $user->update(['is_refresh' => true]);
 
-            return $partner->update(['has_sign' => true]);
+            return $entity->update(['has_sign' => true]);
         });
     }
 
@@ -264,20 +271,24 @@ class AgreementService
 
     private function validateUserForSigning(User $user): void
     {
-        if ($user->entity_type !== Partner::class) {
-            throw new Exception(__('agreement.not_partner'));
+        if ($user->entity_type === Partner::class) {
+            $entity = $user->partner;
+            if (!$entity) {
+                throw new Exception(__('agreement.not_found'));
+            }
+            if ($entity->is_host) {
+                throw new Exception(__('agreement.host_forbidden'));
+            }
+        } elseif ($user->entity_type === Borrower::class) {
+            $entity = $user->borrower;
+            if (!$entity) {
+                throw new Exception(__('agreement.not_found'));
+            }
+        } else {
+            throw new Exception(__('agreement.not_allowed'));
         }
 
-        $partner = $user->partner;
-        if (!$partner) {
-            throw new Exception(__('agreement.not_found'));
-        }
-
-        if ($partner->is_host) {
-            throw new Exception(__('agreement.host_forbidden'));
-        }
-
-        if ($partner->has_sign) {
+        if ($entity->has_sign) {
             throw new Exception(__('agreement.already_signed'));
         }
     }

@@ -80,7 +80,7 @@ class UserResource extends JsonResource
             'image' => $this->partner ? $this->partner->partner_image : $this->image,
             'role_id' => $roleId,
             'role_name' => $roleName,
-            'is_agreement_signed' => $this->partner?->has_sign,
+            'is_agreement_signed' => $this->entity?->has_sign ?? false,
             'permissions' => $permissionNames,
         ];
     }
