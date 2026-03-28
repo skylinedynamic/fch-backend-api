@@ -47,4 +47,33 @@ class AgreementSignController extends Controller
             return ApiResponse::serverError(__('agreement.sign_failed') . ': ' . $e->getMessage());
         }
     }
+
+    /**
+     * Download the signed agreement as PDF.
+     */
+    public function downloadAgreement(Request $request, $userId = null)
+    {
+        try {
+            // Find target user ID (current user or specifically requested one)
+            $targetUserId = $userId ?: $request->user()->id;
+            
+            return $this->agreementService->downloadAgreement((int)$targetUserId);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('agreement.download_failed') . ': ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get the raw signed HTML content for frontend preview.
+     */
+    public function getSignedHtml(Request $request, $userId = null)
+    {
+        try {
+            $targetUserId = $userId ?: $request->user()->id;
+            $html = $this->agreementService->getSignedHtml((int)$targetUserId);
+            return ApiResponse::success(['content_html' => $html]);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());
+        }
+    }
 }

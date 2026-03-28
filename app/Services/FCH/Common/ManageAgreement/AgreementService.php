@@ -27,30 +27,38 @@ class AgreementService
         try {
             // 1. Validate Entity Type
             if ($user->entity_type !== Partner::class) {
-                return $this->noSignNeeded();
+                return $this->noSignNeeded('User is not a Partner entity.');
             }
 
             $partner = $user->partner;
-            if (!$partner || $partner->is_host || $partner->has_sign) {
-                return $this->noSignNeeded();
+            if (!$partner) {
+                return $this->noSignNeeded('Partner profile not found for this user.');
+            }
+
+            if ($partner->is_host) {
+                return $this->noSignNeeded('Host partners (Platform Owners) are exempt from signing.');
+            }
+
+            if ($partner->has_sign) {
+                return $this->noSignNeeded('Agreement has already been successfully signed.');
             }
 
             // 2. Resolve Host Partner (Platform Owner)
             $hostPartner = $this->getHostPartner();
             if (!$hostPartner) {
-                return $this->noSignNeeded();
+                return $this->noSignNeeded('Configuration error: System owner not identified.');
             }
 
             // 3. Check Global Signed Feature Flag
             $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', Partner::class, $hostPartner->id);
             if (!filter_var($signingEnabled, FILTER_VALIDATE_BOOLEAN)) {
-                return $this->noSignNeeded();
+                return $this->noSignNeeded('The agreement signing feature is currently disabled globally.');
             }
 
             // 4. Fetch Active "Partner" Agreement Template
             $template = $this->getActiveTemplate($hostPartner->id, 'partner');
             if (!$template) {
-                return $this->noSignNeeded();
+                return $this->noSignNeeded('No active partner agreement template is currently available for signing.');
             }
 
             return [
@@ -63,7 +71,7 @@ class AgreementService
             ];
         } catch (Exception $e) {
             Log::error("AgreementService@checkSignNeed: " . $e->getMessage());
-            return $this->noSignNeeded();
+            return $this->noSignNeeded('An error occurred during verification: ' . $e->getMessage());
         }
     }
 
@@ -87,18 +95,70 @@ class AgreementService
         }
 
         // 2. Atomic Transaction for Signature & Status Update
-        return DB::transaction(function () use ($user, $partner, $template, $ip) {
+        return DB::transaction(function () use ($user, $partner, $template, $ip, $data) {
             AgreementSign::create([
                 'user_id'               => $user->id,
                 'entity_type'           => $user->entity_type, // Use user type for relationship
                 'entity_id'             => $user->entity_id,
                 'agreement_template_id' => $template->id,
                 'ip_address'            => $ip,
-                'content_html'          => $template->template_html,
+                'content_html'          => $data['content_html'] ?? $template->template_html,
             ]);
+
+            $user->update(['is_refresh' => true]);
 
             return $partner->update(['has_sign' => true]);
         });
+    }
+
+    /**
+     * Return the raw signed HTML content for client-side preview.
+     */
+    public function getSignedHtml(int $userId): string
+    {
+        $sign = AgreementSign::where('user_id', $userId)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        return $sign->content_html ?? '';
+    }
+
+    /**
+     * Generate PDF for a signed agreement.
+     */
+    public function downloadAgreement(int $userId)
+    {
+        $sign = AgreementSign::where('user_id', $userId)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$sign) {
+            throw new Exception(__('agreement.no_signed_agreement'));
+        }
+
+        $html = $sign->content_html;
+
+        // Inject PDF-friendly CSS to improve layout and prevent extra breaks
+        $pdfCss = '
+            <style>
+                @page { margin: 30px; }
+                body { font-family: "DejaVu Sans", sans-serif !important; line-height: 1.4; color: #333; }
+                h1, h2, h3, h4 { color: #405189; margin-bottom: 12px; page-break-after: avoid; }
+                p, div { margin-bottom: 6px; }
+                .p-field, .agreement-field, .card, section { page-break-inside: avoid !important; margin-bottom: 15px; }
+                img { max-width: 100%; height: auto; page-break-inside: avoid; display: block; }
+                table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
+                .text-primary { color: #405189 !important; }
+                span[style*="border-bottom"] { border-bottom: none !important; }
+            </style>
+        ';
+
+        // Use DomPDF helper to generate PDF
+        $pdf = app('dompdf.wrapper');
+        $pdf->loadHTML($pdfCss . $html);
+
+        return $pdf->download("agreement_" . $userId . ".pdf");
     }
 
     /**
@@ -193,9 +253,13 @@ class AgreementService
             ->first();
     }
 
-    private function noSignNeeded(): array
+    private function noSignNeeded(string $message = 'No signature required at this time.'): array
     {
-        return ['needs_sign' => false, 'template' => null];
+        return [
+            'needs_sign' => false,
+            'template'   => null,
+            'message'    => $message
+        ];
     }
 
     private function validateUserForSigning(User $user): void

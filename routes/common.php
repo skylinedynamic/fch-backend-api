@@ -236,6 +236,8 @@ Route::prefix('v1')->group(function () {
             Route::prefix('agreement-sign')->group(function () {
                 Route::get('/check', [AgreementSignController::class, 'checkAgreementSign']);
                 Route::post('/submit', [AgreementSignController::class, 'submitSign']);
+                Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
+                Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
             });
         });
 

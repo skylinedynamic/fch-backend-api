@@ -17,6 +17,7 @@ class PartnerDetailsResource extends JsonResource
     {
         return [
             'id'                           => $this->id,
+            'user_id'                      => $this->users->first()->id ?? null,
             'assigned_user_id'             => $this->assignedUser->id ?? null,
             'assigned_user_name'           => $this->assignedUser->name ?? null,
             'full_name'                    => $this->full_name,
@@ -47,6 +48,7 @@ class PartnerDetailsResource extends JsonResource
             'payable_amount'              => $this->subscription?->payable_amount ?? null,
             'total_subscription_amount'   => $this->subscription?->total_subscription_amount ?? null,
             'monthly_platform_fee'        => $this->subscription?->monthly_platform_fee ?? null,
+            'has_sign'                     => $this->has_sign,
             'created_at'                   => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,
