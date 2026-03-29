@@ -255,16 +255,21 @@ class BorrowerService
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
             $data['status'] = Borrower::STATUS_ONBOARDING;
 
-            // Filter out fields that are not columns in the borrowers table
-            $borrowerData = collect($data)->except(['plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount'])->toArray();
+            // Filter out fields that are not columns in the borrowers table or are used for mapping
+            $exceptFields = [
+                'plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount',
+                'business_other_city'
+            ];
+            $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
-            $borrowerData['business_country'] = $data['country'];
-            isset($data['country_code']) && $borrowerData['country_code'] = isset($data['country_code']) ? $data['country_code'] : null;
-            $borrowerData['business_country_code'] = $data['country_code'];
-            $borrowerData['business_state'] = $data['state'];
-            $borrowerData['business_city'] = $data['city'];
-            if (isset($data['business_postal_code'])) {
-                $borrowerData['postal_code'] = $data['business_postal_code'];
+            $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
+            
+            // Handle city overrides if 'other' city is provided
+            if (isset($data['other_city'])) {
+                $borrowerData['city'] = $data['other_city'];
+            }
+            if (isset($data['business_other_city'])) {
+                $borrowerData['business_city'] = $data['business_other_city'];
             }
 
             $borrower = Borrower::create($borrowerData);
@@ -401,16 +406,20 @@ class BorrowerService
                 $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
                 $data['business_logo'] = $upload['path'];
             }
-            $data['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
+            $exceptFields = [
+                'enrollment_payment', 'plan_id', 'is_partner_paying',
+                'business_other_city'
+            ];
+            $borrowerData = collect($data)->except($exceptFields)->toArray();
+            $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
+            $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
 
-            $borrowerData = collect($data)->except(['enrollment_payment', 'plan_id', 'is_partner_paying'])->toArray();
-            $borrowerData['business_country'] = isset($data['country']) ? $data['country'] : $borrower->business_country;
-            $borrowerData['business_country_code'] = isset($data['country_code']) ? $data['country_code'] : $borrower->business_country_code;
-            $borrowerData['business_state'] = isset($data['state']) ? $data['state'] : $borrower->business_state;
-            $borrowerData['business_city'] = isset($data['city']) ? $data['city'] : $borrower->business_city;
-            if (isset($data['business_postal_code']) || isset($data['postal_code'])) {
-                $borrowerData['postal_code'] = $data['postal_code'];
-                $borrowerData['postal_code'] = $data['business_postal_code'];
+            // Handle city overrides if 'other' city is provided
+            if (isset($data['other_city'])) {
+                $borrowerData['city'] = $data['other_city'];
+            }
+            if (isset($data['business_other_city'])) {
+                $borrowerData['business_city'] = $data['business_other_city'];
             }
             $borrower->update($borrowerData);
 

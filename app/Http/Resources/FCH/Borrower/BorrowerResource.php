@@ -37,6 +37,8 @@ class BorrowerResource extends JsonResource
             'business_ein'              => $this->business_ein,
             'business_phone'            => $this->business_phone,
             'business_address'          => $this->business_address,
+            'business_country'          => $this->business_country,
+            'business_country_code'     => $this->business_country_code,
             'business_city'             => $this->business_city,
             'business_state'            => $this->business_state,
             'business_postal_code'      => $this->business_postal_code,
