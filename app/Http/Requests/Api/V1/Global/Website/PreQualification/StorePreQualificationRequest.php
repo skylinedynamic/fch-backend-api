@@ -22,9 +22,6 @@ class StorePreQualificationRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('leads', 'email')->whereNull('deleted_at'),
-                Rule::unique('users', 'email')->whereNull('deleted_at'),
-                Rule::unique('pre_qualification_requests', 'email')->whereNull('deleted_at'),
             ],
             'phone_number' => [
                 'required',

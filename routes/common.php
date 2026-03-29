@@ -47,6 +47,9 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    // Location routes
+    Route::get('common/locations', [LocationController::class, 'index']);
+
 
     Route::middleware('auth:api')->group(function () {
 
@@ -151,9 +154,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('fetch-selectable-users', [AppointmentController::class, 'selectableUsers']);
             });
             Route::apiResource('appointments', AppointmentController::class);
-
-            // Location routes
-            Route::get('locations', [LocationController::class, 'index']);
 
             // Contact routes
             Route::post('contacts/fetch-contacts', [ContactController::class, 'fetchContacts']);

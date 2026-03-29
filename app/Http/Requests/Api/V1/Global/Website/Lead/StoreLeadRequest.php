@@ -19,9 +19,7 @@ class StoreLeadRequest extends BaseApiRequest
             'email' => [
                 'required',
                 'email',
-                'max:255',
-                Rule::unique('leads', 'email')->whereNull('deleted_at'),
-                Rule::unique('users', 'email')->whereNull('deleted_at'),
+                'max:255'
             ],
             'phone_number' => [
                 'nullable',
