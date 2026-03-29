@@ -16,7 +16,11 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
     {
         return [
             'contact_person' => ['required', 'string', 'max:255'],
-            'phone_number' => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
+            'phone_number' => [
+                'required',
+                'string',
+                'regex:/^(\(\d{3}\) \d{3}-\d{4})$/',
+            ],
             'email' => [
                 'required',
                 'email',
@@ -47,6 +51,24 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
         ];
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->phone_number) {
+            $phoneNumber = preg_replace('/\D/', '', $this->phone_number);
+            
+            if (strlen($phoneNumber) === 10) {
+                $this->merge([
+                    'phone_number' => sprintf(
+                        '(%s) %s-%s',
+                        substr($phoneNumber, 0, 3),
+                        substr($phoneNumber, 3, 3),
+                        substr($phoneNumber, 6)
+                    ),
+                ]);
+            }
+        }
+    }
+
     public function validated($key = null, $default = null): array
     {
         $data = parent::validated($key, $default);
@@ -65,7 +87,7 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
         return [
             'contact_person.required' => __('lead.contact_person_required'),
             'phone_number.required' => __('lead.phone_number_required'),
-            'phone_number.regex' => __('lead.phone_number_regex_invalid'),
+            'phone_number.regex' => __('lead.phone_number_format_invalid'),
             'email.required' => __('lead.email_required'),
             'email.unique' => __('lead.email_taken'),
             'country.required' => __('lead.country_required'),

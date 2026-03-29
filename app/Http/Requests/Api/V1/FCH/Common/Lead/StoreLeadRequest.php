@@ -25,7 +25,11 @@ class StoreLeadRequest extends BaseApiRequest
             'employees' => ['nullable', 'string', 'max:255'],
 
             'contact_person' => ['nullable', 'string', 'max:255'],
-            'phone_number' => ['nullable', 'string', 'max:20'],
+            'phone_number' => [
+                'nullable',
+                'string',
+                'regex:/^(\(\d{3}\) \d{3}-\d{4}|\d{10})$/',
+            ],
             'email' => [
                 'nullable',
                 'email',
@@ -55,6 +59,24 @@ class StoreLeadRequest extends BaseApiRequest
         ];
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->phone_number) {
+            $phoneNumber = preg_replace('/\D/', '', $this->phone_number);
+            
+            if (strlen($phoneNumber) === 10) {
+                $this->merge([
+                    'phone_number' => sprintf(
+                        '(%s) %s-%s',
+                        substr($phoneNumber, 0, 3),
+                        substr($phoneNumber, 3, 3),
+                        substr($phoneNumber, 6)
+                    ),
+                ]);
+            }
+        }
+    }
+
     public function validated($key = null, $default = null): array
     {
         $data = parent::validated($key, $default);
@@ -73,6 +95,7 @@ class StoreLeadRequest extends BaseApiRequest
         return [
             'email.unique' => __('lead.email_taken'),
             'other_city.required_if' => __('lead.other_city_required'),
+            'phone_number.regex' => __('lead.phone_number_format_invalid'),
         ];
     }
 }
