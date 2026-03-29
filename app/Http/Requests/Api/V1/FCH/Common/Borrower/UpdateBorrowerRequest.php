@@ -49,7 +49,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_address' => ['nullable', 'string', 'max:255'],
             'business_city' => ['sometimes', 'required_without:business_other_city', 'string', 'max:255'],
             'business_country' => ['sometimes', 'required', 'string', 'max:255'],
-            'business_country_code' => ['nullable', 'string', 'max:5'],
+            'business_country_code' => ['nullable'],
             'business_other_city' => ['required_if:business_city,Others', 'nullable', 'string', 'max:255'],
             'business_state' => ['sometimes', 'required', 'string', 'max:255'],
             'business_postal_code' => ['nullable', 'string', 'max:255'],
