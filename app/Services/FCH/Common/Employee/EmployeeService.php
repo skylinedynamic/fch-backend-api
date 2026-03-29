@@ -304,7 +304,13 @@ class EmployeeService
             }
 
             // 6️⃣ Save employee
+            $oldJobStatus = $employee->getOriginal('job_status');
             $employee->save();
+
+            // Sync user login status if employee job status changed to restricted state
+            if ($employee->job_status !== $oldJobStatus && in_array($employee->job_status, [Employee::STATUS_SUSPENDED, Employee::STATUS_INACTIVE])) {
+                $this->revokeEmployeeTokens($employee);
+            }
 
             // Log System Event
             $this->activityLogService->logModelEvent(
@@ -480,5 +486,20 @@ class EmployeeService
     public function getNextEmployeeId(): int
     {
         return (Employee::max('id') ?? 0) + 1;
+    }
+
+    /**
+     * Revoke all access tokens for the employee's user.
+     */
+    private function revokeEmployeeTokens(Employee $employee): void
+    {
+        $user = $employee->user;
+        if ($user) {
+            DB::table('oauth_access_tokens')
+                ->where('user_id', $user->id)
+                ->update(['revoked' => true]);
+            
+            Log::info("Force logged out employee user for Employee ID: {$employee->id} (User ID: {$user->id}) due to job status being set to {$employee->job_status}");
+        }
     }
 }

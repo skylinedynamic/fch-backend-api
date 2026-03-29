@@ -421,7 +421,17 @@ class BorrowerService
             if (isset($data['business_other_city'])) {
                 $borrowerData['business_city'] = $data['business_other_city'];
             }
+            $oldStatus = $borrower->status;
             $borrower->update($borrowerData);
+
+            // Sync user status if borrower status changed
+            if ($borrower->status !== $oldStatus) {
+                if (in_array($borrower->status, [Borrower::STATUS_SUSPENDED, Borrower::STATUS_INACTIVE])) {
+                    $this->restrictBorrowerUser($borrower);
+                } elseif ($borrower->status === Borrower::STATUS_ACTIVE) {
+                    $this->reactivateBorrowerUser($borrower);
+                }
+            }
 
             $changes = $borrower->getChanges();
             unset($changes['updated_at']);
@@ -773,5 +783,28 @@ class BorrowerService
         }
 
         return $bytes;
+    }
+    /**
+     * Force logout for suspended/inactive borrowers.
+     */
+    private function restrictBorrowerUser(Borrower $borrower): void
+    {
+        $user = $borrower->user;
+        if ($user) {
+            // Force Logout (Revoke all tokens)
+            DB::table('oauth_access_tokens')
+                ->where('user_id', $user->id)
+                ->update(['revoked' => true]);
+            
+            Log::info("Force logged out borrower user for Borrower ID: {$borrower->id} (User ID: {$user->id}) due to borrower status being set to {$borrower->status}");
+        }
+    }
+
+    /**
+     * Log reactivation of borrower.
+     */
+    private function reactivateBorrowerUser(Borrower $borrower): void
+    {
+        Log::info("Borrower user for Borrower ID: {$borrower->id} is eligible for login again.");
     }
 }

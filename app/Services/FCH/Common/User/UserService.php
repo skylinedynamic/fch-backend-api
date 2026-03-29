@@ -321,7 +321,13 @@ class UserService
                 Log::info('🔑 Password reset for User due to email change', ['user_id' => $user->id]);
             }
 
+            $oldStatus = $user->status;
             $user->update($data);
+
+            // Sync user login status if user status changed to inactive
+            if ($user->status !== $oldStatus && $user->status === User::STATUS['inactive']) {
+                $this->revokeUserTokens($user);
+            }
 
             if ($roleId) {
                 $this->assignRoleAndPermissions($user, $roleId);
@@ -447,5 +453,17 @@ class UserService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Revoke all access tokens for the user.
+     */
+    private function revokeUserTokens(User $user): void
+    {
+        DB::table('oauth_access_tokens')
+            ->where('user_id', $user->id)
+            ->update(['revoked' => true]);
+        
+        Log::info("Force logged out user for User ID: {$user->id} due to status being set to {$user->status}");
     }
 }
