@@ -20,6 +20,32 @@ class Lead extends Model
 
     protected $guarded = [];
 
+    const STATUS_NEW_LEAD = 'New Lead';
+    const STATUS_CONTACT_INITIATED = 'Contact Initiated';
+    const STATUS_LEAD_IDENTIFIED = 'Lead Identified';
+    const STATUS_MEETING_ARRANGED = 'Meeting Arranged';
+    const STATUS_APPLICATION_ALLOWED = 'Application Allowed';
+    const STATUS_FOLLOW_UP = 'Follow Up';
+    const STATUS_NEGOTIATION = 'Negotiation';
+    const STATUS_LEAD_COMPLETED = 'Lead Completed';
+    const STATUS_LEAD_DECLINED = 'Lead Declined';
+
+    const STATUS_PROCRASTINATION = 'Procrastination';
+    
+    /**
+     * Get statuses that are considered "qualified" for statistics.
+     */
+    public static function getQualifiedStatuses(): array
+    {
+        return [
+            self::STATUS_LEAD_IDENTIFIED,
+            self::STATUS_MEETING_ARRANGED,
+            self::STATUS_APPLICATION_ALLOWED,
+            self::STATUS_NEGOTIATION,
+            self::STATUS_LEAD_COMPLETED,
+        ];
+    }
+
     protected $casts = [
         'business_start_date' => 'date',
         'created_at' => 'datetime',
@@ -32,7 +58,7 @@ class Lead extends Model
      */
     public function salesperson(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'salesperson_id');
+        return $this->belongsTo(User::class , 'salesperson_id');
     }
 
     /**
@@ -40,7 +66,7 @@ class Lead extends Model
      */
     public function partner(): BelongsTo
     {
-        return $this->belongsTo(Partner::class, 'partner_id');
+        return $this->belongsTo(Partner::class , 'partner_id');
     }
 
     /**
@@ -48,7 +74,7 @@ class Lead extends Model
      */
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class , 'created_by');
     }
 
     /**
@@ -56,7 +82,7 @@ class Lead extends Model
      */
     public function scopeSearch($query, ?string $search)
     {
-        if (! is_string($search) || trim($search) === '') {
+        if (!is_string($search) || trim($search) === '') {
             return $query;
         }
 
@@ -71,11 +97,13 @@ class Lead extends Model
                 ->orWhere('leads.lead_type', 'like', "%{$search}%")
                 ->orWhere('leads.status', 'like', "%{$search}%")
                 ->orWhereHas('salesperson', function ($sq) use ($search) {
-                    $sq->where('name', 'like', "%{$search}%");
-                })
+                $sq->where('name', 'like', "%{$search}%");
+            }
+            )
                 ->orWhereHas('partner', function ($sq) use ($search) {
-                    $sq->where('full_name', 'like', "%{$search}%");
-                });
+                $sq->where('full_name', 'like', "%{$search}%");
+            }
+            );
         });
     }
 }

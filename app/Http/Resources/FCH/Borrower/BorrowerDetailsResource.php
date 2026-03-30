@@ -30,7 +30,7 @@ class BorrowerDetailsResource extends JsonResource
             'postal_code'   => $this->postal_code,
             'home_address'  => $this->home_address,
             'home_phone'    => $this->home_phone,
-            'date_of_birth' => $this->date_of_birth,
+            'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->format('m-d-Y') : null,
             'last_4_ssn'    => $this->last_4_ssn,
 
             // Business
@@ -38,6 +38,8 @@ class BorrowerDetailsResource extends JsonResource
             'business_ein'              => $this->business_ein,
             'business_phone'            => $this->business_phone,
             'business_address'          => $this->business_address,
+            'business_country'          => $this->business_country,
+            'business_country_code'     => $this->business_country_code,
             'business_city'             => $this->business_city,
             'business_state'            => $this->business_state,
             'business_postal_code'      => $this->business_postal_code,
@@ -51,7 +53,7 @@ class BorrowerDetailsResource extends JsonResource
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,
             'state_file_number'         => $this->state_file_number,
-            'business_start_date'       => Carbon::parse($this->business_start_date)->format('m-d-Y') ?? null,
+            'business_start_date'       => $this->business_start_date ? Carbon::parse($this->business_start_date)->format('m-d-Y') : null,
             'enrollment_type'           => $this->latestSubscription?->enrollment_type,
             'payment_amount'            => $this->latestSubscription?->payable_amount,
             'total_subscription_amount' => $this->latestSubscription?->total_subscription_amount,

@@ -431,7 +431,7 @@ class LeadService
 
             $lead->update([
                 'convert_to' => 'Borrower',
-                'status' => 'Lead Completed',
+                'status' => Lead::STATUS_LEAD_COMPLETED,
             ]);
 
             DB::commit();
@@ -499,7 +499,7 @@ class LeadService
 
             $lead->update([
                 'convert_to' => 'Partner',
-                'status' => 'Lead Completed',
+                'status' => Lead::STATUS_LEAD_COMPLETED,
             ]);
 
             DB::commit();
@@ -551,15 +551,10 @@ class LeadService
 
         $baseQuery = clone $query;
         $totalLeads = (clone $baseQuery)->count();
-        $newLeads = (clone $baseQuery)->where('status', 'New Lead')->count();
-        $declinedLeads = (clone $baseQuery)->where('status', 'Lead Declined')->count();
-        $qualifiedStatuses = [
-            'Lead Identified',
-            'Meeting Arranged',
-            'Application Allowed',
-            'Negotiation',
-            'Lead Completed'
-        ];
+        $newLeads = (clone $baseQuery)->where('status', Lead::STATUS_NEW_LEAD)->count();
+        $declinedLeads = (clone $baseQuery)->where('status', Lead::STATUS_LEAD_DECLINED)->count();
+        
+        $qualifiedStatuses = Lead::getQualifiedStatuses();
         $qualifiedLeads = (clone $baseQuery)->whereIn('status', $qualifiedStatuses)->count();
 
         $qualifiedRate = $totalLeads > 0 ? round(($qualifiedLeads / $totalLeads) * 100, 1) : 0;

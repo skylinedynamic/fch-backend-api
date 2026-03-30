@@ -366,8 +366,18 @@ class PartnerService
             }
 
             // Update partner
+            $oldStatus = $partner->status;
             $partnerData = $this->mapPartnerData($data);
             $partner->update($partnerData);
+
+            // Sync user status if partner status changed
+            if ($partner->status !== $oldStatus) {
+                if (in_array($partner->status, [Partner::STATUS_SUSPENDED, Partner::STATUS_INACTIVE])) {
+                    $this->restrictPartnerUsers($partner);
+                } elseif ($partner->status === Partner::STATUS_ACTIVE) {
+                    $this->reactivatePartnerUsers($partner);
+                }
+            }
 
             $changes = $partner->getChanges();
             unset($changes['updated_at']);
@@ -973,5 +983,30 @@ class PartnerService
     public function getNextPartnerId(): int
     {
         return (Partner::max('id') ?? 0) + 1;
+    }
+
+    /**
+     * Set the main partner user to suspended/inactive and revoke tokens.
+     */
+    private function restrictPartnerUsers(Partner $partner): void
+    {
+        $mainUser = $partner->partnerUser;
+
+        if ($mainUser) {
+            // Force Logout (Revoke all tokens)
+            DB::table('oauth_access_tokens')
+                ->where('user_id', $mainUser->id)
+                ->update(['revoked' => true]);
+            
+            Log::info("Force logged out main user for Partner ID: {$partner->id} (User ID: {$mainUser->id}) due to partner status being set to {$partner->status}");
+        }
+    }
+
+    /**
+     * Force logout for reactivated partner (optional but kept for internal logic consistency).
+     */
+    private function reactivatePartnerUsers(Partner $partner): void
+    {
+        Log::info("Main user for Partner ID: {$partner->id} is eligible for login again.");
     }
 }

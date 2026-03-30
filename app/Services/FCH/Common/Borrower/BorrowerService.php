@@ -255,16 +255,21 @@ class BorrowerService
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
             $data['status'] = Borrower::STATUS_ONBOARDING;
 
-            // Filter out fields that are not columns in the borrowers table
-            $borrowerData = collect($data)->except(['plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount'])->toArray();
+            // Filter out fields that are not columns in the borrowers table or are used for mapping
+            $exceptFields = [
+                'plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount',
+                'business_other_city'
+            ];
+            $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
-            $borrowerData['business_country'] = $data['country'];
-            isset($data['country_code']) && $borrowerData['country_code'] = isset($data['country_code']) ? $data['country_code'] : null;
-            $borrowerData['business_country_code'] = $data['country_code'];
-            $borrowerData['business_state'] = $data['state'];
-            $borrowerData['business_city'] = $data['city'];
-            if (isset($data['business_postal_code'])) {
-                $borrowerData['postal_code'] = $data['business_postal_code'];
+            $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
+            
+            // Handle city overrides if 'other' city is provided
+            if (isset($data['other_city'])) {
+                $borrowerData['city'] = $data['other_city'];
+            }
+            if (isset($data['business_other_city'])) {
+                $borrowerData['business_city'] = $data['business_other_city'];
             }
 
             $borrower = Borrower::create($borrowerData);
@@ -401,18 +406,32 @@ class BorrowerService
                 $upload = $this->uploadFile($data['business_logo'], "borrowers/{$borrower->id}", 'public');
                 $data['business_logo'] = $upload['path'];
             }
-            $data['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
+            $exceptFields = [
+                'enrollment_payment', 'plan_id', 'is_partner_paying',
+                'business_other_city'
+            ];
+            $borrowerData = collect($data)->except($exceptFields)->toArray();
+            $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
+            $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
 
-            $borrowerData = collect($data)->except(['enrollment_payment', 'plan_id', 'is_partner_paying'])->toArray();
-            $borrowerData['business_country'] = isset($data['country']) ? $data['country'] : $borrower->business_country;
-            $borrowerData['business_country_code'] = isset($data['country_code']) ? $data['country_code'] : $borrower->business_country_code;
-            $borrowerData['business_state'] = isset($data['state']) ? $data['state'] : $borrower->business_state;
-            $borrowerData['business_city'] = isset($data['city']) ? $data['city'] : $borrower->business_city;
-            if (isset($data['business_postal_code']) || isset($data['postal_code'])) {
-                $borrowerData['postal_code'] = $data['postal_code'];
-                $borrowerData['postal_code'] = $data['business_postal_code'];
+            // Handle city overrides if 'other' city is provided
+            if (isset($data['other_city'])) {
+                $borrowerData['city'] = $data['other_city'];
             }
+            if (isset($data['business_other_city'])) {
+                $borrowerData['business_city'] = $data['business_other_city'];
+            }
+            $oldStatus = $borrower->status;
             $borrower->update($borrowerData);
+
+            // Sync user status if borrower status changed
+            if ($borrower->status !== $oldStatus) {
+                if (in_array($borrower->status, [Borrower::STATUS_SUSPENDED, Borrower::STATUS_INACTIVE])) {
+                    $this->restrictBorrowerUser($borrower);
+                } elseif ($borrower->status === Borrower::STATUS_ACTIVE) {
+                    $this->reactivateBorrowerUser($borrower);
+                }
+            }
 
             $changes = $borrower->getChanges();
             unset($changes['updated_at']);
@@ -764,5 +783,28 @@ class BorrowerService
         }
 
         return $bytes;
+    }
+    /**
+     * Force logout for suspended/inactive borrowers.
+     */
+    private function restrictBorrowerUser(Borrower $borrower): void
+    {
+        $user = $borrower->user;
+        if ($user) {
+            // Force Logout (Revoke all tokens)
+            DB::table('oauth_access_tokens')
+                ->where('user_id', $user->id)
+                ->update(['revoked' => true]);
+            
+            Log::info("Force logged out borrower user for Borrower ID: {$borrower->id} (User ID: {$user->id}) due to borrower status being set to {$borrower->status}");
+        }
+    }
+
+    /**
+     * Log reactivation of borrower.
+     */
+    private function reactivateBorrowerUser(Borrower $borrower): void
+    {
+        Log::info("Borrower user for Borrower ID: {$borrower->id} is eligible for login again.");
     }
 }
