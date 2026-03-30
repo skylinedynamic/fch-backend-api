@@ -10,7 +10,6 @@ return Application::configure(basePath: dirname(__DIR__))
         api: [
             __DIR__ . '/../routes/common.php',
             __DIR__ . '/../routes/admin.php',
-            __DIR__ . '/../routes/partner.php',
             __DIR__ . '/../routes/borrower.php',
             __DIR__ . '/../routes/filemanager.php',
             __DIR__ . '/../routes/website.php',

@@ -151,6 +151,14 @@ class Borrower extends Model
     }
 
     /**
+     * Get the signed agreement for the borrower.
+     */
+    public function signedAgreement(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(\App\Models\Common\AgreementSign::class, 'entity');
+    }
+
+    /**
      * Get all subscriptions for the borrower.
      */
     public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany

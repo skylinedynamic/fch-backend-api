@@ -31,6 +31,10 @@ use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController;
+
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 
 Route::prefix('v1')->group(function () {
@@ -222,6 +226,28 @@ Route::prefix('v1')->group(function () {
             // auth profile
             Route::prefix('auth-profile')->group(function () {
                 Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
+            });
+
+            // App Configurations (Settings)
+            Route::prefix('app-config')->group(function () {
+                Route::post('/show', [AppConfigurationController::class, 'getSetting']);
+                Route::post('/save', [AppConfigurationController::class, 'saveSetting']);
+            });
+
+            // Agreement templates
+            Route::prefix('agreement-templates')->group(function () {
+                Route::get('/', [AgreementTemplateController::class, 'index']);
+                Route::post('/save/{id?}', [AgreementTemplateController::class, 'store']);
+                Route::post('/show', [AgreementTemplateController::class, 'show']);
+                Route::post('/update-status/{id}', [AgreementTemplateController::class, 'updateStatus']);
+            });
+
+            // Agreement signing
+            Route::prefix('agreement-sign')->group(function () {
+                Route::get('/check', [AgreementSignController::class, 'checkAgreementSign']);
+                Route::post('/submit', [AgreementSignController::class, 'submitSign']);
+                Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
+                Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
             });
         });
 
