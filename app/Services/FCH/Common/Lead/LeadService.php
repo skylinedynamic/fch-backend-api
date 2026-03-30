@@ -4,25 +4,26 @@ namespace App\Services\FCH\Common\Lead;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Lead\LeadResource;
-use App\Models\Lead\Lead;
-use App\Models\Borrower\Borrower;
-use App\Models\Partner\Partner;
-use App\Models\User\User;
-use App\Models\Common\Role;
-use App\Models\Common\Permission;
-use App\Models\CreditBuilder\Tier;
-use App\Services\Global\Datatable\QueryFilter;
-use App\Traits\PaginatesApi;
-use App\Services\FCH\Common\Borrower\BorrowerService;
-use App\Services\FCH\Partner\PartnerService;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Common\Permission;
+use App\Models\Common\Role;
+use App\Models\CreditBuilder\Tier;
+use App\Models\Lead\Lead;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
+use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Services\FCH\Partner\PartnerService;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
-use Carbon\Carbon;
 use Throwable;
 
 class LeadService
@@ -433,6 +434,14 @@ class LeadService
                 'convert_to' => 'Borrower',
                 'status' => Lead::STATUS_LEAD_COMPLETED,
             ]);
+
+            $preQualification = PreQualificationRequest::where('lead_id', $lead->id)->first();
+            if($preQualification){
+                $preQualification->update([
+                    'partner_id' => $lead->partner_id,
+                    'borrower_id' => $borrower->id,
+                ]);
+            }
 
             DB::commit();
             return $borrower;
