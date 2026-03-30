@@ -17,6 +17,7 @@ class BorrowerDetailsResource extends JsonResource
     {
         return [
             'id'            => $this->id,
+            'user_id'       => $this->user?->id,
             'signup_id'     => $this->signup_id,
             'first_name'    => $this->first_name,
             'last_name'     => $this->last_name,
@@ -84,6 +85,7 @@ class BorrowerDetailsResource extends JsonResource
                 'id' => $this->latestInvoice->id,
                 'invoice_id' => $this->latestInvoice->invoice_id,
             ] : null,
+            'has_sign' => (bool) $this->signedAgreement()->exists(),
         ];
     }
 }

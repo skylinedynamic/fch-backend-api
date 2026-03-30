@@ -14,4 +14,7 @@ return [
     'host_forbidden' => 'Host partners do not need to sign an agreement',
     'not_partner' => 'Only partner users can sign an agreement',
     'not_found_or_inactive' => 'Agreement template not found or inactive',
+    'no_signed_agreement' => 'No signed agreement found for this user',
+    'not_allowed' => 'User type not allowed to sign agreements',
+    'download_failed' => 'Failed to download agreement PDF',
 ];

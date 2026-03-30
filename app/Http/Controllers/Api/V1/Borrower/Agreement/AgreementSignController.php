@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AgreementSignController extends Controller
 {
@@ -22,7 +23,7 @@ class AgreementSignController extends Controller
     public function checkAgreementSign(Request $request)
     {
         try {
-            $user = $request->user();
+            $user = Auth::user();
             $res = $this->agreementService->checkSignNeed($user);
             return ApiResponse::success($res);
         } catch (\Exception $e) {
@@ -51,11 +52,14 @@ class AgreementSignController extends Controller
     /**
      * Download the signed agreement as PDF.
      */
-    public function downloadAgreement(Request $request)
+    public function downloadAgreement(Request $request, $userId = null)
     {
         try {
-            $targetUserId = $request->user()->id;
-            return $this->agreementService->downloadAgreement((int)$targetUserId);
+            $targetUserId = (int) ($userId ?: $request->user()->id);
+            if ($targetUserId !== (int) $request->user()->id) {
+                return ApiResponse::notFound(__('agreement.not_found'));
+            }
+            return $this->agreementService->downloadAgreement($targetUserId);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.download_failed') . ': ' . $e->getMessage());
         }
@@ -64,11 +68,14 @@ class AgreementSignController extends Controller
     /**
      * Get the raw signed HTML content for frontend preview.
      */
-    public function getSignedHtml(Request $request)
+    public function getSignedHtml(Request $request, $userId = null)
     {
         try {
-            $targetUserId = $request->user()->id;
-            $html = $this->agreementService->getSignedHtml((int)$targetUserId);
+            $targetUserId = (int) ($userId ?: $request->user()->id);
+            if ($targetUserId !== (int) $request->user()->id) {
+                return ApiResponse::notFound(__('agreement.not_found'));
+            }
+            $html = $this->agreementService->getSignedHtml($targetUserId);
             return ApiResponse::success(['content_html' => $html]);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());

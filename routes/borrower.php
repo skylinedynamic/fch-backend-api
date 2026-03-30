@@ -150,8 +150,8 @@ Route::prefix('v1/borrower')->group(function () {
         Route::prefix('agreement-sign')->group(function () {
             Route::get('/check', [AgreementSignController::class, 'checkAgreementSign']);
             Route::post('/submit', [AgreementSignController::class, 'submitSign']);
-            Route::get('/signed-html', [AgreementSignController::class, 'getSignedHtml']);
-            Route::get('/download', [AgreementSignController::class, 'downloadAgreement']);
+            Route::get('/signed-html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
+            Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
         });
     });
 });

@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
+use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Services\FCH\Common\ManageAgreement\AgreementService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AgreementSignController extends Controller
 {
@@ -40,7 +43,7 @@ class AgreementSignController extends Controller
         ]);
 
         try {
-            $user = $request->user();
+            $user = Auth::user();
             $this->agreementService->submitSign($user, $request->all(), $request->ip());
             return ApiResponse::success(null, __('agreement.signed_successfully'));
         } catch (\Exception $e) {
@@ -54,10 +57,10 @@ class AgreementSignController extends Controller
     public function downloadAgreement(Request $request, $userId = null)
     {
         try {
-            // Find target user ID (current user or specifically requested one)
-            $targetUserId = $userId ?: $request->user()->id;
-            
-            return $this->agreementService->downloadAgreement((int)$targetUserId);
+            if (!$targetUserId = $this->validateAccess($userId)) {
+                return ApiResponse::notFound(__('agreement.not_found'));
+            }
+            return $this->agreementService->downloadAgreement($targetUserId);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.download_failed') . ': ' . $e->getMessage());
         }
@@ -69,11 +72,30 @@ class AgreementSignController extends Controller
     public function getSignedHtml(Request $request, $userId = null)
     {
         try {
-            $targetUserId = $userId ?: $request->user()->id;
-            $html = $this->agreementService->getSignedHtml((int)$targetUserId);
+            if (!$targetUserId = $this->validateAccess($userId)) {
+                return ApiResponse::notFound(__('agreement.not_found'));
+            }
+            $html = $this->agreementService->getSignedHtml($targetUserId);
             return ApiResponse::success(['content_html' => $html]);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('agreement.retrieval_failed') . ': ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Validate whether the current user can access the target agreement.
+     */
+    private function validateAccess($userId): ?int
+    {
+        $user = auth()->user();
+        $targetUserId = (int) ($userId ?: $user->id);
+
+        if ($targetUserId === (int) $user->id) return $targetUserId;
+
+        // Non-host partners and borrowers can only see their own
+        $isRestricted = ($user->entity_type === Partner::class && !optional($user->partner)->is_host) 
+                     || ($user->entity_type === Borrower::class);
+
+        return $isRestricted ? null : $targetUserId;
     }
 }

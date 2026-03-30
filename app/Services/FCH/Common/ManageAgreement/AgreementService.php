@@ -109,7 +109,7 @@ class AgreementService
                 'entity_id'             => $user->entity_id,
                 'agreement_template_id' => $template->id,
                 'ip_address'            => $ip,
-                'content_html'          => $data['content_html'] ?? $template->template_html,
+                'content_html'          => $data['content_html'] ?? ($data['signed_html'] ?? $template->template_html),
             ]);
 
             $user->update(['is_refresh' => true]);
@@ -158,6 +158,7 @@ class AgreementService
                 tr { page-break-inside: avoid; page-break-after: auto; }
                 .text-primary { color: #405189 !important; }
                 span[style*="border-bottom"] { border-bottom: none !important; }
+                .page-break, .page-sep { page-break-before: always; height: 15px; background: #35434d; display: block; margin: 10px 0; border: none; }
             </style>
         ';
 
