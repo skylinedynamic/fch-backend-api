@@ -583,11 +583,16 @@ class SubscriptionService
                     'invoice_id' => $invoice->id ?? null,
                 ]);
 
-                // Log System Event for Batch Process Invoice Creation
-                $this->activityLogService->logModelEvent(
-                    $invoice,
-                    ActivityLog::LOG_TYPE_BATCH_PROCESS
-                );
+                // Accurate Code: Automatically send the invoice email after creation
+                try {
+                    $this->invoiceService->sendInvoice($invoice->id);
+                    Log::info('Invoice email sent successfully via batch process', ['invoice_id' => $invoice->id]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send invoice email in batch process', [
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
             });
         } catch (\Exception $e) {
             // Log the error but don't throw - this allows the cron to continue processing other invoices
