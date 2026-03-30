@@ -25,8 +25,6 @@ class PreQualificationService
         DB::beginTransaction();
         try {
             // 1. Create Lead
-            $lead = Lead::where('email', $data['email'])->first();
-
             $leadData = [
                 'contact_person' => $data['first_name'] . ' ' . $data['last_name'],
                 'email' => $data['email'],
@@ -39,11 +37,7 @@ class PreQualificationService
                 'requirement_details' => $data['notes'] ?? null,
             ];
 
-            if (!$lead) {
-                $lead = $this->leadService->store($leadData);
-            } else {
-                $lead->update($leadData);
-            }
+            $lead = $this->leadService->store($leadData);
 
             // 2. Create Pre-Qualification Request
             $preQual = PreQualificationRequest::create([

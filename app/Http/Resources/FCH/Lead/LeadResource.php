@@ -56,6 +56,11 @@ class LeadResource extends JsonResource
             'ssn_last_4' => $this->ssn_last_4,
             'requirement_details' => $this->requirement_details,
             'convert_to' => $this->convert_to,
+            'convert_email_already' => $this->email ? (
+                \App\Models\Borrower\Borrower::where('email', $this->email)->exists() ? 'Borrower' : (
+                    \App\Models\Partner\Partner::where('email', $this->email)->exists() ? 'Partner' : false
+                )
+            ) : false,
 
             // Partner Details
             'partner' => [
