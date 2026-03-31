@@ -500,34 +500,59 @@ class ActivityLogService
             throw new \Exception("File not found in this activity log", 404);
         }
 
-        // Resolve Partner Document ID (even if missing from properties)
-        $partnerDocumentId = $file['id'] ?? null;
-        if (!$partnerDocumentId && preg_match('/documents\/download\/(\d+)/', $path, $matches)) {
-            $partnerDocumentId = $matches[1];
+        // Resolve Document ID (even if missing from properties)
+        $documentId = $file['id'] ?? null;
+        if (!$documentId && preg_match('/documents\/download\/(\d+)/', $path, $matches)) {
+            $documentId = $matches[1];
         }
 
-        if ($partnerDocumentId) {
-            $document = \App\Models\Partner\PartnerDocument::withTrashed()->find($partnerDocumentId);
-            if (!$document) {
-                throw new \Exception("Partner document record not found", 404);
-            }
+        if ($documentId) {
+            $possiblePaths = [];
+            $rawPath = '';
+            $fileName = '';
 
-            // Get the raw path from DB
-            $rawPath = $document->getRawOriginal('file_path');
-            
-            // Check multiple possible locations for maximum robustness
-            $possiblePaths = [
-                public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
-                storage_path('app/public/partners/' . $document->partner_id . '/' . $rawPath),
-                public_path('storage/partners/' . $document->partner_id . '/documents/' . $rawPath),
-                storage_path('app/public/partners/' . $document->partner_id . '/documents/' . $rawPath),
-            ];
+            // Determine whether this is a Borrower or Partner document
+            $isBorrowerDocument = 
+                $log->subject_type === \App\Models\Borrower\BorrowerDocument::class || 
+                (isset($file['path']) && str_contains((string)$file['path'], '/borrowers/'));
+
+            if ($isBorrowerDocument) {
+                $document = \App\Models\Borrower\BorrowerDocument::withTrashed()->find($documentId);
+                if (!$document) {
+                    throw new \Exception("Borrower document record not found", 404);
+                }
+
+                $rawPath = $document->getRawOriginal('file_path');
+                $fileName = $document->file_name ?? basename($rawPath);
+                
+                $possiblePaths = [
+                    public_path('storage/borrowers/' . $document->borrower_id . '/' . $rawPath),
+                    storage_path('app/public/borrowers/' . $document->borrower_id . '/' . $rawPath),
+                    public_path('storage/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
+                    storage_path('app/public/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
+                ];
+            } else {
+                $document = \App\Models\Partner\PartnerDocument::withTrashed()->find($documentId);
+                if (!$document) {
+                    throw new \Exception("Partner document record not found", 404);
+                }
+
+                $rawPath = $document->getRawOriginal('file_path');
+                $fileName = $document->document_name ?? basename($rawPath);
+                
+                $possiblePaths = [
+                    public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
+                    storage_path('app/public/partners/' . $document->partner_id . '/' . $rawPath),
+                    public_path('storage/partners/' . $document->partner_id . '/documents/' . $rawPath),
+                    storage_path('app/public/partners/' . $document->partner_id . '/documents/' . $rawPath),
+                ];
+            }
 
             foreach ($possiblePaths as $absPath) {
                 // Normalize slashes for Windows/Unix compatibility
                 $normalized = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $absPath);
                 if (file_exists($normalized)) {
-                    return response()->download($normalized, $document->document_name);
+                    return response()->download($normalized, $fileName);
                 }
             }
 

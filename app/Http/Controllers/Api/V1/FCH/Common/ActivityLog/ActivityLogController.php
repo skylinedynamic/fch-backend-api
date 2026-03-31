@@ -80,13 +80,19 @@ class ActivityLogController extends Controller
     {
         try {
             $logId = $request->input('activity_log_id');
-            $path  = $request->input('path');
+            $pathInput  = $request->input('path');
+
+            if (is_array($pathInput)) {
+                $path = $pathInput['path'] ?? (isset($pathInput['id']) ? (string)$pathInput['id'] : null);
+            } else {
+                $path = $pathInput;
+            }
 
             if (!$logId || !$path) {
                 return ApiResponse::error("activity_log_id and path are required");
             }
 
-            return $this->activityLogService->downloadAttachment((int)$logId, $path);
+            return $this->activityLogService->downloadAttachment((int)$logId, (string)$path);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), $e->getCode() ?: 400);
         }
