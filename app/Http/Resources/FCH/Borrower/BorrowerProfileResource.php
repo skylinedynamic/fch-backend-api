@@ -16,6 +16,7 @@ class BorrowerProfileResource extends JsonResource
     {
         return [
             'id'            => $this->id,
+            'user_id'       => $this->user?->id,
             'signup_id'     => $this->signup_id,
             'first_name'    => $this->first_name,
             'last_name'     => $this->last_name,
@@ -79,6 +80,7 @@ class BorrowerProfileResource extends JsonResource
             // Partner Details
             'partner_name' => $this->partner?->full_name,
             'partner_email' => $this->partner?->email,
+            'has_sign' => (bool) $this->signedAgreement()->exists(),
         ];
     }
 }

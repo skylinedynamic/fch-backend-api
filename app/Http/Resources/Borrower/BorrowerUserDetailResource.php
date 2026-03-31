@@ -17,6 +17,10 @@ class BorrowerUserDetailResource extends JsonResource
         $phase = $subscription?->phases;
 
         return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'is_agreement_signed' => (bool)$this->borrower?->has_sign,
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
