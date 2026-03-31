@@ -37,7 +37,4 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })
-    ->withSchedule(function ($schedule) {
-        $schedule->command('subscriptions:process')->daily();
-    })
     ->create();
