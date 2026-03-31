@@ -30,6 +30,7 @@ class BorrowerUserDetailResource extends JsonResource
             'enrollment_completed_at' => $phase?->enrollment_completed_at?->toDateString(),
             'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
+            'is_refresh' => auth()->user()->is_refresh,
         ];
     }
 }

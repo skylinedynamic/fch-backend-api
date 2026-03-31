@@ -248,6 +248,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/submit', [AgreementSignController::class, 'submitSign']);
                 Route::get('/html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
                 Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
+                Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
             });
         });
 

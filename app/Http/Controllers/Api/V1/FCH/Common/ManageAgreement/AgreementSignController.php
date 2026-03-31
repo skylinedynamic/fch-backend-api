@@ -34,6 +34,22 @@ class AgreementSignController extends Controller
     }
 
     /**
+     * Cancel / Revoke a signed agreement for the specified user.
+     */
+    public function cancelSign(Request $request, $userId = null)
+    {
+        try {
+            if (!$targetUserId = $this->validateAccess($userId)) {
+                return ApiResponse::notFound(__('agreement.not_found'));
+            }
+            $this->agreementService->cancelSign($targetUserId);
+            return ApiResponse::success(null, __('agreement.cancelled_successfully'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('agreement.cancel_failed') . ': ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Submit / save the signed agreement for the authenticated partner.
      */
     public function submitSign(Request $request)

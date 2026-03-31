@@ -17,4 +17,6 @@ return [
     'no_signed_agreement' => 'No signed agreement found for this user',
     'not_allowed' => 'User type not allowed to sign agreements',
     'download_failed' => 'Failed to download agreement PDF',
+    'cancelled_successfully' => 'Agreement cancelled successfully',
+    'cancel_failed' => 'Failed to cancel agreement',
 ];

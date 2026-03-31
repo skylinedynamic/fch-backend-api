@@ -83,6 +83,41 @@ class AgreementService
     }
 
     /**
+     * Cancel / Revoke a signed agreement for the specified user.
+     */
+    public function cancelSign(int $userId): bool
+    {
+        $sign = AgreementSign::where('user_id', $userId)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$sign) {
+            throw new Exception(__('agreement.no_signed_agreement'));
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            throw new Exception(__('user.not_found'));
+        }
+
+        $entity = ($user->entity_type === Partner::class) ? $user->partner : $user->borrower;
+        if (!$entity) {
+            throw new Exception(__('agreement.not_found'));
+        }
+
+        return DB::transaction(function () use ($user, $entity, $sign) {
+            // 1. Delete the signature record
+            $sign->delete();
+
+            // 2. Reset has_sign status for the entity
+            $entity->update(['has_sign' => false]);
+
+            // 3. Mark user for refresh (string "1" as per migration default "0")
+            return $user->update(['is_refresh' => '1']);
+        });
+    }
+
+    /**
      * Save/Submit the signed agreement snapshot.
      */
     public function submitSign(User $user, array $data, string $ip): bool
