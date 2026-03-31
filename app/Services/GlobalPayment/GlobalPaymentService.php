@@ -127,7 +127,7 @@ class GlobalPaymentService
                     'payment_from' => 'Stripe',
                     'payment_type' => 'Card',
                     'amount' => $data['amount'] / 100,
-                    'currency' => $paymentIntent->currency,
+                    'currency' => strtoupper($paymentIntent->currency),
                     'is_partner_paying' => $data['is_partner_paying'] ?? false,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
@@ -346,7 +346,7 @@ class GlobalPaymentService
                     // 'payment_amount' => $data['amount'] / 100,
                     'payment_date' => now(),
                     'status' => Invoice::STATUS_PAID,
-                    'currency' => $paymentIntent->currency,
+                    'currency' => strtoupper($paymentIntent->currency),
                     'created_by' => Auth::id(),
                     'updated_by' => Auth::id(),
                 ]);
@@ -361,7 +361,7 @@ class GlobalPaymentService
                     'payment_from' => 'Stripe',
                     'payment_type' => 'Card',
                     'amount' => $data['amount'] / 100,
-                    'currency' => $paymentIntent->currency,
+                    'currency' => strtoupper($paymentIntent->currency),
                     'details' => $paymentIntent->toArray(),
                     'status' => 'succeeded',
                     'transaction_date' => now(),
@@ -401,11 +401,21 @@ class GlobalPaymentService
 
                 $plainPassword = null;
                 if ($user) {
+                    if ($user->payment_status == User::PAYMENT_STATUS_PAID && $user->start_date && $user->end_date) {
+                        $duration = $user->start_date->diffInDays($user->end_date);
+                        $newStart = $user->end_date->copy()->addDay();
+                        $newEnd = $newStart->copy()->addDays($duration);
+                        $user->start_date = $newStart;
+                        $user->end_date = $newEnd;
+                    }
+
                     $plainPassword = bin2hex(random_bytes(4)); // 8 chars
                     $user->update([
                         'status' => User::STATUS['active'],
                         'payment_status' => User::PAYMENT_STATUS_PAID,
                         'password' => Hash::make($plainPassword),
+                        'start_date' => $user->start_date,
+                        'end_date' => $user->end_date,
                     ]);
                     Log::info('User activated and password set', ['user_id' => $user->id]);
                 } else {
