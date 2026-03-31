@@ -39,7 +39,7 @@ class BorrowerDocument extends Model
         };
 
         if ($eventName === 'created') {
-            $activity->properties = array_merge($activity->properties->toArray(), [
+            $activity->properties = collect($activity->properties)->merge([
                  'attachments' => [
                      'count' => 1,
                      'files' => [[
