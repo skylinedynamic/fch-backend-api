@@ -91,6 +91,13 @@ class Payment extends Model
                 ->orWhereHas('invoice', function ($iq) use ($search) {
                     $iq->where('invoice_id', 'like', "%{$search}%");
                 });
+
+            // Environment Search Accuracy: Map "Sandbox" and "Production" to boolean values
+            if (str_contains(strtolower($search), 'sand')) {
+                $q->orWhere('payments.is_environment', self::ENVIRONMENT_SANDBOX);
+            } elseif (str_contains(strtolower($search), 'prod')) {
+                $q->orWhere('payments.is_environment', self::ENVIRONMENT_PRODUCTION);
+            }
         });
     }
 }
