@@ -70,10 +70,18 @@ class Payment extends Model
                 ->orWhere('payments.amount', 'like', "%{$search}%")
                 ->orWhere('payments.transaction_date', 'like', "%{$search}%");
 
-            // Accurate Status Matching: Prevent "Paid" from matching "Unpaid"
-            $statuses = ['Paid', 'Unpaid', 'Success', 'Failed', 'Pending', 'Succeeded'];
-            if (in_array(ucfirst(strtolower($search)), $statuses)) {
-                $q->orWhere('payments.status', strtolower($search));
+            // Accurate Status Matching: Ensure exact match for the model's status constants
+            $statuses = [
+                self::STATUS_SUCCEEDED,
+                self::STATUS_FAILED,
+                self::STATUS_PENDING,
+                self::STATUS_DISPUTED,
+                self::STATUS_REFUNDED,
+            ];
+            $searchStatus = strtolower(trim($search));
+
+            if (in_array($searchStatus, $statuses)) {
+                $q->orWhere('payments.status', $searchStatus);
             } else {
                 $q->orWhere('payments.status', 'like', "%{$search}%");
             }

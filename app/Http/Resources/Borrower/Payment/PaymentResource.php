@@ -60,7 +60,7 @@ class PaymentResource extends JsonResource
         // Fallback for older data or missing relations
         $invoice = Invoice::where('entity_id', $this->entity_id)
             ->where('entity_type', $this->entity_type)
-            ->where('status', 'Paid')
+            ->where('status', Invoice::STATUS_PAID)
             ->first();
 
         if ($invoice) {
