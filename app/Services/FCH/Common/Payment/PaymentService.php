@@ -80,6 +80,10 @@ class PaymentService
             $query->where('payments.invoice_id', $filters['invoice_id']);
         }
 
+        if (isset($filters['is_environment']) && $filters['is_environment'] !== '' && $filters['is_environment'] !== null) {
+            $query->where('payments.is_environment', $filters['is_environment']);
+        }
+
         // Efficiently extract global search term
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
         $search = !empty($globalSearch) ? trim((string) $globalSearch) : null;

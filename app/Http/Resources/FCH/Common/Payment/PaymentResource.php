@@ -30,6 +30,7 @@ class PaymentResource extends JsonResource
             'amount' => $this->amount,
             'currency' => $this->currency,
             'status' => strtoupper($this->status),
+            'is_environment' => (bool)$this->is_environment,
             'borrower_id' => $this->borrower_id,
             'partner_id' => $this->partner_id,
             'entity_id' => $this->entity_id,

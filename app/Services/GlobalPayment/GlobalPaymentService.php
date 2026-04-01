@@ -131,6 +131,7 @@ class GlobalPaymentService
                     'is_partner_paying' => $data['is_partner_paying'] ?? false,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
+                    'is_environment' => ($setting->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
                     'transaction_date' => now(),
                     'created_by' => Auth::id(),
                 ]);
@@ -240,6 +241,7 @@ class GlobalPaymentService
                     'input_data' => $data
                 ],
                 'status' => 'failed',
+                'is_environment' => (Setting::where('status', true)->first()?->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
                 'transaction_date' => now(),
                 'created_by' => Auth::id(),
             ]);
@@ -364,6 +366,7 @@ class GlobalPaymentService
                     'currency' => strtoupper($paymentIntent->currency),
                     'details' => $paymentIntent->toArray(),
                     'status' => 'succeeded',
+                    'is_environment' => ($setting->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
                     'transaction_date' => now(),
                     'created_by' => Auth::id(),
                 ]);

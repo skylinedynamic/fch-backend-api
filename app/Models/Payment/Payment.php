@@ -20,6 +20,7 @@ class Payment extends Model
     protected $casts = [
         'transaction_date' => 'datetime',
         'details' => 'array',
+        'is_environment' => 'boolean',
     ];
 
     public const STATUS_SUCCEEDED = 'succeeded';
@@ -27,6 +28,9 @@ class Payment extends Model
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';
     public const STATUS_REFUNDED = 'refunded';
+
+    public const ENVIRONMENT_SANDBOX = 0;
+    public const ENVIRONMENT_PRODUCTION = 1;
 
     public function partner()
     {
