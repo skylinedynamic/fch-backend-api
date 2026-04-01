@@ -371,8 +371,6 @@ class GlobalPaymentService
                     'created_by' => Auth::id(),
                 ]);
 
-                $quantity = (int) ($data['quantity'] ?? 1);
-
                 // Log Activity Event
                 $this->activityLogService->logModelEvent(
                     $payment,
@@ -381,14 +379,14 @@ class GlobalPaymentService
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,
                         'currency' => $payment->currency,
-                        'quantity' => $quantity
+                        'quantity' => 1,
                     ],
-                    'Seat Purchase Successful'
+                    'User Purchase Successful'
                 );
 
                 // 4. Update Partner Paid User Count
                 $partner->update([
-                    'total_paid_users' => $partner->total_paid_users + $quantity,
+                    'total_paid_users' => $partner->total_paid_users + 1,
                 ]);
 
                 // 5. Update User Status and Password
