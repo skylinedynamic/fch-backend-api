@@ -51,7 +51,7 @@ return [
     |
     | Note: Publishing assets is no longer required. Assets are now served
     | directly from the vendor directory. This option only applies if you
-    | have published assets using `php artisan log-viewer:publish`.
+    | have published assets using php artisan log-viewer:publish.
     | This option will be removed in the next major version.
     |
     */
@@ -63,7 +63,7 @@ return [
     | Back to system URL
     |--------------------------------------------------------------------------
     | When set, displays a link to easily get back to this URL.
-    | Set to `null` to hide this link.
+    | Set to null to hide this link.
     |
     | Optional label to display for the above URL.
     |
@@ -169,7 +169,7 @@ return [
     */
 
     'include_files' => array_merge(
-        [],
+        ['*.log'],
         (function() {
             $months = [];
             for ($i = 0; $i < 6; $i++) {
@@ -280,7 +280,7 @@ return [
     |--------------------------------------------------------------------------
     | These settings determine the default behaviour of Log Viewer. Many of
     | these can be persisted for the user in their browser's localStorage,
-    | if the `use_local_storage` option is set to true.
+    | if the use_local_storage option is set to true.
     |
     */
 
@@ -290,28 +290,28 @@ return [
         // If true, user preferences saved in the browser will take precedence over the defaults below.
         'use_local_storage' => false,
 
-        // Method to sort the folders. Other options: `Alphabetical`, `ModifiedTime`
+        // Method to sort the folders. Other options: Alphabetical, ModifiedTime
         'folder_sorting_method' => SortingMethod::Alphabetical,
 
-        // Order to sort the folders. Other options: `Ascending`, `Descending`
+        // Order to sort the folders. Other options: Ascending, Descending
         'folder_sorting_order' => SortingOrder::Descending,
 
-        // Method for sorting log-files into directories. Other options: `Alphabetical`, `ModifiedTime`
+        // Method for sorting log-files into directories. Other options: Alphabetical, ModifiedTime
         'file_sorting_method' => SortingMethod::Alphabetical,
 
-        // Order to sort files within folders. Other options: `Ascending`, `Descending`
+        // Order to sort files within folders. Other options: Ascending, Descending
         'file_sorting_order' => SortingOrder::Descending,
 
-        // Order to sort the logs. Other options: `Ascending`, `Descending`
+        // Order to sort the logs. Other options: Ascending, Descending
         'log_sorting_order' => SortingOrder::Descending,
 
-        // Number of results per page. Must be one of the above `per_page_options` values
+        // Number of results per page. Must be one of the above per_page_options values
         'per_page' => 25,
 
-        // Color scheme for the Log Viewer. Other options: `System`, `Light`, `Dark`
+        // Color scheme for the Log Viewer. Other options: System, Light, Dark
         'theme' => Theme::System,
 
-        // Whether to enable `Shorter Stack Traces` option by default
+        // Whether to enable Shorter Stack Traces option by default
         'shorter_stack_traces' => false,
 
     ],
@@ -333,7 +333,7 @@ return [
     |--------------------------------------------------------------------------
     | Root folder prefix
     |--------------------------------------------------------------------------
-    | The prefix for log files inside Laravel's `storage/logs` folder.
+    | The prefix for log files inside Laravel's storage/logs folder.
     | Log Viewer does not show the full path to these files in the UI,
     | but only the filename prefixed with this value.
     |

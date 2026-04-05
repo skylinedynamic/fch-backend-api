@@ -35,10 +35,12 @@
     31 => 'Carbon\\Laravel\\ServiceProvider',
     32 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
     33 => 'Termwind\\Laravel\\TermwindServiceProvider',
-    34 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
-    35 => 'Spatie\\Permission\\PermissionServiceProvider',
-    36 => 'App\\Providers\\AppServiceProvider',
-    37 => 'App\\Providers\\RateLimitServiceProvider',
+    34 => 'Opcodes\\LogViewer\\LogViewerServiceProvider',
+    35 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
+    36 => 'Spatie\\Permission\\PermissionServiceProvider',
+    37 => 'App\\Providers\\AppServiceProvider',
+    38 => 'App\\Providers\\RateLimitServiceProvider',
+    39 => 'Opcodes\\LogViewer\\LogViewerServiceProvider',
   ),
   'eager' => 
   array (
@@ -61,10 +63,12 @@
     16 => 'Carbon\\Laravel\\ServiceProvider',
     17 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
     18 => 'Termwind\\Laravel\\TermwindServiceProvider',
-    19 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
-    20 => 'Spatie\\Permission\\PermissionServiceProvider',
-    21 => 'App\\Providers\\AppServiceProvider',
-    22 => 'App\\Providers\\RateLimitServiceProvider',
+    19 => 'Opcodes\\LogViewer\\LogViewerServiceProvider',
+    20 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
+    21 => 'Spatie\\Permission\\PermissionServiceProvider',
+    22 => 'App\\Providers\\AppServiceProvider',
+    23 => 'App\\Providers\\RateLimitServiceProvider',
+    24 => 'Opcodes\\LogViewer\\LogViewerServiceProvider',
   ),
   'deferred' => 
   array (
