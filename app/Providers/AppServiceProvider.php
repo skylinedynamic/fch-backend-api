@@ -69,5 +69,18 @@ class AppServiceProvider extends ServiceProvider
             }
             return in_array($user->email, $allowed, true);
         });
+
+        Gate::define('viewLogViewer', function (?User $user) {
+            if (app()->isLocal()) {
+                return true;
+            }
+
+            if (!$user) {
+                return false;
+            }
+
+            $allowedEmails = array_filter(array_map('trim', explode(',', (string) env('LOG_VIEWER_ALLOWED_EMAILS', ''))));
+            return in_array($user->email, $allowedEmails, true);
+        });
     }
 }
