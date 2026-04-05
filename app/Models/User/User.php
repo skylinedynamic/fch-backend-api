@@ -617,8 +617,18 @@ class User extends Authenticatable implements OAuthenticatable
 
     public function getEntityImage(): string
     {
-        if ($this->entity && method_exists($this->entity, 'getEntityImage')) {
-            return $this->entity->getEntityImage();
+        if ($this->relationLoaded('entity')) {
+            if ($this->entity && method_exists($this->entity, 'getEntityImage')) {
+                return $this->entity->getEntityImage();
+            }
+        } else {
+            if ($this->entity_type && $this->entity_id && class_exists($this->entity_type)) {
+                $entityClass = $this->entity_type;
+                $entity = $entityClass::find($this->entity_id);
+                if ($entity && method_exists($entity, 'getEntityImage')) {
+                    return $entity->getEntityImage();
+                }
+            }
         }
 
         if ($this->entity_type === \App\Models\Borrower\Borrower::class || $this->user_type === self::BORROWER) {
