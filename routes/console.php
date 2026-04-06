@@ -12,3 +12,4 @@ Schedule::command('subscriptions:process')->twiceDaily();
 Schedule::command('users:check-expired')->twiceDaily();
 Schedule::command('logs:prune-months')->daily();
 
+Schedule::command('app:monitor-health')->everyFiveMinutes();

@@ -11,6 +11,12 @@ use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Health\Facades\Health;
+use Spatie\Health\Checks\Checks\DatabaseCheck;
+use Spatie\Health\Checks\Checks\UsedDiskSpaceCheck;
+use Spatie\Health\Checks\Checks\DebugModeCheck;
+use Spatie\Health\Checks\Checks\EnvironmentCheck;
+use Spatie\Health\Checks\Checks\PingCheck;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+    //
     }
 
     /**
@@ -29,8 +35,19 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::preventLazyLoading(!app()->isProduction());
 
+        Health::checks([
+            DatabaseCheck::new (),
+            UsedDiskSpaceCheck::new ()
+            ->warnWhenUsedSpaceIsAbovePercentage(70)
+            ->failWhenUsedSpaceIsAbovePercentage(90),
+            DebugModeCheck::new (),
+            EnvironmentCheck::new (),
+            PingCheck::new ()->name('Local API Gateway')->url(config('app.url')),
+            PingCheck::new ()->name('Network (Google)')->url('https://google.com'),
+        ]);
+
         Scramble::configure()
-        ->withDocumentTransformers(function (OpenApi $openApi) {
+            ->withDocumentTransformers(function (OpenApi $openApi) {
             $openApi->secure(
                 SecurityScheme::http('bearer')
             );
@@ -41,26 +58,26 @@ class AppServiceProvider extends ServiceProvider
             'api_path' => 'api/v1/borrower',
         ]);
 
-          Scramble::registerApi('borrower')
+        Scramble::registerApi('borrower')
             ->routes(function (Route $route) {
-                return Str::startsWith($route->uri, 'api/v1/borrower')
-                    || Str::startsWith($route->uri, 'api/v1/document')
-                    || Str::startsWith($route->uri, 'api/v1/filemanager')
-                    || Str::startsWith($route->uri, 'api/v1/2fa');
-            });
-            
+            return Str::startsWith($route->uri, 'api/v1/borrower')
+            || Str::startsWith($route->uri, 'api/v1/document')
+            || Str::startsWith($route->uri, 'api/v1/filemanager')
+            || Str::startsWith($route->uri, 'api/v1/2fa');
+        });
+
 
         // Register combined admin docs (admin + partner) under one URL
         Scramble::registerApi('admin')
             ->routes(function (Route $route) {
-                return Str::startsWith($route->uri, 'api/v1/admin')
-                    || Str::startsWith($route->uri, 'api/v1/partner')
-                    || Str::startsWith($route->uri, 'api/v1/auth')
-                    || Str::startsWith($route->uri, 'api/v1/notifications')
-                    || Str::startsWith($route->uri, 'api/v1/common')
-                    || Str::startsWith($route->uri, 'api/v1/filemanager')
-                    || Str::startsWith($route->uri, 'api/v1/2fa');
-            });
+            return Str::startsWith($route->uri, 'api/v1/admin')
+            || Str::startsWith($route->uri, 'api/v1/partner')
+            || Str::startsWith($route->uri, 'api/v1/auth')
+            || Str::startsWith($route->uri, 'api/v1/notifications')
+            || Str::startsWith($route->uri, 'api/v1/common')
+            || Str::startsWith($route->uri, 'api/v1/filemanager')
+            || Str::startsWith($route->uri, 'api/v1/2fa');
+        });
         Gate::define('viewApiDocs', function (?User $user) {
             // Allowing public access on all environments for now
             return true;
@@ -75,7 +92,7 @@ class AppServiceProvider extends ServiceProvider
                 return false;
             }
 
-            $allowedEmails = array_filter(array_map('trim', explode(',', (string) env('LOG_VIEWER_ALLOWED_EMAILS', ''))));
+            $allowedEmails = array_filter(array_map('trim', explode(',', (string)env('LOG_VIEWER_ALLOWED_EMAILS', ''))));
             return in_array($user->email, $allowedEmails, true);
         });
     }
