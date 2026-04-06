@@ -24,8 +24,8 @@ class ActivityLogResource extends JsonResource
         if ($subject instanceof Partner) {
             $partnerImage = $subject->partner_image ?? asset('avatar/avatar-partner.jpg');
         } elseif ($this->partner_id) {
-            // Check if subject belongs to this partner
-            if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id) {
+            // Check if subject belongs to this partner and relation is loaded
+            if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id && $subject->relationLoaded('partner')) {
                  $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-partner.jpg');
             } else {
                  $partner = Partner::find($this->partner_id);
