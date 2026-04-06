@@ -13,3 +13,6 @@ Schedule::command('users:check-expired')->twiceDaily();
 Schedule::command('logs:prune-months')->daily();
 
 Schedule::command('app:monitor-health')->everyFiveMinutes();
+// Run daily DB backup and clean up old backups over 7 days old
+Schedule::command('backup:run --only-db')->dailyAt('01:00');
+Schedule::command('backup:clean')->dailyAt('02:00');

@@ -3,7 +3,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -17,10 +20,13 @@
         "laravel/passport": "^13.0",
         "laravel/tinker": "^2.10.1",
         "opcodesio/log-viewer": "*",
+        "league/flysystem-aws-s3-v3": "*",
+        "opcodesio/log-viewer": "*",
         "pragmarx/google2fa": "8.0",
         "promphp/prometheus_client_php": "^2.15",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-health": "^1.39",
+        "spatie/laravel-backup": "*",
         "spatie/laravel-permission": "^6.22",
         "spatie/laravel-server-monitor": "^1.10",
         "spomky-labs/otphp": "^11.3",
