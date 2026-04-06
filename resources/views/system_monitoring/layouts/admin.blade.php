@@ -1,17 +1,39 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-slate-50 dark:bg-slate-950 dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'FCH Admin Dashboard')</title>
+    
+    <!-- Local Theme Loading -->
+    <script>
+        if (!('theme' in localStorage) || localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .sidebar-active { 
             background: linear-gradient(to right, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.05));
             color: #6366f1;
             border-left: 4px solid #6366f1;
+        }
+        html.dark .sidebar-active {
+            background: linear-gradient(to right, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.05));
+            color: #818cf8;
         }
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn {
@@ -21,7 +43,7 @@
     </style>
     @stack('styles')
 </head>
-<body class="h-full overflow-hidden flex bg-slate-50">
+<body class="h-full overflow-hidden flex bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200">
 
     @include('system_monitoring.partials.sidebar')
 

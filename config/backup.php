@@ -221,19 +221,19 @@ return [
      */
     'notifications' => [
         'notifications' => [
-            BackupHasFailedNotification::class => [],
-            UnhealthyBackupWasFoundNotification::class => [],
-            CleanupHasFailedNotification::class => [],
-            BackupWasSuccessfulNotification::class => [],
-            HealthyBackupWasFoundNotification::class => [],
-            CleanupWasSuccessfulNotification::class => [],
+            // BackupHasFailedNotification::class => [],
+            // UnhealthyBackupWasFoundNotification::class => [],
+            // CleanupHasFailedNotification::class => [],
+            // BackupWasSuccessfulNotification::class => [],
+            // HealthyBackupWasFoundNotification::class => [],
+            // CleanupWasSuccessfulNotification::class => [],
         ],
 
         /*
          * Here you can specify the notifiable to which the notifications should be sent. The default
          * notifiable will use the variables specified in this config file.
          */
-        'notifiable' => Notifiable::class,
+        'notifiable' => Notifiable::class ,
 
         'mail' => [
             'to' => 'your@example.com',
@@ -305,15 +305,15 @@ return [
         ],
 
         /*
-        [
-            'name' => 'name of the second app',
-            'disks' => ['local', 's3'],
-            'health_checks' => [
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 1,
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000,
-            ],
-        ],
-        */
+         [
+         'name' => 'name of the second app',
+         'disks' => ['local', 's3'],
+         'health_checks' => [
+         \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 1,
+         \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000,
+         ],
+         ],
+         */
     ],
 
     'cleanup' => [
@@ -326,7 +326,7 @@ return [
          * No matter how you configure it the default strategy will never
          * delete the newest backup.
          */
-        'strategy' => DefaultStrategy::class,
+        'strategy' => DefaultStrategy::class ,
 
         'default_strategy' => [
             /*

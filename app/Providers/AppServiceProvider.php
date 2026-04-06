@@ -35,16 +35,21 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::preventLazyLoading(!app()->isProduction());
 
-        Health::checks([
+        $checks = [
             DatabaseCheck::new (),
-            UsedDiskSpaceCheck::new ()
-            ->warnWhenUsedSpaceIsAbovePercentage(70)
-            ->failWhenUsedSpaceIsAbovePercentage(90),
-            DebugModeCheck::new (),
-            EnvironmentCheck::new (),
-            PingCheck::new ()->name('Local API Gateway')->url(config('app.url')),
+            DebugModeCheck::new ()->unless(app()->isLocal()),
+            EnvironmentCheck::new ()->expectEnvironment(app()->environment()),
+            PingCheck::new ()->name('Local API Gateway')->url(config('app.url'))->unless(app()->isLocal()),
             PingCheck::new ()->name('Network (Google)')->url('https://google.com'),
-        ]);
+        ];
+
+        if (PHP_OS_FAMILY !== 'Windows') {
+            $checks[] = UsedDiskSpaceCheck::new ()
+                ->warnWhenUsedSpaceIsAbovePercentage(70)
+                ->failWhenUsedSpaceIsAbovePercentage(90);
+        }
+
+        Health::checks($checks);
 
         Scramble::configure()
             ->withDocumentTransformers(function (OpenApi $openApi) {

@@ -9,22 +9,20 @@ return [
     'result_stores' => [
         Spatie\Health\ResultStores\EloquentHealthResultStore::class => [
             'connection' => env('HEALTH_DB_CONNECTION', env('DB_CONNECTION')),
-            'model' => Spatie\Health\Models\HealthCheckResultHistoryItem::class,
+            'model' => Spatie\Health\Models\HealthCheckResultHistoryItem::class ,
             'keep_history_for_days' => 5,
         ],
 
         /*
-        Spatie\Health\ResultStores\CacheHealthResultStore::class => [
-            'store' => 'file',
-        ],
-
-        Spatie\Health\ResultStores\JsonFileHealthResultStore::class => [
-            'disk' => 's3',
-            'path' => 'health.json',
-        ],
-
-        Spatie\Health\ResultStores\InMemoryHealthResultStore::class,
-        */
+         Spatie\Health\ResultStores\CacheHealthResultStore::class => [
+         'store' => 'file',
+         ],
+         Spatie\Health\ResultStores\JsonFileHealthResultStore::class => [
+         'disk' => 's3',
+         'path' => 'health.json',
+         ],
+         Spatie\Health\ResultStores\InMemoryHealthResultStore::class,
+         */
     ],
 
     /*
@@ -35,7 +33,7 @@ return [
         /*
          * Notifications will only get sent if this option is set to `true`.
          */
-        'enabled' => true,
+        'enabled' => false,
 
         'notifications' => [
             Spatie\Health\Notifications\CheckFailedNotification::class => ['mail'],
@@ -45,7 +43,7 @@ return [
          * Here you can specify the notifiable to which the notifications should be sent. The default
          * notifiable will use the variables specified in this config file.
          */
-        'notifiable' => Spatie\Health\Notifications\Notifiable::class,
+        'notifiable' => Spatie\Health\Notifications\Notifiable::class ,
 
         /*
          * When checks start failing, you could potentially end up getting
@@ -153,12 +151,11 @@ return [
      * You can specify a secret token that needs to be sent in the X-Secret-Token for secured access.
      */
     'secret_token' => env('HEALTH_SECRET_TOKEN'),
-
-/**
- * By default, conditionally skipped health checks are treated as failures.
- * You can override this behavior by uncommenting the configuration below.
- *
- * @link https://spatie.be/docs/laravel-health/v1/basic-usage/conditionally-running-or-modifying-checks
- */
-    // 'treat_skipped_as_failure' => false
+    /**
+     * By default, conditionally skipped health checks are treated as failures.
+     * You can override this behavior by uncommenting the configuration below.
+     *
+     * @link https://spatie.be/docs/laravel-health/v1/basic-usage/conditionally-running-or-modifying-checks
+     */
+    'treat_skipped_as_failure' => false
 ];

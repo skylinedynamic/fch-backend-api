@@ -5,16 +5,108 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Monitoring\SystemMetric;
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Health\ResultStores\ResultStore;
 use Spatie\ServerMonitor\Models\Host;
+use Spatie\Backup\Tasks\Monitor\BackupDestinationStatusFactory;
+use Spatie\Backup\Tasks\Monitor\BackupDestinationStatus;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        return view('system_monitoring.dashboard.overview');
+        $stats = $this->getSystemStats();
+        $userCount = \App\Models\User\User::count();
+
+        // Fetch latest backup date
+        $monitorConfig = config('backup.monitor_backups');
+        $latestBackup = collect($monitorConfig)->map(function ($config) {
+            $config['healthChecks'] = $config['health_checks'] ?? [];
+            $status = BackupDestinationStatusFactory::createForSingleMonitor($config)->first();
+            return $status ? $status->backupDestination()->newestBackup() : null;
+        })->filter()->sortByDesc(fn($b) => $b->date())->first();
+
+        // Fetch latest health status
+        $healthResults = app(ResultStore::class)->latestResults();
+        $isHealthy = $healthResults ? $healthResults->storedCheckResults->every(fn($r) => $r->status === 'ok') : true;
+
+        return view('system_monitoring.dashboard.overview', [
+            'stats' => $stats,
+            'userCount' => $userCount,
+            'latestBackupDate' => $latestBackup ? $latestBackup->date() : null,
+            'isHealthy' => $isHealthy,
+            'env' => ucfirst(app()->environment()),
+            'phpVersion' => phpversion()
+        ]);
+    }
+
+    /**
+     * Show database backups.
+     */
+    public function backups()
+    {
+        $monitorConfig = config('backup.monitor_backups');
+
+        $statuses = collect($monitorConfig)->flatMap(function ($config) {
+            // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
+            $config['healthChecks'] = $config['health_checks'] ?? [];
+            return BackupDestinationStatusFactory::createForSingleMonitor($config);
+        });
+
+        $backups = $statuses->map(function (BackupDestinationStatus $status) {
+            $destination = $status->backupDestination();
+            return [
+            'name' => $destination->backupName(),
+            'disk' => $destination->diskName(),
+            'reachable' => $destination->isReachable(),
+            'healthy' => $status->isHealthy(),
+            'files' => $destination->backups()->map(function ($backup) {
+                    return [
+                    'path' => $backup->path(),
+                    'date' => $backup->date(),
+                    'size' => $backup->sizeInBytes(),
+                    ];
+                }
+                ),
+                'storage_used' => $this->formatBytes($destination->usedStorage()),
+                'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
+                ];
+            });
+
+        return view('system_monitoring.dashboard.backups', compact('backups'));
+    }
+
+    private function formatBytes($bytes, $precision = 2)
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        $bytes /= pow(1024, $pow);
+        return round($bytes, $precision) . ' ' . $units[$pow];
+    }
+
+    /**
+     * Download a specific backup snapshot.
+     */
+    public function downloadBackup(Request $request)
+    {
+        $diskName = $request->input('disk');
+        $path = $request->input('path');
+
+        if (!in_array($diskName, config('backup.backup.destination.disks'))) {
+            abort(403, 'Unauthorized disk access.');
+        }
+
+        $disk = Storage::disk($diskName);
+
+        if (!$disk->exists($path)) {
+            abort(404, 'Backup file not found.');
+        }
+
+        return $disk->download($path);
     }
 
     /**

@@ -2,8 +2,8 @@
     $currentRoute = Route::currentRouteName();
 @endphp
 
-<aside class="w-72 bg-slate-900 flex flex-col flex-shrink-0 z-20 shadow-2xl">
-    <div class="h-20 flex items-center px-8 border-b border-white/5">
+<aside class="w-72 bg-slate-900 dark:bg-slate-950 flex flex-col flex-shrink-0 z-20 shadow-2xl dark:border-r dark:border-slate-800 transition-colors duration-200">
+    <div class="h-20 flex items-center px-8 border-b border-white/5 dark:border-slate-800">
         <div class="flex items-center space-x-3">
             <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -18,7 +18,7 @@
             <nav class="space-y-1">
                 <a href="{{ route('dashboard') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                     <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
-                    Dashboard Overview
+                    Overview
                 </a>
                 
                 <a href="{{ route('dashboard.logs') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.logs' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
@@ -39,6 +39,11 @@
                 <a href="{{ route('dashboard.fleet') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.fleet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                     <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.fleet' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                     Fleet Monitor
+                </a>
+
+                <a href="{{ route('dashboard.backups') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.backups' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.backups' ? 'text-white' : 'text-slate-500 group-hover:text-rose-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                    Database Backups
                 </a>
             </nav>
         </div>

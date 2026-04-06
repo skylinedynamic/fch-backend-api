@@ -21,6 +21,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/health', [DashboardController::class, 'health'])->name('dashboard.health');
     Route::get('/dashboard/charts', [DashboardController::class, 'charts'])->name('dashboard.charts');
     Route::get('/dashboard/fleet', [DashboardController::class, 'fleet'])->name('dashboard.fleet');
+    Route::get('/dashboard/backups', [DashboardController::class, 'backups'])->name('dashboard.backups');
+    Route::get('/dashboard/backups/download', [DashboardController::class, 'downloadBackup'])->name('dashboard.backups.download');
     Route::get('/dashboard/docs/admin', [DashboardController::class, 'docsAdmin'])->name('dashboard.docs.admin');
     Route::get('/dashboard/docs/borrower', [DashboardController::class, 'docsBorrower'])->name('dashboard.docs.borrower');
 });

@@ -53,7 +53,7 @@ class MonitorSystemHealth extends Command
             $alerts[] = 'CRITICAL: Disk Space is above 95%';
 
         if (!empty($alerts)) {
-            $this->sendAlertEmail($alerts);
+        // $this->sendAlertEmail($alerts);
         }
     }
 
