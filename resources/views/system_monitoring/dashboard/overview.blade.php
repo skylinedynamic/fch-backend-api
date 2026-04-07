@@ -5,16 +5,19 @@
 @section('content')
 <div class="p-8 animate-fade-in max-w-7xl mx-auto space-y-8">
     <!-- Slim Header Hero -->
-    <div class="relative overflow-hidden bg-slate-900 dark:bg-slate-950 rounded-2xl p-8 text-white shadow-xl shadow-slate-900/10 dark:shadow-none dark:border dark:border-slate-800 mb-2 transition-colors duration-200">
+    <div class="relative overflow-hidden bg-slate-900 dark:bg-slate-950 rounded-2xl p-10 text-white shadow-xl shadow-slate-900/10 dark:shadow-none dark:border dark:border-slate-800 mb-2 transition-colors duration-200">
         <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-        <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-48 h-48 bg-indigo-600/5 rounded-full blur-[60px] pointer-events-none"></div>
-        
         <div class="relative z-10">
-            <div class="flex items-center space-x-3 mb-4">
-                <span class="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs font-black uppercase tracking-widest text-indigo-400">Core Infrastructure</span>
-                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+            <div class="flex items-center space-x-6 mb-8">
+                <div class="w-1.5 h-12 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
+                <div>
+                    <h3 class="text-4xl font-black tracking-tighter uppercase italic leading-none">System <span class="text-indigo-400">Pulse</span></h3>
+                    <p class="text-slate-400 dark:text-slate-500 text-xs mt-3 font-black uppercase tracking-[0.4em] flex items-center">
+                        <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-3 animate-pulse"></span>
+                        INFRASTRUCTURE OVERVIEW // {{ gethostname() }}
+                    </p>
+                </div>
             </div>
-            <h3 class="text-4xl font-black tracking-tighter mb-3 leading-none">System <span class="text-indigo-400 italic">Pulse</span></h3>
             <p class="text-slate-400 dark:text-slate-500 text-base font-medium leading-relaxed max-w-2xl bg-gradient-to-r from-slate-400 to-slate-500 dark:from-slate-300 dark:to-slate-400 bg-clip-text text-transparent transition-colors">
                 Unified technical interface for FCH Internal Systems. Monitor server integrity, investigate application logs, and explore API specifications from a single source of truth.
             </p>
@@ -103,14 +106,14 @@
         <!-- Service Diagnostics Table -->
         <div class="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm dark:shadow-none overflow-hidden flex flex-col transition-colors">
             <div class="px-8 py-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex justify-between items-center transition-colors">
-                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Service Runtime Status</h4>
+                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Node Connectivity & Registry</h4>
                 <div class="flex items-center space-x-2">
                     <span class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">PHP:</span>
-                    <span class="px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-md text-xs font-black text-slate-800 dark:text-slate-300">{{ $phpVersion }}</span>
+                    <span class="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-md text-xs font-black text-slate-800 dark:text-slate-300">{{ $phpVersion }}</span>
                 </div>
             </div>
             <div class="p-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8 pb-8 border-b border-slate-50 dark:border-slate-800">
                     @foreach($stats['services'] as $name => $status)
                     <div class="flex items-center justify-between p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-xl border border-slate-50 dark:border-slate-800 group hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <div class="flex items-center space-x-4">
@@ -121,21 +124,24 @@
                     </div>
                     @endforeach
                 </div>
-                
-                <div class="mt-8 pt-8 border-t border-slate-50 dark:border-slate-800 grid grid-cols-2 gap-8 transition-colors">
-                    <div>
-                        <h5 class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 text-center">System Load Trend</h5>
-                        <div class="h-8 w-full bg-slate-100 dark:bg-slate-800 rounded-xl relative overflow-hidden flex items-center justify-center">
-                             <div class="absolute inset-0 bg-indigo-500/10 dark:bg-indigo-500/20" style="width: {{ $stats['cpu'] }}%"></div>
-                             <span class="relative text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Live: {{ $stats['cpu'] }}% Load</span>
+
+                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 mb-6 px-2">Integrity Diagnostics (Spatie Health)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @if($healthResults && $healthResults->storedCheckResults)
+                        @foreach($healthResults->storedCheckResults as $result)
+                        <div class="flex items-center space-x-4 p-4 rounded-xl border border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <div class="w-2 h-2 rounded-full {{ $result->status === 'ok' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : 'bg-rose-500' }}"></div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest truncate">{{ $result->label }}</p>
+                                <p class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter truncate">{{ $result->shortSummary }}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center justify-center text-center">
-                         <div>
-                            <p class="text-base font-bold text-slate-800 dark:text-white">Operational Integrity</p>
-                            <p class="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">Status: {{ $isHealthy ? 'Nominal' : 'Investigate' }}</p>
-                         </div>
-                    </div>
+                        @endforeach
+                    @else
+                        <div class="col-span-2 py-8 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                            No active diagnostics registered 
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

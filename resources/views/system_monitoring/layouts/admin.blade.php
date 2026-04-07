@@ -1,18 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50 dark:bg-slate-950 dark">
+<html lang="en" class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'FCH Admin Dashboard')</title>
     
-    <!-- Local Theme Loading -->
-    <script>
-        if (!('theme' in localStorage) || localStorage.getItem('theme') === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    </script>
+    {{-- Dark mode locked permanently --}}
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -24,6 +17,7 @@
         }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .sidebar-active { 
@@ -43,7 +37,7 @@
     </style>
     @stack('styles')
 </head>
-<body class="h-full overflow-hidden flex bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-200">
+<body class="h-full overflow-hidden flex bg-slate-950 text-slate-200">
 
     @include('system_monitoring.partials.sidebar')
 

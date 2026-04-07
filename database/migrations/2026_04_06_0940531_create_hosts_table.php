@@ -12,7 +12,7 @@ class CreateHostsTable extends Migration
      */
     public function up()
     {
-        Schema::create('hosts', function (Blueprint $table) {
+        Schema::create('fleet_server_nodes', function (Blueprint $table) {
             $table->increments('id');
             $table->string('name');
             $table->string('ssh_user')->nullable();
@@ -30,6 +30,6 @@ class CreateHostsTable extends Migration
      */
     public function down()
     {
-        Schema::drop('hosts');
+        Schema::drop('fleet_server_nodes');
     }
 }

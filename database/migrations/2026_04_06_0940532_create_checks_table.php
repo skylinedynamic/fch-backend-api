@@ -12,10 +12,10 @@ class CreateChecksTable extends Migration
      */
     public function up()
     {
-        Schema::create('checks', function (Blueprint $table) {
+        Schema::create('fleet_node_checks', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('host_id')->unsigned();
-            $table->foreign('host_id')->references('id')->on('hosts')->onDelete('cascade');
+            $table->foreign('host_id')->references('id')->on('fleet_server_nodes')->onDelete('cascade');
             $table->string('type');
             $table->string('status')->nullable();
             $table->boolean('enabled')->default(true);
@@ -36,6 +36,6 @@ class CreateChecksTable extends Migration
      */
     public function down()
     {
-        Schema::drop('checks');
+        Schema::drop('fleet_node_checks');
     }
 }

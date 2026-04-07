@@ -12,7 +12,12 @@ Schedule::command('subscriptions:process')->twiceDaily();
 Schedule::command('users:check-expired')->twiceDaily();
 Schedule::command('logs:prune-months')->daily();
 
-Schedule::command('app:monitor-health')->everyFiveMinutes();
+Schedule::command('health:check')->everyFiveMinutes();
+Schedule::command('server-monitor:run-checks')->everyFiveMinutes();
+
+// Purge monitoring history older than 1 month
+Schedule::command('monitoring:prune')->daily();
+
 // Run daily DB backup and clean up old backups over 7 days old
 Schedule::command('backup:run --only-db')->dailyAt('01:00');
 Schedule::command('backup:clean')->dailyAt('02:00');

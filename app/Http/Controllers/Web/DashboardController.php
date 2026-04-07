@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Monitoring\SystemMetric;
 use Illuminate\Support\Facades\Artisan;
 use Spatie\Health\ResultStores\ResultStore;
-use Spatie\ServerMonitor\Models\Host;
+use App\Models\Monitoring\Host;
 use Spatie\Backup\Tasks\Monitor\BackupDestinationStatusFactory;
 use Spatie\Backup\Tasks\Monitor\BackupDestinationStatus;
 
@@ -37,6 +37,7 @@ class DashboardController extends Controller
             'userCount' => $userCount,
             'latestBackupDate' => $latestBackup ? $latestBackup->date() : null,
             'isHealthy' => $isHealthy,
+            'healthResults' => $healthResults,
             'env' => ucfirst(app()->environment()),
             'phpVersion' => phpversion()
         ]);
@@ -110,11 +111,132 @@ class DashboardController extends Controller
     }
 
     /**
-     * Show remote server fleet monitor.
+     * Restore database from a specific snapshot.
      */
+    public function restoreBackup(Request $request)
+    {
+        $diskName = $request->input('disk');
+        $path = $request->input('path');
+
+        if (!in_array($diskName, config('backup.backup.destination.disks'))) {
+            return back()->with('error', 'Critical Alert: Target storage disk is out of bounds.');
+        }
+
+        $disk = Storage::disk($diskName);
+        if (!$disk->exists($path)) {
+            return back()->with('error', 'System Error: Backup identity mismatch or file missing.');
+        }
+
+        try {
+            // Ensure temp directory exists
+            $tempPath = storage_path('app/restore-temp');
+            if (!file_exists($tempPath))
+                mkdir($tempPath, 0755, true);
+
+            // 1. Fetch snapshot to local storage
+            $zipPath = $tempPath . '/snapshot.zip';
+            file_put_contents($zipPath, $disk->get($path));
+
+            // 2. Extract database payload
+            $zip = new \ZipArchive;
+            if ($zip->open($zipPath) === TRUE) {
+                $sqlFile = null;
+                // Spatie backups usually nest SQL in db-dumps/mysql-db_name.sql
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $filename = $zip->getNameIndex($i);
+                    if (str_ends_with($filename, '.sql')) {
+                        $sqlFile = $filename;
+                        break;
+                    }
+                }
+
+                if (!$sqlFile) {
+                    $zip->close();
+                    unlink($zipPath);
+                    return back()->with('error', 'Security Breach: No valid SQL payload found in the archive.');
+                }
+
+                $zip->extractTo($tempPath, $sqlFile);
+                $zip->close();
+
+                $sqlFullPath = $tempPath . '/' . $sqlFile;
+
+                // 3. Perform atomic restoration
+                $connection = config('database.default');
+                $dbConfig = config("database.connections.{$connection}");
+
+                if ($connection === 'mysql') {
+                    // Optimized shell import
+                    $command = sprintf(
+                        'mysql --user=%s --password=%s --host=%s %s < %s',
+                        escapeshellarg($dbConfig['username']),
+                        escapeshellarg($dbConfig['password'] ?? ''),
+                        escapeshellarg($dbConfig['host']),
+                        escapeshellarg($dbConfig['database']),
+                        escapeshellarg($sqlFullPath)
+                    );
+
+                    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                        shell_exec($command);
+                    }
+                    else {
+                        exec($command);
+                    }
+                }
+                else {
+                    // Binary import fallback
+                    DB::unprepared(file_get_contents($sqlFullPath));
+                }
+
+                // 4. Systematic Cleanup
+                unlink($zipPath);
+                unlink($sqlFullPath);
+
+                // Remove recursive spatie folders if they exist
+                $segments = explode('/', str_replace('\\', '/', $sqlFile));
+                if (count($segments) > 1) {
+                    @rmdir($tempPath . '/' . $segments[0]); // e.g. db-dumps
+                }
+
+                return back()->with('success', 'System Restoration Complete. Database synchronized to: ' . basename($path));
+            }
+            else {
+                return back()->with('error', 'Extraction Failed: The snapshot archive appears to be corrupted.');
+            }
+        }
+        catch (\Exception $e) {
+            return back()->with('error', 'Engine Failure: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Permanent removal of a backup snapshot.
+     */
+    public function deleteBackup(Request $request)
+    {
+        $diskName = $request->input('disk');
+        $path = $request->input('path');
+
+        if (!in_array($diskName, config('backup.backup.destination.disks'))) {
+            return back()->with('error', 'Security Violation: Access to target disk restricted.');
+        }
+
+        $disk = Storage::disk($diskName);
+        if (!$disk->exists($path)) {
+            return back()->with('error', 'Operation Blocked: The snapshot has already been relocated or deleted.');
+        }
+
+        try {
+            $disk->delete($path);
+            return back()->with('success', 'Security Cleanup Complete. Snapshot permanently purged from: ' . strtoupper($diskName));
+        }
+        catch (\Exception $e) {
+            return back()->with('error', 'Execution Interrupted: ' . $e->getMessage());
+        }
+    }
     public function fleet()
     {
-        $hosts = Host::with('checks')->get();
+        $hosts = Host::with('monitoredChecks')->get();
         return view('system_monitoring.dashboard.fleet', compact('hosts'));
     }
 

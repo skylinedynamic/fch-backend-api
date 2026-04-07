@@ -8,10 +8,10 @@ return [
      * `Spatie\ServerMonitor\Checks\CheckDefinitions\CheckDefinition` class.
      */
     'checks' => [
-        'diskspace' => Spatie\ServerMonitor\CheckDefinitions\Diskspace::class,
-        'elasticsearch' => Spatie\ServerMonitor\CheckDefinitions\Elasticsearch::class,
-        'memcached' => Spatie\ServerMonitor\CheckDefinitions\Memcached::class,
-        'mysql' => Spatie\ServerMonitor\CheckDefinitions\MySql::class,
+        'diskspace' => Spatie\ServerMonitor\CheckDefinitions\Diskspace::class ,
+        'elasticsearch' => Spatie\ServerMonitor\CheckDefinitions\Elasticsearch::class ,
+        'memcached' => Spatie\ServerMonitor\CheckDefinitions\Memcached::class ,
+        'mysql' => Spatie\ServerMonitor\CheckDefinitions\MySql::class ,
     ],
 
     /*
@@ -65,7 +65,7 @@ return [
          * Here you can specify the notifiable to which the notifications should be sent. The default
          * notifiable will use the variables specified in this config file.
          */
-        'notifiable' => \Spatie\ServerMonitor\Notifications\Notifiable::class,
+        'notifiable' => \Spatie\ServerMonitor\Notifications\Notifiable::class ,
 
         /*
          * The date format used in notifications.
@@ -78,14 +78,14 @@ return [
      * own model here. The only requirement is that they should
      * extend the `Host` model provided by this package.
      */
-    'host_model' => Spatie\ServerMonitor\Models\Host::class,
+    'host_model' => \App\Models\Monitoring\Host::class ,
 
     /*
      * To add or modify behaviour to the `Check` model you can specify your
      * own model here. The only requirement is that they should
      * extend the `Check` model provided by this package.
      */
-    'check_model' => Spatie\ServerMonitor\Models\Check::class,
+    'check_model' => \App\Models\Monitoring\Check::class ,
 
     /*
      * Right before running a check its process will be given to this class. Here you
@@ -94,7 +94,7 @@ return [
      *
      * This class should implement Spatie\ServerMonitor\Manipulators\Manipulator
      */
-    'process_manipulator' => Spatie\ServerMonitor\Manipulators\Passthrough::class,
+    'process_manipulator' => Spatie\ServerMonitor\Manipulators\Passthrough::class ,
 
     /*
      * Thresholds for disk space's alert.
