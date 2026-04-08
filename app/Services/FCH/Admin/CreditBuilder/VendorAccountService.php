@@ -27,7 +27,7 @@ class VendorAccountService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 
         $query = QueryFilter::apply(
             $query,
