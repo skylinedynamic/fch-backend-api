@@ -37,6 +37,8 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
+            'business_start_date' => 'required|date',
+            'business_credit_score' => 'required|integer|min:0',
         ];
     }
 

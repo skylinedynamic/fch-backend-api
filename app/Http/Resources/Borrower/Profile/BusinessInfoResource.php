@@ -29,6 +29,8 @@ class BusinessInfoResource extends JsonResource
             'business_website' => $this->business_website ?? null,
             'business_entity_type' => $this->business_entity_type ?? null,
             'business_industry_type' => $this->business_industry_type ?? null,
+            'business_start_date' => $this->business_start_date ?? null,
+            'business_credit_score' => $this->business_credit_score ?? null,
         ];
     }
 }
