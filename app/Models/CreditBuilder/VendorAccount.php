@@ -41,10 +41,12 @@ class VendorAccount extends Model
 
     public function getFullImageUrlAttribute()
     {
-        if ($this->image_url) {
-            return url('storage/' . encodeUrl($this->image_url));
-        }
-        return null;
+        return $this->image_url ? encodeUrl(asset("storage/{$this->image_url}")) : null;
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $value ? encodeUrl(asset("storage/{$value}")) : null;
     }
 
     public function scopeSearch($query, ?string $search)

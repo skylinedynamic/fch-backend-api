@@ -27,14 +27,28 @@ class VendorAccountController extends Controller
         $input = $request->all();
 
         $filters = [
-            'per_page' => isset($input['per_page']) ? max(1, min((int) $input['per_page'], 100)) : null,
-            'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+            'per_page' => isset($input['per_page']) ? $input['per_page'] : ($input['rows'] ?? null),
+            'page' => isset($input['page']) ? $input['page'] : ($input['first'] ?? 1),
             'search' => isset($input['search']) ? trim((string) $input['search']) : null,
             'filters' => $input['filters'] ?? null,
             'sort_field' => $input['sort_field'] ?? null,
             'sort_order' => $input['sort_order'] ?? null,
             'status' => $input['status'] ?? null,
+            'issuer' => $input['issuer'] ?? null,
+            'credit_category' => $input['credit_category'] ?? null,
+            'difficulty_tier' => $input['difficulty_tier'] ?? null,
+            'approval_level' => $input['approval_level'] ?? null,
         ];
+
+        // Basic normalization
+        $filters['per_page'] = ($filters['per_page'] === 'All' || $filters['per_page'] == -1) ? -1 : (int) ($filters['per_page'] ?? 10);
+        
+        // If 'first' was provided (offset), convert to page
+        if (isset($input['first']) && isset($input['rows'])) {
+            $filters['page'] = (int) ($input['first'] / $input['rows']) + 1;
+        } else {
+            $filters['page'] = max(1, (int) $filters['page']);
+        }
 
         return $this->service->list($filters);
     }

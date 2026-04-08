@@ -48,7 +48,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Recommended First',
                 'sequencing_priority' => '1',
-                'image_url' => 'vendor-applications/capital-one-spark-classic.png',
+                'image_url' => 'vendor-applications/1-Capital One - Spark.avif',
                 'reference_url' => 'https://www.capitalone.com/small-business/credit-cards/lp/sem/?external_id=WWW_FTPSCP_ZZZ_SEM-COSB_ZZZZZ_T_COSB_ZZZZ_c_Zg__kenshoo_clickid__743806378788_97548&target_id=kwd-2090293093808&oC=CO5ed2SUs1&gad_source=1&gad_campaignid=22406614796&gbraid=0AAAAADGOtnalX5Ih3o-_-_tX_l72PmsS3&gclid=CjwKCAiAwNDMBhBfEiwAd7ti1DAEoIhN8cEV6EyetqSfqKA8VQY4oUTblzXgLIEHERrLTemT79WaVxoCBlkQAvD_BwE',
             ],
             [
@@ -72,7 +72,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Recommended First',
                 'sequencing_priority' => '2',
-                'image_url' => 'vendor-applications/boa-business-advantage-secured.png',
+                'image_url' => 'vendor-applications/2-Bank of America-Business Advantage Secured.png',
                 'reference_url' => 'https://business.bankofamerica.com/en/credit-cards/business-advantage-unlimited-cash-rewards-secured-business',
             ],
             [
@@ -96,7 +96,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Recommended First',
                 'sequencing_priority' => '3',
-                'image_url' => 'vendor-applications/regions-business-visa.png',
+                'image_url' => 'vendor-applications/3-Regions-Business Visa.webp',
                 'reference_url' => 'https://www.regions.com/personal-banking/credit-cards',
             ],
             [
@@ -120,7 +120,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Recommended First',
                 'sequencing_priority' => '4',
-                'image_url' => 'vendor-applications/pnc-cash-rewards-business.png',
+                'image_url' => 'vendor-applications/4-PNC-Cash Reqards Business.avif',
                 'reference_url' => 'https://lending.pnc.com/bccr/getting-started',
             ],
             [
@@ -144,7 +144,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Recommended First',
                 'sequencing_priority' => '5',
-                'image_url' => 'vendor-applications/td-bank-business-solutions.png',
+                'image_url' => 'vendor-applications/5 TD Bank Business Solutions.webp',
                 'reference_url' => 'https://www.td.com/us/en/personal-banking/credit-cards/business-solutions-credit-card',
             ],
             [
@@ -168,7 +168,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '5',
-                'image_url' => 'vendor-applications/chase-ink-cash.png',
+                'image_url' => 'vendor-applications/10-Chase – Ink Cash.png',
                 'reference_url' => 'https://creditcards.chase.com/a1/Business/Cash0126?CELL=6D4C',
             ],
             [
@@ -192,7 +192,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '6',
-                'image_url' => 'vendor-applications/chase-ink-unlimited.png',
+                'image_url' => 'vendor-applications/11-chase-ink-business-unlimited.webp',
                 'reference_url' => 'https://creditcards.chase.com/a1/Business/Unlimited0126?CELL=62FF',
             ],
             [
@@ -216,7 +216,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Conditional Expansion',
                 'sequencing_priority' => '9',
-                'image_url' => 'vendor-applications/chase-ink-preferred.png',
+                'image_url' => 'vendor-applications/12-Chase – Ink Preferred.png',
                 'reference_url' => 'https://creditcards.chase.com/a1/Business/Preferred0126?CELL=6Y61',
             ],
             [
@@ -240,7 +240,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Conditional Early',
                 'sequencing_priority' => '6',
-                'image_url' => 'vendor-applications/wells-fargo-signify-business-cash.png',
+                'image_url' => 'vendor-applications/13-Wells Fargo – Signify Business Cash.jpg',
                 'reference_url' => 'https://creditcards.wellsfargo.com/cards/business-credit-cards/signify-business-cash-credit-card/',
             ],
             [
@@ -264,7 +264,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 2',
                 'borrower_exposure' => 'Conditional Early',
                 'sequencing_priority' => '7',
-                'image_url' => 'vendor-applications/us-bank-triple-cash-rewards.png',
+                'image_url' => 'vendor-applications/14-U.S. Bank – Triple Cash Rewards.jpg',
                 'reference_url' => 'https://www.usbank.com/business-banking/business-credit-cards/business-triple-cash-back-credit-card.html',
             ],
             [
@@ -288,7 +288,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '7',
-                'image_url' => 'vendor-applications/citi-aadvantage-business.png',
+                'image_url' => 'vendor-applications/15-Citi – AAdvantage Business.webp',
                 'reference_url' => 'https://creditcards.aa.com/credit-cards/citi-business-card-american-airlines-direct/',
             ],
             [
@@ -312,7 +312,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Conditional Expansion',
                 'sequencing_priority' => '10',
-                'image_url' => 'vendor-applications/chase-ink-premier.png',
+                'image_url' => 'vendor-applications/20-Chase – Ink Premier.png',
                 'reference_url' => 'https://creditcards.chase.com/a1/Business/Premier0126?CELL=6D4C',
             ],
             [
@@ -336,7 +336,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Conditional Expansion',
                 'sequencing_priority' => '11',
-                'image_url' => 'vendor-applications/chase-united-business.png',
+                'image_url' => 'vendor-applications/21-Chase – United Business.avif',
                 'reference_url' => 'https://creditcards.chase.com/business-credit-cards/united/united-business-card',
             ],
             [
@@ -360,7 +360,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Conditional Expansion',
                 'sequencing_priority' => '12',
-                'image_url' => 'vendor-applications/chase-hyatt-business.png',
+                'image_url' => 'vendor-applications/22-Chase – Hyatt Business.avif',
                 'reference_url' => 'https://www.chase.com/personal/credit-cards/hyatt/world-hyatt-business/exclusive-benefits',
             ],
             [
@@ -384,7 +384,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Conditional Expansion',
                 'sequencing_priority' => '13',
-                'image_url' => 'vendor-applications/chase-ihg-business.png',
+                'image_url' => 'vendor-applications/23-Chase – IHG Business.webp',
                 'reference_url' => 'https://creditcards.chase.com/business-credit-cards/IHG/business-premier',
             ],
             [
@@ -408,7 +408,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '1',
-                'image_url' => 'vendor-applications/amex-blue-business-plus.png',
+                'image_url' => 'vendor-applications/24-American Express – Blue Business Plus.avif',
                 'reference_url' => 'https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/american-express-blue-business-plus-credit-card-amex/',
             ],
             [
@@ -432,7 +432,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '2',
-                'image_url' => 'vendor-applications/barclays-wyndham-business.png',
+                'image_url' => 'vendor-applications/25-Barclays – Wyndham Business.png',
                 'reference_url' => 'https://cards.barclaycardus.com/banking/cards/wyndham-rewards-earner-business-card/',
             ],
             [
@@ -456,7 +456,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '3',
-                'image_url' => 'vendor-applications/barclays-jetblue-business.png',
+                'image_url' => 'vendor-applications/26-Barclays – JetBlue Business.webp',
                 'reference_url' => 'https://cards.barclaycardus.com/banking/credit-card/jetblue/mastercard-mastercard-world-elite/',
             ],
             [
@@ -480,7 +480,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '4',
-                'image_url' => 'vendor-applications/barclays-hawaiian-business.png',
+                'image_url' => 'vendor-applications/27-Barclays – Hawaiian Business.webp',
                 'reference_url' => 'https://cards.barclaycardus.com/banking/credit-card/hawaiian-airlines/combo-app/',
             ],
             [
@@ -504,7 +504,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 3',
                 'borrower_exposure' => 'Recommended Expansion',
                 'sequencing_priority' => '8',
-                'image_url' => 'vendor-applications/us-bank-altitude-power.png',
+                'image_url' => 'vendor-applications/28-U.S. Bank – Altitude Power.webp',
                 'reference_url' => 'https://www.usbank.com/business-banking/business-credit-cards/business-altitude-connect-credit-card.html',
             ],
             [
@@ -528,7 +528,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '1',
-                'image_url' => 'vendor-applications/amex-business-gold.png',
+                'image_url' => 'vendor-applications/30-American Express – Business Gold.jpg',
                 'reference_url' => 'https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/american-express-business-gold-card-amex/',
             ],
             [
@@ -552,7 +552,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '2',
-                'image_url' => 'vendor-applications/amex-business-platinum.png',
+                'image_url' => 'vendor-applications/31-American Express – Business Platinum.avif',
                 'reference_url' => 'https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/american-express-business-platinum-credit-card-amex/',
             ],
             [
@@ -576,7 +576,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '5',
-                'image_url' => 'vendor-applications/amex-hilton-business.png',
+                'image_url' => 'vendor-applications/32-American Express – Hilton Business.avif',
                 'reference_url' => 'https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/hilton-honors/',
             ],
             [
@@ -600,7 +600,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '6',
-                'image_url' => 'vendor-applications/amex-marriott-business.png',
+                'image_url' => 'vendor-applications/33-American Express – Marriott Business.avif',
                 'reference_url' => 'https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/amex-marriott-bonvoy-business-credit-card/',
             ],
             [
@@ -624,7 +624,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '3',
-                'image_url' => 'vendor-applications/capital-one-spark-cash-plus.png',
+                'image_url' => 'vendor-applications/34-Capital One – Spark Cash Plus.avif',
                 'reference_url' => 'https://www.capitalone.com/small-business/credit-cards/spark-cash-plus/',
             ],
             [
@@ -648,7 +648,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '4',
-                'image_url' => 'vendor-applications/capital-one-venture-x-business.png',
+                'image_url' => 'vendor-applications/35-Capital One – Venture X Business.avif',
                 'reference_url' => 'https://www.capitalone.com/small-business/credit-cards/venture-x-business/',
             ],
             [
@@ -672,7 +672,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/stripe-corporate-card.png',
+                'image_url' => 'vendor-applications/36-Stripe – Corporate Card.png',
                 'reference_url' => 'https://stripe.com/resources/more/applying-for-corporate-credit-cards-a-guide',
             ],
             [
@@ -696,7 +696,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/brex-corporate-card.png',
+                'image_url' => 'vendor-applications/37-Brex – Corporate Card.jpg',
                 'reference_url' => 'https://www.brex.com/product/credit-card',
             ],
             [
@@ -720,7 +720,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/ramp-corporate-card.png',
+                'image_url' => 'vendor-applications/38-Ramp – Corporate Card.webp',
                 'reference_url' => 'https://ramp.com/corporate-cards',
             ],
             [
@@ -744,7 +744,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/divvy-business-card.png',
+                'image_url' => 'vendor-applications/39-Divvy – Business Card.jpg',
                 'reference_url' => 'https://ramp.com/blog/divvy-business-credit-card-requirements',
             ],
             [
@@ -768,7 +768,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/hsbc-corporate-card.png',
+                'image_url' => 'vendor-applications/40-HSBC – Corporate Card.jpg',
                 'reference_url' => 'https://www.business.us.hsbc.com/en/products/corporate-world-elite',
             ],
             [
@@ -792,7 +792,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '7',
-                'image_url' => 'vendor-applications/boa-business-advantage-unlimited.png',
+                'image_url' => 'vendor-applications/41-Bank of America – Business Advantage Unlimited Cash Rewards.png',
                 'reference_url' => 'https://business.bankofamerica.com/en/credit-cards/business-advantage-unlimited-cash-rewards-secured-business',
             ],
             [
@@ -816,7 +816,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '8',
-                'image_url' => 'vendor-applications/boa-business-advantage-customized.png',
+                'image_url' => 'vendor-applications/42-Bank of America – Business Advantage Customized Cash Rewards.png',
                 'reference_url' => 'https://promotions.bankofamerica.com/smallbusiness/smallbusinesscards',
             ],
             [
@@ -840,7 +840,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '9',
-                'image_url' => 'vendor-applications/boa-business-advantage-travel.png',
+                'image_url' => 'vendor-applications/43-Bank of America – Business Advantage Travel Rewards.webp',
                 'reference_url' => 'https://promotions.bankofamerica.com/smallbusiness/smallbusinesscards',
             ],
             [
@@ -864,7 +864,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '10',
-                'image_url' => 'vendor-applications/pnc-points-business.png',
+                'image_url' => 'vendor-applications/44-PNC – Points Business.avif',
                 'reference_url' => 'https://www.pnc.com/en/small-business/borrowing/business-credit-cards/pnc-points-visa-business-credit-card.html',
             ],
             [
@@ -888,7 +888,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Tier 4',
                 'borrower_exposure' => 'Advanced / Premium',
                 'sequencing_priority' => '11',
-                'image_url' => 'vendor-applications/pnc-businessoptions-visa-signature.png',
+                'image_url' => 'vendor-applications/45-PNC – BusinessOptions Visa Signature.avif',
                 'reference_url' => 'https://www.pnc.com/en/small-business/borrowing/business-credit-cards/pnc-businessoptions-visa-signature-credit-card.html',
             ],
             [
@@ -912,7 +912,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/wells-fargo-business-platinum.png',
+                'image_url' => 'vendor-applications/46-Wells Fargo – Business Platinum.jpg',
                 'reference_url' => 'https://accountoffers.wellsfargo.com/businesscheckinga/',
             ],
             [
@@ -936,7 +936,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/us-bank-business-platinum.png',
+                'image_url' => 'vendor-applications/47-U.S. Bank – Business Platinum.webp',
                 'reference_url' => 'https://www.usbank.com/business-banking/business-credit-cards/business-shield-credit-card.html',
             ],
             [
@@ -960,7 +960,7 @@ class VendorAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'vendor-applications/capital-one-spark-cash-select.png',
+                'image_url' => 'vendor-applications/48-Capital One – Spark Cash Select.webp',
                 'reference_url' => 'https://www.capitalone.com/small-business/credit-cards/spark-cash-select/',
             ],
             [
