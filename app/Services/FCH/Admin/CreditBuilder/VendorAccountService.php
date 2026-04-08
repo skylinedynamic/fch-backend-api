@@ -36,9 +36,14 @@ class VendorAccountService
             $filters['filters'] ?? [],
             [
                 'aliases' => [],
-                'skip_sorting' => false,
+                'skip_sorting' => true, // Manual sorting below
             ]
         );
+
+        // Accurate sorting: Primary requested field first, then sequencing_priority as tie-breaker
+        if ($sortField !== 'id') {
+            $query->orderBy($sortField, $sortOrder);
+        }
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;

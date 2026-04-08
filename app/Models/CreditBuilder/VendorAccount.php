@@ -56,7 +56,10 @@ class VendorAccount extends Model
         return $query->where(function ($q) use ($search) {
             $q->where('card_name', 'LIKE', "%{$search}%")
               ->orWhere('issuer', 'LIKE', "%{$search}%")
-              ->orWhere('approval_level', 'LIKE', "%{$search}%");
+              ->orWhere('approval_level', 'LIKE', "%{$search}%")
+              ->orWhere('typical_personal_fico_min', 'LIKE', "%{$search}%")
+              ->orWhere('typical_personal_fico_ideal', 'LIKE', "%{$search}%")
+              ->orWhere('time_in_business_min_months', 'LIKE', "%{$search}%");
         });
     }
 }
