@@ -6,6 +6,12 @@ return [
     'vendor_fetched' => 'Vendor fetched successfully.',
     'vendor_updated' => 'Vendor updated successfully.',
     'vendor_deleted' => 'Vendor deleted successfully.',
+    
+    'vendor_account_list_fetched' => 'Vendor account list fetched successfully.',
+    'vendor_account_created' => 'Vendor account created successfully.',
+    'vendor_account_fetched' => 'Vendor account fetched successfully.',
+    'vendor_account_updated' => 'Vendor account updated successfully.',
+    'vendor_account_deleted' => 'Vendor account deleted successfully.',
 
     'success_list' => 'Tier tasks retrieved successfully.',
     'success_created' => 'Tier task created successfully.',

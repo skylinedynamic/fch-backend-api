@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\VendorAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
@@ -81,6 +82,13 @@ Route::prefix('v1/admin')
             Route::get('vendors/{id}', [CreditBuilderVendorController::class, 'show']);
             Route::put('vendors/{id}', [CreditBuilderVendorController::class, 'update']);
             Route::delete('vendors/{id}', [CreditBuilderVendorController::class, 'destroy']);
+
+            // Vendor Accounts
+            Route::post('vendor-accounts/fetch-accounts', [VendorAccountController::class, 'index']);
+            Route::post('vendor-accounts', [VendorAccountController::class, 'store']);
+            Route::get('vendor-accounts/{id}', [VendorAccountController::class, 'show']);
+            Route::put('vendor-accounts/{id}', [VendorAccountController::class, 'update']);
+            Route::delete('vendor-accounts/{id}', [VendorAccountController::class, 'destroy']);
         });
 
 

@@ -1,0 +1,94 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder;
+
+use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\VendorAccountRequest;
+use App\Http\Resources\FCH\CreditBuilder\VendorAccountResource;
+use App\Services\FCH\Admin\CreditBuilder\VendorAccountService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+
+class VendorAccountController extends Controller
+{
+    protected $service;
+
+    public function __construct(VendorAccountService $service)
+    {
+        $this->service = $service;
+    }
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function index(Request $request)
+    {
+        $input = $request->all();
+
+        $filters = [
+            'per_page' => isset($input['per_page']) ? max(1, min((int) $input['per_page'], 100)) : null,
+            'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+            'search' => isset($input['search']) ? trim((string) $input['search']) : null,
+            'filters' => $input['filters'] ?? null,
+            'sort_field' => $input['sort_field'] ?? null,
+            'sort_order' => $input['sort_order'] ?? null,
+            'status' => $input['status'] ?? null,
+        ];
+
+        return $this->service->list($filters);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(VendorAccountRequest $request): JsonResponse
+    {
+        $account = $this->service->create($request->validated());
+        
+        return ApiResponse::success(
+            new VendorAccountResource($account),
+            __('credit_builder.vendor_account_created'),
+            201
+        );
+    }
+
+    /**
+     * Display the specified resource.
+     */
+    public function show($id): JsonResponse
+    {
+        $account = $this->service->show($id);
+        
+        return ApiResponse::success(
+            new VendorAccountResource($account),
+            __('credit_builder.vendor_account_fetched')
+        );
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(VendorAccountRequest $request, $id): JsonResponse
+    {
+        $account = $this->service->update($id, $request->validated());
+        
+        return ApiResponse::success(
+            new VendorAccountResource($account),
+            __('credit_builder.vendor_account_updated')
+        );
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy($id): JsonResponse
+    {
+        $this->service->delete($id);
+        
+        return ApiResponse::success(
+            null,
+            __('credit_builder.vendor_account_deleted')
+        );
+    }
+}
