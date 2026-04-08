@@ -37,7 +37,10 @@ class PreQualificationService
                 'requirement_details' => $data['notes'] ?? null,
             ];
 
-            $lead = $this->leadService->store($leadData);
+            // Set lead_source explicitly for pre-qualification from website
+            $leadData['lead_source'] = Lead::LEAD_SOURCE_WEBSITE;
+
+            $lead = $this->leadService->store($leadData, true, (object)$data);
 
             // 2. Create Pre-Qualification Request
             $preQual = PreQualificationRequest::create([

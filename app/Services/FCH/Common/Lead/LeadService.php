@@ -198,6 +198,45 @@ class LeadService
 
             $lead = Lead::create($data);
             
+            // Send Emails based on Lead Source
+            $isWebsiteLead = ($lead->lead_source === Lead::LEAD_SOURCE_WEBSITE);
+
+            if (($isWebsiteLead && !Auth::check()) || (Auth::user()->partner->is_host)) {
+                // If it's a website lead, send to host partner (standard website logic)
+                try {
+                    $hostPartner = Partner::where('is_host', true)->first();
+                    if ($hostPartner && ($hostPartner->email)) {
+                        $details = [
+                            'type' => $isWebsiteLead ? 'website' : 'manual',
+                            'is_pre_qualification' => false,
+                        ];
+                        \Illuminate\Support\Facades\Mail::to($hostPartner->email)
+                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
+                }
+            } else {
+                // Otherwise, it's a manual/admin-created lead from other sources
+                $recipients = [
+                    Auth::user()->email,
+                    config('mail.from.address') // Global Admin
+                ];
+
+                if (!empty($recipients)) {
+                    try {
+                        $details = [
+                            'type' => 'manual',
+                            'is_pre_qualification' => false,
+                        ];
+                        \Illuminate\Support\Facades\Mail::to($recipients)
+                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
+                    }
+                }
+            }
+            
             // Log Lead Creation
             $this->activityLogService->logModelEvent($lead, \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CREATE);
             

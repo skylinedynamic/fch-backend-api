@@ -13,12 +13,13 @@ class LeadService
     /**
      * Store a new lead from the website.
      */
-    public function store(array $data): Lead
+    public function store(array $data, bool $isPreQualification = false, $preQualificationData = null): Lead
     {
         DB::beginTransaction();
         try {
             $leadIds = $this->generateLeadIds();
-            $partnerId = Partner::where('is_host', true)->first()?->id;
+            $hostPartner = Partner::where('is_host', true)->first();
+            $partnerId = $hostPartner?->id;
             $leadData = [
                 'partner_id' => $partnerId,
                 'lead_id' => $leadIds['lead_id'],
@@ -32,10 +33,25 @@ class LeadService
                 'requirement_details' => $data['requirement_details'] ?? $data['requirements_details'] ?? null,
                 'status' => 'New Lead',
                 'lead_type' => 'Borrower', // Default type for website leads
-                'lead_source' => 'Website',
+                'lead_source' => Lead::LEAD_SOURCE_WEBSITE,
             ];
 
             $lead = Lead::create($leadData);
+
+            // Send Email to Host Partner (is_host == 1)
+            if ($hostPartner && ($hostPartner->email || $hostPartner->contact_person_email)) {
+                try {
+                    $details = [
+                        'type' => 'website',
+                        'is_pre_qualification' => $isPreQualification,
+                        'prequalification' => $preQualificationData
+                    ];
+                    \Illuminate\Support\Facades\Mail::to($hostPartner->email ?: $hostPartner->contact_person_email)
+                        ->send(new \App\Mail\Lead\LeadNotificationMail($lead, (object) $details));
+                } catch (\Exception $e) {
+                    Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);
+                }
+            }
 
             DB::commit();
             return $lead->fresh();

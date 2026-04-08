@@ -29,8 +29,32 @@ class Lead extends Model
     const STATUS_NEGOTIATION = 'Negotiation';
     const STATUS_LEAD_COMPLETED = 'Lead Completed';
     const STATUS_LEAD_DECLINED = 'Lead Declined';
-
     const STATUS_PROCRASTINATION = 'Procrastination';
+
+    const LEAD_SOURCE_REFERRAL_PARTNER = 'Referral Partner';
+    const LEAD_SOURCE_CLIENT_REFERRAL = 'Client Referral';
+    const LEAD_SOURCE_PERSONAL_NETWORK = 'Personal Network (Friends/Family)';
+    const LEAD_SOURCE_SOCIAL_MEDIA = 'Social Media';
+    const LEAD_SOURCE_WEBSITE = 'Website';
+    const LEAD_SOURCE_NETWORKING_EVENT = 'Networking Event';
+    const LEAD_SOURCE_COLD_OUTREACH = 'Cold Outreach';
+    const LEAD_SOURCE_PROFESSIONAL_REFERRAL = 'Professional Referral (CPA/Realtor/LO/etc.)';
+    const LEAD_SOURCE_OTHER = 'Other';
+
+    public static function getSourceOptions(): array
+    {
+        return [
+            self::LEAD_SOURCE_REFERRAL_PARTNER,
+            self::LEAD_SOURCE_CLIENT_REFERRAL,
+            self::LEAD_SOURCE_PERSONAL_NETWORK,
+            self::LEAD_SOURCE_SOCIAL_MEDIA,
+            self::LEAD_SOURCE_WEBSITE,
+            self::LEAD_SOURCE_NETWORKING_EVENT,
+            self::LEAD_SOURCE_COLD_OUTREACH,
+            self::LEAD_SOURCE_PROFESSIONAL_REFERRAL,
+            self::LEAD_SOURCE_OTHER,
+        ];
+    }
     
     /**
      * Get statuses that are considered "qualified" for statistics.
