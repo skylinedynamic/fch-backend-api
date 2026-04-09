@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationContro
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
+use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 
@@ -84,6 +85,11 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/task-verify-request', [CreditBuilderStepGuideController::class , 'taskVerifyRequest']);
 
                     Route::get('task-overview', [CreditBuilderOverviewController::class , 'taskOverview']);
+
+                    // Credit Accounts
+                    Route::post('/credit-accounts', [CreditAccountController::class , 'index']);
+                    Route::get('/credit-accounts/filter-options', [CreditAccountController::class , 'filterOptions']);
+                    Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class , 'apply']);
                 }
                 );
 
@@ -154,4 +160,5 @@ Route::prefix('v1/borrower')->group(function () {
                 }
                 );
             }
-            );        });
+            );
+        });

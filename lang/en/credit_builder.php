@@ -58,4 +58,10 @@ return [
     'validation_vendor_status_required' => 'Status is required.',
     'validation_vendor_general_url_required' => 'General URL is required.',
 
+    'filter_options_fetched' => 'Filter options retrieved successfully.',
+    'status_updated' => 'Status updated successfully.',
+    'status_updated_requested' => 'Application requested successfully.',
+    'status_updated_processing' => 'Application marked as processing.',
+    'status_updated_approved' => 'Application marked as approved.',
+    'list_fetched' => 'Credit accounts retrieved successfully.',
 ];
