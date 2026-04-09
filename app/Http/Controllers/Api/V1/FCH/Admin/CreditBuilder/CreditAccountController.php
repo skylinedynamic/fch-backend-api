@@ -95,6 +95,20 @@ class CreditAccountController extends Controller
     }
 
     /**
+     * Update the status of the specified resource.
+     */
+    public function updateStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate(['status' => 'required|string']);
+        $account = $this->service->updateStatus($id, $request->status);
+        
+        return ApiResponse::success(
+            new CreditAccountResource($account),
+            __('credit_account.credit_account_updated')
+        );
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy($id): JsonResponse

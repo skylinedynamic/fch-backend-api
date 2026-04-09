@@ -94,6 +94,21 @@ class CreditAccountService
     }
 
     /**
+     * Update the status of a credit account.
+     *
+     * @param int $id
+     * @param string $status
+     * @return CreditAccount
+     */
+    public function updateStatus($id, $status)
+    {
+        $account = CreditAccount::findOrFail($id);
+        $account->status = $status;
+        $account->save();
+        return $account;
+    }
+
+    /**
      * Delete a credit account.
      *
      * @param int $id

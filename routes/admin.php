@@ -88,6 +88,7 @@ Route::prefix('v1/admin')
             Route::post('credit-accounts', [CreditAccountController::class, 'store']);
             Route::get('credit-accounts/{id}', [CreditAccountController::class, 'show']);
             Route::put('credit-accounts/{id}', [CreditAccountController::class, 'update']);
+            Route::patch('credit-accounts/{id}/status', [CreditAccountController::class, 'updateStatus']);
             Route::delete('credit-accounts/{id}', [CreditAccountController::class, 'destroy']);
         });
 

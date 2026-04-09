@@ -35,6 +35,7 @@ class CreditAccount extends Model
         'sequencing_priority',
         'image_url',
         'reference_url',
+        'status',
     ];
 
     protected $appends = ['full_image_url'];
