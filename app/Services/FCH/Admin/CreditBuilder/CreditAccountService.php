@@ -53,7 +53,7 @@ class CreditAccountService
         return $this->respondWithPaginationResource(
             $paginator,
             CreditAccountResource::class,
-            __('credit_builder.credit_account_list_fetched')
+            __('credit_account.credit_account_list_fetched')
         );
     }
 

@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\StoreCreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\UpdateCreditAccountRequest;
 use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\FCH\Admin\CreditBuilder\CreditAccountService;
 use Illuminate\Http\Request;
@@ -56,13 +57,13 @@ class CreditAccountController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(CreditAccountRequest $request): JsonResponse
+    public function store(StoreCreditAccountRequest $request): JsonResponse
     {
         $account = $this->service->create($request->validated());
         
         return ApiResponse::success(
             new CreditAccountResource($account),
-            __('credit_builder.credit_account_created'),
+            __('credit_account.credit_account_created'),
             201
         );
     }
@@ -76,20 +77,20 @@ class CreditAccountController extends Controller
         
         return ApiResponse::success(
             new CreditAccountResource($account),
-            __('credit_builder.credit_account_fetched')
+            __('credit_account.credit_account_list_fetched')
         );
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(CreditAccountRequest $request, $id): JsonResponse
+    public function update(UpdateCreditAccountRequest $request, $id): JsonResponse
     {
         $account = $this->service->update($id, $request->validated());
         
         return ApiResponse::success(
             new CreditAccountResource($account),
-            __('credit_builder.credit_account_updated')
+            __('credit_account.credit_account_updated')
         );
     }
 
@@ -102,7 +103,7 @@ class CreditAccountController extends Controller
         
         return ApiResponse::success(
             null,
-            __('credit_builder.credit_account_deleted')
+            __('credit_account.credit_account_deleted')
         );
     }
 }
