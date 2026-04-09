@@ -25,6 +25,14 @@ class CreditAccountService
             $query->search($filters['search']);
         }
 
+        if (!empty($filters['status'])) {
+            $query->where('status', 'LIKE', '%' . $filters['status'] . '%');
+        }
+
+        if (!empty($filters['credit_category'])) {
+            $query->where('credit_category', 'LIKE', '%' . $filters['credit_category'] . '%');
+        }
+
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
