@@ -2,24 +2,24 @@
 
 namespace App\Services\FCH\Admin\CreditBuilder;
 
-use App\Models\CreditBuilder\VendorAccount;
-use App\Http\Resources\FCH\CreditBuilder\VendorAccountResource;
+use App\Models\CreditBuilder\CreditAccount;
+use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 
-class VendorAccountService
+class CreditAccountService
 {
     use PaginatesApi;
 
     /**
-     * Get all vendor accounts with filtering and pagination.
+     * Get all credit accounts with filtering and pagination.
      *
      * @param array $filters
      * @return \Illuminate\Http\JsonResponse
      */
     public function list(array $filters = [])
     {
-        $query = VendorAccount::query();
+        $query = CreditAccount::query();
 
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -52,56 +52,56 @@ class VendorAccountService
 
         return $this->respondWithPaginationResource(
             $paginator,
-            VendorAccountResource::class,
-            __('credit_builder.vendor_account_list_fetched')
+            CreditAccountResource::class,
+            __('credit_builder.credit_account_list_fetched')
         );
     }
 
     /**
-     * Store a new vendor account.
+     * Store a new credit account.
      *
      * @param array $data
-     * @return VendorAccount
+     * @return CreditAccount
      */
     public function create(array $data)
     {
-        return VendorAccount::create($data);
+        return CreditAccount::create($data);
     }
 
     /**
-     * Get a specific vendor account by ID.
+     * Get a specific credit account by ID.
      *
      * @param int $id
-     * @return VendorAccount
+     * @return CreditAccount
      */
     public function show($id)
     {
-        return VendorAccount::findOrFail($id);
+        return CreditAccount::findOrFail($id);
     }
 
     /**
-     * Update a vendor account.
+     * Update a credit account.
      *
      * @param int $id
      * @param array $data
-     * @return VendorAccount
+     * @return CreditAccount
      */
     public function update($id, array $data)
     {
-        $account = VendorAccount::findOrFail($id);
+        $account = CreditAccount::findOrFail($id);
         $account->update($data);
         return $account;
     }
 
     /**
-     * Delete a vendor account.
+     * Delete a credit account.
      *
      * @param int $id
      * @return bool
      */
     public function delete($id)
     {
-        $account = VendorAccount::findOrFail($id);
+        $account = CreditAccount::findOrFail($id);
         return $account->delete();
     }
 }

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('vendor_accounts', function (Blueprint $table) {
+        Schema::create('credit_accounts', function (Blueprint $table) {
             $table->id();
 
             // Image 1 columns
@@ -50,6 +50,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('vendor_accounts');
+        Schema::dropIfExists('credit_accounts');
     }
 };

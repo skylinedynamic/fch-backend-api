@@ -4,17 +4,17 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\VendorAccountRequest;
-use App\Http\Resources\FCH\CreditBuilder\VendorAccountResource;
-use App\Services\FCH\Admin\CreditBuilder\VendorAccountService;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccountRequest;
+use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
+use App\Services\FCH\Admin\CreditBuilder\CreditAccountService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
-class VendorAccountController extends Controller
+class CreditAccountController extends Controller
 {
     protected $service;
 
-    public function __construct(VendorAccountService $service)
+    public function __construct(CreditAccountService $service)
     {
         $this->service = $service;
     }
@@ -56,13 +56,13 @@ class VendorAccountController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(VendorAccountRequest $request): JsonResponse
+    public function store(CreditAccountRequest $request): JsonResponse
     {
         $account = $this->service->create($request->validated());
         
         return ApiResponse::success(
-            new VendorAccountResource($account),
-            __('credit_builder.vendor_account_created'),
+            new CreditAccountResource($account),
+            __('credit_builder.credit_account_created'),
             201
         );
     }
@@ -75,21 +75,21 @@ class VendorAccountController extends Controller
         $account = $this->service->show($id);
         
         return ApiResponse::success(
-            new VendorAccountResource($account),
-            __('credit_builder.vendor_account_fetched')
+            new CreditAccountResource($account),
+            __('credit_builder.credit_account_fetched')
         );
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(VendorAccountRequest $request, $id): JsonResponse
+    public function update(CreditAccountRequest $request, $id): JsonResponse
     {
         $account = $this->service->update($id, $request->validated());
         
         return ApiResponse::success(
-            new VendorAccountResource($account),
-            __('credit_builder.vendor_account_updated')
+            new CreditAccountResource($account),
+            __('credit_builder.credit_account_updated')
         );
     }
 
@@ -102,7 +102,7 @@ class VendorAccountController extends Controller
         
         return ApiResponse::success(
             null,
-            __('credit_builder.vendor_account_deleted')
+            __('credit_builder.credit_account_deleted')
         );
     }
 }

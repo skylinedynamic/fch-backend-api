@@ -4,7 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class VendorAccountRequest extends BaseApiRequest
+class CreditAccountRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.

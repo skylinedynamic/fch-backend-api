@@ -87,7 +87,7 @@ class DatabaseSeeder extends Seeder
             SignupIdSeeder::class ,
             SubscriptionPlanSeeder::class ,
             DemoSubscriberSeeder::class ,
-            VendorAccountSeeder::class ,
+            CreditAccountSeeder::class ,
         ]);
     }
 }

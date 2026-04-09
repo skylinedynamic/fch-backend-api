@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class VendorAccount extends Model
+class CreditAccount extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'vendor_accounts';
+    protected $table = 'credit_accounts';
 
     protected $fillable = [
         'card_name',

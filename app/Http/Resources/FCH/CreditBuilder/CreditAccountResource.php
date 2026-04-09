@@ -5,7 +5,7 @@ namespace App\Http\Resources\FCH\CreditBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class VendorAccountResource extends JsonResource
+class CreditAccountResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
