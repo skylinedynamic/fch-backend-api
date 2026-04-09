@@ -990,7 +990,7 @@ class CreditAccountSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            CreditAccount::create($account);
+            CreditAccount::create(array_merge($account, ['status' => 'Active']));
         }
     }
 }
