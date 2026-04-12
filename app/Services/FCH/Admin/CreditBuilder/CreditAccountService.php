@@ -6,10 +6,11 @@ use App\Models\CreditBuilder\CreditAccount;
 use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use App\Traits\UploadsFiles;
 
 class CreditAccountService
 {
-    use PaginatesApi;
+    use PaginatesApi, UploadsFiles;
 
     /**
      * Get all credit accounts with filtering and pagination.
@@ -73,6 +74,11 @@ class CreditAccountService
      */
     public function create(array $data)
     {
+        if (isset($data['image_url']) && $data['image_url'] instanceof \Illuminate\Http\UploadedFile) {
+            $upload = $this->uploadFile($data['image_url'], 'credit-accounts', 'public');
+            $data['image_url'] = $upload['path'];
+        }
+
         return CreditAccount::create($data);
     }
 
@@ -97,6 +103,17 @@ class CreditAccountService
     public function update($id, array $data)
     {
         $account = CreditAccount::findOrFail($id);
+
+        if (isset($data['image_url']) && $data['image_url'] instanceof \Illuminate\Http\UploadedFile) {
+            // Delete old file if exists
+            if ($account->image_url) {
+                $this->deleteFile($account->image_url, 'public');
+            }
+
+            $upload = $this->uploadFile($data['image_url'], 'credit-accounts', 'public');
+            $data['image_url'] = $upload['path'];
+        }
+
         $account->update($data);
         return $account;
     }

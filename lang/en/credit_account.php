@@ -11,4 +11,12 @@ return [
     'credit_account_updated' => 'Credit account updated successfully.',
     'credit_account_deleted' => 'Credit account deleted successfully.',
     'credit_account_not_found' => 'Credit account not found.',
+    'image_invalid' => 'Selected file must be an image.',
+    'image_mimes' => 'Image must be in jpg, jpeg, png, webp, or avif format.',
+    'fico_min_integer' => 'FICO minimum must be a whole number.',
+    'fico_min_gt' => 'FICO minimum must be greater than 0.',
+    'biz_min_months_integer' => 'Minimum months must be a whole number.',
+    'biz_min_months_gt' => 'Minimum months must be greater than 0.',
+    'reference_url_invalid' => 'Reference URL must be a valid URL (e.g., https://example.com).',
+    'image_max' => 'Image size must be less than 2MB.',
 ];

@@ -984,7 +984,7 @@ class CreditAccountSeeder extends Seeder
                 'portal_tier_unlock' => 'Manual Review',
                 'borrower_exposure' => 'Manual Review Only',
                 'sequencing_priority' => null,
-                'image_url' => 'credit-accounts/capital-one-spark-miles.png',
+                'image_url' => 'credit-accounts/49-spark-miles.jpg',
                 'reference_url' => 'https://www.capitalone.com/small-business/credit-cards/lp/sem/',
             ],
         ];
