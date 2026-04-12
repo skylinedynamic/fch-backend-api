@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\BorrowerUserDetailController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
@@ -58,6 +59,7 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/financial-info', [FinancialInfoController::class , 'index']);
                     Route::post('/financial-info', [FinancialInfoController::class , 'update']);
                     Route::get('/completion', [ProfileCompletionController::class , 'check']);
+                    Route::post('/change-request', [ChangeRequestController::class , 'store']);
                 }
                 );
 

@@ -13,4 +13,10 @@ return [
     'new_password_confirmed' => 'New password confirmation does not match.',
     'new_password_different' => 'New password must be different from the old password.',
     'password_update_success' => 'Password updated successfully.',
+    'change_request_submitted' => 'Your change request has been submitted for review.',
+    'change_request_failed' => 'Failed to submit change request. Please try again.',
+    'change_request_list_success' => 'Change requests retrieved successfully.',
+    'change_request_status_updated' => 'Change request status updated successfully.',
+    'change_request_already_processed' => 'This change request has already been processed and cannot be modified.',
+    'borrower_not_found' => 'Borrower record not found.',
 ];

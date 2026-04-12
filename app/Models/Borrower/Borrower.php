@@ -59,7 +59,7 @@ class Borrower extends Model
      */
     public function user(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
-        return $this->morphOne(\App\Models\User\User::class, 'entity');
+        return $this->morphOne(\App\Models\User\User::class , 'entity');
     }
 
     /**
@@ -67,7 +67,7 @@ class Borrower extends Model
      */
     public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
+        return $this->belongsTo(\App\Models\Partner\Partner::class , 'partner_id');
     }
 
     /**
@@ -83,17 +83,17 @@ class Borrower extends Model
      */
     public function assignedUser(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'assign_id');
+        return $this->belongsTo(\App\Models\User\User::class , 'assign_id');
     }
 
     public function tier(): BelongsTo
     {
-        return $this->belongsTo(Tier::class, 'current_tier');
+        return $this->belongsTo(Tier::class , 'current_tier');
     }
 
     public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id');
+        return $this->hasMany(BorrowerTaskVerificationRequest::class , 'borrower_id');
     }
 
     /**
@@ -101,12 +101,12 @@ class Borrower extends Model
      */
     public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Invoice::class, 'borrower_id');
+        return $this->hasMany(Invoice::class , 'borrower_id');
     }
 
     public function taskUnderReview(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id')->where('status', BorrowerTaskVerificationRequest::PROCESSING);
+        return $this->hasMany(BorrowerTaskVerificationRequest::class , 'borrower_id')->where('status', BorrowerTaskVerificationRequest::PROCESSING);
     }
 
     /**
@@ -114,7 +114,7 @@ class Borrower extends Model
      */
     public function latestInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(Invoice::class, 'borrower_id')->latestOfMany();
+        return $this->hasOne(Invoice::class , 'borrower_id')->latestOfMany();
     }
 
     /**
@@ -122,7 +122,7 @@ class Borrower extends Model
      */
     public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
-        return $this->morphOne(Subscription::class, 'entity');
+        return $this->morphOne(Subscription::class , 'entity');
     }
 
     public static function getStatuses(): array
@@ -137,17 +137,17 @@ class Borrower extends Model
 
     public function latestSubscription()
     {
-        return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+        return $this->morphOne(Subscription::class , 'entity')->latestOfMany();
     }
 
     public function fundingApplications()
     {
-        return $this->hasMany(FundingApplication::class, 'borrower_id');
+        return $this->hasMany(FundingApplication::class , 'borrower_id');
     }
 
     public function preQualificationRequests()
     {
-        return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
+        return $this->hasMany(PreQualificationRequest::class , 'borrower_id');
     }
 
     /**
@@ -155,7 +155,7 @@ class Borrower extends Model
      */
     public function signedAgreement(): \Illuminate\Database\Eloquent\Relations\MorphOne
     {
-        return $this->morphOne(\App\Models\Common\AgreementSign::class, 'entity');
+        return $this->morphOne(\App\Models\Common\AgreementSign::class , 'entity');
     }
 
     /**
@@ -163,7 +163,7 @@ class Borrower extends Model
      */
     public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->morphMany(Subscription::class, 'entity');
+        return $this->morphMany(Subscription::class , 'entity');
     }
 
     /**
@@ -222,7 +222,8 @@ class Borrower extends Model
             \Illuminate\Support\Facades\DB::commit();
             \App\Models\User\User::$isCascading = $isAlreadyCascading;
             return true;
-        } catch (\Throwable $e) {
+        }
+        catch (\Throwable $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             \App\Models\User\User::$isCascading = $isAlreadyCascading;
             throw $e;
@@ -245,14 +246,17 @@ class Borrower extends Model
                 ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
                 ->orWhereHas('partner', function ($q) use ($search) {
-                    $q->where('full_name', 'LIKE', "%{$search}%");
-                })
+                $q->where('full_name', 'LIKE', "%{$search}%");
+            }
+            )
                 ->orWhereHas('tier', function ($q) use ($search) {
-                    $q->where('name', 'LIKE', "%{$search}%");
-                })
+                $q->where('name', 'LIKE', "%{$search}%");
+            }
+            )
                 ->orWhereHas('assignedUser', function ($q) use ($search) {
-                    $q->where('name', 'LIKE', "%{$search}%");
-                })
+                $q->where('name', 'LIKE', "%{$search}%");
+            }
+            )
                 ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
         });
     }

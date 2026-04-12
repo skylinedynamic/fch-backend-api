@@ -18,17 +18,24 @@ class CreditAccountService
     {
         $query = CreditAccount::query();
 
-        if (!empty($filters['tier']) && $filters['tier'] !== 'All Tier') {
-            $query->where('portal_tier_unlock', $filters['tier']);
+        // Fixed eligibility conditions for the borrower
+        $borrower = auth()->user()->borrower;
+        if ($borrower) {
+            $score = (int)($borrower->business_credit_score ?? 0);
+            $months = $borrower->business_start_date
+                ?\Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
+                : 0;
+
+            $query->where('typical_personal_fico_min', '<=', $score)
+                ->where('time_in_business_min_months', '<=', (int)$months);
         }
+
+
 
         if (!empty($filters['category']) && $filters['category'] !== 'All Categories') {
             $query->where('credit_category', $filters['category']);
         }
 
-        if (!empty($filters['bureau']) && $filters['bureau'] !== 'All Bureau') {
-            $query->where('approval_level', $filters['bureau']);
-        }
 
         if (!empty($filters['issuer']) && $filters['issuer'] !== 'All Issuers') {
             $query->where('issuer', $filters['issuer']);
