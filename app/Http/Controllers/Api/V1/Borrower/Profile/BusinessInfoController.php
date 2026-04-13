@@ -58,6 +58,7 @@ class BusinessInfoController extends Controller
             );
         }
         catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 500);
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
         }
     }
