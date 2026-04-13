@@ -36,7 +36,7 @@ class CreditAccountService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'asc' : 'desc';
 
         $query = QueryFilter::apply(
             $query,
@@ -49,10 +49,8 @@ class CreditAccountService
             ]
         );
 
-        // Accurate sorting: Primary requested field first, then sequencing_priority as tie-breaker
-        if ($sortField !== 'id') {
-            $query->orderBy($sortField, $sortOrder);
-        }
+        // Ensure this sorting replaces any preceding order clauses.
+        $query->reorder($sortField, $sortOrder);
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
