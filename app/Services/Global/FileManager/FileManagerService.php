@@ -14,9 +14,17 @@ class FileManagerService
 
     private function getFullPath($path)
     {
-        // Sanitize path to prevent directory traversal
-        $path = str_replace('..', '', $path);
-        return trim(ltrim($path, '/'), '/');
+        if (empty($path)) {
+            return '';
+        }
+
+        $path = str_replace('\\', '/', (string) $path);
+        $segments = explode('/', $path);
+        $normalized = array_filter($segments, function ($segment) {
+            return $segment !== '' && $segment !== '.' && $segment !== '..';
+        });
+
+        return implode('/', $normalized);
     }
 
     private function getEncodedUrl($disk, $path)
@@ -110,6 +118,11 @@ class FileManagerService
 
         $filename = $file->getClientOriginalName();
         $pathResult = $file->storeAs($fullPath, $filename, 'public');
+        $pathResult = $this->getFullPath($pathResult);
+
+        if (!$disk->exists($pathResult)) {
+            throw new \Exception('Uploaded file could not be found after storage.', 500);
+        }
 
         return [
             'name' => $filename,
