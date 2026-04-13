@@ -24,7 +24,9 @@ class CreditAccountSeeder extends Seeder
         }
 
         // Clear existing data to prevent duplicates
+        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
         CreditAccount::truncate();
+        \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
 
         $accounts = [
             [
