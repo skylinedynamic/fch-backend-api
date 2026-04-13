@@ -2,15 +2,15 @@
 
 namespace Database\Seeders;
 
+use App\Models\CreditBuilder\CreditAccount;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\File;
-use App\Models\CreditBuilder\CreditAccount;
 
 class CreditAccountSeeder extends Seeder
 {
     public function run(): void
     {
-        // Copy vendor-applications images from public/ to public/storage/
+        // Copy credit-accounts images from public/ to public/storage/
         $sourcePath = public_path('credit-accounts');
         $destinationPath = public_path('storage/credit-accounts');
 
@@ -990,7 +990,7 @@ class CreditAccountSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            CreditAccount::create($account);
+            CreditAccount::create(array_merge($account, ['status' => 'Active']));
         }
     }
 }

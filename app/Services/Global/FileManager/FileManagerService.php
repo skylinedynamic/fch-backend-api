@@ -31,7 +31,12 @@ class FileManagerService
     private function getBasePath($request)
     {
         // Construct base path directly from request
-        $basePath = $request->entity_type . "/" . $request->entity_id;
+        // For credit-accounts, we use a shared folder instead of per-ID subfolders
+        if ($request->entity_type === 'credit-accounts') {
+            $basePath = "credit-accounts";
+        } else {
+            $basePath = $request->entity_type . "/" . $request->entity_id;
+        }
         
         // Ensure the base path exists
         $disk = $this->getDisk();

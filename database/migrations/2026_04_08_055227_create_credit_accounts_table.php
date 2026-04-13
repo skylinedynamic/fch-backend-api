@@ -38,6 +38,7 @@ return new class extends Migration
             $table->string('borrower_exposure')->nullable();
             $table->string('sequencing_priority')->nullable();
             $table->string('image_url')->nullable();
+            $table->string('status')->default('Active')->nullable();
             $table->string('reference_url', 500)->nullable();
 
             $table->softDeletes();

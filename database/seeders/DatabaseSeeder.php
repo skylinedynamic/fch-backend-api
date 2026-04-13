@@ -88,7 +88,6 @@ class DatabaseSeeder extends Seeder
             SubscriptionPlanSeeder::class ,
             DemoSubscriberSeeder::class ,
             CreditAccountSeeder::class ,
-
         ]);
     }
 }

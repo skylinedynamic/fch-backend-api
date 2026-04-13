@@ -89,6 +89,17 @@
       0 => 'Termwind\\Laravel\\TermwindServiceProvider',
     ),
   ),
+  'opcodesio/log-viewer' => 
+  array (
+    'aliases' => 
+    array (
+      'LogViewer' => 'Opcodes\\LogViewer\\Facades\\LogViewer',
+    ),
+    'providers' => 
+    array (
+      0 => 'Opcodes\\LogViewer\\LogViewerServiceProvider',
+    ),
+  ),
   'spatie/laravel-activitylog' => 
   array (
     'providers' => 
@@ -96,11 +107,58 @@
       0 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
     ),
   ),
+  'spatie/laravel-backup' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Spatie\\Backup\\BackupServiceProvider',
+    ),
+  ),
+  'spatie/laravel-blink' => 
+  array (
+    'aliases' => 
+    array (
+      'Blink' => 'Spatie\\LaravelBlink\\BlinkFacade',
+    ),
+    'providers' => 
+    array (
+      0 => 'Spatie\\LaravelBlink\\BlinkServiceProvider',
+    ),
+  ),
+  'spatie/laravel-health' => 
+  array (
+    'aliases' => 
+    array (
+      'Health' => 'Spatie\\Health\\Facades\\Health',
+    ),
+    'providers' => 
+    array (
+      0 => 'Spatie\\Health\\HealthServiceProvider',
+    ),
+  ),
   'spatie/laravel-permission' => 
   array (
     'providers' => 
     array (
       0 => 'Spatie\\Permission\\PermissionServiceProvider',
+    ),
+  ),
+  'spatie/laravel-server-monitor' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Spatie\\ServerMonitor\\ServerMonitorServiceProvider',
+    ),
+  ),
+  'spatie/laravel-signal-aware-command' => 
+  array (
+    'aliases' => 
+    array (
+      'Signal' => 'Spatie\\SignalAwareCommand\\Facades\\Signal',
+    ),
+    'providers' => 
+    array (
+      0 => 'Spatie\\SignalAwareCommand\\SignalAwareCommandServiceProvider',
     ),
   ),
 );
