@@ -51,11 +51,11 @@ class CreditAccount extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('card_name', 'LIKE', "%{$search}%")
-              ->orWhere('issuer', 'LIKE', "%{$search}%")
-              ->orWhere('credit_category', 'LIKE', "%{$search}%")
-              ->orWhere('status', 'LIKE', "%{$search}%")
-              ->orWhere('typical_personal_fico_min', 'LIKE', "%{$search}%")
-              ->orWhere('time_in_business_min_months', 'LIKE', "%{$search}%");
+                ->orWhere('issuer', 'LIKE', "%{$search}%")
+                ->orWhere('credit_category', 'LIKE', "%{$search}%")
+                ->orWhere('status', 'LIKE', "%{$search}%")
+                ->orWhere('typical_personal_fico_min', 'LIKE', "%{$search}%")
+                ->orWhere('time_in_business_min_months', 'LIKE', "%{$search}%");
         });
     }
 }
