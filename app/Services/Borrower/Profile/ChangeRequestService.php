@@ -25,14 +25,14 @@ class ChangeRequestService
         }
 
         return BorrowerChangeRequest::create([
-            "partner_id"  => $borrower->partner_id,
+            "partner_id" => $borrower->partner_id,
             "borrower_id" => $borrower->id,
-            "field_name"  => $data["field_name"],
-            "old_value"   => $data["old_value"],
-            "new_value"   => $data["new_value"],
-            "status"      => "pending",
-            "note"        => $data["note"] ?? null,
-            "updated_by"  => $userId,
+            "field_name" => $data["field_name"],
+            "old_value" => $data["old_value"],
+            "new_value" => $data["new_value"],
+            "status" => BorrowerChangeRequest::STATUS_PENDING,
+            "note" => null,
+            "updated_by" => null,
         ]);
     }
 }
