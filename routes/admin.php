@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
-use App\Http\Controllers\Api\V1\FCH\Admin\ResourceController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Resource\ResourceController;
 // ✅ Import Role & Permission Controllers
 
 /*

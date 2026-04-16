@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\FCH\Admin;
+namespace App\Http\Controllers\Api\V1\FCH\Admin\Resource;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\FCH\Admin\Resource\ResourceService;
 use App\Http\Requests\Api\V1\FCH\Admin\Resource\StoreResourceRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Resource\UpdateResourceRequest;
-use App\Http\Resources\Api\V1\FCH\Resource\ResourceResource;
+use App\Http\Resources\FCH\Resource\DetailsResource;
 use App\Helpers\ApiResponse;
 
 class ResourceController extends Controller
@@ -25,7 +25,7 @@ class ResourceController extends Controller
         
         $response = [];
         foreach ($groupedResources as $type => $group) {
-            $response[$type] = ResourceResource::collection($group);
+            $response[$type] = DetailsResource::collection($group);
         }
 
         return ApiResponse::success(
@@ -39,7 +39,7 @@ class ResourceController extends Controller
         $resources = $this->service->getByType($resource_type);
 
         return ApiResponse::success(
-            ResourceResource::collection($resources),
+            DetailsResource::collection($resources),
             __('resource.fetched')
         );
     }
@@ -49,7 +49,7 @@ class ResourceController extends Controller
         $resource = $this->service->create($request->validated());
 
         return ApiResponse::success(
-            new ResourceResource($resource),
+            new DetailsResource($resource),
             __('resource.created'),
             201
         );
@@ -58,10 +58,10 @@ class ResourceController extends Controller
     public function show($id)
     {
         // Not strictly needed right now if index returns all, but good to have
-        $resource = \App\Models\Resource::findOrFail($id);
+        $resource = \App\Models\Resource\Resource::findOrFail($id);
 
         return ApiResponse::success(
-            new ResourceResource($resource),
+            new DetailsResource($resource),
             __('resource.fetched')
         );
     }
@@ -71,7 +71,7 @@ class ResourceController extends Controller
         $resource = $this->service->update($id, $request->validated());
 
         return ApiResponse::success(
-            new ResourceResource($resource),
+            new DetailsResource($resource),
             __('resource.updated')
         );
     }

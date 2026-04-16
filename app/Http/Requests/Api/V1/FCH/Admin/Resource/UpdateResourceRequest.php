@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Admin\Resource;
 
-use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Resource;
+use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Resource\Resource;
 
-class UpdateResourceRequest extends FormRequest
+class UpdateResourceRequest extends BaseApiRequest
 {
     public function authorize(): bool
     {
@@ -30,26 +30,26 @@ class UpdateResourceRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'resource_type' => __('Resource Type'),
-            'title' => __('Resource Title'),
-            'subtitle' => __('Description Subtitle'),
-            'status' => __('Status'),
-            'icon' => __('Icon Class'),
-            'file' => __('Upload File Asset'),
-            'link' => __('Resource Link'),
+            'resource_type' => __('resource.attributes.resource_type'),
+            'title' => __('resource.attributes.title'),
+            'subtitle' => __('resource.attributes.subtitle'),
+            'status' => __('resource.attributes.status'),
+            'icon' => __('resource.attributes.icon'),
+            'file' => __('resource.attributes.file'),
+            'link' => __('resource.attributes.link'),
         ];
     }
 
     public function messages(): array
     {
         return [
-            'resource_type.required' => __('The Resource Type is required.'),
-            'resource_type.in' => __('The selected Resource Type is invalid.'),
-            'title.required' => __('The Resource Title is required.'),
-            'file.required_if' => __('The Upload File Asset is required for this resource type.'),
-            'file.regex' => __('The Upload File Asset must be a PDF file.'),
-            'link.required_if' => __('The Resource Link is required for this resource type.'),
-            'link.url' => __('The Resource Link must be a valid URL.'),
+            'resource_type.required' => __('resource.validation.resource_type_required'),
+            'resource_type.in' => __('resource.validation.resource_type_invalid'),
+            'title.required' => __('resource.validation.title_required'),
+            'file.required_if' => __('resource.validation.file_required'),
+            'file.regex' => __('resource.validation.file_pdf'),
+            'link.required_if' => __('resource.validation.link_required'),
+            'link.url' => __('resource.validation.link_invalid'),
         ];
     }
 }

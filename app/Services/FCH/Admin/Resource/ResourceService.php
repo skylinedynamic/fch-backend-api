@@ -2,7 +2,7 @@
 
 namespace App\Services\FCH\Admin\Resource;
 
-use App\Models\Resource;
+use App\Models\Resource\Resource;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 
