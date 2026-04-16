@@ -23,7 +23,7 @@ class UpdateResourceRequest extends FormRequest
             'status' => 'sometimes|required|boolean',
             'icon' => 'nullable|string|max:255',
             'file' => 'nullable|string|regex:/\.pdf$/i',
-            'link' => 'nullable|url',
+            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url',
         ];
     }
 
@@ -43,9 +43,13 @@ class UpdateResourceRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'resource_type.required' => __('The Resource Type is required.'),
+            'resource_type.in' => __('The selected Resource Type is invalid.'),
+            'title.required' => __('The Resource Title is required.'),
             'file.required_if' => __('The Upload File Asset is required for this resource type.'),
             'file.regex' => __('The Upload File Asset must be a PDF file.'),
             'link.required_if' => __('The Resource Link is required for this resource type.'),
+            'link.url' => __('The Resource Link must be a valid URL.'),
         ];
     }
 }
