@@ -73,6 +73,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'assign_id' => ['nullable', 'integer', 'exists:users,id'],
             'notes' => ['nullable', 'string'],
             'additional_data' => ['nullable', 'json'],
+            'fico_score' => ['nullable', 'numeric'],
+            'paydex_score' => ['nullable', 'numeric'],
         ];
     }
 
@@ -108,6 +110,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'partner_id.exists' => __('borrower_validation.partner_id_exists'),
             'business_phone.regex' => __('borrower_validation.business_phone_regex'),
             'assign_id.exists' => __('borrower_validation.assign_id_exists'),
+            'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
+            'paydex_score.numeric' => __('borrower_validation.paydex_score_numeric'),
         ];
     }
 }

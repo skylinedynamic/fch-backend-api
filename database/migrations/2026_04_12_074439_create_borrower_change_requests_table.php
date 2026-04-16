@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use App\Models\Borrower\BorrowerChangeRequest;
 
-return new class extends Migration 
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -17,6 +16,9 @@ return new class extends Migration
             $table->unsignedBigInteger('partner_id')->nullable()->index();
             $table->unsignedBigInteger('borrower_id')->index();
             $table->string('field_name');
+            $table->string('field_type')->nullable();
+            $table->string('visible_field_name')->nullable();
+            $table->string('db_field_name')->nullable();
             $table->text('old_value')->nullable();
             $table->text('new_value')->nullable();
             $table->string('status')->default(BorrowerChangeRequest::STATUS_PENDING)->index();

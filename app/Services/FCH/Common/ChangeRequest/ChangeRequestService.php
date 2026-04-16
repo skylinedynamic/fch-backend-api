@@ -23,11 +23,11 @@ class ChangeRequestService
 
         $query = BorrowerChangeRequest::with([
             'borrower' => function ($q) {
-            $q->select('id', 'partner_id', 'business_name', 'first_name', 'last_name');
-        },
+                $q->select('id', 'partner_id', 'business_name', 'first_name', 'last_name');
+            },
             'updater' => function ($q) {
-            $q->select('id', 'name');
-        }
+                $q->select('id', 'name');
+            }
         ]);
 
         if (!empty($filters['status'])) {
@@ -44,10 +44,17 @@ class ChangeRequestService
 
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->whereHas('borrower', function ($q) use ($search) {
-                $q->where('business_name', 'like', "%{$search}%")
-                    ->orWhere('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('field_name', 'like', "%{$search}%")
+                    ->orWhere('visible_field_name', 'like', "%{$search}%")
+                    ->orWhere('db_field_name', 'like', "%{$search}%")
+                    ->orWhere('old_value', 'like', "%{$search}%")
+                    ->orWhere('new_value', 'like', "%{$search}%")
+                    ->orWhereHas('borrower', function ($bq) use ($search) {
+                        $bq->where('business_name', 'like', "%{$search}%")
+                            ->orWhere('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -55,8 +62,7 @@ class ChangeRequestService
         // For now using manual sort as it was before but cleaner
         if (in_array($sortField, ['id', 'field_name', 'old_value', 'new_value', 'status', 'created_at', 'note'])) {
             $query->orderBy($sortField, $sortOrder);
-        }
-        else {
+        } else {
             $query->orderBy('created_at', 'desc');
         }
 
@@ -75,10 +81,10 @@ class ChangeRequestService
 
         return $this->respondWithPaginationResource(
             $paginator,
-            \App\Http\Resources\FCH\Common\ChangeRequest\ChangeRequestResource::class ,
+            \App\Http\Resources\FCH\Common\ChangeRequest\ChangeRequestResource::class,
             __('profile.change_request_list_success'),
             200,
-        ['statistics' => $statistics]
+            ['statistics' => $statistics]
         );
     }
 
@@ -103,7 +109,7 @@ class ChangeRequestService
         if ($data['status'] === BorrowerChangeRequest::STATUS_APPROVED) {
             $borrower = $changeRequest->borrower;
             if ($borrower) {
-                $borrower->{ $changeRequest->field_name} = $changeRequest->new_value;
+                $borrower->{$changeRequest->db_field_name} = $changeRequest->new_value;
                 $borrower->save();
             }
         }
@@ -122,8 +128,7 @@ class ChangeRequestService
                     'note' => $changeRequest->note,
                 ]));
             }
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             Log::error("Failed to send change request email: " . $e->getMessage());
         }
 

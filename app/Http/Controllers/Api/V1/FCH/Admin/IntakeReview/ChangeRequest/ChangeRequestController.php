@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\FCH\Common\ChangeRequest;
+namespace App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
@@ -34,8 +34,7 @@ class ChangeRequestController extends Controller
             ];
 
             return $this->service->list($filters);
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             return ApiResponse::serverError(__('profile.change_request_failed'));
         }
     }
@@ -47,8 +46,7 @@ class ChangeRequestController extends Controller
     {
         try {
             return $this->service->updateStatus($id, $request->validated());
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             return ApiResponse::serverError(__('profile.change_request_failed'));
         }
     }

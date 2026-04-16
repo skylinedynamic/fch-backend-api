@@ -74,7 +74,6 @@ class ProfileCompletionService
             'city' => $borrower->business_city,
             'zip_code' => $borrower->business_postal_code,
             'business_start_date' => $borrower->business_start_date,
-            'business_credit_score' => $borrower->business_credit_score,
 
         ];
         foreach ($fields as $key => $value) {

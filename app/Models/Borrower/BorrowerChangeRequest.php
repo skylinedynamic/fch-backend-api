@@ -19,6 +19,9 @@ class BorrowerChangeRequest extends Model
         'partner_id',
         'borrower_id',
         'field_name',
+        'field_type',
+        'visible_field_name',
+        'db_field_name',
         'old_value',
         'new_value',
         'status',
@@ -39,6 +42,6 @@ class BorrowerChangeRequest extends Model
      */
     public function updater()
     {
-        return $this->belongsTo(User::class , 'updated_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

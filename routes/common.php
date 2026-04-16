@@ -252,11 +252,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
             });
 
-            // Change Requests (Borrower Field Update Requests)
-            Route::prefix('change-requests')->group(function () {
-                Route::post('/', [ChangeRequestController::class, 'index']);
-                Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
-            });
+
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
