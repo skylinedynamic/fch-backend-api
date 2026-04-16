@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\ResourceController;
 // ✅ Import Role & Permission Controllers
 
 /*
@@ -86,5 +87,15 @@ Route::prefix('v1/admin')
 
         Route::prefix('funding-application')->group(function () {
             Route::post('save-commission', [CommissionController::class, 'saveCommission']);
+        });
+
+        // 📚 Resources
+        Route::prefix('resources')->group(function () {
+            Route::get('/', [ResourceController::class, 'index']);
+            Route::get('/type/{resource_type}', [ResourceController::class, 'getByType']);
+            Route::post('/', [ResourceController::class, 'store']);
+            Route::get('/{id}', [ResourceController::class, 'show']);
+            Route::match(['post', 'put'], '/{id}', [ResourceController::class, 'update']);
+            Route::delete('/{id}', [ResourceController::class, 'destroy']);
         });
     });
