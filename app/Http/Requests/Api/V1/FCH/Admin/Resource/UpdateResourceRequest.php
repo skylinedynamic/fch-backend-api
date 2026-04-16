@@ -19,7 +19,7 @@ class UpdateResourceRequest extends FormRequest
         return [
             'resource_type' => "sometimes|required|string|in:{$types}",
             'title' => 'sometimes|required|string|max:255',
-            'subtitle' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
             'status' => 'sometimes|required|boolean',
             'icon' => 'nullable|string|max:255',
             'file' => 'nullable|string|regex:/\.pdf$/i',
