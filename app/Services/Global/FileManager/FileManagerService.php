@@ -101,33 +101,50 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file, $request)
     {
+        $disk = $this->getDisk();
         try {
             // Prepend base path based on request entity
             $basePath = $this->getBasePath($request);
-            $completePath = $basePath . $path;
+            
+            // Normalize slashes between base and user path
+            $path = '/' . ltrim($path, '/');
+            $completePath = rtrim($basePath, '/') . $path;
             
             $fullPath = $this->getFullPath($completePath);
-            $disk = $this->getDisk();
-            $filename = $file->getClientOriginalName();
-            $pathResult = $file->storeAs($fullPath, $filename, 'public');
+            $filename = str_replace(['/', '\\'], '_', $file->getClientOriginalName());
+            
+            // Ensure directory exists - defensive check
+            if ($fullPath !== '' && !$disk->exists($fullPath)) {
+                $disk->makeDirectory($fullPath);
+            }
+
+            // Store using putFileAs which often provides better feedback or compatibility
+            $pathResult = $disk->putFileAs($fullPath, $file, $filename);
+            
+            if (!$pathResult) {
+                Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}");
+                throw new \Exception('Failed to store the uploaded file.', 500);
+            }
+
+            return [
+                'name' => $filename,
+                'isDirectory' => false,
+                'path' => rtrim($path, '/') . '/' . $filename,
+                'url' => $this->getEncodedUrl($disk, $pathResult),
+                'updatedAt' => date('c', $disk->lastModified($pathResult)),
+                'size' => $disk->size($pathResult),
+                'type' => $disk->mimeType($pathResult),
+            ];
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
-            throw new \Exception('Failed to store the uploaded file.', 500);
+            Log::error("FileManager Upload Error: " . $e->getMessage(), [
+                'stack' => $e->getTraceAsString(),
+                'path' => $path,
+                'entity_type' => $request->entity_type,
+                'entity_id' => $request->entity_id,
+                'get_all' => $request->get_all
+            ]);
+            throw new \Exception('Failed to store the uploaded file: ' . $e->getMessage(), 500);
         }
-
-        if (!$pathResult) {
-            throw new \Exception('Failed to store the uploaded file.', 500);
-        }
-
-        return [
-            'name' => $filename,
-            'isDirectory' => false,
-            'path' => rtrim($path, '/') . '/' . $filename,
-            'url' => $this->getEncodedUrl($disk, $pathResult),
-            'updatedAt' => date('c', $disk->lastModified($pathResult)),
-            'size' => $disk->size($pathResult),
-            'type' => $disk->mimeType($pathResult),
-        ];
     }
 
     public function createFolder($path, $name, $request)
