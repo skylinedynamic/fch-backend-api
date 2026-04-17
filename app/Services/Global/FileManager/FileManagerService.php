@@ -4,6 +4,7 @@ namespace App\Services\Global\FileManager;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 
 class FileManagerService
 {
@@ -100,19 +101,19 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file, $request)
     {
-        $disk = $this->getDisk();
-        // Prepend base path based on request entity
-        $basePath = $this->getBasePath($request);
-        
-        // Normalize slashes between base and user path
-        $path = '/' . ltrim($path, '/');
-        $completePath = rtrim($basePath, '/') . $path;
-        
-        $fullPath = $this->getFullPath($completePath);
-        $filename = $file->getClientOriginalName();
-        
-        // Store using the specific disk
-        $pathResult = $disk->putFileAs($fullPath, $file, $filename);
+        try {
+            // Prepend base path based on request entity
+            $basePath = $this->getBasePath($request);
+            $completePath = $basePath . $path;
+            
+            $fullPath = $this->getFullPath($completePath);
+            $disk = $this->getDisk();
+            $filename = $file->getClientOriginalName();
+            $pathResult = $file->storeAs($fullPath, $filename, 'public');
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+            throw new \Exception('Failed to store the uploaded file.', 500);
+        }
 
         if (!$pathResult) {
             throw new \Exception('Failed to store the uploaded file.', 500);
