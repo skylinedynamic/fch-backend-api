@@ -103,6 +103,10 @@ class FileManagerService
     {
         $disk = $this->getDisk();
         try {
+            if (!$file->isValid()) {
+                throw new \Exception('Uploaded file is not valid: ' . $file->getErrorMessage());
+            }
+
             // Prepend base path based on request entity
             $basePath = $this->getBasePath($request);
             
@@ -111,19 +115,27 @@ class FileManagerService
             $completePath = rtrim($basePath, '/') . $path;
             
             $fullPath = $this->getFullPath($completePath);
-            $filename = str_replace(['/', '\\'], '_', $file->getClientOriginalName());
+            
+            // Clean filename and append timestamp
+            $originalName = $file->getClientOriginalName();
+            $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+            $basename = pathinfo($originalName, PATHINFO_FILENAME);
+            
+            // Sanitize: allow only alphanumeric, dashes, and underscores
+            $safeName = preg_replace('/[^A-Za-z0-9\-\_]/', '_', $basename);
+            $filename = time() . '_' . $safeName . '.' . $extension;
             
             // Ensure directory exists - defensive check
             if ($fullPath !== '' && !$disk->exists($fullPath)) {
                 $disk->makeDirectory($fullPath);
             }
 
-            // Store using putFileAs which often provides better feedback or compatibility
+            // Store using putFileAs
             $pathResult = $disk->putFileAs($fullPath, $file, $filename);
             
             if (!$pathResult) {
-                Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}");
-                throw new \Exception('Failed to store the uploaded file.', 500);
+                Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}. Check permissions and disk space.");
+                throw new \Exception('Failed to store the uploaded file on the server.', 500);
             }
 
             return [
@@ -140,8 +152,8 @@ class FileManagerService
                 'stack' => $e->getTraceAsString(),
                 'path' => $path,
                 'entity_type' => $request->entity_type,
-                'entity_id' => $request->entity_id,
-                'get_all' => $request->get_all
+                'get_all' => $request->get_all,
+                'file_name' => $file->getClientOriginalName()
             ]);
             throw new \Exception('Failed to store the uploaded file: ' . $e->getMessage(), 500);
         }
