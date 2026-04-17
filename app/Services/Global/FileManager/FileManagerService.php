@@ -14,17 +14,9 @@ class FileManagerService
 
     private function getFullPath($path)
     {
-        if (empty($path)) {
-            return '';
-        }
-
-        $path = str_replace('\\', '/', (string) $path);
-        $segments = explode('/', $path);
-        $normalized = array_filter($segments, function ($segment) {
-            return $segment !== '' && $segment !== '.' && $segment !== '..';
-        });
-
-        return implode('/', $normalized);
+        // Sanitize path to prevent directory traversal
+        $path = str_replace('..', '', $path);
+        return trim(ltrim($path, '/'), '/');
     }
 
     private function getEncodedUrl($disk, $path)
@@ -39,10 +31,9 @@ class FileManagerService
     private function getBasePath($request)
     {
         // Construct base path directly from request
-        // For credit-accounts, we use a shared folder instead of per-ID subfolders
-        if ($request->entity_type === 'credit-accounts') {
-            $basePath = "credit-accounts";
-        } else {
+        if($request->get_all){
+            $basePath = $request->entity_type;
+        }else{
             $basePath = $request->entity_type . "/" . $request->entity_id;
         }
         
@@ -109,70 +100,24 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file, $request)
     {
+        // Prepend base path based on request entity
+        $basePath = $this->getBasePath($request);
+        $completePath = $basePath . $path;
+        
+        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
-        // 1. Safe base path
-        $basePath = trim($this->getBasePath($request), '/');
-
-        // 2. Clean input path
-        $path = trim((string) $path, '/');
-
-        // 3. Build safe directory path
-        $fullPath = $this->getFullPath($basePath . ($path ? '/' . $path : ''));
-
-        // 4. Prevent invalid root or dot paths
-        if (empty($fullPath) || $fullPath === '.' || $fullPath === '/') {
-            $fullPath = $basePath;
-        }
-
-        // 5. Ensure directory exists
-        if (!$disk->exists($fullPath)) {
-            $disk->makeDirectory($fullPath);
-        }
-
-        // 6. Safe filename (CRITICAL FIX)
-        $filename = str_replace(['/', '\\', '..'], '', $file->getClientOriginalName());
-
-        // 7. Store file
-        $storedPath = $file->storeAs($fullPath, $filename, 'public');
-
-        if (!$storedPath) {
-            throw new \Exception('Failed to store the uploaded file.', 500);
-        }
-
-        // 8. DO NOT re-normalize stored path blindly
-        $storedPath = trim($storedPath, '/');
-
-        // 9. Final safety check
-        if (!$storedPath || !$disk->exists($storedPath)) {
-            throw new \Exception('Uploaded file not found after storage.', 500);
-        }
-
-        // 10. Safe metadata (NO CRASH GUARANTEE)
-        $size = 0;
-        $type = 'application/octet-stream';
-        $updatedAt = now()->toISOString();
-
-        try {
-            $size = $disk->size($storedPath);
-        } catch (\Exception $e) {}
-
-        try {
-            $type = $disk->mimeType($storedPath);
-        } catch (\Exception $e) {}
-
-        try {
-            $updatedAt = date('c', $disk->lastModified($storedPath));
-        } catch (\Exception $e) {}
+        $filename = $file->getClientOriginalName();
+        $pathResult = $file->storeAs($fullPath, $filename, 'public');
 
         return [
             'name' => $filename,
             'isDirectory' => false,
-            'path' => ($path ? '/' . $path : '') . '/' . $filename,
-            'url' => $this->getEncodedUrl($disk, $storedPath),
-            'updatedAt' => $updatedAt,
-            'size' => $size,
-            'type' => $type,
+            'path' => rtrim($path, '/') . '/' . $filename,
+            'url' => $this->getEncodedUrl($disk, $pathResult),
+            'updatedAt' => date('c', $disk->lastModified($pathResult)),
+            'size' => $disk->size($pathResult),
+            'type' => $disk->mimeType($pathResult),
         ];
     }
 
