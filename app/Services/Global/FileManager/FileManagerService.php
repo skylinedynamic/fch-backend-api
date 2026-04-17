@@ -100,15 +100,23 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file, $request)
     {
+        $disk = $this->getDisk();
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
-        $completePath = $basePath . $path;
+        
+        // Normalize slashes between base and user path
+        $path = '/' . ltrim($path, '/');
+        $completePath = rtrim($basePath, '/') . $path;
         
         $fullPath = $this->getFullPath($completePath);
-        $disk = $this->getDisk();
-
         $filename = $file->getClientOriginalName();
-        $pathResult = $file->storeAs($fullPath, $filename, 'public');
+        
+        // Store using the specific disk
+        $pathResult = $disk->putFileAs($fullPath, $file, $filename);
+
+        if (!$pathResult) {
+            throw new \Exception('Failed to store the uploaded file.', 500);
+        }
 
         return [
             'name' => $filename,
