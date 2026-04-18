@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Resource;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Resource\Resource;
+use Illuminate\Validation\Rule;
 
 class StoreResourceRequest extends BaseApiRequest
 {
@@ -22,8 +23,16 @@ class StoreResourceRequest extends BaseApiRequest
             'subtitle' => 'nullable|string|max:255',
             'status' => 'required|boolean',
             'icon' => 'nullable|string|max:255',
-            'file' => 'required_if:resource_type,legal_registration,download_assets,education_help|string|regex:/\.pdf$/i',
-            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url|max:255',
+            'file' => Rule::when(
+                in_array($this->resource_type, ['legal_registration', 'download_assets', 'education_help']),
+                ['required', 'string', 'regex:/\.pdf$/i'],
+                ['nullable']
+            ),
+            'link' => Rule::when(
+                in_array($this->resource_type, ['business_services', 'training_academy']),
+                ['required', 'url', 'max:255'],
+                ['nullable']
+            ),
         ];
     }
 

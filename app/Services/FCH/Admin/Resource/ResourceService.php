@@ -31,11 +31,44 @@ class ResourceService
 
     public function create(array $data)
     {
-        if (isset($data['file']) && $data['file'] instanceof UploadedFile) {
-            $data['file'] = $this->uploadFile($data['file']);
+        $file = $data['file'] ?? null;
+        unset($data['file']); // Remove file temporarily to save record first
+
+        $resource = Resource::create($data);
+
+        if ($file && $file instanceof UploadedFile) {
+            $path = $this->uploadFile($file, $resource->id);
+            $resource->update(['file' => $path]);
+        } elseif ($file && is_string($file)) {
+            $path = ltrim($file, '/');
+            $tempPrefix = "resources/0/";
+            
+            // If selected from the temporary '0' folder, move to permanent ID folder
+            if (str_starts_with($path, $tempPrefix)) {
+                $filename = basename($path);
+                $newPath = "resources/{$resource->id}/{$filename}";
+                
+                if (Storage::disk('public')->exists($path)) {
+                    // Create directory if not exists
+                    Storage::disk('public')->makeDirectory("resources/{$resource->id}");
+                    Storage::disk('public')->move($path, $newPath);
+                    $resource->update(['file' => $newPath]);
+                } else {
+                    $resource->update(['file' => $newPath]);
+                }
+            } else {
+                // Ensure it has the correct prefix if it was selected relative to the entity root in File Manager
+                $filename = basename($path);
+                $accuratePath = "resources/{$resource->id}/{$filename}";
+                if (Storage::disk('public')->exists($accuratePath)) {
+                    $resource->update(['file' => $accuratePath]);
+                } else {
+                    $resource->update(['file' => $path]);
+                }
+            }
         }
 
-        return Resource::create($data);
+        return $resource;
     }
 
     public function update(int $id, array $data)
@@ -46,7 +79,7 @@ class ResourceService
             if ($resource->file) {
                 $this->deleteFile($resource->file);
             }
-            $data['file'] = $this->uploadFile($data['file']);
+            $data['file'] = $this->uploadFile($data['file'], $resource->id);
         }
 
         $resource->update($data);
@@ -57,17 +90,14 @@ class ResourceService
     {
         $resource = Resource::findOrFail($id);
         
-        // Use soft deletes, so we usually don't delete the physical file right away
-        // if ($resource->file) {
-        //     $this->deleteFile($resource->file);
-        // }
-
+        // Soft deleting record
         return $resource->delete();
     }
 
-    private function uploadFile(UploadedFile $file): string
+    private function uploadFile(UploadedFile $file, $resourceId): string
     {
-        return $file->store('resources', 'public');
+        // Store in ID-specific folder
+        return $file->store("resources/{$resourceId}", 'public');
     }
 
     private function deleteFile(string $path): void

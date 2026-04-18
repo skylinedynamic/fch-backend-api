@@ -45,9 +45,30 @@ class Resource extends Model
 
     public function getFileUrlAttribute()
     {
-        if ($this->file && Storage::disk('public')->exists($this->file)) {
-            return asset('storage/' . $this->file);
+        $path = ltrim($this->file ?? '', '/');
+        if ($path && Storage::disk('public')->exists($path)) {
+            return asset('storage/' . $path);
         }
         return null;
+    }
+
+    /**
+     * Download the associated file
+     */
+    public function download()
+    {
+        $path = ltrim($this->file ?? '', '/');
+        if (!$path) {
+            return null;
+        }
+
+        if (!Storage::disk('public')->exists($path)) {
+            return false;
+        }
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $fileName = $this->title . ($extension ? '.' . $extension : '');
+
+        return Storage::disk('public')->download($path, $fileName);
     }
 }
