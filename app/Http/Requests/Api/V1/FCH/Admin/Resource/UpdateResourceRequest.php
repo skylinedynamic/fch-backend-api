@@ -23,7 +23,7 @@ class UpdateResourceRequest extends BaseApiRequest
             'status' => 'sometimes|required|boolean',
             'icon' => 'nullable|string|max:255',
             'file' => 'nullable|string|regex:/\.pdf$/i',
-            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url',
+            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url|max:255',
         ];
     }
 

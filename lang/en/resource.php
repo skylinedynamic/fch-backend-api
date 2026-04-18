@@ -23,9 +23,9 @@ return [
         'resource_type_required' => 'The Resource Type is required.',
         'resource_type_invalid' => 'The selected Resource Type is invalid.',
         'title_required' => 'The Resource Title is required.',
-        'file_required' => 'The Upload File Asset is required for this resource type.',
-        'file_pdf' => 'The Upload File Asset must be a PDF file.',
-        'link_required' => 'The Resource Link is required for this resource type.',
+        'file_required' => 'The Upload File is required.',
+        'file_pdf' => 'The Upload File must be a PDF file.',
+        'link_required' => 'The Resource Link is required.',
         'link_invalid' => 'The Resource Link must be a valid URL.',
     ],
 ];

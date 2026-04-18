@@ -23,7 +23,7 @@ class StoreResourceRequest extends BaseApiRequest
             'status' => 'required|boolean',
             'icon' => 'nullable|string|max:255',
             'file' => 'required_if:resource_type,legal_registration,download_assets,education_help|string|regex:/\.pdf$/i',
-            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url',
+            'link' => 'required_if:resource_type,business_services,training_academy|nullable|url|max:255',
         ];
     }
 
