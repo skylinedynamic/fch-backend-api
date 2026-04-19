@@ -25,6 +25,9 @@ class CreditAccountResource extends JsonResource
             'full_image_url' => $this->full_image_url,
             'reference_url' => $this->reference_url,
             'status' => $this->status ?? 'Active',
+            'personal_guarantee' => $this->personal_guarantee,
+            'business_credit_profile' => $this->business_credit_profile,
+            'final_approval' => $this->final_approval,
             'created_at' => $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
             'updated_at' => $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s') : null,
         ];

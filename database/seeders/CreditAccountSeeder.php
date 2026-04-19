@@ -992,7 +992,12 @@ class CreditAccountSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
-            CreditAccount::create(array_merge($account, ['status' => 'Active']));
+            CreditAccount::create(array_merge($account, [
+                'status' => 'Active',
+                'personal_guarantee' => $account['pg_required'] ?? 'Yes',
+                'business_credit_profile' => $account['business_credit_required'] ?? 'No',
+                'final_approval' => (isset($account['engine_eligibility_band']) && str_contains($account['engine_eligibility_band'], 'MANUAL')) ? 'Manual' : 'Automatic'
+            ]));
         }
     }
 }

@@ -30,6 +30,9 @@ class UpdateCreditAccountRequest extends BaseApiRequest
             'image_url' => ['required', $this->hasFile('image_url') ? 'image|mimes:jpg,jpeg,png,webp,avif|max:2048' : 'string'],
             'reference_url' => 'nullable|url|max:500',
             'status' => 'nullable|string',
+            'personal_guarantee' => 'nullable|string',
+            'business_credit_profile' => 'nullable|string',
+            'final_approval' => 'nullable|string',
         ];
     }
 
