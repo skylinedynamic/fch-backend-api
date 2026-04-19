@@ -17,7 +17,7 @@ class RenameItemRequest extends BaseApiRequest
             'path' => ['required', 'string'],
             'newName' => ['required', 'string'],
             'entity_type' => ['required', 'string'],
-            'entity_id' => ['required', 'integer'],
+            'entity_id' => ['required_unless:entity_type,credit-accounts', 'nullable', 'integer'],
         ];
     }
 

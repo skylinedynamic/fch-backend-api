@@ -205,4 +205,13 @@ return [
             ['name' => 'delete settings', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
+
+    'credit accounts' => [
+        'permissions' => [
+            ['name' => 'view credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete credit accounts', 'is_certified' => 0, 'is_host' => 1],
+        ],
+    ],
 ];

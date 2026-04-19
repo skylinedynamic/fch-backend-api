@@ -13,12 +13,19 @@ class UploadFileRequest extends BaseApiRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             'file' => ['required', 'file'],
             'path' => ['required', 'string'],
             'entity_type' => ['required', 'string'],
-            'entity_id' => ['required', 'integer'],
         ];
+
+        if ($this->input('entity_type') === 'credit-accounts') {
+            $rules['entity_id'] = ['nullable'];
+        } else {
+            $rules['entity_id'] = ['required', 'integer'];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
