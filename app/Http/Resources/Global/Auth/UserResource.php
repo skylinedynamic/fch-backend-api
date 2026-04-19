@@ -77,7 +77,7 @@ class UserResource extends JsonResource
             'end_date'          => $this->end_date ? $this->end_date->format('Y-m-d') : null,
             'phase' => $subscription?->phases?->phase,
             'status' => $this->status,
-            'image' => $this->partner ? $this->partner->partner_image : $this->image,
+            'image' => $this->getEntityImage(),
             'role_id' => $roleId,
             'role_name' => $roleName,
             'is_agreement_signed' => $this->entity?->has_sign ?? false,

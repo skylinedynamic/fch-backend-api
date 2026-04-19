@@ -522,6 +522,7 @@ class PartnerService
                 Log::info('🔑 Password reset for Partner user due to email change', ['user_id' => $existingUser->id]);
             }
 
+            $userData['is_refresh'] = true;
             $existingUser->update($userData);
 
             return ['user' => $existingUser, 'plain_password' => $plainPassword, 'is_new' => false];
