@@ -1,0 +1,56 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-dev --optimize-autoloader
+
+      - name: Deploy to EC2
+        uses: easingthemes/ssh-deploy@main
+        env:
+          # Note: Using PROD_ prefixed secrets
+          SSH_PRIVATE_KEY: ${{ secrets.PROD_EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.PROD_EC2_HOST }}
+          REMOTE_USER: ${{ secrets.PROD_EC2_USER }}
+          SOURCE: "./"
+          TARGET: "/var/www/fch-api"
+          # Exclude files that shouldn't be transferred to the server
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env"
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=no" 
+          SCRIPT_BEFORE: |
+            echo "Creating target directory if it doesn't exist..."
+            sudo mkdir -p /var/www/fch-api
+            echo "Temporarily giving SSH user permission to write to directory..."
+            sudo chown -R $(whoami):$(whoami) /var/www/fch-api
+          SCRIPT_AFTER: |
+            cd /var/www/fch-api
+            
+            echo "Running Production Artisan Commands..."
+            # --force is strictly required in CI strings
+            php artisan optimize:clear
+            php artisan migrate --force
+            
+            echo "Setting correct directory permissions for Nginx and logging..."
+            sudo chown -R www-data:www-data /var/www/fch-api
+            sudo chmod -R 775 /var/www/fch-api/storage /var/www/fch-api/bootstrap/cache || true
+            
+            echo "Restarting Nginx and PHP (if applicable)..."
+            sudo systemctl restart nginx
+            sudo systemctl restart php-fpm || echo "PHP-FPM restart not needed or failed."
