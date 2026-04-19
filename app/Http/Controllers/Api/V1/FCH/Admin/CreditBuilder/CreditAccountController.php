@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\StoreCreditAccountRequest;
-use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\UpdateCreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\StoreCreditAccountRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\CreditBuilder\CreditAccount\UpdateCreditAccountRequest;
 use App\Http\Resources\FCH\CreditBuilder\CreditAccountResource;
 use App\Services\FCH\Admin\CreditBuilder\CreditAccountService;
 use Illuminate\Http\Request;
@@ -43,7 +43,7 @@ class CreditAccountController extends Controller
 
         // Basic normalization
         $filters['per_page'] = ($filters['per_page'] === 'All' || $filters['per_page'] == -1) ? -1 : (int) ($filters['per_page'] ?? 10);
-        
+
         // If 'first' was provided (offset), convert to page
         if (isset($input['first']) && isset($input['rows'])) {
             $filters['page'] = (int) ($input['first'] / $input['rows']) + 1;
@@ -60,7 +60,7 @@ class CreditAccountController extends Controller
     public function store(StoreCreditAccountRequest $request): JsonResponse
     {
         $account = $this->service->create($request->validated());
-        
+
         return ApiResponse::success(
             new CreditAccountResource($account),
             __('credit_account.credit_account_created'),
@@ -74,7 +74,7 @@ class CreditAccountController extends Controller
     public function show($id): JsonResponse
     {
         $account = $this->service->show($id);
-        
+
         return ApiResponse::success(
             new CreditAccountResource($account),
             __('credit_account.credit_account_list_fetched')
@@ -87,7 +87,7 @@ class CreditAccountController extends Controller
     public function update(UpdateCreditAccountRequest $request, $id): JsonResponse
     {
         $account = $this->service->update($id, $request->validated());
-        
+
         return ApiResponse::success(
             new CreditAccountResource($account),
             __('credit_account.credit_account_updated')
@@ -101,7 +101,7 @@ class CreditAccountController extends Controller
     {
         $request->validate(['status' => 'required|string']);
         $account = $this->service->updateStatus($id, $request->status);
-        
+
         return ApiResponse::success(
             new CreditAccountResource($account),
             __('credit_account.credit_account_updated')
@@ -114,7 +114,7 @@ class CreditAccountController extends Controller
     public function destroy($id): JsonResponse
     {
         $this->service->delete($id);
-        
+
         return ApiResponse::success(
             null,
             __('credit_account.credit_account_deleted')

@@ -21,13 +21,13 @@ class CreditAccountService
         // Fixed eligibility conditions for the borrower
         $borrower = auth()->user()->borrower;
         if ($borrower) {
-            $score = (int)($borrower->business_credit_score ?? 0);
+            $score = (int) ($borrower->fico_score ?? 0);
             $months = $borrower->business_start_date
-                ?\Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
+                ? \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
                 : 0;
 
             $query->where('typical_personal_fico_min', '<=', $score)
-                ->where('time_in_business_min_months', '<=', (int)$months);
+                ->where('time_in_business_min_months', '<=', (int) $months);
         }
 
 
@@ -43,12 +43,13 @@ class CreditAccountService
 
         $query->when(!empty($filters['q']), function ($q) use ($filters) {
             $searchTerm = '%' . $filters['q'] . '%';
-            $q->where(function ($sub) use ($searchTerm) {
+            $q->where(
+                function ($sub) use ($searchTerm) {
                     $sub->where('issuer', 'like', $searchTerm)
                         ->orWhere('card_name', 'like', $searchTerm);
                 }
-                );
-            });
+            );
+        });
 
         $accounts = $query->orderBy('difficulty_rank')->paginate(16);
 
@@ -94,13 +95,13 @@ class CreditAccountService
         $finalStatus = (in_array($status, $allowedStatuses)) ? $status : $allowedStatuses[0];
 
         $application = \App\Models\CreditBuilder\CreditAccountApplication::updateOrCreate(
-        [
-            'borrower_id' => $borrowerId,
-            'credit_account_id' => $id,
-        ],
-        [
-            'status' => $finalStatus,
-        ]
+            [
+                'borrower_id' => $borrowerId,
+                'credit_account_id' => $id,
+            ],
+            [
+                'status' => $finalStatus,
+            ]
         );
 
         $messageKey = 'credit_builder.status_updated_' . strtolower($finalStatus);

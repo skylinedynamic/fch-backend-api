@@ -32,6 +32,9 @@ class CreditAccountResource extends JsonResource
             "sequencing_priority" => $this->sequencing_priority,
             "image_url" => $this->image_url ? asset("storage/" . $this->image_url) : asset("storage/credit-accounts/default.png"),
             "reference_url" => $this->reference_url,
+            "personal_guarantee" => $this->personal_guarantee,
+            "business_credit_profile" => $this->business_credit_profile,
+            "final_approval" => $this->final_approval,
             "status" => $this->applications()
                 ->where("borrower_id", auth()->user()?->entity_id)
                 ->first()?->status,

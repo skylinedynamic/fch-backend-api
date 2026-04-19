@@ -17,6 +17,7 @@ return [
     'fico_min_gt' => 'FICO minimum must be greater than 0.',
     'biz_min_months_integer' => 'Minimum months must be a whole number.',
     'biz_min_months_gt' => 'Minimum months must be greater than 0.',
+    'reference_url_required' => 'Reference URL is required.',
     'reference_url_invalid' => 'Reference URL must be a valid URL (e.g., https://example.com).',
     'image_max' => 'Image size must be less than 2MB.',
     'personal_guarantee_max' => 'Personal Guarantee must not exceed 255 characters.',
