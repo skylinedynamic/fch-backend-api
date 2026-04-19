@@ -48,12 +48,16 @@ jobs:
             cd /var/www/fch-api
 
             echo "Running Artisan Commands..."
-            # Clear cached config first so Laravel reads server's real .env (not runner's cached SQLite config)
-            sudo php artisan config:clear
-            sudo php artisan route:clear
-            sudo php artisan view:clear
-            sudo php artisan migrate --force
-            sudo php artisan optimize:clear
+            # Debug: confirm which DB connection the server's .env has
+            echo "--- Server .env DB config ---"
+            grep -E '^DB_CONNECTION|^DB_HOST|^DB_DATABASE' /var/www/fch-api/.env || echo "WARNING: .env DB vars not found!"
+            echo "-----------------------------"
+            # Clear cached config first so Laravel reads server's real .env
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear || true
+            php artisan migrate --force
+            php artisan optimize:clear || true
 
             echo "Setting correct directory permissions for Nginx..."
             sudo chown -R www-data:www-data /var/www/fch-api
