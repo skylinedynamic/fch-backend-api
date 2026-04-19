@@ -43,8 +43,9 @@ jobs:
             
             echo "Running Artisan Commands..."
             # --force is required in CI strings otherwise the deploy hangs waiting for a yes/no input!
-            php artisan optimize:clear
-            php artisan migrate --force
+            sudo php artisan migrate --force
+            sudo php artisan optimize:clear
+            
             
             echo "Setting correct directory permissions for Nginx and logging..."
             sudo chown -R www-data:www-data /var/www/fch-api

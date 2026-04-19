@@ -44,8 +44,8 @@ jobs:
             
             echo "Running Production Artisan Commands..."
             # --force is strictly required in CI strings
-            php artisan optimize:clear
-            php artisan migrate --force
+            sudo php artisan migrate --force
+            sudo php artisan optimize:clear
             
             echo "Setting correct directory permissions for Nginx and logging..."
             sudo chown -R www-data:www-data /var/www/fch-api
