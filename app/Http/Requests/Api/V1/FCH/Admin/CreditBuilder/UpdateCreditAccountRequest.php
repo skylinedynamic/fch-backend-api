@@ -30,9 +30,9 @@ class UpdateCreditAccountRequest extends BaseApiRequest
             'image_url' => ['required', $this->hasFile('image_url') ? 'image|mimes:jpg,jpeg,png,webp,avif|max:2048' : 'string'],
             'reference_url' => 'nullable|url|max:500',
             'status' => 'nullable|string',
-            'personal_guarantee' => 'nullable|string',
-            'business_credit_profile' => 'nullable|string',
-            'final_approval' => 'nullable|string',
+            'personal_guarantee' => 'nullable|string|max:255',
+            'business_credit_profile' => 'nullable|string|max:255',
+            'final_approval' => 'nullable|string|max:255',
         ];
     }
 
@@ -52,6 +52,9 @@ class UpdateCreditAccountRequest extends BaseApiRequest
             'time_in_business_min_months.gt' => __('credit_account.biz_min_months_gt'),
             'reference_url.url' => __('credit_account.reference_url_invalid'),
             'image_url.max' => __('credit_account.image_max'),
+            'personal_guarantee.max' => __('credit_account.personal_guarantee_max'),
+            'business_credit_profile.max' => __('credit_account.business_credit_profile_max'),
+            'final_approval.max' => __('credit_account.final_approval_max'),
         ];
     }
 }

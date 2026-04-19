@@ -19,4 +19,7 @@ return [
     'biz_min_months_gt' => 'Minimum months must be greater than 0.',
     'reference_url_invalid' => 'Reference URL must be a valid URL (e.g., https://example.com).',
     'image_max' => 'Image size must be less than 2MB.',
+    'personal_guarantee_max' => 'Personal Guarantee must not exceed 255 characters.',
+    'business_credit_profile_max' => 'Business Credit Profile must not exceed 255 characters.',
+    'final_approval_max' => 'Final Approval must not exceed 255 characters.',
 ];
