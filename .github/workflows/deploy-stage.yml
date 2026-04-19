@@ -48,6 +48,10 @@ jobs:
             cd /var/www/fch-api
 
             echo "Running Artisan Commands..."
+            # Clear cached config first so Laravel reads server's real .env (not runner's cached SQLite config)
+            sudo php artisan config:clear
+            sudo php artisan route:clear
+            sudo php artisan view:clear
             sudo php artisan migrate --force
             sudo php artisan optimize:clear
 
