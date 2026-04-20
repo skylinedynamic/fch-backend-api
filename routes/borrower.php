@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewCont
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
+use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 
 
 /*
@@ -152,6 +153,12 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/submit', [AgreementSignController::class, 'submitSign']);
             Route::get('/signed-html/{userId?}', [AgreementSignController::class, 'getSignedHtml']);
             Route::get('/download/{userId?}', [AgreementSignController::class, 'downloadAgreement']);
+        });
+
+        // 📚 Resources
+        Route::prefix('resources')->group(function () {
+            Route::get('/', [ResourceController::class, 'index']);
+            Route::get('/{id}/download', [ResourceController::class, 'download']);
         });
     });
 });
