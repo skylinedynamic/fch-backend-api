@@ -199,10 +199,9 @@ return [
 
     'settings' => [
         'permissions' => [
-            ['name' => 'view settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'create settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'update settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'delete settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'Update Payment Settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'Update Partner Agreement Settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'Update Borrower Agreement Settings', 'is_certified' => 0, 'is_host' => 0],
         ],
     ],
 ];
