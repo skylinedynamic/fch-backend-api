@@ -17,7 +17,7 @@ class ResourceResource extends JsonResource
             'file_url' => $this->file_url,
             'link' => $this->link,
             'status' => $this->status,
-            'created_at' => $this->created_at,
+            'created_at' => $this->created_at->format('F j, Y'),
         ];
     }
 }

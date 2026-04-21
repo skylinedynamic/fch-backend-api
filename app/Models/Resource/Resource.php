@@ -47,7 +47,7 @@ class Resource extends Model
     {
         $path = ltrim($this->file ?? '', '/');
         if ($path && Storage::disk('public')->exists($path)) {
-            return asset('storage/' . $path);
+            return asset('storage/' . encodeUrl($path));
         }
         return null;
     }
