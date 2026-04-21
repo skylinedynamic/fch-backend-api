@@ -31,6 +31,7 @@ class LeadResource extends JsonResource
             'domain' => $this->domain,
             'lead_source' => $this->lead_source,
             'lead_source_note' => $this->lead_source_note,
+            'referral_partner_id' => $this->referral_partner_id,
             'employees' => $this->employees,
 
             // Contact Info
