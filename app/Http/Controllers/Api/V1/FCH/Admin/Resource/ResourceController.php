@@ -10,18 +10,22 @@ use App\Http\Requests\Api\V1\FCH\Admin\Resource\UpdateResourceRequest;
 use App\Http\Resources\FCH\Resource\DetailsResource;
 use App\Helpers\ApiResponse;
 
+use App\Services\Global\Resource\ResourceCommonService;
+
 class ResourceController extends Controller
 {
     private $service;
+    private $commonService;
 
-    public function __construct(ResourceService $service)
+    public function __construct(ResourceService $service, ResourceCommonService $commonService)
     {
         $this->service = $service;
+        $this->commonService = $commonService;
     }
 
     public function index()
     {
-        $groupedResources = $this->service->getAllGrouped();
+        $groupedResources = $this->commonService->getGroupedResources(false); // Admin sees all
         
         $response = [];
         foreach ($groupedResources as $type => $group) {
@@ -57,8 +61,7 @@ class ResourceController extends Controller
 
     public function show($id)
     {
-        // Not strictly needed right now if index returns all, but good to have
-        $resource = \App\Models\Resource\Resource::findOrFail($id);
+        $resource = $this->commonService->getById($id);
 
         return ApiResponse::success(
             new DetailsResource($resource),
@@ -88,53 +91,17 @@ class ResourceController extends Controller
 
     public function download(int $id)
     {
-        $resource = \App\Models\Resource\Resource::find($id);
+        $download = $this->commonService->downloadResource($id);
 
-        if (!$resource) {
-            return ApiResponse::notFound('Resource not found');
+        if ($download === null) {
+            return ApiResponse::error(__('No file associated with this resource'));
         }
 
-        if (!$resource->file) {
-            return ApiResponse::notFound('File path not found for this resource');
+        if ($download === false) {
+            return ApiResponse::error(__('File not found on server'));
         }
 
-        // Accurately normalize and resolve the path
-        $rawPath = ltrim(parse_url($resource->file, PHP_URL_PATH) ?? '', '/');
-        $disk = \Illuminate\Support\Facades\Storage::disk('public');
-        
-        $cleanPath = $rawPath;
-        // Accurate logic: if not found at raw path, check the ID-specific folder
-        if (!$disk->exists($cleanPath)) {
-            $idPrefixedPath = "resources/{$resource->id}/" . $cleanPath;
-            if ($disk->exists($idPrefixedPath)) {
-                $cleanPath = $idPrefixedPath;
-            }
-        }
-
-        if (!$disk->exists($cleanPath)) {
-            return ApiResponse::notFound('File not found on server at: ' . $cleanPath);
-        }
-
-        // Resolve absolute path accurately
-        $absolutePath = $disk->path($cleanPath);
-        \Illuminate\Support\Facades\Log::info("Downloading resource: " . $absolutePath);
-
-        if (!file_exists($absolutePath)) {
-            return ApiResponse::notFound('File not found at physical location');
-        }
-
-        $mimeType = mime_content_type($absolutePath);
-        $documentName = $resource->title;
-        $extension = pathinfo($absolutePath, PATHINFO_EXTENSION);
-
-        if ($extension && !str_ends_with(strtolower($documentName), '.' . strtolower($extension))) {
-            $documentName .= '.' . $extension;
-        }
-
-        return response()->download($absolutePath, $documentName, [
-            'Content-Type' => $mimeType,
-            'Content-Disposition' => 'attachment; filename="' . $documentName . '"',
-        ]);
+        return $download;
     }
 
     /**
@@ -145,4 +112,6 @@ class ResourceController extends Controller
         $lastId = \App\Models\Resource\Resource::max('id') ?? 0;
         return response()->json(['next_id' => $lastId + 1]);
     }
+
 }
+

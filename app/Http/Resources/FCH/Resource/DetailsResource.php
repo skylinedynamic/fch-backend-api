@@ -19,8 +19,8 @@ class DetailsResource extends JsonResource
             'file_url' => $this->file_url,
             'link' => $this->link,
             'icon' => $this->icon,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => $this->created_at->format('F j, Y'),
+            'updated_at' => $this->updated_at->format('F j, Y'),
         ];
     }
 }

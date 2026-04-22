@@ -5,16 +5,15 @@ namespace App\Http\Controllers\Api\V1\Borrower\Resource;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Borrower\Resource\ResourceResource;
-use App\Services\Borrower\Resource\ResourceService;
-use Illuminate\Http\Request;
+use App\Services\Global\Resource\ResourceCommonService;
 
 class ResourceController extends Controller
 {
-    protected $resourceService;
+    protected $commonService;
 
-    public function __construct(ResourceService $resourceService)
+    public function __construct(ResourceCommonService $commonService)
     {
-        $this->resourceService = $resourceService;
+        $this->commonService = $commonService;
     }
 
     /**
@@ -22,9 +21,7 @@ class ResourceController extends Controller
      */
     public function index()
     {
-        $resources = $this->resourceService->getResources();
-
-        $groupedResources = $resources->groupBy('resource_type');
+        $groupedResources = $this->commonService->getGroupedResources(true);
 
         $data = [];
         foreach ($groupedResources as $resourceType => $items) {
@@ -42,8 +39,7 @@ class ResourceController extends Controller
      */
     public function download($id)
     {
-        $resource = \App\Models\Resource\Resource::findOrFail($id);
-        $download = $resource->download();
+        $download = $this->commonService->downloadResource($id);
 
         if ($download === null) {
             return ApiResponse::error(__('No file associated with this resource'));
@@ -56,3 +52,4 @@ class ResourceController extends Controller
         return $download;
     }
 }
+

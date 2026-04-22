@@ -8,21 +8,7 @@ use Illuminate\Http\UploadedFile;
 
 class ResourceService
 {
-    public function getAllGrouped()
-    {
-        $resources = Resource::all();
-        $grouped = [];
-        
-        foreach (Resource::getTypes() as $type) {
-            $grouped[$type] = [];
-        }
 
-        foreach ($resources as $resource) {
-            $grouped[$resource->resource_type][] = $resource;
-        }
-
-        return $grouped;
-    }
 
     public function getByType(string $type)
     {

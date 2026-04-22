@@ -43,13 +43,34 @@ class Resource extends Model
 
     protected $appends = ['file_url'];
 
-    public function getFileUrlAttribute()
+    /**
+     * Resolves the actual file path on the disk by checking multiple common locations.
+     */
+    public function resolveFilePath(): ?string
     {
         $path = ltrim($this->file ?? '', '/');
-        if ($path && Storage::disk('public')->exists($path)) {
-            return asset('storage/' . encodeUrl($path));
-        }
+        if (!$path) return null;
+
+        $disk = Storage::disk('public');
+        
+        // 1. Check raw path
+        if ($disk->exists($path)) return $path;
+
+        // 2. Check in 'resources/' folder (standard upload location)
+        $resourcePath = "resources/" . $path;
+        if ($disk->exists($resourcePath)) return $resourcePath;
+
+        // 3. Check ID-prefixed path (alternative structure)
+        $idPrefixedPath = "resources/{$this->id}/" . $path;
+        if ($disk->exists($idPrefixedPath)) return $idPrefixedPath;
+
         return null;
+    }
+
+    public function getFileUrlAttribute()
+    {
+        $resolvedPath = $this->resolveFilePath();
+        return $resolvedPath ? asset('storage/' . encodeUrl($resolvedPath)) : null;
     }
 
     /**
@@ -57,18 +78,26 @@ class Resource extends Model
      */
     public function download()
     {
-        $path = ltrim($this->file ?? '', '/');
-        if (!$path) {
-            return null;
+        $resolvedPath = $this->resolveFilePath();
+        
+        if (!$resolvedPath) return null;
+
+        $disk = Storage::disk('public');
+        $absolutePath = $disk->path($resolvedPath);
+
+        if (!file_exists($absolutePath)) return false;
+
+        $extension = pathinfo($absolutePath, PATHINFO_EXTENSION);
+        $documentName = $this->title;
+
+        if ($extension && !str_ends_with(strtolower($documentName), '.' . strtolower($extension))) {
+            $documentName .= '.' . $extension;
         }
 
-        if (!Storage::disk('public')->exists($path)) {
-            return false;
-        }
-
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
-        $fileName = $this->title . ($extension ? '.' . $extension : '');
-
-        return Storage::disk('public')->download($path, $fileName);
+        return response()->download($absolutePath, $documentName, [
+            'Content-Type' => mime_content_type($absolutePath),
+            'Content-Disposition' => 'attachment; filename="' . $documentName . '"',
+        ]);
     }
 }
+
