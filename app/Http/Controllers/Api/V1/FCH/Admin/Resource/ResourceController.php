@@ -26,7 +26,7 @@ class ResourceController extends Controller
     public function index()
     {
         $groupedResources = $this->commonService->getGroupedResources(false); // Admin sees all
-        
+
         $response = [];
         foreach ($groupedResources as $type => $group) {
             $response[$type] = DetailsResource::collection($group);
