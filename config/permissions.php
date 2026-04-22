@@ -136,10 +136,10 @@ return [
 
     'resources' => [
         'permissions' => [
-            ['name' => 'view resources', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create resources', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update resources', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete resources', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view resources', 'is_certified' => 1, 'is_host' => 1],
+            ['name' => 'create resources', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update resources', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete resources', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 

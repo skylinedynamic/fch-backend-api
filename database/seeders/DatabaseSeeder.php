@@ -22,9 +22,8 @@ class DatabaseSeeder extends Seeder
             if (!File::exists($privateKey) || !File::exists($publicKey)) {
                 Artisan::call('passport:keys', ['--force' => true]);
             }
-        }
-        catch (\Throwable $e) {
-        // Ignore key generation failures during seeding
+        } catch (\Throwable $e) {
+            // Ignore key generation failures during seeding
         }
 
         // 2) Clients: create only if missing (Passport v12 schema)
@@ -57,37 +56,37 @@ class DatabaseSeeder extends Seeder
                     '--name' => 'Default Password Grant Client',
                 ]);
             }
-        }
-        catch (\Throwable $e) {
-        // If oauth tables aren't migrated yet, silently continue; migrate:fresh will run migrations first
+        } catch (\Throwable $e) {
+            // If oauth tables aren't migrated yet, silently continue; migrate:fresh will run migrations first
         }
 
         // Call seeders in an order that respects new FK relationships
         $this->call([
-            CreditBuilderVendorSeeder::class ,
-            TaskRelatedApiSeeder::class ,
-            TierSeeder::class , // Create tiers and tier tasks
-            PartnerSeeder::class , // Create partners (first is host)
-            BorrowerSeeder::class , // Create borrowers under partners
-            UserSeeder::class , // Create users mapped to partner/borrower/employee entities
-            BorrowerDocTypesSeeder::class , // Seed borrower document types
-            PermissionSeeder::class , // Role and Permissions seeder
-            RoleSeeder::class , // Create roles under partners
-            UserRoleSeeder::class , // Assign roles to users and sync permissions
-            EmployeeSeeder::class , // Create employees under partners
-            DepartmentSeeder::class , // Create departments under partners
-            AppointmentSeeder::class , // Create appointments for partners
-            // InvoiceSeeder::class,            // Create invoices for partners
-            SupportTicketSeeder::class , // Create support tickets for partners
-            BorrowerTaskVerificationRequestSeeder::class ,
-            BorrowerTaskVerificationRequestSeeder::class ,
-            ContactSeeder::class ,
-            LeadSeeder::class ,
-            SettingsSeeder::class ,
-            SignupIdSeeder::class ,
-            SubscriptionPlanSeeder::class ,
-            DemoSubscriberSeeder::class ,
-            CreditAccountSeeder::class ,
+            CreditBuilderVendorSeeder::class,
+            TaskRelatedApiSeeder::class,
+            TierSeeder::class, // Create tiers and tier tasks
+            PartnerSeeder::class, // Create partners (first is host)
+            BorrowerSeeder::class, // Create borrowers under partners
+            UserSeeder::class, // Create users mapped to partner/borrower/employee entities
+            BorrowerDocTypesSeeder::class, // Seed borrower document types
+            PermissionSeeder::class, // Role and Permissions seeder
+            RoleSeeder::class, // Create roles under partners
+            UserRoleSeeder::class, // Assign roles to users and sync permissions
+            EmployeeSeeder::class, // Create employees under partners
+            DepartmentSeeder::class, // Create departments under partners
+            AppointmentSeeder::class, // Create appointments for partners
+                // InvoiceSeeder::class,            // Create invoices for partners
+            SupportTicketSeeder::class, // Create support tickets for partners
+            BorrowerTaskVerificationRequestSeeder::class,
+            BorrowerTaskVerificationRequestSeeder::class,
+            ContactSeeder::class,
+            LeadSeeder::class,
+            SettingsSeeder::class,
+            SignupIdSeeder::class,
+            SubscriptionPlanSeeder::class,
+            DemoSubscriberSeeder::class,
+            CreditAccountSeeder::class,
+            ResourceSeeder::class,
         ]);
     }
 }

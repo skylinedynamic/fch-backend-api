@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest\ChangeRequestController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Resource\ResourceController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -98,5 +99,17 @@ Route::prefix('v1/admin')
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
             Route::patch('/{id}', [ChangeRequestController::class, 'updateStatus']);
+        });
+
+        // 📚 Resources
+        Route::prefix('resources')->group(function () {
+            Route::get('/next-id', [ResourceController::class, 'getNextId']);
+            Route::get('/', [ResourceController::class, 'index']);
+            Route::get('/type/{resource_type}', [ResourceController::class, 'getByType']);
+            Route::post('/', [ResourceController::class, 'store']);
+            Route::get('/download/{id}', [ResourceController::class, 'download']);
+            Route::get('/{id}', [ResourceController::class, 'show']);
+            Route::match(['post', 'put'], '/{id}', [ResourceController::class, 'update']);
+            Route::delete('/{id}', [ResourceController::class, 'destroy']);
         });
     });
