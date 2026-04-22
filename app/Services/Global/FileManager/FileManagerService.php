@@ -4,6 +4,7 @@ namespace App\Services\Global\FileManager;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 
 class FileManagerService
 {
@@ -31,7 +32,11 @@ class FileManagerService
     private function getBasePath($request)
     {
         // Construct base path directly from request
-        $basePath = $request->entity_type . "/" . $request->entity_id;
+        if($request->get_all){
+            $basePath = $request->entity_type;
+        }else{
+            $basePath = $request->entity_type . "/" . $request->entity_id;
+        }
         
         // Ensure the base path exists
         $disk = $this->getDisk();
@@ -96,25 +101,62 @@ class FileManagerService
 
     public function uploadFile($path, UploadedFile $file, $request)
     {
-        // Prepend base path based on request entity
-        $basePath = $this->getBasePath($request);
-        $completePath = $basePath . $path;
-        
-        $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
+        try {
+            if (!$file->isValid()) {
+                throw new \Exception('Uploaded file is not valid: ' . $file->getErrorMessage());
+            }
 
-        $filename = $file->getClientOriginalName();
-        $pathResult = $file->storeAs($fullPath, $filename, 'public');
+            // Prepend base path based on request entity
+            $basePath = $this->getBasePath($request);
+            
+            // Normalize slashes between base and user path
+            $path = '/' . ltrim($path, '/');
+            $completePath = rtrim($basePath, '/') . $path;
+            
+            $fullPath = $this->getFullPath($completePath);
+            
+            // Clean filename and append timestamp
+            $originalName = $file->getClientOriginalName();
+            $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+            $basename = pathinfo($originalName, PATHINFO_FILENAME);
+            
+            // Sanitize: allow only alphanumeric, dashes, and underscores
+            $safeName = preg_replace('/[^A-Za-z0-9\-\_]/', '_', $basename);
+            $filename = time() . '_' . $safeName . '.' . $extension;
+            
+            // Ensure directory exists - defensive check
+            if ($fullPath !== '' && !$disk->exists($fullPath)) {
+                $disk->makeDirectory($fullPath);
+            }
 
-        return [
-            'name' => $filename,
-            'isDirectory' => false,
-            'path' => rtrim($path, '/') . '/' . $filename,
-            'url' => $this->getEncodedUrl($disk, $pathResult),
-            'updatedAt' => date('c', $disk->lastModified($pathResult)),
-            'size' => $disk->size($pathResult),
-            'type' => $disk->mimeType($pathResult),
-        ];
+            // Store using putFileAs
+            $pathResult = $disk->putFileAs($fullPath, $file, $filename);
+            
+            if (!$pathResult) {
+                Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}. Check permissions and disk space.");
+                throw new \Exception('Failed to store the uploaded file on the server.', 500);
+            }
+
+            return [
+                'name' => $filename,
+                'isDirectory' => false,
+                'path' => rtrim($path, '/') . '/' . $filename,
+                'url' => $this->getEncodedUrl($disk, $pathResult),
+                'updatedAt' => date('c', $disk->lastModified($pathResult)),
+                'size' => $disk->size($pathResult),
+                'type' => $disk->mimeType($pathResult),
+            ];
+        } catch (\Exception $e) {
+            Log::error("FileManager Upload Error: " . $e->getMessage(), [
+                'stack' => $e->getTraceAsString(),
+                'path' => $path,
+                'entity_type' => $request->entity_type,
+                'get_all' => $request->get_all,
+                'file_name' => $file->getClientOriginalName()
+            ]);
+            throw new \Exception('Failed to store the uploaded file: ' . $e->getMessage(), 500);
+        }
     }
 
     public function createFolder($path, $name, $request)
