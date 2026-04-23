@@ -10,19 +10,16 @@ class ResourceCommonService
     /**
      * Get resources grouped by type.
      * 
-     * @param bool $onlyActive If true, only returns resources with status=1
      * @return array
      */
-    public function getGroupedResources(bool $onlyActive = true): array
+    public function getGroupedResources(): array
     {
         $query = Resource::query();
-        
-        if ($onlyActive) {
-            $query->where('status', true);
-        }
+
+        $query->where('status', true)->where('is_borrower', true);
 
         $resources = $query->oldest('id')->get();
-        
+
         $types = Resource::getTypes();
         $grouped = array_fill_keys($types, []);
 
@@ -44,7 +41,7 @@ class ResourceCommonService
         $resource = Resource::findOrFail($id);
         return $resource->download();
     }
-    
+
     /**
      * Get a resource by ID.
      */

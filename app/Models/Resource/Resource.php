@@ -35,10 +35,14 @@ class Resource extends Model
         'file',
         'link',
         'icon',
+        'is_partner',
+        'is_borrower',
     ];
 
     protected $casts = [
         'status' => 'boolean',
+        'is_partner' => 'boolean',
+        'is_borrower' => 'boolean',
     ];
 
     protected $appends = ['file_url'];
