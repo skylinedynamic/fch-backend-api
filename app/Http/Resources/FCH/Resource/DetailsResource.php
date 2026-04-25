@@ -21,6 +21,9 @@ class DetailsResource extends JsonResource
             'icon' => $this->icon,
             'is_partner' => $this->is_partner,
             'is_borrower' => $this->is_borrower,
+            'overview' => $this->overview,
+            'impact' => $this->impact,
+            'providers' => $this->providers,
             'created_at' => $this->created_at->format('F j, Y'),
             'updated_at' => $this->updated_at->format('F j, Y'),
         ];
