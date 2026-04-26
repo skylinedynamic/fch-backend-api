@@ -75,7 +75,7 @@ class FundingApplicationResource extends JsonResource
             'status_note' => $this->status_note,
             'status_class' => $this->status_class,
             'attestation_authorization' => $this->attestation_authorization,
-            'co_borrowers' => \App\Http\Resources\Borrower\FundApplication\CoBorrowerResource::collection($this->whenLoaded('coborrowers')),
+            'co_borrowers' => \App\Http\Resources\Borrower\FundApplication\CoBorrowerResource::collection($this->whenLoaded('coborrowers') ?? collect()),
             'documents' => $this->whenLoaded('fundingDocuments', function () {
                 return $this->fundingDocuments->groupBy(function ($document) {
                     return $document->docType->name ?? 'Other';
