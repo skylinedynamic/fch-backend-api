@@ -67,11 +67,19 @@ jobs:
   
             php artisan optimize:clear || true
 
+            if [ ! -f storage/oauth-private.key ]; then
+                echo "Generating Passport keys..."
+                php artisan passport:keys --force
+            fi
+
             php artisan migrate --force
 
-            echo "Setting correct directory permissions for Nginx..."
+            echo "Setting correct directory permissions..."
             sudo chown -R www-data:www-data /var/www/html/fch-api
             sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
+            
+            echo "Fixing Passport key permissions..."
+            sudo chmod 600 /var/www/html/fch-api/storage/*.key || true
 
             echo "Restarting Nginx..."
             sudo systemctl restart nginx
