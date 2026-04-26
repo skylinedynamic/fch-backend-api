@@ -29,14 +29,14 @@ jobs:
           REMOTE_HOST: ${{ secrets.STAGE_EC2_HOST }}
           REMOTE_USER: ${{ secrets.STAGE_EC2_USER }}
           SOURCE: "./"
-          TARGET: "/var/www/fch-api"
+          TARGET: "/var/www/html/fch-api"
           EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
             echo "Creating target directory if it doesn't exist..."
-            sudo mkdir -p /var/www/fch-api
+            sudo mkdir -p /var/www/html/fch-api
             echo "Temporarily giving SSH user permission to write to directory..."
-            sudo chown -R $(whoami):$(whoami) /var/www/fch-api
+            sudo chown -R $(whoami):$(whoami) /var/www/html/fch-api
 
       - name: Write .env File to Server
         uses: appleboy/ssh-action@v1.0.3
@@ -46,7 +46,7 @@ jobs:
           key: ${{ secrets.STAGE_EC2_SSH_KEY }}
           envs: STAGE_ENV_FILE
           script: |
-            echo "$STAGE_ENV_FILE" > /var/www/fch-api/.env
+            echo "$STAGE_ENV_FILE" > /var/www/html/fch-api/.env
             echo ".env file written successfully."
         env:
           STAGE_ENV_FILE: ${{ secrets.STAGE_ENV_FILE }}
@@ -58,18 +58,16 @@ jobs:
           username: ${{ secrets.STAGE_EC2_USER }}
           key: ${{ secrets.STAGE_EC2_SSH_KEY }}
           script: |
-            cd /var/www/fch-api
+            cd /var/www/html/fch-api
 
             echo "Running Artisan Commands..."
-            php artisan config:clear
-            php artisan route:clear
-            php artisan view:clear || true
+  
             php artisan migrate --force
             php artisan optimize:clear || true
 
             echo "Setting correct directory permissions for Nginx..."
-            sudo chown -R www-data:www-data /var/www/fch-api
-            sudo chmod -R 775 /var/www/fch-api/storage /var/www/fch-api/bootstrap/cache || true
+            sudo chown -R www-data:www-data /var/www/html/fch-api
+            sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
 
             echo "Restarting Nginx..."
             sudo systemctl restart nginx
