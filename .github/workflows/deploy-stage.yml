@@ -30,7 +30,7 @@ jobs:
           REMOTE_USER: ${{ secrets.STAGE_EC2_USER }}
           SOURCE: "./"
           TARGET: "/var/www/html/fch-api"
-          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example"
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
             echo "Creating target directory if it doesn't exist..."
@@ -60,10 +60,14 @@ jobs:
           script: |
             cd /var/www/html/fch-api
 
+            echo "Ensuring storage directories exist..."
+            mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+
             echo "Running Artisan Commands..."
   
-            php artisan migrate --force
             php artisan optimize:clear || true
+
+            php artisan migrate --force
 
             echo "Setting correct directory permissions for Nginx..."
             sudo chown -R www-data:www-data /var/www/html/fch-api
