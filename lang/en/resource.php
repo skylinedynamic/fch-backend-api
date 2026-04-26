@@ -18,6 +18,13 @@ return [
         'link' => 'Resource Link',
         'is_partner' => 'Partner Availability',
         'is_borrower' => 'Borrower Availability',
+        'overview' => 'Overview Points',
+        'impact' => 'Impact Points',
+        'providers' => 'Provider Network',
+        'provider_name' => 'Provider Name',
+        'provider_desc' => 'Provider Description',
+        'provider_btn_label' => 'Provider Button Label',
+        'provider_link' => 'Provider Link',
     ],
 
     // Validation Messages

@@ -12,7 +12,7 @@ class ResourceService
 
     public function getByType(string $type)
     {
-        return Resource::where('resource_type', $type)->get();
+        return Resource::with('providers')->where('resource_type', $type)->get();
     }
 
     public function create(array $data)
@@ -44,11 +44,15 @@ class ResourceService
         $providers = $data['providers'] ?? null;
         unset($data['providers']);
 
-        if (isset($data['file']) && $data['file'] instanceof UploadedFile) {
-            if ($resource->file) {
-                $this->deleteFile($resource->file);
+        if (isset($data['file'])) {
+            if ($data['file'] instanceof UploadedFile) {
+                if ($resource->file) {
+                    $this->deleteFile($resource->file);
+                }
+                $data['file'] = $this->uploadFile($data['file']);
+            } elseif (is_string($data['file'])) {
+                $data['file'] = ltrim($data['file'], '/');
             }
-            $data['file'] = $this->uploadFile($data['file']);
         }
 
         $resource->update($data);
@@ -64,6 +68,9 @@ class ResourceService
     {
         $resource = Resource::findOrFail($id);
         
+        // Remove associated providers
+        $resource->providers()->delete();
+
         // Soft deleting record
         return $resource->delete();
     }
