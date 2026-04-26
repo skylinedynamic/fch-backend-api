@@ -3,6 +3,7 @@
 namespace App\Models\Resource;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
@@ -35,10 +36,18 @@ class Resource extends Model
         'file',
         'link',
         'icon',
+        'is_partner',
+        'is_borrower',
+        'overview',
+        'impact',
     ];
 
     protected $casts = [
         'status' => 'boolean',
+        'is_partner' => 'boolean',
+        'is_borrower' => 'boolean',
+        'overview' => 'json',
+        'impact' => 'json',
     ];
 
     protected $appends = ['file_url'];
@@ -98,6 +107,11 @@ class Resource extends Model
             'Content-Type' => mime_content_type($absolutePath),
             'Content-Disposition' => 'attachment; filename="' . $documentName . '"',
         ]);
+    }
+
+    public function providers(): HasMany
+    {
+        return $this->hasMany(ResourceProvider::class);
     }
 }
 

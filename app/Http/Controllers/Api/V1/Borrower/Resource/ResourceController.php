@@ -21,7 +21,7 @@ class ResourceController extends Controller
      */
     public function index()
     {
-        $groupedResources = $this->commonService->getGroupedResources(true);
+        $groupedResources = $this->commonService->getGroupedResources();
 
         $data = [];
         foreach ($groupedResources as $resourceType => $items) {

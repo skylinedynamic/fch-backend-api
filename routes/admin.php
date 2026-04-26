@@ -104,10 +104,8 @@ Route::prefix('v1/admin')
         // 📚 Resources
         Route::prefix('resources')->group(function () {
             Route::get('/next-id', [ResourceController::class, 'getNextId']);
-            Route::get('/', [ResourceController::class, 'index']);
             Route::get('/type/{resource_type}', [ResourceController::class, 'getByType']);
             Route::post('/', [ResourceController::class, 'store']);
-            Route::get('/download/{id}', [ResourceController::class, 'download']);
             Route::get('/{id}', [ResourceController::class, 'show']);
             Route::match(['post', 'put'], '/{id}', [ResourceController::class, 'update']);
             Route::delete('/{id}', [ResourceController::class, 'destroy']);

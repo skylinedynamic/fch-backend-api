@@ -12,13 +12,14 @@ class ResourceService
 
     public function getByType(string $type)
     {
-        return Resource::where('resource_type', $type)->get();
+        return Resource::with('providers')->where('resource_type', $type)->get();
     }
 
     public function create(array $data)
     {
         $file = $data['file'] ?? null;
-        unset($data['file']); // Remove file temporarily to save record first
+        $providers = $data['providers'] ?? null;
+        unset($data['file'], $data['providers']); 
 
         $resource = Resource::create($data);
 
@@ -26,9 +27,12 @@ class ResourceService
             $path = $this->uploadFile($file);
             $resource->update(['file' => $path]);
         } elseif ($file && is_string($file)) {
-            // If it's a string path from File Manager, just save it directly
             $path = ltrim($file, '/');
             $resource->update(['file' => $path]);
+        }
+
+        if ($providers && is_array($providers)) {
+            $this->syncProviders($resource, $providers);
         }
 
         return $resource;
@@ -37,15 +41,26 @@ class ResourceService
     public function update(int $id, array $data)
     {
         $resource = Resource::findOrFail($id);
+        $providers = $data['providers'] ?? null;
+        unset($data['providers']);
 
-        if (isset($data['file']) && $data['file'] instanceof UploadedFile) {
-            if ($resource->file) {
-                $this->deleteFile($resource->file);
+        if (isset($data['file'])) {
+            if ($data['file'] instanceof UploadedFile) {
+                if ($resource->file) {
+                    $this->deleteFile($resource->file);
+                }
+                $data['file'] = $this->uploadFile($data['file']);
+            } elseif (is_string($data['file'])) {
+                $data['file'] = ltrim($data['file'], '/');
             }
-            $data['file'] = $this->uploadFile($data['file']);
         }
 
         $resource->update($data);
+
+        if ($providers !== null && is_array($providers)) {
+            $this->syncProviders($resource, $providers);
+        }
+
         return $resource;
     }
 
@@ -53,6 +68,9 @@ class ResourceService
     {
         $resource = Resource::findOrFail($id);
         
+        // Remove associated providers
+        $resource->providers()->delete();
+
         // Soft deleting record
         return $resource->delete();
     }
@@ -67,6 +85,23 @@ class ResourceService
     {
         if (Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
+        }
+    }
+
+    private function syncProviders(Resource $resource, array $providers): void
+    {
+        // For simplicity, we delete and re-create providers on sync
+        // Alternatively, we could do a more complex diff-based update
+        $resource->providers()->delete();
+
+        foreach ($providers as $providerData) {
+            $resource->providers()->create([
+                'name' => $providerData['name'] ?? '',
+                'desc' => $providerData['desc'] ?? '',
+                'is_recommended' => filter_var($providerData['is_recommended'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'btn_label' => $providerData['btn_label'] ?? '',
+                'link' => $providerData['link'] ?? '',
+            ]);
         }
     }
 }

@@ -23,20 +23,6 @@ class ResourceController extends Controller
         $this->commonService = $commonService;
     }
 
-    public function index()
-    {
-        $groupedResources = $this->commonService->getGroupedResources(false); // Admin sees all
-
-        $response = [];
-        foreach ($groupedResources as $type => $group) {
-            $response[$type] = DetailsResource::collection($group);
-        }
-
-        return ApiResponse::success(
-            $response,
-            __('resource.fetched')
-        );
-    }
 
     public function getByType($resource_type)
     {
@@ -89,20 +75,6 @@ class ResourceController extends Controller
         );
     }
 
-    public function download(int $id)
-    {
-        $download = $this->commonService->downloadResource($id);
-
-        if ($download === null) {
-            return ApiResponse::error(__('No file associated with this resource'));
-        }
-
-        if ($download === false) {
-            return ApiResponse::error(__('File not found on server'));
-        }
-
-        return $download;
-    }
 
     /**
      * Get the next available ID for resource creation
@@ -114,4 +86,3 @@ class ResourceController extends Controller
     }
 
 }
-

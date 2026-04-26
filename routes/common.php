@@ -36,7 +36,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignControll
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController;
 
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
-use App\Http\Controllers\Api\V1\FCH\Common\ChangeRequest\ChangeRequestController;
+use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -185,16 +185,16 @@ Route::prefix('v1')->group(function () {
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
             Route::get('leads-stats', [LeadController::class, 'stats']);
-            
+
             // Explicitly define Leads Resource and separate split endpoints
             Route::get('leads', [LeadController::class, 'index']);
             Route::get('leads/{id}', [LeadController::class, 'show']);
             Route::delete('leads/{id}', [LeadController::class, 'destroy']);
-            
+
             Route::post('leads/details', [LeadController::class, 'storeDetails']);
             Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
             Route::post('leads/{id}/contact-info', [LeadController::class, 'updateContactInfo']);
-            
+
             Route::post('leads/{id}/convert', [LeadController::class, 'convert']);
 
             //  Invoices
@@ -252,7 +252,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('/cancel/{userId?}', [AgreementSignController::class, 'cancelSign']);
             });
 
-
+            // 📚 Resources
+            Route::prefix('resources')->group(function () {
+                Route::get('/', [CommonResourceController::class, 'index']);
+                Route::get('/download/{id}', [CommonResourceController::class, 'download']);
+            });
         });
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);

@@ -3,6 +3,7 @@
 namespace App\Services\Global\Resource;
 
 use App\Models\Resource\Resource;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Collection;
 
 class ResourceCommonService
@@ -10,19 +11,25 @@ class ResourceCommonService
     /**
      * Get resources grouped by type.
      * 
-     * @param bool $onlyActive If true, only returns resources with status=1
      * @return array
      */
-    public function getGroupedResources(bool $onlyActive = true): array
+    public function getGroupedResources(): array
     {
         $query = Resource::query();
-        
-        if ($onlyActive) {
+        $user = auth()->user();
+
+
+        if ($user->user_type === User::PARTNER) {
             $query->where('status', true);
+            $query->where('is_partner', true);
+        } elseif ($user->user_type === User::BORROWER) {
+            $query->where('status', true);
+            $query->where('is_borrower', true);
         }
 
-        $resources = $query->oldest('id')->get();
-        
+
+        $resources = $query->with('providers')->oldest('id')->get();
+
         $types = Resource::getTypes();
         $grouped = array_fill_keys($types, []);
 
@@ -44,12 +51,12 @@ class ResourceCommonService
         $resource = Resource::findOrFail($id);
         return $resource->download();
     }
-    
+
     /**
      * Get a resource by ID.
      */
     public function getById(int $id): Resource
     {
-        return Resource::findOrFail($id);
+        return Resource::with('providers')->findOrFail($id);
     }
 }
