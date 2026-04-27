@@ -60,6 +60,9 @@ jobs:
             echo "Setting correct directory permissions for Nginx..."
             sudo chown -R www-data:www-data /var/www/html/api-portal
             sudo chmod -R 775 /var/www/html/api-portal/storage /var/www/html/api-portal/bootstrap/cache || true
+            
+            echo "Securing OAuth keys..."
+            sudo chmod 600 /var/www/html/api-portal/storage/*.key || true
 
             echo "Restarting Nginx and PHP-FPM..."
             sudo systemctl restart nginx
