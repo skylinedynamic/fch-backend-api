@@ -62,7 +62,7 @@ class ResourceSeeder extends Seeder
                     'title' => $res['title'],
                     'resource_type' => $res['resource_type'],
                 ],
-                array_merge($res, ['status' => true])
+                array_merge($res, ['status' => true, 'is_partner' => 1, 'is_borrower' => 1])
             );
         }
     }
