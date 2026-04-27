@@ -47,6 +47,9 @@ jobs:
           script: |
             cd /var/www/html/api-portal
 
+            echo "Clearing old bootstrap cache to prevent dev package mismatch..."
+            sudo rm -f bootstrap/cache/*.php
+
             echo "Running Production Artisan Commands..."
             sudo php artisan config:clear
             sudo php artisan route:clear
@@ -60,6 +63,15 @@ jobs:
 
             echo "Restarting Nginx and PHP-FPM..."
             sudo systemctl restart nginx
-            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped."
+            
+            # Dynamically restart PHP-FPM by finding its service name
+            FPM_SERVICE=$(sudo systemctl list-units --type=service | grep -i php | grep -i fpm | awk '{print $1}' | head -n 1)
+            if [ -n "$FPM_SERVICE" ]; then
+                echo "Restarting $FPM_SERVICE..."
+                sudo systemctl restart $FPM_SERVICE
+            else
+                echo "No PHP-FPM service found to restart. Skipped."
+            fi
+            
             echo "Deployment complete!"
 
