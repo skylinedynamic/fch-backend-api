@@ -240,6 +240,29 @@ class RequestApplicationService
         }
         $application->save();
 
+        if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
+            $commission = \App\Models\Commission\Commission::where('funding_application_id', $application->id)->first();
+            if ($commission) {
+                // Ensure we use the correct base amount
+                $baseAmount = $application->total_funded_amount;
+                $totalCommissionAmount = ($baseAmount * $commission->total_commission) / 100;
+                
+                $adminCommissionAmount = $totalCommissionAmount;
+                $partnerCommissionAmount = 0;
+
+                if ($commission->partner_commission > 0) {
+                    $partnerCommissionAmount = ($totalCommissionAmount * $commission->partner_commission) / 100;
+                    $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
+                }
+
+                $commission->update([
+                    'total_commission_amount' => $totalCommissionAmount,
+                    'admin_commission_amount' => $adminCommissionAmount,
+                    'partner_commission_amount' => $partnerCommissionAmount,
+                ]);
+            }
+        }
+
         return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
     }
     /**

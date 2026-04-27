@@ -2,6 +2,7 @@
 
 namespace App\Models\Lead;
 
+use App\Models\Contact\Contact;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -94,6 +95,14 @@ class Lead extends Model
     }
 
     /**
+     * Get the referral partner associated with the lead.
+     */
+    public function referralPartner(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'referral_partner_id');
+    }
+
+    /**
      * Get the user who created the lead.
      */
     public function creator(): BelongsTo
@@ -127,7 +136,12 @@ class Lead extends Model
                 ->orWhereHas('partner', function ($sq) use ($search) {
                 $sq->where('full_name', 'like', "%{$search}%");
             }
-            );
+            )
+                ->orWhereHas('referralPartner', function ($sq) use ($search) {
+                $sq->where('first_name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('company_name', 'like', "%{$search}%");
+            });
         });
     }
 }

@@ -28,6 +28,7 @@ return [
     'company_name_required' => 'Organization Name is required.',
     'lead_source_required' => 'Lead Source is required.',
     'lead_source_note_required' => 'Lead Source Note is required when Other is selected.',
+    'referral_partner_required' => 'Referral Contact is required when Referral Partner is selected.',
     'contact_person_required' => 'Contact Person is required.',
     'phone_number_required' => 'Phone Number is required.',
     'phone_number_regex_invalid' => 'Phone Number format is invalid.',

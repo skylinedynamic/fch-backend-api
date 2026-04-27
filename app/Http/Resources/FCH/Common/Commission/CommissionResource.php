@@ -27,7 +27,7 @@ class CommissionResource extends JsonResource
             'partner_commission_amount' => $this->partner_commission_amount,
             'commission_status' => $this->commission_status,
             'requested_amount' => $this->fundingApplication->requested_amount,
-            'funded_amount' => $this->fundingApplication->funded_amount,
+            'funded_amount' => $this->fundingApplication->total_funded_amount,
             'payment_status' => $this->payment_status,
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,

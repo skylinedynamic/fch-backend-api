@@ -196,6 +196,11 @@ class LeadService
                 $data['partner_id'] = Auth::user()->partner_id;
             }
 
+            // Enforce referral_partner_id null when lead_source is not Referral Partner
+            if (isset($data['lead_source']) && $data['lead_source'] !== Lead::LEAD_SOURCE_REFERRAL_PARTNER) {
+                $data['referral_partner_id'] = null;
+            }
+
             $lead = Lead::create($data);
             
             // Send Emails based on Lead Source
@@ -264,6 +269,12 @@ class LeadService
                     unset($data['business_start_date']);
                 }
             }
+
+            // Enforce referral_partner_id null when lead_source is not Referral Partner
+            if (isset($data['lead_source']) && $data['lead_source'] !== Lead::LEAD_SOURCE_REFERRAL_PARTNER) {
+                $data['referral_partner_id'] = null;
+            }
+
             $lead->update($data);
 
             $changes = $lead->getChanges();

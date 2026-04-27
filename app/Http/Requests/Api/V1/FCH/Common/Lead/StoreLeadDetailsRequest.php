@@ -22,6 +22,7 @@ class StoreLeadDetailsRequest extends BaseApiRequest
             'domain' => ['nullable', 'string', 'max:255'],
             'lead_source' => ['nullable', 'string', 'max:255'],
             'lead_source_note' => ['required_if:lead_source,Other', 'string', 'max:255', 'nullable'],
+            'referral_partner_id' => ['required_if:lead_source,Referral Partner', 'nullable', 'exists:contacts,id'],
             'requirement_details' => ['nullable', 'string'],
         ];
     }
@@ -34,6 +35,7 @@ class StoreLeadDetailsRequest extends BaseApiRequest
             'status.required' => __('lead.status_required'),
             'company_name.required' => __('lead.company_name_required'),
             'lead_source_note.required_if' => __('lead.lead_source_note_required'),
+            'referral_partner_id.required_if' => __('lead.referral_partner_required'),
         ];
     }
 }

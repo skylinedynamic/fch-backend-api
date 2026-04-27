@@ -33,12 +33,15 @@ class CommissionService
                 ]);
             }
             
-            $requestedAmount = $fundingApplication->requested_amount ?? 0;
+            $baseAmount = $fundingApplication->total_funded_amount > 0 
+                ? $fundingApplication->total_funded_amount 
+                : ($fundingApplication->requested_amount ?? 0);
+
             $totalCommission = $data['total_commission'];
             $adminCommission = $data['admin_commission'];
             $partnerCommission = $data['partner_commission'] ?? 0;
 
-            $totalCommissionAmount = ($requestedAmount * $totalCommission) / 100;
+            $totalCommissionAmount = ($baseAmount * $totalCommission) / 100;
             
             if ($partnerCommission > 0) {
                 $partnerCommissionAmount = ($totalCommissionAmount * $partnerCommission) / 100;

@@ -115,6 +115,6 @@ class Employee extends Model
 
     public function getEntityImage(): string
     {
-        return $this->image ?? asset('avatar/avatar-partner.jpg');
+        return $this->image ?? asset('avatar/avatar-default.jpg');
     }
 }

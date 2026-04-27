@@ -29,6 +29,7 @@ class ContactResource extends JsonResource
             'website' => $this->website,
             'notes' => $this->notes,
             'image' => $this->image,
+            'is_referral_partner' => (bool)$this->is_referral_partner,
             'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
