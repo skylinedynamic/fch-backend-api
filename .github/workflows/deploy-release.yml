@@ -8,7 +8,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -29,14 +29,14 @@ jobs:
           REMOTE_HOST: ${{ secrets.PROD_EC2_HOST }}
           REMOTE_USER: ${{ secrets.PROD_EC2_USER }}
           SOURCE: "./"
-          TARGET: "/var/www/fch-api"
+          TARGET: "/var/www/html/api-portal"
           EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /bootstrap/cache/"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
-            echo "Creating target directory if it doesn't exist..."
-            sudo mkdir -p /var/www/fch-api
-            echo "Temporarily giving SSH user permission to write to directory..."
-            sudo chown -R $(whoami):$(whoami) /var/www/fch-api
+            echo "Ensuring target directory exists..."
+            sudo mkdir -p /var/www/html/api-portal
+            echo "Granting SSH user write access..."
+            sudo chown -R $(whoami):$(whoami) /var/www/html/api-portal
 
       - name: Run Post-Deploy Commands on Server
         uses: appleboy/ssh-action@v1.0.3
@@ -45,10 +45,9 @@ jobs:
           username: ${{ secrets.PROD_EC2_USER }}
           key: ${{ secrets.PROD_EC2_SSH_KEY }}
           script: |
-            cd /var/www/fch-api
+            cd /var/www/html/api-portal
 
             echo "Running Production Artisan Commands..."
-            # Clear cached config first so Laravel reads server's real .env (not runner's cached SQLite config)
             sudo php artisan config:clear
             sudo php artisan route:clear
             sudo php artisan view:clear
@@ -56,10 +55,11 @@ jobs:
             sudo php artisan optimize:clear
 
             echo "Setting correct directory permissions for Nginx..."
-            sudo chown -R www-data:www-data /var/www/fch-api
-            sudo chmod -R 775 /var/www/fch-api/storage /var/www/fch-api/bootstrap/cache || true
+            sudo chown -R www-data:www-data /var/www/html/api-portal
+            sudo chmod -R 775 /var/www/html/api-portal/storage /var/www/html/api-portal/bootstrap/cache || true
 
             echo "Restarting Nginx and PHP-FPM..."
             sudo systemctl restart nginx
-            sudo systemctl restart php-fpm || echo "PHP-FPM restart not needed or failed."
-            echo "Done!"
+            sudo systemctl restart php8.2-fpm || sudo systemctl restart php-fpm || echo "PHP-FPM restart skipped."
+            echo "Deployment complete!"
+

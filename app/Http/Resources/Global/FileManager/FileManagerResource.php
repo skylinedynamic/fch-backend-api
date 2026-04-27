@@ -21,7 +21,7 @@ class FileManagerResource extends JsonResource
             'updatedAt' => $this['updatedAt'],
             'size' => $this['size'] ?? 0,
             'type' => $this['type'] ?? 'folder',
-            'url' => $this['url'] ? asset($this['url']) : null,
+            'url' => !empty($this['url']) ? asset($this['url']) : null,
         ];
     }
 }
