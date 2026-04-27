@@ -35,6 +35,9 @@ class UpdateUserRolesPermissionSeeder extends Seeder
             ['name' => 'create credit accounts', 'guard_name' => 'api', 'module' => 'credit builder', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'update credit accounts', 'guard_name' => 'api', 'module' => 'credit builder', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'delete credit accounts', 'guard_name' => 'api', 'module' => 'credit builder', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
+
+            ['name' => 'view change requests', 'guard_name' => 'api', 'module' => 'intake and review', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
+            ['name' => 'update change requests', 'guard_name' => 'api', 'module' => 'intake and review', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
         ];
 
         // Insert new permissions
@@ -99,7 +102,7 @@ class UpdateUserRolesPermissionSeeder extends Seeder
             $certifiedType = class_exists(\App\Models\Partner\Partner::class) && defined('\App\Models\Partner\Partner::PARTNER_TYPE_CERTIFIED')
                 ? \App\Models\Partner\Partner::PARTNER_TYPE_CERTIFIED
                 : 'Certified Partner';
-                
+
             $whiteLabelType = class_exists(\App\Models\Partner\Partner::class) && defined('\App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL')
                 ? \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL
                 : 'White-Label Partner (WL)';
