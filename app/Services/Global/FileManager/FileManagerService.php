@@ -32,18 +32,18 @@ class FileManagerService
     private function getBasePath($request)
     {
         // Construct base path directly from request
-        if($request->get_all){
+        if ($request->get_all) {
             $basePath = $request->entity_type;
-        }else{
+        } else {
             $basePath = $request->entity_type . "/" . $request->entity_id;
         }
-        
+
         // Ensure the base path exists
         $disk = $this->getDisk();
         if (!$disk->exists($basePath)) {
             $disk->makeDirectory($basePath);
         }
-        
+
         return $basePath;
     }
 
@@ -52,16 +52,16 @@ class FileManagerService
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
-        
+
         $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
         if (!$disk->exists($fullPath)) {
-             if ($fullPath !== '' && !$disk->exists($fullPath)) {
-                  return []; 
-             }
+            if ($fullPath !== '' && !$disk->exists($fullPath)) {
+                return [];
+            }
         }
-        
+
         $files = $disk->files($fullPath);
         $directories = $disk->directories($fullPath);
 
@@ -95,7 +95,7 @@ class FileManagerService
                 'type' => $disk->mimeType($file),
             ];
         }
-        
+
         return $data;
     }
 
@@ -109,22 +109,22 @@ class FileManagerService
 
             // Prepend base path based on request entity
             $basePath = $this->getBasePath($request);
-            
+
             // Normalize slashes between base and user path
             $path = '/' . ltrim($path, '/');
             $completePath = rtrim($basePath, '/') . $path;
-            
+
             $fullPath = $this->getFullPath($completePath);
-            
+
             // Clean filename and append timestamp
             $originalName = $file->getClientOriginalName();
             $extension = pathinfo($originalName, PATHINFO_EXTENSION);
             $basename = pathinfo($originalName, PATHINFO_FILENAME);
-            
+
             // Sanitize: allow only alphanumeric, dashes, and underscores
             $safeName = preg_replace('/[^A-Za-z0-9\-\_]/', '_', $basename);
             $filename = time() . '_' . $safeName . '.' . $extension;
-            
+
             // Ensure directory exists - defensive check
             if ($fullPath !== '' && !$disk->exists($fullPath)) {
                 $disk->makeDirectory($fullPath);
@@ -132,7 +132,7 @@ class FileManagerService
 
             // Store using putFileAs
             $pathResult = $disk->putFileAs($fullPath, $file, $filename);
-            
+
             if (!$pathResult) {
                 Log::error("File storage failed for disk 'public' and path: {$fullPath}/{$filename}. Check permissions and disk space.");
                 throw new \Exception('Failed to store the uploaded file on the server.', 500);
@@ -164,7 +164,7 @@ class FileManagerService
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path . '/' . $name;
-        
+
         $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
@@ -187,7 +187,7 @@ class FileManagerService
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
-        
+
         $oldFullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
@@ -197,22 +197,23 @@ class FileManagerService
 
         $directory = dirname($path);
         // Fix for dirname returning . or / when at root
-        if ($directory === '.' || $directory === '\\') $directory = '';
-        
+        if ($directory === '.' || $directory === '\\')
+            $directory = '';
+
         $newPath = $directory . '/' . $newName;
         // Clean up double slashes
         $newPath = str_replace('//', '/', $newPath);
-        
+
         // Prepend base path to new path
         $newCompletePath = $basePath . $newPath;
         $newFullPath = $this->getFullPath($newCompletePath);
 
         if ($disk->exists($newFullPath)) {
-             throw new \Exception('Item with new name already exists', 422);
+            throw new \Exception('Item with new name already exists', 422);
         }
 
         $disk->move($oldFullPath, $newFullPath);
-        
+
         // Determine if directory or file
         // Determine if directory or file
         try {
@@ -229,11 +230,11 @@ class FileManagerService
             'path' => $newPath,
             'updatedAt' => date('c', $disk->lastModified($newFullPath)),
         ];
-        
+
         if (!$isDir) {
-             $data['size'] = $disk->size($newFullPath);
-             $data['type'] = $type;
-             $data['url'] = $this->getEncodedUrl($disk, $newFullPath);
+            $data['size'] = $disk->size($newFullPath);
+            $data['type'] = $type;
+            $data['url'] = $this->getEncodedUrl($disk, $newFullPath);
         }
 
         return $data;
@@ -242,7 +243,7 @@ class FileManagerService
     public function deleteItems(array $paths, $request)
     {
         $disk = $this->getDisk();
-        
+
         // Get base path based on request entity
         $basePath = $this->getBasePath($request);
 
@@ -250,7 +251,7 @@ class FileManagerService
             $completePath = $basePath . $path;
             $fullPath = $this->getFullPath($completePath);
             if ($disk->exists($fullPath)) {
-                
+
                 // Determine if directory or file using robust check
                 $isDir = false;
                 try {
@@ -274,7 +275,7 @@ class FileManagerService
     {
         $disk = $this->getDisk();
         $results = [];
-        
+
         // Get base path based on request entity
         $basePath = $this->getBasePath($request);
 
@@ -282,7 +283,7 @@ class FileManagerService
             $sourcePath = $file['path'];
             $sourceCompletePath = $basePath . $sourcePath;
             $sourceFullPath = $this->getFullPath($sourceCompletePath);
-            
+
             $name = basename($sourcePath);
             $destPath = rtrim($destinationPath, '/') . '/' . $name;
             $destCompletePath = $basePath . $destPath;
@@ -293,7 +294,7 @@ class FileManagerService
                 $nameWithoutExt = pathinfo($name, PATHINFO_FILENAME);
                 $ext = pathinfo($name, PATHINFO_EXTENSION);
                 $newName = $nameWithoutExt . ' - Copy' . ($ext ? '.' . $ext : '');
-                
+
                 $destPath = rtrim($destinationPath, '/') . '/' . $newName;
                 $destCompletePath = $basePath . $destPath;
                 $destFullPath = $this->getFullPath($destCompletePath);
@@ -320,7 +321,7 @@ class FileManagerService
             } elseif ($operation === 'move') {
                 $disk->move($sourceFullPath, $destFullPath);
             }
-            
+
             // Build complete item data with all metadata
             $itemData = [
                 'name' => basename($destPath),
@@ -341,16 +342,16 @@ class FileManagerService
 
         return $results;
     }
-    
+
     private function copyDirectory($disk, $source, $destination)
     {
         $disk->makeDirectory($destination);
-        
+
         $files = $disk->files($source);
         foreach ($files as $file) {
             $disk->copy($file, $destination . '/' . basename($file));
         }
-        
+
         $directories = $disk->directories($source);
         foreach ($directories as $directory) {
             $this->copyDirectory($disk, $directory, $destination . '/' . basename($directory));
@@ -365,7 +366,7 @@ class FileManagerService
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
-        
+
         $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
@@ -394,7 +395,7 @@ class FileManagerService
         // Prepend base path based on request entity
         $basePath = $this->getBasePath($request);
         $completePath = $basePath . $path;
-        
+
         $fullPath = $this->getFullPath($completePath);
         $disk = $this->getDisk();
 
@@ -414,7 +415,7 @@ class FileManagerService
         foreach ($directories as $directory) {
             $name = basename($directory);
             $dirPath = $normalizedPath . '/' . $name;
-            
+
             $node = [
                 'name' => $name,
                 'isDirectory' => true,
@@ -422,7 +423,7 @@ class FileManagerService
                 'updatedAt' => date('c', $disk->lastModified($directory)),
                 'children' => $this->getFolderTree($dirPath, $request), // Recursive call
             ];
-            
+
             $tree[] = $node;
         }
 
