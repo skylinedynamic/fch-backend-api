@@ -38,6 +38,7 @@ class UpdateUserRolesPermissionSeeder extends Seeder
 
             ['name' => 'view change requests', 'guard_name' => 'api', 'module' => 'intake and review', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['name' => 'update change requests', 'guard_name' => 'api', 'module' => 'intake and review', 'is_certified' => 0, 'is_host' => 1, 'created_at' => $now, 'updated_at' => $now],
+
         ];
 
         // Insert new permissions
