@@ -9,6 +9,9 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingController;
 // ✅ Import Role & Permission Controllers
 
 /*
@@ -86,5 +89,36 @@ Route::prefix('v1/admin')
 
         Route::prefix('funding-application')->group(function () {
             Route::post('save-commission', [CommissionController::class, 'saveCommission']);
+        });
+
+        // 📝 CMS Routes
+        Route::prefix('cms')->group(function () {
+            // CMS
+            Route::get('blogs', [BlogController::class, 'index']);
+            Route::post('blogs', [BlogController::class, 'store']);
+            Route::get('blogs/{id}', [BlogController::class, 'show']);
+            Route::post('blogs/{id}', [BlogController::class, 'update']);
+            Route::post('blogs-multiple-delete', [BlogController::class, 'destroy']);
+
+            Route::get('blog-categories', [BlogController::class, 'categories']);
+            Route::post('blog-categories', [BlogController::class, 'storeCategory']);
+            Route::post('blog-categories/{id}', [BlogController::class, 'updateCategory']);
+            Route::post('blog-categories-multiple-delete', [BlogController::class, 'destroyCategory']);
+
+            Route::get('blog-tags', [BlogController::class, 'tags']);
+            Route::post('blog-tags', [BlogController::class, 'storeTag']);
+            Route::post('blog-tags/{id}', [BlogController::class, 'updateTag']);
+            Route::post('blog-tags-multiple-delete', [BlogController::class, 'destroyTag']);
+
+            // Site Settings
+            Route::get('site-settings', [SiteSettingController::class, 'index']);
+            Route::post('site-settings', [SiteSettingController::class, 'update']);
+
+            // SEO
+            Route::get('seo-settings', [SeoController::class, 'index']);
+            Route::post('seo-settings', [SeoController::class, 'store']);
+            Route::get('seo-settings/{id}', [SeoController::class, 'show']);
+            Route::post('seo-settings/{id}', [SeoController::class, 'update']);
+            Route::post('seo-settings-multiple-delete', [SeoController::class, 'destroy']);
         });
     });
