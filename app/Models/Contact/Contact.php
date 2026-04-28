@@ -27,11 +27,13 @@ class Contact extends Model
         'website',
         'notes',
         'image',
+        'is_referral_partner',
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
+        'is_referral_partner' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -64,6 +66,10 @@ class Contact extends Model
                 ->orWhere('email', 'like', "%{$search}%")
                 ->orWhere('address', 'like', "%{$search}%")
                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+            
+            if (stripos('referral partner', $search) !== false || stripos('rp', $search) !== false) {
+                $q->orWhere('is_referral_partner', 1);
+            }
         });
     }
 }

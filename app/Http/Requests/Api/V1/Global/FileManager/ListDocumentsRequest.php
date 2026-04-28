@@ -16,7 +16,7 @@ class ListDocumentsRequest extends BaseApiRequest
         return [
             'path' => ['nullable', 'string'],
             'entity_type' => ['required', 'string'],
-            'entity_id' => ['required', 'integer'],
+            'entity_id' => ['required_unless:entity_type,credit-accounts', 'nullable', 'integer'],
         ];
     }
 

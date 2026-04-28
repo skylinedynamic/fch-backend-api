@@ -44,6 +44,7 @@ class UpdateContactRequest extends BaseApiRequest
             'notes' => ['nullable', 'string'],
             'image' => ['nullable'],
             'address' => ['required', 'string', 'max:500'],
+            'is_referral_partner' => ['nullable', 'boolean'],
         ];
     }
 

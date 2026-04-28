@@ -70,6 +70,8 @@ return [
             ['name' => 'update pre qualification', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view funding application', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update funding application', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view change requests', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update change requests', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 
@@ -137,9 +139,9 @@ return [
     'resources' => [
         'permissions' => [
             ['name' => 'view resources', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create resources', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update resources', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete resources', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'create resources', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update resources', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete resources', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 
@@ -170,21 +172,16 @@ return [
         ],
     ],
 
-    'contacts' => [
-        'permissions' => [
-            ['name' => 'view contacts', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create contacts', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'update contacts', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete contacts', 'is_certified' => 0, 'is_host' => 0],
-        ],
-    ],
-
     'credit builder' => [
         'permissions' => [
             ['name' => 'view tier', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update tier', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view verification request', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update verification request', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update credit accounts', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete credit accounts', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
 
@@ -199,10 +196,9 @@ return [
 
     'settings' => [
         'permissions' => [
-            ['name' => 'view settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'create settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'update settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'delete settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update payment settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update partner agreement settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update borrower agreement settings', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 

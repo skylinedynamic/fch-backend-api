@@ -46,7 +46,7 @@ class ProfileCompletionService
             'zip_code' => $borrower->postal_code,
             'country' => $borrower->country,
             'home_address' => $borrower->home_address,
-            'last_4_ssn' => $borrower->last_4_ssn,  
+            'last_4_ssn' => $borrower->last_4_ssn,
             'date_of_birth' => $borrower->date_of_birth,
         ];
         foreach ($fields as $key => $value) {
@@ -73,7 +73,8 @@ class ProfileCompletionService
             'state' => $borrower->business_state,
             'city' => $borrower->business_city,
             'zip_code' => $borrower->business_postal_code,
-            
+            'business_start_date' => $borrower->business_start_date,
+
         ];
         foreach ($fields as $key => $value) {
             $this->requireField($missing, $key, $value);

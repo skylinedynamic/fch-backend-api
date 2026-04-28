@@ -42,13 +42,45 @@ class ContactService
             'mobile_number' => 'contacts.mobile_number',
             'company_name' => 'contacts.company_name',
             'address' => 'contacts.address',
+            'is_referral_partner' => 'contacts.is_referral_partner',
         ];
+
+        $rawFilters = $filters['filters'] ?? [];
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true) ?? [];
+        }
+
+        // Custom handling for 'full_name' filter to allow searching for the 'Referral Partner' badge
+        if (isset($rawFilters['full_name']['constraints'])) {
+            $query->where(function ($q) use ($rawFilters) {
+                foreach ($rawFilters['full_name']['constraints'] as $c) {
+                    $val = $c['value'] ?? null;
+                    if ($val === null || $val === '') continue;
+
+                    $q->where(function ($subQ) use ($val, $c) {
+                        $mode = $c['matchMode'] ?? 'contains';
+                        $likeVal = "%{$val}%";
+                        if ($mode === 'startsWith') $likeVal = "{$val}%";
+                        if ($mode === 'endsWith') $likeVal = "%{$val}";
+                        if ($mode === 'equals') $likeVal = $val;
+                        
+                        $operator = $mode === 'equals' ? '=' : 'LIKE';
+                        $subQ->whereRaw("CONCAT_WS(' ', contacts.first_name, contacts.last_name) {$operator} ?", [$likeVal]);
+
+                        if (stripos('referral partner', $val) !== false || stripos('rp', $val) !== false) {
+                            $subQ->orWhere('contacts.is_referral_partner', 1);
+                        }
+                    });
+                }
+            });
+            unset($rawFilters['full_name']);
+        }
 
         $query = QueryFilter::apply(
             $query,
             $filters['sort_field'] ?? 'id',
             $filters['sort_order'] ?? 'desc',
-            $filters['filters'] ?? [],
+            $rawFilters,
             [
                 'concat_fields' => [
                     'full_name' => ['contacts.first_name', 'contacts.last_name'],
@@ -126,8 +158,18 @@ class ContactService
                 unset($contactData['image']); // Remove from data to avoid double update if fillable
             }
 
+            $oldIsReferralPartner = $contact->is_referral_partner;
+
             $contactData['updated_by'] = auth()->id();
             $contact->update($contactData);
+
+            // If contact is no longer a referral partner, remove them from leads
+            if ($oldIsReferralPartner && !$contact->is_referral_partner) {
+                \App\Models\Lead\Lead::where('referral_partner_id', $contact->id)
+                    ->update([
+                        'referral_partner_id' => null,
+                    ]);
+            }
 
             DB::commit();
             Log::info('Contact updated successfully', ['contact_id' => $contact->id]);

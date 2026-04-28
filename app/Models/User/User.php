@@ -632,9 +632,9 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         if ($this->entity_type === \App\Models\Borrower\Borrower::class || $this->user_type === self::BORROWER) {
-             return asset('avatar/avatar-borrower.jpg');
+             return asset('avatar/avatar-default.jpg');
         }
 
-        return asset('avatar/avatar-partner.jpg');
+        return asset('avatar/avatar-default.jpg');
     }
 }

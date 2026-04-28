@@ -24,19 +24,21 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
     {
         return [
             'business_name' => 'required|string|max:255',
-            'business_ein' => 'required|string|max:255',
+            'business_ein' => 'required|string|size:10',
             'business_phone' => 'nullable|string|max:20',
             'business_email' => 'required|email|max:255',
-            'duns_number' => 'nullable|string|max:255',
+            'duns_number' => 'nullable|string|size:9',
             'business_address' => 'required|string|max:255',
             'business_country' => 'required|string|max:255',
             'business_country_code' => 'required|string|max:5',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
-            'business_zip_code' => 'required|string|max:20',
+            'business_zip_code' => 'required|string|size:5',
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
+            'business_start_date' => 'required|date',
+            'personal_credit_score' => 'required|integer',
         ];
     }
 
@@ -54,6 +56,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_ein.required' => __('borrower_validation.business_ein_required'),
             'business_ein.string' => __('borrower_validation.business_ein_string'),
             'business_ein.max' => __('borrower_validation.business_ein_max'),
+            'business_ein.size' => __('borrower_validation.business_ein_size'),
             'business_phone.string' => __('borrower_validation.business_phone_string'),
             'business_phone.max' => __('borrower_validation.business_phone_max'),
             'business_address.required' => __('borrower_validation.business_address_required'),
@@ -65,6 +68,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_email.max' => __('borrower_validation.business_email_max'),
             'duns_number.string' => __('borrower_validation.duns_number_string'),
             'duns_number.max' => __('borrower_validation.duns_number_max'),
+            'duns_number.size' => __('borrower_validation.duns_number_size'),
             'business_city.string' => __('borrower_validation.business_city_string'),
             'business_city.max' => __('borrower_validation.business_city_max'),
             'business_state.required' => __('borrower_validation.business_state_required'),
@@ -73,6 +77,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_zip_code.required' => __('borrower_validation.business_zip_code_required'),
             'business_zip_code.string' => __('borrower_validation.business_zip_code_string'),
             'business_zip_code.max' => __('borrower_validation.business_zip_code_max'),
+            'business_zip_code.size' => __('borrower_validation.business_zip_code_size'),
             'business_entity_type.required' => __('borrower_validation.business_entity_type_required'),
             'business_entity_type.string' => __('borrower_validation.business_entity_type_string'),
             'business_entity_type.max' => __('borrower_validation.business_entity_type_max'),
@@ -81,6 +86,10 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_industry_type.required' => __('borrower_validation.business_industry_type_required'),
             'business_industry_type.string' => __('borrower_validation.business_industry_type_string'),
             'business_industry_type.max' => __('borrower_validation.business_industry_type_max'),
+            'personal_credit_score.required' => __('borrower_validation.personal_credit_score_required'),
+            'personal_credit_score.integer' => __('borrower_validation.personal_credit_score_integer'),
+            'personal_credit_score.min' => __('borrower_validation.personal_credit_score_min'),
+            'personal_credit_score.max' => __('borrower_validation.personal_credit_score_max'),
         ];
     }
 }

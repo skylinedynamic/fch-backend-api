@@ -9,7 +9,13 @@ if (!function_exists('encodeUrl')) {
      */
     function encodeUrl(string $url): string
     {
-        return str_replace(' ', '%20', $url);
+        // Replace spaces with %20
+        $url = str_replace(' ', '%20', $url);
+        
+        // Handle special characters like en-dashes (–) or em-dashes (—) that str_replace misses
+        return preg_replace_callback('/[^\w\-\.\/:\?#\[\]@!$&\'\(\)\*\+,;=%]/u', function($matches) {
+            return rawurlencode($matches[0]);
+        }, $url);
     }
 }
 

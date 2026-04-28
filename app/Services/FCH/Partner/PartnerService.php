@@ -38,7 +38,8 @@ class PartnerService
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
-    ) {}
+    ) {
+    }
 
     /**
      * Field mapping for user table fields.
@@ -100,7 +101,7 @@ class PartnerService
             // Create partner record
             $partnerData = $this->mapPartnerData($data);
             $partnerData['status'] = Partner::STATUS_ONBOARDING;
-            $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED  ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
+            $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
 
             Log::info('Partner creation payload', $partnerData);
@@ -156,9 +157,9 @@ class PartnerService
             // Mark as custom if any value differs from the original plan
             $isCustom = false;
             if ($plan) {
-                $isCustom = (abs($enrollmentAmount - (float)($plan->payment_amount ?? 0)) > 0.01) ||
-                    (abs($monthlyPlatformFee - (float)($plan->platform_fee ?? 0)) > 0.01) ||
-                    (abs($totalSubscriptionAmount - (float)($plan->total_amount ?? 0)) > 0.01);
+                $isCustom = (abs($enrollmentAmount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                    (abs($monthlyPlatformFee - (float) ($plan->platform_fee ?? 0)) > 0.01) ||
+                    (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
             }
 
             // Create subscription if enrollment data exists
@@ -252,7 +253,7 @@ class PartnerService
             // Get partner to check is_host status
             $partner = Partner::find($partnerId);
 
-            if (! $partner) {
+            if (!$partner) {
                 throw new \Exception("Partner with ID {$partnerId} not found");
             }
 
@@ -260,13 +261,12 @@ class PartnerService
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
                     ->where('is_host', 0)
-                    // ->where('is_certified', 0)
+                    ->where('is_certified', 1)
                     ->get();
             } else {
 
                 $allowedPermissions = Permission::where('guard_name', 'api')
                     ->where('is_host', 0)
-                    // ->where('is_certified', 1)
                     ->get();
             }
 
@@ -390,7 +390,7 @@ class PartnerService
 
                 $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
                 $contactFields = ['email', 'phone_number', 'contact_person', 'contact_person_email', 'contact_person_phone_number', 'contact_person_relation'];
-                
+
                 $changedKeys = array_keys($changes);
                 $isContactOnly = count(array_diff($changedKeys, $contactFields)) === 0;
 
@@ -404,7 +404,7 @@ class PartnerService
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
                     $name = $field === 'assign_to' ? 'Assigned User' : ucwords(str_replace('_', ' ', $field));
-                    
+
                     if ($field === 'assign_to') {
                         $changedFields[] = "{$name} was changed";
                     } elseif ($field === 'full_name') {
@@ -418,7 +418,7 @@ class PartnerService
                     }
                 }
                 $fieldsList = implode(', ', $changedFields);
-                
+
                 $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
 
                 $this->activityLogService->logModelEvent(
@@ -438,12 +438,12 @@ class PartnerService
 
                 // Determine final values to reassess is_custom status
                 $finalEnrollment = (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '')
-                    ? (float)$data['enrollment_amount']
-                    : (float)$subscription->payable_amount;
+                    ? (float) $data['enrollment_amount']
+                    : (float) $subscription->payable_amount;
 
                 $finalMonthly = (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '')
-                    ? (float)$data['monthly_platform_fee']
-                    : (float)$subscription->monthly_platform_fee;
+                    ? (float) $data['monthly_platform_fee']
+                    : (float) $subscription->monthly_platform_fee;
 
                 $totalInstallments = (int) ($plan->total_installments_count ?? 1);
                 $finalTotal = $finalEnrollment * $totalInstallments;
@@ -451,9 +451,9 @@ class PartnerService
                 // Mark as custom if any value differs from the original plan
                 $isCustom = false;
                 if ($plan) {
-                    $isCustom = (abs($finalEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($finalMonthly - (float)($plan->platform_fee ?? 0)) > 0.01) ||
-                        (abs($finalTotal - (float)($plan->total_amount ?? 0)) > 0.01);
+                    $isCustom = (abs($finalEnrollment - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($finalMonthly - (float) ($plan->platform_fee ?? 0)) > 0.01) ||
+                        (abs($finalTotal - (float) ($plan->total_amount ?? 0)) > 0.01);
                 }
 
                 $updateSubData = [
@@ -522,6 +522,7 @@ class PartnerService
                 Log::info('🔑 Password reset for Partner user due to email change', ['user_id' => $existingUser->id]);
             }
 
+            $userData['is_refresh'] = true;
             $existingUser->update($userData);
 
             return ['user' => $existingUser, 'plain_password' => $plainPassword, 'is_new' => false];
@@ -574,9 +575,11 @@ class PartnerService
 
         // Base query: Start from Partner model with User eager loading
         $query = Partner::query()
-            ->with(['assignedUser' => function ($userQuery) {
-                $userQuery->select('id', 'name');
-            }]);
+            ->with([
+                'assignedUser' => function ($userQuery) {
+                    $userQuery->select('id', 'name');
+                }
+            ]);
 
         // Filter based on authenticated user's host status
         // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
@@ -588,17 +591,17 @@ class PartnerService
         // }
 
         // 🔍 Filter by partner_id (exact match)
-        if (! empty($filters['partner_id'])) {
+        if (!empty($filters['partner_id'])) {
             $query->where('partners.id', $filters['partner_id']);
         }
 
         // 🔍 Filter by assigned_user_id (exact match)
-        if (! empty($filters['assigned_user_id'])) {
+        if (!empty($filters['assigned_user_id'])) {
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
 
         // 🔍 Search filter (uses scopeSearch from Partner model)
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
 
@@ -625,7 +628,7 @@ class PartnerService
             if (isset($assignedUserFilter['constraints']) && is_array($assignedUserFilter['constraints'])) {
                 $hasActiveConstraint = false;
                 foreach ($assignedUserFilter['constraints'] as $c) {
-                    if (! empty($c['value'])) {
+                    if (!empty($c['value'])) {
                         $hasActiveConstraint = true;
                         break;
                     }
@@ -706,9 +709,11 @@ class PartnerService
 
         // Base query: Start from Partner model with User eager loading
         $query = Partner::query()
-            ->with(['assignedUser' => function ($userQuery) {
-                $userQuery->select('id', 'name');
-            }])
+            ->with([
+                'assignedUser' => function ($userQuery) {
+                    $userQuery->select('id', 'name');
+                }
+            ])
             ->select(
                 'partners.id',
                 'partners.company_name',
@@ -835,7 +840,7 @@ class PartnerService
         $query = Borrower::query()->with('partner');
 
         // Filter by partner_id
-        if (! empty($filters['partner_id'])) {
+        if (!empty($filters['partner_id'])) {
             $query->where('partner_id', $filters['partner_id']);
         }
 
@@ -851,7 +856,7 @@ class PartnerService
 
         // Apply QueryFilter
         // Search across multiple fields
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'LIKE', "%{$search}%")
@@ -964,7 +969,7 @@ class PartnerService
             ->first();
 
         if (!$stats) {
-            return (object)[
+            return (object) [
                 'id' => $id,
                 'total_meetings' => 0,
                 'total_clients' => 0,
@@ -997,7 +1002,7 @@ class PartnerService
             DB::table('oauth_access_tokens')
                 ->where('user_id', $mainUser->id)
                 ->update(['revoked' => true]);
-            
+
             Log::info("Force logged out main user for Partner ID: {$partner->id} (User ID: {$mainUser->id}) due to partner status being set to {$partner->status}");
         }
     }

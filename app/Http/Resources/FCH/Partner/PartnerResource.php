@@ -38,7 +38,7 @@ class PartnerResource extends JsonResource
             'country_code'                 => $this->country_code,
             'joining_date'                 => $this->joining_date,
             'company_logo'                 => $this->company_logo,
-            'partner_image'                => $this->partner_image,
+            'partner_image'                => $this->getEntityImage(),
             'tax_id'                       => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website'                      => $this->website ?? null, // Assuming model accessor or field exists
             'is_host'                      => $this->is_host,

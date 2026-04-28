@@ -22,28 +22,28 @@ class ActivityLogResource extends JsonResource
 
         // 1. Resolve Partner Image
         if ($subject instanceof Partner) {
-            $partnerImage = $subject->partner_image ?? asset('avatar/avatar-partner.jpg');
+            $partnerImage = $subject->partner_image ?? asset('avatar/avatar-default.jpg');
         } elseif ($this->partner_id) {
             // Check if subject belongs to this partner and relation is loaded
             if ($subject && isset($subject->partner_id) && (int)$subject->partner_id === (int)$this->partner_id && $subject->relationLoaded('partner')) {
-                 $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-partner.jpg');
+                 $partnerImage = $subject->partner->partner_image ?? asset('avatar/avatar-default.jpg');
             } else {
                  $partner = Partner::find($this->partner_id);
-                 $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-partner.jpg')) : asset('avatar/avatar-partner.jpg');
+                 $partnerImage = $partner ? ($partner->partner_image ?? asset('avatar/avatar-default.jpg')) : asset('avatar/avatar-default.jpg');
             }
         }
 
         // 2. Resolve Borrower/Client Image
         if ($subject instanceof Borrower) {
-            $borrowerImage = $subject->image ?? asset('avatar/avatar-borrower.jpg');
+            $borrowerImage = $subject->image ?? asset('avatar/avatar-default.jpg');
         } elseif ($this->borrower_id) {
              $borrower = Borrower::find($this->borrower_id);
-             $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-borrower.jpg')) : asset('avatar/avatar-borrower.jpg');
+             $borrowerImage = $borrower ? ($borrower->image ?? asset('avatar/avatar-default.jpg')) : asset('avatar/avatar-default.jpg');
         }
 
         // 3. Resolve Lead Image
         if ($subject instanceof Lead) {
-             $leadImage = asset('avatar/avatar-partner.jpg'); 
+             $leadImage = asset('avatar/avatar-default.jpg'); 
         }
 
         return [
@@ -77,7 +77,7 @@ class ActivityLogResource extends JsonResource
                                 : 'System',
             'causer_image'  => ($this->relationLoaded('causer') && $this->causer && method_exists($this->causer, 'getEntityImage')) 
                                 ? $this->causer->getEntityImage() 
-                                : ($borrowerImage ?? $partnerImage ?? asset('avatar/avatar-partner.jpg')),
+                                : ($borrowerImage ?? $partnerImage ?? asset('avatar/avatar-default.jpg')),
             'event_label'   => $this->getEventLabel(),
             'changes'       => $this->properties['attributes'] ?? null,
             'old_values'    => $this->properties['old'] ?? null,
