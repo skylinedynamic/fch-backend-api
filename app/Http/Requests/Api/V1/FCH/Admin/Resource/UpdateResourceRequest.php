@@ -15,28 +15,26 @@ class UpdateResourceRequest extends BaseApiRequest
 
     public function rules(): array
     {
-        $types = implode(',', Resource::getTypes());
-
         return [
-            'resource_type' => "sometimes|required|string|in:{$types}",
-            'title' => 'sometimes|required|string|max:255',
-            'subtitle' => 'nullable|string|max:255',
-            'status' => 'sometimes|required|boolean',
-            'icon' => 'nullable|string|max:255',
-            'is_partner' => 'nullable|boolean',
-            'is_borrower' => 'nullable|boolean',
-            'file' => 'nullable|string|regex:/\.pdf$/i',
-            'link' => 'nullable|url|max:255',
-            'overview' => 'nullable|array',
-            'overview.*' => 'nullable|string',
-            'impact' => 'nullable|array',
-            'impact.*' => 'nullable|string',
-            'providers' => 'nullable|array',
-            'providers.*.name' => 'nullable|string|max:255',
-            'providers.*.desc' => 'nullable|string',
-            'providers.*.is_recommended' => 'nullable|boolean',
-            'providers.*.btn_label' => 'nullable|string|max:255',
-            'providers.*.link' => 'nullable|string|max:500',
+            'resource_type' => ['sometimes', 'required', 'string', Rule::in(Resource::getTypes())],
+            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'subtitle' => ['nullable', 'string', 'max:255'],
+            'status' => ['sometimes', 'required', 'boolean'],
+            'icon' => ['nullable', 'string', 'max:255'],
+            'is_partner' => ['nullable', 'boolean'],
+            'is_borrower' => ['nullable', 'boolean'],
+            'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
+            'link' => ['nullable', 'url', 'max:255'],
+            'overview' => ['nullable', 'array'],
+            'overview.*' => ['nullable', 'string'],
+            'impact' => ['nullable', 'array'],
+            'impact.*' => ['nullable', 'string'],
+            'providers' => ['nullable', 'array'],
+            'providers.*.name' => ['nullable', 'string', 'max:255'],
+            'providers.*.desc' => ['nullable', 'string', 'max:255'],
+            'providers.*.is_recommended' => ['nullable', 'boolean'],
+            'providers.*.btn_label' => ['nullable', 'string', 'max:255'],
+            'providers.*.link' => ['nullable', 'url', 'max:255'],
         ];
     }
 

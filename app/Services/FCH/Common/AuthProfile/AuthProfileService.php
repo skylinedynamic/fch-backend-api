@@ -53,4 +53,22 @@ class AuthProfileService
 
         return ApiResponse::success(null, __('profile.password_update_success'));
     }
+
+    /**
+     * Update user profile
+     */
+    public function updateProfile(User $user, array $data): JsonResponse
+    {
+        if (isset($data['first_name']) || isset($data['last_name'])) {
+            $firstName = $data['first_name'] ?? '';
+            $lastName = $data['last_name'] ?? '';
+            $data['name'] = trim("{$firstName} {$lastName}");
+            
+            unset($data['first_name'], $data['last_name']);
+        }
+
+        $user->update($data);
+
+        return ApiResponse::success($user, __('profile.profile_update_success'));
+    }
 }
