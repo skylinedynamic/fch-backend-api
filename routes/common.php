@@ -228,6 +228,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('auth-profile')->group(function () {
                 Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
                 Route::post('update-profile', [AuthProfileController::class, 'updateProfile']);
+                Route::post('update-profile-picture', [AuthProfileController::class, 'updateProfilePicture']);
             });
 
             // App Configurations (Settings)

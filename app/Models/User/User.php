@@ -42,6 +42,7 @@ class User extends Authenticatable implements OAuthenticatable
         'name',
         'email',
         'phone_number',
+        'image',
         'phone_verified_at',
         'email_verified_at',
         'user_type',
