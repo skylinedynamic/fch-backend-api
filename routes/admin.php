@@ -118,6 +118,7 @@ Route::prefix('v1/admin')
         Route::prefix('cms')->group(function () {
             // CMS
             Route::get('blogs', [BlogController::class, 'index']);
+            Route::post('blogs/fetch', [BlogController::class, 'index']);
             Route::post('blogs', [BlogController::class, 'store']);
             Route::get('blogs/{id}', [BlogController::class, 'show']);
             Route::post('blogs/{id}', [BlogController::class, 'update']);
@@ -138,6 +139,7 @@ Route::prefix('v1/admin')
             Route::post('site-settings', [SiteSettingController::class, 'update']);
 
             // SEO
+            Route::get('seo-settings/get-all-settings', [SeoController::class, 'getAll']);
             Route::get('seo-settings', [SeoController::class, 'index']);
             Route::post('seo-settings', [SeoController::class, 'store']);
             Route::get('seo-settings/{id}', [SeoController::class, 'show']);

@@ -88,6 +88,8 @@ class DatabaseSeeder extends Seeder
             CreditAccountSeeder::class,
             ResourceSeeder::class,
             SiteSettingSeeder::class,
+            BlogSeeder::class,
+            SeoSettingSeeder::class,
         ]);
     }
 }

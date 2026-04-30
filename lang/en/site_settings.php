@@ -2,6 +2,7 @@
 
 return [
     'retrieved_success' => 'Site settings retrieved successfully',
+    'not_found' => 'No site settings found',
     'updated_success' => 'Site settings updated successfully',
     'logo_image' => 'The site logo must be an image.',
     'logo_mimes' => 'The site logo must be a file of type: png, jpg, jpeg, svg, webp.',
