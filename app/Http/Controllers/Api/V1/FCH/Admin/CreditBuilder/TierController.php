@@ -142,4 +142,34 @@ class TierController extends Controller
             return ApiResponse::serverError($e->getMessage());
         }
     }
+
+    /**
+     * Get tier wise task list with status for a specific borrower.
+     */
+    public function getBorrowerTierTaskList(Request $request)
+    {
+        try {
+            $borrowerId = $request->borrower_id;
+            return $this->tierService->getBorrowerTierTaskList($borrowerId);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
+        }
+    }
+
+    /**
+     * Get credit builder tier progress for a specific borrower.
+     */
+    public function getBorrowerProgress(Request $request)
+    {
+        try {
+            $borrowerId = $request->borrower_id;
+            $data = $this->tierService->getBorrowerProgress($borrowerId);
+            return ApiResponse::success(
+                new \App\Http\Resources\Borrower\CreditBuilder\MyProgressResource($data),
+                __('borrower.credit_builder_progress_retrieved')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
 }

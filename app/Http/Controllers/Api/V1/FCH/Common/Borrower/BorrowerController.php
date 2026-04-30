@@ -72,7 +72,7 @@ class BorrowerController extends Controller
     public function BusinessFinancials(UpdateBorrowerBusinessFinancialsRequest $request, string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails((int)$id);
+            $borrower = $this->borrowerService->getDetails((int) $id);
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
             }
@@ -95,7 +95,7 @@ class BorrowerController extends Controller
     public function update(UpdateBorrowerRequest $request, string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails((int)$id);
+            $borrower = $this->borrowerService->getDetails((int) $id);
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
             }
@@ -118,7 +118,7 @@ class BorrowerController extends Controller
     public function show(string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails((int)$id);
+            $borrower = $this->borrowerService->getDetails((int) $id);
 
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
@@ -251,7 +251,7 @@ class BorrowerController extends Controller
     public function fetchBorrowerDocuments($borrowerId)
     {
         try {
-            $documents = $this->borrowerService->getBorrowerDocuments((int)$borrowerId);
+            $documents = $this->borrowerService->getBorrowerDocuments((int) $borrowerId);
             return ApiResponse::success($documents, __('borrower.documents_fetched_successfully'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.documents_fetched_failed'));
@@ -347,7 +347,7 @@ class BorrowerController extends Controller
     {
         try {
             $documentService = new BorrowerDocumentService();
-            $deleted = $documentService->removeById((int)$id);
+            $deleted = $documentService->removeById((int) $id);
 
             if (!$deleted) {
                 return ApiResponse::notFound(__('borrower.document_not_found'));
@@ -385,7 +385,7 @@ class BorrowerController extends Controller
     public function getPersonalDetails(string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails((int)$id);
+            $borrower = $this->borrowerService->getDetails((int) $id);
 
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
@@ -406,7 +406,7 @@ class BorrowerController extends Controller
     public function getBusinessFinancials(string $id)
     {
         try {
-            $borrower = $this->borrowerService->getDetails((int)$id);
+            $borrower = $this->borrowerService->getDetails((int) $id);
 
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));

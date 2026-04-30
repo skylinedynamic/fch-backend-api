@@ -63,6 +63,8 @@ Route::prefix('v1/admin')
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
             Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
+            Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
+            Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
 
             // Tier Tasks
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
