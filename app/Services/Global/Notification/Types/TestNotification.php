@@ -48,9 +48,9 @@ class TestNotification implements NotificationTypeInterface
                 'name' => $user->first_name,
             ]),
             'lines' => [
-                trans('notification.test.email_lines.line_1'),
+                // trans('notification.test.email_lines.line_1'),
                 $this->message,
-                trans('notification.test.email_lines.line_3'),
+                // trans('notification.test.email_lines.line_3'),
             ],
             'salutation' => trans('notification.salutation_best_regards_team', [
                 'appName' => $appName,
