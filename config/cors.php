@@ -3,11 +3,7 @@
 return [
     'paths' => ['api/*'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => [
-        'https://partner.fourcornerfunding.com',
-        'https://app.fourcornerfunding.com',
-        'https://fourcornerfunding.com',
-    ],
+    'allowed_origins' => ['*'],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => ['Authorization', 'Content-Type'],

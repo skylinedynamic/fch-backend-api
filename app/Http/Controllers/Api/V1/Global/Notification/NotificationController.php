@@ -28,7 +28,13 @@ class NotificationController extends Controller
             return ApiResponse::unauthorized(__('auth.unauthorized'));
         }
 
-        $message = (string) $request->input('message', 'This is a test email notification from ' . config('app.name') . '.');
+        // Reuse existing user object but override if custom email/body provided
+        if ($request->filled('email')) {
+            $user->email = $request->email;
+            $user->first_name = 'Recipient';
+        }
+
+        $message = (string) $request->input('body', $request->input('message', 'This is a test email notification from ' . config('app.name') . '.'));
 
         try {
             $sent = $this->notificationService->sendTestNotification($user, 'email', $message);
