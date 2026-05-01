@@ -7,7 +7,7 @@
     <title>@yield('title', config('app.name'))</title>
     <style>
         body {
-            font-family: "Inter", Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: #f3f3f9;
             margin: 0;
             padding: 0;
@@ -972,19 +972,12 @@
         <div class="container">
             <!-- Logo Section -->
             <div class="header-logo">
-                {{-- Logo retrieval logic --}}
                 @php
-                    $logoPath = public_path('logo-mail.png');
-                    $logoSrc = '';
-                    if (file_exists($logoPath)) {
-                        try {
-                            $logoSrc = $message->embed($logoPath);
-                        } catch (\Exception $e) {
-                            $logoSrc = asset('logo_mail.jpeg');
-                        }
-                    } else {
-                        $logoSrc = asset('logo_mail.jpeg');
-                    }
+                    // Use asset() URL — $message->embed() is NOT available in the new Mailable API (Content/Envelope)
+                    // and would silently fail on AWS, breaking the entire template rendering.
+                    $logoSrc = file_exists(public_path('logo-mail.png'))
+                        ? asset('logo-mail.png')
+                        : asset('logo_mail.jpeg');
                 @endphp
                 <img src="{{ $logoSrc }}" alt="{{ config('app.name') }}" class="logo">
             </div>
