@@ -17,7 +17,7 @@
 
             <!-- Logo Section -->
             <div class="header-logo"
-                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec;">
+                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;">
                 @php
                     // Use asset() URL — $message->embed() is NOT available in the new Mailable API (Content/Envelope)
                     // and would silently fail on AWS, breaking the entire template rendering.
