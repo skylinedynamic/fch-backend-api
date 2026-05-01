@@ -5,43 +5,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', config('app.name'))</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        {!! file_get_contents(public_path('css/email.css')) !!}
-    </style>
 </head>
 
-<body>
-    <div class="wrapper">
-        <div class="container">
+<body
+    style="margin: 0; padding: 0; background-color: #f3f3f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; color: #495057; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <div class="wrapper" style="width: 100%; background-color: #f3f3f9; padding: 40px 0;">
+        <div class="container"
+            style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 1px 2px rgba(56, 65, 74, 0.15); border-radius: 0; overflow: hidden;">
+            <!-- Top Bar: Dark Blue -->
+
+
             <!-- Logo Section -->
-            <div class="header-logo">
-                {{-- Logo retrieval logic --}}
+            <div class="header-logo"
+                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;">
                 @php
-                    $logoPath = public_path('logo-mail.png');
-                    $logoSrc = '';
-                    if (file_exists($logoPath)) {
-                        try {
-                            $logoSrc = $message->embed($logoPath);
-                        } catch (\Exception $e) {
-                            $logoSrc = asset('logo_mail.jpeg');
-                        }
-                    } else {
-                        $logoSrc = asset('logo_mail.jpeg');
-                    }
+                    // Use asset() URL — $message->embed() is NOT available in the new Mailable API (Content/Envelope)
+                    // and would silently fail on AWS, breaking the entire template rendering.
+                    $logoSrc = file_exists(public_path('logo-mail.png'))
+                        ? asset('logo-mail.png')
+                        : asset('logo_mail.jpeg');
                 @endphp
-                <img src="{{ $logoSrc }}" alt="{{ config('app.name') }}" class="logo">
+                <img src="{{ $logoSrc }}" alt="{{ config('app.name') }}" class="logo"
+                    style="display: block; margin: 0 auto; width: 200px; height: auto;">
             </div>
 
             <!-- Content Area -->
-            <div class="content">
+            <div class="content" style="padding: 0 30px; text-align: left;">
                 @yield('content')
             </div>
 
             <!-- Bottom Footer -->
-            <div class="bottom-footer">
+            <div class="bottom-footer"
+                style="background-color: #1a2e44; padding: 16px 20px; text-align: center; font-size: 13px; color: #fff; line-height: 1.6;">
                 @section('footer')
-                    <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+                <p style="margin: 0; color: #fff;">&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.
+                </p>
                 @show
             </div>
         </div>
