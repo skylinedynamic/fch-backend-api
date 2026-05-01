@@ -39,4 +39,15 @@ return [
     'status_updated_processing' => 'Application marked as processing.',
     'status_updated_approved' => 'Application marked as approved.',
     'list_fetched' => 'Credit accounts retrieved successfully.',
+
+    'validation_task_ids_required' => 'Task IDs are required.',
+    'validation_task_ids_array' => 'Task IDs must be an array.',
+    'validation_task_ids_item_required' => 'Each task ID is required.',
+    'validation_task_ids_item_integer' => 'Each task ID must be an integer.',
+    'validation_task_ids_item_exists' => 'One or more selected tasks are invalid.',
+    'validation_borrower_id_required' => 'Borrower ID is required.',
+    'validation_borrower_id_exists' => 'The selected borrower is invalid.',
+    'validation_status_required' => 'Status is required.',
+    'validation_status_in' => 'The selected status is invalid.',
+    'validation_note_required_if' => 'A note is required when rejecting a task.',
 ];

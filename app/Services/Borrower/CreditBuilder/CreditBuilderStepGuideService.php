@@ -86,12 +86,7 @@ class CreditBuilderStepGuideService
             }
         }
 
-        return ApiResponse::success(
-            $response,
-            __('borrower.tier_task_list_retrieved')
-        );
-
-
+        return ApiResponse::success($response, __('borrower.tier_task_list_retrieved'));
     }
 
     /**

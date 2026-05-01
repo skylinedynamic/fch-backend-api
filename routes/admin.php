@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorContr
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest\ChangeRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Resource\ResourceController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -72,6 +73,7 @@ Route::prefix('v1/admin')
             Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
             Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
+            Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
             // Vendors
             Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);
