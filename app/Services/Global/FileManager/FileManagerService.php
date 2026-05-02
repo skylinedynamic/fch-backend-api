@@ -32,7 +32,7 @@ class FileManagerService
     private function getBasePath($request)
     {
         // Construct base path directly from request
-        if ($request->get_all) {
+        if ($request->get_all == true) {
             $basePath = $request->entity_type;
         } else {
             $basePath = $request->entity_type . "/" . $request->entity_id;
