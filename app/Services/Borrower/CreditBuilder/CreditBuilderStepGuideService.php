@@ -91,8 +91,9 @@ class CreditBuilderStepGuideService
 
     /**
      * Create task verification requests for the given task IDs.
-     *
-     * @param array $taskIds
+     * @param array $taskIds, 
+     * @param int|null $tierId, 
+     * @param int|null $migratedTaskId
      * @return \Illuminate\Support\Collection
      * @throws \Exception
      */

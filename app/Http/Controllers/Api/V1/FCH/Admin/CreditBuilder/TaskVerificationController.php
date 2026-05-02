@@ -21,7 +21,6 @@ class TaskVerificationController extends Controller
      */
     public function updateStatus(UpdateTaskStatusRequest $request)
     {
-        dd($request);
         try {
             $results = $this->service->updateStatus($request->validated());
 

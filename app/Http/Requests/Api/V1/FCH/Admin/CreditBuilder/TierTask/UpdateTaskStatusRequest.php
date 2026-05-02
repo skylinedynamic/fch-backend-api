@@ -22,8 +22,9 @@ class UpdateTaskStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'task_ids' => 'required|array',
-            'task_ids.*' => 'required|integer|exists:tier_tasks,id',
+            'tasks' => 'required|array',
+            'tasks.*.task_id' => 'required|integer|exists:tier_tasks,id',
+            'tasks.*.migrated_task_id' => 'nullable|integer|exists:migrated_tasks,id',
             'borrower_id' => 'required|integer|exists:borrowers,id',
             'status' => ['required', Rule::in([
                 BorrowerTaskVerificationRequest::COMPLETED,
@@ -41,11 +42,11 @@ class UpdateTaskStatusRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'task_ids.required' => __('credit_builder.validation_task_ids_required'),
-            'task_ids.array' => __('credit_builder.validation_task_ids_array'),
-            'task_ids.*.required' => __('credit_builder.validation_task_ids_item_required'),
-            'task_ids.*.integer' => __('credit_builder.validation_task_ids_item_integer'),
-            'task_ids.*.exists' => __('credit_builder.validation_task_ids_item_exists'),
+            'tasks.required' => __('credit_builder.validation_task_ids_required'),
+            'tasks.array' => __('credit_builder.validation_task_ids_array'),
+            'tasks.*.task_id.required' => __('credit_builder.validation_task_ids_item_required'),
+            'tasks.*.task_id.integer' => __('credit_builder.validation_task_ids_item_integer'),
+            'tasks.*.task_id.exists' => __('credit_builder.validation_task_ids_item_exists'),
             'borrower_id.required' => __('credit_builder.validation_borrower_id_required'),
             'borrower_id.exists' => __('credit_builder.validation_borrower_id_exists'),
             'status.required' => __('credit_builder.validation_status_required'),

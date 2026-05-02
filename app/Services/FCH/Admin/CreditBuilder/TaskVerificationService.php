@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Admin\CreditBuilder;
 
+use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
@@ -20,10 +21,11 @@ class TaskVerificationService
      */
     public function updateStatus(array $data)
     {
-        $taskIds = (array) $data['task_ids'];
+        $tasksData = (array) $data['tasks'];
         $borrowerId = $data['borrower_id'];
         $statusToSet = $data['status'];
         $note = $data['note'] ?? null;
+        $isApi = filter_var($data['is_api'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $borrower = Borrower::with('tier')->find($borrowerId);
         if (!$borrower) {
@@ -32,63 +34,107 @@ class TaskVerificationService
 
         $results = [];
 
-        foreach ($taskIds as $taskId) {
-            $task = TierTask::find($taskId);
-            if (!$task) continue;   
+        DB::beginTransaction();
+        try {
+            foreach ($tasksData as $item) {
+                $taskId = $item['task_id'];
+                $currentMigratedTaskId = $item['migrated_task_id'] ?? null;
 
-            $taskName = $task->title ?? 'Unknown Task';
+                $task = TierTask::with('api')->find($taskId);
+                if (!$task) continue;
 
-            // Find or create the verification request
-           $verificationRequest = BorrowerTaskVerificationRequest::where('borrower_id', $borrowerId)
-                ->where('task_id', $taskId)
-                ->latest() // usually orders by created_at desc
-                ->first();
+                $taskName = $task->title ?? 'Unknown Task';
+                $tier = $task->tier;
 
-            if (!$verificationRequest) {
-                $verificationRequest = BorrowerTaskVerificationRequest::create([
-                    'borrower_id' => $borrowerId,
-                    'task_id' => $taskId,
-                    'partner_id' => $borrower->partner_id,
-                    'tier_id' => $task->tier_id,
-                    'status' => BorrowerTaskVerificationRequest::PENDING,
-                ]);
-            }   
+                // Find or create the verification request (INSERT pattern)
+                $verificationRequest = BorrowerTaskVerificationRequest::where('borrower_id', $borrowerId)
+                    ->where('task_id', $taskId)
+                    ->when($currentMigratedTaskId, function ($query) use ($currentMigratedTaskId) {
+                        return $query->where('migrated_task_id', $currentMigratedTaskId);
+                    })
+                    ->latest()
+                    ->first();
 
-            // Skip if already completed or rejected (business rule)
-            if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
-                 $results[] = [
-                    'task_name'   => $taskName,
-                    'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
-                    'message'     => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) 
-                                     ? __('verification_center.already_verified') 
-                                     : __('verification_center.already_rejected'),
-                    'skipped'     => true,
-                ];
-                continue;
+                if (!$verificationRequest) {
+                    $verificationRequest = BorrowerTaskVerificationRequest::create([
+                        'borrower_id'      => $borrowerId,
+                        'partner_id'       => $borrower->partner_id,
+                        'tier_id'          => $task->tier_id,
+                        'task_id'          => $taskId,
+                        'status'           => BorrowerTaskVerificationRequest::PENDING,
+                        'verified_by'      => null,
+                        'verified_at'      => null,
+                        'note'             => null,
+                        'migrated_task_id' => $currentMigratedTaskId,
+                    ]);
+                }
+
+                // UPDATE pattern (from VerificationCenterService)
+                if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
+                    $results[] = [
+                        'task_name'   => $taskName,
+                        'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
+                        'message'     => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) 
+                                         ? __('verification_center.already_verified') 
+                                         : __('verification_center.already_rejected'),
+                        'skipped'     => true,
+                    ];
+                    continue;
+                }
+
+                $canUpdateStatus = true;
+                $shouldSkipUpdate = false;
+                $errorMessage = '';
+
+                // API verification logic (if needed for Admin as well)
+                if ($isApi && $statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
+                    // For T0, check if API is assigned
+                    if ($tier && $tier->code == 'T0') {
+                        $api = $task->api;
+                        if (!$api) {
+                            $errorMessage = __('verification_center.no_api_assigned');
+                            $shouldSkipUpdate = true;
+                        }
+                    }
+                }
+
+                if (!$shouldSkipUpdate) {
+                    $statusToWrite = $canUpdateStatus ? $statusToSet : BorrowerTaskVerificationRequest::REJECTED;
+                    $shouldTriggerTierUpdate = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED && $verificationRequest->status != BorrowerTaskVerificationRequest::COMPLETED);
+
+                    $verificationRequest->update([
+                        'status'      => $statusToWrite,
+                        'verified_by' => Auth::id(),
+                        'verified_at' => now(),
+                        'note'        => $note,
+                    ]);
+
+                    if ($shouldTriggerTierUpdate) {
+                        $this->tierUpdate($verificationRequest);
+                    }
+
+                    $isVerified = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED);
+                    $results[] = [
+                        'task_name'   => $taskName,
+                        'is_verified' => $isVerified,
+                        'message'     => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.rejected')),
+                    ];
+                } else {
+                    $results[] = [
+                        'task_name'   => $taskName,
+                        'is_verified' => false,
+                        'message'     => $errorMessage ?: __('verification_center.no_api_assigned'),
+                        'skipped'     => true,
+                    ];
+                }
             }
-
-            // Update status
-            $verificationRequest->update([
-                'status'      => $statusToSet,
-                'verified_by' => Auth::id(),
-                'verified_at' => now(),
-                'note'        => $note,
-            ]);
-
-            // Trigger tier update if completed
-            if ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
-                $this->tierUpdate($verificationRequest);
-            }
-
-            $isVerified = ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED);
-            $results[] = [
-                'task_name'   => $taskName,
-                'is_verified' => $isVerified,
-                'message'     => $isVerified ? __('verification_center.verified') : __('verification_center.rejected'),
-            ];
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('TaskVerificationService: updateStatus failed', ['error' => $e->getMessage()]);
+            throw $e;
         }
 
-        // Send consolidated mail
         $this->sendVerificationStatusMail($borrower, $statusToSet, $note, $results);
 
         return $results;
