@@ -24,4 +24,5 @@ return [
     'rejected' => 'Rejected',
     'processing' => 'Processing',
     'pending' => 'Pending',
+    'tasks_updated_successfully' => 'Tasks updated successfully.',
 ];

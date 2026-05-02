@@ -110,25 +110,39 @@ class CreditBuilderStepGuideService
                 $task = TierTask::find($taskId);
 
                 if (!$task) {
-                    throw new \Exception("Task with ID {$taskId} not found.");
+                    throw new \Exception("Task not found.");
                 }
 
                 $status = BorrowerTaskVerificationRequest::PROCESSING;
                 $verifiedAt = null;
                 $verifiedBy = null;
 
-                // Create new request
-                $verificationRequest = BorrowerTaskVerificationRequest::create([
-                    'borrower_id' => $borrower->id,
-                    'partner_id' => $borrower->partner_id,
-                    'tier_id' => $tierId,
-                    'task_id' => $taskId,
-                    'status' => $status,
-                    'verified_by' => $verifiedBy,
-                    'verified_at' => $verifiedAt,
-                    'rejection_reason' => null,
-                    'migrated_task_id' => $migratedTaskId,
-                ]);
+                $is_task_exist = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
+                    ->where('task_id', $taskId)
+                    ->where('tier_id', $tierId)
+                    ->when($migratedTaskId, function ($query) use ($migratedTaskId) {
+                        $query->where('migrated_task_id', $migratedTaskId);
+                    })
+                    ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
+                    ->latest()
+                    ->first();
+
+                if ($is_task_exist) {
+                    throw new \Exception("Task already completed.");
+                } else {
+                    // Create new request
+                    $verificationRequest = BorrowerTaskVerificationRequest::create([
+                        'borrower_id' => $borrower->id,
+                        'partner_id' => $borrower->partner_id,
+                        'tier_id' => $tierId,
+                        'task_id' => $taskId,
+                        'status' => $status,
+                        'verified_by' => $verifiedBy,
+                        'verified_at' => $verifiedAt,
+                        'rejection_reason' => null,
+                        'migrated_task_id' => $migratedTaskId,
+                    ]);
+                }
 
                 $verificationRequests[] = $verificationRequest;
             }

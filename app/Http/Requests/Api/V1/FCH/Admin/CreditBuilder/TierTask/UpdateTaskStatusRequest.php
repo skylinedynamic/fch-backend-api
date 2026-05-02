@@ -26,6 +26,7 @@ class UpdateTaskStatusRequest extends FormRequest
             'tasks.*.task_id' => 'required|integer|exists:tier_tasks,id',
             'tasks.*.migrated_task_id' => 'nullable|integer|exists:migrated_tasks,id',
             'borrower_id' => 'required|integer|exists:borrowers,id',
+            'tier_id' => 'required|integer|exists:tiers,id',
             'status' => ['required', Rule::in([
                 BorrowerTaskVerificationRequest::COMPLETED,
                 BorrowerTaskVerificationRequest::REJECTED

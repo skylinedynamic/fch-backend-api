@@ -24,7 +24,7 @@ class TaskVerificationController extends Controller
         try {
             $results = $this->service->updateStatus($request->validated());
 
-            return ApiResponse::success($results, __('verification_center.success_status_updated'));
+            return ApiResponse::success($results, __('verification_center.tasks_updated_successfully'));
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage() ?: __('verification_center.error_status_update_failed'));
         }
