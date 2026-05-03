@@ -3,11 +3,13 @@
 namespace App\Services\FCH\Common\AuthProfile;
 
 use App\Helpers\ApiResponse;
+use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Log;
 
 class AuthProfileService
 {
@@ -29,8 +31,8 @@ class AuthProfileService
         // 📧 Send Password Changed Notification
         try {
             $mailData = [
-                'subject'           => __('profile.password_changed_subject', ['app_name' => config('app.name')]),
-                'user'              => $user,
+                'subject' => __('profile.password_changed_subject', ['app_name' => config('app.name')]),
+                'user' => $user,
                 'notification_type' => 'security',
                 'content' => [
                     'greeting' => __('profile.greeting', ['name' => $user->name ?? __('profile.default_user')]),
@@ -49,7 +51,7 @@ class AuthProfileService
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('📧 Password change notification failed', [
                 'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -67,7 +69,7 @@ class AuthProfileService
 
         // Update User table
         $user->update([
-            'name'         => $fullName,
+            'name' => $fullName,
             'phone_number' => $data['phone_number'] ?? $user->phone_number,
         ]);
 
@@ -82,7 +84,7 @@ class AuthProfileService
             if ($employee) {
                 $employee->update([
                     'first_name' => $firstName,
-                    'last_name'  => $lastName,
+                    'last_name' => $lastName,
                 ]);
             }
         }
@@ -94,10 +96,28 @@ class AuthProfileService
      */
     public function updateProfilePicture(User $user, array $data): JsonResponse
     {
+        $imagePath = $data['image'];
+
+        // Sync with related entity tables
+        if ($user->entity_type && $user->entity_id) {
+            $entity = $user->entity;
+            if ($entity) {
+                if ($user->entity_type == Partner::class) {
+                    $imagePath = 'partners/' . $user->entity_id . '/' . $imagePath;
+                    $entity->update(['partner_image' => $imagePath]);
+                } elseif ($user->entity_type == Employee::class) {
+                    $imagePath = 'employees/' . $user->entity_id . '/' . $imagePath;
+                    $entity->update(['image' => $imagePath]);
+                }
+            }
+        }
+
+        Log::info('imagePath', $imagePath);
+        // Update User table
         $user->update([
-            'image' => $data['image'],
+            'image' => $imagePath,
         ]);
 
-        return ApiResponse::success(['image' => $user->image], __('profile.profile_picture_update_success'));
+        return ApiResponse::success(['image' => $user->fresh()->image], __('profile.profile_picture_update_success'));
     }
 }
