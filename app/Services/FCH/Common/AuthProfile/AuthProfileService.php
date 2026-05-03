@@ -103,16 +103,15 @@ class AuthProfileService
             $entity = $user->entity;
             if ($entity) {
                 if ($user->entity_type == Partner::class) {
-                    $imagePath = 'partners/' . $user->entity_id . '/' . $imagePath;
+                    $imagePath = 'partners/' . $user->entity_id . '/' . ltrim($imagePath, '/');
                     $entity->update(['partner_image' => $imagePath]);
                 } elseif ($user->entity_type == Employee::class) {
-                    $imagePath = 'employees/' . $user->entity_id . '/' . $imagePath;
+                    $imagePath = 'employees/' . $user->entity_id . '/' . ltrim($imagePath, '/');
                     $entity->update(['image' => $imagePath]);
                 }
             }
         }
 
-        Log::info('imagePath', $imagePath);
         // Update User table
         $user->update([
             'image' => $imagePath,
