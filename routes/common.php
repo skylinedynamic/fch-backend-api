@@ -1,42 +1,45 @@
 <?php
 
-use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
-use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
-use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
-use App\Http\Controllers\Api\V1\Global\General\LocationController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
-use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
-use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
-use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
-use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
-use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
-use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
-use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
-use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
-use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
-use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
-use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
-use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
-use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
-use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
-use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
-use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
-use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
-use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
-use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
-use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
-use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
-use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
-use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController;
-
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
+use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
+use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
+use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
+use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
+use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
+use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
+use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
+use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
+use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
+use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
+use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
+use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
+use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
+use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
+use App\Http\Controllers\Api\V1\Global\General\LocationController;
+use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
+use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
+
+use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
+use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use Illuminate\Support\Facades\Route;
+
 
 Route::prefix('v1')->group(function () {
     // V1 auth routes
@@ -55,6 +58,10 @@ Route::prefix('v1')->group(function () {
     // Location routes
     Route::get('common/locations', [LocationController::class, 'index']);
 
+    // Site Settings & SEO (Publicly accessible for login/website)
+    Route::get('common/site-settings', [SiteSettingController::class, 'index']);
+    Route::get('common/seo-settings', [SeoController::class, 'index']);
+    Route::get('common/seo', [SeoController::class, 'show']);
 
     Route::middleware('auth:api')->group(function () {
 

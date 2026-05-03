@@ -201,4 +201,17 @@ return [
             ['name' => 'update borrower agreement settings', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
+
+    'cms' => [
+        'permissions' => [
+            ['name' => 'view site settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'add soical media', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update site settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view blogs', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create blogs', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update blogs', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view seo settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update seo settings', 'is_certified' => 0, 'is_host' => 1],
+        ],
+    ],
 ];

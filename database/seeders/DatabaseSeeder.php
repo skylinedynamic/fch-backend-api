@@ -87,6 +87,9 @@ class DatabaseSeeder extends Seeder
             DemoSubscriberSeeder::class,
             CreditAccountSeeder::class,
             ResourceSeeder::class,
+            SiteSettingSeeder::class,
+            BlogSeeder::class,
+            SeoSettingSeeder::class,
         ]);
     }
 }
