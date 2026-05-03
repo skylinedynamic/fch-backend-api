@@ -14,6 +14,8 @@ class ActivityLogResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+
         $partnerImage = null;
         $borrowerImage = null;
         $leadImage = null;
@@ -86,8 +88,8 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->causer->id,
                 'name' => $this->causer->name,
             ] : null),
-            'created_at'    => $this->created_at?->format('Y-m-d H:i:s'),
-            'updated_at'    => $this->updated_at?->format('Y-m-d H:i:s'),
+            'created_at'    => $this->created_at?->timezone($timezone)->format('Y-m-d H:i:s'),
+            'updated_at'    => $this->updated_at?->timezone($timezone)->format('Y-m-d H:i:s'),
         ];
     }
 
