@@ -90,6 +90,7 @@ class DatabaseSeeder extends Seeder
             SiteSettingSeeder::class,
             BlogSeeder::class,
             SeoSettingSeeder::class,
+            CmsPermissionUpdateSeeder::class
         ]);
     }
 }
