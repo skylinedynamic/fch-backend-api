@@ -19,4 +19,11 @@ return [
     'change_request_status_updated' => 'Change request status updated successfully.',
     'change_request_already_processed' => 'This change request has already been processed and cannot be modified.',
     'borrower_not_found' => 'Borrower record not found.',
+    'profile_update_success' => 'Profile updated successfully.',
+    'profile_picture_update_success' => 'Profile picture updated successfully.',
+    'password_changed_subject' => 'Security Alert: Password Changed - :app_name',
+    'greeting' => 'Hello :name!',
+    'default_user' => 'User',
+    'password_changed_line1' => 'This is a confirmation that your account password was recently updated.',
+    'password_changed_line2' => 'Below is your new login password:',
 ];

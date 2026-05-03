@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorContr
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest\ChangeRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Resource\ResourceController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingController;
@@ -66,6 +67,8 @@ Route::prefix('v1/admin')
             Route::put('tiers/{id}', [TierController::class, 'update']);
             Route::post('tiers-multiple-delete', [TierController::class, 'multipleDelete']);
             Route::get('tier-related-api/{tier_id}', [TierController::class, 'getTierRelatedApi']);
+            Route::post('tiers/borrowers/tier-wise-tasklist', [TierController::class, 'getBorrowerTierTaskList']);
+            Route::post('tiers/borrowers/progress', [TierController::class, 'getBorrowerProgress']);
 
             // Tier Tasks
             Route::post('tier-tasks/fetch-tasks', [TierTaskController::class, 'index']);
@@ -73,6 +76,7 @@ Route::prefix('v1/admin')
             Route::get('tier-tasks/{id}', [TierTaskController::class, 'show']);
             Route::put('tier-tasks/{id}', [TierTaskController::class, 'update']);
             Route::post('tier-tasks-multiple-delete', [TierTaskController::class, 'multipleDelete']);
+            Route::post('tasks/update-status', [TaskVerificationController::class, 'updateStatus']);
 
             // Vendors
             Route::post('vendors/fetch-vendors', [CreditBuilderVendorController::class, 'index']);

@@ -29,7 +29,7 @@ class FileManagerService
      * Get base path from request entity type and ID
      * Creates the directory if it doesn't exist
      */
-     private function getBasePath($request)
+    private function getBasePath($request)
     {
         // Construct base path directly from request
         if ($request->has('get_all') && $request->get_all == 1) {

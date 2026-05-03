@@ -42,7 +42,7 @@ return [
             ['name' => 'view leads', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create leads', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update leads', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete leads', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'delete leads', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -51,7 +51,7 @@ return [
             ['name' => 'view contacts', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create contacts', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update contacts', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete contacts', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'delete contacts', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -60,7 +60,7 @@ return [
             ['name' => 'view clients', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create clients', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update clients', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete clients', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'delete clients', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -84,7 +84,7 @@ return [
 
     'payments' => [
         'permissions' => [
-            ['name' => 'view payments', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view payments', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create payments', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'update payments', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'delete payments', 'is_certified' => 0, 'is_host' => 0],
@@ -93,7 +93,7 @@ return [
 
     'invoices' => [
         'permissions' => [
-            ['name' => 'view invoices', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view invoices', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create invoices', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'update invoices', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'delete invoices', 'is_certified' => 0, 'is_host' => 0],
@@ -114,7 +114,7 @@ return [
             ['name' => 'view appointments', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create appointments', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update appointments', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete appointments', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'delete appointments', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -132,7 +132,7 @@ return [
             ['name' => 'view support tickets', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'create support tickets', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update support tickets', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'delete support tickets', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'delete support tickets', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -147,19 +147,19 @@ return [
 
     'employees' => [
         'permissions' => [
-            ['name' => 'view employees', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'create employees', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update employees', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete employees', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view employees', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create employees', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update employees', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete employees', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
     'users' => [
         'permissions' => [
-            ['name' => 'view users', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'create users', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update users', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete users', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view users', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create users', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update users', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete users', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -167,8 +167,8 @@ return [
         'permissions' => [
             ['name' => 'view borrower documents', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'upload borrower documents', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'update borrower documents status', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete borrower documents', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'update borrower documents status', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete borrower documents', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -187,10 +187,10 @@ return [
 
     'roles & permissions' => [
         'permissions' => [
-            ['name' => 'view roles & permissions', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'create roles & permissions', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update roles & permissions', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete roles & permissions', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'view roles & permissions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create roles & permissions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update roles & permissions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete roles & permissions', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 

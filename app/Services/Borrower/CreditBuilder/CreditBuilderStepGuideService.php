@@ -28,13 +28,17 @@ class CreditBuilderStepGuideService
     public function getTierWiseTaskList()
     {
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
-        
-        $tierData = Tier::with(['tasks' => function ($query) {
-             $query->orderBy('order', 'asc');
-        }, 'tasks.latestBorrowerTierTask' => function ($query) use ($borrower) {
-             $query->where('borrower_id', $borrower->id)->whereNull('migrated_task_id');
-        },'tasks.vendor'])
-        ->orderBy('order', 'asc')->get();
+
+        $tierData = Tier::with([
+            'tasks' => function ($query) {
+                $query->orderBy('order', 'asc');
+            },
+            'tasks.latestBorrowerTierTask' => function ($query) use ($borrower) {
+                $query->where('borrower_id', $borrower->id)->whereNull('migrated_task_id');
+            },
+            'tasks.vendor'
+        ])
+            ->orderBy('order', 'asc')->get();
 
         // Resolve the resource collection into a plain PHP array so we can
         // directly mutate the 'tasks' key for migrated-task tiers below.
@@ -59,81 +63,91 @@ class CreditBuilderStepGuideService
                         $borrower_task = $mTask->task?->latestBorrowerTierTask?->where('migrated_task_id', $mTask->id)->first();
 
                         $newTasks[] = [
-                            'id'                       => $mTask->task->id,
-                            'title'                    => $mTask->task->title,
-                            'subtitle'                 => $mTask->task->subtitle,
-                            'description'              => $mTask->task->description,
-                            'status'                   => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
-                            'note'                     => $borrower_task ? $borrower_task->note : null,
-                            'completed_at'             => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
-                            'url'                      => $mTask->task->url,
-                            'logo'                     => $mTask->task->logo ? asset('/' . encodeUrl($mTask->task->logo)) : null,
-                            'button_title'             => $mTask->task->button_title,
+                            'id' => $mTask->task->id,
+                            'title' => $mTask->task->title,
+                            'subtitle' => $mTask->task->subtitle,
+                            'description' => $mTask->task->description,
+                            'status' => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
+                            'note' => $borrower_task ? $borrower_task->note : null,
+                            'completed_at' => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
+                            'url' => $mTask->task->url,
+                            'logo' => $mTask->task->logo ? asset('/' . encodeUrl($mTask->task->logo)) : null,
+                            'button_title' => $mTask->task->button_title,
                             'estimated_completion_days' => $mTask->task->estimated_completion_days,
-                            'order'                    => $mTask->task->order,
-                            'vendor'                   => CreditBuilderVendorResource::make($mTask->task?->vendor),
-                            'migrated_task_id'         => $mTask->id,
+                            'order' => $mTask->task->order,
+                            'vendor' => CreditBuilderVendorResource::make($mTask->task?->vendor),
+                            'migrated_task_id' => $mTask->id,
                         ];
                     }
                 }
-                if(count($newTasks)){
+                if (count($newTasks)) {
                     $response[$key]['tasks'] = $newTasks;
                 }
             }
         }
 
-        return ApiResponse::success(
-            $response,
-            __('borrower.tier_task_list_retrieved')
-        );
-
-       
+        return ApiResponse::success($response, __('borrower.tier_task_list_retrieved'));
     }
 
     /**
      * Create task verification requests for the given task IDs.
-     *
-     * @param array $taskIds
+     * @param array $taskIds, 
+     * @param int|null $tierId, 
+     * @param int|null $migratedTaskId
      * @return \Illuminate\Support\Collection
      * @throws \Exception
      */
     public function taskVerifyRequest(array $taskIds, $tierId = null, $migratedTaskId = null)
     {
         $borrower = Borrower::where('id', Auth::user()->entity_id)->first();
-        
+
         $verificationRequests = [];
 
         DB::beginTransaction();
-        try{
+        try {
             foreach ($taskIds as $taskId) {
-            // Get task details to retrieve tier_id
+                // Get task details to retrieve tier_id
                 $task = TierTask::find($taskId);
 
                 if (!$task) {
-                    throw new \Exception("Task with ID {$taskId} not found.");
+                    throw new \Exception("Task not found.");
                 }
 
                 $status = BorrowerTaskVerificationRequest::PROCESSING;
                 $verifiedAt = null;
                 $verifiedBy = null;
-                
-                // Create new request
-                $verificationRequest = BorrowerTaskVerificationRequest::create([
-                    'borrower_id' => $borrower->id,
-                    'partner_id' => $borrower->partner_id,
-                    'tier_id' => $tierId,
-                    'task_id' => $taskId,
-                    'status' => $status,
-                    'verified_by' => $verifiedBy,
-                    'verified_at' => $verifiedAt,
-                    'rejection_reason' => null,
-                    'migrated_task_id' => $migratedTaskId,
-                ]);
+
+                $is_task_exist = BorrowerTaskVerificationRequest::where('borrower_id', $borrower->id)
+                    ->where('task_id', $taskId)
+                    ->where('tier_id', $tierId)
+                    ->when($migratedTaskId, function ($query) use ($migratedTaskId) {
+                        $query->where('migrated_task_id', $migratedTaskId);
+                    })
+                    ->where('status', BorrowerTaskVerificationRequest::COMPLETED)
+                    ->latest()
+                    ->first();
+
+                if ($is_task_exist) {
+                    throw new \Exception("Task already completed.");
+                } else {
+                    // Create new request
+                    $verificationRequest = BorrowerTaskVerificationRequest::create([
+                        'borrower_id' => $borrower->id,
+                        'partner_id' => $borrower->partner_id,
+                        'tier_id' => $tierId,
+                        'task_id' => $taskId,
+                        'status' => $status,
+                        'verified_by' => $verifiedBy,
+                        'verified_at' => $verifiedAt,
+                        'rejection_reason' => null,
+                        'migrated_task_id' => $migratedTaskId,
+                    ]);
+                }
 
                 $verificationRequests[] = $verificationRequest;
             }
             DB::commit();
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
