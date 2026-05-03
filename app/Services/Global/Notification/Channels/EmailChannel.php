@@ -98,9 +98,7 @@ class EmailChannel
                 'content' => [
                     'greeting' => trans('notification.greeting_hello_name', ['name' => $user->first_name]),
                     'lines' => [
-                        trans('notification.test_email.lines.line_1'),
                         $message,
-                        trans('notification.test_email.lines.line_3')
                     ],
                     'action' => null,
                     'salutation' => trans('notification.salutation_best_regards_team', [
@@ -111,7 +109,7 @@ class EmailChannel
                 'notification_type' => 'test',
                 'data' => []
             ];
-
+            
             Mail::to($user->email)->send(new GenericNotificationMail($mailData));
             return true;
         } catch (Exception $e) {

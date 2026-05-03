@@ -250,6 +250,7 @@ h1 {
    MOBILE RESPONSIVE STYLES
    ============================================ */
 @media only screen and (max-width: 600px) {
+
     /* Base Typography - Improve readability on mobile */
     body {
         font-size: 16px !important;
