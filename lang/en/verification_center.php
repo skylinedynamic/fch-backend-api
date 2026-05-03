@@ -25,4 +25,7 @@ return [
     'processing' => 'Processing',
     'pending' => 'Pending',
     'tasks_updated_successfully' => 'Tasks updated successfully.',
+    'tier_task_updated' => 'Tier Task Has been Updated',
+    'tasks_processed_desc' => 'The following tasks for :tier have been processed:',
+    'note_label' => 'Note',
 ];

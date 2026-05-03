@@ -30,7 +30,7 @@ class ActivityLogService
     public function list(array $filters)
     {
         $query = ActivityLog::with(['causer', 'subject']);
-        
+
         $user = Auth::user();
 
         if (!$user) {
@@ -47,26 +47,26 @@ class ActivityLogService
 
         // 2. Explicit Filtering
         if (!empty($filters['partner_id'])) {
-            $pId = (int)$filters['partner_id'];
+            $pId = (int) $filters['partner_id'];
             $query->where(function ($q) use ($pId) {
                 $q->where('properties->partner_id', $pId)
-                  ->orWhere('properties->partner_id', (string)$pId)
-                  ->orWhere(function ($sq) use ($pId) {
-                      $sq->where('subject_type', Partner::class)
-                         ->where('subject_id', $pId);
-                  });
+                    ->orWhere('properties->partner_id', (string) $pId)
+                    ->orWhere(function ($sq) use ($pId) {
+                        $sq->where('subject_type', Partner::class)
+                            ->where('subject_id', $pId);
+                    });
             });
         }
 
         if (!empty($filters['borrower_id'])) {
-            $bId = (int)$filters['borrower_id'];
+            $bId = (int) $filters['borrower_id'];
             $query->where(function ($q) use ($bId) {
                 $q->where('properties->borrower_id', $bId)
-                  ->orWhere('properties->borrower_id', (string)$bId)
-                  ->orWhere(function ($sq) use ($bId) {
-                      $sq->where('subject_type', Borrower::class)
-                         ->where('subject_id', $bId);
-                  });
+                    ->orWhere('properties->borrower_id', (string) $bId)
+                    ->orWhere(function ($sq) use ($bId) {
+                        $sq->where('subject_type', Borrower::class)
+                            ->where('subject_id', $bId);
+                    });
             });
         }
 
@@ -78,13 +78,13 @@ class ActivityLogService
         }
 
         $limit = $filters['limit'] ?? 15;
-        $page  = $filters['page'] ?? 1;
+        $page = $filters['page'] ?? 1;
 
         $logs = $query->orderBy('id', 'desc')->paginate($limit, ['*'], 'page', $page);
 
         return $this->respondWithPaginationResource(
-            $logs, 
-            ActivityLogResource::class, 
+            $logs,
+            ActivityLogResource::class,
             __('activity_log.listed')
         );
     }
@@ -101,16 +101,16 @@ class ActivityLogService
             if (!is_array($attachments)) {
                 $attachments = [$attachments];
             }
-            
+
             $attachmentNames = [];
             $attachmentFiles = [];
-            
+
             foreach ($attachments as $file) {
                 if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
                     $originalName = $file->getClientOriginalName();
                     $fileName = time() . '_' . str_replace(' ', '_', $originalName);
                     $path = $file->storeAs('attachments', $fileName, 'public');
-                    
+
                     $attachmentNames[] = $originalName;
                     $attachmentFiles[] = [
                         'name' => $originalName,
@@ -143,40 +143,42 @@ class ActivityLogService
             if (!$targetPartnerId) {
                 if ($subjectType === \App\Models\Lead\Lead::class) {
                     $lead = \App\Models\Lead\Lead::find($subjectId);
-                    if ($lead && $lead->partner_id) $targetPartnerId = $lead->partner_id;
+                    if ($lead && $lead->partner_id)
+                        $targetPartnerId = $lead->partner_id;
                 } elseif ($subjectType === \App\Models\Borrower\Borrower::class) {
                     $borrower = \App\Models\Borrower\Borrower::find($subjectId);
-                    if ($borrower && $borrower->partner_id) $targetPartnerId = $borrower->partner_id;
+                    if ($borrower && $borrower->partner_id)
+                        $targetPartnerId = $borrower->partner_id;
                 }
             }
 
 
             $logData = [
-                'log_name'     => $logType,
+                'log_name' => $logType,
                 'subject_type' => $subjectType,
-                'subject_id'   => $subjectId,
-                'partner_id'   => $targetPartnerId,
-                'borrower_id'  => $targetBorrowerId,
-                'causer_id'    => Auth::id(),
-                'causer_type'  => Auth::check() ? get_class(Auth::user()) : null,
-                'status'       => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
-                'event'        => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
-                'description'  => $data['description'] ?? $data['subject'] ?? 'Activity Log',
-                'properties'   => [
-                    'subject'       => $data['subject'] ?? null,
-                    'description'   => $data['description'] ?? null,
-                    'attachments'   => [
+                'subject_id' => $subjectId,
+                'partner_id' => $targetPartnerId,
+                'borrower_id' => $targetBorrowerId,
+                'causer_id' => Auth::id(),
+                'causer_type' => Auth::check() ? get_class(Auth::user()) : null,
+                'status' => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
+                'event' => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
+                'description' => $data['description'] ?? $data['subject'] ?? 'Activity Log',
+                'properties' => [
+                    'subject' => $data['subject'] ?? null,
+                    'description' => $data['description'] ?? null,
+                    'attachments' => [
                         'count' => $attachmentsCount,
                         'files' => $attachmentFiles,
                     ],
                     // Custom fields for Timeline icons
-                    'reference'     => $data['reference'] ?? null,
-                    'category'      => $data['category'] ?? null,
+                    'reference' => $data['reference'] ?? null,
+                    'category' => $data['category'] ?? null,
                     'activity_date' => $data['activity_date'] ?? null,
-                    'assigned_to'   => $data['assigned_to'] ?? null,
-                    'to_emails'     => $data['to_emails'] ?? null,
-                    'partner_id'    => $targetPartnerId,
-                    'borrower_id'   => $targetBorrowerId,
+                    'assigned_to' => $data['assigned_to'] ?? null,
+                    'to_emails' => $data['to_emails'] ?? null,
+                    'partner_id' => $targetPartnerId,
+                    'borrower_id' => $targetBorrowerId,
                 ],
             ];
 
@@ -212,23 +214,23 @@ class ActivityLogService
         array $properties = []
     ): ActivityLog {
         $mergedProperties = array_merge([
-            'subject'     => $subject,
+            'subject' => $subject,
             'description' => $description,
             'event_label' => $subject,
         ], $properties);
 
         return ActivityLog::create([
-            'log_name'     => $logType,
+            'log_name' => $logType,
             'subject_type' => $subjectType,
-            'subject_id'   => $subjectId,
-            'partner_id'   => $partnerId,
-            'borrower_id'  => $borrowerId,
-            'causer_id'    => Auth::id() ?: 1, // Fallback to system user
-            'causer_type'  => Auth::check() ? get_class(Auth::user()) : \App\Models\User\User::class,
-            'status'       => 'log',
-            'event'        => $subject, // Human-readable subject
-            'description'  => $description, // Detailed description for UI gray box
-            'properties'   => $mergedProperties,
+            'subject_id' => $subjectId,
+            'partner_id' => $partnerId,
+            'borrower_id' => $borrowerId,
+            'causer_id' => Auth::id() ?: 1, // Fallback to system user
+            'causer_type' => Auth::check() ? get_class(Auth::user()) : \App\Models\User\User::class,
+            'status' => 'log',
+            'event' => $subject, // Human-readable subject
+            'description' => $description, // Detailed description for UI gray box
+            'properties' => $mergedProperties,
         ]);
     }
 
@@ -243,8 +245,8 @@ class ActivityLogService
         ?string $customDescription = null
     ): ActivityLog {
         $subjectType = get_class($model);
-        $subjectId   = $model->id;
-        $partnerId  = $model->partner_id ?? null;
+        $subjectId = $model->id;
+        $partnerId = $model->partner_id ?? null;
         $borrowerId = $model->borrower_id ?? null;
 
         // Resolve ID attribution for images and scoping
@@ -260,74 +262,79 @@ class ActivityLogService
         }
 
         if (!$borrowerId && $model instanceof Borrower) {
-             $borrowerId = $model->id;
-             $partnerId = $partnerId ?: $model->partner_id;
+            $borrowerId = $model->id;
+            $partnerId = $partnerId ?: $model->partner_id;
         }
 
 
         // Generate default descriptions if not provided
         $modelName = class_basename($model);
-        if ($modelName === 'Borrower') $modelName = 'Client';
-        
+        if ($modelName === 'Borrower')
+            $modelName = 'Client';
+
         // Fetch from config
         $actionMap = config('activity_messages.actions', []);
-        
+
         // Infer action from logType (e.g., employee_create -> Created)
         $actionParts = explode('_', $logType);
         $actionRaw = end($actionParts);
 
         // Determine Action and Subject
         if ($logType === ActivityLog::LOG_TYPE_BATCH_PROCESS) {
-             $action = $actionMap['batch'] ?? 'Created (Batch)';
-             $descriptionAction = 'generated via batch process';
-             $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.batch_process'));
+            $action = $actionMap['batch'] ?? 'Created (Batch)';
+            $descriptionAction = 'generated via batch process';
+            $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.batch_process'));
         } elseif ($logType === ActivityLog::LOG_TYPE_PERMISSION_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = $actionMap['permissions'] ?? 'permissions updated';
-             $customSubject = $customSubject ?? config('activity_messages.subjects.permission_update');
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = $actionMap['permissions'] ?? 'permissions updated';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.permission_update');
         } elseif ($logType === ActivityLog::LOG_TYPE_CHECKLIST_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = $actionMap['checklist'] ?? 'checklist updated';
-             $customSubject = $customSubject ?? config('activity_messages.subjects.checklist_update');
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = $actionMap['checklist'] ?? 'checklist updated';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.checklist_update');
         } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = 'details updated';
-             $customSubject = $customSubject ?? config('activity_messages.subjects.lead_details_update');
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = 'details updated';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.lead_details_update');
         } elseif ($logType === ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = 'contact updated';
-             $customSubject = $customSubject ?? config('activity_messages.subjects.lead_contact_update');
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = 'contact updated';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.lead_contact_update');
         } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_CONTACT_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = 'contact updated';
-             $customSubject = $customSubject ?? 'Partner Contact Information Updated';
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = 'contact updated';
+            $customSubject = $customSubject ?? 'Partner Contact Information Updated';
         } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_CONTACT_UPDATE) {
-             $action = $actionMap['update'] ?? 'Updated';
-             $descriptionAction = 'contact updated';
-             $customSubject = $customSubject ?? 'Client Contact Information Updated';
+            $action = $actionMap['update'] ?? 'Updated';
+            $descriptionAction = 'contact updated';
+            $customSubject = $customSubject ?? 'Client Contact Information Updated';
         } elseif ($logType === ActivityLog::LOG_TYPE_EMAIL_UPDATE) {
-             $action = 'Updated';
-             $descriptionAction = 'contact email updated';
-             $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.email_update', ':model Contact Information Updated'));
+            $action = 'Updated';
+            $descriptionAction = 'contact email updated';
+            $customSubject = $customSubject ?? str_replace(':model', $modelName, config('activity_messages.subjects.email_update', ':model Contact Information Updated'));
+        } elseif ($logType === ActivityLog::LOG_TYPE_TASK_VERIFICATION) {
+            $action = 'Updated';
+            $descriptionAction = 'tier tasks processed';
+            $customSubject = $customSubject ?? __('verification_center.tier_task_updated');
         } elseif (in_array($logType, [ActivityLog::LOG_TYPE_PARTNER_PAYMENT, ActivityLog::LOG_TYPE_BORROWER_PAYMENT])) {
-             $action = 'Paid';
-             $descriptionAction = 'payment successful';
-             $customSubject = $customSubject ?? ($logType === ActivityLog::LOG_TYPE_PARTNER_PAYMENT ? 'Partner Subscription Payment Successful' : 'Client Subscription Payment Successful');
+            $action = 'Paid';
+            $descriptionAction = 'payment successful';
+            $customSubject = $customSubject ?? ($logType === ActivityLog::LOG_TYPE_PARTNER_PAYMENT ? 'Partner Subscription Payment Successful' : 'Client Subscription Payment Successful');
         } else {
-             $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
-             $descriptionAction = strtolower($action);
+            $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
+            $descriptionAction = strtolower($action);
         }
 
         $subjectPattern = config('activity_messages.subjects.default', ':model :action');
         $subject = $customSubject ?? str_replace([':model', ':action'], [$modelName, $action], $subjectPattern);
-        
-        $displayName = $model->name 
-            ?? $model->full_name 
-            ?? $model->company_name 
+
+        $displayName = $model->name
+            ?? $model->full_name
+            ?? $model->company_name
             ?? $model->contact_person
             ?? $model->subject
             ?? (isset($model->first_name) ? "{$model->first_name} {$model->last_name}" : ($model->customer_name ?? 'Record'));
-        
+
         // Resolve Final Description logic
         $descDefaultPattern = config('activity_messages.descriptions.default', ':model profile :action for :display_name');
         if ($logType === ActivityLog::LOG_TYPE_PERMISSION_UPDATE) {
@@ -345,28 +352,30 @@ class ActivityLogService
             $descPattern = config('activity_messages.descriptions.email_update', ':model contact email was updated to :new_email for :display_name.');
             $newEmail = $extraProperties['new_email'] ?? 'N/A';
             $description = $customDescription ?? str_replace(
-                [':model', ':new_email', ':display_name'], 
-                [$modelName, $newEmail, $displayName], 
+                [':model', ':new_email', ':display_name'],
+                [$modelName, $newEmail, $displayName],
                 $descPattern
             );
+        } elseif ($logType === ActivityLog::LOG_TYPE_TASK_VERIFICATION) {
+            $description = $customDescription ?? __('verification_center.tasks_processed_desc');
         } elseif ($model instanceof Employee) {
             $descPattern = config('activity_messages.descriptions.employee_default', 'Employee profile :action for :display_name.');
             $description = $customDescription ?? str_replace(
-                [':action', ':display_name'], 
-                [$descriptionAction, $displayName], 
+                [':action', ':display_name'],
+                [$descriptionAction, $displayName],
                 $descPattern
             );
         } elseif ($model instanceof User) {
             $descPattern = config('activity_messages.descriptions.user_default', 'User account :action for :display_name.');
             $description = $customDescription ?? str_replace(
-                [':action', ':display_name'], 
-                [$descriptionAction, $displayName], 
+                [':action', ':display_name'],
+                [$descriptionAction, $displayName],
                 $descPattern
             );
         } else {
             $description = $customDescription ?? str_replace(
-                [':model', ':action', ':display_name'], 
-                [$modelName, $descriptionAction, $displayName], 
+                [':model', ':action', ':display_name'],
+                [$modelName, $descriptionAction, $displayName],
                 $descDefaultPattern
             );
         }
@@ -376,15 +385,15 @@ class ActivityLogService
             if ($logType === ActivityLog::LOG_TYPE_BATCH_PROCESS) {
                 $batchDescPattern = config('activity_messages.descriptions.batch_invoice', 'System generated a renewal invoice (:invoice_id) for user :display_name via batch process.');
                 $description = $customDescription ?? str_replace(
-                    [':invoice_id', ':display_name'], 
-                    [$model->invoice_id, $displayName], 
+                    [':invoice_id', ':display_name'],
+                    [$model->invoice_id, $displayName],
                     $batchDescPattern
                 );
             } else {
-                 $invoiceDescPattern = config('activity_messages.descriptions.invoice', ':model (:invoice_id) :action for :display_name');
-                 $description = $customDescription ?? str_replace(
-                    [':model', ':invoice_id', ':action', ':display_name'], 
-                    [$modelName, $model->invoice_id, $descriptionAction, $displayName], 
+                $invoiceDescPattern = config('activity_messages.descriptions.invoice', ':model (:invoice_id) :action for :display_name');
+                $description = $customDescription ?? str_replace(
+                    [':model', ':invoice_id', ':action', ':display_name'],
+                    [$modelName, $model->invoice_id, $descriptionAction, $displayName],
                     $invoiceDescPattern
                 );
             }
@@ -392,19 +401,19 @@ class ActivityLogService
             $timeStr = !empty($model->appointment_date) ? \Carbon\Carbon::parse($model->appointment_date)->format('M d, Y h:i A') : 'N/A';
             $entity = $model->entity;
             $entityName = $entity?->full_name ?? $entity?->name ?? $entity?->company_name ?? (isset($entity->first_name) ? "{$entity->first_name} {$entity->last_name}" : 'Client');
-            
+
             $appointmentDescPattern = config('activity_messages.descriptions.appointment', 'Appointment (:subject) :action for :entity_name on :time.');
             $description = $customDescription ?? str_replace(
-                [':subject', ':action', ':entity_name', ':time'], 
-                [$model->subject, $descriptionAction, $entityName, $timeStr], 
+                [':subject', ':action', ':entity_name', ':time'],
+                [$model->subject, $descriptionAction, $entityName, $timeStr],
                 $appointmentDescPattern
             );
         } elseif ($model instanceof Payment) {
             $currency = $model->currency ?? 'USD';
             $paymentDescPattern = config('activity_messages.descriptions.payment', ':model of :amount :currency :action successfully.');
             $description = $customDescription ?? str_replace(
-                [':model', ':amount', ':currency', ':action'], 
-                [$modelName, $model->amount, $currency, $descriptionAction], 
+                [':model', ':amount', ':currency', ':action'],
+                [$modelName, $model->amount, $currency, $descriptionAction],
                 $paymentDescPattern
             );
         }
@@ -433,25 +442,26 @@ class ActivityLogService
             $decoded = json_decode($recipients, true);
             $recipients = is_array($decoded) ? $decoded : array_map('trim', explode(',', $recipients));
         }
-        
+
         $subject = $data['subject'] ?? 'New Email from Activity Log';
-        $body    = $data['description'] ?? '';
+        $body = $data['description'] ?? '';
 
         foreach ($recipients as $recipient) {
-            if (empty($recipient)) continue;
+            if (empty($recipient))
+                continue;
 
             Mail::send('emails.activity_log_mail', [
-                'subject'           => $subject,
-                'body'              => $body,
+                'subject' => $subject,
+                'body' => $body,
                 'attachments_count' => count($attachments),
-                'attachment_names'  => $attachmentNames,
+                'attachment_names' => $attachmentNames,
             ], function ($message) use ($recipient, $subject, $attachments) {
                 $message->to($recipient)->subject($subject);
-                
+
                 foreach ($attachments as $file) {
                     if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
                         $message->attach($file->getRealPath(), [
-                            'as'   => $file->getClientOriginalName(),
+                            'as' => $file->getClientOriginalName(),
                             'mime' => $file->getMimeType(),
                         ]);
                     }
@@ -489,8 +499,8 @@ class ActivityLogService
         // Match by path OR by URL (extremely resilient matching)
         $file = collect($files)->first(function ($f) use ($path) {
             $fPath = $f['path'] ?? '';
-            return $fPath === $path 
-                || (isset($f['id']) && str_contains($path, (string)$f['id']))
+            return $fPath === $path
+                || (isset($f['id']) && str_contains($path, (string) $f['id']))
                 || ($fPath && str_contains($fPath, $path))
                 || ($fPath && str_contains($path, $fPath))
                 || urldecode($fPath) === urldecode($path);
@@ -512,9 +522,9 @@ class ActivityLogService
             $fileName = '';
 
             // Determine whether this is a Borrower or Partner document
-            $isBorrowerDocument = 
-                $log->subject_type === \App\Models\Borrower\BorrowerDocument::class || 
-                (isset($file['path']) && str_contains((string)$file['path'], '/borrowers/'));
+            $isBorrowerDocument =
+                $log->subject_type === \App\Models\Borrower\BorrowerDocument::class ||
+                (isset($file['path']) && str_contains((string) $file['path'], '/borrowers/'));
 
             if ($isBorrowerDocument) {
                 $document = \App\Models\Borrower\BorrowerDocument::withTrashed()->find($documentId);
@@ -524,7 +534,7 @@ class ActivityLogService
 
                 $rawPath = $document->getRawOriginal('file_path');
                 $fileName = $document->file_name ?? basename($rawPath);
-                
+
                 $possiblePaths = [
                     public_path('storage/borrowers/' . $document->borrower_id . '/' . $rawPath),
                     storage_path('app/public/borrowers/' . $document->borrower_id . '/' . $rawPath),
@@ -539,7 +549,7 @@ class ActivityLogService
 
                 $rawPath = $document->getRawOriginal('file_path');
                 $fileName = $document->document_name ?? basename($rawPath);
-                
+
                 $possiblePaths = [
                     public_path('storage/partners/' . $document->partner_id . '/' . $rawPath),
                     storage_path('app/public/partners/' . $document->partner_id . '/' . $rawPath),
@@ -562,12 +572,12 @@ class ActivityLogService
         // Fallback: standard storage attachment (email logs)
         $absolutePath = public_path($file['path']);
         if (!file_exists($absolutePath)) {
-             // check storage/app/public too if it's a storage link
-             $cleanPath = ltrim(str_replace('storage/', '', $file['path']), '/');
-             $storagePath = storage_path('app/public/' . $cleanPath);
-             if (file_exists($storagePath)) {
-                 return response()->download($storagePath);
-             }
+            // check storage/app/public too if it's a storage link
+            $cleanPath = ltrim(str_replace('storage/', '', $file['path']), '/');
+            $storagePath = storage_path('app/public/' . $cleanPath);
+            if (file_exists($storagePath)) {
+                return response()->download($storagePath);
+            }
             throw new \Exception("Attachment file does not exist on server", 404);
         }
 

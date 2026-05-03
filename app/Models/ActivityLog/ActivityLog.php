@@ -13,13 +13,13 @@ class ActivityLog extends Activity
     {
         static::creating(function ($activity) {
             $props = is_array($activity->properties) ? $activity->properties : [];
-            
+
             // 1. Move virtual fields into properties bag with type safety
             foreach (['partner_id', 'borrower_id', 'status', 'log_type'] as $field) {
                 if (isset($activity->{$field})) {
                     $val = $activity->{$field};
                     if (in_array($field, ['partner_id', 'borrower_id'])) {
-                        $val = $val ? (int)$val : null;
+                        $val = $val ? (int) $val : null;
                     }
                     $props[$field] = $val;
                     unset($activity->{$field});
@@ -36,17 +36,22 @@ class ActivityLog extends Activity
                 if ($subject) {
                     // Infer Partner
                     if (empty($props['partner_id'])) {
-                        if ($subject instanceof \App\Models\Partner\Partner) $props['partner_id'] = $subject->id;
-                        elseif (isset($subject->partner_id)) $props['partner_id'] = (int)$subject->partner_id;
+                        if ($subject instanceof \App\Models\Partner\Partner)
+                            $props['partner_id'] = $subject->id;
+                        elseif (isset($subject->partner_id))
+                            $props['partner_id'] = (int) $subject->partner_id;
                         elseif ($subject instanceof \App\Models\Appointment\Appointment && $subject->entity_type === \App\Models\Partner\Partner::class) {
-                            $props['partner_id'] = (int)$subject->entity_id;
+                            $props['partner_id'] = (int) $subject->entity_id;
                         }
                     }
                     // Infer Borrower
                     if (empty($props['borrower_id'])) {
-                        if ($subject instanceof \App\Models\Borrower\Borrower) $props['borrower_id'] = $subject->id;
-                        elseif (isset($subject->borrower_id)) $props['borrower_id'] = (int)$subject->borrower_id;
-                        elseif ($subject instanceof \App\Models\Invoice\Invoice) $props['borrower_id'] = (int)$subject->borrower_id;
+                        if ($subject instanceof \App\Models\Borrower\Borrower)
+                            $props['borrower_id'] = $subject->id;
+                        elseif (isset($subject->borrower_id))
+                            $props['borrower_id'] = (int) $subject->borrower_id;
+                        elseif ($subject instanceof \App\Models\Invoice\Invoice)
+                            $props['borrower_id'] = (int) $subject->borrower_id;
                     }
                 }
             }
@@ -67,47 +72,48 @@ class ActivityLog extends Activity
 
     protected $table = 'activity_log';
 
-    const TYPE_EMAIL    = 'email';
+    const TYPE_EMAIL = 'email';
     const TYPE_ACTIVITY = 'activity';
-    
+
     // New Log Types
-    const LOG_TYPE_EMAIL_UPDATE     = 'email_update';
-    const LOG_TYPE_PARTNER_CREATE   = 'partner_create';
-    const LOG_TYPE_PARTNER_UPDATE   = 'partner_update';
+    const LOG_TYPE_EMAIL_UPDATE = 'email_update';
+    const LOG_TYPE_PARTNER_CREATE = 'partner_create';
+    const LOG_TYPE_PARTNER_UPDATE = 'partner_update';
     const LOG_TYPE_PARTNER_CONTACT_UPDATE = 'partner_contact_update';
-    const LOG_TYPE_PARTNER_DELETE   = 'partner_delete';
-    const LOG_TYPE_EMAIL_SENT       = 'email_sent';
-    const LOG_TYPE_ACTIVITY         = 'activity';
-    const LOG_TYPE_BORROWER_CREATE  = 'borrower_create';
-    const LOG_TYPE_BORROWER_UPDATE  = 'borrower_update';
+    const LOG_TYPE_PARTNER_DELETE = 'partner_delete';
+    const LOG_TYPE_EMAIL_SENT = 'email_sent';
+    const LOG_TYPE_ACTIVITY = 'activity';
+    const LOG_TYPE_BORROWER_CREATE = 'borrower_create';
+    const LOG_TYPE_BORROWER_UPDATE = 'borrower_update';
     const LOG_TYPE_BORROWER_CONTACT_UPDATE = 'borrower_contact_update';
-    const LOG_TYPE_LEAD_CREATE      = 'lead_create';
-    const LOG_TYPE_LEAD_UPDATE      = 'lead_update';
+    const LOG_TYPE_LEAD_CREATE = 'lead_create';
+    const LOG_TYPE_LEAD_UPDATE = 'lead_update';
     const LOG_TYPE_LEAD_DETAILS_UPDATE = 'lead_details_update';
     const LOG_TYPE_LEAD_CONTACT_UPDATE = 'lead_contact_update';
-    const LOG_TYPE_LEAD_DELETE      = 'lead_delete';
-    const LOG_TYPE_BATCH_PROCESS    = 'batch_process';
-    const LOG_TYPE_INVOICE_CREATE   = 'invoice_create';
-    const LOG_TYPE_USER_CREATE      = 'user_create';
-    const LOG_TYPE_USER_UPDATE      = 'user_update';
+    const LOG_TYPE_LEAD_DELETE = 'lead_delete';
+    const LOG_TYPE_BATCH_PROCESS = 'batch_process';
+    const LOG_TYPE_INVOICE_CREATE = 'invoice_create';
+    const LOG_TYPE_USER_CREATE = 'user_create';
+    const LOG_TYPE_USER_UPDATE = 'user_update';
     const LOG_TYPE_APPOINTMENT_CREATE = 'appointment_create';
     const LOG_TYPE_APPOINTMENT_UPDATE = 'appointment_update';
     const LOG_TYPE_APPOINTMENT_DELETE = 'appointment_delete';
-    const LOG_TYPE_ROLE_CREATE      = 'role_create';
-    const LOG_TYPE_ROLE_UPDATE      = 'role_update';
+    const LOG_TYPE_ROLE_CREATE = 'role_create';
+    const LOG_TYPE_ROLE_UPDATE = 'role_update';
     const LOG_TYPE_PERMISSION_UPDATE = 'permission_update';
-    const LOG_TYPE_EMPLOYEE_CREATE  = 'employee_create';
-    const LOG_TYPE_EMPLOYEE_UPDATE  = 'employee_update';
-    const LOG_TYPE_EMPLOYEE_DELETE  = 'employee_delete';
-    const LOG_TYPE_PARTNER_PAYMENT  = 'partner_payment';
+    const LOG_TYPE_EMPLOYEE_CREATE = 'employee_create';
+    const LOG_TYPE_EMPLOYEE_UPDATE = 'employee_update';
+    const LOG_TYPE_EMPLOYEE_DELETE = 'employee_delete';
+    const LOG_TYPE_PARTNER_PAYMENT = 'partner_payment';
     const LOG_TYPE_BORROWER_PAYMENT = 'borrower_payment';
-    const LOG_TYPE_BUSINESS_UPDATE  = 'business_update';
-    const LOG_TYPE_DOCUMENT_UPLOAD  = 'document_upload';
+    const LOG_TYPE_BUSINESS_UPDATE = 'business_update';
+    const LOG_TYPE_DOCUMENT_UPLOAD = 'document_upload';
     const LOG_TYPE_CHECKLIST_UPDATE = 'checklist_update';
+    const LOG_TYPE_TASK_VERIFICATION = 'task_verification';
 
-    const STATUS_SENT     = 'sent';
-    const STATUS_PENDING  = 'pending';
-    const STATUS_FAILED   = 'failed';
+    const STATUS_SENT = 'sent';
+    const STATUS_PENDING = 'pending';
+    const STATUS_FAILED = 'failed';
 
     protected $fillable = [
         'log_name',
@@ -129,9 +135,9 @@ class ActivityLog extends Activity
     protected function casts(): array
     {
         return [
-            'properties'    => 'array',
-            'created_at'    => 'datetime',
-            'updated_at'    => 'datetime',
+            'properties' => 'array',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
         ];
     }
 

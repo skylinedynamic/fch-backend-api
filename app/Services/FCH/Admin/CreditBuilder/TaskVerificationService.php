@@ -9,6 +9,8 @@ use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use App\Models\Borrower\MigratedTask;
 use App\Mail\Borrower\BorrowerVerificationStatusMail;
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +18,12 @@ use Illuminate\Support\Facades\Mail;
 
 class TaskVerificationService
 {
+    protected $activityLogService;
+
+    public function __construct(ActivityLogService $activityLogService)
+    {
+        $this->activityLogService = $activityLogService;
+    }
     /**
      * Update task status for a borrower.
      */
@@ -42,7 +50,8 @@ class TaskVerificationService
                 $currentMigratedTaskId = $item['migrated_task_id'] ?? null;
 
                 $task = TierTask::with('api')->find($taskId);
-                if (!$task) continue;
+                if (!$task)
+                    continue;
 
                 $taskName = $task->title ?? 'Unknown Task';
                 $tier = $task->tier;
@@ -59,14 +68,14 @@ class TaskVerificationService
 
                 if (!$verificationRequest) {
                     $verificationRequest = BorrowerTaskVerificationRequest::create([
-                        'borrower_id'      => $borrowerId,
-                        'partner_id'       => $borrower->partner_id,
-                        'tier_id'          => $tierId,
-                        'task_id'          => $taskId,
-                        'status'           => BorrowerTaskVerificationRequest::PENDING,
-                        'verified_by'      => null,
-                        'verified_at'      => null,
-                        'note'             => null,
+                        'borrower_id' => $borrowerId,
+                        'partner_id' => $borrower->partner_id,
+                        'tier_id' => $tierId,
+                        'task_id' => $taskId,
+                        'status' => BorrowerTaskVerificationRequest::PENDING,
+                        'verified_by' => null,
+                        'verified_at' => null,
+                        'note' => null,
                         'migrated_task_id' => $currentMigratedTaskId,
                     ]);
                 }
@@ -74,10 +83,10 @@ class TaskVerificationService
                 // UPDATE pattern (from VerificationCenterService)
                 if ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) {
                     $results[] = [
-                        'task_name'   => $taskName,
+                        'task_name' => $taskName,
                         'is_verified' => true,
-                        'message'     => __('verification_center.already_verified'),
-                        'skipped'     => true,
+                        'message' => __('verification_center.already_verified'),
+                        'skipped' => true,
                     ];
                     continue;
                 }
@@ -85,10 +94,10 @@ class TaskVerificationService
                 $shouldTriggerTierUpdate = ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED && $verificationRequest->status != BorrowerTaskVerificationRequest::COMPLETED);
 
                 $verificationRequest->update([
-                    'status'      => $statusToSet,
+                    'status' => $statusToSet,
                     'verified_by' => Auth::id(),
                     'verified_at' => now(),
-                    'note'        => $note,
+                    'note' => $note,
                 ]);
 
                 if ($shouldTriggerTierUpdate) {
@@ -97,9 +106,9 @@ class TaskVerificationService
 
                 $isVerified = ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
-                    'task_name'   => $taskName,
+                    'task_name' => $taskName,
                     'is_verified' => $isVerified,
-                    'message'     => $isVerified ? __('verification_center.verified') : __('verification_center.rejected'),
+                    'message' => $isVerified ? __('verification_center.verified') : __('verification_center.rejected'),
                 ];
             }
             DB::commit();
@@ -111,7 +120,48 @@ class TaskVerificationService
 
         $this->sendVerificationStatusMail($borrower, $statusToSet, $note, $results);
 
+        $this->logTaskVerificationActivity($borrower, $results, $statusToSet, $note, $tierId);
+
         return $results;
+    }
+
+    /**
+     * Log activity for task verification.
+     */
+    protected function logTaskVerificationActivity($borrower, array $results, string $statusToSet, ?string $note, $tierId): void
+    {
+        $processedTasks = array_filter($results, fn($r) => !($r['skipped'] ?? false));
+        if (empty($processedTasks))
+            return;
+
+        $tier = Tier::find($tierId);
+        $tierName = $tier->name ?? 'Unknown Tier';
+
+        $taskSummary = collect($processedTasks)
+            ->map(function ($r) {
+                $statusColor = $r['is_verified'] ? 'text-success' : 'text-danger';
+                return "<li>{$r['task_name']}: <strong class=\"{$statusColor}\">{$r['message']}</strong></li>";
+            })
+            ->implode("");
+
+        $description = __('verification_center.tasks_processed_desc', ['tier' => $tierName]) . "<ul class='mb-0'>{$taskSummary}</ul>";
+        if ($note) {
+            $description .= "<br/><strong>" . __('verification_center.note_label') . ":</strong> {$note}";
+        }
+
+        $this->activityLogService->logModelEvent(
+            $borrower,
+            ActivityLog::LOG_TYPE_TASK_VERIFICATION,
+            [
+                'results' => $results,
+                'note' => $note,
+                'status' => $statusToSet,
+                'category' => 'task',
+                'no_image' => true
+            ],
+            __('verification_center.tier_task_updated'),
+            $description
+        );
     }
 
     /**
@@ -171,18 +221,20 @@ class TaskVerificationService
     {
         try {
             $email = $borrower?->email ?? $borrower?->user?->email ?? null;
-            if (!$email) return;
+            if (!$email)
+                return;
 
             $filteredResults = array_filter($taskResults, fn($r) => !($r['skipped'] ?? false));
-            if (empty($filteredResults)) return;
+            if (empty($filteredResults))
+                return;
 
             $statusLabel = $status == BorrowerTaskVerificationRequest::COMPLETED ? __('verification_center.verified') : __('verification_center.rejected');
 
             Mail::to($email)->send(new BorrowerVerificationStatusMail([
-                'subject'      => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
+                'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
                 'borrower_name' => trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower',
-                'status'       => $status,
-                'note'         => $note,
+                'status' => $status,
+                'note' => $note,
                 'task_results' => $filteredResults,
             ]));
         } catch (\Exception $e) {
