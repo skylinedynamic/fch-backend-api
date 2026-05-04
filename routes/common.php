@@ -23,8 +23,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as Common
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
+
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
@@ -35,7 +35,7 @@ use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 
-use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingController;
+
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use Illuminate\Support\Facades\Route;
@@ -59,7 +59,7 @@ Route::prefix('v1')->group(function () {
     Route::get('common/locations', [LocationController::class, 'index']);
 
     // Site Settings & SEO (Publicly accessible for login/website)
-    Route::get('common/site-settings', [SiteSettingController::class, 'index']);
+
     Route::get('common/seo-settings', [SeoController::class, 'index']);
     Route::get('common/seo', [SeoController::class, 'show']);
 
@@ -210,8 +210,7 @@ Route::prefix('v1')->group(function () {
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
             Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
-            Route::post('settings', [SettingController::class, 'store']);
-            Route::get('settings', [SettingController::class, 'show']);
+
 
             //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
@@ -240,8 +239,8 @@ Route::prefix('v1')->group(function () {
 
             // App Configurations (Settings)
             Route::prefix('app-config')->group(function () {
-                Route::post('/show', [AppConfigurationController::class, 'getSetting']);
-                Route::post('/save', [AppConfigurationController::class, 'saveSetting']);
+                Route::post('/show', [SiteSettingsController::class, 'getSetting']);
+                Route::post('/save', [SiteSettingsController::class, 'saveSetting']);
             });
 
             // Agreement templates

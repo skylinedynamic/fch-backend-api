@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
+namespace App\Http\Requests\Api\V1\FCH\Admin\CMS;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
@@ -16,8 +16,6 @@ class StoreSettingRequest extends BaseApiRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -34,8 +32,6 @@ class StoreSettingRequest extends BaseApiRequest
 
     /**
      * Get the validation messages that apply to the request.
-     *
-     * @return array<string, string>
      */
     public function messages(): array
     {
