@@ -25,6 +25,8 @@ return [
         'provider_desc' => 'Provider Description',
         'provider_btn_label' => 'Provider Button Label',
         'provider_link' => 'Provider Link',
+        'provider_logo' => 'Provider Logo',
+        'provider_desc_list' => 'Provider Description Points',
     ],
 
     // Validation Messages
@@ -38,5 +40,7 @@ return [
         'link_invalid' => 'The Resource Link must be a valid URL.',
         'is_borrower_boolean' => 'The Borrower Availability field must be true or false.',
         'is_partner_boolean' => 'The Partner Availability field must be true or false.',
+        'provider_link_invalid' => 'The Provider Link must be a valid URL.',
+        'provider_desc_list_array' => 'The Provider Description Points must be an array.',
     ],
 ];
