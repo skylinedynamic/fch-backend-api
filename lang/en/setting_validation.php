@@ -9,4 +9,6 @@ return [
     'stripe_secret_production_string' => 'The production Stripe secret must be a string.',
     'payment_method_string' => 'The payment method must be a string.',
     'configuration_array' => 'The configuration must be an array.',
+    'key_required' => 'The configuration key is required.',
+    'value_required' => 'The configuration value is required.',
 ];

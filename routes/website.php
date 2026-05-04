@@ -5,7 +5,7 @@ use App\Http\Controllers\Api\V1\Global\Website\Lead\LeadController;
 use App\Http\Controllers\Api\V1\Global\Website\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Global\Website\CMS\BlogController;
 use App\Http\Controllers\Api\V1\Global\Website\CMS\SeoController;
-use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingController;
+use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingsController;
 
 Route::prefix('v1/website')->group(function () {
     Route::post('leads', [LeadController::class, 'store']);
@@ -22,6 +22,6 @@ Route::prefix('v1/website')->group(function () {
     Route::get('seo', [SeoController::class, 'show']);
 
     // Site Settings
-    Route::get('settings', [SiteSettingController::class, 'index']);
+    Route::get('settings', [SiteSettingsController::class, 'index']);
     Route::get('ping', function() { return response()->json(['ping' => 'pong']); });
 });

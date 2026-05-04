@@ -12,7 +12,7 @@ class BlogService
 {
     public function list(array $filters): array
     {
-        $partnerId = $filters['partner_id'] ?? null;
+        $partnerId = auth()->user()->partner_id;
         $query = Blog::with(['category', 'author']);
 
         if ($partnerId) {

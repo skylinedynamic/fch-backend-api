@@ -2,6 +2,8 @@
 
 namespace App\Rules;
 
+use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Http;
@@ -13,7 +15,9 @@ class ReCaptcha implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $secretKey = config('captcha.secret');
+        // Get from DB first, then fallback to config/env
+        $dbSecret = AppConfiguration::get('recaptcha_secret_key', null, Partner::class, 1);
+        $secretKey = !empty($dbSecret) ? $dbSecret : config('captcha.secret');
         
         if (empty($secretKey)) {
             $fail(__('auth.recaptcha_secret_not_configured'));

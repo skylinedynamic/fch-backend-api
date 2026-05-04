@@ -2,8 +2,10 @@
 
 return [
     'retrieved_success' => 'Site settings retrieved successfully',
+    'retrieved_failed' => 'Failed to retrieve site settings',
     'not_found' => 'No site settings found',
     'updated_success' => 'Site settings updated successfully',
+    'updated_failed' => 'Failed to update site settings',
     'logo_image' => 'The site logo must be an image.',
     'logo_mimes' => 'The site logo must be a file of type: png, jpg, jpeg, svg, webp.',
     'logo_max' => 'The site logo may not be greater than 2MB.',

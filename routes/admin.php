@@ -15,7 +15,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
-use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -139,8 +139,8 @@ Route::prefix('v1/admin')
             Route::post('blog-tags-multiple-delete', [BlogController::class, 'destroyTag']);
 
             // Site Settings
-            Route::get('site-settings', [SiteSettingController::class, 'index']);
-            Route::post('site-settings', [SiteSettingController::class, 'update']);
+            Route::get('site-settings', [SiteSettingsController::class, 'index']);
+            Route::post('site-settings', [SiteSettingsController::class, 'update']);
 
             // SEO
             Route::get('seo-settings/get-all-settings', [SeoController::class, 'getAll']);

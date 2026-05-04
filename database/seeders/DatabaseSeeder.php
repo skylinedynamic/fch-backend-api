@@ -87,7 +87,7 @@ class DatabaseSeeder extends Seeder
             DemoSubscriberSeeder::class,
             CreditAccountSeeder::class,
             ResourceSeeder::class,
-            SiteSettingSeeder::class,
+            AppConfigurationsSeeder::class,
             BlogSeeder::class,
             SeoSettingSeeder::class,
             CmsPermissionUpdateSeeder::class
