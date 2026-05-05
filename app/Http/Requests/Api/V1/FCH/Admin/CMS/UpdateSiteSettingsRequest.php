@@ -36,7 +36,6 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'google_measurement_id' => ['nullable', 'string', 'max:255'],
             'recaptcha_site_key' => ['nullable', 'string', 'max:255'],
             'recaptcha_secret_key' => ['nullable', 'string', 'max:255'],
-            'agreement_signing_enabled' => ['nullable', 'boolean'],
         ];
     }
 
