@@ -44,6 +44,8 @@ class UpdateResourceRequest extends BaseApiRequest
             'is_borrower' => ['nullable', 'boolean'],
             'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
             'link' => ['nullable', 'url', 'max:255'],
+            'overview_text' => ['nullable', 'string'],
+            'impact_text' => ['nullable', 'string'],
             'overview' => ['nullable', 'array'],
             'overview.*' => ['nullable', 'string'],
             'impact' => ['nullable', 'array'],

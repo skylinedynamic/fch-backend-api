@@ -14,6 +14,11 @@ return new class extends Migration {
             $table->json('desc_list')->nullable()->after('desc');
             $table->string('logo')->nullable()->after('desc_list');
         });
+
+        Schema::table('resources', function (Blueprint $table) {
+            $table->text('overview_text')->nullable()->after('subtitle');
+            $table->text('impact_text')->nullable()->after('overview_text');
+        });
     }
 
     /**
@@ -23,6 +28,10 @@ return new class extends Migration {
     {
         Schema::table('resource_providers', function (Blueprint $table) {
             $table->dropColumn(['desc_list', 'logo']);
+        });
+
+        Schema::table('resources', function (Blueprint $table) {
+            $table->dropColumn(['overview_text', 'impact_text']);
         });
     }
 };

@@ -264,6 +264,7 @@ Route::prefix('v1')->group(function () {
             // 📚 Resources
             Route::prefix('resources')->group(function () {
                 Route::get('/', [CommonResourceController::class, 'index']);
+                Route::get('/{id}', [CommonResourceController::class, 'show']);
                 Route::get('/download/{id}', [CommonResourceController::class, 'download']);
             });
         });

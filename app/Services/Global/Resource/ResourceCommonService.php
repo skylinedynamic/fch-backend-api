@@ -57,6 +57,15 @@ class ResourceCommonService
      */
     public function getById(int $id): Resource
     {
-        return Resource::with('providers')->findOrFail($id);
+        $query = Resource::query();
+        $user = auth()->user();
+
+        if ($user->user_type === User::PARTNER) {
+            $query->where('is_partner', true);
+        } elseif ($user->user_type === User::BORROWER) {
+            $query->where('is_borrower', true);
+        }
+
+        return $query->where('status', true)->with('providers')->findOrFail($id);
     }
 }

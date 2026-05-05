@@ -30,4 +30,9 @@ class ResourceProvider extends Model
     {
         return $this->belongsTo(Resource::class);
     }
+
+    public function getFullLogoUrlAttribute()
+    {
+        return $this->logo ? encodeUrl(asset("storage/{$this->logo}")) : null;
+    }
 }
