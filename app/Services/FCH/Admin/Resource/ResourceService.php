@@ -19,7 +19,7 @@ class ResourceService
     {
         $file = $data['file'] ?? null;
         $providers = $data['providers'] ?? null;
-        unset($data['file'], $data['providers']); 
+        unset($data['file'], $data['providers']);
 
         $resource = Resource::create($data);
 
@@ -67,7 +67,7 @@ class ResourceService
     public function delete(int $id)
     {
         $resource = Resource::findOrFail($id);
-        
+
         // Remove associated providers
         $resource->providers()->delete();
 
@@ -98,6 +98,8 @@ class ResourceService
             $resource->providers()->create([
                 'name' => $providerData['name'] ?? '',
                 'desc' => $providerData['desc'] ?? '',
+                'desc_list' => $providerData['desc_list'] ?? [],
+                'logo' => $providerData['logo'] ?? '',
                 'is_recommended' => filter_var($providerData['is_recommended'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'btn_label' => $providerData['btn_label'] ?? '',
                 'link' => $providerData['link'] ?? '',

@@ -14,6 +14,8 @@ class ResourceProvider extends Model
         'resource_id',
         'name',
         'desc',
+        'desc_list',
+        'logo',
         'is_recommended',
         'btn_label',
         'link',
@@ -21,10 +23,16 @@ class ResourceProvider extends Model
 
     protected $casts = [
         'is_recommended' => 'boolean',
+        'desc_list' => 'array',
     ];
 
     public function resource(): BelongsTo
     {
         return $this->belongsTo(Resource::class);
+    }
+
+    public function getFullLogoUrlAttribute()
+    {
+        return $this->logo ? encodeUrl(asset("storage/{$this->logo}")) : null;
     }
 }

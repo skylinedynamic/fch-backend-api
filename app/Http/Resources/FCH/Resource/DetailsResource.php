@@ -23,6 +23,8 @@ class DetailsResource extends JsonResource
             'is_borrower' => $this->is_borrower,
             'overview' => $this->overview,
             'impact' => $this->impact,
+            'overview_text' => $this->overview_text,
+            'impact_text' => $this->impact_text,
             'providers' => ProviderResource::collection($this->whenLoaded('providers') ?? collect()),
             'created_at' => $this->created_at->format('F j, Y'),
             'updated_at' => $this->updated_at->format('F j, Y'),

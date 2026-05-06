@@ -13,6 +13,25 @@ class StoreResourceRequest extends BaseApiRequest
         return true;
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('providers')) {
+            $providers = $this->providers;
+            foreach ($providers as $i => $provider) {
+                if (isset($provider['link']) && empty($provider['link'])) {
+                    $providers[$i]['link'] = null;
+                }
+                if (isset($provider['desc']) && empty($provider['desc'])) {
+                    $providers[$i]['desc'] = null;
+                }
+                if (isset($provider['desc_list']) && empty($provider['desc_list'])) {
+                    $providers[$i]['desc_list'] = [];
+                }
+            }
+            $this->merge(['providers' => $providers]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -25,13 +44,18 @@ class StoreResourceRequest extends BaseApiRequest
             'is_borrower' => ['nullable', 'boolean'],
             'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
             'link' => ['nullable', 'url', 'max:255'],
+            'overview_text' => ['nullable', 'string'],
+            'impact_text' => ['nullable', 'string'],
             'overview' => ['nullable', 'array'],
             'overview.*' => ['nullable', 'string'],
             'impact' => ['nullable', 'array'],
             'impact.*' => ['nullable', 'string'],
             'providers' => ['nullable', 'array'],
             'providers.*.name' => ['nullable', 'string', 'max:255'],
-            'providers.*.desc' => ['nullable', 'string', 'max:255'],
+            'providers.*.desc' => ['nullable', 'string', 'max:1000'],
+            'providers.*.desc_list' => ['nullable', 'array'],
+            'providers.*.desc_list.*' => ['nullable', 'string'],
+            'providers.*.logo' => ['nullable', 'string', 'max:255'],
             'providers.*.is_recommended' => ['nullable', 'boolean'],
             'providers.*.btn_label' => ['nullable', 'string', 'max:255'],
             'providers.*.link' => ['nullable', 'url', 'max:255'],
@@ -57,6 +81,8 @@ class StoreResourceRequest extends BaseApiRequest
             'providers.*.desc' => __('resource.attributes.provider_desc'),
             'providers.*.btn_label' => __('resource.attributes.provider_btn_label'),
             'providers.*.link' => __('resource.attributes.provider_link'),
+            'providers.*.logo' => __('resource.attributes.provider_logo'),
+            'providers.*.desc_list' => __('resource.attributes.provider_desc_list'),
         ];
     }
 
@@ -70,6 +96,8 @@ class StoreResourceRequest extends BaseApiRequest
             'link.url' => __('resource.validation.link_invalid'),
             'is_borrower.boolean' => __('resource.validation.is_borrower_boolean'),
             'is_partner.boolean' => __('resource.validation.is_partner_boolean'),
+            'providers.*.link.url' => __('resource.validation.provider_link_invalid'),
+            'providers.*.desc_list.array' => __('resource.validation.provider_desc_list_array'),
         ];
     }
 }

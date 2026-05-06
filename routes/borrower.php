@@ -179,6 +179,7 @@ Route::prefix('v1/borrower')->group(function () {
             // 📚 Resources
             Route::prefix('resources')->group(function () {
                 Route::get('/', [ResourceController::class, 'index']);
+                Route::get('/{id}', [ResourceController::class, 'show']);
                 Route::get('/{id}/download', [ResourceController::class, 'download']);
             });
         }

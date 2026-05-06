@@ -40,6 +40,8 @@ class Resource extends Model
         'is_borrower',
         'overview',
         'impact',
+        'overview_text',
+        'impact_text',
     ];
 
     protected $casts = [
@@ -58,20 +60,24 @@ class Resource extends Model
     public function resolveFilePath(): ?string
     {
         $path = ltrim($this->file ?? '', '/');
-        if (!$path) return null;
+        if (!$path)
+            return null;
 
         $disk = Storage::disk('public');
-        
+
         // 1. Check raw path
-        if ($disk->exists($path)) return $path;
+        if ($disk->exists($path))
+            return $path;
 
         // 2. Check in 'resources/' folder (standard upload location)
         $resourcePath = "resources/" . $path;
-        if ($disk->exists($resourcePath)) return $resourcePath;
+        if ($disk->exists($resourcePath))
+            return $resourcePath;
 
         // 3. Check ID-prefixed path (alternative structure)
         $idPrefixedPath = "resources/{$this->id}/" . $path;
-        if ($disk->exists($idPrefixedPath)) return $idPrefixedPath;
+        if ($disk->exists($idPrefixedPath))
+            return $idPrefixedPath;
 
         return null;
     }
@@ -88,13 +94,15 @@ class Resource extends Model
     public function download()
     {
         $resolvedPath = $this->resolveFilePath();
-        
-        if (!$resolvedPath) return null;
+
+        if (!$resolvedPath)
+            return null;
 
         $disk = Storage::disk('public');
         $absolutePath = $disk->path($resolvedPath);
 
-        if (!file_exists($absolutePath)) return false;
+        if (!file_exists($absolutePath))
+            return false;
 
         $extension = pathinfo($absolutePath, PATHINFO_EXTENSION);
         $documentName = $this->title;

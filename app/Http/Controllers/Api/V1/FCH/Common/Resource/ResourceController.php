@@ -19,7 +19,7 @@ class ResourceController extends Controller
     public function index()
     {
         $groupedResources = $this->commonService->getGroupedResources();
-        
+
         $response = [];
         foreach ($groupedResources as $type => $group) {
             $response[$type] = DetailsResource::collection($group);
@@ -27,6 +27,16 @@ class ResourceController extends Controller
 
         return ApiResponse::success(
             $response,
+            __('resource.fetched')
+        );
+    }
+
+    public function show(int $id)
+    {
+        $resource = $this->commonService->getById($id);
+
+        return ApiResponse::success(
+            new DetailsResource($resource),
             __('resource.fetched')
         );
     }
