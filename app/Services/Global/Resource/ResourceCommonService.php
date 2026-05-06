@@ -28,7 +28,11 @@ class ResourceCommonService
         }
 
 
-        $resources = $query->with('providers')->oldest('id')->get();
+        $resources = $query->with([
+            'providers' => function ($q) {
+                $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }
+        ])->orderBy('sort_order', 'asc')->orderBy('id', 'asc')->get();
 
         $types = Resource::getTypes();
         $grouped = array_fill_keys($types, []);
@@ -66,6 +70,10 @@ class ResourceCommonService
             $query->where('is_borrower', true);
         }
 
-        return $query->where('status', true)->with('providers')->findOrFail($id);
+        return $query->where('status', true)->with([
+            'providers' => function ($q) {
+                $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }
+        ])->findOrFail($id);
     }
 }

@@ -42,6 +42,7 @@ class StoreResourceRequest extends BaseApiRequest
             'icon' => ['nullable', 'string', 'max:255'],
             'is_partner' => ['nullable', 'boolean'],
             'is_borrower' => ['nullable', 'boolean'],
+            'sort_order' => ['nullable', 'integer'],
             'file' => ['nullable', 'string', 'regex:/\.pdf$/i'],
             'link' => ['nullable', 'url', 'max:255'],
             'overview_text' => ['nullable', 'string'],
@@ -59,6 +60,7 @@ class StoreResourceRequest extends BaseApiRequest
             'providers.*.is_recommended' => ['nullable', 'boolean'],
             'providers.*.btn_label' => ['nullable', 'string', 'max:255'],
             'providers.*.link' => ['nullable', 'url', 'max:255'],
+            'providers.*.sort_order' => ['nullable', 'integer'],
         ];
     }
 

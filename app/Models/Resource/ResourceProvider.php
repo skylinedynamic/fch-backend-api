@@ -19,6 +19,7 @@ class ResourceProvider extends Model
         'is_recommended',
         'btn_label',
         'link',
+        'sort_order',
     ];
 
     protected $casts = [

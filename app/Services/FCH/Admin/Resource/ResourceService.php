@@ -12,7 +12,14 @@ class ResourceService
 
     public function getByType(string $type)
     {
-        return Resource::with('providers')->where('resource_type', $type)->get();
+        return Resource::with([
+            'providers' => function ($q) {
+                $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
+            }
+        ])->where('resource_type', $type)
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
     }
 
     public function create(array $data)
@@ -103,6 +110,7 @@ class ResourceService
                 'is_recommended' => filter_var($providerData['is_recommended'] ?? false, FILTER_VALIDATE_BOOLEAN),
                 'btn_label' => $providerData['btn_label'] ?? '',
                 'link' => $providerData['link'] ?? '',
+                'sort_order' => (int) ($providerData['sort_order'] ?? 0),
             ]);
         }
     }
