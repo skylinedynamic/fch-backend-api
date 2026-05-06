@@ -20,6 +20,7 @@ class ProviderResource extends JsonResource
             'is_recommended' => (bool) $this->is_recommended,
             'btn_label' => $this->btn_label,
             'link' => $this->link,
+            'sort_order' => $this->sort_order,
         ];
     }
 }

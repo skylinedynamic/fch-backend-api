@@ -40,6 +40,7 @@ class Resource extends Model
         'is_borrower',
         'overview',
         'impact',
+        'sort_order',
         'overview_text',
         'impact_text',
     ];
