@@ -60,7 +60,9 @@ class BlogController extends Controller
         $data['created_by'] = Auth::id();
 
         if (!isset($data['is_published'])) $data['is_published'] = false;
-        if ($data['is_published'] && !isset($data['published_at'])) $data['published_at'] = now();
+        if ($data['is_published'] && empty($data['published_at'])) {
+            $data['published_at'] = now();
+        }
 
         $blog = $this->blogService->store($data);
 
@@ -81,6 +83,16 @@ class BlogController extends Controller
 
         $data = $request->validated();
         $data['updated_by'] = Auth::id();
+
+        if (isset($data['is_published'])) {
+            if ($data['is_published']) {
+                if (empty($blog->published_at) && empty($data['published_at'])) {
+                    $data['published_at'] = now();
+                }
+            } else {
+                $data['published_at'] = null;
+            }
+        }
 
         $updatedBlog = $this->blogService->update($blog, $data);
 
