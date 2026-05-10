@@ -30,9 +30,28 @@ class WebsiteBlogService
         }
 
         if ($request->search) {
-            $query->where(function($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%')
-                  ->orWhere('content', 'like', '%' . $request->search . '%');
+            $searchTerm = $request->search;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('title', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('content', 'like', '%' . $searchTerm . '%')
+                  ->orWhere('summary', 'like', '%' . $searchTerm . '%')
+                  ->orWhereHas('category', function($cq) use ($searchTerm) {
+                      $cq->where('name', 'like', '%' . $searchTerm . '%');
+                  })
+                  ->orWhereHas('author', function($aq) use ($searchTerm) {
+                      $aq->where('name', 'like', '%' . $searchTerm . '%');
+                  });
+
+                // Search by tag name
+                $tagIds = BlogTag::where('name', 'like', '%' . $searchTerm . '%')->pluck('id')->toArray();
+                if (!empty($tagIds)) {
+                    $q->orWhere(function($tq) use ($tagIds) {
+                        foreach ($tagIds as $id) {
+                            $tq->orWhereJsonContains('blog_tag_id', (int)$id)
+                               ->orWhereJsonContains('blog_tag_id', (string)$id);
+                        }
+                    });
+                }
             });
         }
 
@@ -85,6 +104,7 @@ class WebsiteBlogService
     public function getLatest($limit = 3)
     {
         return Blog::published()
+            ->where('is_featured', true)
             ->orderBy('published_at', 'desc')
             ->limit($limit)
             ->get();

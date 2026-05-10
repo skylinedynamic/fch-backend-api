@@ -86,7 +86,9 @@ class BlogController extends Controller
 
         if (isset($data['is_published'])) {
             if ($data['is_published']) {
-                if (empty($blog->published_at) && empty($data['published_at'])) {
+                // Always update published_at to now() if it's being published or updated while published
+                // unless a specific published_at is provided in the request
+                if (empty($data['published_at'])) {
                     $data['published_at'] = now();
                 }
             } else {
