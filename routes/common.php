@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 
 
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
@@ -214,6 +215,10 @@ Route::prefix('v1')->group(function () {
 
             Route::post('settings', [SettingController::class, 'store']);
             Route::get('settings', [SettingController::class, 'show']);
+
+            // Partner Tenant Config (for authenticated WL partners)
+            Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);
+            Route::post('partner/tenant-config', [TenantConfigController::class, 'update']);
 
 
             //  Payments

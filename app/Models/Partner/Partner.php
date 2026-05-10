@@ -68,6 +68,9 @@ class Partner extends Model
         'partner_image',
         'tax_id',
         'website',
+        'active_custom_url',
+        'partner_domain',
+        'borrower_domain',
         'total_free_users',
         'total_paid_users'
     ];
@@ -78,8 +81,9 @@ class Partner extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'is_host'    => 'boolean',
-        'has_sign'   => 'boolean',
+        'is_host' => 'boolean',
+        'has_sign' => 'boolean',
+        'active_custom_url' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

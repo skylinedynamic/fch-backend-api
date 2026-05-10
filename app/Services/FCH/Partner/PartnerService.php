@@ -82,6 +82,8 @@ class PartnerService
         'tax_id' => 'tax_id',
         'website' => 'website',
         'partner_image' => 'partner_image',
+        'partner_domain' => 'partner_domain',
+        'borrower_domain' => 'borrower_domain',
         'assign_to' => 'assign_to', // Assigned agent/user
     ];
 
@@ -98,11 +100,16 @@ class PartnerService
             $plainPassword = $userResult['plain_password'];
             $isNew = $userResult['is_new'];
 
-            // Create partner record
             $partnerData = $this->mapPartnerData($data);
             $partnerData['status'] = Partner::STATUS_ONBOARDING;
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
+
+            // Generate subdomains if not provided
+            if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
+                $subdomain = $this->generateSubdomain($partnerData['company_name']);
+                $partnerData['partner_domain'] = $subdomain;
+            }
 
             Log::info('Partner creation payload', $partnerData);
             $partner = Partner::create($partnerData);
@@ -1013,5 +1020,42 @@ class PartnerService
     private function reactivatePartnerUsers(Partner $partner): void
     {
         Log::info("Main user for Partner ID: {$partner->id} is eligible for login again.");
+    }
+
+    /**
+     * Get Tenant Config.
+     */
+    public function getTenantConfig(int $id)
+    {
+        return $this->findById($id);
+    }
+
+    /**
+     * Update Tenant Config.
+     */
+    public function updateTenantConfig(int $id, array $data)
+    {
+        $partner = $this->findById($id);
+
+        if (!$partner) {
+            throw new \Exception(__('partner.error.not_found'));
+        }
+
+        $partner->update($data);
+
+        return $partner;
+    }
+
+    /**
+     * Generate a subdomain from company name.
+     * Small letter, remove special letters, number, space.
+     */
+    private function generateSubdomain(string $companyName): string
+    {
+        // Small letter
+        $subdomain = strtolower($companyName);
+        // Remove special letters, number, space (keeping only a-z)
+        $subdomain = preg_replace('/[^a-z]/', '', $subdomain);
+        return $subdomain;
     }
 }
