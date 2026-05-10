@@ -65,5 +65,18 @@ class AppServiceProvider extends ServiceProvider
             // Allowing public access on all environments for now
             return true;
         });
+
+        // 📧 Global BCC Listener: Automatically adds BCCs from the partner's active configuration
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, function ($event) {
+            $bcc = config('mail.bcc');
+            if ($bcc) {
+                $bccEmails = array_map('trim', explode(',', $bcc));
+                foreach ($bccEmails as $email) {
+                    if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $event->message->addBcc($email);
+                    }
+                }
+            }
+        });
     }
 }

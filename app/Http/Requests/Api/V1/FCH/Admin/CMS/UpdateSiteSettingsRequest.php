@@ -22,6 +22,8 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            'entity_id' => ['nullable', 'integer'],
+            'entity_type' => ['nullable', 'string'],
             'site_name' => ['required', 'string', 'max:255'],
             'address' => ['required', 'string', 'max:500', 'regex:/^[^<>]*$/'],
             'phone_number' => ['required', 'string', 'max:20', 'regex:/^([0-9\s\-\+\(\)]*)$/'],
@@ -31,7 +33,12 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'header_logo' => ['nullable', 'sometimes'],
             'footer_logo' => ['nullable', 'sometimes'],
             'partner_logo' => ['nullable', 'sometimes'],
+            'borrower_logo' => ['nullable', 'sometimes'],
             'favicon' => ['nullable', 'sometimes'],
+            'partner_favicon' => ['nullable', 'sometimes'],
+            'borrower_favicon' => ['nullable', 'sometimes'],
+            'primary_color' => ['nullable', 'string', 'max:20'],
+            'secondary_color' => ['nullable', 'string', 'max:20'],
             'social_links' => ['nullable'],
             'google_measurement_id' => ['nullable', 'string', 'max:255'],
             'recaptcha_site_key' => ['nullable', 'string', 'max:255'],
@@ -51,6 +58,8 @@ class UpdateSiteSettingsRequest extends BaseApiRequest
             'email.required' => __('site_settings.email_required'),
             'email.email' => __('site_settings.email_email'),
             'map_iframe.required' => __('site_settings.map_iframe_required'),
+            'partner_favicon.image' => __('site_settings.partner_favicon_image'),
+            'borrower_favicon.image' => __('site_settings.borrower_favicon_image'),
         ];
     }
 }

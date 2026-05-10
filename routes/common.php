@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\GeneralConfigurationsController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -22,9 +25,10 @@ use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPa
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
-use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
-use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 
+use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
@@ -32,14 +36,13 @@ use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as Common
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
+
+
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
-
-
-use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use Illuminate\Support\Facades\Route;
+
 
 
 Route::prefix('v1')->group(function () {
@@ -182,6 +185,9 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [ActivityLogController::class, 'store']);
             });
 
+            Route::get('general-information', [GeneralConfigurationsController::class, 'show']);
+            Route::post('general-information-update', [GeneralConfigurationsController::class, 'update']);
+
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
             Route::get('user-count', [CommonController::class, 'getUserCount']);
@@ -245,6 +251,13 @@ Route::prefix('v1')->group(function () {
             Route::prefix('app-config')->group(function () {
                 Route::post('/show', [SiteSettingsController::class, 'getSetting']);
                 Route::post('/save', [SiteSettingsController::class, 'saveSetting']);
+            });
+            
+            // 📧 Email Configurations
+            Route::prefix('email-configurations')->group(function () {
+                Route::get('/', [EmailConfigurationController::class, 'index']);
+                Route::post('/', [EmailConfigurationController::class, 'store']);
+                Route::patch('{id}/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
 
             // Agreement templates

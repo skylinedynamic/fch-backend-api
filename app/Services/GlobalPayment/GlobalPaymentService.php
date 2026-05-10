@@ -24,13 +24,15 @@ use App\Services\FCH\Subscription\SubscriptionService;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class GlobalPaymentService
 {
     public function __construct(
         protected SubscriptionService $subscriptionService,
         protected InvoiceService $invoiceService,
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
 
     /**
@@ -177,16 +179,18 @@ class GlobalPaymentService
                 $userName = $borrower ? ($borrower->first_name . ' ' . $borrower->last_name) : (Auth::user() ? Auth::user()->name : 'Guest');
 
                 if ($userEmail && filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+                    $paymentData = [
+                        'amount'         => $payment->amount,
+                        'currency'       => $payment->currency,
+                        'transaction_id' => $payment->transaction_id,
+                        'description'    => $paymentIntent->description ?? config('app.name') . ' Payment',
+                        'date'           => $payment->transaction_date,
+                        'user_name'      => $userName,
+                        'user_email'     => $userEmail,
+                    ];
+                    $partnerId = $invoice->partner_id ?? ($data['partner_id'] ?? null);
+                    $restore = $this->emailConfigService->applyToMailer($partnerId);
                     try {
-                        $paymentData = [
-                            'amount' => $payment->amount,
-                            'currency' => $payment->currency,
-                            'transaction_id' => $payment->transaction_id,
-                            'description' => $paymentIntent->description ?? config('app.name') . ' Payment',
-                            'date' => $payment->transaction_date,
-                            'user_name' => $userName,
-                            'user_email' => $userEmail,
-                        ];
                         if ($invoice->is_partner_paying) {
                             Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData));
                         } else {
@@ -194,6 +198,8 @@ class GlobalPaymentService
                         }
                     } catch (\Exception $e) {
                         Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
+                    } finally {
+                        $restore();
                     }
                 }
             }
@@ -429,21 +435,24 @@ class GlobalPaymentService
 
                 // 6. Send Email
                 if ($user) {
+                    $paymentData = [
+                        'amount'         => $payment->amount,
+                        'currency'       => $payment->currency,
+                        'transaction_id' => $payment->transaction_id,
+                        'description'    => $paymentIntent->description,
+                        'date'           => $payment->transaction_date,
+                        'user_name'      => $user->name,
+                        'user_email'     => $user->email,
+                        'plainPassword'  => $plainPassword,
+                        'user'           => $user,
+                    ];
+                    $restore = $this->emailConfigService->applyToMailer($partner->id);
                     try {
-                        $paymentData = [
-                            'amount' => $payment->amount,
-                            'currency' => $payment->currency,
-                            'transaction_id' => $payment->transaction_id,
-                            'description' => $paymentIntent->description,
-                            'date' => $payment->transaction_date,
-                            'user_name' => $user->name,
-                            'user_email' => $user->email,
-                            'plainPassword' => $plainPassword,
-                            'user' => $user,
-                        ];
                         Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData));
                     } catch (\Exception $e) {
                         Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
+                    } finally {
+                        $restore();
                     }
                 }
 

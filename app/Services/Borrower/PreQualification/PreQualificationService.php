@@ -13,10 +13,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Mail\PreQualificationSubmitted;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class PreQualificationService
 {
     use PaginatesApi;
+
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     
     public function submit(array $data)
     {
@@ -39,10 +44,13 @@ class PreQualificationService
         // Send Email to Partner
         $record->load('partner');
         if ($record->partner && $record->partner->email) {
+            $restore = $this->emailConfigService->applyToMailer($record->partner_id);
             try {
                 Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
             } catch (\Exception $e) {
                 Log::error('Failed to send pre-qualification email to partner', ['error' => $e->getMessage()]);
+            } finally {
+                $restore();
             }
         }
 
