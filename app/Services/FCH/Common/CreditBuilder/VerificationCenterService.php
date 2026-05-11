@@ -280,20 +280,30 @@ class VerificationCenterService
                 $msgRsHdr = $response['MsgRsHdr'] ?? $response['response']['MsgRsHdr'] ?? null;
                 $status = $msgRsHdr['Status'] ?? null;
 
+                $isSuccess = false;
                 if ($status && isset($status['StatusCode']) && $status['StatusCode'] === 0 && ($status['StatusDesc'] ?? '') === 'OK') {
-                    return true;
+                    $isSuccess = true;
                 }
                 
-                $errorDesc = $status['StatusDesc'] ?? 'Unknown status';
-                Log::warning("MicroBilt {$api->name} Status Not OK", ['status' => $status]);
-                throw new \Exception("MicroBilt {$api->name} verification returned error: {$errorDesc}");
+                if (!$isSuccess) {
+                    $errorDesc = $status['StatusDesc'] ?? 'Unknown status';
+                    Log::warning("MicroBilt {$api->name} Status Not OK", ['status' => $status]);
+                }
+
+                return [
+                    'success' => $isSuccess,
+                    'response' => $response
+                ];
             }
         } catch (\Exception $e) {
             Log::error("MicroBilt {$api->name} Failed", ['error' => $e->getMessage()]);
             throw $e;
         }
 
-        return false;       
+        return [
+            'success' => false,
+            'response' => null
+        ];       
     }
 
     /**
@@ -346,8 +356,10 @@ class VerificationCenterService
                     if ($api) {
                         try {
                             if ($api->provider == TierRelatedApi::PROVIDER_MICROBILT) {
-                                $success = $this->updateMicrobiltStatus($borrower, $task, $tier, $api);
-                                if ($success) {
+                                $microbiltResult = $this->updateMicrobiltStatus($borrower, $task, $tier, $api);
+                                $verificationRequest->microbilt_response = $microbiltResult['response'];
+                                
+                                if ($microbiltResult['success']) {
                                     $canUpdateStatus = true;
                                 } else {
                                     $errorMessage = __('verification_center.no_matching_business_record');
@@ -395,10 +407,11 @@ class VerificationCenterService
                     : __('verification_center.no_matching_business_record');
 
                 $verificationRequest->update([
-                    'status'      => $statusToWrite,
-                    'verified_by' => Auth::id(),
-                    'verified_at' => now(),
-                    'note'        => $noteToSave,
+                    'status'             => $statusToWrite,
+                    'verified_by'        => Auth::id(),
+                    'verified_at'        => now(),
+                    'note'               => $noteToSave,
+                    'microbilt_response' => $verificationRequest->microbilt_response,
                 ]);
 
                 if ($shouldTriggerTierUpdate) {
