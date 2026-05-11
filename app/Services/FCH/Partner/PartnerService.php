@@ -108,7 +108,8 @@ class PartnerService
             // Generate subdomains if not provided
             if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
                 $subdomain = $this->generateSubdomain($partnerData['company_name']);
-                $partnerData['partner_domain'] = $subdomain;
+                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+                $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
             }
 
             Log::info('Partner creation payload', $partnerData);
