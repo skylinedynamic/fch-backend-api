@@ -25,11 +25,13 @@ class BorrowerTaskVerificationRequest extends Model
         'verified_at',
         'note',
         'migrated_task_id',
+        'microbilt_response',
     ];
 
     protected $casts = [
         'verified_at' => 'datetime',
         'note' => 'string',
+        'microbilt_response' => 'array',
     ];
 
     public const PENDING = 'pending';
