@@ -59,6 +59,7 @@ class UserResource extends JsonResource
             'user_type' => $this->user_type,
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
+            'current_tier' => $this->entity_type == Borrower::class ? $this->entity?->current_tier : null,
             'is_host' => $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
             'enrollment_type' => $subscription?->enrollment_type,
