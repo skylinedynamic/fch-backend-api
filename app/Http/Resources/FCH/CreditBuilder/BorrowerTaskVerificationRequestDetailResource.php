@@ -31,6 +31,7 @@ class BorrowerTaskVerificationRequestDetailResource extends JsonResource
             'partner_name' => $this->partner?->full_name,
             'has_api' => $this->task?->related_api_id ? true : false,
             'request_date' => $this->created_at ? (Carbon::parse($this->created_at)->format('d F, Y')) : null,
+            'microbilt_response' => $this->microbilt_response,
         ];
     }
 }
