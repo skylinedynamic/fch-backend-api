@@ -27,7 +27,6 @@
                 <img src="{{ $finalLogoSrc }}" alt="{{ $siteName ?? config('app.name') }}" class="logo"
                     style="display: block; margin: 0 auto; width: 200px; height: auto;">
             </div>
-
             <!-- Content Area -->
             <div class="content" style="padding: 0 30px; text-align: left;">
                 @yield('content')
