@@ -14,7 +14,6 @@
             style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 1px 2px rgba(56, 65, 74, 0.15); border-radius: 0; overflow: hidden;">
             <!-- Top Bar: Dark Blue -->
 
-
             <!-- Logo Section -->
             <div class="header-logo"
                 style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;">
@@ -22,7 +21,7 @@
                     $fallbackLogoSrc = file_exists(public_path('logo-mail.png'))
                         ? asset('logo-mail.png')
                         : asset('logo_mail.jpeg');
-                        
+
                     $finalLogoSrc = $headerLogoSrc ?? config('app.header_logo') ?: config('app.partner_logo') ?: config('app.logo') ?: $fallbackLogoSrc;
                 @endphp
                 <img src="{{ $finalLogoSrc }}" alt="{{ $siteName ?? config('app.name') }}" class="logo"
@@ -45,7 +44,8 @@
                     <img src="{{ $finalFooterLogoSrc }}" alt="{{ $siteName ?? config('app.name') }} Footer Logo"
                         style="max-height: 40px; margin-bottom: 10px; display: inline-block;">
                 @endif
-                <p style="margin: 0; color: #fff;">&copy; {{ date('Y') }} {{ $siteName ?? config('app.name') }}. All rights reserved.
+                <p style="margin: 0; color: #fff;">&copy; {{ date('Y') }} {{ $siteName ?? config('app.name') }}. All
+                    rights reserved.
                 </p>
                 @show
             </div>
