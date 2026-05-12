@@ -7,17 +7,23 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Exception;
 
+use App\Models\Common\AppConfiguration;
+
 class MicroBiltService
 {
     protected $baseUrl;
     protected $clientId;
     protected $clientSecret;
+    protected $mode;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.microbilt.base_url');
-        $this->clientId = config('services.microbilt.client_id');
-        $this->clientSecret = config('services.microbilt.client_secret');
+        $this->mode = AppConfiguration::get('microbilt_mode', 'sandbox');
+        $suffix = ($this->mode === 'production') ? '_production' : '_sandbox';
+
+        $this->baseUrl = AppConfiguration::get('microbilt_base_url' . $suffix);
+        $this->clientId = AppConfiguration::get('microbilt_client_id' . $suffix);
+        $this->clientSecret = AppConfiguration::get('microbilt_client_secret' . $suffix);
     }
 
     /**
@@ -29,18 +35,24 @@ class MicroBiltService
      */
     public function authenticate()
     {
-        if (Cache::has('microbilt_token')) {
-            return Cache::get('microbilt_token');
+        // Use a unique cache key that accounts for the mode and the specific credentials.
+        // If you change a key in the database, this hash will change, forcing a fresh authentication.
+        $credentialsHash = md5($this->clientId . $this->clientSecret);
+        $cacheKey = "microbilt_token_{$this->mode}_{$credentialsHash}";
+
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
         }
 
         try {
             Log::info('MicroBilt Auth Attempt Credentials', [
+                'mode' => $this->mode,
                 'client_id' => $this->clientId,
                 'client_secret' => $this->clientSecret,
                 'base_url' => $this->baseUrl
             ]);
 
-            $response = Http::asForm()->post($this->baseUrl . 'OAuth/Token', [ // Adjust endpoint as per specific MicroBilt API docs
+            $response = Http::asForm()->post($this->baseUrl . 'OAuth/Token', [
                 'grant_type' => 'client_credentials',
                 'client_id' => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -52,7 +64,7 @@ class MicroBiltService
                 $expiresIn = $data['expires_in'] ?? 3600;
 
                 // Cache the token slightly less than expiry to avoid edge cases
-                Cache::put('microbilt_token', $token, $expiresIn - 60);
+                Cache::put($cacheKey, $token, $expiresIn - 60);
 
                 return $token;
             }
@@ -91,16 +103,16 @@ class MicroBiltService
             }
 
             Log::error('MicroBilt API Failed', [
-                'endpoint' => $endpoint, 
-                'status' => $response->status(), 
+                'endpoint' => $endpoint,
+                'status' => $response->status(),
                 'body' => $response->body()
             ]);
-            
+
             throw new Exception('MicroBilt API Error: ' . $response->status());
 
         } catch (\Throwable $e) {
             Log::error('MicroBilt API Exception', [
-                'endpoint' => $endpoint, 
+                'endpoint' => $endpoint,
                 'message' => $e->getMessage()
             ]);
             throw $e;
