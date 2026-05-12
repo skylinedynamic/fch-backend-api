@@ -67,7 +67,7 @@ class SiteSettingsService
 
         foreach (array_merge(self::TEXT_KEYS, self::IMAGE_KEYS, ['social_links']) as $key) {
             $raw = $rows->has($key) ? $rows[$key]->value : null;
-            
+
             if ($key === 'social_links') {
                 $data[$key] = json_decode($raw ?? '[]', true) ?: [];
             } elseif (in_array($key, self::IMAGE_KEYS, true)) {
@@ -99,7 +99,7 @@ class SiteSettingsService
                     : json_decode($data['social_links'], true);
 
                 if (is_array($links)) {
-                    $cleaned = array_map(function($link) {
+                    $cleaned = array_map(function ($link) {
                         return [
                             'platform' => (isset($link['platform']) && $link['platform'] !== '') ? trim($link['platform']) : null,
                             'url' => (isset($link['url']) && $link['url'] !== '') ? trim($link['url']) : null,
@@ -132,15 +132,15 @@ class SiteSettingsService
                         $this->deleteFile($existing, 'public');
                     }
 
-                    $prefix  = match ($key) {
-                        'header_logo'  => 'h',
-                        'footer_logo'  => 'f',
+                    $prefix = match ($key) {
+                        'header_logo' => 'h',
+                        'footer_logo' => 'f',
                         'partner_logo' => 'p',
-                        'favicon'      => 'fav',
-                        default        => $key,
+                        'favicon' => 'fav',
+                        default => $key,
                     };
                     $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
-                    $upload   = $this->uploadFile('site-settings', $data[$key], 'public', $filename);
+                    $upload = $this->uploadFile('site-settings', $data[$key], 'public', $filename);
                     AppConfiguration::set($key, $upload['path'], self::ENTITY_TYPE, $entityId);
 
                 } elseif (isset($data[$key])) {
@@ -164,7 +164,7 @@ class SiteSettingsService
             return null;
         }
 
-        $path = ltrim((string)$path, '/');
+        $path = ltrim((string) $path, '/');
         if (!str_starts_with($path, 'site-settings/')) {
             return 'site-settings/' . $path;
         }
