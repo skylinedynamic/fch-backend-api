@@ -349,7 +349,7 @@ class VerificationCenterService
             $canUpdateStatus = false;
             $shouldSkipUpdate = false;
             $errorMessage = '';
-            $verifiedWith = null;
+            $verifiedWith = $isApi ? BorrowerTaskVerificationRequest::MICROBILT_VERIFIED : BorrowerTaskVerificationRequest::MANUALLY_VERIFIED;
 
             if ($isApi && $statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
                 // Only T0 will be api verification
@@ -364,7 +364,6 @@ class VerificationCenterService
 
                                 if ($microbiltResult['success']) {
                                     $canUpdateStatus = true;
-                                    $verifiedWith = BorrowerTaskVerificationRequest::MICROBILT_VERIFIED;
                                 } else {
                                     $errorMessage = __('verification_center.no_matching_business_record');
                                     $canUpdateStatus = false;
@@ -397,9 +396,6 @@ class VerificationCenterService
             } else {
                 // Manual verification or non-completed status update
                 $canUpdateStatus = true;
-                if ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
-                    $verifiedWith = BorrowerTaskVerificationRequest::MANUALLY_VERIFIED;
-                }
             }
 
             if (!$shouldSkipUpdate) {

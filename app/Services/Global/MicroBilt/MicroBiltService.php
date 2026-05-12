@@ -24,6 +24,13 @@ class MicroBiltService
         $this->baseUrl = AppConfiguration::get('microbilt_base_url' . $suffix);
         $this->clientId = AppConfiguration::get('microbilt_client_id' . $suffix);
         $this->clientSecret = AppConfiguration::get('microbilt_client_secret' . $suffix);
+
+        Log::info('MicroBilt Service Initialized', [
+            'mode' => $this->mode,
+            'base_url_key' => 'microbilt_base_url' . $suffix,
+            'base_url' => $this->baseUrl,
+            'client_id' => $this->clientId
+        ]);
     }
 
     /**
@@ -40,9 +47,12 @@ class MicroBiltService
         $credentialsHash = md5($this->clientId . $this->clientSecret);
         $cacheKey = "microbilt_token_{$this->mode}_{$credentialsHash}";
 
+        // Caching disabled for debugging as per user request
+        /*
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
+        */
 
         try {
             Log::info('MicroBilt Auth Attempt Credentials', [
