@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TaskVerificationControll
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -118,6 +119,13 @@ Route::prefix('v1/admin')
             Route::delete('/{id}', [ResourceController::class, 'destroy']);
         });
 
+        // ⚙️ Configuration Routes
+        Route::prefix('app-configurations')->group(function () {
+            Route::get('/', [AppConfigurationController::class, 'index']);
+            Route::post('/show', [AppConfigurationController::class, 'show']);
+            Route::post('/save', [AppConfigurationController::class, 'store']);
+        });
+
         // 📝 CMS Routes
         Route::prefix('cms')->group(function () {
             // CMS
@@ -141,6 +149,8 @@ Route::prefix('v1/admin')
             // Site Settings
             Route::get('site-settings', [SiteSettingsController::class, 'index']);
             Route::post('site-settings', [SiteSettingsController::class, 'update']);
+
+
 
             // SEO
             Route::get('seo-settings/get-all-settings', [SeoController::class, 'getAll']);

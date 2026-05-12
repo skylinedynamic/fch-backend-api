@@ -24,6 +24,7 @@ class BorrowerTaskVerificationRequest extends Model
         'verified_by',
         'verified_at',
         'note',
+        'verified_with',
         'migrated_task_id',
         'microbilt_response',
     ];
@@ -38,6 +39,9 @@ class BorrowerTaskVerificationRequest extends Model
     public const PROCESSING = 'processing';
     public const COMPLETED = 'verified';
     public const REJECTED = 'rejected';
+
+    public const MANUALLY_VERIFIED = 'Manual';
+    public const MICROBILT_VERIFIED = 'MicroBilt';
 
     public const STATUS = [
         self::PENDING => self::PENDING,
