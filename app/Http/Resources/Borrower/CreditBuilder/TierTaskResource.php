@@ -27,6 +27,7 @@ class TierTaskResource extends JsonResource
             'description' => $this->description,
             'status' => $borrower_task ? $borrower_task->status : BorrowerTaskVerificationRequest::PENDING,
             'note' => $borrower_task ? $borrower_task->note : null,
+            'message' => $borrower_task ? $borrower_task->borrower_message : null,
             'completed_at' => ($borrower_task && $borrower_task->verified_at) ? date('d M Y', strtotime($borrower_task->verified_at)) : null,
             'url' => $this->url,
             'logo' => $this->logo ? asset('/' . encodeUrl($this->logo)) : null,
