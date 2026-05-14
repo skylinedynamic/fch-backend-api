@@ -149,6 +149,10 @@ class GeneralConfigurationsService
             }
         }
 
+        if ($entityType === \App\Models\Partner\Partner::class) {
+            \App\Models\User\User::where('partner_id', $entityId)->update(['is_refresh' => true]);
+        }
+
         return $this->show($entityType, $entityId);
     }
 

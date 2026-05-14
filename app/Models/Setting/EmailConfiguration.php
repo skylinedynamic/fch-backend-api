@@ -29,11 +29,13 @@ class EmailConfiguration extends Model
         'from_name',
         'bcc_emails',
         'is_active',
+        'is_fresh_email',
     ];
 
     protected $casts = [
         'enable_custom_configuration' => 'boolean',
         'is_active'                   => 'boolean',
+        'is_fresh_email'              => 'boolean',
     ];
 
     /**

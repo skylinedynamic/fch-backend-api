@@ -58,8 +58,10 @@ class EmailConfigurationService
 
         if (isset($data['id'])) {
             $config = EmailConfiguration::findOrFail($data['id']);
+            $data['is_fresh_email'] = true;
             $config->update($data);
         } else {
+            $data['is_fresh_email'] = true;
             $config = EmailConfiguration::updateOrCreate(
                 ['partner_id' => $partnerId],
                 $data
@@ -86,7 +88,7 @@ class EmailConfigurationService
                 ->update(['is_active' => false]);
         }
 
-        $config->update(['is_active' => $newStatus]);
+        $config->update(['is_active' => $newStatus, 'is_fresh_email' => true]);
         $this->flushCache($config->partner_id);
 
         if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {

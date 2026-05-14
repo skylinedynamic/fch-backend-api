@@ -39,6 +39,7 @@ return new class extends Migration
             $table->text('bcc_emails')->nullable();
             
             $table->boolean('is_active')->default(false);
+            $table->boolean('is_fresh_email')->default(false);
             $table->timestamps();
             $table->softDeletes();
 
