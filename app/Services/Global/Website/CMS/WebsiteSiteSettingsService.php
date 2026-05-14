@@ -42,12 +42,15 @@ class WebsiteSiteSettingsService
      */
     public function getSettings(): array
     {
-        $entityType = \App\Models\Partner\Partner::class;
-        $entityId   = request()->input('entity_id') ?: (auth('api')->check() ? auth('api')->user()->partner_id : null);
+        $user = auth('api')->user();
+        $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
+        $entityId   = request()->input('entity_id') ?: ($user->entity_id ?? $user->partner_id ?? null);
         
         // If no ID provided and not logged in, try to resolve from host/domain (fallback to host 1 for now)
         if (!$entityId) {
-            $entityId = \App\Models\Partner\Partner::where('is_host', 1)->value('id') ?: 1;
+            $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+            $entityId = $hostPartner?->id ?: 1;
+            $entityType = \App\Models\Partner\Partner::class;
         }
 
         // 1. Get configurations for the specific entity (Partner)

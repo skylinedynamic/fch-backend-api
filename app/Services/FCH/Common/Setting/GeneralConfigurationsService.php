@@ -30,22 +30,34 @@ class GeneralConfigurationsService
     /**
      * Get general branding configurations.
      */
-    public function show(?string $entityType = null, ?int $entityId = null): array
+    /**
+     * Get general branding configurations.
+     */
+    public function show(?string $entityType = null, ?int $entityId = null, bool $useFallback = true): array
     {
-        $entityType = \App\Models\Partner\Partner::class;
-        $entityId   = $entityId ?? auth()->user()->partner_id;
+        $user = auth()->user();
+        $entityType = $entityType ?: ($user->entity_type ?? \App\Models\Partner\Partner::class);
+        $entityId   = $entityId   ?: ($user->entity_id   ?? $user->partner_id);
 
-        // 1. Get configurations for the specific entity (Partner)
+        // 1. Get configurations for the specific entity
         $rows = AppConfiguration::where('entity_type', $entityType)
             ->where('entity_id', $entityId)
             ->get()
             ->keyBy('key');
 
-        // 2. Get configurations for the HOST if current is not host
-        $hostId = \App\Models\Partner\Partner::where('is_host', 1)->value('id');
+        // 2. Get configurations for the HOST as fallback
+        $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+        $hostId = $hostPartner?->id;
         $hostRows = [];
-        if ($hostId && $hostId != $entityId) {
-            $hostRows = AppConfiguration::where('entity_type', $entityType)
+
+        // Check if current is host
+        $isHost = ($entityType === \App\Models\Partner\Partner::class && $hostId == $entityId);
+
+        // Fetch host settings if:
+        // - We are NOT the host (or different entity type)
+        // - AND useFallback is true
+        if ($useFallback && !$isHost && $hostId) {
+            $hostRows = AppConfiguration::where('entity_type', \App\Models\Partner\Partner::class)
                 ->where('entity_id', $hostId)
                 ->get()
                 ->keyBy('key');
@@ -53,9 +65,9 @@ class GeneralConfigurationsService
 
         $data = [];
         foreach (self::TEXT_KEYS as $key) {
-            if ($rows->has($key) && !empty($rows[$key]->value)) {
+            if ($rows->has($key) && !is_null($rows[$key]->value) && $rows[$key]->value !== '') {
                 $data[$key] = $rows[$key]->value;
-            } elseif (isset($hostRows[$key]) && !empty($hostRows[$key]->value)) {
+            } elseif (isset($hostRows[$key]) && !is_null($hostRows[$key]->value) && $hostRows[$key]->value !== '') {
                 $data[$key] = $hostRows[$key]->value;
             } else {
                 $data[$key] = null;
@@ -85,8 +97,14 @@ class GeneralConfigurationsService
      */
     public function update(array $data, ?string $entityType = null, ?int $entityId = null)
     {
-        $entityType = \App\Models\Partner\Partner::class;
-        $entityId   = $entityId ?? auth()->user()->partner_id;
+        $user = auth()->user();
+        $entityType = $entityType ?: ($user->entity_type ?? \App\Models\Partner\Partner::class);
+        $entityId   = $entityId   ?: ($user->entity_id   ?? $user->partner_id);
+
+        // Normalize entity type if it comes as a string like 'site-settings' from frontend
+        if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
+            $entityType = \App\Models\Partner\Partner::class;
+        }
 
         // ── Text fields ──────────────────────────────────────────────────
         foreach (self::TEXT_KEYS as $key) {
@@ -112,12 +130,8 @@ class GeneralConfigurationsService
                     'footer_logo'      => 'f',
                     'primary_logo'     => 'p_main',
                     'secondary_logo'   => 'p_sec',
-                    'partner_logo'     => 'p',
-                    'borrower_logo'    => 'b',
                     'favicon'          => 'fav',
                     'website_favicon'  => 'wfav',
-                    'partner_favicon'  => 'pfav',
-                    'borrower_favicon' => 'bfav',
                     default            => $key,
                 };
                 $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
