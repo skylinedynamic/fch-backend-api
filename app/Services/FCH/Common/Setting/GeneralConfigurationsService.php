@@ -39,6 +39,11 @@ class GeneralConfigurationsService
         $entityType = $entityType ?: ($user->entity_type ?? \App\Models\Partner\Partner::class);
         $entityId   = $entityId   ?: ($user->entity_id   ?? $user->partner_id);
 
+        // Normalize entity type if it comes from frontend in a different format
+        if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
+            $entityType = \App\Models\Partner\Partner::class;
+        }
+
         // 1. Get configurations for the specific entity
         $rows = AppConfiguration::where('entity_type', $entityType)
             ->where('entity_id', $entityId)

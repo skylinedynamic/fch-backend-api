@@ -46,6 +46,11 @@ class WebsiteSiteSettingsService
         $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
         $entityId   = request()->input('entity_id') ?: ($user->entity_id ?? $user->partner_id ?? null);
         
+        // Normalize entity type
+        if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
+            $entityType = \App\Models\Partner\Partner::class;
+        }
+        
         // If no ID provided and not logged in, try to resolve from host/domain (fallback to host 1 for now)
         if (!$entityId) {
             $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
@@ -59,11 +64,14 @@ class WebsiteSiteSettingsService
             ->get()
             ->keyBy('key');
 
-        // 2. Get configurations for the HOST if current is not host
-        $hostId = \App\Models\Partner\Partner::where('is_host', 1)->value('id');
+        // 2. Get configurations for the HOST as fallback
+        $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+        $hostId = $hostPartner?->id;
         $hostRows = [];
-        if ($hostId && $hostId != $entityId) {
-            $hostRows = AppConfiguration::where('entity_type', $entityType)
+
+        // Only fetch host settings if current is not host or is a different entity type
+        if ($hostId && ($entityType !== \App\Models\Partner\Partner::class || $hostId != $entityId)) {
+            $hostRows = AppConfiguration::where('entity_type', \App\Models\Partner\Partner::class)
                 ->where('entity_id', $hostId)
                 ->get()
                 ->keyBy('key');
