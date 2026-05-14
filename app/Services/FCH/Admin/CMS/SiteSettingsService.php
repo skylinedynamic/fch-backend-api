@@ -33,9 +33,12 @@ class SiteSettingsService
     private const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
+        'primary_logo',
+        'secondary_logo',
         'partner_logo',
         'borrower_logo',
         'favicon',
+        'website_favicon',
         'partner_favicon',
         'borrower_favicon',
     ];
@@ -140,9 +143,12 @@ class SiteSettingsService
                     $prefix  = match ($key) {
                         'header_logo'      => 'h',
                         'footer_logo'      => 'f',
+                        'primary_logo'     => 'p_main',
+                        'secondary_logo'   => 'p_sec',
                         'partner_logo'     => 'p',
                         'borrower_logo'    => 'b',
                         'favicon'          => 'fav',
+                        'website_favicon'  => 'wfav',
                         'partner_favicon'  => 'pfav',
                         'borrower_favicon' => 'bfav',
                         default            => $key,
@@ -173,9 +179,26 @@ class SiteSettingsService
         }
 
         $path = ltrim((string)$path, '/');
+
+        // If it's a full URL, try to extract the relative path if it points to our storage
+        if (str_contains($path, '/storage/site-settings/')) {
+            $parts = explode('/storage/site-settings/', $path);
+            return 'site-settings/' . end($parts);
+        }
+
+        if (str_contains($path, '/storage/')) {
+            $parts = explode('/storage/', $path);
+            return end($parts);
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
         if (!str_starts_with($path, 'site-settings/')) {
             return 'site-settings/' . $path;
         }
+
         return $path;
     }
 
