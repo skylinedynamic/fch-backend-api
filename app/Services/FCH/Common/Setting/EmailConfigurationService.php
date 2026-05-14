@@ -69,6 +69,10 @@ class EmailConfigurationService
         }
 
         $this->flushCache($config->partner_id);
+        
+        if ($config->partner_id) {
+            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        }
 
         if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
             self::$systemDefaults = null;
@@ -90,6 +94,10 @@ class EmailConfigurationService
 
         $config->update(['is_active' => $newStatus, 'is_fresh_email' => true]);
         $this->flushCache($config->partner_id);
+
+        if ($config->partner_id) {
+            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        }
 
         if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
             self::$systemDefaults = null;

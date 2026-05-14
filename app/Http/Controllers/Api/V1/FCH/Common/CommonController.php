@@ -107,9 +107,17 @@ class CommonController extends Controller
         $user->is_refresh = false;
         $user->save();
 
+        // Configuration Status Flags for Frontend Guard
+        $isEmailFresh = $partnerId ? (\App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)->where('is_active', true)->exists()) : true;
+        $isBrandingFresh = $partnerId ? (\App\Models\Common\AppConfiguration::where('entity_id', $partnerId)->where('entity_type', \App\Models\Partner\Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+
         return ApiResponse::success([
             'email_configuration' => $emailConfig,
             'branding' => $branding,
+            'status_flags' => [
+                'is_email_fresh' => $isEmailFresh ? true : null,
+                'is_refresh_settings' => $isBrandingFresh ? true : null,
+            ]
         ], __('common.global_configurations_retrieved', [], 'en'));
     }
 }
