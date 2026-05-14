@@ -35,12 +35,8 @@ class SiteSettingsService
         'footer_logo',
         'primary_logo',
         'secondary_logo',
-        'partner_logo',
-        'borrower_logo',
         'favicon',
         'website_favicon',
-        'partner_favicon',
-        'borrower_favicon',
     ];
 
     /**
@@ -154,7 +150,7 @@ class SiteSettingsService
                         default            => $key,
                     };
                     $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
-                    $upload   = $this->uploadFile('site-settings', $data[$key], 'public', $filename);
+                    $upload   = $this->uploadFile($data[$key], 'site-settings', 'public', $filename);
                     AppConfiguration::set($key, $upload['path'], self::ENTITY_TYPE, $entityId);
 
                 } elseif (isset($data[$key])) {

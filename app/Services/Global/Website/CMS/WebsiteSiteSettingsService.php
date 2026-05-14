@@ -15,10 +15,10 @@ class WebsiteSiteSettingsService
     private const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
-        'partner_logo',
-        'borrower_logo',
-        'partner_favicon',
-        'borrower_favicon',
+        'primary_logo',
+        'secondary_logo',
+        'favicon',
+        'website_favicon',
     ];
 
     private const TEXT_KEYS = [
