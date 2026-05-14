@@ -37,14 +37,10 @@ use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 
-
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 
-
-use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use Illuminate\Support\Facades\Route;
 
