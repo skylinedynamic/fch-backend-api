@@ -40,7 +40,8 @@ class PartnerService
         protected SubscriptionService $subscriptionService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
         protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * Send payment link email using partner's own email config.
@@ -52,12 +53,12 @@ class PartnerService
             Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
             Log::info('Partner payment link email sent', [
                 'partner_id' => $partnerId,
-                'email'      => $mailData['user']->email,
+                'email' => $mailData['user']->email,
             ]);
         } catch (\Exception $e) {
             Log::error('Partner payment link email failed', [
                 'partner_id' => $partnerId,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         } finally {
             $restore();
@@ -74,12 +75,12 @@ class PartnerService
             Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $partnerId));
             Log::info('Partner account update email sent', [
                 'partner_id' => $partnerId,
-                'email'      => $mailData['user']->email,
+                'email' => $mailData['user']->email,
             ]);
         } catch (\Exception $e) {
             Log::error('Partner account update email failed', [
                 'partner_id' => $partnerId,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         } finally {
             $restore();
@@ -154,6 +155,12 @@ class PartnerService
             if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
                 $subdomain = $this->generateSubdomain($partnerData['company_name']);
                 $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+
+                // Check against restricted domains OR existing subdomains
+                if (in_array($subdomain, Partner::RESTRICTED_DOMAINS) || Partner::where('partner_domain', $subdomain . '.' . $baseUrl)->exists()) {
+                    $subdomain .= '-' . $user->id;
+                }
+
                 $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
             }
 
