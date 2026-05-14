@@ -23,6 +23,7 @@ use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use Illuminate\Support\Facades\Auth;
 
 class AppointmentService
@@ -31,7 +32,8 @@ class AppointmentService
 
     public function __construct(
         protected MicrosoftCalendarService $microsoftCalendarService,
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
 
     /**
@@ -340,21 +342,26 @@ class AppointmentService
         try {
             $user = auth()->user();
             $partner = $user ? $user->partner : $appointment->scheduledBy->partner;
+            $partnerId = $partner?->id;
 
             // Fallback empty if no partner found (e.g. system admin?)
             $businessInfo = [
                 'company_name' => $partner->company_name ?? 'Our Company',
                 'company_logo' => $partner->company_logo ?? 'logo.png',
-                'email' => $partner->email ?? '',
+                'email'        => $partner->email ?? '',
                 'phone_number' => $partner->phone_number ?? '',
                 'address_line_1' => $partner->address_line_1 ?? '',
             ];
 
-            Mail::to($appointment->assignedFor->email)->send(
-                new AppointmentNotification($appointment, $action, $businessInfo)
-            );
-
-            Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
+            $restore = $this->emailConfigService->applyToMailer($partnerId);
+            try {
+                Mail::to($appointment->assignedFor->email)->send(
+                    new AppointmentNotification($appointment, $action, $businessInfo)
+                );
+                Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
+            } finally {
+                $restore();
+            }
         } catch (Throwable $e) {
             Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
         }

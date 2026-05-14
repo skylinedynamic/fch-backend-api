@@ -26,7 +26,7 @@ class AccountCreatedNotification implements NotificationTypeInterface
 
     public function getEmailSubject(User $user): string
     {
-        return $this->data['subject'] ?? 'Welcome to ' . ($this->data['company_name'] ?? 'Our Company');
+        return $this->data['subject'] ?? 'Welcome to ' . ($this->data['company_name'] ?? config('app.name'));
     }
 
     public function getEmailContent(User $user): array
@@ -42,10 +42,10 @@ class AccountCreatedNotification implements NotificationTypeInterface
                 'phone_number'   => $this->data['phone_number'] ?? null,
                 'password'       => $this->data['password'] ?? null,
                 'login_url'      => $this->data['login_url'] ?? url('/'),
-                'company_name'   => $this->data['company_name'] ?? 'Skyline Dynamics',
-                'company_logo'   => $this->data['company_logo'] ?? 'https://skylinedynamic.dev/admin-portal/assets/images/logo.png',
-                'email'  => $this->data['email'] ?? 'support@skylinedynamic.dev',
-                'company_phone'  => $this->data['company_phone'] ?? '+880 1234-567890',
+                'company_name'   => $this->data['company_name'] ?? config('app.name'),
+                'company_logo'   => $this->data['company_logo'] ?? config('app.logo'),
+                'email'          => $this->data['email'] ?? config('mail.from.address'),
+                'company_phone'  => $this->data['company_phone'] ?? config('app.phone_number', ''),
             ],
         ];
     }

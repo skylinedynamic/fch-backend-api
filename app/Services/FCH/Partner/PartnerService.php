@@ -29,6 +29,7 @@ use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class PartnerService
 {
@@ -37,8 +38,52 @@ class PartnerService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
-        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
-    ) {
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
+    ) {}
+
+    /**
+     * Send payment link email using partner's own email config.
+     */
+    private function sendPaymentLinkEmail(array $mailData, int $partnerId): void
+    {
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
+            Log::info('Partner payment link email sent', [
+                'partner_id' => $partnerId,
+                'email'      => $mailData['user']->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Partner payment link email failed', [
+                'partner_id' => $partnerId,
+                'error'      => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
+        }
+    }
+
+    /**
+     * Send account update email using partner's own email config.
+     */
+    private function sendAccountUpdateEmail(array $mailData, int $partnerId): void
+    {
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $partnerId));
+            Log::info('Partner account update email sent', [
+                'partner_id' => $partnerId,
+                'email'      => $mailData['user']->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Partner account update email failed', [
+                'partner_id' => $partnerId,
+                'error'      => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
+        }
     }
 
     /**
@@ -226,11 +271,7 @@ class PartnerService
                     ],
                 ];
 
-                try {
-                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-                } catch (\Exception $e) {
-                    Log::error('Partner payment link email failed', ['error' => $e->getMessage()]);
-                }
+                $this->sendPaymentLinkEmail($mailData, $partner->id);
             }
 
             DB::commit();
@@ -364,12 +405,7 @@ class PartnerService
                     ];
 
                     Log::info('Sending account update email to partner with new password', ['email' => $updatedUser->email]);
-
-                    try {
-                        Mail::to($updatedUser->email)->send(new PartnerAccountUpdateMail($mailData));
-                    } catch (\Exception $e) {
-                        Log::error('Partner account update email failed', ['error' => $e->getMessage()]);
-                    }
+                    $this->sendAccountUpdateEmail($mailData, $partner->id);
                 }
             }
 

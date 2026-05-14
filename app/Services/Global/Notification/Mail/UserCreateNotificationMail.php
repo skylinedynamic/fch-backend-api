@@ -3,23 +3,34 @@
 namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Address;
 
 class UserCreateNotificationMail extends Mailable
 {
+    use MailableBranding;
+
     protected array $mailData;
 
     public function __construct(array $mailData)
     {
         $this->mailData = $mailData;
+        $this->resolveMailConfig($mailData['partner_id'] ?? null);
     }
 
     public function envelope(): Envelope
     {
+        $defaultSubject = 'Welcome to ' . $this->getFromName();
+        $subject = $this->mailData['subject'] ?? $defaultSubject;
+
         return new Envelope(
-            subject: $this->mailData['subject']
-                ?? 'Welcome to ' . ($this->mailData['business_info']['company_name'] ?? 'Our Company'),
+            from: new Address(
+                $this->getFromAddress(),
+                $this->getFromName(),
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 
@@ -37,18 +48,17 @@ class UserCreateNotificationMail extends Mailable
 
         return new Content(
             view: 'emails.users_created',
-            with: [
+            with: array_merge([
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-
                 'business_info' => [
-                    'company_name'   => $this->mailData['business_info']['company_name'] ?? '',
-                    'email'  => $this->mailData['business_info']['email'] ?? '',
-                    'phone_number'  => $this->mailData['business_info']['phone_number'] ?? '',
-                    'address_line_1'  => $this->mailData['business_info']['address_line_1'] ?? '',
+                    'company_name'   => $this->getFromName(),
+                    'email'          => $this->getFromAddress(),
+                    'phone_number'   => $this->mailData['business_info']['phone_number'] ?? '',
+                    'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',
                 ],
-            ]
+            ], $this->getBrandingData()),
         );
     }
 

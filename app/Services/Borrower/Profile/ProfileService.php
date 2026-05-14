@@ -12,9 +12,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class ProfileService
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Update borrower profile
      *
@@ -85,10 +89,13 @@ class ProfileService
                 ];
                 Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
 
+                $restore = $this->emailConfigService->applyToMailer($updatedUser->partner_id);
                 try {
                     Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData));
                 } catch (\Exception $e) {
                     Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
+                } finally {
+                    $restore();
                 }
             }
 
