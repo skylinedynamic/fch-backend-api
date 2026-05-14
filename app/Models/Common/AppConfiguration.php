@@ -10,9 +10,9 @@ class AppConfiguration extends Model
     use HasFactory;
 
     protected $fillable = [
-        'entity_type', 
-        'entity_id', 
-        'key', 
+        'entity_type',
+        'entity_id',
+        'key',
         'value'
     ];
 

@@ -137,6 +137,12 @@ return [
         'document_updated' => 'Document updated successfully.',
         'documents_retrieved' => 'Documents retrieved successfully.',
         'document_deleted' => 'Document deleted successfully.',
+        'tenant_config_retrieved' => 'Tenant configuration retrieved successfully.',
+        'tenant_config_updated' => 'Tenant configuration updated successfully.',
+    ],
+
+    'error' => [
+        'not_found' => 'Partner not found.',
     ],
 
     'partner_stats_retrieved' => 'Partner statistics retrieved successfully.',

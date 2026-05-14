@@ -26,39 +26,46 @@ class StorePartnerRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'full_name'                   => ['required', 'string', 'max:255'],
-            'company_name'                => ['required', 'string', 'max:255'],
-            'email'                       => [
+            'full_name' => ['required', 'string', 'max:255'],
+            'company_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('partners', 'company_name')->whereNull('deleted_at')
+            ],
+            'email' => [
                 'required',
                 'email',
                 'max:255',
                 Rule::unique('partners', 'email')->whereNull('deleted_at'),
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
             ],
-            'phone_number'                => ['required', 'string', 'max:50'],
-            'status'                      => ['nullable', 'string', 'max:255'],
-            'contact_person'              => ['nullable', 'string', 'max:255'],
+            'phone_number' => ['required', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:255'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
             'contact_person_phone_number' => ['nullable', 'string', 'max:50'],
-            'contact_person_email'        => ['nullable', 'email', 'max:255'],
-            'contact_person_relation'     => ['nullable', 'string', 'max:255'],
-            'partner_type'                => ['required', 'string', 'max:255'],
-            'state'                       => ['required', 'string', 'max:100'],
-            'city'                        => ['required', 'string', 'max:100'],
-            'country'                     => ['required', 'string', 'max:100'],
-            'zip_code'                    => ['nullable', 'string', 'max:20'],
-            'address_line_1'              => ['required', 'string', 'max:255'],
-            'address_line_2'              => ['nullable', 'string', 'max:255'],
-            'tax_id'                      => ['nullable', 'string', 'max:100'],
-            'website'                     => ['nullable', 'string'],
-            'joining_date'                => ['nullable', 'date'],
-            'company_logo'                => ['nullable'], // 2MB max
-            'partner_image'               => ['nullable'], // 2MB max
-            'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
-            'enrollment_type'             => ['required', 'string', 'max:255'],
-            'enrollment_amount'           => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
-            'monthly_platform_fee'        => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
-            'total_free_users'            => ['nullable', 'integer', 'min:0'],
-            'total_paid_users'            => ['nullable', 'integer', 'min:0'],
+            'contact_person_email' => ['nullable', 'email', 'max:255'],
+            'contact_person_relation' => ['nullable', 'string', 'max:255'],
+            'partner_type' => ['required', 'string', 'max:255'],
+            'state' => ['required', 'string', 'max:100'],
+            'city' => ['required', 'string', 'max:100'],
+            'country' => ['required', 'string', 'max:100'],
+            'zip_code' => ['nullable', 'string', 'max:20'],
+            'address_line_1' => ['required', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
+            'website' => ['nullable', 'string'],
+            'joining_date' => ['nullable', 'date'],
+            'company_logo' => ['nullable'], // 2MB max
+            'partner_image' => ['nullable'], // 2MB max
+            'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
+            'enrollment_type' => ['required', 'string', 'max:255'],
+            'enrollment_amount' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'monthly_platform_fee' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'total_free_users' => ['nullable', 'integer', 'min:0'],
+            'total_paid_users' => ['nullable', 'integer', 'min:0'],
+            'partner_domain' => ['nullable', 'string', 'max:255'],
+            'borrower_domain' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -82,11 +89,11 @@ class StorePartnerRequest extends BaseApiRequest
             'enrollment_amount.required' => __('partner.validation.enrollment_amount_required'),
             'enrollment_amount.numeric' => __('partner.validation.enrollment_amount_numeric'),
             'enrollment_amount.gt' => __('partner.validation.enrollment_amount_gt'),
-            'enrollment_amount.regex'   => __('partner.validation.enrollment_amount_regex'),
+            'enrollment_amount.regex' => __('partner.validation.enrollment_amount_regex'),
             'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
             'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
             'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
-            'monthly_platform_fee.regex'   => __('partner.validation.monthly_platform_fee_regex'),
+            'monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),
         ];
     }
 }

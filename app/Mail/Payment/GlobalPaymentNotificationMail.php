@@ -4,6 +4,7 @@ namespace App\Mail\Payment;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -11,9 +12,12 @@ use App\Models\Partner\Partner;
 
 class GlobalPaymentNotificationMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
-    public function __construct(public array $paymentData) {}
+    public function __construct(public array $paymentData, ?int $partnerId = null)
+    {
+        $this->resolveMailConfig($partnerId);
+    }
 
     public function envelope(): Envelope
     {
@@ -24,9 +28,14 @@ class GlobalPaymentNotificationMail extends Mailable
 
     public function content(): Content
     {
+        $siteName = config('app.name') ?? 'Four Corner Funding';
+        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
+            $siteName = $this->resolvedMailConfig->site_name;
+        }
+
         $hostPartner = Partner::where('is_host', 1)->first();
         $businessInfo = [
-            'company_name' => $hostPartner->company_name ?? config('app.name'),
+            'company_name' => $siteName,
             'company_logo' => $hostPartner->company_logo ?? 'logo.png',
             'email' => $hostPartner->email ?? config('mail.from.address'),
             'phone_number' => $hostPartner->phone_number ?? '',
@@ -50,7 +59,8 @@ class GlobalPaymentNotificationMail extends Mailable
 
         return new Content(
             view: 'emails.payment.global_notification',
-            with: [
+            with: array_merge([
+
                 'amount' => $this->paymentData['amount'],
                 'currency' => $this->paymentData['currency'],
                 'transaction_id' => $this->paymentData['transaction_id'],
@@ -58,7 +68,8 @@ class GlobalPaymentNotificationMail extends Mailable
                 'user_email' => $this->paymentData['user_email'] ?? 'Unknown Email',
                 'date' => $this->paymentData['date']->format('F j, Y, g:i a'),
                 'business_info' => $businessInfo,
-            ]
+            
+            ], $this->getBrandingData()),
         );
     }
 

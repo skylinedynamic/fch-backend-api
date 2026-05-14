@@ -4,6 +4,7 @@ namespace App\Mail\Payment;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -11,22 +12,35 @@ use App\Models\Partner\Partner;
 
 class PaymentSuccessMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
-    public function __construct(public array $paymentData) {}
+    public function __construct(public array $paymentData, ?int $partnerId = null)
+    {
+        $this->resolveMailConfig($partnerId);
+    }
 
     public function envelope(): Envelope
     {
+        $siteName = config('app.name') ?? 'Four Corner Funding';
+        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
+            $siteName = $this->resolvedMailConfig->site_name;
+        }
+
         return new Envelope(
-            subject: 'Payment Receipt - ' . config('app.name'),
+            subject: "Payment Receipt - {$siteName}",
         );
     }
 
     public function content(): Content
     {
+        $siteName = config('app.name') ?? 'Four Corner Funding';
+        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
+            $siteName = $this->resolvedMailConfig->site_name;
+        }
+
         $hostPartner = Partner::where('is_host', 1)->first();
         $businessInfo = [
-            'company_name' => $hostPartner->company_name ?? config('app.name'),
+            'company_name' => $siteName,
             'company_logo' => $hostPartner->company_logo ?? 'logo.png',
             'email' => $hostPartner->email ?? config('mail.from.address'),
             'phone_number' => $hostPartner->phone_number ?? '',
@@ -53,7 +67,8 @@ class PaymentSuccessMail extends Mailable
 
         return new Content(
             view: 'emails.payment.success',
-            with: [
+            with: array_merge([
+
                 'amount' => $this->paymentData['amount'],
                 'currency' => $this->paymentData['currency'],
                 'transaction_id' => $this->paymentData['transaction_id'],
@@ -62,7 +77,8 @@ class PaymentSuccessMail extends Mailable
                 'user_name' => $userName,
                 'first_name' => $firstName,
                 'business_info' => $businessInfo,
-            ]
+            
+            ], $this->getBrandingData()),
         );
     }
 

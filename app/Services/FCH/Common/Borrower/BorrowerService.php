@@ -33,6 +33,7 @@ use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class BorrowerService
 {
@@ -41,8 +42,28 @@ class BorrowerService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
-        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
+
+    /**
+     * Send a borrower email using the partner's active mail config.
+     */
+    private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
+    {
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($email)->send($mailable);
+        } catch (\Exception $e) {
+            Log::error('Borrower email failed', [
+                'email'      => $email,
+                'partner_id' => $partnerId,
+                'error'      => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
+        }
+    }
 
     /**
      * List borrowers with pagination, search, filtering and sorting.
@@ -356,26 +377,14 @@ class BorrowerService
                         $mailData['payment_link'] = config('app.frontend_borrower_url') . '/invoices';
                         $mailData['amount'] = $invoice->payment_amount;
                         Log::info('📧 Sending Payment Link Mail to Borrower');
-                        try {
-                            Mail::to($user->email)->send(new BorrowerPaymentLinkMail($mailData));
-                        } catch (\Exception $e) {
-                            Log::error('Failed to send payment link email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
-                        }
+                        $this->sendBorrowerMail($user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id);
                     } else {
                         Log::info('Sending Account Created Mail to Borrower');
-                        try {
-                            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
-                        } catch (\Exception $e) {
-                            Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
-                        }
+                        $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                     }
                 } else {
                     Log::info('Sending Default Account Created Mail');
-                    try {
-                        Mail::to($user->email)->send(new BorrowerAccountCreatedMail($mailData));
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send account created email to borrower', ['email' => $user->email, 'error' => $e->getMessage()]);
-                    }
+                    $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             }
             DB::commit();
@@ -534,12 +543,7 @@ class BorrowerService
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $updatedUser->email]);
-
-                    try {
-                        Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData));
-                    } catch (\Exception $e) {
-                        Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
-                    }
+                    $this->sendBorrowerMail($updatedUser->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             } elseif (!empty($data['email'])) {
                 // Create user if email is provided and user doesn't exist

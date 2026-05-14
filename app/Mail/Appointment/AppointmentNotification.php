@@ -5,13 +5,14 @@ namespace App\Mail\Appointment;
 use App\Models\Appointment\Appointment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class AppointmentNotification extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
     public $appointment;
     public $action; // 'created', 'updated', 'deleted'
@@ -20,11 +21,12 @@ class AppointmentNotification extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(Appointment $appointment, string $action, array $businessInfo = [])
+    public function __construct(Appointment $appointment, string $action, array $businessInfo = [], ?int $partnerId = null)
     {
         $this->appointment = $appointment;
         $this->action = $action;
         $this->businessInfo = $businessInfo;
+        $this->resolveMailConfig($partnerId);
     }
  
     /**
@@ -39,8 +41,13 @@ class AppointmentNotification extends Mailable
             default => 'Appointment Notification',
         };
 
+        $siteName = config('app.name') ?? 'Four Corner Funding';
+        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
+            $siteName = $this->resolvedMailConfig->site_name;
+        }
+
         return new Envelope(
-            subject: $subject . ': ' . $this->appointment->subject,
+            subject: "{$subject} - {$siteName}: {$this->appointment->subject}",
         );
     }
 
@@ -73,21 +80,28 @@ class AppointmentNotification extends Mailable
             default => 'emails.appointment.create',
         };
 
+        $siteName = config('app.name') ?? 'Four Corner Funding';
+        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
+            $siteName = $this->resolvedMailConfig->site_name;
+        }
+
         return new Content(
             view: $viewName,
-            with: [
+            with: array_merge([
+
                 'appointment' => $this->appointment,
                 'action' => $this->action,
                 'assigneeName' => $this->appointment->assignedFor->name ?? 'User',
                 'business_info' => [
-                    'company_name'   => $this->businessInfo['company_name'] ?? '',
+                    'company_name'   => $siteName,
                     'email'  => $this->businessInfo['email'] ?? '',
                     'phone_number'  => $this->businessInfo['phone_number'] ?? '',
                     'address_line_1'  => $this->businessInfo['address_line_1'] ?? '',
                     'business_logo_url'  => $businessLogoUrl,  // For production (external)
                     'business_logo_path' => $businessLogoPath, // For local embed
                 ],
-            ],
+            
+            ], $this->getBrandingData()),
         );
     }
 }

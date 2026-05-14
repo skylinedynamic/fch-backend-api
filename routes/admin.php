@@ -33,6 +33,8 @@ Route::prefix('v1/admin')
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners/check-deletable', [PartnerController::class, 'checkDeletable']);
+        Route::get('partners/tenant-config/{id}', [PartnerController::class, 'getTenantConfig']);
+        Route::post('partners/tenant-config/{id}', [PartnerController::class, 'updateTenantConfig']);
 
         Route::post('partners-profile-states-details-count/{id}', [PartnerController::class, 'profileStatsCount']);
         Route::get('partners/next-id', [PartnerController::class, 'getNextId']);
@@ -153,11 +155,7 @@ Route::prefix('v1/admin')
 
 
             // SEO
-            Route::get('seo-settings/get-all-settings', [SeoController::class, 'getAll']);
-            Route::get('seo-settings', [SeoController::class, 'index']);
-            Route::post('seo-settings', [SeoController::class, 'store']);
-            Route::get('seo-settings/{id}', [SeoController::class, 'show']);
-            Route::post('seo-settings/{id}', [SeoController::class, 'update']);
             Route::post('seo-settings-multiple-delete', [SeoController::class, 'destroy']);
         });
+
     });

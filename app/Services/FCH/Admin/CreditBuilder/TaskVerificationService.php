@@ -15,15 +15,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class TaskVerificationService
 {
     protected $activityLogService;
 
-    public function __construct(ActivityLogService $activityLogService)
-    {
-        $this->activityLogService = $activityLogService;
-    }
+    public function __construct(
+        protected ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Update task status for a borrower.
      */
@@ -230,15 +231,19 @@ class TaskVerificationService
 
             $statusLabel = $status == BorrowerTaskVerificationRequest::COMPLETED ? __('verification_center.verified') : __('verification_center.rejected');
 
-            Mail::to($email)->send(new BorrowerVerificationStatusMail([
-                'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
-                'borrower_name' => trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower',
-                'status' => $status,
-                'note' => $note,
-                'task_results' => $filteredResults,
-            ]));
-        } catch (\Exception $e) {
-            Log::error('TaskVerificationService: Mail failed', ['error' => $e->getMessage()]);
-        }
+            $restore = $this->emailConfigService->applyToMailer($borrower->partner_id);
+            try {
+                Mail::to($email)->send(new BorrowerVerificationStatusMail([
+                    'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
+                    'borrower_name' => trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower',
+                    'status' => $status,
+                    'note' => $note,
+                    'task_results' => $filteredResults,
+                ]));
+            } catch (\Exception $e) {
+                Log::error('TaskVerificationService: Mail failed', ['error' => $e->getMessage()]);
+            } finally {
+                $restore();
+            }
     }
 }
