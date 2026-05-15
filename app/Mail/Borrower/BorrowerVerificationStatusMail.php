@@ -13,15 +13,22 @@ class BorrowerVerificationStatusMail extends Mailable
 
     protected array $mailData;
 
-    public function __construct(array $mailData)
+    public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
+        $this->resolveMailConfig($partnerId);
     }
 
     public function envelope(): Envelope
     {
+        $subject = $this->mailData['subject'] ?? 'Verification Status Update';
+
         return new Envelope(
-            subject: $this->mailData['subject'] ?? 'Verification Status Update',
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 

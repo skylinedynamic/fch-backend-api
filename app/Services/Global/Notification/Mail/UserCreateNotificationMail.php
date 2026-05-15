@@ -52,12 +52,6 @@ class UserCreateNotificationMail extends Mailable
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-                'business_info' => [
-                    'company_name'   => $this->getFromName(),
-                    'email'          => $this->getFromAddress(),
-                    'phone_number'   => $this->mailData['business_info']['phone_number'] ?? '',
-                    'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',
-                ],
             ], $this->getBrandingData()),
         );
     }

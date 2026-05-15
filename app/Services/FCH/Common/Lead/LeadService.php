@@ -36,7 +36,8 @@ class LeadService
         protected PartnerService $partnerService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
         protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * List leads with pagination and filtering.
@@ -204,7 +205,7 @@ class LeadService
             }
 
             $lead = Lead::create($data);
-            
+
             // Send Emails based on Lead Source
             $isWebsiteLead = ($lead->lead_source === Lead::LEAD_SOURCE_WEBSITE);
 
@@ -232,7 +233,7 @@ class LeadService
                 // Otherwise, it's a manual/admin-created lead from other sources
                 $recipients = [
                     Auth::user()->email,
-                    config('mail.from.address') // Global Admin
+                    // config('mail.from.address') // Global Admin
                 ];
 
                 if (!empty($recipients)) {
@@ -254,10 +255,10 @@ class LeadService
                     }
                 }
             }
-            
+
             // Log Lead Creation
             $this->activityLogService->logModelEvent($lead, \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CREATE);
-            
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
@@ -297,7 +298,7 @@ class LeadService
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
                     $name = $field === 'salesperson_id' ? 'Assigned Salesperson' : ucwords(str_replace('_', ' ', $field));
-                    
+
                     if ($field === 'salesperson_id') {
                         $changedFields[] = "{$name} was changed";
                     } else {
@@ -310,14 +311,14 @@ class LeadService
                 $customDescription = "{$fieldsList}.";
 
                 $this->activityLogService->logModelEvent(
-                    $lead, 
+                    $lead,
                     \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_DETAILS_UPDATE,
                     [],
                     null,
                     $customDescription
                 );
             }
-            
+
             DB::commit();
             return $lead->fresh();
         } catch (Throwable $e) {
@@ -350,7 +351,7 @@ class LeadService
             if (!empty($changes)) {
                 $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
                 $logType = $isEmailOnly ? \App\Models\ActivityLog\ActivityLog::LOG_TYPE_EMAIL_UPDATE : \App\Models\ActivityLog\ActivityLog::LOG_TYPE_LEAD_CONTACT_UPDATE;
-                
+
                 $extraProps = [];
                 if (isset($changes['email'])) {
                     $extraProps['new_email'] = $changes['email'];
@@ -367,7 +368,7 @@ class LeadService
                 $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
 
                 $this->activityLogService->logModelEvent(
-                    $lead, 
+                    $lead,
                     $logType,
                     $extraProps,
                     null,
@@ -398,7 +399,8 @@ class LeadService
      */
     public function deleteMultiple(array $ids): bool
     {
-        if (empty($ids)) return false;
+        if (empty($ids))
+            return false;
 
         return Lead::whereIn('id', $ids)->delete();
     }
@@ -486,7 +488,7 @@ class LeadService
                 // 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
-                'plan_id'            => $data['plan_id'] ?? null,
+                'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? null,  // frontend sends enrollment_amount → maps to enrollment_payment
             ];
 
@@ -499,7 +501,7 @@ class LeadService
             ]);
 
             $preQualification = PreQualificationRequest::where('lead_id', $lead->id)->first();
-            if($preQualification){
+            if ($preQualification) {
                 $preQualification->update([
                     'partner_id' => $lead->partner_id,
                     'borrower_id' => $borrower->id,
@@ -544,9 +546,9 @@ class LeadService
                 'contact_person_relation' => $lead->contact_person_relation ?? 'Primary',
 
                 // Conversion Options from payload
-                'partner_type'         => $data['partner_type'] ?? 'Referral Partner',
-                'enrollment_type'      => $data['enrollment_type'] ?? 'Monthly Platform Fee',
-                'enrollment_amount'    => $data['enrollment_amount'],
+                'partner_type' => $data['partner_type'] ?? 'Referral Partner',
+                'enrollment_type' => $data['enrollment_type'] ?? 'Monthly Platform Fee',
+                'enrollment_amount' => $data['enrollment_amount'],
                 'monthly_platform_fee' => $data['monthly_platform_fee'],
 
                 'status' => Partner::STATUS_ONBOARDING,
@@ -591,14 +593,16 @@ class LeadService
 
     private function getFirstName(?string $fullName): string
     {
-        if (!$fullName) return '';
+        if (!$fullName)
+            return '';
         $parts = explode(' ', trim($fullName));
         return $parts[0] ?? '';
     }
 
     private function getLastName(?string $fullName): string
     {
-        if (!$fullName) return '';
+        if (!$fullName)
+            return '';
         $parts = explode(' ', trim($fullName));
         if (count($parts) > 1) {
             array_shift($parts);
@@ -625,7 +629,7 @@ class LeadService
         $totalLeads = (clone $baseQuery)->count();
         $newLeads = (clone $baseQuery)->where('status', Lead::STATUS_NEW_LEAD)->count();
         $declinedLeads = (clone $baseQuery)->where('status', Lead::STATUS_LEAD_DECLINED)->count();
-        
+
         $qualifiedStatuses = Lead::getQualifiedStatuses();
         $qualifiedLeads = (clone $baseQuery)->whereIn('status', $qualifiedStatuses)->count();
 

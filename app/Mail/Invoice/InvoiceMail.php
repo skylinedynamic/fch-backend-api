@@ -17,15 +17,25 @@ class InvoiceMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public $invoice, public $pdfContent = null) {}
+    public function __construct(public $invoice, public $pdfContent = null)
+    {
+        $this->resolveMailConfig($this->invoice->partner_id);
+    }
 
     /**
      * Get the message envelope.
      */
     public function envelope(): Envelope
     {
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+        
         return new Envelope(
-            subject: 'Invoice #' . $this->invoice->invoice_id,
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject("Invoice #{$this->invoice->invoice_id} - {$siteName}"),
         );
     }
 
@@ -36,6 +46,9 @@ class InvoiceMail extends Mailable
     {
         return new Content(
             view: 'emails.invoice.sent',
+            with: array_merge([
+                'invoice' => $this->invoice,
+            ], $this->getBrandingData()),
         );
     }
 

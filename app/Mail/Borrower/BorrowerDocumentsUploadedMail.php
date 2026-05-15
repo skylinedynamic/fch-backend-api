@@ -24,6 +24,7 @@ class BorrowerDocumentsUploadedMail extends Mailable
     {
         $this->user = $user;
         $this->documents = collect($documents);
+        $this->resolveMailConfig($this->user->partner_id ?? null);
     }
 
     /**
@@ -32,7 +33,11 @@ class BorrowerDocumentsUploadedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Documents Uploaded Successfully',
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject('Documents Uploaded Successfully'),
         );
     }
 

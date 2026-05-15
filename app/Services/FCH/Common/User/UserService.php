@@ -343,7 +343,7 @@ class UserService
 
             // 📧 Send update notification if password or email changed
             if ($passwordUpdated || $emailChanged) {
-                $subject = ($emailChanged ? 'Your Email has been changed' : 'Your Password has been updated') . ' - ' . config('app.name');
+                $subject = ($emailChanged ? 'Your Email has been changed' : 'Your Password has been updated') . ' - Four Corner Funding';
                 $partner = $user->partner ?: \App\Models\Partner\Partner::where('is_host', 1)->first();
                 $this->sendCreatedMail($user, $partner, $plainPassword, $subject);
             }
@@ -440,15 +440,10 @@ class UserService
 
         try {
             $data = [
-                'subject'        => $subject ?? ('Welcome to ' . config('mail.from.name')),
+                'subject'        => $subject ?? ('Welcome to ' . config('app.name')),
                 'user'           => $user,
                 'plain_password' => $plainPassword,
-                'business_info'  => [
-                    'company_name'   => config('mail.from.name'),
-                    'email'          => config('mail.from.address') ?: $businessInfo->email,
-                    'phone_number'   => $businessInfo->phone_number,
-                    'address_line_1' => $businessInfo->address_line_1,
-                ],
+                'partner_id'     => $partnerId,
             ];
 
             Mail::to($user->email)->send(new UserCreateNotificationMail($data));

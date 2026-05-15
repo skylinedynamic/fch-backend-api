@@ -223,7 +223,7 @@ class BorrowerController extends Controller
         ];
 
         try {
-            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($data));
+            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($data, $user->partner_id));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('📧 BorrowerAccountCreatedMail failed', [
                 'error' => $e->getMessage(),

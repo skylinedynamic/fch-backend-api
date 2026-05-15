@@ -231,7 +231,7 @@
     <table class="header-section">
         <tr>
             <td>
-                <img src="{{ public_path('logo-mail.png') }}" class="logo" alt="Logo">
+                <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
                 <!-- <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
                 </div> -->
             </td>
@@ -248,8 +248,12 @@
                 <td style="width: 50%; vertical-align: top;">
                     <div class="address-box">
                         <div class="section-header">ADDRESS</div>
-                        <div class="name">{{ config('app.name') }}</div>
-                        <!-- <p>{{ $business_info['address_line_1'] }}</p> -->
+                        <div class="name">{{ $business_info['company_name'] }}</div>
+                        <p>{{ $business_info['address_line_1'] }}</p>
+                        <p>{{ $business_info['city'] }}, {{ $business_info['state'] }}
+                            {{ $business_info['postal_code'] }}</p>
+                        <p>{{ $business_info['phone_number'] }}</p>
+                        <p>{{ $business_info['email'] }}</p>
                     </div>
                 </td>
                 <td style="width: 50%; vertical-align: top; text-align: right">
@@ -259,12 +263,16 @@
                             {{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}
                         </div>
                         <p>
-                            {{ $invoice->borrower 
-                                ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
-                                : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
+                            {{ $invoice->borrower
+    ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
+    : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
                         </p>
-                        <p>Phone: {{ $invoice->borrower ? $invoice->borrower->phone_number : ($invoice->partner?->phone_number ?? 'N/A') }}</p>
-                        <p>Email: {{ $invoice->borrower ? $invoice->borrower->email : ($invoice->partner?->email ?? $invoice->email) }}</p>
+                        <p>Phone:
+                            {{ $invoice->borrower ? $invoice->borrower->phone_number : ($invoice->partner?->phone_number ?? 'N/A') }}
+                        </p>
+                        <p>Email:
+                            {{ $invoice->borrower ? $invoice->borrower->email : ($invoice->partner?->email ?? $invoice->email) }}
+                        </p>
                     </div>
                 </td>
             </tr>
@@ -287,8 +295,7 @@
             <td style="width: 25%;">
                 <div class="label">PAYMENT STATUS</div>
                 <div class="value">
-                    <span
-                        class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : '' }}">
+                    <span class="status-badge {{ strtolower($invoice->status) === 'paid' ? 'status-paid' : '' }}">
                         {{ $invoice->status }}
                     </span>
                 </div>
@@ -311,12 +318,12 @@
         <tbody>
             @php $items = $invoice->details['items'] ?? [['description' => $invoice->subscription->enrollment_type ?? 'Platform Service Enrollment', 'amount' => $invoice->payment_amount]]; @endphp
             @foreach ($items as $item)
-            <tr>
-                <td>
-                    <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
-                </td>
-                <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
-            </tr>
+                <tr>
+                    <td>
+                        <div style="font-weight: bold; color: #374151;">{{ $item['description'] }}</div>
+                    </td>
+                    <td style="text-align: right; font-weight: bold;">${{ number_format($item['amount'], 2) }}</td>
+                </tr>
             @endforeach
         </tbody>
     </table>
@@ -338,11 +345,15 @@
     <!-- Payment Details -->
     <div class="payment-details">
         <div class="title">Payment Details:</div>
-        <p><strong>Payment Method:</strong> <span class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
+        <p><strong>Payment Method:</strong> <span
+                class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
         <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
-        <p><strong>Card Holder:</strong> <span class="val">{{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}</span></p>
+        <p><strong>Card Holder:</strong> <span
+                class="val">{{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}</span>
+        </p>
         @if (!empty($invoice->details['card_last4']))
-        <p><strong>Card Number:</strong> <span class="val">xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</span></p>
+            <p><strong>Card Number:</strong> <span class="val">xxxx xxxx xxxx {{ $invoice->details['card_last4'] }}</span>
+            </p>
         @endif
         <p><strong>Total Amount:</strong> <span class="val">${{ number_format($invoice->payment_amount, 2) }}</span></p>
     </div>
@@ -350,7 +361,9 @@
     <!-- Notes -->
     <div class="notes-box">
         <strong>NOTES:</strong>
-        All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted fee noted above.
+        All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid
+        within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted
+        fee noted above.
     </div>
 </body>
 
