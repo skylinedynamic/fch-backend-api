@@ -145,11 +145,7 @@ Route::prefix('v1/admin')
             Route::post('site-settings', [SiteSettingsController::class, 'update']);
 
             // SEO
-            Route::get('seo-settings/get-all-settings', [SeoController::class, 'getAll']);
-            Route::get('seo-settings', [SeoController::class, 'index']);
-            Route::post('seo-settings', [SeoController::class, 'store']);
-            Route::get('seo-settings/{id}', [SeoController::class, 'show']);
-            Route::post('seo-settings/{id}', [SeoController::class, 'update']);
             Route::post('seo-settings-multiple-delete', [SeoController::class, 'destroy']);
         });
+
     });

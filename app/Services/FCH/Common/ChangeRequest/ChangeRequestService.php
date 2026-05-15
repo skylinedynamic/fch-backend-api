@@ -8,10 +8,15 @@ use App\Mail\Borrower\ChangeRequestStatusMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class ChangeRequestService
 {
     use \App\Traits\PaginatesApi;
+
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
 
     /**
      * List change requests with filters and pagination.
@@ -120,13 +125,18 @@ class ChangeRequestService
             $email = $borrower->email ?? $borrower->business_email;
 
             if ($email) {
-                Mail::to($email)->send(new ChangeRequestStatusMail([
-                    'borrower_name' => $borrower->first_name . ' ' . $borrower->last_name,
-                    'field_name' => $changeRequest->field_name,
-                    'status' => $changeRequest->status,
-                    'new_value' => $changeRequest->new_value,
-                    'note' => $changeRequest->note,
-                ]));
+                $restore = $this->emailConfigService->applyToMailer($borrower->partner_id);
+                try {
+                    Mail::to($email)->send(new ChangeRequestStatusMail([
+                        'borrower_name' => $borrower->first_name . ' ' . $borrower->last_name,
+                        'field_name' => $changeRequest->field_name,
+                        'status' => $changeRequest->status,
+                        'new_value' => $changeRequest->new_value,
+                        'note' => $changeRequest->note,
+                    ]));
+                } finally {
+                    $restore();
+                }
             }
         } catch (\Exception $e) {
             Log::error("Failed to send change request email: " . $e->getMessage());

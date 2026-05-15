@@ -5,13 +5,14 @@ namespace App\Mail\Borrower;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class BorrowerDocumentsUploadedMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
     public $user;
     public $documents;
@@ -42,10 +43,12 @@ class BorrowerDocumentsUploadedMail extends Mailable
     {
         return new Content(
             view: 'emails.borrower.documents_uploaded',
-            with: [
+            with: array_merge([
+
                 'user' => $this->user,
                 'documents' => $this->documents,
-            ],
+            
+            ], $this->getBrandingData()),
         );
     }
 

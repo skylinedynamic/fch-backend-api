@@ -14,9 +14,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class DocumentService
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
 
     public function listForUser(Request $request)
     {
@@ -67,8 +71,13 @@ class DocumentService
                 }
 
                 if (!empty($recipients)) {
-                    // Send to recipients
-                    Mail::to($recipients)->send(new BorrowerDocumentsUploadedMail($user, $documents));
+                    $partnerId = $borrower->partner_id;
+                    $restore = $this->emailConfigService->applyToMailer($partnerId);
+                    try {
+                        Mail::to($recipients)->send(new BorrowerDocumentsUploadedMail($user, $documents));
+                    } finally {
+                        $restore();
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::error('Failed to send document upload notification', [

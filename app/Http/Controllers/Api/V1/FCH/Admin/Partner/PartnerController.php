@@ -185,7 +185,7 @@ class PartnerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'partner_id' => $user->partner_id,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -198,11 +198,21 @@ class PartnerController extends Controller
         ];
 
         try {
+            $emailService = app(\App\Services\FCH\Common\Setting\EmailConfigurationService::class);
+            $restore = $emailService->applyToMailer($user->partner_id);
+
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+
+            if (isset($restore)) {
+                $restore();
+            }
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
+            if (isset($restore)) {
+                $restore();
+            }
         }
     }
 

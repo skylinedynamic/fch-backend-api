@@ -26,6 +26,9 @@ use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
+use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use Illuminate\Support\Facades\Mail;
 
 class EmployeeService
 {
@@ -33,7 +36,8 @@ class EmployeeService
 
     public function __construct(
         protected InvoiceService $invoiceService,
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
 
     public function getAll()
@@ -263,8 +267,7 @@ class EmployeeService
                 Log::info('New user created for employee', ['employee_id' => $employee->id]);
 
                 // Send welcome mail only for new user
-                app(EmployeeController::class)
-                    ->sendAccountCreatedMail($user, $partner, $plainPassword);
+                $this->sendAccountCreatedMail($user, $partner, $plainPassword);
             }
 
             // 4️⃣ Sync existing user if employee changed
@@ -293,8 +296,7 @@ class EmployeeService
 
                 // 📧 Send update notification if email was changed
                 if ($emailChanged && $plainPassword) {
-                    app(\App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController::class)
-                        ->sendAccountCreatedMail($user, $partner, $plainPassword);
+                    $this->sendAccountCreatedMail($user, $partner, $plainPassword);
                 }
             }
 
@@ -500,6 +502,38 @@ class EmployeeService
                 ->update(['revoked' => true]);
             
             Log::info("Force logged out employee user for Employee ID: {$employee->id} (User ID: {$user->id}) due to job status being set to {$employee->job_status}");
+        }
+    }
+
+    /**
+     * Send account created mail using partner's email config.
+     */
+    public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
+    {
+        $data = [
+            'partner_id' => $user->partner_id,
+            'user' => $user,
+            'plain_password' => $plainPassword,
+            'business_info' => [
+                'company_name' => $businessInfo->company_name,
+                'company_logo' => $businessInfo->company_logo,
+                'email' => $businessInfo->email,
+                'phone_number' => $businessInfo->phone_number,
+                'address_line_1' => $businessInfo->address_line_1,
+            ],
+        ];
+
+        $partnerId = $user->partner_id;
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+
+        try {
+            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+        } catch (Throwable $e) {
+            Log::error('📧 AccountCreatedNotificationMail failed', [
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
         }
     }
 }

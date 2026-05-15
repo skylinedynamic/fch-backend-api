@@ -19,7 +19,7 @@ class AppConfigurationsSeeder extends Seeder
             'header_logo' => 'site-settings/black-logo.png',
             'footer_logo' => 'site-settings/logo-white.png',
             'partner_logo' => 'site-settings/fch-logo-wide.png',
-            'favicon' => 'site-settings/Favicon.png',
+            'partner_favicon' => 'site-settings/Favicon.png',
             'address' => "Four Corner Holdings, LLC 3750 Gunn Highway, Suite 306 Tampa, FL. 33618",
             'phone_number' => '(813) 391-3333',
             'email' => 'Info@fourcornerfunding.com',
@@ -37,6 +37,9 @@ class AppConfigurationsSeeder extends Seeder
             'google_measurement_id' => 'G-JNZ52ZKJ2W',
             'recaptcha_site_key' => '6LejTe8rAAAAADo3ijCRWqJN9rIfS8g3cVueUXBx',
             'recaptcha_secret_key' => '6LejTe8rAAAAABavYv_MvOWLDeYkGJXtm9V9p3KT',
+            'primary_color' => '#001F3F', // Default Dark Blue
+            'secondary_color' => '#D4AF37', // Default Golden
+            'copyright_text' => 'Copyright © ' . date('Y') . ' Four Corner Funding. All rights reserved.',
         ];
 
         foreach ($settings as $key => $value) {

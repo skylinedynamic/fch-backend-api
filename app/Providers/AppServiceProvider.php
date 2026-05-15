@@ -30,25 +30,25 @@ class AppServiceProvider extends ServiceProvider
         Model::preventLazyLoading(!app()->isProduction());
 
         Scramble::configure()
-        ->withDocumentTransformers(function (OpenApi $openApi) {
-            $openApi->secure(
-                SecurityScheme::http('bearer')
-            );
-        });
+            ->withDocumentTransformers(function (OpenApi $openApi) {
+                $openApi->secure(
+                    SecurityScheme::http('bearer')
+                );
+            });
 
         // Register borrower API module
         Scramble::registerApi('borrower', [
             'api_path' => 'api/v1/borrower',
         ]);
 
-          Scramble::registerApi('borrower')
+        Scramble::registerApi('borrower')
             ->routes(function (Route $route) {
                 return Str::startsWith($route->uri, 'api/v1/borrower')
                     || Str::startsWith($route->uri, 'api/v1/document')
                     || Str::startsWith($route->uri, 'api/v1/filemanager')
                     || Str::startsWith($route->uri, 'api/v1/2fa');
             });
-            
+
 
         // Register combined admin docs (admin + partner) under one URL
         Scramble::registerApi('admin')
@@ -64,6 +64,19 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewApiDocs', function (?User $user) {
             // Allowing public access on all environments for now
             return true;
+        });
+
+        // 📧 Global BCC Listener: Automatically adds BCCs from the partner's active configuration
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Mail\Events\MessageSending::class, function ($event) {
+            $bcc = config('mail.bcc');
+            if ($bcc) {
+                $bccEmails = array_map('trim', explode(',', $bcc));
+                foreach ($bccEmails as $email) {
+                    if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $event->message->addBcc($email);
+                    }
+                }
+            }
         });
     }
 }

@@ -4,12 +4,14 @@ namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Queue\SerializesModels;
 use App\Models\DemoRequest\DemoRequest;
+use Illuminate\Mail\Mailables\Envelope;
 
 class DemoRequestCreatedMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
     public DemoRequest $demoRequest;
 
@@ -22,12 +24,21 @@ class DemoRequestCreatedMail extends Mailable
     }
 
     /**
+     * Get the message envelope.
+     */
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: $this->getDynamicSubject('New Demo Request Created'),
+        );
+    }
+
+    /**
      * Build the message.
      */
     public function build()
     {
         return $this->from(config('mail.from.address'), config('mail.from.name'))
-                    ->subject('New Demo Request Created')
                     ->view('emails.demo_request_created')
                     ->with([
                         'customer_name' => $this->demoRequest->customer_name,

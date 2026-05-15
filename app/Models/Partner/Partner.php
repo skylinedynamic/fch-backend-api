@@ -96,6 +96,23 @@ class Partner extends Model
         'OnBoarding' => 'OnBoarding',
     ];
 
+    public const RESTRICTED_DOMAINS = [
+        'localhost',
+        'test',
+        'staging',
+        'production',
+        'partner',
+        'borrower',
+        'admin',
+        'auth',
+        'notifications',
+        'common',
+        'filemanager',
+        '2fa',
+        'api',
+        'website',
+    ];
+
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';
