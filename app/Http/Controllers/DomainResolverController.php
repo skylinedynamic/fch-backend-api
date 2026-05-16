@@ -26,6 +26,8 @@ class DomainResolverController extends Controller
 
         $domain = strtolower(trim($request->header('X-Domain')));
 
+        $domain = preg_replace('/^www\./', '', $domain);
+
         // Block reserved domains from going through resolver
         if (in_array(strtolower($domain), array_map('strtolower', $this->reserved))) {
             return response()->noContent(403);
