@@ -74,10 +74,9 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        return response()->noContent(200, [
-            'X-Tenant-Type' => $result['type'],
-            'X-Partner-Id'  => (string) $result['partner_id'],
-        ]);
+        return response('', 200)
+            ->header('X-Tenant-Type', $result['type'])
+            ->header('X-Partner-Id', (string) $result['partner_id']);
     }
 
     public function caddyCheck(Request $request)
