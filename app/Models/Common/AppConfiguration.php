@@ -39,8 +39,8 @@ class AppConfiguration extends Model
     public static function get(string $key, $default = null, ?string $entityType = null, ?int $entityId = null)
     {
         $config = self::where('key', $key)
-            ->where('entity_type', $entityType)
-            ->where('entity_id', $entityId)
+            ->when($entityType, fn($q) => $q->where('entity_type', $entityType))
+            ->when($entityId, fn($q) => $q->where('entity_id', $entityId))
             ->first();
 
         return $config ? $config->value : $default;

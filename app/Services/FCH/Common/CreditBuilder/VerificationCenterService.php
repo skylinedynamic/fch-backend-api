@@ -27,7 +27,8 @@ class VerificationCenterService
 
     public function __construct(
         protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * Fetch all borrower task verification requests with related data.
@@ -38,7 +39,7 @@ class VerificationCenterService
 
         $authUser = auth()->user();
 
-       
+
         // Apply partner security filter
         if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
             // If user is a host, show all data by default, or filter by partner_id if provided
@@ -52,16 +53,16 @@ class VerificationCenterService
             // If user has no partner (Admin), they can filter by partner_id if provided
             $query->where('partner_id', $filters['partner_id']);
         }
-            
+
         $query->select(
-                'borrower_id',
-                'partner_id',
-                'tier_id',
-                DB::raw("COUNT(CASE WHEN status = '" . BorrowerTaskVerificationRequest::PROCESSING . "' THEN 1 END) as pending_count"),
-                DB::raw('MAX(created_at) as request_date'),
-                DB::raw("DATE_FORMAT(MAX(created_at), '%M %d, %Y %h:%i %p') as formatted_request_date"),
-                DB::raw('MIN(id) as id')
-            )
+            'borrower_id',
+            'partner_id',
+            'tier_id',
+            DB::raw("COUNT(CASE WHEN status = '" . BorrowerTaskVerificationRequest::PROCESSING . "' THEN 1 END) as pending_count"),
+            DB::raw('MAX(created_at) as request_date'),
+            DB::raw("DATE_FORMAT(MAX(created_at), '%M %d, %Y %h:%i %p') as formatted_request_date"),
+            DB::raw('MIN(id) as id')
+        )
             ->addSelect([
                 'borrower_name' => Borrower::select(DB::raw("CONCAT(first_name, ' ', last_name)"))
                     ->whereColumn('borrowers.id', 'borrower_task_verification_requests.borrower_id')
@@ -81,13 +82,14 @@ class VerificationCenterService
         $inputFilters = $filters['filters'] ?? [];
 
         foreach ($inputFilters as $field => $filterData) {
-            $constraints = is_array($filterData) && isset($filterData['constraints']) 
-                ? $filterData['constraints'] 
+            $constraints = is_array($filterData) && isset($filterData['constraints'])
+                ? $filterData['constraints']
                 : [['value' => is_array($filterData) ? ($filterData['value'] ?? null) : $filterData]];
 
             foreach ($constraints as $constraint) {
                 $val = $constraint['value'] ?? null;
-                if ($val === null || $val === '') continue;
+                if ($val === null || $val === '')
+                    continue;
 
                 if ($field === 'borrower_name') {
                     $query->having('borrower_name', 'LIKE', "%{$val}%");
@@ -96,7 +98,7 @@ class VerificationCenterService
                 } elseif ($field === 'partner_name') {
                     $query->having('partner_name', 'LIKE', "%{$val}%");
                 } elseif ($field === 'pending_count') {
-                    $query->having('pending_count', '=', (int)$val);
+                    $query->having('pending_count', '=', (int) $val);
                 } elseif ($field === 'request_date') {
                     $query->having('formatted_request_date', 'LIKE', "%{$val}%");
                 }
@@ -107,12 +109,12 @@ class VerificationCenterService
             $search = trim((string) $filters['search']);
             $query->having(function ($q) use ($search) {
                 $q->having('borrower_name', 'LIKE', "%{$search}%")
-                  ->orHaving('partner_name', 'LIKE', "%{$search}%")
-                  ->orHaving('tier_name', 'LIKE', "%{$search}%")
-                  ->orHaving('formatted_request_date', 'LIKE', "%{$search}%");
-                
+                    ->orHaving('partner_name', 'LIKE', "%{$search}%")
+                    ->orHaving('tier_name', 'LIKE', "%{$search}%")
+                    ->orHaving('formatted_request_date', 'LIKE', "%{$search}%");
+
                 if (is_numeric($search)) {
-                    $q->orHaving('pending_count', '=', (int)$search);
+                    $q->orHaving('pending_count', '=', (int) $search);
                 }
             });
         }
@@ -167,7 +169,7 @@ class VerificationCenterService
     public function fetchBorrowerRequests(array $filters)
     {
         $query = BorrowerTaskVerificationRequest::query()
-            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name,code', 'task:id,title,related_api_id','partner:id,full_name']);
+            ->with(['borrower:id,first_name,last_name,status', 'tier:id,name,code', 'task:id,title,related_api_id', 'partner:id,full_name']);
 
         if (!empty($filters['borrower_id'])) {
             $query->where('borrower_id', $filters['borrower_id']);
@@ -178,7 +180,7 @@ class VerificationCenterService
             $query->where('tier_id', $filters['tier_id']);
         }
 
-        if(!empty($filters['status'])) {
+        if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -197,7 +199,7 @@ class VerificationCenterService
                 })->orWhereHas('tier', function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%");
                 })->orWhere('status', 'LIKE', "%{$search}%")
-                ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y %h:%i %p') LIKE ?", ["%{$search}%"]);
+                    ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y %h:%i %p') LIKE ?", ["%{$search}%"]);
             });
         }
 
@@ -207,7 +209,8 @@ class VerificationCenterService
                 if (is_array($filterData) && isset($filterData['constraints'])) {
                     foreach ($filterData['constraints'] as $constraint) {
                         $value = $constraint['value'] ?? null;
-                        if ($value === null || $value === '') continue;
+                        if ($value === null || $value === '')
+                            continue;
 
                         $query->where(function ($q) use ($field, $value) {
                             if ($field === 'task_title') {
@@ -275,7 +278,7 @@ class VerificationCenterService
             $strategy = MicroBiltVerificationFactory::make($api->name);
 
             if ($strategy) {
-                $microBiltService = app(MicroBiltService::class);             
+                $microBiltService = app(MicroBiltService::class);
                 $response = $strategy->execute($microBiltService, $borrower);
                 Log::info("MicroBilt {$api->name} Response", ['response' => $response]);
 
@@ -289,7 +292,7 @@ class VerificationCenterService
                 if ($status && isset($status['StatusCode']) && $status['StatusCode'] === 0 && ($status['StatusDesc'] ?? '') === 'OK') {
                     $isSuccess = true;
                 }
-                
+
                 if (!$isSuccess) {
                     $errorDesc = $status['StatusDesc'] ?? 'Unknown status';
                     Log::warning("MicroBilt {$api->name} Status Not OK", ['status' => $status]);
@@ -308,7 +311,7 @@ class VerificationCenterService
         return [
             'success' => false,
             'response' => null
-        ];       
+        ];
     }
 
     /**
@@ -319,8 +322,8 @@ class VerificationCenterService
         $requestIds = (array) $data['request_ids'];
         $isApi = filter_var($data['is_api'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $statusToSet = $data['status'];
-        
-        $verificationRequests = BorrowerTaskVerificationRequest::with('task.api','tier','task.vendor','borrower')
+
+        $verificationRequests = BorrowerTaskVerificationRequest::with('task.api', 'tier', 'task.vendor', 'borrower')
             ->whereIn('id', $requestIds)
             ->get();
 
@@ -339,19 +342,20 @@ class VerificationCenterService
             // Do not verify or reject any task that is already Completed or Rejected
             if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
                 $results[] = [
-                    'task_name'   => $taskName,
+                    'task_name' => $taskName,
                     'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
-                    'message'     => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) 
-                                     ? __('verification_center.already_verified') 
-                                     : __('verification_center.already_rejected'),
-                    'skipped'     => true,
+                    'message' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED)
+                        ? __('verification_center.already_verified')
+                        : __('verification_center.already_rejected'),
+                    'skipped' => true,
                 ];
                 continue;
             }
-            
+
             $canUpdateStatus = false;
             $shouldSkipUpdate = false;
             $errorMessage = '';
+            $verifiedWith = $isApi ? BorrowerTaskVerificationRequest::MICROBILT_VERIFIED : BorrowerTaskVerificationRequest::MANUALLY_VERIFIED;
 
             if ($isApi && $statusToSet == BorrowerTaskVerificationRequest::COMPLETED) {
                 // Only T0 will be api verification
@@ -363,7 +367,7 @@ class VerificationCenterService
                             if ($api->provider == TierRelatedApi::PROVIDER_MICROBILT) {
                                 $microbiltResult = $this->updateMicrobiltStatus($borrower, $task, $tier, $api);
                                 $verificationRequest->microbilt_response = $microbiltResult['response'];
-                                
+
                                 if ($microbiltResult['success']) {
                                     $canUpdateStatus = true;
                                 } else {
@@ -386,14 +390,14 @@ class VerificationCenterService
                 } else {
                     $api = $task->api;
 
-                    if($api){
+                    if ($api) {
                         $errorMessage = __('verification_center.no_matching_business_record');
                         $canUpdateStatus = false;
-                    }else{
+                    } else {
                         $errorMessage = __('verification_center.no_api_assigned');
                         $shouldSkipUpdate = true;
                     }
-                    
+
                 }
             } else {
                 // Manual verification or non-completed status update
@@ -403,19 +407,20 @@ class VerificationCenterService
             if (!$shouldSkipUpdate) {
                 // Always update status and note in database for every request
                 $statusToWrite = $canUpdateStatus ? $statusToSet : BorrowerTaskVerificationRequest::REJECTED;
-                
+
                 // Only trigger tier update if it's successfully transitioning to COMPLETED
                 $shouldTriggerTierUpdate = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED && $verificationRequest->status != BorrowerTaskVerificationRequest::COMPLETED);
 
-                $noteToSave = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED) 
-                    ? ($data['note'] ?? null) 
+                $noteToSave = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED)
+                    ? ($data['note'] ?? null)
                     : __('verification_center.no_matching_business_record');
 
                 $verificationRequest->update([
-                    'status'             => $statusToWrite,
-                    'verified_by'        => Auth::id(),
-                    'verified_at'        => now(),
-                    'note'               => $noteToSave,
+                    'status' => $statusToWrite,
+                    'verified_by' => Auth::id(),
+                    'verified_at' => now(),
+                    'note' => $noteToSave,
+                    'verified_with' => $verifiedWith,
                     'microbilt_response' => $verificationRequest->microbilt_response,
                 ]);
 
@@ -425,16 +430,16 @@ class VerificationCenterService
 
                 $isVerified = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
-                    'task_name'   => $taskName,
+                    'task_name' => $taskName,
                     'is_verified' => $isVerified,
-                    'message'     => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
+                    'message' => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
                 ];
             } else {
                 $results[] = [
-                    'task_name'   => $taskName,
+                    'task_name' => $taskName,
                     'is_verified' => false,
-                    'message'     => $errorMessage ?: __('verification_center.no_api_assigned'),
-                    'skipped'     => true,
+                    'message' => $errorMessage ?: __('verification_center.no_api_assigned'),
+                    'skipped' => true,
                 ];
             }
         }
@@ -465,14 +470,14 @@ class VerificationCenterService
 
             $statusLabel = match ($status) {
                 BorrowerTaskVerificationRequest::COMPLETED => __('verification_center.verified'),
-                BorrowerTaskVerificationRequest::REJECTED  => __('verification_center.rejected'),
+                BorrowerTaskVerificationRequest::REJECTED => __('verification_center.rejected'),
                 BorrowerTaskVerificationRequest::PROCESSING => __('verification_center.processing'),
-                BorrowerTaskVerificationRequest::PENDING   => __('verification_center.pending'),
+                BorrowerTaskVerificationRequest::PENDING => __('verification_center.pending'),
                 default => ucfirst($status),
             };
 
             // Only send mail for tasks that were not skipped
-            $filteredResults = array_filter($taskResults, function($result) {
+            $filteredResults = array_filter($taskResults, function ($result) {
                 return !($result['skipped'] ?? false);
             });
 
@@ -483,10 +488,10 @@ class VerificationCenterService
             $restore = $this->emailConfigService->applyToMailer($borrower->partner_id);
             try {
                 Mail::to($email)->send(new BorrowerVerificationStatusMail([
-                    'subject'      => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
+                    'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
                     'borrower_name' => $borrowerName,
-                    'status'       => $status,
-                    'note'         => $note,
+                    'status' => $status,
+                    'note' => $note,
                     'task_results' => $filteredResults,
                 ]));
             } finally {
@@ -495,7 +500,7 @@ class VerificationCenterService
         } catch (\Exception $e) {
             Log::error('VerificationCenterService: Failed to send verification status mail', [
                 'borrower_id' => $borrower?->id,
-                'error'       => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -510,7 +515,7 @@ class VerificationCenterService
 
         $taskTier = Tier::find($tierId);
 
-        if($taskTier->code == 'T4'){
+        if ($taskTier->code == 'T4') {
             return true;
         }
 
@@ -526,7 +531,7 @@ class VerificationCenterService
             ->count();
 
 
-         if($taskTier->code != 'T0'){
+        if ($taskTier->code != 'T0') {
             $task = $verificationRequest->task;
 
             MigratedTask::create([
@@ -539,38 +544,38 @@ class VerificationCenterService
                 'migrated_by' => Auth::id(),
                 'status' => BorrowerTaskVerificationRequest::PENDING //still no use
             ]);
-         }   
+        }
 
         if ($taskTier && $borrower) {
-                // Determine mandatory task count for progression
-                $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
+            // Determine mandatory task count for progression
+            $requiredTasks = !is_null($taskTier->task_to_complete) ? $taskTier->task_to_complete : $totalTasks;
 
-                // If verified tasks equal or exceed required amount, move to next tier
-                if ($verifiedTasks >= $requiredTasks) {
-                     if($taskTier->code == 'T0'){
-                        // Find the next tier based on order
+            // If verified tasks equal or exceed required amount, move to next tier
+            if ($verifiedTasks >= $requiredTasks) {
+                if ($taskTier->code == 'T0') {
+                    // Find the next tier based on order
+                    $nextTier = Tier::where('order', '>', $borrower->tier->order)
+                        ->orderBy('order', 'asc')
+                        ->first();
+
+                    if ($nextTier) {
+                        $borrower->update([
+                            'current_tier' => $nextTier->id
+                        ]);
+                    }
+                } else {
+                    if ($borrower->current_tier <= $taskTier->id) {
                         $nextTier = Tier::where('order', '>', $borrower->tier->order)
                             ->orderBy('order', 'asc')
                             ->first();
 
-                        if ($nextTier) {
-                            $borrower->update([
-                                'current_tier' => $nextTier->id
-                            ]);
-                        }
-                    }else{
-                        if($borrower->current_tier <= $taskTier->id){
-                            $nextTier = Tier::where('order', '>', $borrower->tier->order)
-                            ->orderBy('order', 'asc')
-                            ->first();
-
-                            $borrower->update([
-                                'current_tier' => $nextTier->id
-                            ]);
-                        }
+                        $borrower->update([
+                            'current_tier' => $nextTier->id
+                        ]);
                     }
-
                 }
+
             }
+        }
     }
 }
