@@ -9,9 +9,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Models\DemoRequest\DemoRequest;
 use App\Services\Global\Notification\Mail\DemoRequestCreatedMail;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class DemoRequestService
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     public function getAllDemoRequests(Request $request)
     {
         $query = DemoRequest::query();
@@ -68,7 +72,13 @@ class DemoRequestService
         try {
             $recipient = $demoRequest->email ?? $demoRequest->email;
             if ($recipient) {
-                Mail::to($recipient)->send(new DemoRequestCreatedMail($demoRequest));
+                $partnerId = auth()->user()->partner_id;
+                $restore = $this->emailConfigService->applyToMailer($partnerId);
+                try {
+                    Mail::to($recipient)->send(new DemoRequestCreatedMail($demoRequest));
+                } finally {
+                    $restore();
+                }
             }
         } catch (\Throwable $e) {
             Log::error('DemoRequest email send failed', [

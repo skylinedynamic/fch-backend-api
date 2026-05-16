@@ -26,13 +26,18 @@ class SiteSettingsService
         'google_measurement_id',
         'recaptcha_site_key',
         'recaptcha_secret_key',
+        'primary_color',
+        'secondary_color',
     ];
 
     private const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
         'partner_logo',
+        'borrower_logo',
         'favicon',
+        'partner_favicon',
+        'borrower_favicon',
     ];
 
     /**
@@ -133,11 +138,14 @@ class SiteSettingsService
                     }
 
                     $prefix  = match ($key) {
-                        'header_logo'  => 'h',
-                        'footer_logo'  => 'f',
-                        'partner_logo' => 'p',
-                        'favicon'      => 'fav',
-                        default        => $key,
+                        'header_logo'      => 'h',
+                        'footer_logo'      => 'f',
+                        'partner_logo'     => 'p',
+                        'borrower_logo'    => 'b',
+                        'favicon'          => 'fav',
+                        'partner_favicon'  => 'pfav',
+                        'borrower_favicon' => 'bfav',
+                        default            => $key,
                     };
                     $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
                     $upload   = $this->uploadFile('site-settings', $data[$key], 'public', $filename);

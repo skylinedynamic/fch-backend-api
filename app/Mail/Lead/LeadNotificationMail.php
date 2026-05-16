@@ -5,6 +5,7 @@ namespace App\Mail\Lead;
 use App\Models\Lead\Lead;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 
 class LeadNotificationMail extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
     public $lead;
     public $details;
@@ -48,13 +49,15 @@ class LeadNotificationMail extends Mailable
 
         return new Content(
             view: 'emails.lead.notification',
-            with: [
+            with: array_merge([
+
                 'lead' => $this->lead,
                 'type' => $type,
                 'details' => $this->details,
                 'is_pre_qualification' => (bool) ($this->details->is_pre_qualification ?? false),
                 'prequalification' => $this->details->prequalification ?? null,
-            ],
+            
+            ], $this->getBrandingData()),
         );
     }
 }

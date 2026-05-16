@@ -22,7 +22,7 @@ class SiteSettingsController extends Controller
     public function index()
     {
         try {
-            $partnerId = auth()->user()->partner_id;
+            $partnerId = request()->query('entity_id') ?? auth()->user()->partner_id;
             $setting = $this->siteSettingsService->getSettings($partnerId);
             return ApiResponse::success($setting, __('site_settings.retrieved_success'));
         } catch (\Exception $e) {
@@ -34,7 +34,7 @@ class SiteSettingsController extends Controller
     {
         try {
             $data = $request->validated();
-            $partnerId = auth()->user()->partner_id;
+            $partnerId = $request->input('entity_id') ?? auth()->user()->partner_id;
 
             // Pass files if present
             if ($request->hasFile('header_logo')) {
@@ -46,8 +46,17 @@ class SiteSettingsController extends Controller
             if ($request->hasFile('partner_logo')) {
                 $data['partner_logo'] = $request->file('partner_logo');
             }
+            if ($request->hasFile('borrower_logo')) {
+                $data['borrower_logo'] = $request->file('borrower_logo');
+            }
             if ($request->hasFile('favicon')) {
                 $data['favicon'] = $request->file('favicon');
+            }
+            if ($request->hasFile('partner_favicon')) {
+                $data['partner_favicon'] = $request->file('partner_favicon');
+            }
+            if ($request->hasFile('borrower_favicon')) {
+                $data['borrower_favicon'] = $request->file('borrower_favicon');
             }
 
             $setting = $this->siteSettingsService->updateSettings($partnerId, $data);

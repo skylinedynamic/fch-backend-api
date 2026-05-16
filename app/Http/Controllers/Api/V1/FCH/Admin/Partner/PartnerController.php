@@ -10,10 +10,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Mail;
 use App\Services\FCH\Partner\PartnerService;
 use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Http\Resources\FCH\Partner\TenantConfigResource;
 use App\Http\Resources\FCH\Partner\PartnerDetailsResource;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
 
 class PartnerController extends Controller
@@ -87,7 +89,7 @@ class PartnerController extends Controller
     {
         $partner = $this->partnerService->findById($id);
 
-        if (! $partner) {
+        if (!$partner) {
             return ApiResponse::notFound('Partner not found');
         }
 
@@ -117,7 +119,7 @@ class PartnerController extends Controller
     {
         $partner = $this->partnerService->getDetails($id);
 
-        if (! $partner) {
+        if (!$partner) {
             return ApiResponse::notFound(__('partner.error.not_found'));
         }
 
@@ -125,6 +127,33 @@ class PartnerController extends Controller
             new PartnerDetailsResource($partner),
             __('partner.success.retrieved')
         );
+    }
+
+    /**
+     * Get Tenant Config.
+     */
+    public function getTenantConfig(int $id)
+    {
+        $partner = $this->partnerService->getTenantConfig($id);
+
+        if (!$partner) {
+            return ApiResponse::notFound(__('partner.error.not_found'));
+        }
+
+        return ApiResponse::success((new TenantConfigResource($partner))->resolve(), __('partner.success.tenant_config_retrieved'));
+    }
+
+    /**
+     * Update Tenant Config.
+     */
+    public function updateTenantConfig(UpdateTenantConfigRequest $request, int $id)
+    {
+        try {
+            $updatedPartner = $this->partnerService->updateTenantConfig($id, $request->validated());
+            return ApiResponse::success((new TenantConfigResource($updatedPartner))->resolve(), __('partner.success.tenant_config_updated'));
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
     }
 
 
@@ -156,7 +185,7 @@ class PartnerController extends Controller
     public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
     {
         $data = [
-            'subject' => 'Welcome to ' . $businessInfo->company_name,
+            'partner_id' => $user->partner_id,
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
@@ -169,11 +198,21 @@ class PartnerController extends Controller
         ];
 
         try {
+            $emailService = app(\App\Services\FCH\Common\Setting\EmailConfigurationService::class);
+            $restore = $emailService->applyToMailer($user->partner_id);
+
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+
+            if (isset($restore)) {
+                $restore();
+            }
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
+            if (isset($restore)) {
+                $restore();
+            }
         }
     }
 

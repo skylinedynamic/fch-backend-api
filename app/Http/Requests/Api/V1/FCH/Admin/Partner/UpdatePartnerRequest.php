@@ -28,8 +28,14 @@ class UpdatePartnerRequest extends BaseApiRequest
     {
 
         return [
-            'full_name'                   => ['sometimes', 'required', 'string', 'max:255'],
-            'company_name'                => ['sometimes', 'required', 'string', 'max:255'],
+            'full_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'company_name' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('partners', 'company_name')->ignore($this->id)->whereNull('deleted_at')
+            ],
             'email' => [
                 'sometimes',
                 'required',
@@ -43,27 +49,29 @@ class UpdatePartnerRequest extends BaseApiRequest
                     })->whereNull('deleted_at');
                 })
             ],
-            'phone_number'                => ['sometimes', 'required', 'string', 'max:50'],
-            'status'                      => ['nullable', 'string', 'max:255'],
-            'contact_person'              => ['nullable', 'string', 'max:255'],
+            'phone_number' => ['sometimes', 'required', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:255'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
             'contact_person_phone_number' => ['nullable', 'string', 'max:50'],
-            'contact_person_email'        => ['nullable', 'email', 'max:255'],
-            'contact_person_relation'     => ['nullable', 'string', 'max:255'],
-            'partner_type'                => ['sometimes', 'required', 'string', 'max:255'],
-            'state'                       => ['sometimes', 'required', 'string', 'max:100'],
-            'city'                        => ['sometimes', 'required', 'string', 'max:100'],
-            'country'                     => ['sometimes', 'required', 'string', 'max:100'],
-            'postal_code'                    => ['nullable', 'string', 'max:20'],
-            'address_line_1'              => ['sometimes', 'required', 'string', 'max:255'],
-            'address_line_2'              => ['nullable', 'string', 'max:255'],
-            'tax_id'                      => ['nullable', 'string', 'max:100'],
-            'website'                     => ['nullable', 'string'],
-            'joining_date'                => ['nullable', 'date'],
-            'company_logo'                => ['nullable'], // 2MB max
-            'partner_image'               => ['nullable'], // 2MB max
-            'assign_to'                   => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
-            'enrollment_amount'           => ['nullable', 'numeric', 'min:0'],
-            'monthly_platform_fee'        => ['nullable', 'numeric', 'min:0'],
+            'contact_person_email' => ['nullable', 'email', 'max:255'],
+            'contact_person_relation' => ['nullable', 'string', 'max:255'],
+            'partner_type' => ['sometimes', 'required', 'string', 'max:255'],
+            'state' => ['sometimes', 'required', 'string', 'max:100'],
+            'city' => ['sometimes', 'required', 'string', 'max:100'],
+            'country' => ['sometimes', 'required', 'string', 'max:100'],
+            'postal_code' => ['nullable', 'string', 'max:20'],
+            'address_line_1' => ['sometimes', 'required', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'tax_id' => ['nullable', 'string', 'max:100'],
+            'website' => ['nullable', 'string'],
+            'joining_date' => ['nullable', 'date'],
+            'company_logo' => ['nullable'], // 2MB max
+            'partner_image' => ['nullable'], // 2MB max
+            'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
+            'enrollment_amount' => ['nullable', 'numeric', 'min:0'],
+            'monthly_platform_fee' => ['nullable', 'numeric', 'min:0'],
+            'partner_domain' => ['nullable', 'string', 'max:255'],
+            'borrower_domain' => ['nullable', 'string', 'max:255'],
         ];
     }
 

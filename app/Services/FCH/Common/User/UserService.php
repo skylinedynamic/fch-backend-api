@@ -24,6 +24,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Global\Auth\UserResource;
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class UserService
 {
@@ -35,7 +36,8 @@ class UserService
 
     public function __construct(
         protected InvoiceService $invoiceService,
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
 
     /**
@@ -433,25 +435,30 @@ class UserService
 
     public function sendCreatedMail($user, $businessInfo, string $plainPassword, ?string $subject = null): void
     {
-        $data = [
-            'subject' => $subject ?? ('Welcome to ' . $businessInfo->company_name),
-            'user' => $user,
-            'plain_password' => $plainPassword,
-            'business_info' => [
-                'company_name' => $businessInfo->company_name,
-                'email' => $businessInfo->email,
-                'phone_number' => $businessInfo->phone_number,
-                'address_line_1' => $businessInfo->address_line_1,
-            ],
-        ];
+        $partnerId = $user->partner_id ?? null;
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
 
         try {
+            $data = [
+                'subject'        => $subject ?? ('Welcome to ' . config('mail.from.name')),
+                'user'           => $user,
+                'plain_password' => $plainPassword,
+                'business_info'  => [
+                    'company_name'   => config('mail.from.name'),
+                    'email'          => config('mail.from.address') ?: $businessInfo->email,
+                    'phone_number'   => $businessInfo->phone_number,
+                    'address_line_1' => $businessInfo->address_line_1,
+                ],
+            ];
+
             Mail::to($user->email)->send(new UserCreateNotificationMail($data));
         } catch (Throwable $e) {
             Log::error('📧 UserCreateNotificationMail failed', [
                 'user_id' => $user->id ?? null,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
+        } finally {
+            $restore();
         }
     }
 

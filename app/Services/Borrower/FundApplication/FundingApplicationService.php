@@ -15,10 +15,14 @@ use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use PhpParser\Builder\Param;
 
 class FundingApplicationService
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Get Business Info for the authenticated user.
      *
@@ -125,7 +129,13 @@ class FundingApplicationService
                     }
 
                     if (!empty($recipients)) {
-                        Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
+                        $partnerId = $fundingApplication->partner_id;
+                        $restore = $this->emailConfigService->applyToMailer($partnerId);
+                        try {
+                            Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
+                        } finally {
+                            $restore();
+                        }
                     }
                 } catch (\Throwable $e) {
                     Log::error('Failed to send funding application submission email', [

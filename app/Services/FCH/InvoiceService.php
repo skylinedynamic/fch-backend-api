@@ -21,10 +21,15 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use App\Models\Employee\Employee;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class InvoiceService
 {
     use PaginatesApi;
+
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Get list of invoices based on filters.
      *
@@ -298,7 +303,13 @@ class InvoiceService
             throw new \Exception("No recipient email found for this invoice");
         }
 
-        Mail::to($recipientEmail)->send(new InvoiceMail($invoice, $pdfContent));
+        $partnerId = $invoice->partner_id;
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($recipientEmail)->send(new InvoiceMail($invoice, $pdfContent));
+        } finally {
+            $restore();
+        }
         return true;
     }
 

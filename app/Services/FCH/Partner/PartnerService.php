@@ -29,6 +29,7 @@ use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class PartnerService
 {
@@ -37,8 +38,53 @@ class PartnerService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
-        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {
+    }
+
+    /**
+     * Send payment link email using partner's own email config.
+     */
+    private function sendPaymentLinkEmail(array $mailData, int $partnerId): void
+    {
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
+            Log::info('Partner payment link email sent', [
+                'partner_id' => $partnerId,
+                'email' => $mailData['user']->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Partner payment link email failed', [
+                'partner_id' => $partnerId,
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
+        }
+    }
+
+    /**
+     * Send account update email using partner's own email config.
+     */
+    private function sendAccountUpdateEmail(array $mailData, int $partnerId): void
+    {
+        $restore = $this->emailConfigService->applyToMailer($partnerId);
+        try {
+            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $partnerId));
+            Log::info('Partner account update email sent', [
+                'partner_id' => $partnerId,
+                'email' => $mailData['user']->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Partner account update email failed', [
+                'partner_id' => $partnerId,
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $restore();
+        }
     }
 
     /**
@@ -82,6 +128,8 @@ class PartnerService
         'tax_id' => 'tax_id',
         'website' => 'website',
         'partner_image' => 'partner_image',
+        'partner_domain' => 'partner_domain',
+        'borrower_domain' => 'borrower_domain',
         'assign_to' => 'assign_to', // Assigned agent/user
     ];
 
@@ -98,11 +146,23 @@ class PartnerService
             $plainPassword = $userResult['plain_password'];
             $isNew = $userResult['is_new'];
 
-            // Create partner record
             $partnerData = $this->mapPartnerData($data);
             $partnerData['status'] = Partner::STATUS_ONBOARDING;
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
+
+            // Generate subdomains if not provided
+            if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
+                $subdomain = $this->generateSubdomain($partnerData['company_name']);
+                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+
+                // Check against restricted domains OR existing subdomains
+                if (in_array($subdomain, Partner::RESTRICTED_DOMAINS) || Partner::where('partner_domain', $subdomain . '.' . $baseUrl)->exists()) {
+                    $subdomain .= '-' . $user->id;
+                }
+
+                $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
+            }
 
             Log::info('Partner creation payload', $partnerData);
             $partner = Partner::create($partnerData);
@@ -218,11 +278,7 @@ class PartnerService
                     ],
                 ];
 
-                try {
-                    Mail::to($user->email)->send(new PartnerPaymentLinkMail($mailData));
-                } catch (\Exception $e) {
-                    Log::error('Partner payment link email failed', ['error' => $e->getMessage()]);
-                }
+                $this->sendPaymentLinkEmail($mailData, $partner->id);
             }
 
             DB::commit();
@@ -356,12 +412,7 @@ class PartnerService
                     ];
 
                     Log::info('Sending account update email to partner with new password', ['email' => $updatedUser->email]);
-
-                    try {
-                        Mail::to($updatedUser->email)->send(new PartnerAccountUpdateMail($mailData));
-                    } catch (\Exception $e) {
-                        Log::error('Partner account update email failed', ['error' => $e->getMessage()]);
-                    }
+                    $this->sendAccountUpdateEmail($mailData, $partner->id);
                 }
             }
 
@@ -1013,5 +1064,42 @@ class PartnerService
     private function reactivatePartnerUsers(Partner $partner): void
     {
         Log::info("Main user for Partner ID: {$partner->id} is eligible for login again.");
+    }
+
+    /**
+     * Get Tenant Config.
+     */
+    public function getTenantConfig(int $id)
+    {
+        return $this->findById($id);
+    }
+
+    /**
+     * Update Tenant Config.
+     */
+    public function updateTenantConfig(int $id, array $data)
+    {
+        $partner = $this->findById($id);
+
+        if (!$partner) {
+            throw new \Exception(__('partner.error.not_found'));
+        }
+
+        $partner->update($data);
+
+        return $partner;
+    }
+
+    /**
+     * Generate a subdomain from company name.
+     * Small letter, remove special letters, number, space.
+     */
+    private function generateSubdomain(string $companyName): string
+    {
+        // Small letter
+        $subdomain = strtolower($companyName);
+        // Remove special letters, number, space (keeping only a-z)
+        $subdomain = preg_replace('/[^a-z]/', '', $subdomain);
+        return $subdomain;
     }
 }

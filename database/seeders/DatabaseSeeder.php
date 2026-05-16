@@ -89,6 +89,7 @@ class DatabaseSeeder extends Seeder
             CreditAccountSeeder::class,
             ResourceSeeder::class,
             AppConfigurationsSeeder::class,
+            EmailConfigurationSeeder::class,
             BlogSeeder::class,
             SeoSettingSeeder::class,
             CmsPermissionUpdateSeeder::class

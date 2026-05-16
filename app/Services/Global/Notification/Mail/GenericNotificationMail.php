@@ -3,11 +3,14 @@
 namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 class GenericNotificationMail extends Mailable
 {
+    use MailableBranding;
+
 
     protected $mailData;
 
@@ -25,7 +28,7 @@ class GenericNotificationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->mailData['subject'],
+            subject: $this->getDynamicSubject($this->mailData['subject']),
         );
     }
 
@@ -36,12 +39,14 @@ class GenericNotificationMail extends Mailable
     {
         return new Content(
             view: 'emails.generic-notification',
-            with: [
+            with: array_merge([
+
                 'content' => $this->mailData['content'],
                 'user' => $this->mailData['user'],
                 'notificationType' => $this->mailData['notification_type'],
                 'data' => $this->mailData['data']
-            ]
+            
+            ], $this->getBrandingData()),
         );
     }
 

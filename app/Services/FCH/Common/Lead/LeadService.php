@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\PermissionRegistrar;
 use Throwable;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class LeadService
 {
@@ -33,7 +34,8 @@ class LeadService
     public function __construct(
         protected BorrowerService $borrowerService,
         protected PartnerService $partnerService,
-        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService
+        protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected EmailConfigurationService $emailConfigService
     ) {}
 
     /**
@@ -215,8 +217,13 @@ class LeadService
                             'type' => $isWebsiteLead ? 'website' : 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        \Illuminate\Support\Facades\Mail::to($hostPartner->email)
-                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        $restore = $this->emailConfigService->applyToMailer($hostPartner->id);
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($hostPartner->email)
+                                ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        } finally {
+                            $restore();
+                        }
                     }
                 } catch (\Exception $e) {
                     \Illuminate\Support\Facades\Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
@@ -234,8 +241,14 @@ class LeadService
                             'type' => 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        \Illuminate\Support\Facades\Mail::to($recipients)
-                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        $partnerId = Auth::user()->partner_id;
+                        $restore = $this->emailConfigService->applyToMailer($partnerId);
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($recipients)
+                                ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        } finally {
+                            $restore();
+                        }
                     } catch (\Exception $e) {
                         \Illuminate\Support\Facades\Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
                     }

@@ -8,9 +8,13 @@ use App\Services\Global\Notification\Mail\GenericNotificationMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Exception;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class EmailChannel
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Send email notification.
      */
@@ -35,7 +39,12 @@ class EmailChannel
                 'notification_type' => $notification->getType()
             ]);
 
-            Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+            $restore = $this->emailConfigService->applyToMailer($user->partner_id);
+            try {
+                Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+            } finally {
+                $restore();
+            }
 
             Log::info(__('notification.email.logs.after_sent'), [
                 'user_id' => $user->id,
@@ -110,7 +119,12 @@ class EmailChannel
                 'data' => []
             ];
             
-            Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+            $restore = $this->emailConfigService->applyToMailer($user->partner_id);
+            try {
+                Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+            } finally {
+                $restore();
+            }
             return true;
         } catch (Exception $e) {
             Log::error(__('notification.email.errors.test_send_failed'), ['error' => $e->getMessage()]);

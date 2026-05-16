@@ -10,9 +10,14 @@ use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Log;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
+use Illuminate\Support\Facades\Mail;
 
 class AuthProfileService
 {
+    public function __construct(
+        protected EmailConfigurationService $emailConfigService
+    ) {}
     /**
      * Update user password
      */
@@ -46,8 +51,13 @@ class AuthProfileService
                 ]
             ];
 
-            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Services\Global\Notification\Mail\GenericNotificationMail($mailData));
-            \Illuminate\Support\Facades\Log::info('📧 Password change notification sent', ['user_id' => $user->id]);
+            $restore = $this->emailConfigService->applyToMailer($user->partner_id);
+            try {
+                Mail::to($user->email)->send(new \App\Services\Global\Notification\Mail\GenericNotificationMail($mailData));
+                Log::info('📧 Password change notification sent', ['user_id' => $user->id]);
+            } finally {
+                $restore();
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('📧 Password change notification failed', [
                 'user_id' => $user->id,

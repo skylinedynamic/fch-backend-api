@@ -16,7 +16,9 @@ class WebsiteSiteSettingsService
         'header_logo',
         'footer_logo',
         'partner_logo',
-        'favicon',
+        'borrower_logo',
+        'partner_favicon',
+        'borrower_favicon',
     ];
 
     private const TEXT_KEYS = [
@@ -25,6 +27,9 @@ class WebsiteSiteSettingsService
         'address',
         'phone_number',
         'email',
+        'copyright_text',
+        'primary_color',
+        'secondary_color',
         'map_iframe',
         'google_measurement_id',
         'facebook_pixel_id',
@@ -34,26 +39,58 @@ class WebsiteSiteSettingsService
 
     /**
      * Get the website site settings.
-     * Default entity_id is 1.
      */
     public function getSettings(): array
     {
-        $rows = AppConfiguration::where('entity_type', self::ENTITY_TYPE)
-            ->where('entity_id', self::DEFAULT_ENTITY_ID)
+        $entityType = \App\Models\Partner\Partner::class;
+        $entityId   = request()->input('entity_id') ?: (auth('api')->check() ? auth('api')->user()->partner_id : null);
+        
+        // If no ID provided and not logged in, try to resolve from host/domain (fallback to host 1 for now)
+        if (!$entityId) {
+            $entityId = \App\Models\Partner\Partner::where('is_host', 1)->value('id') ?: 1;
+        }
+
+        // 1. Get configurations for the specific entity (Partner)
+        $rows = AppConfiguration::where('entity_type', $entityType)
+            ->where('entity_id', $entityId)
             ->get()
             ->keyBy('key');
 
-        $data = ['id' => self::DEFAULT_ENTITY_ID];
+        // 2. Get configurations for the HOST if current is not host
+        $hostId = \App\Models\Partner\Partner::where('is_host', 1)->value('id');
+        $hostRows = [];
+        if ($hostId && $hostId != $entityId) {
+            $hostRows = AppConfiguration::where('entity_type', $entityType)
+                ->where('entity_id', $hostId)
+                ->get()
+                ->keyBy('key');
+        }
+
+        $data = ['id' => $entityId];
 
         foreach (array_merge(self::TEXT_KEYS, self::IMAGE_KEYS, ['social_links']) as $key) {
-            $raw = $rows->has($key) ? $rows[$key]->value : null;
-            
             if ($key === 'social_links') {
+                $raw = $rows->has($key) ? $rows[$key]->value : (isset($hostRows[$key]) ? $hostRows[$key]->value : null);
                 $data[$key] = json_decode($raw ?? '[]', true) ?: [];
-            } elseif (in_array($key, self::IMAGE_KEYS, true)) {
-                $data[$key] = $this->buildImageUrl($key, $raw);
+                continue;
+            }
+
+            // Get value with fallback
+            $val = null;
+            if ($rows->has($key) && !empty($rows[$key]->value)) {
+                $val = $rows[$key]->value;
+            } elseif (isset($hostRows[$key]) && !empty($hostRows[$key]->value)) {
+                $val = $hostRows[$key]->value;
+            }
+
+            if (in_array($key, self::IMAGE_KEYS, true)) {
+                $data[$key] = $this->buildImageUrl($key, $val);
+                // Backward compatibility for 'favicon' key if needed by frontend
+                if ($key === 'partner_favicon') {
+                    $data['favicon'] = $data[$key];
+                }
             } else {
-                $data[$key] = $raw;
+                $data[$key] = $val;
             }
         }
 
