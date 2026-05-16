@@ -78,4 +78,18 @@ class DomainResolverController extends Controller
                 'X-Partner-Id' => $result['partner_id'],
             ]);
     }
+
+    public function caddyCheck(Request $request)
+    {
+        $domain = $request->query('domain');
+
+        $exists = Partner::where('partner_domain', $domain)
+            ->orWhere('borrower_domain', $domain)
+            ->orWhere('partner_domain', 'LIKE', "%.skylinedynamic.dev")
+            ->exists();
+
+        return $exists
+            ? response('OK', 200)
+            : response('Forbidden', 403);
+    }
 }
