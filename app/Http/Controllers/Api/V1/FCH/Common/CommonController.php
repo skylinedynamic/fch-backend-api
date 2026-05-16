@@ -124,8 +124,9 @@ class CommonController extends Controller
             'email_configuration' => $emailConfig,
             'branding' => $branding,
             'status_flags' => [
-                'is_email_fresh' => $isEmailFresh ? true : null,
-                'is_refresh_settings' => $isBrandingFresh ? true : null,
+                'is_fresh_email' => $isEmailFresh ? true : null,
+                'is_fresh_settings' => $isBrandingFresh ? true : null,
+                'is_fresh_site_settings' => $isBrandingFresh ? true : null,
             ]
         ], __('common.global_configurations_retrieved', [], 'en'));
     }

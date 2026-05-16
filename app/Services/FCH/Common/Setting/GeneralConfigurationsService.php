@@ -65,13 +65,24 @@ class GeneralConfigurationsService
 
         $data = [];
         foreach (self::TEXT_KEYS as $key) {
+            $val = null;
             if ($rows->has($key) && !is_null($rows[$key]->value) && $rows[$key]->value !== '') {
-                $data[$key] = $rows[$key]->value;
-            } elseif (isset($hostRows[$key]) && !is_null($hostRows[$key]->value) && $hostRows[$key]->value !== '') {
-                $data[$key] = $hostRows[$key]->value;
+                $val = $rows[$key]->value;
             } else {
-                $data[$key] = null;
+                // For site_name, try to fallback to Partner company_name if it's a White-Label partner
+                if ($key === 'site_name' && $entityType === \App\Models\Partner\Partner::class) {
+                    $partner = \App\Models\Partner\Partner::find($entityId);
+                    if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                        $val = $partner->company_name;
+                    }
+                }
+                
+                // If still null, use Host fallback
+                if (is_null($val) && isset($hostRows[$key]) && !is_null($hostRows[$key]->value) && $hostRows[$key]->value !== '') {
+                    $val = $hostRows[$key]->value;
+                }
             }
+            $data[$key] = $val;
         }
 
         foreach (self::IMAGE_KEYS as $key) {
@@ -86,6 +97,14 @@ class GeneralConfigurationsService
                 $data[$key] = $this->fileUrl($path, 'public');
             } else {
                 $data[$key] = $path;
+            }
+        }
+
+        $data['is_white_label'] = false;
+        if ($entityType === \App\Models\Partner\Partner::class) {
+            $partner = \App\Models\Partner\Partner::find($entityId);
+            if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $data['is_white_label'] = true;
             }
         }
 
