@@ -74,9 +74,9 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        return response()->json([
-            'type' => $result['type'],
-            'partner_id' => $result['partner_id']
+        return response()->noContent(200, [
+            'X-Tenant-Type' => $result['type'],
+            'X-Partner-Id'  => (string) $result['partner_id'],
         ]);
     }
 
