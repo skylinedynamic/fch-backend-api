@@ -321,8 +321,14 @@ class InvoiceService
         // 1. Logic: If borrowerId is null, it's a Host-to-Partner invoice -> use Host branding
         // If borrowerId is present, it's a Partner-to-Borrower invoice -> use Partner branding
         $targetPartner = null;
+
         if ($borrowerId && $partnerId) {
             $targetPartner = Partner::find($partnerId);
+
+            // Only use partner branding if it's a White-Label Partner
+            if ($targetPartner && $targetPartner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $targetPartner = null; // Fallback to host
+            }
         }
 
         // Fallback to Host if no partner or borrower_id was null

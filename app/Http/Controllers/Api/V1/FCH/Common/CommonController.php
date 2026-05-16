@@ -97,6 +97,15 @@ class CommonController extends Controller
         // Fetch Branding
         $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
         $entityId   = $user->entity_id ?? $partnerId;
+
+        // If it's a borrower, we usually want to show the partner's branding (especially for WL)
+        if ($user->user_type === \App\Models\User\User::BORROWER && $partnerId) {
+            $partner = $user->partner;
+            if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $entityType = \App\Models\Partner\Partner::class;
+                $entityId = $partnerId;
+            }
+        }
         
         $branding = [];
         if ($entityId) {

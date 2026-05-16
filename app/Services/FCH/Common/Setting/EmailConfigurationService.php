@@ -221,6 +221,15 @@ class EmailConfigurationService
 
     public function applyToMailer(int|string|null $partnerId): \Closure
     {
+        if ($partnerId) {
+            $partner = Partner::find($partnerId);
+            // Only White-Label Partners get their own branding. Others fall back to Host.
+            if ($partner && $partner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $host = Partner::where('is_host', 1)->first();
+                $partnerId = $host ? $host->id : null;
+            }
+        }
+
         $this->loadSystemDefaults();
         $original = self::$systemDefaults;
 

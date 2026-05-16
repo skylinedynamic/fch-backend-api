@@ -35,6 +35,7 @@ class BorrowerController extends Controller
      */
     public function index(FetchBorrowerRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             return $this->borrowerService->list($request->validated());
         } catch (\Exception $e) {
@@ -47,6 +48,7 @@ class BorrowerController extends Controller
      */
     public function store(StoreBorrowerRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $data = $request->validated();
 
@@ -71,6 +73,7 @@ class BorrowerController extends Controller
      */
     public function BusinessFinancials(UpdateBorrowerBusinessFinancialsRequest $request, string $id)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $borrower = $this->borrowerService->getDetails((int) $id);
             if (!$borrower) {
@@ -94,6 +97,7 @@ class BorrowerController extends Controller
      */
     public function update(UpdateBorrowerRequest $request, string $id)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $borrower = $this->borrowerService->getDetails((int) $id);
             if (!$borrower) {
@@ -138,6 +142,7 @@ class BorrowerController extends Controller
      */
     public function multipleDelete(Request $request)
     {
+        $this->checkWhiteLabelConfiguration();
         $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer|exists:borrowers,id',

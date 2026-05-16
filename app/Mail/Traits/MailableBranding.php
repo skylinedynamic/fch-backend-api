@@ -15,6 +15,15 @@ trait MailableBranding
      */
     protected function resolveMailConfig(?int $partnerId): void
     {
+        if ($partnerId) {
+            $partner = \App\Models\Partner\Partner::find($partnerId);
+            // Only White-Label Partners get their own branding. Others fall back to Host.
+            if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $host = \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $partnerId = $host ? $host->id : null;
+            }
+        }
+
         $this->partnerId = $partnerId;
         $this->resolvedMailConfig = EmailConfigurationResolver::resolve($partnerId);
     }

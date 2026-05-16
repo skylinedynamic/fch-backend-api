@@ -49,6 +49,7 @@ class UserController extends Controller
 
     public function fetchUsers(FetchUser $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
 
             $partnerId = $request->user()->partner_id;
@@ -81,6 +82,7 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $user = $this->userService->create($request->validated(), $request->role_id);
             return ApiResponse::success(
@@ -112,6 +114,7 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user)
     {
+        $this->checkWhiteLabelConfiguration();
         $data = $request->validated();
 
         // Handle password change logic accurately
@@ -143,6 +146,7 @@ class UserController extends Controller
      */
     public function multipleDelete(Request $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $this->userService->deleteMultiple($request->ids);
             return ApiResponse::success([], __('user.user_deleted'));

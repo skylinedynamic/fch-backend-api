@@ -45,6 +45,11 @@ class InvoiceResource extends JsonResource
         $partner = null;
         if ($partnerId) {
             $partner = \App\Models\Partner\Partner::find($partnerId);
+            
+            // Only use partner branding if it's a White-Label Partner
+            if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $partner = null; // Fallback to host
+            }
         }
 
         if (!$partner) {

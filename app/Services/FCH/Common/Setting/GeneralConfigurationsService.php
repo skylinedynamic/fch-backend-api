@@ -16,6 +16,7 @@ class GeneralConfigurationsService
         'copyright_text',
         'primary_color',
         'secondary_color',
+        'meta_title',
     ];
 
     private const IMAGE_KEYS = [
