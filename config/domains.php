@@ -2,13 +2,11 @@
 
 return [
     'reserved' => [
-        'fourcornerfunding.com',
-        'www.fourcornerfunding.com',
-        'api.fourcornerfunding.com',
-        'partner.fourcornerfunding.com',
-        'app.fourcornerfunding.com',
+        env('BASE_RESERVED_WEBSITE', 'fourcornerfunding.com'),
+        env('BASE_RESERVED_API_PORTAL', 'api.fourcornerfunding.com'),
+        env('BASE_RESERVED_PARTNER_PORTAL', 'partner.fourcornerfunding.com'),
+        env('BASE_RESERVED_BORROWER_PORTAL', 'app.fourcornerfunding.com'),
     ],
 
-    'base_domain' => env('APP_BASE_DOMAIN'),
-    'internal_key' => env('INTERNAL_RESOLVER_KEY', 'change-this-secret'),
-];
+    'internal_key' => env('INTERNAL_RESOLVER_KEY', 'fourcornerfunding2026'),
+];  

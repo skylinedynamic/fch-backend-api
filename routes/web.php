@@ -2,6 +2,14 @@
 
 use Illuminate\Support\Facades\Route;
 use Dedoc\Scramble\Scramble;
+use App\Http\Controllers\DomainResolverController;
+
+
+Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve'])->name('resolver.resolve');
+
+
+
+
 
 Route::get('/', function () {
     return redirect('/docs/admin');

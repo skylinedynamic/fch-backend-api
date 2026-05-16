@@ -27,30 +27,43 @@ class DomainResolverController extends Controller
         $domain = strtolower(trim($request->header('X-Domain')));
 
         // Block reserved domains from going through resolver
-        if (in_array($domain, $this->reserved)) {
+        if (in_array(strtolower($domain), array_map('strtolower', $this->reserved))) {
             return response()->noContent(403);
         }
 
         $cacheKey = "domain_resolve:{$domain}";
 
         $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
-            // Check partner_domain
-            $partner = Partner::where('partner_domain', $domain)
-                ->select('id', 'partner_domain')
-                ->first();
 
-            if ($partner) {
-                return ['type' => 'partner', 'partner_id' => $partner->id];
-            }
+        // =========================
+        // PARTNER CUSTOM DOMAIN
+        // =========================
 
-            // Check borrower_domain
-            $borrower = Partner::where('borrower_domain', $domain)
-                ->select('id', 'borrower_domain')
-                ->first();
+        $partner = Partner::where('partner_domain', $domain)
+            ->select('id')
+            ->first();
 
-            if ($borrower) {
-                return ['type' => 'borrower', 'partner_id' => $borrower->id];
-            }
+        if ($partner) {
+            return [
+                'type' => 'partner',
+                'partner_id' => $partner->id
+            ];
+        }
+
+        // =========================
+        // BORROWER CUSTOM DOMAIN
+        // =========================
+
+        $borrower = Partner::where('borrower_domain', $domain)
+            ->select('id')
+            ->first();
+
+        if ($borrower) {
+            return [
+                'type' => 'borrower',
+                'partner_id' => $borrower->id
+            ];
+        }
 
             return null;
         });
