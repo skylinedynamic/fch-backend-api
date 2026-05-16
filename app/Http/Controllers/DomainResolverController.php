@@ -74,11 +74,10 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        return response()->noContent(200)
-            ->withHeaders([
-                'X-Tenant-Type' => $result['type'],
-                'X-Partner-Id' => $result['partner_id'],
-            ]);
+        return response()->json([
+            'type' => $result['type'],
+            'partner_id' => $result['partner_id']
+        ]);
     }
 
     public function caddyCheck(Request $request)
