@@ -33,7 +33,7 @@ class StoreEmailConfigurationRequest extends BaseApiRequest
             $rules = array_merge($rules, [
                 'email_provider'  => 'required|string|in:smtp,aws_ses',
                 'from_address'    => 'required|email',
-                'from_name'       => 'required|string|max:255',
+                // 'from_name'       => 'required|string|max:255',
                 'site_name'       => 'nullable|string|max:255',
                 'bcc_emails'      => 'nullable|string',
                 
@@ -64,7 +64,8 @@ class StoreEmailConfigurationRequest extends BaseApiRequest
         return [
             'email_provider.required'     => __('email_config.provider_required'),
             'from_address.required'       => __('email_config.from_address_required'),
-            'from_name.required'          => __('email_config.from_name_required'),
+            'from_address.email'          => __('email_config.from_address_email'),
+            // 'from_name.required'          => __('email_config.from_name_required'),
             'smtp_host.required_if'       => __('email_config.smtp_host_required_if'),
             'smtp_port.required_if'       => __('email_config.smtp_port_required_if'),
             'smtp_encryption.required_if' => __('email_config.smtp_encryption_required_if'),

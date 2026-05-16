@@ -26,7 +26,7 @@ class EmailConfiguration extends Model
         'aws_secret_key',
         'aws_region',
         'from_address',
-        'from_name',
+        // 'from_name',
         'bcc_emails',
         'is_active',
         'is_fresh_email',

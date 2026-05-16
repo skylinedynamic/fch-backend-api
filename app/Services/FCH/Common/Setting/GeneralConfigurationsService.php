@@ -51,17 +51,11 @@ class GeneralConfigurationsService
             ->keyBy('key');
 
         // 2. Get configurations for the HOST as fallback
-        $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+        $hostPartner = \App\Models\Partner\Partner::where('is_host', true)->first();
         $hostId = $hostPartner?->id;
         $hostRows = [];
-
-        // Check if current is host
-        $isHost = ($entityType === \App\Models\Partner\Partner::class && $hostId == $entityId);
-
-        // Fetch host settings if:
-        // - We are NOT the host (or different entity type)
-        // - AND useFallback is true
-        if ($useFallback && !$isHost && $hostId) {
+        
+        if ($useFallback && $hostId && ($entityType !== \App\Models\Partner\Partner::class || $hostId != $entityId)) {
             $hostRows = AppConfiguration::where('entity_type', \App\Models\Partner\Partner::class)
                 ->where('entity_id', $hostId)
                 ->get()

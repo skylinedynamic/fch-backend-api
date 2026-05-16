@@ -211,7 +211,7 @@ class EmailConfigurationService
             'mail.mailers.smtp.password'   => $system?->smtp_password,
             'mail.mailers.smtp.encryption' => $system?->smtp_encryption,
             'mail.from.address'            => $system?->from_address,
-            'mail.from.name'               => $system?->from_name,
+            // 'mail.from.name'               => $system?->from_name,
             'services.ses.key'             => $system?->aws_access_key,
             'services.ses.secret'          => $system?->aws_secret_key,
             'services.ses.region'          => $system?->aws_region,
@@ -258,7 +258,7 @@ class EmailConfigurationService
             }
 
             Config::set('mail.from.address', $config->from_address);
-            Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
+            // Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
             Config::set('mail.bcc',           $config->bcc_emails);
         }
 

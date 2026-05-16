@@ -37,7 +37,7 @@ class EmailConfigurationResource extends JsonResource
 
             // Common
             'from_address'                => $this->from_address,
-            'from_name'                   => $this->from_name,
+            // 'from_name'                   => $this->from_name,
             'bcc_emails'                  => $this->bcc_emails,
             'is_active'                   => (bool) $this->is_active,
 

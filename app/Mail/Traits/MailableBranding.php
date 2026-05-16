@@ -138,9 +138,11 @@ trait MailableBranding
         $siteName = $branding['siteName'];
         $defaultName = config('app.name') ?? 'Four Corner Funding';
 
-        return $this->resolvedMailConfig?->from_name
-            ?? $siteName
-            ?? config('mail.from.name', $defaultName);
+        // return $this->resolvedMailConfig?->from_name
+        //     ?? $siteName
+        //     ?? config('mail.from.name', $defaultName);
+
+        return $siteName ?? config('mail.from.name', $defaultName);
     }
 
     /**
