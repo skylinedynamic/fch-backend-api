@@ -18,9 +18,6 @@ class DomainResolverController extends Controller
 
     public function resolve(Request $request)
     {
-        // Disable session — prevents Set-Cookie headers on internal requests
-        config(['session.driver' => 'array']);
-
         if ($request->header('X-Internal-Key') !== config('domains.internal_key')) {
             return response('', 401);
         }
@@ -59,10 +56,7 @@ class DomainResolverController extends Controller
             return response('', 404);
         }
 
-        $accelPath = $result['type'] === 'partner' ? '/internal/partner' : '/internal/borrower';
-
         return response('', 200, [
-            'X-Accel-Redirect' => $accelPath,
             'X-Tenant-Type' => $result['type'],
             'X-Partner-Id' => (string) $result['partner_id'],
         ]);
@@ -70,9 +64,6 @@ class DomainResolverController extends Controller
 
     public function caddyCheck(Request $request)
     {
-        // Disable session — prevents Set-Cookie headers
-        config(['session.driver' => 'array']);
-
         $domain = strtolower(trim($request->query('domain')));
 
         if (!$domain) {
@@ -86,12 +77,10 @@ class DomainResolverController extends Controller
             return response('Forbidden', 403);
         }
 
-        // Allow any *.skylinedynamic.dev — certified partners
         if (str_ends_with($domain, '.skylinedynamic.dev')) {
             return response('OK', 200);
         }
 
-        // Allow only registered WL custom domains
         $exists = Partner::where('partner_domain', $domain)
             ->orWhere('borrower_domain', $domain)
             ->exists();
