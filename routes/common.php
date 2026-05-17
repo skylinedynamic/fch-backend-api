@@ -42,12 +42,13 @@ use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaContr
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use App\Http\Controllers\DomainResolverController;
 use Illuminate\Support\Facades\Route;
 
 
 // Internal domain resolver — stateless, no session/cookies
-Route::get('/resolve-custom-domain', [\App\Http\Controllers\DomainResolverController::class, 'resolve']);
-Route::get('/caddy/domain-check', [\App\Http\Controllers\DomainResolverController::class, 'caddyCheck']);
+Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve']);
+Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck']);
 
 
 Route::prefix('v1')->group(function () {

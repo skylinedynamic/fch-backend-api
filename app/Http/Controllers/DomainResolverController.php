@@ -13,7 +13,7 @@ class DomainResolverController extends Controller
 
     public function __construct()
     {
-        $this->reserved = config('domains.reserved');
+        $this->reserved = (array) config('domains.reserved', []);
     }
 
     public function resolve(Request $request)
@@ -72,7 +72,7 @@ class DomainResolverController extends Controller
 
         $domain = preg_replace('/^www\./', '', $domain);
 
-        $reserved = array_map('strtolower', config('domains.reserved'));
+        $reserved = array_map('strtolower', (array) config('domains.reserved', []));
         if (in_array($domain, $reserved)) {
             return response('Forbidden', 403);
         }
