@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 class Commission extends Model
 {
     use SoftDeletes;
-    
+
     protected $fillable = [
         'borrower_id',
         'partner_id',
@@ -122,19 +122,19 @@ class Commission extends Model
 
         return $query->where(function ($q) use ($like) {
             $q->where('total_commission_amount', 'like', $like)
-              ->orWhereHas('borrower', function ($q) use ($like) {
-                  $q->where('first_name', 'like', $like)
-                    ->orWhere('last_name', 'like', $like)
-                    ->orWhere('email', 'like', $like);
-              })
-              ->orWhereHas('partner', function ($q) use ($like) {
-                  $q->where('full_name', 'like', $like)
-                    ->orWhere('company_name', 'like', $like);
-              })
-              ->orWhereHas('fundingApplication', function ($q) use ($like) {
-                  $q->where('business_name', 'like', $like)
-                    ->orWhere('full_name', 'like', $like);
-              });
+                ->orWhereHas('borrower', function ($q) use ($like) {
+                    $q->where('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('email', 'like', $like);
+                })
+                ->orWhereHas('partner', function ($q) use ($like) {
+                    $q->where('full_name', 'like', $like)
+                        ->orWhere('company_name', 'like', $like);
+                })
+                ->orWhereHas('fundingApplication', function ($q) use ($like) {
+                    $q->where('business_name', 'like', $like)
+                        ->orWhere('full_name', 'like', $like);
+                });
         });
     }
 

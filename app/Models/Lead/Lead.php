@@ -56,7 +56,7 @@ class Lead extends Model
             self::LEAD_SOURCE_OTHER,
         ];
     }
-    
+
     /**
      * Get statuses that are considered "qualified" for statistics.
      */
@@ -83,7 +83,7 @@ class Lead extends Model
      */
     public function salesperson(): BelongsTo
     {
-        return $this->belongsTo(User::class , 'salesperson_id');
+        return $this->belongsTo(User::class, 'salesperson_id');
     }
 
     /**
@@ -91,7 +91,7 @@ class Lead extends Model
      */
     public function partner(): BelongsTo
     {
-        return $this->belongsTo(Partner::class , 'partner_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     /**
@@ -107,7 +107,7 @@ class Lead extends Model
      */
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class , 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
@@ -129,19 +129,23 @@ class Lead extends Model
                 ->orWhere('leads.email', 'like', "%{$search}%")
                 ->orWhere('leads.lead_type', 'like', "%{$search}%")
                 ->orWhere('leads.status', 'like', "%{$search}%")
-                ->orWhereHas('salesperson', function ($sq) use ($search) {
-                $sq->where('name', 'like', "%{$search}%");
-            }
-            )
-                ->orWhereHas('partner', function ($sq) use ($search) {
-                $sq->where('full_name', 'like', "%{$search}%");
-            }
-            )
+                ->orWhereHas(
+                    'salesperson',
+                    function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    }
+                )
+                ->orWhereHas(
+                    'partner',
+                    function ($sq) use ($search) {
+                        $sq->where('full_name', 'like', "%{$search}%");
+                    }
+                )
                 ->orWhereHas('referralPartner', function ($sq) use ($search) {
-                $sq->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('company_name', 'like', "%{$search}%");
-            });
+                    $sq->where('first_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%");
+                });
         });
     }
 }
