@@ -25,6 +25,7 @@ class LeadNotificationMail extends Mailable
     {
         $this->lead = $lead;
         $this->details = (object) ($details ?? []);
+        $this->resolveMailConfig($this->lead->partner_id);
     }
 
     /**
@@ -32,10 +33,16 @@ class LeadNotificationMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $subject = 'New Lead Created';
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+        $subject = "New Lead Created - {$siteName}";
 
         return new Envelope(
-            subject: $subject,
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 

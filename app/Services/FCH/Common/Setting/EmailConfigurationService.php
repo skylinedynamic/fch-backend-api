@@ -58,8 +58,10 @@ class EmailConfigurationService
 
         if (isset($data['id'])) {
             $config = EmailConfiguration::findOrFail($data['id']);
+            $data['is_fresh_email'] = true;
             $config->update($data);
         } else {
+            $data['is_fresh_email'] = true;
             $config = EmailConfiguration::updateOrCreate(
                 ['partner_id' => $partnerId],
                 $data
@@ -67,6 +69,10 @@ class EmailConfigurationService
         }
 
         $this->flushCache($config->partner_id);
+        
+        if ($config->partner_id) {
+            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        }
 
         if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
             self::$systemDefaults = null;
@@ -86,8 +92,12 @@ class EmailConfigurationService
                 ->update(['is_active' => false]);
         }
 
-        $config->update(['is_active' => $newStatus]);
+        $config->update(['is_active' => $newStatus, 'is_fresh_email' => true]);
         $this->flushCache($config->partner_id);
+
+        if ($config->partner_id) {
+            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        }
 
         if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
             self::$systemDefaults = null;
@@ -201,7 +211,7 @@ class EmailConfigurationService
             'mail.mailers.smtp.password'   => $system?->smtp_password,
             'mail.mailers.smtp.encryption' => $system?->smtp_encryption,
             'mail.from.address'            => $system?->from_address,
-            'mail.from.name'               => $system?->from_name,
+            // 'mail.from.name'               => $system?->from_name,
             'services.ses.key'             => $system?->aws_access_key,
             'services.ses.secret'          => $system?->aws_secret_key,
             'services.ses.region'          => $system?->aws_region,
@@ -211,6 +221,15 @@ class EmailConfigurationService
 
     public function applyToMailer(int|string|null $partnerId): \Closure
     {
+        if ($partnerId) {
+            $partner = Partner::find($partnerId);
+            // Only White-Label Partners get their own branding. Others fall back to Host.
+            if ($partner && $partner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $host = Partner::where('is_host', 1)->first();
+                $partnerId = $host ? $host->id : null;
+            }
+        }
+
         $this->loadSystemDefaults();
         $original = self::$systemDefaults;
 
@@ -248,7 +267,7 @@ class EmailConfigurationService
             }
 
             Config::set('mail.from.address', $config->from_address);
-            Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
+            // Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
             Config::set('mail.bcc',           $config->bcc_emails);
         }
 

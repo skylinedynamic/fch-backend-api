@@ -30,8 +30,78 @@ class InvoiceResource extends JsonResource
             'status' => $this->status,
             'details' => $this->details,
             // 'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
+            'branding' => $this->resolveBrandingData(),
             'created_at' => $this->created_at ? Carbon::parse($this->created_at)->format('Y-m-d') : null,
             // Add any other fields or relations if needed
+        ];
+    }
+
+    private function resolveBrandingData()
+    {
+        // 1. Logic: borrower_id NULL -> Host Branding (is_host=1)
+        // If borrower_id is present -> Partner Branding
+        $partnerId = $this->borrower_id ? $this->partner_id : null;
+
+        $partner = null;
+        if ($partnerId) {
+            $partner = \App\Models\Partner\Partner::find($partnerId);
+            
+            // Only use partner branding if it's a White-Label Partner
+            if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $partner = null; // Fallback to host
+            }
+        }
+
+        if (!$partner) {
+            $partner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+        }
+
+        $entityId = $partner->id;
+        $entityType = 'App\\Models\\Partner\\Partner';
+
+        // 2. Resolve Site Name
+        $siteName = \App\Models\Common\AppConfiguration::get('site_name', null, $entityType, $entityId) 
+            ?? $partner->company_name 
+            ?? config('app.name');
+
+        // 3. Resolve Logo - Check multiple keys, prioritize primary_logo
+        $logoPath = \App\Models\Common\AppConfiguration::get('primary_logo', null, $entityType, $entityId)
+            ?? \App\Models\Common\AppConfiguration::get('partner_logo', null, $entityType, $entityId)
+            ?? \App\Models\Common\AppConfiguration::get('header_logo', null, $entityType, $entityId)
+            ?? $partner->company_logo;
+
+        $logoUrl = asset('logo-mail.png'); // Final fallback
+
+        if ($logoPath && $logoPath !== 'null') {
+            if (str_starts_with($logoPath, 'http')) {
+                $logoUrl = $logoPath;
+            } else {
+                $cleanPath = ltrim((string) $logoPath, '/');
+                
+                // If it doesn't have a known prefix, try to determine it
+                if (!str_starts_with($cleanPath, 'site-settings/') && !str_starts_with($cleanPath, 'partners/')) {
+                    // If it's the model logo, it's in partners/{id}/
+                    if ($partner->company_logo === $logoPath) {
+                        $cleanPath = "partners/{$entityId}/" . $cleanPath;
+                    } else {
+                        // Otherwise assume it's a site setting
+                        $cleanPath = "site-settings/" . $cleanPath;
+                    }
+                }
+                
+                $logoUrl = asset('storage/' . $cleanPath);
+            }
+        }
+
+        return [
+            'site_name' => $siteName,
+            'primary_logo' => $logoUrl,
+            'logo' => $logoUrl,
+            'address' => $partner->address_line_1 ?? '',
+            'city' => $partner->city ?? '',
+            'state' => $partner->state ?? '',
+            'postal_code' => $partner->postal_code ?? '',
+            'country' => $partner->country ?? '',
         ];
     }
 }

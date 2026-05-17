@@ -92,7 +92,8 @@ class DatabaseSeeder extends Seeder
             EmailConfigurationSeeder::class,
             BlogSeeder::class,
             SeoSettingSeeder::class,
-            CmsPermissionUpdateSeeder::class
+            CmsPermissionUpdateSeeder::class,
+            UpdateSettingsPermissionSeeder::class,
         ]);
     }
 }

@@ -195,6 +195,13 @@ class EmployeeService
             );
 
             DB::commit();
+            Log::info('Employee created successfully', ['employee_id' => $employee->id]);
+
+            // 📧 Send welcome mail if user account was created
+            if ($user) {
+                $partner = \App\Models\Partner\Partner::find(auth()->user()->partner_id);
+                $this->sendAccountCreatedMail($user, $partner, $plainPassword);
+            }
 
             return [
                 'employee' => $employee->fresh(),

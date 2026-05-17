@@ -35,10 +35,11 @@ return new class extends Migration
             
             // Common Settings
             $table->string('from_address')->nullable();
-            $table->string('from_name')->nullable();
+            // $table->string('from_name')->nullable();
             $table->text('bcc_emails')->nullable();
             
             $table->boolean('is_active')->default(false);
+            $table->boolean('is_fresh_email')->default(false);
             $table->timestamps();
             $table->softDeletes();
 

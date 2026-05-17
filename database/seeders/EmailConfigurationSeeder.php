@@ -19,26 +19,26 @@ class EmailConfigurationSeeder extends Seeder
             ],
             [
                 'enable_custom_configuration' => true,
-                'email_provider'              => 'smtp',
-                'site_name'                   => 'Four Corner Funding',
-                
+                'email_provider' => 'smtp',
+                'site_name' => 'Four Corner Funding',
+
                 // SMTP Settings
-                'smtp_driver'                 => 'smtp',
-                'smtp_host'                   => 'sandbox.smtp.mailtrap.io',
-                'smtp_port'                   => '2525',
-                'smtp_encryption'             => 'tls',
-                'smtp_username'               => 'ec3b2a141588f8',
-                'smtp_password'               => 'e5d9ae5ad4cd91',
-                
+                'smtp_driver' => 'smtp',
+                'smtp_host' => 'sandbox.smtp.mailtrap.io',
+                'smtp_port' => '2525',
+                'smtp_encryption' => 'tls',
+                'smtp_username' => 'ec3b2a141588f8',
+                'smtp_password' => 'e5d9ae5ad4cd91',
+
                 // AWS SES Settings (Placeholders)
-                'aws_access_key'              => 'your_aws_access_key',
-                'aws_secret_key'              => 'your_aws_secret_key',
-                'aws_region'                  => 'us-east-1',
-                
-                'from_address'                => 'sajib123arafat@gmail.com',
-                'from_name'                   => 'Four Corner Funding',
-                'bcc_emails'                  => 'log@fourcornerfunding.com',
-                'is_active'                   => true,
+                'aws_access_key' => 'your_aws_access_key',
+                'aws_secret_key' => 'your_aws_secret_key',
+                'aws_region' => 'us-east-1',
+
+                'from_address' => 'sajib123arafat@gmail.com',
+                // 'from_name'                   => 'Four Corner Funding',
+                'bcc_emails' => 'log@fourcornerfunding.com',
+                'is_active' => true,
             ]
         );
     }

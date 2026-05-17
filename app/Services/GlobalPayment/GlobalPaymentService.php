@@ -192,9 +192,9 @@ class GlobalPaymentService
                     $restore = $this->emailConfigService->applyToMailer($partnerId);
                     try {
                         if ($invoice->is_partner_paying) {
-                            Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData));
+                            Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerId));
                         } else {
-                            Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData));
+                            Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData, $partnerId));
                         }
                     } catch (\Exception $e) {
                         Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
@@ -448,7 +448,7 @@ class GlobalPaymentService
                     ];
                     $restore = $this->emailConfigService->applyToMailer($partner->id);
                     try {
-                        Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData));
+                        Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData, $partner->id));
                     } catch (\Exception $e) {
                         Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
                     } finally {

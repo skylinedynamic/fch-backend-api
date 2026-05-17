@@ -21,10 +21,10 @@ class GeneralConfigurationsController extends Controller
     public function show(): JsonResponse
     {
         try {
-            $entityType = \App\Models\Partner\Partner::class;
-            $entityId   = (int) request()->input('entity_id', auth()->user()->partner_id);
+            $entityType = request()->input('entity_type');
+            $entityId   = (int) request()->input('entity_id', 0) ?: null;
 
-            $result = $this->service->show($entityType, $entityId);
+            $result = $this->service->show($entityType, $entityId, false);
 
             return ApiResponse::success($result, 'General information fetched successfully.');
         } catch (\Exception $e) {
@@ -39,8 +39,8 @@ class GeneralConfigurationsController extends Controller
     {
         try {
             $data = $request->validated();
-            $entityType = \App\Models\Partner\Partner::class;
-            $entityId = $request->input('entity_id', auth()->user()->partner_id);
+            $entityType = $request->input('entity_type');
+            $entityId = (int) $request->input('entity_id', 0) ?: null;
 
             $result = $this->service->update($data, $entityType, $entityId);
 

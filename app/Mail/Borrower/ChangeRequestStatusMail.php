@@ -13,15 +13,22 @@ class ChangeRequestStatusMail extends Mailable
 
     public array $mailData;
 
-    public function __construct(array $mailData)
+    public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
+        $this->resolveMailConfig($partnerId);
     }
 
     public function envelope(): Envelope
     {
+        $subject = $this->mailData['subject'] ?? 'Profile Change Request Update';
+
         return new Envelope(
-            subject: $this->mailData['subject'] ?? 'Profile Change Request Update',
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 

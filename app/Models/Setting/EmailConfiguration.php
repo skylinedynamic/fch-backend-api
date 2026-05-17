@@ -26,14 +26,16 @@ class EmailConfiguration extends Model
         'aws_secret_key',
         'aws_region',
         'from_address',
-        'from_name',
+        // 'from_name',
         'bcc_emails',
         'is_active',
+        'is_fresh_email',
     ];
 
     protected $casts = [
         'enable_custom_configuration' => 'boolean',
         'is_active'                   => 'boolean',
+        'is_fresh_email'              => 'boolean',
     ];
 
     /**

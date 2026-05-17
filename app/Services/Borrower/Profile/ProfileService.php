@@ -91,7 +91,7 @@ class ProfileService
 
                 $restore = $this->emailConfigService->applyToMailer($updatedUser->partner_id);
                 try {
-                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData));
+                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id));
                 } catch (\Exception $e) {
                     Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
                 } finally {

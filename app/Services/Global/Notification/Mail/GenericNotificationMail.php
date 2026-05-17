@@ -14,12 +14,10 @@ class GenericNotificationMail extends Mailable
 
     protected $mailData;
 
-    /**
-     * Create a new message instance.
-     */
     public function __construct(array $mailData)
     {
         $this->mailData = $mailData;
+        $this->resolveMailConfig($mailData['partner_id'] ?? null);
     }
 
     /**
@@ -28,6 +26,10 @@ class GenericNotificationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
             subject: $this->getDynamicSubject($this->mailData['subject']),
         );
     }

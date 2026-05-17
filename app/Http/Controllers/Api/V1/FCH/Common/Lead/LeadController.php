@@ -30,6 +30,7 @@ class LeadController extends Controller
      */
     public function index(FetchLeadRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             return $this->leadService->list($request->validated());
         } catch (\Exception $e) {
@@ -55,6 +56,7 @@ class LeadController extends Controller
      */
     public function storeDetails(StoreLeadDetailsRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $lead = $this->leadService->storeDetails($request->validated());
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_created'), Response::HTTP_CREATED);
@@ -68,6 +70,7 @@ class LeadController extends Controller
      */
     public function updateDetails(UpdateLeadDetailsRequest $request, $id)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $lead = Lead::findOrFail($id);
             $lead = $this->leadService->updateDetails($lead, $request->validated());
@@ -82,6 +85,7 @@ class LeadController extends Controller
      */
     public function updateContactInfo(UpdateLeadContactInfoRequest $request, $id)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $lead = Lead::findOrFail($id);
             $lead = $this->leadService->updateContactInfo($lead, $request->validated());
@@ -96,6 +100,7 @@ class LeadController extends Controller
      */
     public function destroy($id)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $lead = Lead::findOrFail($id);
             $this->leadService->delete($lead);
@@ -110,6 +115,7 @@ class LeadController extends Controller
      */
     public function multipleDelete(Request $request)
     {
+        $this->checkWhiteLabelConfiguration();
         $ids = $request->input('ids', []);
         try {
             if ($this->leadService->deleteMultiple($ids)) {
@@ -138,6 +144,7 @@ class LeadController extends Controller
      */
     public function convert(ConvertLeadRequest $request, $id)
     {
+        $this->checkWhiteLabelConfiguration();
         Log::info('Convert lead: ' . $id);
         try {
             $lead = Lead::findOrFail($id);

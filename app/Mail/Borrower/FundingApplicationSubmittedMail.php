@@ -23,6 +23,7 @@ class FundingApplicationSubmittedMail extends Mailable
     public function __construct(FundingApplication $application)
     {
         $this->application = $application;
+        $this->resolveMailConfig($this->application->borrower->partner_id ?? null);
     }
 
     /**
@@ -30,8 +31,14 @@ class FundingApplicationSubmittedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = 'New Funding Application Submitted - ' . ($this->application->business_name ?? 'Client');
+
         return new Envelope(
-            subject: 'New Funding Application Submitted - ' . ($this->application->business_name ?? 'Client'),
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 
@@ -42,6 +49,7 @@ class FundingApplicationSubmittedMail extends Mailable
     {
         return new Content(
             view: 'emails.borrower.funding_application_submitted',
+            with: $this->getBrandingData(),
         );
     }
 

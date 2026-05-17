@@ -54,6 +54,7 @@ class EmployeeController extends Controller
      */
     public function fetchEmployees(FetchEmployee $request)
     {
+        $this->checkWhiteLabelConfiguration();
         try {
             $partnerId = $request->user()->partner_id;
             $input = $request->validated();
@@ -84,6 +85,7 @@ class EmployeeController extends Controller
      */
     public function store(StoreEmployeeRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         $partnerId = $request->user()->partner_id;
         $partnerInfo = auth()->user()->partner;
         // ✅ Include all extended employee fields
@@ -156,6 +158,7 @@ class EmployeeController extends Controller
      */
     public function update(UpdateEmployeeRequest $request, int $id)
     {
+        $this->checkWhiteLabelConfiguration();
         $employee = Employee::findOrFail($id);
         $partnerId = $request->user()->partner_id;
 
@@ -218,6 +221,7 @@ class EmployeeController extends Controller
      */
     public function destroy(Request $request, Employee $employee)
     {
+        $this->checkWhiteLabelConfiguration();
         $businessId = $request->user()->partner_id;
 
         if ($employee->partner_id !== $businessId) {
@@ -263,6 +267,7 @@ class EmployeeController extends Controller
      */
     public function multipleDelete(Request $request)
     {
+        $this->checkWhiteLabelConfiguration();
         $ids = $request->input('ids', []);
         if ($this->employeeService->deleteMultiple($ids)) {
             return ApiResponse::success([], __('employee.employee_deleted'));

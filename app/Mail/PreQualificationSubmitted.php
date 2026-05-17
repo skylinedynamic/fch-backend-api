@@ -22,6 +22,7 @@ class PreQualificationSubmitted extends Mailable
     public function __construct(PreQualificationRequest $preQualification)
     {
         $this->preQualification = $preQualification;
+        $this->resolveMailConfig($this->preQualification->partner_id ?? null);
     }
 
     /**
@@ -29,8 +30,14 @@ class PreQualificationSubmitted extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = 'New Pre-Qualification Application Submitted';
+
         return new Envelope(
-            subject: 'New Pre-Qualification Application Submitted',
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
+            subject: $this->getDynamicSubject($subject),
         );
     }
 
@@ -41,6 +48,7 @@ class PreQualificationSubmitted extends Mailable
     {
         return new Content(
             view: 'emails.pre_qualification_submitted',
+            with: $this->getBrandingData(),
         );
     }
 }

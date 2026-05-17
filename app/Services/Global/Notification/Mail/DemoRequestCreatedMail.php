@@ -15,12 +15,10 @@ class DemoRequestCreatedMail extends Mailable
 
     public DemoRequest $demoRequest;
 
-    /**
-     * Create a new message instance.
-     */
     public function __construct(DemoRequest $demoRequest)
     {
         $this->demoRequest = $demoRequest;
+        $this->resolveMailConfig(null); // Demo requests are usually global
     }
 
     /**
@@ -29,23 +27,28 @@ class DemoRequestCreatedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
+            from: new \Illuminate\Mail\Mailables\Address(
+                $this->getFromAddress(),
+                $this->getFromName()
+            ),
             subject: $this->getDynamicSubject('New Demo Request Created'),
         );
     }
 
     /**
-     * Build the message.
+     * Get the message content definition.
      */
-    public function build()
+    public function content(): \Illuminate\Mail\Mailables\Content
     {
-        return $this->from(config('mail.from.address'), config('mail.from.name'))
-                    ->view('emails.demo_request_created')
-                    ->with([
-                        'customer_name' => $this->demoRequest->customer_name,
-                        'status'        => $this->demoRequest->status,
-                        'start_date'    => $this->demoRequest->demo_start ?? 'Not Scheduled',
-                        'end_date'      => $this->demoRequest->demo_end ?? 'Not Scheduled',
-                        'assigned_to'   => $this->demoRequest->assigned_email ?? 'Unassigned',
-                    ]);
+        return new \Illuminate\Mail\Mailables\Content(
+            view: 'emails.demo_request_created',
+            with: array_merge([
+                'customer_name' => $this->demoRequest->customer_name,
+                'status'        => $this->demoRequest->status,
+                'start_date'    => $this->demoRequest->demo_start ?? 'Not Scheduled',
+                'end_date'      => $this->demoRequest->demo_end ?? 'Not Scheduled',
+                'assigned_to'   => $this->demoRequest->assigned_email ?? 'Unassigned',
+            ], $this->getBrandingData()),
+        );
     }
 }

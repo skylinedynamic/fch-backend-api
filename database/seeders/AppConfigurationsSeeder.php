@@ -15,11 +15,13 @@ class AppConfigurationsSeeder extends Seeder
 
         $settings = [
             'site_name' => 'Four Corner Funding',
-            'site_slogan' => '',
-            'header_logo' => 'site-settings/black-logo.png',
-            'footer_logo' => 'site-settings/logo-white.png',
-            'partner_logo' => 'site-settings/fch-logo-wide.png',
-            'partner_favicon' => 'site-settings/Favicon.png',
+            'site_slogan' => 'Fast. Flexible. Funding.',
+            'header_logo' => 'site-settings/logo-white.png',
+            'footer_logo' => 'site-settings/black-logo.png',
+            'website_favicon' => 'site-settings/Favicon.png',
+            'primary_logo' => 'site-settings/logo-white.png',
+            'secondary_logo' => 'site-settings/black-logo.png',
+            'favicon' => 'site-settings/Favicon.png',
             'address' => "Four Corner Holdings, LLC 3750 Gunn Highway, Suite 306 Tampa, FL. 33618",
             'phone_number' => '(813) 391-3333',
             'email' => 'Info@fourcornerfunding.com',

@@ -26,6 +26,7 @@ class AppointmentController extends Controller
      */
     public function index(Request $request)
     {
+        $this->checkWhiteLabelConfiguration();
         return $this->appointmentService->list($request->all());
     }
 
@@ -34,6 +35,7 @@ class AppointmentController extends Controller
      */
     public function store(StoreAppointmentRequest $request)
     {
+        $this->checkWhiteLabelConfiguration();
         $appointment = $this->appointmentService->create($request->validated());
 
         return ApiResponse::success(new AppointmentResource($appointment), __('appointment.created_synced'));
@@ -53,6 +55,7 @@ class AppointmentController extends Controller
      */
     public function update(UpdateAppointmentRequest $request, $id)
     {
+        $this->checkWhiteLabelConfiguration();
         $appointment = Appointment::findOrFail($id);
         $updated = $this->appointmentService->update($appointment, $request->validated());
     
@@ -64,6 +67,7 @@ class AppointmentController extends Controller
      */
     public function destroy($id)
     {
+        $this->checkWhiteLabelConfiguration();
         $appointment = Appointment::findOrFail($id);
         $this->appointmentService->delete($appointment);
         return ApiResponse::success(null, __('appointment.deleted'));

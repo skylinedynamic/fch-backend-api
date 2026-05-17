@@ -314,7 +314,7 @@ class BorrowerService
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'business_info' => [
-                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'company_name' => $hostPartner->company_name ?? 'Four Corner Funding',
                         'company_logo' => $hostPartner->company_logo ?? 'logo.png',
                         'email' => $hostPartner->email ?? config('mail.from.address'),
                         'phone_number' => $hostPartner->phone_number ?? '',
@@ -533,13 +533,13 @@ class BorrowerService
                         'user' => $updatedUser,
                         'plain_password' => $plainPassword,
                         'business_info' => [
-                            'company_name' => $hostPartner->company_name ?? config('app.name'),
+                            'company_name' => $hostPartner->company_name ?? 'Four Corner Funding',
                             'company_logo' => $hostPartner->company_logo ?? 'logo.png',
                             'email' => $hostPartner->email ?? config('mail.from.address'),
                             'phone_number' => $hostPartner->phone_number ?? '',
                             'address_line_1' => $hostPartner->address_line_1 ?? '',
                         ],
-                        'subject' => 'Your Email has been changed - ' . config('app.name'),
+                        'subject' => 'Your Email has been changed - Four Corner Funding',
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $updatedUser->email]);

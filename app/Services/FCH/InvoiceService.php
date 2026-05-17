@@ -264,7 +264,7 @@ class InvoiceService
         $invoice = $this->find($id);
         if (!$invoice) throw new \Exception("Invoice not found");
 
-        $business_info = $this->getBusinessInfo();
+        $business_info = $this->getBusinessInfo($invoice->partner_id, $invoice->borrower_id);
 
         $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
             ->setPaper('a4')
@@ -281,7 +281,7 @@ class InvoiceService
         $invoice = $this->find($id);
         if (!$invoice) throw new \Exception("Invoice not found");
 
-        $business_info = $this->getBusinessInfo();
+        $business_info = $this->getBusinessInfo($invoice->partner_id, $invoice->borrower_id);
 
         $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
             ->setPaper('a4')
@@ -314,29 +314,78 @@ class InvoiceService
     }
 
     /**
-     * Helper to get business info for templates.
+     * Helper to get business info for templates with white-label support.
      */
-    private function getBusinessInfo(): array
+    private function getBusinessInfo(?int $partnerId = null, ?int $borrowerId = null): array
     {
-        $business = Partner::where('is_host', 1)->first();
+        // 1. Logic: If borrowerId is null, it's a Host-to-Partner invoice -> use Host branding
+        // If borrowerId is present, it's a Partner-to-Borrower invoice -> use Partner branding
+        $targetPartner = null;
 
-        $businessLogo = $business->company_logo ?? 'logo.png';
-        if ($businessLogo && str_starts_with($businessLogo, 'http')) {
-            $fileName = basename(parse_url($businessLogo, PHP_URL_PATH));
-            $localPath = public_path($fileName);
-        } else {
-            $localPath = public_path($businessLogo ?? 'logo.png');
+        if ($borrowerId && $partnerId) {
+            $targetPartner = Partner::find($partnerId);
+
+            // Only use partner branding if it's a White-Label Partner
+            if ($targetPartner && $targetPartner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $targetPartner = null; // Fallback to host
+            }
         }
 
-        $businessLogoPath = (file_exists($localPath) && is_file($localPath)) ? $localPath : public_path('logo_mail.jpeg');
+        // Fallback to Host if no partner or borrower_id was null
+        if (!$targetPartner) {
+            $targetPartner = Partner::where('is_host', 1)->first();
+        }
+
+        $entityId = $targetPartner->id;
+        $entityType = 'App\\Models\\Partner\\Partner';
+
+        // 2. Resolve Branding from AppConfiguration
+        $siteName = \App\Models\Common\AppConfiguration::get('site_name', null, $entityType, $entityId);
+        
+        // Prioritize primary_logo as requested by user
+        $logo = \App\Models\Common\AppConfiguration::get('primary_logo', null, $entityType, $entityId)
+                ?? \App\Models\Common\AppConfiguration::get('partner_logo', null, $entityType, $entityId) 
+                ?? \App\Models\Common\AppConfiguration::get('header_logo', null, $entityType, $entityId);
+
+        // 3. Fallbacks to Partner Model
+        $siteName = $siteName ?? $targetPartner->company_name ?? config('app.name');
+        $logo = $logo ?? $targetPartner->company_logo;
+
+        // 4. Resolve Logo Path for PDF (Local path is better for DomPDF)
+        $logoPath = $logo;
+        $businessLogoPath = public_path('logo-mail.png'); // Default fallback
+
+        if ($logoPath) {
+            if (str_starts_with($logoPath, 'http')) {
+                $businessLogoPath = $logoPath;
+            } else {
+                $path = ltrim($logoPath, '/');
+                // Standardize path resolution
+                if (!str_starts_with($path, 'site-settings/') && !str_starts_with($path, 'partners/')) {
+                    if ($targetPartner->company_logo === $logo) {
+                        $path = "partners/{$entityId}/" . $path;
+                    } else {
+                        $path = "site-settings/" . $path;
+                    }
+                }
+                
+                $localPath = public_path('storage/' . $path);
+                if (file_exists($localPath) && is_file($localPath)) {
+                    $businessLogoPath = $localPath;
+                }
+            }
+        }
 
         return [
-            'company_name'   => config('app.name'),
-            'email'  => 'noreply@fourcornerfunding.com',
-            'phone_number'  => '',
-            'address_line_1'  => '',
-            'postal_code' => '',
-            'website' => 'https://www.fourcornerfunding.com',
+            'company_name'   => $siteName,
+            'email'          => $targetPartner->email ?? 'noreply@fourcornerfunding.com',
+            'phone_number'   => $targetPartner->phone_number ?? '',
+            'address_line_1' => $targetPartner->address_line_1 ?? '',
+            'city'           => $targetPartner->city ?? '',
+            'state'          => $targetPartner->state ?? '',
+            'postal_code'    => $targetPartner->postal_code ?? '',
+            'country'        => $targetPartner->country ?? '',
+            'website'        => $targetPartner->website ?? 'https://www.fourcornerfunding.com',
             'business_logo_path' => $businessLogoPath,
         ];
     }

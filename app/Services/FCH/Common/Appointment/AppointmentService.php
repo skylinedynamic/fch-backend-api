@@ -356,7 +356,7 @@ class AppointmentService
             $restore = $this->emailConfigService->applyToMailer($partnerId);
             try {
                 Mail::to($appointment->assignedFor->email)->send(
-                    new AppointmentNotification($appointment, $action, $businessInfo)
+                    new AppointmentNotification($appointment, $action, $businessInfo, $partnerId)
                 );
                 Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
             } finally {
