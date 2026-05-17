@@ -21,54 +21,64 @@ class EnsureTenantAccess
             return $next($request);
         }
 
-        // 1. Resolve current domain
+        // 1. Only enforce domain isolation for authenticated users
+        if (!Auth::check()) {
+            return $next($request);
+        }
+
+        $user = Auth::user();
+        $userPartner = $user->partner;
+        $isUserHost = $userPartner && $userPartner->is_host == 1;
+
+        // 2. Resolve current domain
         $domain = $request->header('X-Domain') ?: $request->getHost();
         $domain = strtolower(trim($domain));
         $domain = preg_replace('/^www\./', '', $domain);
 
-        // 2. Check if this is a Host/Reserved domain (e.g. your main portal or admin site)
+        // 3. Resolve reserved domains and host portals
         $reserved = config('domains.reserved', []);
-        if (in_array($domain, array_map('strtolower', $reserved))) {
+        $reservedLower = array_map('strtolower', $reserved);
+
+        $partnerPortal = strtolower(trim($reserved['base_reserved_partner_portal']));
+        $borrowerPortal = strtolower(trim($reserved['base_reserved_borrower_portal']));
+        $hostPortals = [$partnerPortal, $borrowerPortal];
+
+        $isReserved = in_array($domain, $reservedLower);
+        $isHostPortal = in_array($domain, $hostPortals);
+
+        // 4. Enforce access control for host portals (only host users are allowed)
+        if ($isHostPortal) {
+            if (!$isUserHost) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized domain access. Please login through your assigned portal.',
+                ], 403);
+            }
+
             return $next($request);
         }
 
-        // 3. Find the partner that owns this domain
+        // Bypassing logic for other host/reserved domains (like the main website or API domain)
+        if ($isReserved) {
+            return $next($request);
+        }
+
+        // 5. Find the partner that owns this domain (tenant portal)
         $partner = Cache::remember("domain_tenant:{$domain}", now()->addMinutes(10), function () use ($domain) {
             return Partner::where('partner_domain', $domain)
                 ->orWhere('borrower_domain', $domain)
                 ->first();
         });
 
-        // 4. Case A: If some is trying to LOGIN
-        if ($partner && ($request->is('*/login') || $request->is('login')) && $request->has('email')) {
-            $user = \App\Models\User\User::where('email', $request->email)->first();
-
-            if ($user && (!isset($user->is_host) || $user->is_host != 1)) {
-                if ($user->partner_id != $partner->id) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Invalid credentials for this domain.',
-                    ], 401);
-                }
-            }
-        }
-
-        // 5. Case B: If a user is ALREADY LOGGED IN but on the wrong domain
-        if ($partner && Auth::check()) {
-            $user = Auth::user();
-
-            // If the user's partner_id doesn't match the current domain's partner
-            if ($user->partner_id != $partner->id) {
-                // Return 403 or force logout if they are on the wrong domain
+        // 6. Ensure the authenticated user is on their correct tenant domain
+        if ($partner) {
+            if (!$isUserHost && $user->partner_id != $partner->id) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Unauthorized domain access. Please login through your assigned portal.',
                 ], 403);
             }
         }
-
-        // 5. If it's a partner domain but not even a valid partner is found (and it's not a host domain)
-        // you might want to block access too, but we'll let it pass for guest routes like login.
 
         return $next($request);
     }
