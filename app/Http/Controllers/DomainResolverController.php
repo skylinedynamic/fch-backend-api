@@ -74,10 +74,10 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        // 597 = partner, 598 = borrower
-        $statusCode = $result['type'] === 'partner' ? 597 : 598;
+        $accelPath = $result['type'] === 'partner' ? '/internal/partner' : '/internal/borrower';
 
-        return response()->noContent($statusCode, [
+        return response()->noContent(200, [
+            'X-Accel-Redirect' => $accelPath,
             'X-Tenant-Type' => $result['type'],
             'X-Partner-Id' => (string) $result['partner_id'],
         ]);
