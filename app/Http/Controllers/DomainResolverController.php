@@ -74,8 +74,8 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        // 210 = partner, 211 = borrower (custom 2xx codes Nginx can route on)
-        $statusCode = $result['type'] === 'partner' ? 210 : 211;
+        // 299 = partner, 298 = borrower
+        $statusCode = $result['type'] === 'partner' ? 299 : 298;
 
         return response()->noContent($statusCode, [
             'X-Tenant-Type' => $result['type'],
