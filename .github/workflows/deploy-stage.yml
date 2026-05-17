@@ -60,6 +60,10 @@ jobs:
           script: |
             cd /var/www/html/fch-api
 
+            echo "CRITICAL: Cleaning out old cache files..."
+            sudo rm -rf bootstrap/cache/*.php || true
+            sudo rm -rf storage/framework/cache/data/* || true
+
             echo "Ensuring storage directories exist..."
             mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
 
