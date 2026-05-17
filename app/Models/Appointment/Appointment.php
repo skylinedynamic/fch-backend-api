@@ -59,10 +59,10 @@ class Appointment extends Model
     public function setEntityTypeAttribute($value)
     {
         $this->attributes['entity_type'] = match (strtolower($value)) {
-            'partner'  => Partner::class,
+            'partner' => Partner::class,
             'borrower' => Borrower::class,
             'employee' => Employee::class,
-            default    => $value,
+            default => $value,
         };
     }
 

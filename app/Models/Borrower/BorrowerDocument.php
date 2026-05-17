@@ -26,34 +26,36 @@ class BorrowerDocument extends Model
 
     public function tapActivity(Activity $activity, string $eventName)
     {
-        $activity->partner_id  = $this->borrower?->partner_id;
+        $activity->partner_id = $this->borrower?->partner_id;
         $activity->borrower_id = $this->borrower_id;
 
         $docTypeName = $this->documentType?->name ?? 'Document';
 
-        $activity->description = match($eventName) {
+        $activity->description = match ($eventName) {
             'created' => "New document {$docTypeName} was submitted.",
             'updated' => "Document {$docTypeName}' status was updated to {$this->status}.",
             'deleted' => "Document {$docTypeName} was removed.",
-            default   => $activity->description,
+            default => $activity->description,
         };
 
         if ($eventName === 'created') {
             $activity->properties = collect($activity->properties)->merge([
-                 'attachments' => [
-                     'count' => 1,
-                     'files' => [[
-                         'name' => $this->file_name,
-                         'path' => $this->url,
-                         'id'   => $this->id,
-                     ]]
-                 ]
+                'attachments' => [
+                    'count' => 1,
+                    'files' => [
+                        [
+                            'name' => $this->file_name,
+                            'path' => $this->url,
+                            'id' => $this->id,
+                        ]
+                    ]
+                ]
             ]);
         }
 
         $activity->log_type = \App\Models\ActivityLog\ActivityLog::LOG_TYPE_DOCUMENT_UPLOAD;
     }
-    
+
     /**
      * The "booted" method of the model.
      */
@@ -111,7 +113,7 @@ class BorrowerDocument extends Model
     {
         return $this->belongsTo(BorrowerDocType::class, 'document_type_id');
     }
-    
+
     protected $appends = ['url'];
 
     /**

@@ -178,9 +178,9 @@ class Subscription extends Model
             $join->on('subscriptions.entity_id', '=', 'borrowers.id')
                 ->where('subscriptions.entity_type', '=', Borrower::class);
         })->addSelect(
-            'borrowers.first_name',
-            'borrowers.last_name'
-            // We can resolve full name in concatenation or view
-        );
+                'borrowers.first_name',
+                'borrowers.last_name'
+                // We can resolve full name in concatenation or view
+            );
     }
 }
