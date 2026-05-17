@@ -37,35 +37,35 @@ class DomainResolverController extends Controller
 
         $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
 
-        // =========================
-        // PARTNER CUSTOM DOMAIN
-        // =========================
+            // =========================
+            // PARTNER CUSTOM DOMAIN
+            // =========================
 
-        $partner = Partner::where('partner_domain', $domain)
-            ->select('id')
-            ->first();
+            $partner = Partner::where('partner_domain', $domain)
+                ->select('id')
+                ->first();
 
-        if ($partner) {
-            return [
-                'type' => 'partner',
-                'partner_id' => $partner->id
-            ];
-        }
+            if ($partner) {
+                return [
+                    'type' => 'partner',
+                    'partner_id' => $partner->id
+                ];
+            }
 
-        // =========================
-        // BORROWER CUSTOM DOMAIN
-        // =========================
+            // =========================
+            // BORROWER CUSTOM DOMAIN
+            // =========================
 
-        $borrower = Partner::where('borrower_domain', $domain)
-            ->select('id')
-            ->first();
+            $borrower = Partner::where('borrower_domain', $domain)
+                ->select('id')
+                ->first();
 
-        if ($borrower) {
-            return [
-                'type' => 'borrower',
-                'partner_id' => $borrower->id
-            ];
-        }
+            if ($borrower) {
+                return [
+                    'type' => 'borrower',
+                    'partner_id' => $borrower->id
+                ];
+            }
 
             return null;
         });
@@ -74,9 +74,13 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        return response('', 200)
-            ->header('X-Tenant-Type', $result['type'])
-            ->header('X-Partner-Id', (string) $result['partner_id']);
+        // 210 = partner, 211 = borrower (custom 2xx codes Nginx can route on)
+        $statusCode = $result['type'] === 'partner' ? 210 : 211;
+
+        return response()->noContent($statusCode, [
+            'X-Tenant-Type' => $result['type'],
+            'X-Partner-Id' => (string) $result['partner_id'],
+        ]);
     }
 
     public function caddyCheck(Request $request)
