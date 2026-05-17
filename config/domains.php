@@ -10,4 +10,4 @@ return [
 
     'domain_check' => env('DOMAIN_CHECK', 'fourcornerfunding.com'),
     'internal_key' => env('INTERNAL_RESOLVER_KEY', 'fourcornerfunding2026'),
-];  
+];
