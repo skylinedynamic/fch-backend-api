@@ -74,8 +74,8 @@ class DomainResolverController extends Controller
             return response()->noContent(404);
         }
 
-        // 299 = partner, 298 = borrower
-        $statusCode = $result['type'] === 'partner' ? 299 : 298;
+        // 597 = partner, 598 = borrower
+        $statusCode = $result['type'] === 'partner' ? 597 : 598;
 
         return response()->noContent($statusCode, [
             'X-Tenant-Type' => $result['type'],
