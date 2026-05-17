@@ -45,8 +45,13 @@ use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use Illuminate\Support\Facades\Route;
 
 
+// Internal domain resolver — stateless, no session/cookies
+Route::get('/resolve-custom-domain', [\App\Http\Controllers\DomainResolverController::class, 'resolve']);
+Route::get('/caddy/domain-check', [\App\Http\Controllers\DomainResolverController::class, 'caddyCheck']);
+
 
 Route::prefix('v1')->group(function () {
+
     // V1 auth routes
     Route::prefix('auth')->group(function () {
         Route::post('/login', [V1AuthController::class, 'login']);
