@@ -63,9 +63,16 @@ jobs:
             echo "Ensuring storage directories exist..."
             mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
 
+            echo "Setting initial permissions to allow Artisan to run..."
+            sudo chown -R $(whoami):www-data /var/www/html/fch-api
+            sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
+
             echo "Running Artisan Commands..."
-  
-            php artisan optimize:clear || true
+            # Clear everything explicitly
+            php artisan optimize:clear
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
 
             if [ ! -f storage/oauth-private.key ]; then
                 echo "Generating Passport keys..."
@@ -74,14 +81,15 @@ jobs:
 
             php artisan migrate --force
 
-            echo "Setting correct directory permissions..."
+            echo "Ensuring final directory permissions..."
             sudo chown -R www-data:www-data /var/www/html/fch-api
             sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
             
             echo "Fixing Passport key permissions..."
             sudo chmod 600 /var/www/html/fch-api/storage/*.key || true
 
-            echo "Restarting Nginx..."
+            echo "Restarting PHP-FPM and Nginx..."
+            sudo systemctl restart php8.3-fpm || true
             sudo systemctl restart nginx
             echo "Deploy complete!"
 
