@@ -4,13 +4,16 @@ use Illuminate\Support\Facades\Route;
 use Dedoc\Scramble\Scramble;
 use App\Http\Controllers\DomainResolverController;
 
-
-Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve'])->name('resolver.resolve');
-Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck']);
-
-
-
-
+// Internal resolver routes — no session, no cookies
+Route::withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \App\Http\Middleware\VerifyCsrfToken::class,
+])->group(function () {
+    Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve'])->name('resolver.resolve');
+    Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck']);
+});
 
 Route::get('/', function () {
     return redirect('/docs/admin');
