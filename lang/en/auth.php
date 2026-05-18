@@ -23,6 +23,7 @@ return [
     'employee_suspended' => 'Your account has been suspended. Please contact administrator.',
     'borrower_inactive' => 'Your account is currently inactive. Please contact administrator.',
     'borrower_suspended' => 'Your account has been suspended. Please contact administrator.',
+    'unauthorized_portal' => 'Unauthorized portal access.',
 
     // Validation messages
     'email_required' => 'Email is required.',
@@ -37,7 +38,6 @@ return [
     'signup_id_exists' => 'Invalid signup ID provided.',
     'first_name_required' => 'First name is required.',
     'last_name_required' => 'Last name is required.',
-    'email_required' => 'Email address is required.',
     'email_email' => 'Please provide a valid email address.',
     'email_unique' => 'This email address is already registered.',
     'phone_number_required' => 'Phone number is required.',
