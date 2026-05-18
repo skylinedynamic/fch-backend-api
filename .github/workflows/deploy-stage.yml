@@ -104,16 +104,18 @@ jobs:
           API_URL="${{ secrets.STAGE_API_URL }}"
           echo "Testing endpoint: $API_URL"
           
-          # Capture both body and status code
-          RESPONSE=$(curl -s -w "|%{http_code}" --max-time 10 "$API_URL" || echo "Connection failed|000")
-          BODY=$(echo "$RESPONSE" | cut -d'|' -f1)
-          HTTP_STATUS=$(echo "$RESPONSE" | cut -d'|' -f2)
+          # Use a temporary file to store the body and status code separately
+          curl -s -o body.txt -w "%{http_code}" --max-time 10 "$API_URL" > status.txt || echo "000" > status.txt
+          HTTP_STATUS=$(cat status.txt)
+          BODY=$(cat body.txt)
 
           if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 301 ] || [ "$HTTP_STATUS" -eq 302 ]; then
             echo "✅ Smoke test passed! API responded with HTTP $HTTP_STATUS."
           else
             echo "❌ Smoke test failed! Expected 200/401 but got $HTTP_STATUS."
-            echo "Response Body: $BODY"
+            echo "--- Response Body ---"
+            cat body.txt
+            echo "--- End of Response Body ---"
             exit 1
           fi
 
