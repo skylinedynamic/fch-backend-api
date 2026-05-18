@@ -22,7 +22,7 @@ class StoreEmailConfigurationRequest extends BaseApiRequest
     public function rules(): array
     {
         $rules = [
-            'id'                          => 'nullable|integer|exists:email_configurations,id',
+            'id'                          => 'nullable|integer',
             'partner_id'                  => 'nullable|integer|exists:partners,id',
             'enable_custom_configuration' => 'required|boolean',
             'is_active'                   => 'nullable|boolean',

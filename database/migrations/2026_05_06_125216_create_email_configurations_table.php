@@ -16,34 +16,14 @@ return new class extends Migration
         Schema::create('email_configurations', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('partner_id')->nullable();
-            $table->boolean('enable_custom_configuration')->default(false);
-            $table->string('site_name')->nullable();
-            $table->string('email_provider')->nullable(); // smtp, aws_ses
+            $table->string('key');
+            $table->text('value')->nullable();
             
-            // SMTP Settings
-            $table->string('smtp_driver')->default('smtp');
-            $table->string('smtp_host')->nullable();
-            $table->string('smtp_port')->nullable();
-            $table->string('smtp_encryption')->nullable();
-            $table->string('smtp_username')->nullable();
-            $table->string('smtp_password')->nullable();
-            
-            // AWS SES Settings
-            $table->string('aws_access_key')->nullable();
-            $table->string('aws_secret_key')->nullable();
-            $table->string('aws_region')->nullable();
-            
-            // Common Settings
-            $table->string('from_address')->nullable();
-            // $table->string('from_name')->nullable();
-            $table->text('bcc_emails')->nullable();
-            
-            $table->boolean('is_active')->default(false);
-            $table->boolean('is_fresh_email')->default(false);
             $table->timestamps();
             $table->softDeletes();
 
             $table->index(['partner_id']);
+            $table->unique(['partner_id', 'key']);
         });
     }
 

@@ -91,7 +91,8 @@ class CommonController extends Controller
             
             // Reset email flag
             \App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)
-                ->update(['is_fresh_email' => false]);
+                ->where('key', 'is_fresh_email')
+                ->update(['value' => '0']);
         }
 
         // Fetch Branding
@@ -117,7 +118,7 @@ class CommonController extends Controller
         $user->save();
 
         // Configuration Status Flags for Frontend Guard
-        $isEmailFresh = $partnerId ? (\App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)->where('is_active', true)->exists()) : true;
+        $isEmailFresh = $partnerId ? (\App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
         $isBrandingFresh = $partnerId ? (\App\Models\Common\AppConfiguration::where('entity_id', $partnerId)->where('entity_type', \App\Models\Partner\Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
 
         return ApiResponse::success([
