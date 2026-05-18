@@ -103,10 +103,27 @@ jobs:
           sleep 5
           API_URL="${{ secrets.STAGE_API_URL }}"
           echo "Testing endpoint: $API_URL"
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$API_URL" || echo "000")
+          
+          # Capture both body and status code
+          RESPONSE=$(curl -s -w "|%{http_code}" --max-time 10 "$API_URL" || echo "Connection failed|000")
+          BODY=$(echo "$RESPONSE" | cut -d'|' -f1)
+          HTTP_STATUS=$(echo "$RESPONSE" | cut -d'|' -f2)
+
           if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 301 ] || [ "$HTTP_STATUS" -eq 302 ]; then
             echo "✅ Smoke test passed! API responded with HTTP $HTTP_STATUS."
           else
             echo "❌ Smoke test failed! Expected 200/401 but got $HTTP_STATUS."
+            echo "Response Body: $BODY"
             exit 1
           fi
+
+      - name: Check Laravel Logs on Failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGE_EC2_HOST }}
+          username: ${{ secrets.STAGE_EC2_USER }}
+          key: ${{ secrets.STAGE_EC2_SSH_KEY }}
+          script: |
+            echo "--- Latest 50 lines of Laravel Log ---"
+            sudo tail -n 50 /var/www/html/fch-api/storage/logs/laravel.log || echo "Log file not found."
