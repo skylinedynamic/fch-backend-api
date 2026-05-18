@@ -119,7 +119,7 @@ jobs:
             exit 1
           fi
 
-      - name: Check Laravel Logs on Failure
+      - name: Check Server Logs on Failure
         if: failure()
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -128,4 +128,6 @@ jobs:
           key: ${{ secrets.STAGE_EC2_SSH_KEY }}
           script: |
             echo "--- Latest 50 lines of Laravel Log ---"
-            sudo tail -n 50 /var/www/html/fch-api/storage/logs/laravel.log || echo "Log file not found."
+            sudo tail -n 50 /var/www/html/fch-api/storage/logs/laravel.log || echo "Laravel log not found."
+            echo "--- Latest 50 lines of Nginx Error Log ---"
+            sudo tail -n 50 /var/log/nginx/error.log || echo "Nginx error log not found."

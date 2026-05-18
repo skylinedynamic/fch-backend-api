@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureTenantAccess
@@ -35,14 +36,24 @@ class EnsureTenantAccess
         }
 
         $user = Auth::user();
-        $domain = $this->portalIsolationService->resolveDomain($request);
+        try {
+            $domain = $this->portalIsolationService->resolveDomain($request);
 
-        // 3. Validate domain access for the authenticated user
-        if (!$this->portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $this->portalIsolationService->getUnauthorizedMessage($user, $domain),
-            ], 403);
+            // 3. Validate domain access for the authenticated user
+            if (!$this->portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $this->portalIsolationService->getUnauthorizedMessage($user, $domain),
+                ], 403);
+            }
+        } catch (\Throwable $e) {
+            Log::error('EnsureTenantAccess Error: ' . $e->getMessage(), [
+                'user_id' => $user->id ?? 'null',
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Optional: return $next($request) in case of failure to prevent total lockout,
+            // or let it crash to see the log. Let's let it crash but log it first.
+            throw $e;
         }
 
         return $next($request);
