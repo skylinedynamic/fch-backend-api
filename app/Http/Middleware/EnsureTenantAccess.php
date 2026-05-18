@@ -29,23 +29,21 @@ class EnsureTenantAccess
             return $next($request);
         }
 
-        // 3. Only enforce domain isolation for authenticated users
+        // 2. Only enforce domain isolation for authenticated users
         if (!Auth::check()) {
             return $next($request);
         }
 
         $user = Auth::user();
-        /*
         $domain = $this->portalIsolationService->resolveDomain($request);
 
-        // 2. Validate domain access for the authenticated user
+        // 3. Validate domain access for the authenticated user
         if (!$this->portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
             return response()->json([
                 'status' => 'error',
                 'message' => $this->portalIsolationService->getUnauthorizedMessage($user, $domain),
             ], 403);
         }
-        */
 
         return $next($request);
     }
