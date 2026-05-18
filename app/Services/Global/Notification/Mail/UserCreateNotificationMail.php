@@ -43,7 +43,7 @@ class UserCreateNotificationMail extends Mailable
             \App\Models\User\User::ADMIN => config('app.frontend_partner_url') . '/login',
             \App\Models\User\User::PARTNER => config('app.frontend_partner_url') . '/login',
             \App\Models\User\User::BORROWER => config('app.frontend_borrower_url') . '/login',
-            default => config('app.url') . '/login',
+            default => config('app.frontend_partner_url') . '/login',
         };
 
         return new Content(
