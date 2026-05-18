@@ -25,7 +25,7 @@ class EnsureTenantAccess
             }
 
             // 2. Bypass internal resolver, health, and documentation routes
-            if ($request->is('resolve-custom-domain*') || $request->is('caddy/*') || $request->is('up') || $request->is('scramble*')) {
+            if ($request->is('api/resolve-custom-domain*') || $request->is('resolve-custom-domain*') || $request->is('api/caddy/*') || $request->is('caddy/*') || $request->is('up') || $request->is('scramble*')) {
                 return $next($request);
             }
 

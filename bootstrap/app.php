@@ -26,6 +26,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class
         );
 
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\EnsureTenantAccess::class,
+        ]);
+
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
             'check-2fa-status' => \App\Http\Middleware\CheckTwoFactorStatus::class,
@@ -39,6 +43,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->report(function (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('GLOBAL_EXCEPTION: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => substr($e->getTraceAsString(), 0, 1000)
+            ]);
+        });
     })
     ->create();
