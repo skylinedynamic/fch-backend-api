@@ -21,13 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Prepend CORS to the very top of the global stack
+        $middleware->prepend(
+            \Illuminate\Http\Middleware\HandleCors::class
+        );
+
         $middleware->appendToGroup('api', [
             \App\Http\Middleware\EnsureTenantAccess::class,
         ]);
-
-        $middleware->append(
-            \Illuminate\Http\Middleware\HandleCors::class
-        );
 
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
