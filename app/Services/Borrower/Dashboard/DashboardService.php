@@ -74,15 +74,16 @@ class DashboardService
         );
 
         // Latest Unpaid Invoices
-        if($borrower?->partner?->is_host){
-            
+        $isHostOrWL = $borrower?->partner?->is_host || ($borrower?->partner?->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL);
+        if ($isHostOrWL) {
             $data['invoices'] = DashboardInvoiceResource::collection(
                 $borrower->invoices()
+                    ->where('is_partner_paying', false)
                     ->latest()
                     ->limit(5)
                     ->get()
             );
-        }else{
+        } else {
             $data['invoices'] = [];
         }
 

@@ -35,17 +35,25 @@ class SubscriptionPlanService
      */
     public function borrowerPlans()
     {
+         $user = Auth::user();
+         if ($user && $user->partner && $user->partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+             return SubscriptionPlan::where('entity_type', Borrower::class)
+                 ->whereIn('id', [5, 7])
+                 ->where('status', true)
+                 ->get();
+         }
+
          if(Auth::user()->user_type == User::PARTNER) {
-            $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-            ->where('is_partner_paying', true)
-            ->where('status', true)
-            ->get();
-            
+             $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+             ->where('is_partner_paying', true)
+             ->where('status', true)
+             ->get();
+             
          }else{
-            $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-            ->where('is_partner_paying', false)
-            ->where('status', true)
-            ->get();
+             $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+             ->where('is_partner_paying', false)
+             ->where('status', true)
+             ->get();
          }
 
         return $plans;
@@ -56,6 +64,14 @@ class SubscriptionPlanService
      */
     public function nonHostBorrowerPlans()
     {
+         $user = Auth::user();
+         if ($user && $user->partner && $user->partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+             return SubscriptionPlan::where('entity_type', Borrower::class)
+                 ->whereIn('id', [5, 7])
+                 ->where('status', true)
+                 ->get();
+         }
+
         $plans = SubscriptionPlan::where('entity_type', Borrower::class)
             ->where('is_partner_paying', true)
             ->where('status', true)
