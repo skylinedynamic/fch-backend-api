@@ -23,7 +23,12 @@ class EnsureTenantAccess
             return $next($request);
         }
 
-        // 2. Only enforce domain isolation for authenticated users
+        // 2. Bypass internal resolver and health routes
+        if ($request->is('resolve-custom-domain*') || $request->is('caddy/*') || $request->is('up')) {
+            return $next($request);
+        }
+
+        // 3. Only enforce domain isolation for authenticated users
         if (!Auth::check()) {
             return $next($request);
         }
