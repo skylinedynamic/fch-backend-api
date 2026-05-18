@@ -137,9 +137,9 @@ return [
     |
     */
 
-    'frontend_admin_url' => env('APP_FRONTEND_ADMIN_URL', 'http://localhost:8000/api/v1'),
-    'frontend_partner_url' => env('APP_FRONTEND_PARTNER_URL', 'http://localhost:5173'),
-    'frontend_borrower_url' => env('APP_FRONTEND_BORROWER_URL', 'http://localhost:8000/api'),
+    'frontend_partner_url' => env('BASE_PARTNER_PORTAL', 'https://partner.fourcornerfunding.com'),
+    'frontend_borrower_url' => env('BASE_BORROWER_PORTAL', 'https://app.fourcornerfunding.com'),
+    'base_website' => env('BASE_WEBSITE', 'fourcornerfunding.com'),
 
     'for_free_white_level_count' => env('FOR_FREE_WHITE_LEVEL_COUNT', 3),
     'for_free_certified_user_count' => env('FOR_FREE_CERTIFIED_USER_COUNT', 3),

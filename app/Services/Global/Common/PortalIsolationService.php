@@ -80,13 +80,6 @@ class PortalIsolationService
      */
     public function getUnauthorizedMessage(User $user, string $domain): string
     {
-        $reserved = config('domains.reserved', []);
-        $borrowerPortal = strtolower(trim($reserved['base_reserved_borrower_portal'] ?? ''));
-
-        if ($domain === $borrowerPortal) {
-            return 'Unauthorized domain access. Please use your assigned borrower portal.';
-        }
-
-        return 'Unauthorized domain access. Please login through your assigned portal.';
+        return __('auth.unauthorized_portal');
     }
 }
