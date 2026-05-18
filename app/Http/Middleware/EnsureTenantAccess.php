@@ -18,43 +18,45 @@ class EnsureTenantAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Only enforce domain isolation in production
-        if (!app()->isProduction()) {
-            return $next($request);
-        }
-
-        // 2. Bypass internal resolver and health routes
-        if ($request->is('resolve-custom-domain*') || $request->is('caddy/*') || $request->is('up')) {
-            return $next($request);
-        }
-
-        // 3. Only enforce domain isolation for authenticated users
-        if (!Auth::check()) {
-            return $next($request);
-        }
-
-        $user = Auth::user();
         try {
+            // 1. Only enforce domain isolation in production
+            if (!app()->isProduction()) {
+                return $next($request);
+            }
+
+            // 2. Bypass internal resolver, health, and documentation routes
+            if ($request->is('resolve-custom-domain*') || $request->is('caddy/*') || $request->is('up') || $request->is('scramble*')) {
+                return $next($request);
+            }
+
+            // 3. Only enforce domain isolation for authenticated users
+            if (!Auth::check()) {
+                return $next($request);
+            }
+
+            $user = Auth::user();
             $portalIsolationService = app(PortalIsolationService::class);
             $domain = $portalIsolationService->resolveDomain($request);
 
-            // 3. Validate domain access for the authenticated user
+            // 4. Validate domain access for the authenticated user
             if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
                 return response()->json([
                     'status' => 'error',
                     'message' => $portalIsolationService->getUnauthorizedMessage($user, $domain),
                 ], 403);
             }
-        } catch (\Throwable $e) {
-            Log::error('EnsureTenantAccess Error: ' . $e->getMessage(), [
-                'user_id' => $user->id ?? 'null',
-                'trace' => $e->getTraceAsString()
-            ]);
-            // Optional: return $next($request) in case of failure to prevent total lockout,
-            // or let it crash to see the log. Let's let it crash but log it first.
-            throw $e;
-        }
 
-        return $next($request);
+            return $next($request);
+        } catch (\Throwable $e) {
+            // FAIL-OPEN: Log the error but don't break the server
+            Log::error('EnsureTenantAccess Critical Failure: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+                'url' => $request->fullUrl(),
+                'host' => $request->getHost()
+            ]);
+
+            return $next($request);
+        }
     }
 }
