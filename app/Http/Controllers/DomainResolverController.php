@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class DomainResolverController extends Controller
 {
@@ -31,35 +32,44 @@ class DomainResolverController extends Controller
 
         $cacheKey = "domain_resolve:{$domain}";
 
-        $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
+        try {
+            $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
 
-            $partner = Partner::where('partner_domain', $domain)
-                ->select('id')
-                ->first();
+                $partner = Partner::where('partner_domain', $domain)
+                    ->select('id')
+                    ->first();
 
-            if ($partner) {
-                return ['type' => 'partner', 'partner_id' => $partner->id];
+                if ($partner) {
+                    return ['type' => 'partner', 'partner_id' => $partner->id];
+                }
+
+                $borrower = Partner::where('borrower_domain', $domain)
+                    ->select('id')
+                    ->first();
+
+                if ($borrower) {
+                    return ['type' => 'borrower', 'partner_id' => $borrower->id];
+                }
+
+                return null;
+            });
+
+            if (!$result) {
+                return response('', 404);
             }
 
-            $borrower = Partner::where('borrower_domain', $domain)
-                ->select('id')
-                ->first();
-
-            if ($borrower) {
-                return ['type' => 'borrower', 'partner_id' => $borrower->id];
-            }
-
-            return null;
-        });
-
-        if (!$result) {
-            return response('', 404);
+            return response('', 200, [
+                'X-Tenant-Type' => $result['type'],
+                'X-Partner-Id' => (string) $result['partner_id'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Domain Resolution Failure: ' . $e->getMessage());
+            // Fail-open: return 200 to let the request proceed (better than a 500 outage)
+            return response('', 200, [
+                'X-Tenant-Type' => 'error',
+                'X-Partner-Id' => '0',
+            ]);
         }
-
-        return response('', 200, [
-            'X-Tenant-Type' => $result['type'],
-            'X-Partner-Id' => (string) $result['partner_id'],
-        ]);
     }
 
     public function caddyCheck(Request $request)
