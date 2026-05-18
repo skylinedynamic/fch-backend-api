@@ -2,8 +2,8 @@
 
 namespace App\Services\Global\Notification\Mail;
 
-use App\Models\Setting\EmailConfiguration;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class EmailConfigurationResolver
 {
@@ -15,30 +15,24 @@ class EmailConfigurationResolver
      *  2. Host partner config (is_host = 1), is_active = 1
      *  3. System default (partner_id = null), is_active = 1
      */
-    public static function resolve(?int $partnerId): ?EmailConfiguration
+    public static function resolve(?int $partnerId): ?object
     {
+        $service = app(EmailConfigurationService::class);
+
         // 1️⃣ Partner-level config
         if ($partnerId) {
-            $config = EmailConfiguration::query()
-                ->where('partner_id', $partnerId)
-                ->where('is_active', 1)
-                ->first();
-
+            $config = $service->getActiveConfig($partnerId);
             if ($config) return $config;
         }
 
         // 2️⃣ Fall back to the host partner's config
-        $hostConfig = EmailConfiguration::query()
-            ->whereHas('partner', fn($q) => $q->where('is_host', 1))
-            ->where('is_active', 1)
-            ->first();
-            
-        if ($hostConfig) return $hostConfig;
+        $hostPartner = Partner::where('is_host', 1)->first();
+        if ($hostPartner) {
+            $hostConfig = $service->getActiveConfig($hostPartner->id);
+            if ($hostConfig) return $hostConfig;
+        }
 
         // 3️⃣ Final fallback to system default (partner_id = null)
-        return EmailConfiguration::query()
-            ->whereNull('partner_id')
-            ->where('is_active', 1)
-            ->first();
+        return $service->getActiveConfig(null);
     }
 }

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
+namespace App\Http\Requests\Api\V1\FCH\Common\PaymentMethod;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
-class StoreSettingRequest extends BaseApiRequest
+class StorePaymentMethodRequest extends BaseApiRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,6 +22,7 @@ class StoreSettingRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
+            'partner_id' => 'nullable|integer|exists:partners,id',
             'payment_mode' => 'nullable|string|in:sandbox,production',
             'stripe_key_sandbox' => 'nullable|string',
             'stripe_secret_sandbox' => 'nullable|string',
@@ -40,13 +41,13 @@ class StoreSettingRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'payment_mode.in' => __('setting_validation.payment_mode_in'),
-            'stripe_key_sandbox.string' => __('setting_validation.stripe_key_sandbox_string'),
-            'stripe_secret_sandbox.string' => __('setting_validation.stripe_secret_sandbox_string'),
-            'stripe_key_production.string' => __('setting_validation.stripe_key_production_string'),
-            'stripe_secret_production.string' => __('setting_validation.stripe_secret_production_string'),
-            'payment_method.string' => __('setting_validation.payment_method_string'),
-            'configuration.array' => __('setting_validation.configuration_array'),
+            'payment_mode.in' => __('payment_method_validation.payment_mode_in'),
+            'stripe_key_sandbox.string' => __('payment_method_validation.stripe_key_sandbox_string'),
+            'stripe_secret_sandbox.string' => __('payment_method_validation.stripe_secret_sandbox_string'),
+            'stripe_key_production.string' => __('payment_method_validation.stripe_key_production_string'),
+            'stripe_secret_production.string' => __('payment_method_validation.stripe_secret_production_string'),
+            'payment_method.string' => __('payment_method_validation.payment_method_string'),
+            'configuration.array' => __('payment_method_validation.configuration_array'),
         ];
     }
 }

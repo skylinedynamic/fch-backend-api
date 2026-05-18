@@ -7,7 +7,7 @@ use App\Services\Global\Notification\Mail\EmailConfigurationResolver;
 
 trait MailableBranding
 {
-    protected ?EmailConfiguration $resolvedMailConfig = null;
+    protected ?object $resolvedMailConfig = null;
     protected ?int $partnerId = null;
 
     /**

@@ -42,6 +42,7 @@ class AppConfigurationsSeeder extends Seeder
             'primary_color' => '#001F3F', // Default Dark Blue
             'secondary_color' => '#D4AF37', // Default Golden
             'copyright_text' => 'Copyright © ' . date('Y') . ' Four Corner Funding. All rights reserved.',
+            'agreement_signing_enabled' => '1',
         ];
 
         foreach ($settings as $key => $value) {
