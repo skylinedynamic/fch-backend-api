@@ -3,6 +3,8 @@
 namespace App\Services\FCH\Common\Setting;
 
 use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
 use App\Traits\UploadsFiles;
 use Illuminate\Http\UploadedFile;
 
@@ -34,16 +36,12 @@ class GeneralConfigurationsService
     /**
      * Get general branding configurations.
      */
-    public function show(?string $entityType = null, ?int $entityId = null, bool $useFallback = true): array
+    public function show(bool $useFallback = true): array
     {
         $user = auth()->user();
-        $entityType = $entityType ?: ($user->entity_type ?? \App\Models\Partner\Partner::class);
-        $entityId   = $entityId   ?: ($user->entity_id   ?? $user->partner_id);
 
-        // Normalize entity type if it comes from frontend in a different format
-        if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
-            $entityType = \App\Models\Partner\Partner::class;
-        }
+        $entityType = Partner::class;
+        $entityId = $user->partner_id;
 
         // 1. Get configurations for the specific entity
         $rows = AppConfiguration::where('entity_type', $entityType)
@@ -52,12 +50,12 @@ class GeneralConfigurationsService
             ->keyBy('key');
 
         // 2. Get configurations for the HOST as fallback
-        $hostPartner = \App\Models\Partner\Partner::where('is_host', true)->first();
+        $hostPartner = Partner::where('is_host', true)->first();
         $hostId = $hostPartner?->id;
         $hostRows = [];
-        
-        if ($useFallback && $hostId && ($entityType !== \App\Models\Partner\Partner::class || $hostId != $entityId)) {
-            $hostRows = AppConfiguration::where('entity_type', \App\Models\Partner\Partner::class)
+
+        if ($useFallback && $hostId && ($entityType !== Partner::class || $hostId != $entityId)) {
+            $hostRows = AppConfiguration::where('entity_type', Partner::class)
                 ->where('entity_id', $hostId)
                 ->get()
                 ->keyBy('key');
@@ -70,13 +68,13 @@ class GeneralConfigurationsService
                 $val = $rows[$key]->value;
             } else {
                 // For site_name, try to fallback to Partner company_name if it's a White-Label partner
-                if ($key === 'site_name' && $entityType === \App\Models\Partner\Partner::class) {
-                    $partner = \App\Models\Partner\Partner::find($entityId);
-                    if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+                if ($key === 'site_name' && $entityType == Partner::class) {
+                    $partner = Partner::find($entityId);
+                    if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
                         $val = $partner->company_name;
                     }
                 }
-                
+
                 // If still null, use Host fallback
                 if (is_null($val) && isset($hostRows[$key]) && !is_null($hostRows[$key]->value) && $hostRows[$key]->value !== '') {
                     $val = $hostRows[$key]->value;
@@ -101,9 +99,9 @@ class GeneralConfigurationsService
         }
 
         $data['is_white_label'] = false;
-        if ($entityType === \App\Models\Partner\Partner::class) {
-            $partner = \App\Models\Partner\Partner::find($entityId);
-            if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+        if ($entityType === Partner::class) {
+            $partner = Partner::find($entityId);
+            if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
                 $data['is_white_label'] = true;
             }
         }
@@ -117,12 +115,12 @@ class GeneralConfigurationsService
     public function update(array $data, ?string $entityType = null, ?int $entityId = null)
     {
         $user = auth()->user();
-        $entityType = $entityType ?: ($user->entity_type ?? \App\Models\Partner\Partner::class);
-        $entityId   = $entityId   ?: ($user->entity_id   ?? $user->partner_id);
+        $entityType = $entityType ?: ($user->entity_type ?? Partner::class);
+        $entityId = $entityId ?: ($user->entity_id ?? $user->partner_id);
 
         // Normalize entity type if it comes as a string like 'site-settings' from frontend
         if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
-            $entityType = \App\Models\Partner\Partner::class;
+            $entityType = Partner::class;
         }
 
         // ── Text fields ──────────────────────────────────────────────────
@@ -145,16 +143,16 @@ class GeneralConfigurationsService
                 }
 
                 $prefix = match ($key) {
-                    'header_logo'      => 'h',
-                    'footer_logo'      => 'f',
-                    'primary_logo'     => 'p_main',
-                    'secondary_logo'   => 'p_sec',
-                    'favicon'          => 'fav',
-                    'website_favicon'  => 'wfav',
-                    default            => $key,
+                    'header_logo' => 'h',
+                    'footer_logo' => 'f',
+                    'primary_logo' => 'p_main',
+                    'secondary_logo' => 'p_sec',
+                    'favicon' => 'fav',
+                    'website_favicon' => 'wfav',
+                    default => $key,
                 };
                 $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
-                $upload   = $this->uploadFile($data[$key], 'site-settings', 'public', $filename);
+                $upload = $this->uploadFile($data[$key], 'site-settings', 'public', $filename);
                 AppConfiguration::set($key, $upload['path'], $entityType, $entityId);
 
             } else {
@@ -163,8 +161,8 @@ class GeneralConfigurationsService
             }
         }
 
-        if ($entityType === \App\Models\Partner\Partner::class) {
-            \App\Models\User\User::where('partner_id', $entityId)->update(['is_refresh' => true]);
+        if ($entityType === Partner::class) {
+            User::where('partner_id', $entityId)->update(['is_refresh' => true]);
         }
 
         return $this->show($entityType, $entityId);
@@ -176,14 +174,9 @@ class GeneralConfigurationsService
             return null;
         }
 
-        $path = ltrim((string)$path, '/');
+        $path = ltrim((string) $path, '/');
 
-        // If it's a full URL, try to extract the relative path if it points to our storage
-        if (str_contains($path, '/storage/site-settings/')) {
-            $parts = explode('/storage/site-settings/', $path);
-            return 'site-settings/' . end($parts);
-        }
-
+        // If it's a full URL, extract the relative path
         if (str_contains($path, '/storage/')) {
             $parts = explode('/storage/', $path);
             return end($parts);
@@ -191,10 +184,6 @@ class GeneralConfigurationsService
 
         if (str_starts_with($path, 'http')) {
             return $path;
-        }
-
-        if (!str_starts_with($path, 'site-settings/')) {
-            return 'site-settings/' . $path;
         }
 
         return $path;

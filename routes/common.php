@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\GeneralConfigurationsController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\BrandingConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -193,8 +193,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [ActivityLogController::class, 'store']);
             });
 
-            Route::get('general-information', [GeneralConfigurationsController::class, 'show']);
-            Route::post('general-information-update', [GeneralConfigurationsController::class, 'update']);
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);
@@ -269,8 +267,14 @@ Route::prefix('v1')->group(function () {
             Route::prefix('email-configurations')->group(function () {
                 Route::get('/', [EmailConfigurationController::class, 'index']);
                 Route::post('/', [EmailConfigurationController::class, 'store']);
-                Route::patch('{id}/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
+                Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
+
+            Route::prefix('branding-info')->group(function () {
+                Route::get('/', [BrandingConfigurationController::class, 'show']);
+                Route::post('/', [BrandingConfigurationController::class, 'update']);
+            });
+
 
             // Agreement templates
             Route::prefix('agreement-templates')->group(function () {

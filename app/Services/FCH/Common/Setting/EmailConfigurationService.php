@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Setting;
 
+use App\Models\User\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use App\Models\Setting\EmailConfiguration;
@@ -40,14 +41,14 @@ class EmailConfigurationService
 
                 $flat = new \stdClass();
                 $flat->partner_id = $partnerId;
-                
+
                 foreach ($configs as $config) {
                     $flat->{$config->key} = $config->value;
                 }
 
                 // Add standard properties to prevent undefined property errors
                 $flat->id = $partnerId ?: 0; // Fake ID for the frontend if needed
-                
+    
                 return collect([$flat]);
             }
         );
@@ -57,18 +58,18 @@ class EmailConfigurationService
     {
         $configs = $this->getConfigurations($partnerId);
         $config = $configs->first();
-        
+
         if ($config && isset($config->is_active) && filter_var($config->is_active, FILTER_VALIDATE_BOOLEAN)) {
             return $config;
         }
-        
+
         return null;
     }
 
     public function storeOrUpdate(array $data): \stdClass
     {
-        $partnerId = $data['partner_id'] ?? null;
-        $isActive  = filter_var($data['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $partnerId = auth()->user()->partner_id ?? null;
+        $isActive = filter_var($data['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if (isset($data['smtp_password']) && $data['smtp_password'] === '••••••••') {
             unset($data['smtp_password']);
@@ -79,10 +80,9 @@ class EmailConfigurationService
 
         // Always set is_fresh_email to true upon save
         $data['is_fresh_email'] = true;
-        
+
         // Remove 'id' if it's there, as we don't store it in the key-value table directly
         unset($data['id']);
-        unset($data['partner_id']);
 
         // Update each key-value pair
         foreach ($data as $key => $value) {
@@ -98,9 +98,9 @@ class EmailConfigurationService
         }
 
         $this->flushCache($partnerId);
-        
+
         if ($partnerId) {
-            \App\Models\User\User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
+            User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
         }
 
         if ($partnerId === null || $this->isHostPartner($partnerId)) {
@@ -110,13 +110,10 @@ class EmailConfigurationService
         return $this->getConfigurations($partnerId)->first();
     }
 
-    public function toggleStatus(int $id): \stdClass
+    public function toggleStatus(): \stdClass
     {
-        // $id is meaningless now, but we can assume it represents partner_id if it's a fake ID, 
-        // however the controller calls this with the fake ID.
-        // It's better to fetch by partner_id. But since frontend passes the fake ID (which is partner_id), let's use it as partner_id.
-        $partnerId = $id === 0 ? null : $id;
-        
+        $partnerId = auth()->user()->partner_id ?? null;
+
         $configObj = $this->getConfigurations($partnerId)->first();
         if (!$configObj) {
             abort(404, 'Configuration not found');
@@ -129,7 +126,7 @@ class EmailConfigurationService
             ['partner_id' => $partnerId, 'key' => 'is_active'],
             ['value' => $newStatus]
         );
-        
+
         EmailConfiguration::updateOrCreate(
             ['partner_id' => $partnerId, 'key' => 'is_fresh_email'],
             ['value' => true]
@@ -138,7 +135,7 @@ class EmailConfigurationService
         $this->flushCache($partnerId);
 
         if ($partnerId) {
-            \App\Models\User\User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
+            User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
         }
 
         if ($partnerId === null || $this->isHostPartner($partnerId)) {
@@ -150,19 +147,20 @@ class EmailConfigurationService
 
     private function isHostPartner(int|string|null $partnerId): bool
     {
-        if ($partnerId === null) return false;
+        if ($partnerId === null)
+            return false;
         $partner = Partner::find($partnerId);
         return $partner && $partner->is_host;
     }
 
     private function resolveEntityIdForBranding(): int|string
     {
-        if (! auth()->check()) {
+        if (!auth()->check()) {
             $host = Partner::where('is_host', 1)->first();
             return $host ? $host->id : 1;
         }
 
-        $user    = auth()->user();
+        $user = auth()->user();
         $partner = $user->partner;
 
         if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
@@ -175,7 +173,8 @@ class EmailConfigurationService
 
     private function resolveEntityIdForMailer(int|string|null $partnerId): int|string
     {
-        if ($partnerId === null) return $this->resolveEntityIdForBranding();
+        if ($partnerId === null)
+            return $this->resolveEntityIdForBranding();
         $partner = Partner::find($partnerId);
         if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
             $host = Partner::where('is_host', 1)->first();
@@ -188,7 +187,7 @@ class EmailConfigurationService
     {
         if ($logoPath && $logoPath !== 'null') {
             $path = ltrim((string) $logoPath, '/');
-            if (! str_starts_with($path, 'site-settings/')) {
+            if (!str_starts_with($path, 'site-settings/')) {
                 $path = 'site-settings/' . $path;
             }
             return asset('storage/' . $path);
@@ -209,7 +208,7 @@ class EmailConfigurationService
     private function buildBrandingConfig(int|string $entityId, ?\stdClass $config): array
     {
         $appConfigs = $this->getAppConfigs($entityId);
-        
+
         if (empty($appConfigs)) {
             $host = Partner::where('is_host', 1)->first();
             if ($host && $host->id != $entityId) {
@@ -218,46 +217,47 @@ class EmailConfigurationService
         }
 
         $fallbackLogo = asset('logo-mail.png');
-        
+
         $siteName = $config->site_name ?? ($appConfigs['site_name']['value'] ?? config('app.name'));
 
         return [
-            'app.name'             => $siteName,
-            'app.header_logo'      => $this->resolveLogoUrl($appConfigs['header_logo']['value'] ?? null, $fallbackLogo),
-            'app.footer_logo'      => $this->resolveLogoUrl($appConfigs['footer_logo']['value'] ?? null, $fallbackLogo),
-            'app.partner_logo'     => $this->resolveLogoUrl($appConfigs['partner_logo']['value'] ?? null, $fallbackLogo),
-            'app.borrower_logo'    => $this->resolveLogoUrl($appConfigs['borrower_logo']['value'] ?? null, $fallbackLogo),
+            'app.name' => $siteName,
+            'app.header_logo' => $this->resolveLogoUrl($appConfigs['header_logo']['value'] ?? null, $fallbackLogo),
+            'app.footer_logo' => $this->resolveLogoUrl($appConfigs['footer_logo']['value'] ?? null, $fallbackLogo),
+            'app.partner_logo' => $this->resolveLogoUrl($appConfigs['partner_logo']['value'] ?? null, $fallbackLogo),
+            'app.borrower_logo' => $this->resolveLogoUrl($appConfigs['borrower_logo']['value'] ?? null, $fallbackLogo),
             'app.borrower_favicon' => $this->resolveLogoUrl($appConfigs['borrower_favicon']['value'] ?? null),
-            'app.partner_favicon'  => $this->resolveLogoUrl($appConfigs['partner_favicon']['value'] ?? null),
-            'app.primary_color'    => $appConfigs['primary_color']['value'] ?? null,
-            'app.secondary_color'  => $appConfigs['secondary_color']['value'] ?? null,
+            'app.partner_favicon' => $this->resolveLogoUrl($appConfigs['partner_favicon']['value'] ?? null),
+            'app.primary_color' => $appConfigs['primary_color']['value'] ?? null,
+            'app.secondary_color' => $appConfigs['secondary_color']['value'] ?? null,
         ];
     }
 
     private function loadSystemDefaults(): void
     {
-        if (self::$systemDefaults !== null) return;
+        if (self::$systemDefaults !== null)
+            return;
 
         $hostPartner = Partner::where('is_host', 1)->first();
-        $hostId      = $hostPartner?->id;
-        $system      = ($hostId ? $this->getActiveConfig($hostId) : null) ?? $this->getActiveConfig(null);
+        $hostId = $hostPartner?->id;
+        $system = ($hostId ? $this->getActiveConfig($hostId) : null) ?? $this->getActiveConfig(null);
 
         $brandingEntityId = $this->resolveEntityIdForBranding();
-        $branding         = $this->buildBrandingConfig($brandingEntityId, $system);
+        $branding = $this->buildBrandingConfig($brandingEntityId, $system);
 
         self::$systemDefaults = array_merge([
-            'mail.default'                 => ($system->email_provider ?? null) === 'aws_ses' ? 'ses' : 'smtp',
-            'mail.mailers.smtp.host'       => $system->smtp_host ?? null,
-            'mail.mailers.smtp.port'       => $system->smtp_port ?? null,
-            'mail.mailers.smtp.username'   => $system->smtp_username ?? null,
-            'mail.mailers.smtp.password'   => $system->smtp_password ?? null,
+            'mail.default' => ($system->email_provider ?? null) === 'aws_ses' ? 'ses' : 'smtp',
+            'mail.mailers.smtp.host' => $system->smtp_host ?? null,
+            'mail.mailers.smtp.port' => $system->smtp_port ?? null,
+            'mail.mailers.smtp.username' => $system->smtp_username ?? null,
+            'mail.mailers.smtp.password' => $system->smtp_password ?? null,
             'mail.mailers.smtp.encryption' => $system->smtp_encryption ?? null,
-            'mail.from.address'            => $system->from_address ?? null,
+            'mail.from.address' => $system->from_address ?? null,
             // 'mail.from.name'               => $system->from_name ?? null,
-            'services.ses.key'             => $system->aws_access_key ?? null,
-            'services.ses.secret'          => $system->aws_secret_key ?? null,
-            'services.ses.region'          => $system->aws_region ?? null,
-            'mail.bcc'                     => $system->bcc_emails ?? null,
+            'services.ses.key' => $system->aws_access_key ?? null,
+            'services.ses.secret' => $system->aws_secret_key ?? null,
+            'services.ses.region' => $system->aws_region ?? null,
+            'mail.bcc' => $system->bcc_emails ?? null,
         ], $branding);
     }
 
@@ -281,8 +281,10 @@ class EmailConfigurationService
         // Fallback to host partner if not enabled or not found
         if (!$config || empty($config->enable_custom_configuration)) {
             $host = Partner::where('is_host', 1)->first();
-            if ($host) $config = $this->getActiveConfig($host->id);
-            if (!$config) $config = $this->getActiveConfig(null);
+            if ($host)
+                $config = $this->getActiveConfig($host->id);
+            if (!$config)
+                $config = $this->getActiveConfig(null);
         }
 
         $brandingEntityId = $partnerId !== null ? $this->resolveEntityIdForMailer($partnerId) : $this->resolveEntityIdForBranding();
@@ -297,20 +299,20 @@ class EmailConfigurationService
             Config::set('mail.default', $driver);
 
             if ($driver === 'smtp') {
-                Config::set('mail.mailers.smtp.host',       $config->smtp_host ?? null);
-                Config::set('mail.mailers.smtp.port',       $config->smtp_port ?? null);
-                Config::set('mail.mailers.smtp.username',   $config->smtp_username ?? null);
-                Config::set('mail.mailers.smtp.password',   $config->smtp_password ?? null);
+                Config::set('mail.mailers.smtp.host', $config->smtp_host ?? null);
+                Config::set('mail.mailers.smtp.port', $config->smtp_port ?? null);
+                Config::set('mail.mailers.smtp.username', $config->smtp_username ?? null);
+                Config::set('mail.mailers.smtp.password', $config->smtp_password ?? null);
                 Config::set('mail.mailers.smtp.encryption', $config->smtp_encryption ?? null);
             } else {
-                Config::set('services.ses.key',    $config->aws_access_key ?? null);
+                Config::set('services.ses.key', $config->aws_access_key ?? null);
                 Config::set('services.ses.secret', $config->aws_secret_key ?? null);
                 Config::set('services.ses.region', $config->aws_region ?? null);
             }
 
             Config::set('mail.from.address', $config->from_address ?? null);
             // Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
-            Config::set('mail.bcc',           $config->bcc_emails ?? null);
+            Config::set('mail.bcc', $config->bcc_emails ?? null);
         }
 
         return function () use ($original) {

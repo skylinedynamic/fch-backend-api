@@ -4,16 +4,18 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Setting;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Partner\Partner;
 use Illuminate\Http\JsonResponse;
 use App\Services\FCH\Common\Setting\GeneralConfigurationsService;
 use App\Http\Requests\Api\V1\FCH\Common\Setting\UpdateGeneralConfigurationsRequest;
-use App\Http\Resources\FCH\Common\Setting\GeneralConfigurationResource;
+use App\Http\Resources\FCH\Common\Setting\BrandingConfigurationResource;
 
-class GeneralConfigurationsController extends Controller
+class BrandingConfigurationController extends Controller
 {
     public function __construct(
         protected GeneralConfigurationsService $service
-    ) {}
+    ) {
+    }
 
     /**
      * Get general branding configurations.
@@ -21,14 +23,17 @@ class GeneralConfigurationsController extends Controller
     public function show(): JsonResponse
     {
         try {
-            $entityType = request()->input('entity_type');
-            $entityId   = (int) request()->input('entity_id', 0) ?: null;
+            $entityType = Partner::class;
+            $entityId = auth()->user()->partner_id;
 
             $result = $this->service->show($entityType, $entityId, false);
 
-            return ApiResponse::success($result, 'General information fetched successfully.');
+            return ApiResponse::success(
+                new BrandingConfigurationResource($result),
+                __('site_settings.retrieved_success')
+            );
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to fetch general information.');
+            return ApiResponse::serverError(__('site_settings.retrieved_failed'));
         }
     }
 
@@ -39,13 +44,13 @@ class GeneralConfigurationsController extends Controller
     {
         try {
             $data = $request->validated();
-            $entityType = $request->input('entity_type');
-            $entityId = (int) $request->input('entity_id', 0) ?: null;
+            $entityType = Partner::class;
+            $entityId = auth()->user()->partner_id;
 
             $result = $this->service->update($data, $entityType, $entityId);
 
             return ApiResponse::success(
-                new GeneralConfigurationResource($result),
+                new BrandingConfigurationResource($result),
                 __('site_settings.updated_success')
             );
         } catch (\Exception $e) {

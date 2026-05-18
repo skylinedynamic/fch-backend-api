@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common;
 
 use App\Http\Controllers\Controller;
+use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
+use App\Models\Setting\EmailConfiguration;
+use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
@@ -14,7 +18,9 @@ use App\Services\FCH\Common\Setting\GeneralConfigurationsService;
 
 class CommonController extends Controller
 {
-    public function __construct(protected CommonService $commonService) {}
+    public function __construct(protected CommonService $commonService)
+    {
+    }
 
     /**
      * Get All Users
@@ -51,7 +57,7 @@ class CommonController extends Controller
         ];
 
         $user->load($relations);
-        
+
         return ApiResponse::success(
             new UserResource($user),
             __('common.user_data_refreshed')
@@ -88,29 +94,29 @@ class CommonController extends Controller
         if ($partnerId) {
             $configs = $emailService->getConfigurations($partnerId);
             $emailConfig = $configs->where('is_active', true)->first();
-            
+
             // Reset email flag
-            \App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)
+            EmailConfiguration::where('partner_id', $partnerId)
                 ->where('key', 'is_fresh_email')
                 ->update(['value' => '0']);
         }
 
         // Fetch Branding
-        $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
-        $entityId   = $user->entity_id ?? $partnerId;
+        $entityType = $user->entity_type ?? Partner::class;
+        $entityId = $partnerId;
 
         // If it's a borrower, we usually want to show the partner's branding (especially for WL)
-        if ($user->user_type === \App\Models\User\User::BORROWER && $partnerId) {
+        if ($user->user_type == User::BORROWER && $partnerId) {
             $partner = $user->partner;
-            if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
-                $entityType = \App\Models\Partner\Partner::class;
+            if ($partner && $partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $entityType = Partner::class;
                 $entityId = $partnerId;
             }
         }
-        
+
         $branding = [];
         if ($entityId) {
-            $branding = $generalService->show($entityType, $entityId);
+            $branding = $generalService->show();
         }
 
         // Reset user settings refresh flag
@@ -118,8 +124,8 @@ class CommonController extends Controller
         $user->save();
 
         // Configuration Status Flags for Frontend Guard
-        $isEmailFresh = $partnerId ? (\App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
-        $isBrandingFresh = $partnerId ? (\App\Models\Common\AppConfiguration::where('entity_id', $partnerId)->where('entity_type', \App\Models\Partner\Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        $isEmailFresh = $partnerId ? (EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
+        $isBrandingFresh = $partnerId ? (AppConfiguration::where('entity_id', $partnerId)->where('entity_type', Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
 
         return ApiResponse::success([
             'email_configuration' => $emailConfig,

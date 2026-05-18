@@ -14,7 +14,8 @@ class EmailConfigurationController extends Controller
 {
     public function __construct(
         protected EmailConfigurationService $service
-    ) {}
+    ) {
+    }
 
     /**
      * List all configurations for a partner.
@@ -23,7 +24,7 @@ class EmailConfigurationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $partnerId = $request->get('partner_id');
+        $partnerId = auth()->user()->partner_id;
 
         $configs = $this->service->getConfigurations($partnerId);
 
@@ -49,9 +50,9 @@ class EmailConfigurationController extends Controller
     /**
      * Toggle active status → cache flushed inside service.
      */
-    public function toggleStatus(int $id): JsonResponse
+    public function toggleStatus(Request $request): JsonResponse
     {
-        $config = $this->service->toggleStatus($id);
+        $config = $this->service->toggleStatus();
 
         return ApiResponse::success(
             new EmailConfigurationResource($config),

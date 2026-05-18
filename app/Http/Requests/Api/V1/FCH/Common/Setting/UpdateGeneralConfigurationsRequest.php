@@ -14,8 +14,6 @@ class UpdateGeneralConfigurationsRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'entity_type' => ['nullable', 'string', 'max:255'],
-            'entity_id' => ['nullable', 'integer'],
             'site_name' => ['required', 'string', 'max:255'],
             'site_slogan' => ['nullable', 'string', 'max:255'],
             'copyright_text' => ['nullable', 'string', 'max:500'],
@@ -37,27 +35,27 @@ class UpdateGeneralConfigurationsRequest extends BaseApiRequest
     public function messages(): array
     {
         $imageMsg = __('app_config.image_validation_error');
-        $favMsg   = __('app_config.favicon_validation_error');
+        $favMsg = __('app_config.favicon_validation_error');
 
         return [
-            'header_logo.image'      => $imageMsg,
-            'header_logo.mimes'      => $imageMsg,
-            'header_logo.max'        => __('app_config.header_logo_max'),
-            'footer_logo.image'      => $imageMsg,
-            'footer_logo.mimes'      => $imageMsg,
-            'footer_logo.max'        => __('app_config.footer_logo_max'),
-            'primary_logo.image'     => $imageMsg,
-            'primary_logo.mimes'     => $imageMsg,
-            'primary_logo.max'       => __('app_config.primary_logo_max'),
-            'secondary_logo.image'   => $imageMsg,
-            'secondary_logo.mimes'   => $imageMsg,
-            'secondary_logo.max'     => __('app_config.secondary_logo_max'),
-            'favicon.image'          => $favMsg,
-            'favicon.mimes'          => $favMsg,
-            'favicon.max'            => __('app_config.favicon_max'),
-            'website_favicon.image'  => $favMsg,
-            'website_favicon.mimes'  => $favMsg,
-            'website_favicon.max'    => __('app_config.website_favicon_max'),
+            'header_logo.image' => $imageMsg,
+            'header_logo.mimes' => $imageMsg,
+            'header_logo.max' => __('app_config.header_logo_max'),
+            'footer_logo.image' => $imageMsg,
+            'footer_logo.mimes' => $imageMsg,
+            'footer_logo.max' => __('app_config.footer_logo_max'),
+            'primary_logo.image' => $imageMsg,
+            'primary_logo.mimes' => $imageMsg,
+            'primary_logo.max' => __('app_config.primary_logo_max'),
+            'secondary_logo.image' => $imageMsg,
+            'secondary_logo.mimes' => $imageMsg,
+            'secondary_logo.max' => __('app_config.secondary_logo_max'),
+            'favicon.image' => $favMsg,
+            'favicon.mimes' => $favMsg,
+            'favicon.max' => __('app_config.favicon_max'),
+            'website_favicon.image' => $favMsg,
+            'website_favicon.mimes' => $favMsg,
+            'website_favicon.max' => __('app_config.website_favicon_max'),
         ];
     }
 }
