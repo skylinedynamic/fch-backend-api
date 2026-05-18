@@ -47,17 +47,17 @@ class AccountCreateNotificationMail extends Mailable
 
         $loginUrl = match ($user->user_type) {
             \App\Models\User\User::ADMIN,
-            \App\Models\User\User::PARTNER  => config('app.frontend_partner_url') . '/login',
+            \App\Models\User\User::PARTNER => config('app.frontend_partner_url') . '/login',
             \App\Models\User\User::BORROWER => config('app.frontend_borrower_url') . '/login',
-            default                         => config('app.url') . '/login',
+            default => config('app.frontend_partner_url') . '/login',
         };
 
         return new Content(
             view: 'emails.account_created',
             with: array_merge([
-                'user'          => $user,
+                'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
-                'loginUrl'      => $loginUrl,
+                'loginUrl' => $loginUrl,
             ], $this->getBrandingData()),
         );
     }
