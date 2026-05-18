@@ -23,31 +23,52 @@ class EmailConfigurationService
         Cache::forget($this->cacheKey($partnerId));
     }
 
-    public function getConfigurations(int|string|null $partnerId): Collection
+    /**
+     * Get configurations and map them to a flat object.
+     * Returns a collection containing one flat object (to keep compatibility with controller).
+     */
+    public function getConfigurations(int|string|null $partnerId): \Illuminate\Support\Collection
     {
         return Cache::remember(
             $this->cacheKey($partnerId),
             $this->cacheTtl,
-            fn () => EmailConfiguration::where('partner_id', $partnerId)->get()
+            function () use ($partnerId) {
+                $configs = EmailConfiguration::where('partner_id', $partnerId)->get();
+                if ($configs->isEmpty()) {
+                    return collect();
+                }
+
+                $flat = new \stdClass();
+                $flat->partner_id = $partnerId;
+                
+                foreach ($configs as $config) {
+                    $flat->{$config->key} = $config->value;
+                }
+
+                // Add standard properties to prevent undefined property errors
+                $flat->id = $partnerId ?: 0; // Fake ID for the frontend if needed
+                
+                return collect([$flat]);
+            }
         );
     }
 
-    public function getActiveConfig(int|string|null $partnerId): ?EmailConfiguration
+    public function getActiveConfig(int|string|null $partnerId): ?\stdClass
     {
-        return $this->getConfigurations($partnerId)
-            ->where('is_active', true)
-            ->first();
+        $configs = $this->getConfigurations($partnerId);
+        $config = $configs->first();
+        
+        if ($config && isset($config->is_active) && filter_var($config->is_active, FILTER_VALIDATE_BOOLEAN)) {
+            return $config;
+        }
+        
+        return null;
     }
 
-    public function storeOrUpdate(array $data): EmailConfiguration
+    public function storeOrUpdate(array $data): \stdClass
     {
         $partnerId = $data['partner_id'] ?? null;
         $isActive  = filter_var($data['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        if ($isActive) {
-            EmailConfiguration::where('partner_id', $partnerId)
-                ->update(['is_active' => false]);
-        }
 
         if (isset($data['smtp_password']) && $data['smtp_password'] === '••••••••') {
             unset($data['smtp_password']);
@@ -56,54 +77,75 @@ class EmailConfigurationService
             unset($data['aws_secret_key']);
         }
 
-        if (isset($data['id'])) {
-            $config = EmailConfiguration::findOrFail($data['id']);
-            $data['is_fresh_email'] = true;
-            $config->update($data);
-        } else {
-            $data['is_fresh_email'] = true;
-            $config = EmailConfiguration::updateOrCreate(
-                ['partner_id' => $partnerId],
-                $data
+        // Always set is_fresh_email to true upon save
+        $data['is_fresh_email'] = true;
+        
+        // Remove 'id' if it's there, as we don't store it in the key-value table directly
+        unset($data['id']);
+        unset($data['partner_id']);
+
+        // Update each key-value pair
+        foreach ($data as $key => $value) {
+            EmailConfiguration::updateOrCreate(
+                [
+                    'partner_id' => $partnerId,
+                    'key' => $key
+                ],
+                [
+                    'value' => $value
+                ]
             );
         }
 
-        $this->flushCache($config->partner_id);
+        $this->flushCache($partnerId);
         
-        if ($config->partner_id) {
-            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        if ($partnerId) {
+            \App\Models\User\User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
         }
 
-        if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
+        if ($partnerId === null || $this->isHostPartner($partnerId)) {
             self::$systemDefaults = null;
         }
 
-        return $config->fresh();
+        return $this->getConfigurations($partnerId)->first();
     }
 
-    public function toggleStatus(int $id): EmailConfiguration
+    public function toggleStatus(int $id): \stdClass
     {
-        $config    = EmailConfiguration::findOrFail($id);
-        $newStatus = ! $config->is_active;
-
-        if ($newStatus) {
-            EmailConfiguration::where('partner_id', $config->partner_id)
-                ->where('id', '!=', $id)
-                ->update(['is_active' => false]);
+        // $id is meaningless now, but we can assume it represents partner_id if it's a fake ID, 
+        // however the controller calls this with the fake ID.
+        // It's better to fetch by partner_id. But since frontend passes the fake ID (which is partner_id), let's use it as partner_id.
+        $partnerId = $id === 0 ? null : $id;
+        
+        $configObj = $this->getConfigurations($partnerId)->first();
+        if (!$configObj) {
+            abort(404, 'Configuration not found');
         }
 
-        $config->update(['is_active' => $newStatus, 'is_fresh_email' => true]);
-        $this->flushCache($config->partner_id);
+        $currentStatus = isset($configObj->is_active) ? filter_var($configObj->is_active, FILTER_VALIDATE_BOOLEAN) : false;
+        $newStatus = !$currentStatus;
 
-        if ($config->partner_id) {
-            \App\Models\User\User::where('partner_id', $config->partner_id)->update(['is_refresh' => true]);
+        EmailConfiguration::updateOrCreate(
+            ['partner_id' => $partnerId, 'key' => 'is_active'],
+            ['value' => $newStatus]
+        );
+        
+        EmailConfiguration::updateOrCreate(
+            ['partner_id' => $partnerId, 'key' => 'is_fresh_email'],
+            ['value' => true]
+        );
+
+        $this->flushCache($partnerId);
+
+        if ($partnerId) {
+            \App\Models\User\User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
         }
 
-        if ($config->partner_id === null || $this->isHostPartner($config->partner_id)) {
+        if ($partnerId === null || $this->isHostPartner($partnerId)) {
             self::$systemDefaults = null;
         }
 
-        return $config->fresh();
+        return $this->getConfigurations($partnerId)->first();
     }
 
     private function isHostPartner(int|string|null $partnerId): bool
@@ -164,7 +206,7 @@ class EmailConfigurationService
             ->toArray();
     }
 
-    private function buildBrandingConfig(int|string $entityId, ?EmailConfiguration $config): array
+    private function buildBrandingConfig(int|string $entityId, ?\stdClass $config): array
     {
         $appConfigs = $this->getAppConfigs($entityId);
         
@@ -177,7 +219,7 @@ class EmailConfigurationService
 
         $fallbackLogo = asset('logo-mail.png');
         
-        $siteName = $config?->site_name ?: ($appConfigs['site_name']['value'] ?? config('app.name'));
+        $siteName = $config->site_name ?? ($appConfigs['site_name']['value'] ?? config('app.name'));
 
         return [
             'app.name'             => $siteName,
@@ -204,18 +246,18 @@ class EmailConfigurationService
         $branding         = $this->buildBrandingConfig($brandingEntityId, $system);
 
         self::$systemDefaults = array_merge([
-            'mail.default'                 => $system?->email_provider === 'aws_ses' ? 'ses' : 'smtp',
-            'mail.mailers.smtp.host'       => $system?->smtp_host,
-            'mail.mailers.smtp.port'       => $system?->smtp_port,
-            'mail.mailers.smtp.username'   => $system?->smtp_username,
-            'mail.mailers.smtp.password'   => $system?->smtp_password,
-            'mail.mailers.smtp.encryption' => $system?->smtp_encryption,
-            'mail.from.address'            => $system?->from_address,
-            // 'mail.from.name'               => $system?->from_name,
-            'services.ses.key'             => $system?->aws_access_key,
-            'services.ses.secret'          => $system?->aws_secret_key,
-            'services.ses.region'          => $system?->aws_region,
-            'mail.bcc'                     => $system?->bcc_emails,
+            'mail.default'                 => ($system->email_provider ?? null) === 'aws_ses' ? 'ses' : 'smtp',
+            'mail.mailers.smtp.host'       => $system->smtp_host ?? null,
+            'mail.mailers.smtp.port'       => $system->smtp_port ?? null,
+            'mail.mailers.smtp.username'   => $system->smtp_username ?? null,
+            'mail.mailers.smtp.password'   => $system->smtp_password ?? null,
+            'mail.mailers.smtp.encryption' => $system->smtp_encryption ?? null,
+            'mail.from.address'            => $system->from_address ?? null,
+            // 'mail.from.name'               => $system->from_name ?? null,
+            'services.ses.key'             => $system->aws_access_key ?? null,
+            'services.ses.secret'          => $system->aws_secret_key ?? null,
+            'services.ses.region'          => $system->aws_region ?? null,
+            'mail.bcc'                     => $system->bcc_emails ?? null,
         ], $branding);
     }
 
@@ -237,7 +279,7 @@ class EmailConfigurationService
         $config = $resolvedMailerId ? $this->getActiveConfig($resolvedMailerId) : null;
 
         // Fallback to host partner if not enabled or not found
-        if (!$config || !$config->enable_custom_configuration) {
+        if (!$config || empty($config->enable_custom_configuration)) {
             $host = Partner::where('is_host', 1)->first();
             if ($host) $config = $this->getActiveConfig($host->id);
             if (!$config) $config = $this->getActiveConfig(null);
@@ -250,25 +292,25 @@ class EmailConfigurationService
             Config::set($key, $value);
         }
 
-        if ($config && $config->enable_custom_configuration) {
-            $driver = $config->email_provider === 'aws_ses' ? 'ses' : 'smtp';
+        if ($config && !empty($config->enable_custom_configuration)) {
+            $driver = ($config->email_provider ?? 'smtp') === 'aws_ses' ? 'ses' : 'smtp';
             Config::set('mail.default', $driver);
 
             if ($driver === 'smtp') {
-                Config::set('mail.mailers.smtp.host',       $config->smtp_host);
-                Config::set('mail.mailers.smtp.port',       $config->smtp_port);
-                Config::set('mail.mailers.smtp.username',   $config->smtp_username);
-                Config::set('mail.mailers.smtp.password',   $config->smtp_password);
-                Config::set('mail.mailers.smtp.encryption', $config->smtp_encryption);
+                Config::set('mail.mailers.smtp.host',       $config->smtp_host ?? null);
+                Config::set('mail.mailers.smtp.port',       $config->smtp_port ?? null);
+                Config::set('mail.mailers.smtp.username',   $config->smtp_username ?? null);
+                Config::set('mail.mailers.smtp.password',   $config->smtp_password ?? null);
+                Config::set('mail.mailers.smtp.encryption', $config->smtp_encryption ?? null);
             } else {
-                Config::set('services.ses.key',    $config->aws_access_key);
-                Config::set('services.ses.secret', $config->aws_secret_key);
-                Config::set('services.ses.region', $config->aws_region);
+                Config::set('services.ses.key',    $config->aws_access_key ?? null);
+                Config::set('services.ses.secret', $config->aws_secret_key ?? null);
+                Config::set('services.ses.region', $config->aws_region ?? null);
             }
 
-            Config::set('mail.from.address', $config->from_address);
+            Config::set('mail.from.address', $config->from_address ?? null);
             // Config::set('mail.from.name',    $config->from_name ?: $branding['app.name']);
-            Config::set('mail.bcc',           $config->bcc_emails);
+            Config::set('mail.bcc',           $config->bcc_emails ?? null);
         }
 
         return function () use ($original) {

@@ -28,7 +28,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\SettingController;
+use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
@@ -226,8 +226,8 @@ Route::prefix('v1')->group(function () {
             Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
 
-            Route::post('settings', [SettingController::class, 'store']);
-            Route::get('settings', [SettingController::class, 'show']);
+            Route::post('payment-methods', [PaymentMethodController::class, 'store']);
+            Route::get('payment-methods', [PaymentMethodController::class, 'show']);
 
             // Partner Tenant Config (for authenticated WL partners)
             Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);

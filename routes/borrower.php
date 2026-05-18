@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
-use App\Http\Controllers\Api\V1\Borrower\Setting\SettingController;
+use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
@@ -154,7 +154,7 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::get('/user-details', BorrowerUserDetailController::class);
 
-            Route::get('/settings', [SettingController::class, 'show']);
+            Route::get('/payment-methods', [PaymentMethodController::class, 'show']);
 
             Route::post('/process-payment', [GlobalPaymentController::class, 'processPayment']);
 

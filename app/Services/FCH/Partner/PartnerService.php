@@ -278,7 +278,8 @@ class PartnerService
                     ],
                 ];
 
-                $this->sendPaymentLinkEmail($mailData, $partner->id);
+                $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
+                $this->sendPaymentLinkEmail($mailData, $senderPartnerId);
             }
 
             DB::commit();
@@ -412,7 +413,9 @@ class PartnerService
                     ];
 
                     Log::info('Sending account update email to partner with new password', ['email' => $updatedUser->email]);
-                    $this->sendAccountUpdateEmail($mailData, $partner->id);
+                    $authUser = Auth::user();
+                    $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
+                    $this->sendAccountUpdateEmail($mailData, $senderPartnerId);
                 }
             }
 

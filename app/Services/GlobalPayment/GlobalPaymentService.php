@@ -8,7 +8,8 @@ use Stripe\PaymentIntent;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
-use App\Models\Setting\Setting;
+use App\Models\Setting\PaymentMethod;
+use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 
 use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,8 @@ class GlobalPaymentService
         protected SubscriptionService $subscriptionService,
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
+        protected EmailConfigurationService $emailConfigService,
+        protected PaymentMethodService $paymentMethodService
     ) {}
 
     /**
@@ -40,7 +42,14 @@ class GlobalPaymentService
      */
     public function processPayment(array $data)
     {
-        $setting = Setting::where('status', true)->first();
+        if(in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
+            $partnerId = Partner::where('is_host', true)->first()->id;    
+        }else{
+            $partnerId = Auth::user()->partner_id;    
+        }
+
+    
+        $setting = $this->paymentMethodService->getSettings($partnerId);
 
         if (!$setting) {
             throw new \Exception('Payment settings not found or inactive.');
@@ -120,7 +129,7 @@ class GlobalPaymentService
                 }
 
                 $payment = Payment::create([
-                    'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
+                    'partner_id' => Auth::user()?->partner_id,
                     'borrower_id' => $borrowerId,
                     'invoice_id' => $invoice ? $data['invoice_id'] : null,
                     'entity_type' => $invoice->entity_type,
@@ -247,7 +256,7 @@ class GlobalPaymentService
                     'input_data' => $data
                 ],
                 'status' => 'failed',
-                'is_environment' => (Setting::where('status', true)->first()?->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
+                'is_environment' => ($this->paymentMethodService->getSettings($data['partner_id'] ?? null)?->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
                 'transaction_date' => now(),
                 'created_by' => Auth::id(),
             ]);
@@ -304,7 +313,7 @@ class GlobalPaymentService
      */
     public function processPaymentForUsers(array $data)
     {
-        $setting = Setting::where('status', true)->first();
+        $setting = $this->paymentMethodService->getSettings($data['partner_id'] ?? null);
 
         if (!$setting) {
             throw new \Exception('Payment settings not found or inactive.');

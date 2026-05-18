@@ -11,18 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('settings', function (Blueprint $table) {
+        Schema::create('payment_methods', function (Blueprint $table) {
             $table->id();
-            $table->string('payment_mode')->default('sandbox'); // sandbox | production
-            $table->string('payment_method')->default('stripe'); // credit_card | bank_transfer | crypto
-            $table->string('stripe_key_sandbox')->nullable();
-            $table->string('stripe_secret_sandbox')->nullable();
-            $table->string('stripe_key_production')->nullable();
-            $table->string('stripe_secret_production')->nullable();
-            $table->boolean('status')->default(true);
-            $table->json('configuration')->nullable();
-            $table->softDeletes();
+            $table->foreignId('partner_id')->nullable()->constrained('partners')->cascadeOnDelete();
+            $table->string('key');
+            $table->text('value')->nullable();
             $table->timestamps();
+
+            // Create a composite unique key
+            $table->unique(['partner_id', 'key']);
         });
     }
 
@@ -31,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('settings');
+        Schema::dropIfExists('payment_methods');
     }
 };

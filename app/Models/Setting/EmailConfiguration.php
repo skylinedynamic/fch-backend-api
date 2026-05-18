@@ -13,62 +13,35 @@ class EmailConfiguration extends Model
 
     protected $fillable = [
         'partner_id',
-        'enable_custom_configuration',
-        'site_name',
-        'email_provider',
-        'smtp_driver',
-        'smtp_host',
-        'smtp_port',
-        'smtp_encryption',
-        'smtp_username',
-        'smtp_password',
-        'aws_access_key',
-        'aws_secret_key',
-        'aws_region',
-        'from_address',
-        // 'from_name',
-        'bcc_emails',
-        'is_active',
-        'is_fresh_email',
-    ];
-
-    protected $casts = [
-        'enable_custom_configuration' => 'boolean',
-        'is_active'                   => 'boolean',
-        'is_fresh_email'              => 'boolean',
+        'key',
+        'value',
     ];
 
     /**
      * Accurately handle encryption with fallback for legacy plain text data
      */
-    public function getSmtpPasswordAttribute($value)
+    public function getValueAttribute($value)
     {
         if (!$value) return $value;
-        try {
-            return Crypt::decryptString($value);
-        } catch (DecryptException $e) {
-            return $value; // Return plain text if decryption fails (legacy data)
+
+        if (in_array($this->key, ['smtp_password', 'aws_secret_key'])) {
+            try {
+                return Crypt::decryptString($value);
+            } catch (DecryptException $e) {
+                return $value; // Return plain text if decryption fails (legacy data)
+            }
         }
+
+        return $value;
     }
 
-    public function setSmtpPasswordAttribute($value)
+    public function setValueAttribute($value)
     {
-        $this->attributes['smtp_password'] = $value ? Crypt::encryptString($value) : null;
-    }
-
-    public function getAwsSecretKeyAttribute($value)
-    {
-        if (!$value) return $value;
-        try {
-            return Crypt::decryptString($value);
-        } catch (DecryptException $e) {
-            return $value;
+        if (in_array($this->key, ['smtp_password', 'aws_secret_key']) && $value) {
+            $this->attributes['value'] = Crypt::encryptString($value);
+        } else {
+            $this->attributes['value'] = $value;
         }
-    }
-
-    public function setAwsSecretKeyAttribute($value)
-    {
-        $this->attributes['aws_secret_key'] = $value ? Crypt::encryptString($value) : null;
     }
 
     public function partner()
