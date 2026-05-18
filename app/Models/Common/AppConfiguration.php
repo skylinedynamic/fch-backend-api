@@ -9,9 +9,14 @@ class AppConfiguration extends Model
 {
     use HasFactory;
 
+    public const MODULE_AGREEMENT = 'agreement';
+    public const MODULE_BRANDING = 'branding';
+    public const MODULE_MICROBILT = 'microbilt';
+    public const MODULE_WEBSITE = 'website';
+
     protected $fillable = [
-        'entity_type',
-        'entity_id',
+        'partner_id',
+        'module',
         'key',
         'value'
     ];
@@ -19,13 +24,13 @@ class AppConfiguration extends Model
     /**
      * Set a configuration value
      */
-    public static function set(string $key, $value, ?string $entityType = null, ?int $entityId = null)
+    public static function set(string $key, $value, ?string $module = null, ?int $partnerId = null)
     {
         return self::updateOrCreate(
             [
                 'key' => $key,
-                'entity_type' => $entityType,
-                'entity_id' => $entityId,
+                'module' => $module,
+                'partner_id' => $partnerId,
             ],
             [
                 'value' => (string) $value
@@ -36,11 +41,11 @@ class AppConfiguration extends Model
     /**
      * Get a configuration value
      */
-    public static function get(string $key, $default = null, ?string $entityType = null, ?int $entityId = null)
+    public static function get(string $key, $default = null, ?string $module = null, ?int $partnerId = null)
     {
         $config = self::where('key', $key)
-            ->when($entityType, fn($q) => $q->where('entity_type', $entityType))
-            ->when($entityId, fn($q) => $q->where('entity_id', $entityId))
+            ->when($module, fn($q) => $q->where('module', $module))
+            ->when($partnerId, fn($q) => $q->where('partner_id', $partnerId))
             ->first();
 
         return $config ? $config->value : $default;

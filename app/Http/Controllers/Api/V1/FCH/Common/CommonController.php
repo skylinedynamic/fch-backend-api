@@ -15,6 +15,7 @@ use App\Http\Resources\Global\Auth\UserResource;
 use Illuminate\Support\Facades\Auth;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\FCH\Common\Setting\GeneralConfigurationsService;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 
 class CommonController extends Controller
 {
@@ -84,7 +85,7 @@ class CommonController extends Controller
     /**
      * Get merged global configurations (Email + Branding) and reset cache flags.
      */
-    public function globalConfigurations(EmailConfigurationService $emailService, GeneralConfigurationsService $generalService)
+    public function globalConfigurations(EmailConfigurationService $emailService, AppConfigurationService $configService)
     {
         $user = Auth::user();
         $partnerId = $user->partner_id;
@@ -116,7 +117,7 @@ class CommonController extends Controller
 
         $branding = [];
         if ($entityId) {
-            $branding = $generalService->show();
+            $branding = $configService->getBrandingSettings($entityId);
         }
 
         // Reset user settings refresh flag
@@ -125,7 +126,7 @@ class CommonController extends Controller
 
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partnerId ? (EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
-        $isBrandingFresh = $partnerId ? (AppConfiguration::where('entity_id', $partnerId)->where('entity_type', Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        $isBrandingFresh = $partnerId ? (AppConfiguration::where('partner_id', $partnerId)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
 
         return ApiResponse::success([
             'email_configuration' => $emailConfig,

@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\BrandingConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
@@ -28,6 +27,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
@@ -263,18 +263,18 @@ Route::prefix('v1')->group(function () {
                 Route::post('/save', [SiteSettingsController::class, 'saveSetting']);
             });
 
+            // Common App Configurations (Key-Value)
+            Route::prefix('app-configurations')->group(function () {
+                Route::post('/', [CommonAppConfigurationController::class, 'index']);
+                Route::post('/save', [CommonAppConfigurationController::class, 'store']);
+            });
+
             // 📧 Email Configurations
             Route::prefix('email-configurations')->group(function () {
                 Route::get('/', [EmailConfigurationController::class, 'index']);
                 Route::post('/', [EmailConfigurationController::class, 'store']);
                 Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
-
-            Route::prefix('branding-info')->group(function () {
-                Route::get('/', [BrandingConfigurationController::class, 'show']);
-                Route::post('/', [BrandingConfigurationController::class, 'update']);
-            });
-
 
             // Agreement templates
             Route::prefix('agreement-templates')->group(function () {
