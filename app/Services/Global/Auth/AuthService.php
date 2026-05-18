@@ -9,6 +9,7 @@ use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Models\User\User;
+use App\Services\Global\Common\PortalIsolationService;
 use App\Services\Global\TwoFaAuth\TwoFaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,6 +60,13 @@ class AuthService
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
+        }
+
+        // 0. Portal & Domain Isolation Check
+        $portalIsolationService = app(PortalIsolationService::class);
+        $domain = $portalIsolationService->resolveDomain($request);
+        if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
+            return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
         }
 
         if ($user->is_paid && $user->payment_status != User::PAYMENT_STATUS_PAID) {
@@ -158,7 +166,6 @@ class AuthService
     /**
      * Handle user logout by revoking the current access token
      *
-     * @param Request $request
      * @return JsonResponse
      */
     public function logout(): JsonResponse
