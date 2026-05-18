@@ -82,7 +82,6 @@ class DatabaseSeeder extends Seeder
             BorrowerTaskVerificationRequestSeeder::class,
             ContactSeeder::class,
             LeadSeeder::class,
-            SettingsSeeder::class,
             SignupIdSeeder::class,
             SubscriptionPlanSeeder::class,
             DemoSubscriberSeeder::class,
@@ -94,6 +93,7 @@ class DatabaseSeeder extends Seeder
             SeoSettingSeeder::class,
             CmsPermissionUpdateSeeder::class,
             UpdateSettingsPermissionSeeder::class,
+            PaymentMethodSeeder::class
         ]);
     }
 }
