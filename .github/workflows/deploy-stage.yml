@@ -112,7 +112,7 @@ jobs:
           if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 301 ] || [ "$HTTP_STATUS" -eq 302 ]; then
             echo "✅ Smoke test passed! API responded with HTTP $HTTP_STATUS."
           else
-            echo "❌ Smoke test failed! Expected 200/401 but got $HTTP_STATUS."
+            echo "❌ Smoke test failed! API ($API_URL) responded with HTTP $HTTP_STATUS."
             echo "--- Response Body ---"
             cat body.txt
             echo "--- End of Response Body ---"

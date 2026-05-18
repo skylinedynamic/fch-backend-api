@@ -13,13 +13,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureTenantAccess
 {
-    protected $portalIsolationService;
-
-    public function __construct(PortalIsolationService $portalIsolationService)
-    {
-        $this->portalIsolationService = $portalIsolationService;
-    }
-
     /**
      * Handle an incoming request.
      */
@@ -37,13 +30,14 @@ class EnsureTenantAccess
 
         $user = Auth::user();
         try {
-            $domain = $this->portalIsolationService->resolveDomain($request);
+            $portalIsolationService = app(PortalIsolationService::class);
+            $domain = $portalIsolationService->resolveDomain($request);
 
             // 3. Validate domain access for the authenticated user
-            if (!$this->portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
+            if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => $this->portalIsolationService->getUnauthorizedMessage($user, $domain),
+                    'message' => $portalIsolationService->getUnauthorizedMessage($user, $domain),
                 ], 403);
             }
         } catch (\Throwable $e) {
