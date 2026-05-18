@@ -23,12 +23,17 @@ class EnsureTenantAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Only enforce domain isolation in production
+        // 1. Only enforce domain isolation for API requests
+        if (!$request->is('api/*')) {
+            return $next($request);
+        }
+
+        // 2. Only enforce domain isolation in production
         if (!app()->isProduction()) {
             return $next($request);
         }
 
-        // 1. Only enforce domain isolation for authenticated users
+        // 3. Only enforce domain isolation for authenticated users
         if (!Auth::check()) {
             return $next($request);
         }
