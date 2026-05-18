@@ -19,12 +19,11 @@ use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class TaskVerificationService
 {
-    protected $activityLogService;
-
     public function __construct(
         protected ActivityLogService $activityLogService,
         protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
     /**
      * Update task status for a borrower.
      */
@@ -241,9 +240,12 @@ class TaskVerificationService
                     'task_results' => $filteredResults,
                 ]));
             } catch (\Exception $e) {
-                Log::error('TaskVerificationService: Mail failed', ['error' => $e->getMessage()]);
+                Log::error('TaskVerificationService: Global mail error', ['error' => $e->getMessage()]);
             } finally {
                 $restore();
             }
+        } catch (\Exception $e) {
+            Log::error('TaskVerificationService: sendVerificationStatusMail failed', ['error' => $e->getMessage()]);
+        }
     }
 }
