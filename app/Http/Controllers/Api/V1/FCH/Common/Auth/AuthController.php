@@ -93,7 +93,6 @@ class AuthController extends Controller
      */
     public function logout()
     {
-        $authService = new AuthService();
-        return $authService->logout();
+        return $this->authService->logout();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Partner\Partner;
+use App\Services\Global\Common\PortalIsolationService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,7 @@ class EnsureTenantAccess
 {
     protected $portalIsolationService;
 
-    public function __construct(\App\Services\Global\Common\PortalIsolationService $portalIsolationService)
+    public function __construct(PortalIsolationService $portalIsolationService)
     {
         $this->portalIsolationService = $portalIsolationService;
     }
@@ -23,12 +24,7 @@ class EnsureTenantAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Only enforce domain isolation for API requests
-        if (!$request->is('api/*')) {
-            return $next($request);
-        }
-
-        // 2. Only enforce domain isolation in production
+        // 1. Only enforce domain isolation in production
         if (!app()->isProduction()) {
             return $next($request);
         }
