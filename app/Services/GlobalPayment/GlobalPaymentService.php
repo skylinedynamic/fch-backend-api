@@ -2,30 +2,31 @@
 
 namespace App\Services\GlobalPayment;
 
-use Stripe\Stripe;
-use App\Models\User\User;
-use Stripe\PaymentIntent;
+use \App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Mail\Payment\PaymentSuccessMail;
+use App\Mail\Payment\PaymentSuccessUserMail;
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
-use App\Models\Setting\PaymentMethod;
-use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 
-use App\Models\Borrower\Borrower;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Models\Setting\PaymentMethod;
+use App\Models\User\User;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Subscription\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+
 use Illuminate\Support\Facades\Mail;
 use Stripe\Exception\ApiErrorException;
-use App\Mail\Payment\PaymentSuccessMail;
-use App\Mail\Payment\PaymentSuccessUserMail;
-use App\Services\FCH\Subscription\SubscriptionService;
-
-use App\Models\ActivityLog\ActivityLog;
-use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
+use Stripe\PaymentIntent;
+use Stripe\Stripe;
 
 class GlobalPaymentService
 {
@@ -42,13 +43,31 @@ class GlobalPaymentService
      */
     public function processPayment(array $data)
     {
-        if(in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
-            $partnerId = Partner::where('is_host', true)->first()->id;    
-        }else{
-            $partnerId = Auth::user()->partner_id;    
+        $partnerId = null;
+
+        // Try getting partner_id from invoice if provided
+        $invoice = null;
+        if (!empty($data['invoice_id'])) {
+            $invoice = Invoice::where('id', $data['invoice_id'])->first();
+            if ($invoice) {
+                $partnerId = $invoice->partner_id;
+            }
         }
 
-    
+        if (!$partnerId && Auth::check()) {
+            if(in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
+                $partnerId = Partner::where('is_host', true)->first()?->id;    
+            }else{
+                $partnerId = Auth::user()->partner_id;    
+            }
+        }
+
+        if (!$partnerId) {
+            $partnerId = Partner::where('is_host', true)->first()?->id;
+        }
+
+        // CONDITION 2: Borrower payment is processed using the Partner's Stripe credentials.
+        // This ensures the borrower's payment goes directly into their Partner's Stripe account.
         $setting = $this->paymentMethodService->getSettings($partnerId);
 
         if (!$setting) {
@@ -83,17 +102,17 @@ class GlobalPaymentService
             $entityType = $map[$key] ?? $map[$entityTypeInput] ?? null;
         }
 
-
         if (!$entityType) {
             if ($entityType == Borrower::class) {
                 $entityType = Borrower::class;
                 $entityId = $data['borrower_id'];
             } elseif ($entityType == Partner::class) {
                 $entityType = Partner::class;
-                $entityId = Auth::user()->entity_id;
+                $entityId = Auth::user() ? Auth::user()->entity_id : null;
                 Log::info('Entity: ' . $entityId);
             }
         }
+
         DB::beginTransaction();
         try {
             $paymentIntent = PaymentIntent::create([
@@ -115,8 +134,8 @@ class GlobalPaymentService
                 ],
             ]);
 
-            $invoice = null;
-            if (!empty($data['invoice_id'])) {
+            // Re-fetch invoice inside transaction if not already loaded
+            if (!$invoice && !empty($data['invoice_id'])) {
                 $invoice = Invoice::where('id', $data['invoice_id'])->first();
             }
 
@@ -124,19 +143,19 @@ class GlobalPaymentService
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
 
                 $borrowerId = null;
-                if ($invoice->entity_type == Borrower::class) {
+                if ($invoice && $invoice->entity_type == Borrower::class) {
                     $borrowerId = $invoice->entity_id;
                 }
 
                 $payment = Payment::create([
-                    'partner_id' => Auth::user()?->partner_id,
+                    'partner_id' => $invoice ? $invoice->partner_id : (Auth::user()?->partner_id ?? $partnerId),
                     'borrower_id' => $borrowerId,
                     'invoice_id' => $invoice ? $data['invoice_id'] : null,
-                    'entity_type' => $invoice->entity_type,
-                    'entity_id' => $invoice->entity_id,
+                    'entity_type' => $invoice ? $invoice->entity_type : null,
+                    'entity_id' => $invoice ? $invoice->entity_id : null,
                     'transaction_id' => $paymentIntent->id,
-                    'payment_from' => 'Stripe',
-                    'payment_type' => 'Card',
+                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                    'payment_type' => Payment::PAYMENT_TYPE_CARD,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
                     'is_partner_paying' => $data['is_partner_paying'] ?? false,
@@ -159,13 +178,18 @@ class GlobalPaymentService
                         $this->handlePartnerPayment($invoice);
                     } else if ($invoice->entity_type === Borrower::class) {
                         $this->handleBorrowerPayment($invoice);
+
+                        // Only charge the platform fee if the partner is strictly a White-Label Partner
+                        if (Auth::user()->partner_id && Auth::user()->partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, Auth::user()->partner);
+                        }
                     }
                 }
 
                 // Log Activity Event
                 $this->activityLogService->logModelEvent(
                     $payment,
-                    ($invoice->entity_type === Partner::class) ? ActivityLog::LOG_TYPE_PARTNER_PAYMENT : ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
+                    ($invoice && $invoice->entity_type === Partner::class) ? ActivityLog::LOG_TYPE_PARTNER_PAYMENT : ActivityLog::LOG_TYPE_BORROWER_PAYMENT,
                     [
                         'transaction_id' => $payment->transaction_id,
                         'amount' => $payment->amount,
@@ -174,7 +198,7 @@ class GlobalPaymentService
                 );
 
                 $borrower = null;
-                if ($invoice->entity_type === Borrower::class && $invoice->entity_id) {
+                if ($invoice && $invoice->entity_type === Borrower::class && $invoice->entity_id) {
                     $borrower = Borrower::find($invoice->entity_id);
                 } elseif (!empty($data['borrower_id'])) {
                     $borrower = Borrower::find($data['borrower_id']);
@@ -197,13 +221,13 @@ class GlobalPaymentService
                         'user_name'      => $userName,
                         'user_email'     => $userEmail,
                     ];
-                    $partnerId = $invoice->partner_id ?? ($data['partner_id'] ?? null);
-                    $restore = $this->emailConfigService->applyToMailer($partnerId);
+                    $partnerIdForMail = $invoice ? $invoice->partner_id : ($data['partner_id'] ?? null);
+                    $restore = $this->emailConfigService->applyToMailer($partnerIdForMail);
                     try {
-                        if ($invoice->is_partner_paying) {
-                            Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerId));
+                        if ($invoice && $invoice->is_partner_paying) {
+                            Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
                         } else {
-                            Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData, $partnerId));
+                            Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
                         }
                     } catch (\Exception $e) {
                         Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
@@ -246,8 +270,8 @@ class GlobalPaymentService
                 'entity_type' => $data['entity_type'] ?? null,
                 'entity_id' => $data['entity_id'] ?? null,
                 'transaction_id' => 'FAILED_' . uniqid(),
-                'payment_from' => 'Stripe',
-                'payment_type' => 'Card',
+                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                'payment_type' => Payment::PAYMENT_TYPE_CARD,
                 'amount' => ($data['amount'] ?? 0) / 100,
                 'currency' => $data['currency'] ?? 'usd',
                 'details' => [
@@ -306,8 +330,240 @@ class GlobalPaymentService
     }
 
     /**
-     * Create and process a Stripe payment for users.
+     * Automatically charge the White-Label Partner's enrollment fee.
      */
+    protected function chargeWhiteLabelPartnerPlatformFee(Invoice $invoice, Partner $partner): void
+    {
+        // CONDITION 1: Check if the borrower belongs to a White-Label Partner.
+        // If so, look for their unpaid partner invoice (with borrower_id as null).
+        // If found, automatically charge the Partner's card.
+        try {
+            $partnerInvoice = Invoice::where('partner_id', auth()->user()->partner_id)
+                ->whereNull('borrower_id')
+                ->where('status', Invoice::STATUS_UNPAID)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($partnerInvoice) {
+                Log::info('Triggering automatic partner charge of ' . $partnerInvoice->payment_amount . ' to host for partner ' . $partner->id . ' upon borrower payment');
+                $success = $this->chargePartnerCardAutomatically($partner, $partnerInvoice, $partnerInvoice->payment_amount);
+
+                if ($success) {
+                    Log::info('Successfully automatically charged partner ' . $partner->id . ' fee of ' . $partnerInvoice->payment_amount);
+                } else {
+                    Log::warning('Automatic partner charge of ' . $partnerInvoice->payment_amount . ' failed or could not find saved Stripe details.');
+                }
+            } else {
+                Log::info('No unpaid partner invoice found for partner ' . $partner->id);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to automatically charge partner fee: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Charge partner card automatically for WL Partner client.
+     */
+    protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount): bool
+    {
+        Log::info('[AutoCharge] Starting', [
+            'partner_id' => $partner->id,
+            'invoice_id' => $invoice->id,
+            'amount'     => $amount,
+        ]);
+
+        $failedData = [
+            'partner_id'  => $partner->id,
+            'invoice_id'  => $invoice->id,
+            'entity_type' => Partner::class,
+            'entity_id'   => $partner->id,
+            'amount'      => $amount * 100, // recordFailedPayment divides by 100
+            'currency'    => 'usd',
+        ];
+
+        try {
+            // ── Step 1: Find a successful payment from this partner to get their customer and payment method
+            $partnerPayment = Payment::where('entity_type', Partner::class)
+                ->where('entity_id', $partner->id)
+                ->where('status', 'succeeded')
+                ->where('payment_from', 'Stripe')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if (!$partnerPayment || empty($partnerPayment->details['customer']) || empty($partnerPayment->details['payment_method'])) {
+                Log::warning('[AutoCharge] Could not find saved Stripe payment method for partner ' . $partner->id);
+                $this->recordFailedPayment($failedData, 'Could not find saved Stripe payment method for partner', 'AutoCharge Missing Card');
+                return false;
+            }
+
+            $customerId = $partnerPayment->details['customer'];
+            $paymentMethodId = $partnerPayment->details['payment_method'];
+
+            Log::info('[AutoCharge] Partner payment located', [
+                'payment_id'     => $partnerPayment->id,
+                'customer_id'    => $customerId,
+                'payment_method' => $paymentMethodId,
+            ]);
+
+            // ── Step 2: Fetch the Host's Stripe credentials (because partner's card is on the Host's Stripe account)
+            $host = Partner::where('is_host', true)->first();
+            if (!$host) {
+                Log::error('[AutoCharge] Host partner not found for automatic billing.');
+                $this->recordFailedPayment($failedData, 'Host partner not found for automatic billing.', 'AutoCharge Config Error');
+                return false;
+            }
+
+            $setting = $this->paymentMethodService->getSettings($host->id);
+            if (!$setting) {
+                Log::error('[AutoCharge] Host payment settings not found.');
+                $this->recordFailedPayment($failedData, 'Host payment settings not found.', 'AutoCharge Config Error');
+                return false;
+            }
+
+            $secretKey = ($setting->payment_mode === 'production')
+                ? $setting->stripe_secret_production
+                : $setting->stripe_secret_sandbox;
+
+            if (!$secretKey) {
+                Log::error('[AutoCharge] Host Stripe secret key not configured.');
+                $this->recordFailedPayment($failedData, 'Host Stripe secret key not configured.', 'AutoCharge Config Error');
+                return false;
+            }
+
+            Stripe::setApiKey($secretKey);
+
+            Log::info('[AutoCharge] Host Stripe key set for charging partner', [
+                'host_id' => $host->id,
+                'mode'    => $setting->payment_mode,
+            ]);
+
+            // ── Step 3: Create off-session PaymentIntent on the Host's Stripe account
+            $paymentIntent = PaymentIntent::create([
+                'amount'         => (int) round($amount * 100), // e.g. 800.00 → 80000 cents
+                'currency'       => 'usd',
+                'customer'       => $customerId,
+                'payment_method' => $paymentMethodId,
+                'off_session'    => true,
+                'confirm'        => true,
+                'description'    => 'White-Label platform enrollment fee — partner ' . $partner->id,
+                'metadata'       => [
+                    'partner_id'  => $partner->id,
+                    'invoice_id'  => $invoice->id,
+                    'auto_charge' => 'true',
+                ],
+                'automatic_payment_methods' => [
+                    'enabled'         => true,
+                    'allow_redirects' => 'never',
+                ],
+            ]);
+
+            Log::info('[AutoCharge] PaymentIntent created', [
+                'pi_id'  => $paymentIntent->id,
+                'status' => $paymentIntent->status,
+            ]);
+
+            if (!in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+                Log::error('[AutoCharge] PaymentIntent did not succeed', [
+                    'pi_id'  => $paymentIntent->id,
+                    'status' => $paymentIntent->status,
+                ]);
+                $this->recordFailedPayment($failedData, 'PaymentIntent failed with status: ' . $paymentIntent->status, 'Stripe Payment Failed');
+                return false;
+            }
+
+            // ── Step 5: Mark the partner invoice as paid
+            $invoice->update([
+                'status'       => Invoice::STATUS_PAID,
+                'payment_date' => now(),
+            ]);
+
+            Log::info('[AutoCharge] Partner invoice marked paid', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+            $payment = Payment::create([
+                'partner_id'        => $partner->id,
+                'borrower_id'       => null,           // partner is paying, not a borrower
+                'invoice_id'        => $invoice->id,
+                'entity_type'       => Partner::class, // partner entity is being charged
+                'entity_id'         => (string) $partner->id,
+                'transaction_id'    => $paymentIntent->id,
+                'payment_from'      => Payment::PAYMENT_FROM_STRIPE,
+                'payment_type'      => Payment::PAYMENT_TYPE_CARD,
+                'amount'            => $amount,        // decimal(23,2) e.g. 800.00
+                'currency'          => Payment::CURRENCY_USD,
+                'currency_symbol'   => Payment::CURRENCY_SYMBOL_USD,
+                'conversion_rate'   => 1.00,
+                'is_partner_paying' => true,           // tinyint(1) — partner is the payer
+                'details'           => $paymentIntent->toArray(), // json column
+                'status'            => $paymentIntent->status,
+                'is_environment'    => ($setting->payment_mode === 'production')
+                    ? Payment::ENVIRONMENT_PRODUCTION  // 1
+                    : Payment::ENVIRONMENT_SANDBOX,    // 0
+                'transaction_date'  => now(),
+                'created_by'        => Auth::id() ?? $partner->users()->first()?->id,
+            ]);
+
+            // ── Step 7: Log activity
+            $this->activityLogService->logModelEvent(
+                $payment,
+                ActivityLog::LOG_TYPE_PARTNER_PAYMENT,
+                [
+                    'transaction_id' => $payment->transaction_id,
+                    'amount'         => $payment->amount,
+                    'currency'       => $payment->currency,
+                ]
+            );
+
+            Log::info('[AutoCharge] SUCCESS', [
+                'payment_id'     => $payment->id,
+                'transaction_id' => $payment->transaction_id,
+                'invoice_id'     => $invoice->id,
+                'partner_id'     => $partner->id,
+                'amount'         => $payment->amount,
+            ]);
+
+            return true;
+
+        } catch (\Stripe\Exception\CardException $e) {
+            // Card was declined — log details, do NOT rethrow (non-fatal)
+            Log::error('[AutoCharge] Card declined', [
+                'partner_id'  => $partner->id,
+                'error'       => $e->getMessage(),
+                'stripe_code' => $e->getStripeCode(),
+            ]);
+            $this->recordFailedPayment($failedData, $e->getMessage(), 'Card Declined');
+            return false;
+
+        } catch (\Stripe\Exception\InvalidRequestException $e) {
+            // "No such customer" = wrong Stripe account key used
+            Log::error('[AutoCharge] Stripe invalid request — likely wrong Stripe account key', [
+                'partner_id' => $partner->id,
+                'error'      => $e->getMessage(),
+                'hint'       => 'Ensure partner Stripe key is used, not host key.',
+            ]);
+            $this->recordFailedPayment($failedData, $e->getMessage(), 'Stripe Invalid Request');
+            return false;
+
+        } catch (\Stripe\Exception\AuthenticationException $e) {
+            Log::error('[AutoCharge] Stripe authentication failed — check partner secret key', [
+                'partner_id' => $partner->id,
+                'error'      => $e->getMessage(),
+            ]);
+            $this->recordFailedPayment($failedData, $e->getMessage(), 'Stripe Authentication Error');
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('[AutoCharge] Unexpected exception', [
+                'partner_id' => $partner->id,
+                'invoice_id' => $invoice->id,
+                'error'      => $e->getMessage(),
+            ]);
+            $this->recordFailedPayment($failedData, $e->getMessage(), 'System Error');
+            return false;
+        }
+    }
+
     /**
      * Create and process a Stripe payment for users (Seat Purchase).
      */
@@ -360,7 +616,6 @@ class GlobalPaymentService
             if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
                 $invoice = Invoice::where('id', $data['invoice_id'])->first();
                 $invoice->update([
-                    // 'payment_amount' => $data['amount'] / 100,
                     'payment_date' => now(),
                     'status' => Invoice::STATUS_PAID,
                     'currency' => strtoupper($paymentIntent->currency),
@@ -375,15 +630,18 @@ class GlobalPaymentService
                     'entity_type' => User::class,
                     'entity_id' => $data['user_id'],
                     'transaction_id' => $paymentIntent->id,
-                    'payment_from' => 'Stripe',
-                    'payment_type' => 'Card',
+                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                    'payment_type' => Payment::PAYMENT_TYPE_CARD,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
+                    'currency_symbol' => Payment::CURRENCY_SYMBOL_USD,
+                    'conversion_rate' => 1.00,
                     'details' => $paymentIntent->toArray(),
                     'status' => 'succeeded',
                     'is_environment' => ($setting->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
                     'transaction_date' => now(),
                     'created_by' => Auth::id(),
+                    'updated_by' => Auth::id(),
                 ]);
 
                 // Log Activity Event

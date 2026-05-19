@@ -324,10 +324,16 @@ class BorrowerService
 
                 $planId = $data['plan_id'] ?? null;
                 $partner = Partner::find($borrower->partner_id);
-                $isWL = $partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL || in_array($partner->subscription?->subscription_plan_id, [3, 4]));
+                $isWL = $partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL);
 
                 if ($isWL) {
-                    // Create Partner Invoice ($800, Plan ID 7)
+                    // Fetch dynamic WL Partner Fee plan and amount
+                    $wlPartnerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
+                        ->where('entity_type', Borrower::class)
+                        ->first();
+                    $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->payment_amount ?? 800.00) : 800.00;
+
+                    // Create Partner Invoice
                     $partnerInvoice = $this->invoiceService->create([
                         'partner_id' => $borrower->partner_id,
                         'borrower_id' => null,
@@ -336,25 +342,41 @@ class BorrowerService
                         'customer_name' => $partner->full_name,
                         'email' => $partner->email,
                         'country' => $partner->country,
-                        'payment_amount' => 800,
+                        'payment_amount' => $wlPartnerFeeAmount,
                         'status' => Invoice::STATUS_UNPAID,
                         'is_partner_paying' => true,
                         'is_platform_fee' => false,
                     ]);
                     $this->activityLogService->logModelEvent($partnerInvoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
-                    // Charge Partner card automatically!
-                    $this->chargePartnerCardAutomatically($partner, $partnerInvoice, 800);
+                    // Dynamically resolve the selected subscription plan
+                    $plan = null;
+                    if ($planId) {
+                        $plan = SubscriptionPlan::where('id', $planId)->where('entity_type', Borrower::class)->first();
+                    }
+                    if (!$plan) {
+                        $plan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME)
+                            ->where('entity_type', Borrower::class)
+                            ->first();
+                        $planId = $plan ? $plan->id : '';
+                    }
+                    
+                    $defaultAmount = $plan ? (float) ($plan->payment_amount ?? 2497.00) : 2497.00;
+                    $amount = isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '' ? (float) $data['enrollment_payment'] : $defaultAmount;
+                    $totalInstallments = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
+                    $totalSubscriptionAmount = $plan ? (float) ($plan->total_amount ?? $amount) : $amount;
 
-                    // Force primary subscription plan variables to Plan 5 ($2,497)
-                    $planId = 5;
-                    $plan = SubscriptionPlan::where('id', 5)->where('entity_type', Borrower::class)->first();
-                    $amount = isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '' ? (float) $data['enrollment_payment'] : 2497.00;
-                    $totalInstallments = 1;
-                    $totalSubscriptionAmount = $amount;
-                    $isCustom = abs($amount - 2497.00) > 0.01;
+                    if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
+                        $totalSubscriptionAmount = $amount * $totalInstallments;
+                    }
 
-                    // Create Borrower Invoice with customized/default amount (Plan ID 5)
+                    $isCustom = false;
+                    if ($plan) {
+                        $isCustom = (abs($amount - (float)($plan->payment_amount ?? 0)) > 0.01) ||
+                            (abs($totalSubscriptionAmount - (float)($plan->total_amount ?? 0)) > 0.01);
+                    }
+
+                    // Create Borrower Invoice with customized/default amount
                     $invoice = $this->invoiceService->create([
                         'partner_id' => $borrower->partner_id,
                         'borrower_id' => $borrower->id,
@@ -858,123 +880,5 @@ class BorrowerService
     private function reactivateBorrowerUser(Borrower $borrower): void
     {
         Log::info("Borrower user for Borrower ID: {$borrower->id} is eligible for login again.");
-    }
-
-    /**
-     * Charge partner card automatically for WL Partner client.
-     */
-    public function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount): bool
-    {
-        try {
-            // 1. Find a successful payment from this partner to get their customer and payment method
-            $partnerPayment = \App\Models\Payment\Payment::where('entity_type', Partner::class)
-                ->where('entity_id', $partner->id)
-                ->where('status', 'succeeded')
-                ->where('payment_from', 'Stripe')
-                ->orderBy('id', 'desc')
-                ->first();
-
-            if (!$partnerPayment || empty($partnerPayment->details['customer']) || empty($partnerPayment->details['payment_method'])) {
-                Log::warning('Could not find saved Stripe payment method for partner ' . $partner->id);
-                return false;
-            }
-
-            $customerId = $partnerPayment->details['customer'];
-            $paymentMethodId = $partnerPayment->details['payment_method'];
-
-            // 2. Fetch the Host's Stripe credentials (because partner's card is on the Host's Stripe account)
-            $host = Partner::where('is_host', true)->first();
-            if (!$host) {
-                Log::error('Host partner not found for automatic billing.');
-                return false;
-            }
-
-            $paymentMethodService = app(\App\Services\FCH\Common\PaymentMethod\PaymentMethodService::class);
-            $setting = $paymentMethodService->getSettings($host->id);
-            if (!$setting) {
-                Log::error('Host payment settings not found.');
-                return false;
-            }
-
-            $secretKey = ($setting->payment_mode === 'production')
-                ? $setting->stripe_secret_production
-                : $setting->stripe_secret_sandbox;
-
-            if (!$secretKey) {
-                Log::error('Host Stripe secret key not configured.');
-                return false;
-            }
-
-            \Stripe\Stripe::setApiKey($secretKey);
-
-            // 3. Create Stripe PaymentIntent using the saved Customer ID and Payment Method ID
-            $paymentIntent = \Stripe\PaymentIntent::create([
-                'amount' => $amount * 100, // Amount in cents
-                'currency' => 'usd',
-                'customer' => $customerId,
-                'payment_method' => $paymentMethodId,
-                'off_session' => true,
-                'confirm' => true,
-                'description' => 'Automatic White-Label Partner enrollment fee for borrower creation',
-                'metadata' => [
-                    'partner_id' => $partner->id,
-                    'invoice_id' => $invoice->id,
-                    'entity_type' => Borrower::class,
-                    'entity_id' => $invoice->borrower_id,
-                ],
-                'automatic_payment_methods' => [
-                    'enabled' => true,
-                    'allow_redirects' => 'never',
-                ],
-            ]);
-
-            if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
-                // 4. Update the Invoice status to Paid
-                $invoice->update([
-                    'status' => Invoice::STATUS_PAID,
-                    'payment_date' => now(),
-                ]);
-
-                // 5. Create Payment record
-                $payment = \App\Models\Payment\Payment::create([
-                    'partner_id' => $partner->id,
-                    'borrower_id' => $invoice->borrower_id,
-                    'invoice_id' => $invoice->id,
-                    'entity_type' => Borrower::class,
-                    'entity_id' => $invoice->borrower_id,
-                    'transaction_id' => $paymentIntent->id,
-                    'payment_from' => 'Stripe',
-                    'payment_type' => 'Card',
-                    'amount' => $amount,
-                    'currency' => 'USD',
-                    'is_partner_paying' => true,
-                    'details' => $paymentIntent->toArray(),
-                    'status' => $paymentIntent->status,
-                    'is_environment' => ($setting->payment_mode === 'production') ? \App\Models\Payment\Payment::ENVIRONMENT_PRODUCTION : \App\Models\Payment\Payment::ENVIRONMENT_SANDBOX,
-                    'transaction_date' => now(),
-                    'created_by' => Auth::id() ?? $partner->users()->first()?->id,
-                ]);
-
-                // Log Activity
-                $this->activityLogService->logModelEvent(
-                    $payment,
-                    ActivityLog::LOG_TYPE_PARTNER_PAYMENT,
-                    [
-                        'transaction_id' => $payment->transaction_id,
-                        'amount' => $payment->amount,
-                        'currency' => $payment->currency
-                    ]
-                );
-
-                Log::info('Successfully processed automatic partner payment for invoice ' . $invoice->id);
-                return true;
-            }
-
-            Log::error('Automatic payment failed with status: ' . $paymentIntent->status);
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Stripe Automatic Billing Error: ' . $e->getMessage());
-            return false;
-        }
     }
 }

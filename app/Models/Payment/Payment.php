@@ -32,6 +32,11 @@ class Payment extends Model
     public const ENVIRONMENT_SANDBOX = 0;
     public const ENVIRONMENT_PRODUCTION = 1;
 
+    public const PAYMENT_FROM_STRIPE = 'Stripe';
+    public const PAYMENT_TYPE_CARD = 'Card';
+    public const CURRENCY_USD = 'USD';
+    public const CURRENCY_SYMBOL_USD = '$';
+
     public function partner()
     {
         return $this->belongsTo(Partner::class, 'partner_id', 'id');
