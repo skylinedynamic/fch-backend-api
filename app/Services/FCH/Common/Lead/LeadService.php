@@ -23,9 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Spatie\Permission\PermissionRegistrar;
 use Throwable;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class LeadService
 {
@@ -35,7 +33,6 @@ class LeadService
         protected BorrowerService $borrowerService,
         protected PartnerService $partnerService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
     ) {
     }
 
@@ -218,22 +215,20 @@ class LeadService
                             'type' => $isWebsiteLead ? 'website' : 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        $restore = $this->emailConfigService->applyToMailer($hostPartner->id);
                         try {
-                            \Illuminate\Support\Facades\Mail::to($hostPartner->email)
+                            Mail::to($hostPartner->email)
                                 ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
-                        } finally {
-                            $restore();
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
                         }
                     }
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
+                    Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
                 }
             } else {
                 // Otherwise, it's a manual/admin-created lead from other sources
                 $recipients = [
                     Auth::user()->email,
-                    // config('mail.from.address') // Global Admin
                 ];
 
                 if (!empty($recipients)) {
@@ -242,16 +237,14 @@ class LeadService
                             'type' => 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        $partnerId = Auth::user()->partner_id;
-                        $restore = $this->emailConfigService->applyToMailer($partnerId);
                         try {
-                            \Illuminate\Support\Facades\Mail::to($recipients)
+                            Mail::to($recipients)
                                 ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
-                        } finally {
-                            $restore();
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
                         }
                     } catch (\Exception $e) {
-                        \Illuminate\Support\Facades\Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
+                        Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
                     }
                 }
             }

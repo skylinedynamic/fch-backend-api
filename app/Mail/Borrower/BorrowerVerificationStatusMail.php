@@ -4,31 +4,31 @@ namespace App\Mail\Borrower;
 
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 class BorrowerVerificationStatusMail extends Mailable
 {
-    use MailableBranding;
+    use MailableBranding, MailConfig;
 
     protected array $mailData;
+    protected array $dynamicData = [];
 
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->resolveMailConfig($partnerId);
+        $this->setMailPartnerId();
     }
 
     public function envelope(): Envelope
     {
-        $subject = $this->mailData['subject'] ?? 'Verification Status Update';
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: $this->mailData['subject'] ?? 'Verification Status Update',
         );
     }
 
@@ -36,15 +36,15 @@ class BorrowerVerificationStatusMail extends Mailable
     {
         return new Content(
             view: 'emails.borrower.verification_status',
-            with: array_merge([
-
-                'borrowerName'  => $this->mailData['borrower_name'],
-                'status'        => $this->mailData['status'],
-                'note'          => $this->mailData['note'] ?? null,
-                'taskResults'   => $this->mailData['task_results'],
-                'loginUrl'      => config('app.frontend_borrower_url') . '/login',
-            
-            ], $this->getBrandingData()),
+            with: [
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+                'borrowerName' => $this->mailData['borrower_name'],
+                'status' => $this->mailData['status'],
+                'note' => $this->mailData['note'] ?? null,
+                'taskResults' => $this->mailData['task_results'],
+                'loginUrl' => config('app.frontend_borrower_url') . '/login',
+            ],
         );
     }
 

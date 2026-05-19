@@ -4,33 +4,31 @@ namespace App\Mail\Borrower;
 
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 class BorrowerPaymentLinkMail extends Mailable
 {
-    use MailableBranding;
+    use MailableBranding, MailConfig;
 
     protected array $mailData;
 
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->resolveMailConfig($partnerId);
+        $this->setMailPartnerId();
     }
 
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $siteName = $branding['siteName'];
-        $subject = $this->mailData['subject'] ?? "Complete Your Account Setup - {$siteName}";
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+        $subject = $this->mailData['subject'] ?? "Complete Your Account Setup - {$this->dynamicData['siteName']}";
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: $subject,
         );
     }
 
@@ -40,12 +38,21 @@ class BorrowerPaymentLinkMail extends Mailable
 
         return new Content(
             view: 'emails.borrower.payment_link',
-            with: array_merge([
+            with: [
                 'user' => $user,
                 'paymentLink' => $this->mailData['payment_link'] ?? null,
                 'amount' => $this->mailData['amount'] ?? 0,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
-            ], $this->getBrandingData()),
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+
+                'business_info' => [
+                    'company_name' => $this->mailData['business_info']['company_name'] ?? '',
+                    'email' => $this->mailData['business_info']['email'] ?? '',
+                    'phone_number' => $this->mailData['business_info']['phone_number'] ?? '',
+                    'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',
+                ],
+            ],
         );
     }
 

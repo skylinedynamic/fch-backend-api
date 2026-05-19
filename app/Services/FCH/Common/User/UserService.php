@@ -24,7 +24,6 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Global\Auth\UserResource;
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class UserService
 {
@@ -37,8 +36,8 @@ class UserService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * Create User
@@ -52,19 +51,19 @@ class UserService
 
         try {
             $user = User::create([
-                'name'         => $data['name'],
-                'email'        => $data['email'],
+                'name' => $data['name'],
+                'email' => $data['email'],
                 'phone_number' => $data['phone_number'] ?? null,
-                'user_type'    => $authUser->user_type,
-                'password'     => Hash::make($plainPassword),
-                'partner_id'   => $authUser->partner_id,
-                'status'       => isset($data['is_paid']) && $data['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
-                'entity_type'  => null,
-                'entity_id'    => null,
-                'is_paid'      => isset($data['is_paid']) ? $data['is_paid'] : false,
+                'user_type' => $authUser->user_type,
+                'password' => Hash::make($plainPassword),
+                'partner_id' => $authUser->partner_id,
+                'status' => isset($data['is_paid']) && $data['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                'entity_type' => null,
+                'entity_id' => null,
+                'is_paid' => isset($data['is_paid']) ? $data['is_paid'] : false,
                 'payment_status' => isset($data['is_paid']) && $data['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
-                'start_date'   => isset($data['is_paid']) && $data['is_paid'] ? now() : null,
-                'end_date'     => isset($data['is_paid']) && $data['is_paid'] ? now()->addMonths($data['months']) : null,
+                'start_date' => isset($data['is_paid']) && $data['is_paid'] ? now() : null,
+                'end_date' => isset($data['is_paid']) && $data['is_paid'] ? now()->addMonths($data['months']) : null,
             ]);
 
             $roleId = $data['role_id'] ?? null;
@@ -122,7 +121,7 @@ class UserService
             } catch (Throwable $e) {
                 Log::error('User created but email failed', [
                     'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -169,7 +168,7 @@ class UserService
                 'entity' => function ($morphTo) {
                     $morphTo->morphWith([
                         Borrower::class => ['subscription.enrollmentPhase', 'subscription.platformFeePhase'],
-                        Partner::class  => ['subscription'],
+                        Partner::class => ['subscription'],
                         Employee::class => [], // optional (add relations if needed)
                     ]);
                 }
@@ -196,7 +195,7 @@ class UserService
         }
 
         //Sorting
-        $sortField = $filters['sort_field']  ?? 'id';
+        $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'desc' ? 'desc' : 'asc';
 
         // Handle custom filters manually
@@ -228,9 +227,9 @@ class UserService
                 // Map frontend values to backend class names
                 $map = [
                     'Employee' => Employee::class,
-                    'Partner'  => Partner::class,
+                    'Partner' => Partner::class,
                     'Borrower' => \App\Models\Borrower\Borrower::class,
-                    'Admin'    => null, // Admin usually has no entity_type
+                    'Admin' => null, // Admin usually has no entity_type
                 ];
 
                 if (array_key_exists($value, $map)) {
@@ -436,24 +435,21 @@ class UserService
     public function sendCreatedMail($user, $businessInfo, string $plainPassword, ?string $subject = null): void
     {
         $partnerId = $user->partner_id ?? null;
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
 
         try {
             $data = [
-                'subject'        => $subject ?? ('Welcome to ' . config('app.name')),
-                'user'           => $user,
+                'subject' => $subject ?? ('Welcome to ' . config('app.name')),
+                'user' => $user,
                 'plain_password' => $plainPassword,
-                'partner_id'     => $partnerId,
+                'partner_id' => $partnerId,
             ];
 
             Mail::to($user->email)->send(new UserCreateNotificationMail($data));
         } catch (Throwable $e) {
             Log::error('📧 UserCreateNotificationMail failed', [
                 'user_id' => $user->id ?? null,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
-        } finally {
-            $restore();
         }
     }
 
@@ -465,7 +461,7 @@ class UserService
         DB::table('oauth_access_tokens')
             ->where('user_id', $user->id)
             ->update(['revoked' => true]);
-        
+
         Log::info("Force logged out user for User ID: {$user->id} due to status being set to {$user->status}");
     }
 }

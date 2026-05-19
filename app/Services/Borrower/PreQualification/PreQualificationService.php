@@ -13,16 +13,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use App\Mail\PreQualificationSubmitted;
 use Illuminate\Support\Facades\Mail;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class PreQualificationService
 {
     use PaginatesApi;
 
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
-    
+
     public function submit(array $data)
     {
         $user = Auth::user();
@@ -44,13 +40,10 @@ class PreQualificationService
         // Send Email to Partner
         $record->load('partner');
         if ($record->partner && $record->partner->email) {
-            $restore = $this->emailConfigService->applyToMailer($record->partner_id);
             try {
                 Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
             } catch (\Exception $e) {
                 Log::error('Failed to send pre-qualification email to partner', ['error' => $e->getMessage()]);
-            } finally {
-                $restore();
             }
         }
 
@@ -146,7 +139,7 @@ class PreQualificationService
 
         $mergedData = [];
 
-        
+
         $mappedData = $this->mappingData();
 
         if (!$prequalificationRequest) {
@@ -181,16 +174,16 @@ class PreQualificationService
                 'status' => PreQualificationRequest::ON_HOLD,
                 'borrower_id' => $borrower->id,
                 'partner_id' => $borrower->partner_id,
-                ];
+            ];
 
-                $prequalificationRequest = PreQualificationRequest::create($mergedData)->toArray();
+            $prequalificationRequest = PreQualificationRequest::create($mergedData)->toArray();
 
-        }else{
+        } else {
             $mergedData['id'] = $prequalificationRequest->id;
-             foreach ($prequalificationRequest->toArray() as $key => $value) {
+            foreach ($prequalificationRequest->toArray() as $key => $value) {
                 if (!$this->hasValue($value) && isset($mappedData[$key])) {
                     $mergedData[$key] = $borrower->{$mappedData[$key]};
-                 }else{
+                } else {
                     $mergedData[$key] = $value;
                 }
             }
@@ -236,76 +229,77 @@ class PreQualificationService
 
     public function personalInfo(array $data)
     {
-       try{
-        $user = Auth::user();
-        $payload = array_merge($data, [
-            'borrower_id' => $user->entity_id,
-            'status' => PreQualificationRequest::ON_HOLD,
-        ]);
-
-        return PreQualificationRequest::updateOrCreate(
-            [
-                'id' => isset($data['id']) ? $data['id'] : null,
+        try {
+            $user = Auth::user();
+            $payload = array_merge($data, [
                 'borrower_id' => $user->entity_id,
-                'partner_id' => $user->partner_id,
-            ],
-            $payload
-        );
-       }catch(\Exception $e){
-           throw $e;
-       }
-       
+                'status' => PreQualificationRequest::ON_HOLD,
+            ]);
+
+            return PreQualificationRequest::updateOrCreate(
+                [
+                    'id' => isset($data['id']) ? $data['id'] : null,
+                    'borrower_id' => $user->entity_id,
+                    'partner_id' => $user->partner_id,
+                ],
+                $payload
+            );
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
     }
 
     public function businessInfo(array $data)
     {
-       try{
-        $user = Auth::user();
-        $payload = array_merge($data, [
-            'borrower_id' => $user->entity_id,
-            'status' => PreQualificationRequest::ON_HOLD,
-        ]);
-
-        return PreQualificationRequest::updateOrCreate(
-            [
-                'id' => isset($data['id']) ? $data['id'] : null,
+        try {
+            $user = Auth::user();
+            $payload = array_merge($data, [
                 'borrower_id' => $user->entity_id,
-                'partner_id' => $user->partner_id,
-            ],  
-            $payload
-        );
-       }catch(\Exception $e){
-           throw $e;
-       }
-       
+                'status' => PreQualificationRequest::ON_HOLD,
+            ]);
+
+            return PreQualificationRequest::updateOrCreate(
+                [
+                    'id' => isset($data['id']) ? $data['id'] : null,
+                    'borrower_id' => $user->entity_id,
+                    'partner_id' => $user->partner_id,
+                ],
+                $payload
+            );
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
     }
 
     public function fundingInfo(array $data)
     {
-       try{
-        $user = Auth::user();
-        $payload = array_merge($data, [
-            'borrower_id' => $user->entity_id,
-            'status' => PreQualificationRequest::ON_HOLD,
-        ]);
-
-        return PreQualificationRequest::updateOrCreate(
-            [
-                'id' => isset($data['id']) ? $data['id'] : null,
+        try {
+            $user = Auth::user();
+            $payload = array_merge($data, [
                 'borrower_id' => $user->entity_id,
-                'partner_id' => $user->partner_id,
-            ],
-            $payload
-        );
-       }catch(\Exception $e){
-           throw $e;
-       }
-       
+                'status' => PreQualificationRequest::ON_HOLD,
+            ]);
+
+            return PreQualificationRequest::updateOrCreate(
+                [
+                    'id' => isset($data['id']) ? $data['id'] : null,
+                    'borrower_id' => $user->entity_id,
+                    'partner_id' => $user->partner_id,
+                ],
+                $payload
+            );
+        } catch (\Exception $e) {
+            throw $e;
+        }
+
     }
 
-    private function mappingData(){
+    private function mappingData()
+    {
         return [
-             // Personal Info
+            // Personal Info
             'first_name' => 'first_name',
             'last_name' => 'last_name',
             'email' => 'email',
@@ -321,5 +315,5 @@ class PreQualificationService
             'monthly_revenue' => 'monthly_revenue',
             'annual_revenue' => 'annual_revenue',
         ];
-    }   
+    }
 }

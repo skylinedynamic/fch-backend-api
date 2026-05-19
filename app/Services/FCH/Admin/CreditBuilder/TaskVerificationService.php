@@ -15,13 +15,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class TaskVerificationService
 {
     public function __construct(
         protected ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
     ) {
     }
     /**
@@ -230,7 +228,7 @@ class TaskVerificationService
 
             $statusLabel = $status == BorrowerTaskVerificationRequest::COMPLETED ? __('verification_center.verified') : __('verification_center.rejected');
 
-            $restore = $this->emailConfigService->applyToMailer($borrower->partner_id);
+
             try {
                 Mail::to($email)->send(new BorrowerVerificationStatusMail([
                     'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
@@ -241,8 +239,6 @@ class TaskVerificationService
                 ]));
             } catch (\Exception $e) {
                 Log::error('TaskVerificationService: Global mail error', ['error' => $e->getMessage()]);
-            } finally {
-                $restore();
             }
         } catch (\Exception $e) {
             Log::error('TaskVerificationService: sendVerificationStatusMail failed', ['error' => $e->getMessage()]);

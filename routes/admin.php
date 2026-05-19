@@ -121,13 +121,6 @@ Route::prefix('v1/admin')
             Route::delete('/{id}', [ResourceController::class, 'destroy']);
         });
 
-        // ⚙️ Configuration Routes
-        Route::prefix('app-configurations')->group(function () {
-            Route::get('/', [AppConfigurationController::class, 'index']);
-            Route::post('/show', [AppConfigurationController::class, 'show']);
-            Route::post('/save', [AppConfigurationController::class, 'store']);
-        });
-
         // 📝 CMS Routes
         Route::prefix('cms')->group(function () {
             // CMS

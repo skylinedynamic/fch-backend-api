@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Setting;
 
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponse;
+use App\Models\Partner\Partner;
+use Illuminate\Support\Facades\Cache;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Http\Resources\FCH\Common\AppConfigurationResource;
 use App\Http\Requests\Api\V1\FCH\Common\Setting\GetAppConfigurationRequest;
@@ -74,6 +76,8 @@ class AppConfigurationController extends Controller
                     $this->configService->set($key, $value, $module, $partnerId);
                 }
             }
+
+            Cache::forget("mail_branding_" . ($partnerId ?? 'default'));
 
             return ApiResponse::success(null, __('app_config.saved_successfully'));
         } catch (\Exception $e) {

@@ -6,16 +6,18 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class BorrowerDocumentsUploadedMail extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
 
     public $user;
     public $documents;
+    protected array $dynamicData = [];
 
     /**
      * Create a new message instance.
@@ -24,7 +26,7 @@ class BorrowerDocumentsUploadedMail extends Mailable
     {
         $this->user = $user;
         $this->documents = collect($documents);
-        $this->resolveMailConfig($this->user->partner_id ?? null);
+        $this->setMailPartnerId();
     }
 
     /**
@@ -32,12 +34,12 @@ class BorrowerDocumentsUploadedMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject('Documents Uploaded Successfully'),
+            subject: 'Documents Uploaded Successfully',
         );
     }
 
@@ -48,12 +50,12 @@ class BorrowerDocumentsUploadedMail extends Mailable
     {
         return new Content(
             view: 'emails.borrower.documents_uploaded',
-            with: array_merge([
-
+            with: [
                 'user' => $this->user,
                 'documents' => $this->documents,
-            
-            ], $this->getBrandingData()),
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+            ],
         );
     }
 
@@ -69,7 +71,7 @@ class BorrowerDocumentsUploadedMail extends Mailable
         foreach ($this->documents as $document) {
             // Get the raw relative path stored in DB
             $filePath = $document->getRawOriginal('file_path');
-            
+
             // Construct the path relative to the disk root
             // The disk is 'public', and files are in borrowers/{id}/
             $diskPath = "borrowers/{$document->borrower_id}/{$filePath}";

@@ -6,17 +6,19 @@ use App\Models\Appointment\Appointment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class AppointmentNotification extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
 
     public $appointment;
     public $action; // 'created', 'updated', 'deleted'
     public $businessInfo;
+    protected array $dynamicData = [];
 
     /**
      * Create a new message instance.
@@ -26,9 +28,9 @@ class AppointmentNotification extends Mailable
         $this->appointment = $appointment;
         $this->action = $action;
         $this->businessInfo = $businessInfo;
-        $this->resolveMailConfig($partnerId);
+        $this->setMailPartnerId();
     }
- 
+
     /**
      * Get the message envelope.
      */
@@ -42,15 +44,11 @@ class AppointmentNotification extends Mailable
         };
 
         $branding = $this->getBrandingData();
-        $siteName = $branding['siteName'];
-        $subject = "{$subjectText} - {$siteName}: {$this->appointment->subject}";
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: $subjectText . ': ' . $this->appointment->subject,
         );
     }
 
@@ -68,11 +66,19 @@ class AppointmentNotification extends Mailable
 
         return new Content(
             view: $viewName,
-            with: array_merge([
+            with: [
                 'appointment' => $this->appointment,
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
                 'action' => $this->action,
                 'assigneeName' => $this->appointment->assignedFor->name ?? 'User',
-            ], $this->getBrandingData()),
+                'business_info' => [
+                    'company_name' => $this->businessInfo['company_name'] ?? '',
+                    'email' => $this->businessInfo['email'] ?? '',
+                    'phone_number' => $this->businessInfo['phone_number'] ?? '',
+                    'address_line_1' => $this->businessInfo['address_line_1'] ?? '',
+                ],
+            ],
         );
     }
 }

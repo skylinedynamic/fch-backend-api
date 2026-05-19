@@ -26,7 +26,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
 use Illuminate\Support\Facades\Mail;
 
@@ -37,8 +36,8 @@ class EmployeeService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     public function getAll()
     {
@@ -54,15 +53,15 @@ class EmployeeService
     {
         $query = Employee::query()->where('partner_id', $partnerId)->with(['user']);
 
-        if (! empty($filters['search'])) {
+        if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
 
-        if (! empty($filters['job_status'])) {
+        if (!empty($filters['job_status'])) {
             $query->where('job_status', $filters['job_status']);
         }
 
-        if (! empty($filters['department'])) {
+        if (!empty($filters['department'])) {
             $query->where('department', $filters['department']);
         }
 
@@ -114,16 +113,16 @@ class EmployeeService
             $employeeData['partner_id'] = auth()->user()->partner_id;
 
             // Format dates if present
-            if (isset($employeeData['joining_date']) && ! empty($employeeData['joining_date'])) {
+            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
                 $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
             }
 
-            if (isset($employeeData['date_of_birth']) && ! empty($employeeData['date_of_birth'])) {
+            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
 
             // Set default job_status if not provided
-            if (! isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
             $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
@@ -144,10 +143,10 @@ class EmployeeService
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
-                    'is_paid'   => isset($employeeData['is_paid']) ? (bool) $employeeData['is_paid'] : false,
-                    'status'    => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
-                    'start_date'   => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now() : null,
-                    'end_date'     => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now()->addMonths((int)$employeeData['months']) : null,
+                    'is_paid' => isset($employeeData['is_paid']) ? (bool) $employeeData['is_paid'] : false,
+                    'status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                    'start_date' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now() : null,
+                    'end_date' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now()->addMonths((int) $employeeData['months']) : null,
                     'payment_status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
                 ]);
 
@@ -226,16 +225,16 @@ class EmployeeService
             $plainPassword = null;
 
             // Format dates if present
-            if (isset($employeeData['joining_date']) && ! empty($employeeData['joining_date'])) {
+            if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
                 $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
             }
 
-            if (isset($employeeData['date_of_birth']) && ! empty($employeeData['date_of_birth'])) {
+            if (isset($employeeData['date_of_birth']) && !empty($employeeData['date_of_birth'])) {
                 $employeeData['date_of_birth'] = Carbon::parse($employeeData['date_of_birth'])->format('Y-m-d');
             }
 
             // Set default job_status if not provided
-            if (! isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
+            if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
 
@@ -257,7 +256,7 @@ class EmployeeService
             ]);
 
             // 3️⃣ Handle user creation if needed
-            if ($createAccount && ! $user) {
+            if ($createAccount && !$user) {
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
@@ -507,7 +506,7 @@ class EmployeeService
             DB::table('oauth_access_tokens')
                 ->where('user_id', $user->id)
                 ->update(['revoked' => true]);
-            
+
             Log::info("Force logged out employee user for Employee ID: {$employee->id} (User ID: {$user->id}) due to job status being set to {$employee->job_status}");
         }
     }
@@ -530,17 +529,12 @@ class EmployeeService
             ],
         ];
 
-        $partnerId = $user->partner_id;
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
-
         try {
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
-        } finally {
-            $restore();
         }
     }
 }

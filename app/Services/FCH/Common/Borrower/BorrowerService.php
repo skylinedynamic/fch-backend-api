@@ -2,13 +2,11 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
-use Dom\DocumentType;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
-use Illuminate\Support\Carbon;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
@@ -20,20 +18,15 @@ use App\Services\FCH\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Borrower\BorrowerDocType;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Borrower\BorrowerDocument;
-use App\Models\Borrower\BorrowerSignupId;
-use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
-use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
-use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
+
 
 class BorrowerService
 {
@@ -43,25 +36,22 @@ class BorrowerService
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * Send a borrower email using the partner's active mail config.
      */
     private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
     {
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
         try {
             Mail::to($email)->send($mailable);
         } catch (\Exception $e) {
             Log::error('Borrower email failed', [
-                'email'      => $email,
+                'email' => $email,
                 'partner_id' => $partnerId,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
-        } finally {
-            $restore();
         }
     }
 
@@ -278,13 +268,17 @@ class BorrowerService
 
             // Filter out fields that are not columns in the borrowers table or are used for mapping
             $exceptFields = [
-                'plan_id', 'enrollment_payment', 'payment_amount', 'is_partner_paying', 'amount',
+                'plan_id',
+                'enrollment_payment',
+                'payment_amount',
+                'is_partner_paying',
+                'amount',
                 'business_other_city'
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
-            
+
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
                 $borrowerData['city'] = $data['other_city'];
@@ -297,7 +291,7 @@ class BorrowerService
 
             // Log Borrower Creation
             $this->activityLogService->logModelEvent($borrower, ActivityLog::LOG_TYPE_BORROWER_CREATE);
-            
+
             // Create associated User if needed
             $userDataResult = null;
             $userDataResult = $this->createOrUpdateUser($data, $borrower);
@@ -342,8 +336,8 @@ class BorrowerService
                 // Mark as custom if any value differs from the original plan
                 $isCustom = false;
                 if ($plan) {
-                    $isCustom = (abs($amount - (float)($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($totalSubscriptionAmount - (float)($plan->total_amount ?? 0)) > 0.01);
+                    $isCustom = (abs($amount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
                 }
 
                 $invoice = $this->invoiceService->create([
@@ -416,7 +410,9 @@ class BorrowerService
                 $data['business_logo'] = $upload['path'];
             }
             $exceptFields = [
-                'enrollment_payment', 'plan_id', 'is_partner_paying',
+                'enrollment_payment',
+                'plan_id',
+                'is_partner_paying',
                 'business_other_city'
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
@@ -453,7 +449,7 @@ class BorrowerService
 
                 $isEmailOnly = (count($changes) === 1 && isset($changes['email']));
                 $contactFields = ['email', 'phone_number', 'business_phone'];
-                
+
                 $changedKeys = array_keys($changes);
                 $isContactOnly = count(array_diff($changedKeys, $contactFields)) === 0;
 
@@ -472,7 +468,7 @@ class BorrowerService
                     $changedFields[] = "{$name} was updated to {$val}";
                 }
                 $fieldsList = implode(', ', $changedFields);
-                
+
                 $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
 
                 $this->activityLogService->logModelEvent(
@@ -492,8 +488,8 @@ class BorrowerService
 
                 // Determine final values to reassess is_custom status
                 $finalEnrollment = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
-                    ? (float)$data['enrollment_payment']
-                    : (float)$subscription->payable_amount;
+                    ? (float) $data['enrollment_payment']
+                    : (float) $subscription->payable_amount;
 
                 $totalInstallments = (int) ($plan->total_installments_count ?? 1);
                 $finalTotal = $finalEnrollment * $totalInstallments;
@@ -501,8 +497,8 @@ class BorrowerService
                 // Mark as custom if enrollment payment or total differs from the original plan
                 $isCustom = false;
                 if ($plan) {
-                    $isCustom = (abs($finalEnrollment - (float)($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($finalTotal - (float)($plan->total_amount ?? 0)) > 0.01);
+                    $isCustom = (abs($finalEnrollment - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($finalTotal - (float) ($plan->total_amount ?? 0)) > 0.01);
                 }
 
                 $updateSubData = [
@@ -588,7 +584,7 @@ class BorrowerService
      */
     public function delete(array $ids)
     {
-      
+
         try {
             DB::beginTransaction();
             $borrowers = Borrower::whereIn('id', $ids)->get();
@@ -760,7 +756,7 @@ class BorrowerService
                     'size' => $doc->file_size ?: '0 KB',
                     'status' => $doc->status ?: BorrowerDocument::STATUS_UPLOADED,
                     'date' => $doc->created_at ? $doc->created_at->format('Y-m-d') : 'N/A',
-                    'document_url' => $doc->file_path, 
+                    'document_url' => $doc->file_path,
                     'url' => $doc->file_path,
                     'download_url' => url("api/v1/common/borrowers-documents/download/{$doc->id}"),
                 ];
@@ -799,7 +795,7 @@ class BorrowerService
             DB::table('oauth_access_tokens')
                 ->where('user_id', $user->id)
                 ->update(['revoked' => true]);
-            
+
             Log::info("Force logged out borrower user for Borrower ID: {$borrower->id} (User ID: {$user->id}) due to borrower status being set to {$borrower->status}");
         }
     }

@@ -29,7 +29,6 @@ use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class PartnerService
 {
@@ -39,7 +38,6 @@ class PartnerService
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
     ) {
     }
 
@@ -48,7 +46,6 @@ class PartnerService
      */
     private function sendPaymentLinkEmail(array $mailData, int $partnerId): void
     {
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
         try {
             Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
             Log::info('Partner payment link email sent', [
@@ -60,8 +57,6 @@ class PartnerService
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
-        } finally {
-            $restore();
         }
     }
 
@@ -70,7 +65,6 @@ class PartnerService
      */
     private function sendAccountUpdateEmail(array $mailData, int $partnerId): void
     {
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
         try {
             Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $partnerId));
             Log::info('Partner account update email sent', [
@@ -82,8 +76,6 @@ class PartnerService
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
-        } finally {
-            $restore();
         }
     }
 

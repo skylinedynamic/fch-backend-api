@@ -198,21 +198,11 @@ class PartnerController extends Controller
         ];
 
         try {
-            $emailService = app(\App\Services\FCH\Common\Setting\EmailConfigurationService::class);
-            $restore = $emailService->applyToMailer($user->partner_id);
-
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
-
-            if (isset($restore)) {
-                $restore();
-            }
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),
             ]);
-            if (isset($restore)) {
-                $restore();
-            }
         }
     }
 

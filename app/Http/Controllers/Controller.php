@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
+use App\Models\Setting\EmailConfiguration;
+use Illuminate\Http\Exceptions\HttpResponseException;
+
 abstract class Controller
 {
     protected function checkWhiteLabelConfiguration()
@@ -12,14 +17,13 @@ abstract class Controller
         }
 
         $user = auth()->user();
-        if ($user && $user->partner && $user->partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
+        if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerId = $user->partner_id;
 
-            $isEmailFresh = \App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)
+            $isEmailFresh = EmailConfiguration::where('partner_id', $partnerId)
                 ->where('key', 'is_active')->where('value', '1')->exists();
 
-            $isBrandingFresh = \App\Models\Common\AppConfiguration::where('entity_id', $partnerId)
-                ->where('entity_type', \App\Models\Partner\Partner::class)
+            $isBrandingFresh = AppConfiguration::where('partner_id', $partnerId)
                 ->whereIn('key', ['site_name', 'primary_logo'])->exists();
 
             if (!$isEmailFresh || !$isBrandingFresh) {
@@ -28,7 +32,7 @@ abstract class Controller
                     'message' => 'Please complete your system configuration (Branding and Email) to unlock these features.',
                     'requires_configuration' => true
                 ], 403);
-                throw new \Illuminate\Http\Exceptions\HttpResponseException($response);
+                throw new HttpResponseException($response);
             }
         }
     }

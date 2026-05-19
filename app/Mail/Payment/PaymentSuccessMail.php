@@ -5,6 +5,7 @@ namespace App\Mail\Payment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -12,24 +13,23 @@ use App\Models\Partner\Partner;
 
 class PaymentSuccessMail extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
+
+    protected array $dynamicData = [];
 
     public function __construct(public array $paymentData, ?int $partnerId = null)
     {
-        $this->resolveMailConfig($partnerId);
+        $this->setMailPartnerId();
     }
 
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $siteName = $branding['siteName'];
-        
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject("Payment Receipt - {$siteName}"),
+            subject: "Payment Receipt - " . $this->dynamicData['siteName'],
         );
     }
 
@@ -38,9 +38,16 @@ class PaymentSuccessMail extends Mailable
         $userName = $this->paymentData['user_name'] ?? 'Valued Customer';
         $firstName = explode(' ', trim($userName))[0];
 
+        $businessInfo = [
+            'company_name' => $this->dynamicData['siteName'],
+            'company_logo' => $this->dynamicData['logoUrl'],
+        ];
+
         return new Content(
             view: 'emails.payment.success',
-            with: array_merge([
+            with: [
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
                 'amount' => $this->paymentData['amount'],
                 'currency' => $this->paymentData['currency'],
                 'transaction_id' => $this->paymentData['transaction_id'],
@@ -48,7 +55,8 @@ class PaymentSuccessMail extends Mailable
                 'date' => $this->paymentData['date']->format('F j, Y, g:i a'),
                 'user_name' => $userName,
                 'first_name' => $firstName,
-            ], $this->getBrandingData()),
+                'business_info' => $businessInfo,
+            ],
         );
     }
 

@@ -19,17 +19,12 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
-use App\Models\Employee\Employee;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
+
 
 class InvoiceService
 {
     use PaginatesApi;
 
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
     /**
      * Get list of invoices based on filters.
      *
@@ -262,7 +257,8 @@ class InvoiceService
     public function downloadInvoice($id)
     {
         $invoice = $this->find($id);
-        if (!$invoice) throw new \Exception("Invoice not found");
+        if (!$invoice)
+            throw new \Exception("Invoice not found");
 
         $business_info = $this->getBusinessInfo($invoice->partner_id, $invoice->borrower_id);
 
@@ -279,7 +275,8 @@ class InvoiceService
     public function sendInvoice($id)
     {
         $invoice = $this->find($id);
-        if (!$invoice) throw new \Exception("Invoice not found");
+        if (!$invoice)
+            throw new \Exception("Invoice not found");
 
         $business_info = $this->getBusinessInfo($invoice->partner_id, $invoice->borrower_id);
 
@@ -295,7 +292,7 @@ class InvoiceService
         } else {
             $recipientEmail = $invoice->borrower?->email;
         }
-        
+
         // Fallback fallback just in case the specific relation email is missing
         $recipientEmail = $recipientEmail ?? $invoice->email;
 
@@ -303,12 +300,11 @@ class InvoiceService
             throw new \Exception("No recipient email found for this invoice");
         }
 
-        $partnerId = $invoice->partner_id;
-        $restore = $this->emailConfigService->applyToMailer($partnerId);
+
         try {
             Mail::to($recipientEmail)->send(new InvoiceMail($invoice, $pdfContent));
-        } finally {
-            $restore();
+        } catch (\Exception $e) {
+            Log::error('Failed to send invoice email', ['error' => $e->getMessage()]);
         }
         return true;
     }
@@ -341,11 +337,11 @@ class InvoiceService
 
         // 2. Resolve Branding from AppConfiguration
         $siteName = \App\Models\Common\AppConfiguration::get('site_name', null, $entityType, $entityId);
-        
+
         // Prioritize primary_logo as requested by user
         $logo = \App\Models\Common\AppConfiguration::get('primary_logo', null, $entityType, $entityId)
-                ?? \App\Models\Common\AppConfiguration::get('partner_logo', null, $entityType, $entityId) 
-                ?? \App\Models\Common\AppConfiguration::get('header_logo', null, $entityType, $entityId);
+            ?? \App\Models\Common\AppConfiguration::get('partner_logo', null, $entityType, $entityId)
+            ?? \App\Models\Common\AppConfiguration::get('header_logo', null, $entityType, $entityId);
 
         // 3. Fallbacks to Partner Model
         $siteName = $siteName ?? $targetPartner->company_name ?? config('app.name');
@@ -368,7 +364,7 @@ class InvoiceService
                         $path = "site-settings/" . $path;
                     }
                 }
-                
+
                 $localPath = public_path('storage/' . $path);
                 if (file_exists($localPath) && is_file($localPath)) {
                     $businessLogoPath = $localPath;
@@ -377,15 +373,15 @@ class InvoiceService
         }
 
         return [
-            'company_name'   => $siteName,
-            'email'          => $targetPartner->email ?? 'noreply@fourcornerfunding.com',
-            'phone_number'   => $targetPartner->phone_number ?? '',
+            'company_name' => $siteName,
+            'email' => $targetPartner->email ?? 'noreply@fourcornerfunding.com',
+            'phone_number' => $targetPartner->phone_number ?? '',
             'address_line_1' => $targetPartner->address_line_1 ?? '',
-            'city'           => $targetPartner->city ?? '',
-            'state'          => $targetPartner->state ?? '',
-            'postal_code'    => $targetPartner->postal_code ?? '',
-            'country'        => $targetPartner->country ?? '',
-            'website'        => $targetPartner->website ?? 'https://www.fourcornerfunding.com',
+            'city' => $targetPartner->city ?? '',
+            'state' => $targetPartner->state ?? '',
+            'postal_code' => $targetPartner->postal_code ?? '',
+            'country' => $targetPartner->country ?? '',
+            'website' => $targetPartner->website ?? 'https://www.fourcornerfunding.com',
             'business_logo_path' => $businessLogoPath,
         ];
     }

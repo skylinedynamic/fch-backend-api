@@ -23,7 +23,6 @@ use App\Services\Global\Microsoft\MicrosoftCalendarService;
 use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use Illuminate\Support\Facades\Auth;
 
 class AppointmentService
@@ -33,8 +32,8 @@ class AppointmentService
     public function __construct(
         protected MicrosoftCalendarService $microsoftCalendarService,
         protected ActivityLogService $activityLogService,
-        protected EmailConfigurationService $emailConfigService
-    ) {}
+    ) {
+    }
 
     /**
      * List Appointments
@@ -116,7 +115,7 @@ class AppointmentService
             ]);
             // Sync with Microsoft 365 (SKIPPED as per requirement)
             /*
-            */
+             */
             $syncResult = false;
 
             // Send Email Notification to Assigned User
@@ -348,19 +347,18 @@ class AppointmentService
             $businessInfo = [
                 'company_name' => $partner->company_name ?? 'Our Company',
                 'company_logo' => $partner->company_logo ?? 'logo.png',
-                'email'        => $partner->email ?? '',
+                'email' => $partner->email ?? '',
                 'phone_number' => $partner->phone_number ?? '',
                 'address_line_1' => $partner->address_line_1 ?? '',
             ];
 
-            $restore = $this->emailConfigService->applyToMailer($partnerId);
             try {
                 Mail::to($appointment->assignedFor->email)->send(
                     new AppointmentNotification($appointment, $action, $businessInfo, $partnerId)
                 );
                 Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
-            } finally {
-                $restore();
+            } catch (\Exception $e) {
+                Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
             }
         } catch (Throwable $e) {
             Log::error('[EMAIL] Failed to send appointment ' . $action . ' notification', ['error' => $e->getMessage()]);
@@ -488,24 +486,24 @@ class AppointmentService
             if ($isHost) {
                 // Admin Partner
 
-                if($user->entity_type == Partner::class){
-                        $query = User::query();
-                        if (isset($data['meeting_with']) &&  $data['meeting_with']) {
-                                $query->where('id','!=',$user->id)->where('entity_type', Partner::class);
-                        } else {
-                            $query->where('partner_id',$user->partner_id)->where(function($q){
-                                $q->where('entity_type', '!=', Partner::class)
+                if ($user->entity_type == Partner::class) {
+                    $query = User::query();
+                    if (isset($data['meeting_with']) && $data['meeting_with']) {
+                        $query->where('id', '!=', $user->id)->where('entity_type', Partner::class);
+                    } else {
+                        $query->where('partner_id', $user->partner_id)->where(function ($q) {
+                            $q->where('entity_type', '!=', Partner::class)
                                 ->orWhereNull('entity_type');
-                            });
-                        }
-                }else{
-                    $query = User::where('partner_id',$user->partner_id)->where(fn($qn) => $qn->where('entity_type', Partner::class)->orWhere('entity_type', Borrower::class)->wherehas('borrower',fn($q) => $q->where('assign_id', $user->id)));
+                        });
+                    }
+                } else {
+                    $query = User::where('partner_id', $user->partner_id)->where(fn($qn) => $qn->where('entity_type', Partner::class)->orWhere('entity_type', Borrower::class)->wherehas('borrower', fn($q) => $q->where('assign_id', $user->id)));
                 }
-        
+
             } else {
                 $query = User::query();
 
-                if($user->entity_type == Partner::class){
+                if ($user->entity_type == Partner::class) {
                     if (isset($data['meeting_with_host']) && $data['meeting_with_host']) {
                         $query->where('entity_type', Partner::class)->where('user_type', User::ADMIN);
                     } else {
@@ -514,11 +512,11 @@ class AppointmentService
                                 ->orWhereNull('entity_type');
                         });
                     }
-                }else{
-                    $query = User::where('partner_id',$user->partner_id)->where('entity_type',Partner::class)->orWhere(fn($qn) => $qn->where('entity_type', Borrower::class)->wherehas('borrower',fn($q) => $q->where('assign_id', $user->id)));
+                } else {
+                    $query = User::where('partner_id', $user->partner_id)->where('entity_type', Partner::class)->orWhere(fn($qn) => $qn->where('entity_type', Borrower::class)->wherehas('borrower', fn($q) => $q->where('assign_id', $user->id)));
                 }
 
-                
+
             }
         }
 

@@ -5,6 +5,7 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -12,9 +13,10 @@ use App\Models\Borrower\PreQualificationRequest;
 
 class PreQualificationSubmitted extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
 
     public $preQualification;
+    protected array $dynamicData = [];
 
     /**
      * Create a new message instance.
@@ -22,7 +24,7 @@ class PreQualificationSubmitted extends Mailable
     public function __construct(PreQualificationRequest $preQualification)
     {
         $this->preQualification = $preQualification;
-        $this->resolveMailConfig($this->preQualification->partner_id ?? null);
+        $this->setMailPartnerId();
     }
 
     /**
@@ -30,14 +32,12 @@ class PreQualificationSubmitted extends Mailable
      */
     public function envelope(): Envelope
     {
-        $subject = 'New Pre-Qualification Application Submitted';
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: 'New Pre-Qualification Application Submitted',
         );
     }
 
@@ -48,7 +48,11 @@ class PreQualificationSubmitted extends Mailable
     {
         return new Content(
             view: 'emails.pre_qualification_submitted',
-            with: $this->getBrandingData(),
+            with: [
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+                'preQualification' => $this->preQualification
+            ],
         );
     }
 }

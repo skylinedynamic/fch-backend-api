@@ -15,14 +15,9 @@ use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
-use PhpParser\Builder\Param;
-
 class FundingApplicationService
 {
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
+
     /**
      * Get Business Info for the authenticated user.
      *
@@ -37,14 +32,14 @@ class FundingApplicationService
     public function getFundingInfo()
     {
         $fundingInfo = FundingApplication::where('borrower_id', auth()->user()->entity_id)
-                ->with('borrower','coborrowers')
-                ->where('status', FundingApplication::ON_HOLD)
-                ->latest()
-                ->first();
+            ->with('borrower', 'coborrowers')
+            ->where('status', FundingApplication::ON_HOLD)
+            ->latest()
+            ->first();
 
-        if($fundingInfo){
+        if ($fundingInfo) {
             return $fundingInfo;
-        }else{
+        } else {
             return Borrower::where('id', auth()->user()->entity_id)->first();
         }
 
@@ -61,7 +56,7 @@ class FundingApplicationService
     {
         try {
             $borrowerId = auth()->user()->entity_id;
-            
+
             $data['status'] = $status ?? FundingApplication::ON_HOLD;
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
@@ -97,7 +92,7 @@ class FundingApplicationService
                         $coBorrowerIds[] = $record->id;
                     }
                 }
-                
+
                 // Sync: Delete co-borrowers that are not in the provided data
                 FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)
                     ->whereNotIn('id', $coBorrowerIds)
@@ -107,7 +102,7 @@ class FundingApplicationService
                 FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)->forceDelete();
             }
 
-            if($fundingApplication){
+            if ($fundingApplication) {
                 $this->createFundingApplicationDocumentDir($fundingApplication->id);
             }
 
@@ -115,7 +110,7 @@ class FundingApplicationService
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
                     $recipients = [];
-                    
+
                     // Add Partner Email
                     if ($fundingApplication->partner && $fundingApplication->partner->email) {
                         $recipients[] = $fundingApplication->partner->email;
@@ -123,18 +118,19 @@ class FundingApplicationService
 
                     // Add Configured Email
                     $host = Partner::host();
-                    
+
                     if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
                         $recipients[] = $host->email;
                     }
 
                     if (!empty($recipients)) {
-                        $partnerId = $fundingApplication->partner_id;
-                        $restore = $this->emailConfigService->applyToMailer($partnerId);
                         try {
                             Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
-                        } finally {
-                            $restore();
+                        } catch (\Throwable $e) {
+                            Log::error('Failed to send funding application submission email', [
+                                'application_id' => $fundingApplication->id,
+                                'error' => $e->getMessage()
+                            ]);
                         }
                     }
                 } catch (\Throwable $e) {
@@ -176,7 +172,7 @@ class FundingApplicationService
 
         foreach ($documents as $document) {
             $rawFilePath = $document->getRawOriginal('file_path');
-            
+
             if (!$rawFilePath) {
                 continue;
             }
@@ -316,7 +312,7 @@ class FundingApplicationService
     public function deleteDocument($id)
     {
         $borrowerId = auth()->user()->entity_id;
-        
+
         $document = FundingApplicationDocument::where('id', $id)
             ->where('borrower_id', $borrowerId)
             ->firstOrFail();

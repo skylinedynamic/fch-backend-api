@@ -7,14 +7,10 @@ use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use Illuminate\Support\Facades\Mail;
 
 class LeadService
 {
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
     /**
      * Store a new lead from the website.
      */
@@ -51,12 +47,11 @@ class LeadService
                         'is_pre_qualification' => $isPreQualification,
                         'prequalification' => $preQualificationData
                     ];
-                    $restore = $this->emailConfigService->applyToMailer($hostPartner->id);
                     try {
                         Mail::to($hostPartner->email ?: $hostPartner->contact_person_email)
                             ->send(new \App\Mail\Lead\LeadNotificationMail($lead, (object) $details));
-                    } finally {
-                        $restore();
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);
                     }
                 } catch (\Exception $e) {
                     Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);

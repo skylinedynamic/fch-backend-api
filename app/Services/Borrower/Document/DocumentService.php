@@ -14,13 +14,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class DocumentService
 {
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
 
     public function listForUser(Request $request)
     {
@@ -61,8 +57,8 @@ class DocumentService
                 $borrower = Borrower::with('partner')->find($user->entity_id);
                 // Add partner email if exists
                 if ($borrower->partner && $borrower->partner->email) {
-                        $recipients[] = $borrower->partner->email;
-                    }
+                    $recipients[] = $borrower->partner->email;
+                }
 
                 // Add configured doc email
                 $docEmail = config('app.mail_to_doc');
@@ -71,12 +67,14 @@ class DocumentService
                 }
 
                 if (!empty($recipients)) {
-                    $partnerId = $borrower->partner_id;
-                    $restore = $this->emailConfigService->applyToMailer($partnerId);
+
                     try {
                         Mail::to($recipients)->send(new BorrowerDocumentsUploadedMail($user, $documents));
-                    } finally {
-                        $restore();
+                    } catch (\Throwable $e) {
+                        Log::error('Failed to send document upload notification', [
+                            'user_id' => $user->id,
+                            'error' => $e->getMessage(),
+                        ]);
                     }
                 }
             } catch (\Throwable $e) {
@@ -97,32 +95,31 @@ class DocumentService
     {
         $size = null;
         $borrowerPath = $this->normalizePath($borrowerId, $file);
-       
+
         if (Storage::disk('public')->exists($borrowerPath)) {
-             try {
+            try {
                 $size = $this->formatSize(Storage::disk('public')->size($borrowerPath));
-             } catch (\Exception $e) {
+            } catch (\Exception $e) {
                 // Ignore size error
-             }
-        } 
-        elseif (Storage::disk('public')->exists(ltrim($file, '/'))) {
-             try {
+            }
+        } elseif (Storage::disk('public')->exists(ltrim($file, '/'))) {
+            try {
                 $size = $this->formatSize(Storage::disk('public')->size(ltrim($file, '/')));
-             } catch (\Exception $e) {
-             }
+            } catch (\Exception $e) {
+            }
         }
 
         $dbPath = str_replace("borrowers/{$borrowerId}/", "", $borrowerPath);
 
         $createData = [
-            'borrower_id'      => $borrowerId,
-            'document_name'    => $docName, // This is for metadata, model has file_name
-            'file_name'        => $docName,
+            'borrower_id' => $borrowerId,
+            'document_name' => $docName, // This is for metadata, model has file_name
+            'file_name' => $docName,
             'document_type_id' => $data['document_type_id'] ?? null,
-            'file_path'        => $dbPath,
-            'file_size'        => $size,
-            'status'           => BorrowerDocument::STATUS_UPLOADED,
-            'created_by'       => Auth::id(),
+            'file_path' => $dbPath,
+            'file_size' => $size,
+            'status' => BorrowerDocument::STATUS_UPLOADED,
+            'created_by' => Auth::id(),
         ];
 
         return BorrowerDocument::create($createData);
@@ -165,7 +162,7 @@ class DocumentService
             $doc->deleted_by = Auth::id();
             $doc->save();
             $doc->delete();
-            
+
             return true;
         } catch (\Throwable $e) {
 
@@ -174,7 +171,7 @@ class DocumentService
                 'document_id' => $id,
                 'error' => $e->getMessage(),
             ]);
-            
+
             throw new \RuntimeException(__('borrower.document_delete_failed'));
         }
     }

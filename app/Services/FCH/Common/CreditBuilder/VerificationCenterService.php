@@ -19,16 +19,10 @@ use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class VerificationCenterService
 {
     use PaginatesApi;
-
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {
-    }
 
     /**
      * Fetch all borrower task verification requests with related data.
@@ -485,7 +479,6 @@ class VerificationCenterService
                 return;
             }
 
-            $restore = $this->emailConfigService->applyToMailer($borrower->partner_id);
             try {
                 Mail::to($email)->send(new BorrowerVerificationStatusMail([
                     'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
@@ -494,8 +487,11 @@ class VerificationCenterService
                     'note' => $note,
                     'task_results' => $filteredResults,
                 ]));
-            } finally {
-                $restore();
+            } catch (\Exception $e) {
+                Log::error('VerificationCenterService: Failed to send verification status mail', [
+                    'borrower_id' => $borrower?->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         } catch (\Exception $e) {
             Log::error('VerificationCenterService: Failed to send verification status mail', [

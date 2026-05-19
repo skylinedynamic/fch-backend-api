@@ -7,15 +7,17 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class FundingApplicationSubmittedMail extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
 
     public $application;
+    protected array $dynamicData = [];
 
     /**
      * Create a new message instance.
@@ -23,7 +25,7 @@ class FundingApplicationSubmittedMail extends Mailable
     public function __construct(FundingApplication $application)
     {
         $this->application = $application;
-        $this->resolveMailConfig($this->application->borrower->partner_id ?? null);
+        $this->setMailPartnerId();
     }
 
     /**
@@ -31,14 +33,12 @@ class FundingApplicationSubmittedMail extends Mailable
      */
     public function envelope(): Envelope
     {
-        $subject = 'New Funding Application Submitted - ' . ($this->application->business_name ?? 'Client');
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: 'New Funding Application Submitted - ' . ($this->application->business_name ?? 'Client'),
         );
     }
 
@@ -49,7 +49,11 @@ class FundingApplicationSubmittedMail extends Mailable
     {
         return new Content(
             view: 'emails.borrower.funding_application_submitted',
-            with: $this->getBrandingData(),
+            with: [
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+                'application' => $this->application,
+            ],
         );
     }
 

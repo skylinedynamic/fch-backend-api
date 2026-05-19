@@ -8,13 +8,9 @@ use App\Services\Global\Notification\Mail\GenericNotificationMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Exception;
-use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
 class EmailChannel
 {
-    public function __construct(
-        protected EmailConfigurationService $emailConfigService
-    ) {}
     /**
      * Send email notification.
      */
@@ -39,11 +35,10 @@ class EmailChannel
                 'notification_type' => $notification->getType()
             ]);
 
-            $restore = $this->emailConfigService->applyToMailer($user->partner_id);
             try {
                 Mail::to($user->email)->send(new GenericNotificationMail($mailData));
-            } finally {
-                $restore();
+            } catch (Exception $e) {
+                Log::error(__('notification.email.errors.send_failed'), ['error' => $e->getMessage()]);
             }
 
             Log::info(__('notification.email.logs.after_sent'), [
@@ -68,20 +63,20 @@ class EmailChannel
     public function isConfigured(): bool
     {
         $mailDriver = config('mail.default');
-        
+
         if ($mailDriver === 'smtp') {
-            return !empty(config('mail.mailers.smtp.host')) && 
-                   !empty(config('mail.mailers.smtp.username'));
+            return !empty(config('mail.mailers.smtp.host')) &&
+                !empty(config('mail.mailers.smtp.username'));
         }
-        
+
         if ($mailDriver === 'mailgun') {
-            return !empty(config('services.mailgun.domain')) && 
-                   !empty(config('services.mailgun.secret'));
+            return !empty(config('services.mailgun.domain')) &&
+                !empty(config('services.mailgun.secret'));
         }
-        
+
         if ($mailDriver === 'ses') {
-            return !empty(config('services.ses.key')) && 
-                   !empty(config('services.ses.secret'));
+            return !empty(config('services.ses.key')) &&
+                !empty(config('services.ses.secret'));
         }
 
         if ($mailDriver === 'postmark') {
@@ -91,7 +86,7 @@ class EmailChannel
         if ($mailDriver === 'resend') {
             return !empty(config('services.resend.key'));
         }
-        
+
         // For other drivers or local testing
         return true;
     }
@@ -118,12 +113,11 @@ class EmailChannel
                 'notification_type' => 'test',
                 'data' => []
             ];
-            
-            $restore = $this->emailConfigService->applyToMailer($user->partner_id);
+
             try {
                 Mail::to($user->email)->send(new GenericNotificationMail($mailData));
-            } finally {
-                $restore();
+            } catch (Exception $e) {
+                Log::error(__('notification.email.errors.test_send_failed'), ['error' => $e->getMessage()]);
             }
             return true;
         } catch (Exception $e) {

@@ -6,6 +6,7 @@ use App\Models\Lead\Lead;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -13,10 +14,11 @@ use Illuminate\Support\Facades\Auth;
 
 class LeadNotificationMail extends Mailable
 {
-    use Queueable, SerializesModels, MailableBranding;
+    use Queueable, SerializesModels, MailableBranding, MailConfig;
 
     public $lead;
     public $details;
+    protected array $dynamicData = [];
 
     /**
      * Create a new message instance.
@@ -25,7 +27,7 @@ class LeadNotificationMail extends Mailable
     {
         $this->lead = $lead;
         $this->details = (object) ($details ?? []);
-        $this->resolveMailConfig($this->lead->partner_id);
+        $this->setMailPartnerId();
     }
 
     /**
@@ -34,15 +36,11 @@ class LeadNotificationMail extends Mailable
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $siteName = $branding['siteName'];
-        $subject = "New Lead Created - {$siteName}";
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            from: new \Illuminate\Mail\Mailables\Address(
-                $this->getFromAddress(),
-                $this->getFromName()
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: 'New Lead Created',
         );
     }
 
@@ -56,15 +54,15 @@ class LeadNotificationMail extends Mailable
 
         return new Content(
             view: 'emails.lead.notification',
-            with: array_merge([
-
+            with: [
                 'lead' => $this->lead,
                 'type' => $type,
                 'details' => $this->details,
                 'is_pre_qualification' => (bool) ($this->details->is_pre_qualification ?? false),
                 'prequalification' => $this->details->prequalification ?? null,
-            
-            ], $this->getBrandingData()),
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+            ],
         );
     }
 }
