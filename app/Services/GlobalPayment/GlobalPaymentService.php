@@ -50,7 +50,13 @@ class GlobalPaymentService
         if (!empty($data['invoice_id'])) {
             $invoice = Invoice::where('id', $data['invoice_id'])->first();
             if ($invoice) {
-                $partnerId = $invoice->partner_id;
+                // If it is a partner invoice (partner paying the host platform fee/enrollment fee),
+                // configure Stripe for the Host because the host receives the payment.
+                if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
+                    $partnerId = Partner::where('is_host', true)->first()?->id;
+                } else {
+                    $partnerId = $invoice->partner_id;
+                }
             }
         }
 
@@ -169,8 +175,8 @@ class GlobalPaymentService
                         $this->handleBorrowerPayment($invoice);
 
                         // Only charge the platform fee if the partner is strictly a White-Label Partner
-                        if (Auth::user()->partner_id && Auth::user()->partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, Auth::user()->partner);
+                        if ($invoice->partner_id && $invoice->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, $invoice->partner);
                         }
                     }
                 }
@@ -320,7 +326,7 @@ class GlobalPaymentService
         // If so, look for their unpaid partner invoice (with borrower_id as null).
         // If found, automatically charge the Partner's card.
         try {
-            $partnerInvoice = Invoice::where('partner_id', auth()->user()->partner_id)
+            $partnerInvoice = Invoice::where('partner_id', $partner->id)
                 ->whereNull('borrower_id')
                 ->where('status', Invoice::STATUS_UNPAID)
                 ->orderBy('id', 'desc')
