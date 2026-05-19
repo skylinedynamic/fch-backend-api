@@ -27,7 +27,6 @@ class WebsiteSiteSettingsService
         'address',
         'phone_number',
         'email',
-        'copyright_text',
         'primary_color',
         'secondary_color',
         'map_iframe',
@@ -44,13 +43,13 @@ class WebsiteSiteSettingsService
     {
         $user = auth('api')->user();
         $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
-        $entityId   = request()->input('entity_id') ?: ($user->entity_id ?? $user->partner_id ?? null);
-        
+        $entityId = request()->input('entity_id') ?: ($user->entity_id ?? $user->partner_id ?? null);
+
         // Normalize entity type
         if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
             $entityType = \App\Models\Partner\Partner::class;
         }
-        
+
         // If no ID provided and not logged in, try to resolve from host/domain (fallback to host 1 for now)
         if (!$entityId) {
             $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();

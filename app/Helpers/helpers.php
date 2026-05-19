@@ -11,9 +11,9 @@ if (!function_exists('encodeUrl')) {
     {
         // Replace spaces with %20
         $url = str_replace(' ', '%20', $url);
-        
+
         // Handle special characters like en-dashes (–) or em-dashes (—) that str_replace misses
-        return preg_replace_callback('/[^\w\-\.\/:\?#\[\]@!$&\'\(\)\*\+,;=%]/u', function($matches) {
+        return preg_replace_callback('/[^\w\-\.\/:\?#\[\]@!$&\'\(\)\*\+,;=%]/u', function ($matches) {
             return rawurlencode($matches[0]);
         }, $url);
     }
@@ -32,7 +32,7 @@ if (!function_exists('formatComma')) {
         if ($value === null || $value === '') {
             return null;
         }
-        return number_format((float)$value, $decimal, '.', ',');
+        return number_format((float) $value, $decimal, '.', ',');
     }
 }
 
@@ -50,7 +50,7 @@ if (!function_exists('currencyFormat')) {
         if ($value === null || $value === '') {
             return null;
         }
-        return $symbol . number_format((float)$value * $conversionRate, $decimal, '.', $thousandSeparator);
+        return $symbol . number_format((float) $value * $conversionRate, $decimal, '.', $thousandSeparator);
     }
 }
 
@@ -78,5 +78,42 @@ if (!function_exists('normalizeDate')) {
             \Illuminate\Support\Facades\Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
             return null;
         }
+    }
+}
+
+if (!function_exists('getPartnerIdFromOrigin')) {
+    /**
+     * Resolve Partner ID from the request Origin or Host.
+     * Useful for unauthenticated requests to get tenant context based on domain.
+     *
+     * @return int|null
+     */
+    function getPartnerIdFromOrigin()
+    {
+        $request = request();
+        $origin = $request->header('Origin');
+
+        // Resolve domain from Origin, X-Domain header, or Host fallback
+        $domain = ($origin && parse_url($origin, PHP_URL_HOST))
+            ? parse_url($origin, PHP_URL_HOST)
+            : ($request->header('X-Domain') ?: $request->getHost());
+
+        $domain = strtolower(trim($domain));
+        $domain = preg_replace('/^www\./', '', $domain);
+
+        // Cache the lookup for performance
+        return \Illuminate\Support\Facades\Cache::remember("domain_partner_id:{$domain}", now()->addMinutes(120), function () use ($domain) {
+            $partner = \App\Models\Partner\Partner::where('partner_domain', $domain)
+                ->orWhere('borrower_domain', $domain)
+                ->first();
+
+            if ($partner) {
+                return $partner->id;
+            }
+
+            // Fallback to Host ID if no domain match (represents general/default context)
+            $host = \App\Models\Partner\Partner::where('is_host', true)->first();
+            return $host ? $host->id : null;
+        });
     }
 }

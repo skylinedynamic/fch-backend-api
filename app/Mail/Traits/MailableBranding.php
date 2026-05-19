@@ -2,6 +2,8 @@
 
 namespace App\Mail\Traits;
 
+use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
 use App\Models\Setting\EmailConfiguration;
 use App\Services\Global\Notification\Mail\EmailConfigurationResolver;
 
@@ -9,19 +11,30 @@ trait MailableBranding
 {
     protected ?object $resolvedMailConfig = null;
     protected ?int $partnerId = null;
+    protected ?string $module = AppConfiguration::MODULE_BRANDING;
 
+    /**
+     * Get the Host partner.
+     */
+    protected function getHostPartner(): ?Partner
+    {
+        return Partner::where('is_host', 1)->first();
+    }
     /**
      * Resolve the mail configuration based on partner context.
      */
     protected function resolveMailConfig(?int $partnerId): void
     {
         if ($partnerId) {
-            $partner = \App\Models\Partner\Partner::find($partnerId);
+            $partner = Partner::find($partnerId);
             // Only White-Label Partners get their own branding. Others fall back to Host.
-            if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
-                $host = \App\Models\Partner\Partner::where('is_host', 1)->first();
+            if ($partner && $partner->partner_type != Partner::PARTNER_TYPE_WHITE_LABEL) {
+                $host = $this->getHostPartner();
                 $partnerId = $host ? $host->id : null;
             }
+        } else {
+            $host = $this->getHostPartner();
+            $partnerId = $host ? $host->id : null;
         }
 
         $this->partnerId = $partnerId;
@@ -33,43 +46,27 @@ trait MailableBranding
      */
     protected function getBrandingData(): array
     {
-        $entityType = \App\Models\Partner\Partner::class;
+        $module = $this->module;
+        $hostPartner = $this->getHostPartner();
+
+        // Fetch all Host branding configs and pluck them into a key => value array for easy fallback
+        $hostConfigs = AppConfiguration::where('module', $module)
+            ->where('partner_id', $hostPartner?->id)
+            ->pluck('value', 'key');
 
         // 1. Resolve Site Name
-        $siteName = \App\Models\Common\AppConfiguration::get('site_name', null, $entityType, $this->partnerId);
-        
-        // Fallback to partner model name if no app_config site_name
-        if (!$siteName && $this->partnerId) {
-            $siteName = \App\Models\Partner\Partner::find($this->partnerId)?->company_name;
-        }
+        // Try current partner first, fallback to Host config site_name, then Host company name
+        $siteName = AppConfiguration::get('site_name', $hostConfigs['site_name'] ?? $hostPartner?->company_name, $module, $this->partnerId);
 
-        // Fallback to host site_name if still null
-        if (!$siteName) {
-            $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
-            if ($hostPartner) {
-                $siteName = \App\Models\Common\AppConfiguration::get('site_name', $hostPartner->company_name, $entityType, $hostPartner->id);
-            }
-        }
 
-        $siteName = $siteName ?? config('app.name', 'Four Corner Funding');
+        $siteName = $siteName ?? config('app.name');
 
         // 2. Resolve Primary Logo
-        $logoPath = \App\Models\Common\AppConfiguration::get('primary_logo', null, $entityType, $this->partnerId)
-                  ?? \App\Models\Common\AppConfiguration::get('partner_logo', null, $entityType, $this->partnerId)
-                  ?? \App\Models\Common\AppConfiguration::get('header_logo', null, $entityType, $this->partnerId);
+        $logoPath = AppConfiguration::get('primary_logo', $hostConfigs['primary_logo'] ?? $hostPartner->company_logo, $module, $this->partnerId)
+            ?? AppConfiguration::get('partner_logo', $hostConfigs['partner_logo'] ?? $hostPartner->company_logo, $module, $this->partnerId)
+            ?? AppConfiguration::get('header_logo', $hostConfigs['header_logo'] ?? $hostPartner->company_logo, $module, $this->partnerId);
 
-        if (!$logoPath && $this->partnerId) {
-            $logoPath = \App\Models\Partner\Partner::find($this->partnerId)?->company_logo;
-        }
 
-        // Fallback to host logo if still null
-        if (!$logoPath) {
-            $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
-            if ($hostPartner) {
-                $logoPath = \App\Models\Common\AppConfiguration::get('primary_logo', null, $entityType, $hostPartner->id)
-                          ?? $hostPartner->company_logo;
-            }
-        }
 
         // Handle logo path resolution
         $logoUrl = asset('logo-mail.png'); // Default fallback
@@ -80,35 +77,35 @@ trait MailableBranding
                 $logoUrl = $logoPath;
             } else {
                 $cleanPath = ltrim((string) $logoPath, '/');
-                
+
                 // Standardize path resolution
                 if (!str_starts_with($cleanPath, 'site-settings/') && !str_starts_with($cleanPath, 'partners/')) {
                     // Try to determine if it's a partner logo
-                    if ($this->partnerId && \App\Models\Partner\Partner::find($this->partnerId)?->company_logo === $logoPath) {
+                    if ($this->partnerId && Partner::find($this->partnerId)?->company_logo == $logoPath) {
                         $cleanPath = "partners/{$this->partnerId}/" . $cleanPath;
                     } else {
                         $cleanPath = "site-settings/" . $cleanPath;
                     }
                 }
-                
+
                 $logoUrl = asset('storage/' . $cleanPath);
                 $localPath = public_path('storage/' . $cleanPath);
             }
         }
-        
+
         $businessLogoPath = file_exists($localPath) ? $localPath : public_path('logo-mail.png');
 
         // 3. Resolve Other Business Info
-        $email = \App\Models\Common\AppConfiguration::get('email', null, $entityType, $this->partnerId);
-        $phone = \App\Models\Common\AppConfiguration::get('phone_number', null, $entityType, $this->partnerId);
-        $address = \App\Models\Common\AppConfiguration::get('address', null, $entityType, $this->partnerId);
+        $email = AppConfiguration::get('email', $hostConfigs['email'] ?? $hostPartner?->email, $module, $this->partnerId);
+        $phone = AppConfiguration::get('phone_number', $hostConfigs['phone_number'] ?? $hostPartner?->phone_number, $module, $this->partnerId);
+        $address = AppConfiguration::get('address', $hostConfigs['address'] ?? $hostPartner?->address, $module, $this->partnerId);
 
         if ($this->partnerId && (!$email || !$phone || !$address)) {
-            $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+            $hostPartner = Partner::where('is_host', 1)->first();
             if ($hostPartner) {
-                $email = $email ?? \App\Models\Common\AppConfiguration::get('email', null, $entityType, $hostPartner->id) ?? $hostPartner->email;
-                $phone = $phone ?? \App\Models\Common\AppConfiguration::get('phone_number', null, $entityType, $hostPartner->id) ?? $hostPartner->phone_number;
-                $address = $address ?? \App\Models\Common\AppConfiguration::get('address', null, $entityType, $hostPartner->id) ?? $hostPartner->address;
+                $email = $email ?? AppConfiguration::get('email', null, $entityType, $hostPartner->id) ?? $hostPartner->email;
+                $phone = $phone ?? AppConfiguration::get('phone_number', null, $entityType, $hostPartner->id) ?? $hostPartner->phone_number;
+                $address = $address ?? AppConfiguration::get('address', null, $entityType, $hostPartner->id) ?? $hostPartner->address;
             }
         }
 
@@ -145,11 +142,7 @@ trait MailableBranding
     {
         $branding = $this->getBrandingData();
         $siteName = $branding['siteName'];
-        $defaultName = config('app.name') ?? 'Four Corner Funding';
-
-        // return $this->resolvedMailConfig?->from_name
-        //     ?? $siteName
-        //     ?? config('mail.from.name', $defaultName);
+        $defaultName = config('app.name');
 
         return $siteName ?? config('mail.from.name', $defaultName);
     }
@@ -160,9 +153,9 @@ trait MailableBranding
     protected function getDynamicSubject(string $subject): string
     {
         $appName = $this->getFromName();
-        $defaultName = 'Four Corner Funding';
+        $defaultName = config('app.name');
 
-        $typos = [$defaultName, 'Four Corner Funding', 'Fourcorner Funding'];
+        $typos = [$defaultName];
 
         $newSubject = $subject;
         foreach ($typos as $placeholder) {

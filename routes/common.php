@@ -73,6 +73,7 @@ Route::prefix('v1')->group(function () {
 
     Route::get('common/seo-settings', [SeoController::class, 'index']);
     Route::get('common/seo', [SeoController::class, 'show']);
+    Route::post('common/get-configurations', [CommonAppConfigurationController::class, 'index']);
 
     Route::middleware('auth:api')->group(function () {
 

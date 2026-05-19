@@ -26,7 +26,7 @@ class AppConfigurationController extends Controller
     {
         try {
             $user = auth()->user();
-            $partnerId = $user->partner_id;
+            $partnerId = $user ? $user->partner_id : getPartnerIdFromOrigin();
 
             $module = $request->input('module');
             $key = $request->input('key');
@@ -69,7 +69,7 @@ class AppConfigurationController extends Controller
                 $this->configService->set($key, $value, $module, $partnerId);
             } else {
                 $settings = $request->input('settings') ?? $request->except(['module', 'partner_id']);
-                
+
                 foreach ((array) $settings as $key => $value) {
                     $this->configService->set($key, $value, $module, $partnerId);
                 }

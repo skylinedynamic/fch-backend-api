@@ -15,7 +15,6 @@ class GeneralConfigurationsService
     private const TEXT_KEYS = [
         'site_name',
         'site_slogan',
-        'copyright_text',
         'primary_color',
         'secondary_color',
         'meta_title',

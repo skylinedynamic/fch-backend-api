@@ -28,6 +28,10 @@ class PortalIsolationService
      */
     public function isUserAllowedOnDomain(User $user, string $domain): bool
     {
+        if (app()->environment('local')) {
+            return true;
+        }
+
         $userPartner = $user->partner;
         $isUserHost = $userPartner && $userPartner->is_host;
 
@@ -39,7 +43,7 @@ class PortalIsolationService
         $borrowerPortal = strtolower(trim($reserved['base_reserved_borrower_portal'] ?? ''));
 
         // 2. Specific checks for reserved portals
-        if ($domain === $partnerPortal) {
+        if ($domain == $partnerPortal) {
             // Reserved Partner Portal is ONLY for host users
             return (bool) $isUserHost;
         }
