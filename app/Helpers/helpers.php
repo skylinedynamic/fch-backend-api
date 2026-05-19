@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Partner\Partner;
+use Illuminate\Support\Facades\Cache;
+
 if (!function_exists('encodeUrl')) {
     /**
      * Encode URL by replacing spaces with %20
@@ -93,17 +96,15 @@ if (!function_exists('getPartnerIdFromOrigin')) {
         $request = request();
         $origin = $request->header('Origin');
 
-        // Resolve domain from Origin, X-Domain header, or Host fallback
-        $domain = ($origin && parse_url($origin, PHP_URL_HOST))
-            ? parse_url($origin, PHP_URL_HOST)
-            : ($request->header('X-Domain') ?: $request->getHost());
+        // Resolve domain from Origin or Host fallback
+        $domain = ($origin && parse_url($origin, PHP_URL_HOST)) ? parse_url($origin, PHP_URL_HOST) : $request->getHost();
 
         $domain = strtolower(trim($domain));
         $domain = preg_replace('/^www\./', '', $domain);
 
         // Cache the lookup for performance
-        return \Illuminate\Support\Facades\Cache::remember("domain_partner_id:{$domain}", now()->addMinutes(120), function () use ($domain) {
-            $partner = \App\Models\Partner\Partner::where('partner_domain', $domain)
+        return Cache::remember("domain_partner_id:{$domain}", now()->addMinutes(120), function () use ($domain) {
+            $partner = Partner::where('partner_domain', $domain)
                 ->orWhere('borrower_domain', $domain)
                 ->first();
 
@@ -112,8 +113,20 @@ if (!function_exists('getPartnerIdFromOrigin')) {
             }
 
             // Fallback to Host ID if no domain match (represents general/default context)
-            $host = \App\Models\Partner\Partner::where('is_host', true)->first();
+            $host = Partner::where('is_host', true)->first();
             return $host ? $host->id : null;
         });
+    }
+}
+
+if (!function_exists('getConfigPartner')) {
+    function getConfigPartner(){
+        $partner = auth()->user()->partner;
+
+        if($partner->is_host || $partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL)
+        {
+            return $partner;
+        }
+        return Partner::host();
     }
 }

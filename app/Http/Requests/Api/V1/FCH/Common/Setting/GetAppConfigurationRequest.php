@@ -21,7 +21,7 @@ class GetAppConfigurationRequest extends BaseApiRequest
     {
         return [
             'module' => 'required|string',
-            'key' => 'nullable'
+            'key' => 'nullable|string'
         ];
     }
 }

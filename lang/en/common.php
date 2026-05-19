@@ -9,4 +9,6 @@ return [
     'user_count_failed' => 'Failed to retrieve user count.',
     'user_data_refreshed' => 'User data refreshed successfully.',
     'user_data_refresh_failed' => 'Failed to retrieve users.',
+    'global_configurations_retrieved' => 'Global configurations retrieved successfully.',
+    'error_global_configurations_retrieved' => 'Failed to retrieve global configurations.',
 ];

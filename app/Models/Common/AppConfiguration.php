@@ -21,6 +21,15 @@ class AppConfiguration extends Model
         'value'
     ];
 
+    public const IMAGE_KEYS = [
+        'header_logo',
+        'footer_logo',
+        'primary_logo',
+        'secondary_logo',
+        'favicon',
+        'website_favicon',
+        ];
+
     /**
      * Set a configuration value
      */
