@@ -9,6 +9,10 @@ use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 
+use App\Models\PaymentMethod\PaymentMethod;
+
+use Stripe\Stripe;
+
 class Payment extends Model
 {
     use HasFactory, SoftDeletes;
@@ -32,10 +36,94 @@ class Payment extends Model
     public const ENVIRONMENT_SANDBOX = 0;
     public const ENVIRONMENT_PRODUCTION = 1;
 
+    public const MODE_SANDBOX = 'sandbox';
+    public const MODE_PRODUCTION = 'production';
+
     public const PAYMENT_FROM_STRIPE = 'Stripe';
     public const PAYMENT_TYPE_CARD = 'Card';
     public const CURRENCY_USD = 'USD';
     public const CURRENCY_SYMBOL_USD = '$';
+
+    /**
+     * Create a payment record dynamically.
+     */
+    public function createRecord(array $data): self
+    {
+        $partnerId = $data['partner_id'] ?? null;
+        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
+
+        return self::create([
+            'partner_id'        => $partnerId,
+            'borrower_id'       => $data['borrower_id'] ?? null,
+            'invoice_id'        => $data['invoice_id'] ?? null,
+            'entity_type'       => $data['entity_type'] ?? null,
+            'entity_id'         => $data['entity_id'] ?? null,
+            'transaction_id'    => $data['transaction_id'] ?? null,
+            'amount'            => $data['amount'] ?? 0.00,
+            'currency'          => $data['currency'] ?? self::CURRENCY_USD,
+            'payment_from'      => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
+            'payment_type'      => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
+            'status'            => $data['status'] ?? self::STATUS_PENDING,
+            'is_environment'    => $isEnvironment,
+            'details'           => $data['details'] ?? null,
+            'transaction_date'  => $data['transaction_date'] ?? now(),
+            'created_by'        => $data['created_by'] ?? auth()->id(),
+        ]);
+    }
+
+    /**
+     * Configure Stripe with the appropriate secret key for a partner.
+     */
+    public function configureStripeForPartner(?int $partnerId): object
+    {
+        $paymentMethodService = new \App\Services\FCH\Common\PaymentMethod\PaymentMethodService();
+        $setting = $paymentMethodService->getSettings($partnerId);
+
+        if (!$setting) {
+            throw new \Exception('Payment settings not found or inactive.');
+        }
+
+        $secretKey = ($setting->payment_mode === 'production')
+            ? $setting->stripe_secret_production
+            : $setting->stripe_secret_sandbox;
+
+        if (!$secretKey) {
+            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
+        }
+
+        Stripe::setApiKey($secretKey);
+
+        return $setting;
+    }
+
+    /**
+     * Resolve environment based on Partner's payment mode.
+     */
+    public function getEnvironmentForPartner(?int $partnerId): int
+    {
+        if ($partnerId) {
+            $partner = Partner::find($partnerId);
+            if ($partner && $partner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL && !$partner->is_host) {
+                $host = Partner::where('is_host', 1)->first();
+                if ($host) {
+                    $partnerId = $host->id;
+                }
+            }
+        }
+
+        $paymentMode = PaymentMethod::where('partner_id', $partnerId)
+            ->where('key', 'payment_mode')
+            ->first()?->value ?? self::MODE_SANDBOX;
+
+        return $this->environmentFromMode($paymentMode);
+    }
+
+    public function environmentFromMode(string $mode): int
+    {
+        return $mode === self::MODE_PRODUCTION
+            ? self::ENVIRONMENT_PRODUCTION
+            : self::ENVIRONMENT_SANDBOX;
+    }
 
     public function partner()
     {

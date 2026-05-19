@@ -70,9 +70,7 @@ class SubscriptionPlanService
     public function nonHostBorrowerPlans()
     {
          $user = Auth::user();
-         Log::info($user->partner->partner_type);
-         Log::info('ARafat');
-         
+              
          if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
              return SubscriptionPlan::where('entity_type', Borrower::class)
                  ->whereIn('enrollment_type_slug', [

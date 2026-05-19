@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\Mail;
+use Stripe\Customer;
 use Stripe\Exception\ApiErrorException;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
@@ -35,18 +36,17 @@ class GlobalPaymentService
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
         protected EmailConfigurationService $emailConfigService,
-        protected PaymentMethodService $paymentMethodService
+        protected PaymentMethodService $paymentMethodService,
+        protected Payment $payment
     ) {}
 
     /**
-     * Create and process a Stripe payment.
+     * Resolve the target partner ID dynamically from inputs and context.
      */
-    public function processPayment(array $data)
+    private function resolvePartnerId(array $data): ?int
     {
         $partnerId = null;
 
-        // Try getting partner_id from invoice if provided
-        $invoice = null;
         if (!empty($data['invoice_id'])) {
             $invoice = Invoice::where('id', $data['invoice_id'])->first();
             if ($invoice) {
@@ -55,9 +55,9 @@ class GlobalPaymentService
         }
 
         if (!$partnerId && Auth::check()) {
-            if(in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
+            if (in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
                 $partnerId = Partner::where('is_host', true)->first()?->id;    
-            }else{
+            } else {
                 $partnerId = Auth::user()->partner_id;    
             }
         }
@@ -66,23 +66,17 @@ class GlobalPaymentService
             $partnerId = Partner::where('is_host', true)->first()?->id;
         }
 
-        // CONDITION 2: Borrower payment is processed using the Partner's Stripe credentials.
-        // This ensures the borrower's payment goes directly into their Partner's Stripe account.
-        $setting = $this->paymentMethodService->getSettings($partnerId);
+        return $partnerId;
+    }
 
-        if (!$setting) {
-            throw new \Exception('Payment settings not found or inactive.');
-        }
-
-        $secretKey = ($setting->payment_mode === 'production')
-            ? $setting->stripe_secret_production
-            : $setting->stripe_secret_sandbox;
-
-        if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured in settings for ' . $setting->payment_mode . ' mode.');
-        }
-
-        Stripe::setApiKey($secretKey);
+    /**
+     * Create and process a Stripe payment.
+     */
+    public function processPayment(array $data)
+    {
+        $partnerId = $this->resolvePartnerId($data);
+        $setting = $this->payment->configureStripeForPartner($partnerId);
+        $invoice = !empty($data['invoice_id']) ? Invoice::where('id', $data['invoice_id'])->first() : null;
 
         $entityTypeInput  = $data['entity_type'] ?? null;
         $entityId = $data['entity_id'] ?? null;
@@ -103,12 +97,12 @@ class GlobalPaymentService
         }
 
         if (!$entityType) {
-            if ($entityType == Borrower::class) {
+            if (!empty($data['borrower_id'])) {
                 $entityType = Borrower::class;
                 $entityId = $data['borrower_id'];
-            } elseif ($entityType == Partner::class) {
+            } elseif (Auth::check()) {
                 $entityType = Partner::class;
-                $entityId = Auth::user() ? Auth::user()->entity_id : null;
+                $entityId = Auth::user()->entity_id ?? Auth::user()->partner_id;
                 Log::info('Entity: ' . $entityId);
             }
         }
@@ -147,23 +141,18 @@ class GlobalPaymentService
                     $borrowerId = $invoice->entity_id;
                 }
 
-                $payment = Payment::create([
+                $payment = $this->payment->createRecord([
                     'partner_id' => $invoice ? $invoice->partner_id : (Auth::user()?->partner_id ?? $partnerId),
                     'borrower_id' => $borrowerId,
                     'invoice_id' => $invoice ? $data['invoice_id'] : null,
                     'entity_type' => $invoice ? $invoice->entity_type : null,
                     'entity_id' => $invoice ? $invoice->entity_id : null,
                     'transaction_id' => $paymentIntent->id,
-                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
-                    'payment_type' => Payment::PAYMENT_TYPE_CARD,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
                     'is_partner_paying' => $data['is_partner_paying'] ?? false,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
-                    'is_environment' => ($setting->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
-                    'transaction_date' => now(),
-                    'created_by' => Auth::id(),
                 ]);
 
                 if ($invoice) {
@@ -258,31 +247,24 @@ class GlobalPaymentService
     private function recordFailedPayment(array $data, string $errorMessage, string $errorType): void
     {
         try {
-            $invoice = null;
-            if (!empty($data['invoice_id'])) {
-                $invoice = Invoice::where('id', $data['invoice_id'])->first();
-            }
+            $partnerId = $this->resolvePartnerId($data);
+            $invoice = !empty($data['invoice_id']) ? Invoice::where('id', $data['invoice_id'])->first() : null;
 
-            Payment::create([
-                'partner_id' => $data['partner_id'] ?? Auth::user()?->partner_id,
+            $this->payment->createRecord([
+                'partner_id' => $partnerId,
                 'borrower_id' => $invoice->borrower_id ?? null,
                 'invoice_id' => $invoice ? $data['invoice_id'] : null,
                 'entity_type' => $data['entity_type'] ?? null,
                 'entity_id' => $data['entity_id'] ?? null,
                 'transaction_id' => 'FAILED_' . uniqid(),
-                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
-                'payment_type' => Payment::PAYMENT_TYPE_CARD,
                 'amount' => ($data['amount'] ?? 0) / 100,
-                'currency' => $data['currency'] ?? 'usd',
+                'currency' => $data['currency'] ?? Payment::CURRENCY_USD,
                 'details' => [
                     'error' => $errorMessage,
                     'type' => $errorType,
                     'input_data' => $data
                 ],
-                'status' => 'failed',
-                'is_environment' => ($this->paymentMethodService->getSettings($data['partner_id'] ?? null)?->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
-                'transaction_date' => now(),
-                'created_by' => Auth::id(),
+                'status' => Payment::STATUS_FAILED,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to record failed payment: ' . $e->getMessage());
@@ -383,7 +365,7 @@ class GlobalPaymentService
 
         try {
             // ── Step 1: Find a successful payment from this partner to get their customer and payment method
-            $partnerPayment = Payment::where('entity_type', Partner::class)
+            $partnerPayment = $this->payment->where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
                 ->where('status', 'succeeded')
                 ->where('payment_from', 'Stripe')
@@ -413,24 +395,7 @@ class GlobalPaymentService
                 return false;
             }
 
-            $setting = $this->paymentMethodService->getSettings($host->id);
-            if (!$setting) {
-                Log::error('[AutoCharge] Host payment settings not found.');
-                $this->recordFailedPayment($failedData, 'Host payment settings not found.', 'AutoCharge Config Error');
-                return false;
-            }
-
-            $secretKey = ($setting->payment_mode === 'production')
-                ? $setting->stripe_secret_production
-                : $setting->stripe_secret_sandbox;
-
-            if (!$secretKey) {
-                Log::error('[AutoCharge] Host Stripe secret key not configured.');
-                $this->recordFailedPayment($failedData, 'Host Stripe secret key not configured.', 'AutoCharge Config Error');
-                return false;
-            }
-
-            Stripe::setApiKey($secretKey);
+            $setting = $this->payment->configureStripeForPartner($host->id);
 
             Log::info('[AutoCharge] Host Stripe key set for charging partner', [
                 'host_id' => $host->id,
@@ -481,25 +446,20 @@ class GlobalPaymentService
                 'invoice_id' => $invoice->id,
             ]);
 
-            $payment = Payment::create([
+            $payment = $this->payment->createRecord([
                 'partner_id'        => $partner->id,
-                'borrower_id'       => null,           // partner is paying, not a borrower
+                'borrower_id'       => null,
                 'invoice_id'        => $invoice->id,
-                'entity_type'       => Partner::class, // partner entity is being charged
+                'entity_type'       => Partner::class,
                 'entity_id'         => (string) $partner->id,
                 'transaction_id'    => $paymentIntent->id,
                 'payment_from'      => Payment::PAYMENT_FROM_STRIPE,
                 'payment_type'      => Payment::PAYMENT_TYPE_CARD,
-                'amount'            => $amount,        // decimal(23,2) e.g. 800.00
+                'amount'            => $amount,
                 'currency'          => Payment::CURRENCY_USD,
-                'currency_symbol'   => Payment::CURRENCY_SYMBOL_USD,
-                'conversion_rate'   => 1.00,
-                'is_partner_paying' => true,           // tinyint(1) — partner is the payer
-                'details'           => $paymentIntent->toArray(), // json column
+                'is_partner_paying' => true,
+                'details'           => $paymentIntent->toArray(),
                 'status'            => $paymentIntent->status,
-                'is_environment'    => ($setting->payment_mode === 'production')
-                    ? Payment::ENVIRONMENT_PRODUCTION  // 1
-                    : Payment::ENVIRONMENT_SANDBOX,    // 0
                 'transaction_date'  => now(),
                 'created_by'        => Auth::id() ?? $partner->users()->first()?->id,
             ]);
@@ -569,22 +529,6 @@ class GlobalPaymentService
      */
     public function processPaymentForUsers(array $data)
     {
-        $setting = $this->paymentMethodService->getSettings($data['partner_id'] ?? null);
-
-        if (!$setting) {
-            throw new \Exception('Payment settings not found or inactive.');
-        }
-
-        $secretKey = ($setting->payment_mode === 'production')
-            ? $setting->stripe_secret_production
-            : $setting->stripe_secret_sandbox;
-
-        if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
-        }
-
-        Stripe::setApiKey($secretKey);
-
         $partnerId = $data['partner_id'] ?? null;
         $partner = Partner::find($partnerId);
 
@@ -592,13 +536,34 @@ class GlobalPaymentService
             throw new \Exception('Partner not found for seat purchase.');
         }
 
+        // Configure Stripe for the Host since seat payments go to the Host
+        $host = Partner::where('is_host', true)->first();
+        if (!$host) {
+            throw new \Exception('Host partner not found.');
+        }
+        $setting = $this->payment->configureStripeForPartner($host->id);
+
         DB::beginTransaction();
         try {
-            // 1. Create Stripe PaymentIntent
+            // Find or create Customer on Host Stripe account
+            $customers = Customer::all(['email' => $partner->email, 'limit' => 1]);
+            if (!empty($customers->data)) {
+                $customerId = $customers->data[0]->id;
+            } else {
+                $stripeCustomer = Customer::create([
+                    'email' => $partner->email,
+                    'name' => $partner->company_name ?? $partner->full_name,
+                ]);
+                $customerId = $stripeCustomer->id;
+            }
+
+            // 1. Create Stripe PaymentIntent on Host account
             $paymentIntent = PaymentIntent::create([
                 'amount' => $data['amount'],
                 'currency' => $data['currency'] ?? 'usd',
+                'customer' => $customerId,
                 'payment_method' => $data['payment_method_id'],
+                'setup_future_usage' => 'off_session',
                 'description' => $data['description'] ?? '',
                 'confirm' => true,
                 'automatic_payment_methods' => [
@@ -624,24 +589,16 @@ class GlobalPaymentService
                 ]);
 
                 // 3. Create Payment
-                $payment = Payment::create([
+                $payment = $this->payment->createRecord([
                     'partner_id' => $partner->id,
                     'invoice_id' => $data['invoice_id'],
-                    'entity_type' => User::class,
-                    'entity_id' => $data['user_id'],
+                    'entity_type' => Partner::class,
+                    'entity_id' => $partner->id,
                     'transaction_id' => $paymentIntent->id,
-                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
-                    'payment_type' => Payment::PAYMENT_TYPE_CARD,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
-                    'currency_symbol' => Payment::CURRENCY_SYMBOL_USD,
-                    'conversion_rate' => 1.00,
                     'details' => $paymentIntent->toArray(),
                     'status' => 'succeeded',
-                    'is_environment' => ($setting->payment_mode === 'production') ? Payment::ENVIRONMENT_PRODUCTION : Payment::ENVIRONMENT_SANDBOX,
-                    'transaction_date' => now(),
-                    'created_by' => Auth::id(),
-                    'updated_by' => Auth::id(),
                 ]);
 
                 // Log Activity Event
