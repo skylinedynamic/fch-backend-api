@@ -218,7 +218,7 @@ class GlobalPaymentService
                         'user_email' => $userEmail,
                     ];
                     $partnerIdForMail = $invoice ? $invoice->partner_id : ($data['partner_id'] ?? null);
-                    $restore = $this->emailConfigService->applyToMailer($partnerIdForMail);
+                    // $restore = $this->emailConfigService->applyToMailer($partnerIdForMail);
                     try {
                         if ($invoice && $invoice->is_partner_paying) {
                             Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
