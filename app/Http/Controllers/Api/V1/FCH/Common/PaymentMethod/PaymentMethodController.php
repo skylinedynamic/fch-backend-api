@@ -39,6 +39,9 @@ class PaymentMethodController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
+        $partnerId = null;
+
+        // $partner = getConfigPartner();
 
         $user = Auth::user();
         $partnerId = null;
@@ -48,6 +51,9 @@ class PaymentMethodController extends Controller
         } elseif ($user && $user->partner) {
             $partnerId = Partner::where('is_host', 1)->first()->id;
         }
+
+
+        $partnerId = $partnerId;
 
         if (! $partnerId) {
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
@@ -59,6 +65,8 @@ class PaymentMethodController extends Controller
             return ApiResponse::notFound(__('payment_method.not_found'));
         }
 
+        \Log::info('PaymentMethods API Partner ID: ' . $partnerId);
+        \Log::info('PaymentMethods API Response: ' . json_encode($setting));
         return ApiResponse::success(new PaymentMethodResource($setting), __('payment_method.retrieved'));
     }
 }

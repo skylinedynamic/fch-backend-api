@@ -4,14 +4,15 @@ namespace App\Http\Controllers\Api\V1\FCH\Common;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentMethod;
 use App\Models\Setting\EmailConfiguration;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
-use Illuminate\Http\Request;
-use App\Http\Resources\Global\Auth\UserResource;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class CommonController extends Controller
@@ -90,6 +91,22 @@ class CommonController extends Controller
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        
+        $isPaymentFresh = true;
+        if ($partner) {
+            $paymentMode = PaymentMethod::where('partner_id', $partner->id)->where('key', 'payment_mode')->value('value');
+            if ($paymentMode) {
+                $keyToCheck = $paymentMode === 'sandbox' ? 'stripe_secret_sandbox' : 'stripe_secret_production';
+                $hasSecretKey = PaymentMethod::where('partner_id', $partner->id)
+                                             ->where('key', $keyToCheck)
+                                             ->whereNotNull('value')
+                                             ->where('value', '!=', '')
+                                             ->exists();
+                $isPaymentFresh = $hasSecretKey;
+            } else {
+                $isPaymentFresh = false;
+            }
+        }
 
         if (auth()->check()) {
             return ApiResponse::success([
@@ -98,6 +115,7 @@ class CommonController extends Controller
                     'is_fresh_email' => $isEmailFresh ? true : null,
                     'is_fresh_settings' => $isBrandingFresh ? true : null,
                     'is_fresh_site_settings' => $isBrandingFresh ? true : null,
+                    'is_fresh_payment' => $isPaymentFresh ? true : null,
                 ]
             ], __('common.global_configurations_retrieved'));
         } else {

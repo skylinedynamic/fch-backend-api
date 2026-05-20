@@ -116,7 +116,30 @@ class GlobalPaymentService
 
         DB::beginTransaction();
         try {
-            $paymentIntent = PaymentIntent::create([
+            // If it's a partner paying, we MUST attach a Stripe Customer and save the card so AutoCharge works later
+            $stripeCustomerId = null;
+            $setupFutureUsage = null;
+            
+            if ($entityType === Partner::class && $entityId) {
+                $partnerToSave = Partner::find($entityId);
+                if ($partnerToSave && $partnerToSave->email) {
+                    // Try to find existing Stripe customer by email
+                    $existingCustomers = \Stripe\Customer::all(['email' => $partnerToSave->email, 'limit' => 1]);
+                    if (!empty($existingCustomers->data)) {
+                        $stripeCustomerId = $existingCustomers->data[0]->id;
+                    } else {
+                        // Create a new Stripe customer
+                        $newCustomer = \Stripe\Customer::create([
+                            'email' => $partnerToSave->email,
+                            'name' => $partnerToSave->company_name ?? $partnerToSave->full_name,
+                        ]);
+                        $stripeCustomerId = $newCustomer->id;
+                    }
+                    $setupFutureUsage = 'off_session'; // Save the card for future auto-charges
+                }
+            }
+
+            $paymentIntentData = [
                 'amount' => $data['amount'],
                 'currency' => $data['currency'] ?? config('stripe.currency', 'usd'),
                 'payment_method' => $data['payment_method_id'],
@@ -133,7 +156,14 @@ class GlobalPaymentService
                     'partner_id' => $data['partner_id'] ?? null,
                     'invoice_id' => $data['invoice_id'] ?? null,
                 ],
-            ]);
+            ];
+
+            if ($stripeCustomerId) {
+                $paymentIntentData['customer'] = $stripeCustomerId;
+                $paymentIntentData['setup_future_usage'] = $setupFutureUsage;
+            }
+
+            $paymentIntent = PaymentIntent::create($paymentIntentData);
 
             // Re-fetch invoice inside transaction if not already loaded
             if (!$invoice && !empty($data['invoice_id'])) {
@@ -218,7 +248,7 @@ class GlobalPaymentService
                         'user_email' => $userEmail,
                     ];
                     $partnerIdForMail = $invoice ? $invoice->partner_id : ($data['partner_id'] ?? null);
-                    $restore = $this->emailConfigService->applyToMailer($partnerIdForMail);
+                    // $restore = $this->emailConfigService->applyToMailer($partnerIdForMail);
                     try {
                         if ($invoice && $invoice->is_partner_paying) {
                             Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
