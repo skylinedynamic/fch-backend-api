@@ -63,6 +63,9 @@ trait MailConfig
                 'password' => $config->smtp_password ?? null,
                 'port' => $config->smtp_port ?? null,
                 'encryption' => $config->smtp_encryption ?? null,
+                'aws_access_key' => $config->aws_access_key ?? null,
+                'aws_secret_key' => $config->aws_secret_key ?? null,
+                'aws_region' => $config->aws_region ?? null,
             ]);
 
             Config::set('mail.default', $driver);
