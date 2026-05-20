@@ -37,7 +37,7 @@ class PaymentSuccessUserMail extends Mailable
     {
         $userName = $this->paymentData['user_name'] ?? 'Valued Customer';
         $firstName = explode(' ', trim($userName))[0];
-        $loginUrl = config('app.frontend_partner_url') . '/login';
+        $loginUrl = concatUrl(getPartnerDomain(), 'login', config('app.frontend_partner_url'));
 
         $businessInfo = [
             'company_name' => $this->dynamicData['siteName'],

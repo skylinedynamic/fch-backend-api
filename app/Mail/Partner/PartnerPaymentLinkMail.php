@@ -28,7 +28,7 @@ class PartnerPaymentLinkMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Complete Your Partner Enrollment - {$branding['siteName']}",
+            subject: $this->mailData['subject'] ?? "Complete Your Partner Enrollment",
         );
     }
 

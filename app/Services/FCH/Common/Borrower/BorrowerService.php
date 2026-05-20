@@ -440,7 +440,7 @@ class BorrowerService
                 if ($isHostCreating || $isWL) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
-                        $mailData['payment_link'] = config('app.frontend_borrower_url') . '/invoices';
+                        $mailData['payment_link'] = concatUrl(getBorrowerDomain(), 'invoices', config('app.frontend_borrower_url'));
                         $mailData['amount'] = $invoice->payment_amount;
                         Log::info('📧 Sending Payment Link Mail to Borrower');
                         $this->sendBorrowerMail($user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id);
