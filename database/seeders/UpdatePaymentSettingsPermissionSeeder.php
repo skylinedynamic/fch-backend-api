@@ -23,14 +23,14 @@ class UpdatePaymentSettingsPermissionSeeder extends Seeder
         // 1. Update or Create Settings permissions in permissions table
         $allPermissions = config('permissions');
         $settingsConfig = $allPermissions['settings'] ?? null;
-        
+
         if (!$settingsConfig || !isset($settingsConfig['permissions'])) {
             $this->command?->error('Settings permissions not found in config/permissions.php.');
             return;
         }
 
         $settingsPermissionsData = $settingsConfig['permissions'];
-        
+
         // The specific permission we are granting
         $targetPermissionName = 'update payment settings';
 
@@ -38,8 +38,8 @@ class UpdatePaymentSettingsPermissionSeeder extends Seeder
             Permission::updateOrCreate(
                 ['name' => $p['name'], 'guard_name' => 'api'],
                 [
-                    'module' => 'settings', 
-                    'is_host' => $p['is_host'] ?? 1, 
+                    'module' => 'settings',
+                    'is_host' => $p['is_host'] ?? 1,
                     'is_certified' => $p['is_certified'] ?? 0
                 ]
             );
@@ -58,21 +58,17 @@ class UpdatePaymentSettingsPermissionSeeder extends Seeder
         }
 
         // 3. Assign permission to roles
-        $roles = Role::with('permissions')->get();
+        $roles = Role::whereIn('code', ['admin', 'developer'])->with('permissions')->get();
 
         foreach ($roles as $role) {
             $shouldAssign = false;
 
-            if ($role->id == 1 || $role->partner_id == 1) {
-                // Developer or Super Admin Partner always gets it
+            if ($role->code === 'developer') {
                 $shouldAssign = true;
-            } else {
+            } elseif ($role->code === 'admin') {
                 $partner = Partner::find($role->partner_id);
-                if ($partner && ($role->code === 'admin' || $role->name === 'Admin')) {
-                    // Give only to White-Label Partners (since is_host is now 0)
-                    if ($partner->partner_type == 'White-Label Partner (WL)') {
-                        $shouldAssign = true;
-                    }
+                if ($partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL || $partner->is_host)) {
+                    $shouldAssign = true;
                 }
             }
 
@@ -81,11 +77,11 @@ class UpdatePaymentSettingsPermissionSeeder extends Seeder
                 if (!$role->hasPermissionTo($targetPermissionName)) {
                     $role->givePermissionTo($targetPermissionName);
                 }
-                
+
                 $this->command?->info("Assigned payment settings permission to Role: {$role->name} (Partner ID: " . ($role->partner_id ?? 'N/A') . ")");
 
                 // Also sync to existing users who might have direct permissions in model_has_permissions
-                $users = User::role($role->name)->with('permissions')->get();
+                $users = User::role($role->id)->with('permissions')->get();
                 foreach ($users as $user) {
                     if (method_exists($user, 'givePermissionTo') && !$user->hasPermissionTo($targetPermissionName)) {
                         $user->givePermissionTo($targetPermissionName);
