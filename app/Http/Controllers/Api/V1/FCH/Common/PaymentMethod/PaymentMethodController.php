@@ -39,15 +39,11 @@ class PaymentMethodController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
-
-        $user = Auth::user();
         $partnerId = null;
 
-        if ($request->has('partner_id')) {
-            $partnerId = $request->input('partner_id');
-        } elseif ($user && $user->partner) {
-            $partnerId = Partner::where('is_host', 1)->first()->id;
-        }
+        $partner = getConfigPartner();
+
+        $partnerId = $partner->id;
 
         if (! $partnerId) {
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
