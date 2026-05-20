@@ -414,6 +414,15 @@ class PartnerService
             // Update partner
             $oldStatus = $partner->status;
             $partnerData = $this->mapPartnerData($data);
+
+            if ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED && !empty($partnerData['partner_domain'])) {
+                $subdomain = trim($partnerData['partner_domain']);
+                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+                if (!str_ends_with($subdomain, '.' . $baseUrl)) {
+                    $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
+                }
+            }
+
             $partner->update($partnerData);
 
             // Sync user status if partner status changed

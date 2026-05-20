@@ -87,18 +87,22 @@ class CommonController extends Controller
     {
         $partner = getConfigPartner();
         $branding = $configService->getBrandingSettings($partner->id);
-    
+
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
 
-        return ApiResponse::success([
-            'branding' => $branding,
-            'status_flags' => [
-                'is_fresh_email' => $isEmailFresh ? true : null,
-                'is_fresh_settings' => $isBrandingFresh ? true : null,
-                'is_fresh_site_settings' => $isBrandingFresh ? true : null,
-            ]
-        ], __('common.global_configurations_retrieved'));
+        if (auth()->check()) {
+            return ApiResponse::success([
+                'branding' => $branding,
+                'status_flags' => [
+                    'is_fresh_email' => $isEmailFresh ? true : null,
+                    'is_fresh_settings' => $isBrandingFresh ? true : null,
+                    'is_fresh_site_settings' => $isBrandingFresh ? true : null,
+                ]
+            ], __('common.global_configurations_retrieved'));
+        } else {
+            return ApiResponse::success($branding, __('common.global_configurations_retrieved'));
+        }
     }
 }

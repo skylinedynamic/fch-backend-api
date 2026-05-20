@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Partner\Partner;
 
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -70,8 +71,17 @@ class UpdatePartnerRequest extends BaseApiRequest
             'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
             'enrollment_amount' => ['nullable', 'numeric', 'min:0'],
             'monthly_platform_fee' => ['nullable', 'numeric', 'min:0'],
-            'partner_domain' => ['nullable', 'string', 'max:255'],
-            'borrower_domain' => ['nullable', 'string', 'max:255'],
+            'partner_domain' => [
+                Rule::requiredIf(function () {
+                    $partner = Partner::find($this->id);
+                    return $partner && $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED;
+                }),
+                'nullable',
+                'string',
+                'min:4',
+                'max:50',
+                'regex:/^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/'
+            ],
         ];
     }
 
@@ -92,6 +102,10 @@ class UpdatePartnerRequest extends BaseApiRequest
             'city.required' => __('partner.validation.city.required'),
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
+            'partner_domain.required' => __('partner.validation.partner_domain.required'),
+            'partner_domain.min' => __('partner.validation.partner_domain.min'),
+            'partner_domain.max' => __('partner.validation.partner_domain.max'),
+            'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
         ];
     }
 }

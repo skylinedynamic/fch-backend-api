@@ -120,13 +120,14 @@ if (!function_exists('getPartnerIdFromOrigin')) {
 }
 
 if (!function_exists('getConfigPartner')) {
-    function getConfigPartner(){
-        $partner = auth()->user()->partner;
+    function getConfigPartner()
+    {
+        $partner = auth()->user()?->partner ?? Partner::find(getPartnerIdFromOrigin());
 
-        if($partner->is_host || $partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL)
-        {
+        if ($partner?->is_host || $partner?->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             return $partner;
         }
+
         return Partner::host();
     }
 }

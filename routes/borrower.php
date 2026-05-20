@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
@@ -39,6 +40,7 @@ Route::prefix('v1/borrower')->group(function () {
         ['middleware' => ['auth:api', 'borrower']],
         function () {
 
+            Route::get('borrower-theme', [CommonController::class, 'getTheme']);
             Route::post('/logout', [AuthController::class, 'logout']);
 
             // 📊 Dashboard

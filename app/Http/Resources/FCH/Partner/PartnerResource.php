@@ -42,8 +42,6 @@ class PartnerResource extends JsonResource
             'active_custom_url' => (bool) $this->active_custom_url,
             'partner_domain' => $this->partner_domain,
             'borrower_domain' => $this->borrower_domain,
-            'partner_portal_url' => $this->partner_domain ? (str_starts_with(config('app.frontend_partner_url'), 'https') ? 'https://' : 'http://') . $this->partner_domain . '.' . parse_url(config('app.frontend_partner_url'), PHP_URL_HOST) . (parse_url(config('app.frontend_partner_url'), PHP_URL_PORT) ? ':' . parse_url(config('app.frontend_partner_url'), PHP_URL_PORT) : '') : null,
-            'borrower_portal_url' => $this->borrower_domain ? (str_starts_with(config('app.frontend_borrower_url'), 'https') ? 'https://' : 'http://') . $this->borrower_domain . '.' . parse_url(config('app.frontend_borrower_url'), PHP_URL_HOST) . (parse_url(config('app.frontend_borrower_url'), PHP_URL_PORT) ? ':' . parse_url(config('app.frontend_borrower_url'), PHP_URL_PORT) : '') : null,
             'tax_id' => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website' => $this->website ?? null, // Assuming model accessor or field exists
             'is_host' => $this->is_host,
