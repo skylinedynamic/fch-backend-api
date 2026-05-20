@@ -17,12 +17,8 @@ trait MailConfig
      */
     public function setMailPartnerId(): self
     {
-        $user = auth()->user();
-        if ($user->partner->is_host || $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
-            $this->mailPartnerId = $user->partner_id;
-        } else {
-            $this->mailPartnerId = Partner::where('is_host', true)->first()->id;
-        }
+        $partner = getConfigPartner();
+        $this->mailPartnerId = $partner->id;
         return $this;
     }
 
