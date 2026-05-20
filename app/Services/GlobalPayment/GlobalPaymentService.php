@@ -176,7 +176,7 @@ class GlobalPaymentService
 
                         // Only charge the platform fee if the partner is strictly a White-Label Partner
                         if ($invoice->partner_id && $invoice->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, $invoice->partner);
+                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, $invoice->partner, $payment);
                         }
                     }
                 }
@@ -320,29 +320,33 @@ class GlobalPaymentService
     /**
      * Automatically charge the White-Label Partner's enrollment fee.
      */
-    protected function chargeWhiteLabelPartnerPlatformFee(Invoice $invoice, Partner $partner): void
+    protected function chargeWhiteLabelPartnerPlatformFee(Invoice $invoice, Partner $partner, Payment $payment): void
     {
         // CONDITION 1: Check if the borrower belongs to a White-Label Partner.
         // If so, look for their unpaid partner invoice (with borrower_id as null).
         // If found, automatically charge the Partner's card.
         try {
-            $partnerInvoice = Invoice::where('partner_id', $partner->id)
-                ->whereNull('borrower_id')
-                ->where('status', Invoice::STATUS_UNPAID)
-                ->orderBy('id', 'desc')
-                ->first();
+            $borrower = Borrower::find($invoice->entity_id);
+            if ($borrower && !$borrower->partner_payment_for_me) {
+                $partnerInvoice = Invoice::where('partner_id', $partner->id)
+                    ->where('entity_type', Partner::class)
+                    ->where('borrower_id', $borrower->id)
+                    ->first();
 
-            if ($partnerInvoice) {
-                Log::info('Triggering automatic partner charge of ' . $partnerInvoice->payment_amount . ' to host for partner ' . $partner->id . ' upon borrower payment');
-                $success = $this->chargePartnerCardAutomatically($partner, $partnerInvoice, $partnerInvoice->payment_amount);
+                if ($partnerInvoice) {
+                    Log::info('Triggering automatic partner charge of ' . $partnerInvoice->payment_amount . ' to host for partner ' . $partner->id . ' upon borrower payment');
+                    $success = $this->chargePartnerCardAutomatically($partner, $partnerInvoice, $partnerInvoice->payment_amount, $borrower, $payment);
 
-                if ($success) {
-                    Log::info('Successfully automatically charged partner ' . $partner->id . ' fee of ' . $partnerInvoice->payment_amount);
+                    if ($success) {
+                        Log::info('Successfully automatically charged partner ' . $partner->id . ' fee of ' . $partnerInvoice->payment_amount);
+                    } else {
+                        Log::warning('Automatic partner charge of ' . $partnerInvoice->payment_amount . ' failed or could not find saved Stripe details.');
+                    }
                 } else {
-                    Log::warning('Automatic partner charge of ' . $partnerInvoice->payment_amount . ' failed or could not find saved Stripe details.');
+                    Log::info('No unpaid partner invoice found for partner ' . $partner->id);
                 }
             } else {
-                Log::info('No unpaid partner invoice found for partner ' . $partner->id);
+                Log::info('Skipping partner auto charge: borrower has partner_payment_for_me = true or borrower not found');
             }
         } catch (\Exception $e) {
             Log::error('Failed to automatically charge partner fee: ' . $e->getMessage());
@@ -352,7 +356,7 @@ class GlobalPaymentService
     /**
      * Charge partner card automatically for WL Partner client.
      */
-    protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount): bool
+    protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount, Borrower $borrower = null, Payment $payment = null): bool
     {
         Log::info('[AutoCharge] Starting', [
             'partner_id' => $partner->id,
@@ -371,14 +375,22 @@ class GlobalPaymentService
 
         try {
             // ── Step 1: Find a successful payment from this partner to get their customer and payment method
-            $partnerPayment = $this->payment->where('entity_type', Partner::class)
+            $partnerPayments = $this->payment->where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
                 ->where('status', 'succeeded')
                 ->where('payment_from', 'Stripe')
                 ->orderBy('id', 'desc')
-                ->first();
+                ->get();
 
-            if (!$partnerPayment || empty($partnerPayment->details['customer']) || empty($partnerPayment->details['payment_method'])) {
+            $partnerPayment = null;
+            foreach ($partnerPayments as $p) {
+                if (!empty($p->details['customer']) && !empty($p->details['payment_method'])) {
+                    $partnerPayment = $p;
+                    break;
+                }
+            }
+
+            if (!$partnerPayment) {
                 Log::warning('[AutoCharge] Could not find saved Stripe payment method for partner ' . $partner->id);
                 $this->recordFailedPayment($failedData, 'Could not find saved Stripe payment method for partner', 'AutoCharge Missing Card');
                 return false;
@@ -448,6 +460,12 @@ class GlobalPaymentService
                 'payment_date' => now(),
             ]);
 
+            if ($borrower) {
+                $borrower->update([
+                    'partner_payment_for_me' => true,
+                ]);
+            }
+
             Log::info('[AutoCharge] Partner invoice marked paid', [
                 'invoice_id' => $invoice->id,
             ]);
@@ -488,6 +506,13 @@ class GlobalPaymentService
                 'partner_id'     => $partner->id,
                 'amount'         => $payment->amount,
             ]);
+
+            // Ensure the borrower's frontend refreshes their user state accurately
+            if ($borrower) {
+                \App\Models\User\User::where('entity_id', $borrower->id)
+                    ->where('entity_type', \App\Models\Borrower\Borrower::class)
+                    ->update(['is_refresh' => 1]);
+            }
 
             return true;
 

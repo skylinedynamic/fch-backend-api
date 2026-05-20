@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common;
 
-use App\Http\Controllers\Controller;
-use App\Services\FCH\Common\CommonService;
 use App\Helpers\ApiResponse;
-use Illuminate\Http\Request;
-
+use App\Http\Controllers\Controller;
 use App\Http\Resources\Global\Auth\UserResource;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Common\AppConfiguration;
+
+use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\Setting\EmailConfiguration;
+use App\Services\FCH\Common\CommonService;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\FCH\Common\Setting\GeneralConfigurationsService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CommonController extends Controller
 {
@@ -90,13 +94,13 @@ class CommonController extends Controller
             $emailConfig = $configs->where('is_active', true)->first();
             
             // Reset email flag
-            \App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)
-                ->where('key', 'is_fresh_email')
-                ->update(['value' => '0']);
+            EmailConfiguration::where('partner_id', $partnerId)
+            ->where('key', 'is_fresh_email')
+            ->update(['value' => '0']);
         }
 
         // Fetch Branding
-        $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
+        $entityType = $user->entity_type ?? Partner::class;
         $entityId   = $user->entity_id ?? $partnerId;
 
         // If it's a borrower, we usually want to show the partner's branding (especially for WL)
@@ -118,8 +122,9 @@ class CommonController extends Controller
         $user->save();
 
         // Configuration Status Flags for Frontend Guard
-        $isEmailFresh = $partnerId ? (\App\Models\Setting\EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
-        $isBrandingFresh = $partnerId ? (\App\Models\Common\AppConfiguration::where('entity_id', $partnerId)->where('entity_type', \App\Models\Partner\Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        $isEmailFresh = $partnerId ? (EmailConfiguration::where('partner_id', $partnerId)->where('key', 'is_active')->where('value', '1')->exists()) : true;
+        $isBrandingFresh = $partnerId ? (AppConfiguration::where('entity_id', $partnerId)->where('entity_type', Partner::class)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        $isPaymentFresh = $partnerId ? (PaymentMethod::where('partner_id', $partnerId)->where('key', 'status')->where('value', '1')->exists()) : true;
 
         return ApiResponse::success([
             'email_configuration' => $emailConfig,
@@ -128,6 +133,7 @@ class CommonController extends Controller
                 'is_fresh_email' => $isEmailFresh ? true : null,
                 'is_fresh_settings' => $isBrandingFresh ? true : null,
                 'is_fresh_site_settings' => $isBrandingFresh ? true : null,
+                'is_fresh_payment' => $isPaymentFresh ? true : null,
             ]
         ], __('common.global_configurations_retrieved', [], 'en'));
     }

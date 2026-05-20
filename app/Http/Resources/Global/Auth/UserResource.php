@@ -74,6 +74,7 @@ class UserResource extends JsonResource
             'is_host' => $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
             'partner_invoice_status' => $partnerInvoiceStatus,
+            'partner_payment_for_me' => (bool) ($this->borrower?->partner_payment_for_me ?? true),
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),

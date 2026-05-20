@@ -46,6 +46,7 @@ class Borrower extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'partner_payment_for_me' => 'boolean',
     ];
 
     const STATUS_ONBOARDING = 'OnBoarding';

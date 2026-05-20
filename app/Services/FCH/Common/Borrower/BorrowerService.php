@@ -327,6 +327,8 @@ class BorrowerService
                 $isWL = $partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL);
 
                 if ($isWL) {
+                    $borrower->update(['partner_payment_for_me' => false]);
+
                     // Fetch dynamic WL Partner Fee plan and amount
                     $wlPartnerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
                         ->where('entity_type', Borrower::class)
@@ -336,7 +338,7 @@ class BorrowerService
                     // Create Partner Invoice
                     $partnerInvoice = $this->invoiceService->create([
                         'partner_id' => $borrower->partner_id,
-                        'borrower_id' => null,
+                        'borrower_id' => $borrower->id,
                         'entity_type' => Partner::class,
                         'entity_id' => $borrower->partner_id,
                         'customer_name' => $partner->full_name,

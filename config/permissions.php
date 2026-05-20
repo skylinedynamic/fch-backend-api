@@ -196,7 +196,7 @@ return [
 
     'settings' => [
         'permissions' => [
-            ['name' => 'update payment settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update payment settings', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'update partner agreement settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update borrower agreement settings', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update email configuration settings', 'is_certified' => 0, 'is_host' => 0],
