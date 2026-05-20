@@ -133,16 +133,28 @@ if (!function_exists('getConfigPartner')) {
 }
 
 if (!function_exists('getPartnerDomain')) {
-    function getPartnerDomain(): ?string
+    function getPartnerDomain(int $partnerId = null): ?string
     {
-        return getConfigPartner()?->partner_domain;
+        if ($partnerId) {
+            $partner = Partner::find($partnerId);
+            return $partner->partner_domain ?? config('app.frontend_partner_url');
+        }
+        $partner = auth()->user()->partner;
+        $domain = $partner->partner_domain ?? config('app.frontend_partner_url');
+        return $domain;
     }
 }
 
 if (!function_exists('getBorrowerDomain')) {
-    function getBorrowerDomain(): ?string
+    function getBorrowerDomain(int $partnerId = null): ?string
     {
-        return getConfigPartner()?->borrower_domain;
+        if($partnerId){
+            $partner = Partner::find($partnerId);
+            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        }
+        $partner = auth()->user()->partner;
+        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        return $domain;
     }
 }
 

@@ -258,7 +258,7 @@ class PartnerService
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
-                    'payment_link' => concatUrl(getPartnerDomain(), 'invoices', config('app.frontend_partner_url')),
+                    'payment_link' => concatUrl(getPartnerDomain($invoice->partner_id), 'invoices', config('app.frontend_partner_url')),
                     'amount' => $invoice->payment_amount,
                     'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
                     'business_info' => [
