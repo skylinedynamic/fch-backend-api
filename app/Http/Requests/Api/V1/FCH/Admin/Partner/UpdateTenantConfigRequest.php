@@ -22,7 +22,7 @@ class UpdateTenantConfigRequest extends BaseApiRequest
     public function rules(): array
     {
         $partnerId = $this->id ?: auth()->user()->entity_id;
-        $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+        $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
         $restrictedDomains = array_map(function ($keyword) use ($baseUrl) {
             return $keyword . '.' . $baseUrl;
         }, Partner::RESTRICTED_DOMAINS);
