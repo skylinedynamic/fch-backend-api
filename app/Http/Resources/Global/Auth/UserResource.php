@@ -2,12 +2,14 @@
 
 namespace App\Http\Resources\Global\Auth;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use App\Models\Borrower\Borrower;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /** @mixin \App\Models\User\User */
 class UserResource extends JsonResource
@@ -49,6 +51,15 @@ class UserResource extends JsonResource
             $subscription = $this->partner?->subscription;
         }
         
+        $partnerInvoiceStatus = null;
+        if ($this->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+            $partnerInvoice = Invoice::where('partner_id', $this->partner_id)
+                ->whereNull('borrower_id')
+                ->where('is_partner_paying', true)
+                ->orderBy('created_at', 'asc')
+                ->first();
+            $partnerInvoiceStatus = $partnerInvoice?->status;
+        }
 
         return [
             'id' => $this->id,
@@ -62,6 +73,8 @@ class UserResource extends JsonResource
             'current_tier' => $this->entity_type == Borrower::class ? $this->entity?->current_tier : null,
             'is_host' => $this->partner?->is_host,
             'partner_type' => $this->partner?->partner_type,
+            'partner_invoice_status' => $partnerInvoiceStatus,
+            'partner_payment_for_me' => (bool) ($this->borrower?->partner_payment_for_me ?? true),
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),

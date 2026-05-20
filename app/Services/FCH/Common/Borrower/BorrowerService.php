@@ -317,45 +317,117 @@ class BorrowerService
                 ];
 
                 $planId = $data['plan_id'] ?? null;
+                $partner = Partner::find($borrower->partner_id);
+                $isWL = $partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL);
 
-                $plan = SubscriptionPlan::where('id', $planId)
-                    ->where('entity_type', Borrower::class)
-                    ->first();
+                if ($isWL) {
+                    $borrower->update(['partner_payment_for_me' => false]);
 
-                // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
-                $amount = (float) ($plan->payment_amount ?? 0);
-                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-                $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
+                    // Fetch dynamic WL Partner Fee plan and amount
+                    $wlPartnerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
+                        ->where('entity_type', Borrower::class)
+                        ->first();
+                    $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->payment_amount ?? 800.00) : 800.00;
 
-                if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
-                    $amount = (float) $data['enrollment_payment'];
-                    // Calculate total based on custom enrollment and installment count
-                    $totalSubscriptionAmount = $amount * $totalInstallments;
+                    // Create Partner Invoice
+                    $partnerInvoice = $this->invoiceService->create([
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'entity_type' => Partner::class,
+                        'entity_id' => $borrower->partner_id,
+                        'customer_name' => $partner->full_name,
+                        'email' => $partner->email,
+                        'country' => $partner->country,
+                        'payment_amount' => $wlPartnerFeeAmount,
+                        'status' => Invoice::STATUS_UNPAID,
+                        'is_partner_paying' => true,
+                        'is_platform_fee' => false,
+                    ]);
+                    $this->activityLogService->logModelEvent($partnerInvoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
+
+                    // Dynamically resolve the selected subscription plan
+                    $plan = null;
+                    if ($planId) {
+                        $plan = SubscriptionPlan::where('id', $planId)->where('entity_type', Borrower::class)->first();
+                    }
+                    if (!$plan) {
+                        $plan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME)
+                            ->where('entity_type', Borrower::class)
+                            ->first();
+                        $planId = $plan ? $plan->id : '';
+                    }
+
+                    $defaultAmount = $plan ? (float) ($plan->payment_amount ?? 2497.00) : 2497.00;
+                    $amount = isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '' ? (float) $data['enrollment_payment'] : $defaultAmount;
+                    $totalInstallments = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
+                    $totalSubscriptionAmount = $plan ? (float) ($plan->total_amount ?? $amount) : $amount;
+
+                    if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
+                        $totalSubscriptionAmount = $amount * $totalInstallments;
+                    }
+
+                    $isCustom = false;
+                    if ($plan) {
+                        $isCustom = (abs($amount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                            (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
+                    }
+
+                    // Create Borrower Invoice with customized/default amount
+                    $invoice = $this->invoiceService->create([
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'entity_type' => Borrower::class,
+                        'entity_id' => $borrower->id,
+                        'customer_name' => $borrower->full_name,
+                        'email' => $borrower->email,
+                        'country' => $borrower->country,
+                        'payment_amount' => $amount,
+                        'status' => Invoice::STATUS_UNPAID,
+                        'is_partner_paying' => false,
+                        'is_platform_fee' => false,
+                    ]);
+                    $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
+
+                } else {
+                    $plan = SubscriptionPlan::where('id', $planId)
+                        ->where('entity_type', Borrower::class)
+                        ->first();
+
+                    // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
+                    $amount = (float) ($plan->payment_amount ?? 0);
+                    $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                    $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
+
+                    if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
+                        $amount = (float) $data['enrollment_payment'];
+                        // Calculate total based on custom enrollment and installment count
+                        $totalSubscriptionAmount = $amount * $totalInstallments;
+                    }
+
+                    // Mark as custom if any value differs from the original plan
+                    $isCustom = false;
+                    if ($plan) {
+                        $isCustom = (abs($amount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                            (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
+                    }
+
+                    $invoice = $this->invoiceService->create([
+                        'partner_id' => $borrower->partner_id,
+                        'borrower_id' => $borrower->id,
+                        'entity_type' => Borrower::class,
+                        'entity_id' => $borrower->id,
+                        'customer_name' => $borrower->full_name,
+                        'email' => $borrower->email,
+                        'country' => $borrower->country,
+                        'payment_amount' => $amount,
+                        'status' => Invoice::STATUS_UNPAID,
+                        'is_partner_paying' => $isHostCreating ? false : true,
+                        'is_platform_fee' => false,
+                    ]);
+
+                    // Log Invoice Creation
+                    $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
                 }
-
-                // Mark as custom if any value differs from the original plan
-                $isCustom = false;
-                if ($plan) {
-                    $isCustom = (abs($amount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
-                }
-
-                $invoice = $this->invoiceService->create([
-                    'partner_id' => $borrower->partner_id,
-                    'borrower_id' => $borrower->id,
-                    'entity_type' => Borrower::class,
-                    'entity_id' => $borrower->id,
-                    'customer_name' => $borrower->full_name,
-                    'email' => $borrower->email,
-                    'country' => $borrower->country,
-                    'payment_amount' => $amount,
-                    'status' => Invoice::STATUS_UNPAID,
-                    'is_partner_paying' => $isHostCreating ? false : true,
-                    'is_platform_fee' => false,
-                ]);
-
-                // Log Invoice Creation
-                $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
                 $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [
                     'monthly_platform_fee' => 0,
@@ -365,7 +437,7 @@ class BorrowerService
                 ]);
                 Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
-                if ($isHostCreating) {
+                if ($isHostCreating || $isWL) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
                         $mailData['payment_link'] = config('app.frontend_borrower_url') . '/invoices';

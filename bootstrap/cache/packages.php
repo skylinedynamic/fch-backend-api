@@ -103,4 +103,15 @@
       0 => 'Spatie\\Permission\\PermissionServiceProvider',
     ),
   ),
+  'spatie/laravel-sluggable' => 
+  array (
+    'aliases' => 
+    array (
+      'SelfHealing' => 'Spatie\\Sluggable\\Facades\\SelfHealing',
+    ),
+    'providers' => 
+    array (
+      0 => 'Spatie\\Sluggable\\SluggableServiceProvider',
+    ),
+  ),
 );

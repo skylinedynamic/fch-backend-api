@@ -39,4 +39,13 @@ class SubscriptionPlan extends Model
         'conversion_rate' => 'decimal:4',
         'status' => 'boolean',
     ];
+
+    const CERTIFIED_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
+    const CERTIFIED_ENROLMENT_TYPE_INSTALLMENT = 'payment-plan-11-month-plan';
+    const WL_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
+    const WL_ENROLMENT_TYPE_INSTALLMENT = 'payment-plan-11-month-plan';
+    const BORROWER_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
+    const BORROWER_ENROLMENT_TYPE_INSTALLMENT = '6-month-payment';
+    const BORROWER_FIXED_ENROLLMENT = 'fixed-enrollment';
+
 }

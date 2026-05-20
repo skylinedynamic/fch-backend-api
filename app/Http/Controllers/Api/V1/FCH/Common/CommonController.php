@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\Setting\EmailConfiguration;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
-use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
-
 use App\Http\Resources\Global\Auth\UserResource;
-use Illuminate\Support\Facades\Auth;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use Illuminate\Support\Facades\Auth;
 
 class CommonController extends Controller
 {
