@@ -94,9 +94,8 @@ class CommonController extends Controller
         
         $isPaymentFresh = true;
         if ($partner) {
-            $isPaymentActive = PaymentMethod::where('partner_id', $partner->id)->where('key', 'status')->where('value', '1')->exists();
-            if ($isPaymentActive) {
-                $paymentMode = PaymentMethod::where('partner_id', $partner->id)->where('key', 'payment_mode')->value('value');
+            $paymentMode = PaymentMethod::where('partner_id', $partner->id)->where('key', 'payment_mode')->value('value');
+            if ($paymentMode) {
                 $keyToCheck = $paymentMode === 'sandbox' ? 'stripe_secret_sandbox' : 'stripe_secret_production';
                 $hasSecretKey = PaymentMethod::where('partner_id', $partner->id)
                                              ->where('key', $keyToCheck)
