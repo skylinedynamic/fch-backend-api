@@ -131,3 +131,28 @@ if (!function_exists('getConfigPartner')) {
         return Partner::host();
     }
 }
+
+if (!function_exists('currentUserPartnerDomain')) {
+    /**
+     * Get the partner_domain for the current user/context partner.
+     *
+     * @return string|null
+     */
+    function currentUserPartnerDomain(): ?string
+    {
+        return getConfigPartner()?->partner_domain;
+    }
+}
+
+if (!function_exists('currentUserBorrowerDomain')) {
+    /**
+     * Get the borrower_domain for the current user/context partner.
+     *
+     * @return string|null
+     */
+    function currentUserBorrowerDomain(): ?string
+    {
+        return getConfigPartner()?->borrower_domain;
+    }
+}
+
