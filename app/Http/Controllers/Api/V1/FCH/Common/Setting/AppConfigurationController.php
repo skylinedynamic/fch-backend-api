@@ -77,7 +77,7 @@ class AppConfigurationController extends Controller
                 }
             }
 
-            Cache::forget("mail_branding_" . ($partnerId ?? 'default'));
+            // Cache::forget("mail_branding_" . ($partnerId ?? 'default'));
 
             return ApiResponse::success(null, __('app_config.saved_successfully'));
         } catch (\Exception $e) {

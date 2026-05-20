@@ -71,7 +71,7 @@ class EmailConfigurationService
             User::where('partner_id', $partnerId)->update(['is_refresh' => true]);
         }
 
-        Cache::forget("dynamic_mail_config_" . ($partnerId ?? 'system'));
+        // Cache::forget("dynamic_mail_config_" . ($partnerId ?? 'system'));
 
         if ($partnerId === null || $this->isHostPartner($partnerId)) {
             self::$systemDefaults = null;

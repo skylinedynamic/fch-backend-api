@@ -5,7 +5,6 @@ namespace App\Mail\Traits;
 use App;
 use App\Models\Common\AppConfiguration;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Cache;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 
@@ -35,12 +34,8 @@ trait MailConfig
     {
         $partnerId = $this->mailPartnerId;
 
-        // Cache the configuration lookup for 1 hour to avoid repeated DB hits
-        $cacheKey = "dynamic_mail_config_" . ($partnerId ?? 'system');
-        $config = Cache::remember($cacheKey, 3600, function () use ($partnerId) {
-            $service = app(EmailConfigurationService::class);
-            return $service->getConfigurations($partnerId)->first();
-        });
+        $service = app(EmailConfigurationService::class);
+        $config = $service->getConfigurations($partnerId)->first();
 
         $siteName = AppConfiguration::get('site_name', '', AppConfiguration::MODULE_BRANDING, $partnerId);
 
@@ -64,6 +59,10 @@ trait MailConfig
                 'from' => $config->from_address ?? null,
                 'name' => $siteName,
                 'host' => $config->smtp_host ?? ($config->aws_region ?? 'N/A'),
+                'username' => $config->smtp_username ?? null,
+                'password' => $config->smtp_password ?? null,
+                'port' => $config->smtp_port ?? null,
+                'encryption' => $config->smtp_encryption ?? null,
             ]);
 
             Config::set('mail.default', $driver);
@@ -88,6 +87,11 @@ trait MailConfig
             // MANUALLY SET SENDER ON MAILABLE TO BYPASS CACHED ENVELOPE RESOLUTION
             $this->from($config->from_address ?? config('mail.from.address'), $siteName);
 
+            // Purge resolved mailers to force re-resolution with new config
+            app('mail.manager')->forgetMailers();
+
+            // Re-resolve the mailer instance with the new configuration
+            $mailer = app('mail.manager')->mailer($driver);
         }
 
         try {
@@ -97,6 +101,8 @@ trait MailConfig
             foreach ($originalConfig as $key => $value) {
                 Config::set($key, $value);
             }
+            // Purge resolved mailers to force re-resolution with restored default config
+            app('mail.manager')->forgetMailers();
         }
     }
 }
