@@ -49,8 +49,7 @@ class AppConfigurationsSeeder extends Seeder
             AppConfiguration::updateOrCreate(
                 [
                     'key' => $key,
-                    'entity_type' => $entityType,
-                    'entity_id' => $entityId,
+                    'partner_id' => $entityId,
                 ],
                 [
                     // ✅ FIX: handle array properly
