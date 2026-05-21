@@ -206,7 +206,7 @@ class GlobalPaymentService
                         $this->handleBorrowerPayment($invoice);
 
                         // Charge the platform fee if the partner is a White-Label or Certified Partner
-                        if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED])) {
+                        if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
                             $this->chargePlatformFee($invoice, $invoice->partner, $payment);
                         }
                     }
@@ -323,6 +323,13 @@ class GlobalPaymentService
             'status' => Partner::STATUS_ACTIVE,
             'updated_at' => now(),
         ]);
+        if($invoice->borrower_id) {
+            $borrower = Borrower::find($invoice->borrower_id);
+            $borrower->update([
+                'partner_payment_for_me' => true,
+                'updated_at' => now(),
+            ]);
+        }
 
         Log::info('Partner Status Activated via Payment', ['partner_id' => $partner->id]);
     }

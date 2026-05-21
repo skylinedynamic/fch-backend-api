@@ -318,9 +318,9 @@ class BorrowerService
 
                 $planId = $data['plan_id'] ?? null;
                 $partner = Partner::find($borrower->partner_id);
-                $isWL = $partner && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
+                $partnerTypeChecking = $partner && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
 
-                if ($isWL) {
+                if ($partnerTypeChecking && !$isHostCreating) {
                     $borrower->update(['partner_payment_for_me' => false]);
 
                     // Fetch dynamic WL Partner Fee plan and amount
