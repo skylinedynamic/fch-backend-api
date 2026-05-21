@@ -63,11 +63,11 @@ class AuthService
         }
 
         // 0. Portal & Domain Isolation Check
-        // $portalIsolationService = app(PortalIsolationService::class);
-        // $domain = $portalIsolationService->resolveDomain($request);
-        // if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
-        //     return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
-        // }
+        $portalIsolationService = app(PortalIsolationService::class);
+        $domain = $portalIsolationService->resolveDomain($request);
+        if (!$portalIsolationService->isUserAllowedOnDomain($user, $domain)) {
+            return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
+        }
 
         if ($user->is_paid && $user->payment_status != User::PAYMENT_STATUS_PAID) {
             $partner = $user->partner;

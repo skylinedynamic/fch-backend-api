@@ -10,17 +10,29 @@ use Illuminate\Support\Facades\Cache;
 class PortalIsolationService
 {
     /**
+     * Strip scheme, www, trailing slashes and lowercase — used on BOTH
+     * incoming values AND stored DB values so comparisons never fail.
+     */
+    public function normalizeDomain(string $value): string
+    {
+        $value = preg_replace('#^https?://#i', '', trim($value)); // strip http:// or https://
+        $value = strtolower(explode('/', $value)[0]);             // strip any path after domain
+        $value = preg_replace('/^www\./i', '', $value);           // strip www.
+
+        return $value;
+    }
+
+    /**
      * Resolve the current domain from the request.
      */
     public function resolveDomain(Request $request): string
     {
         $origin = $request->header('Origin');
-        $domain = ($origin && parse_url($origin, PHP_URL_HOST))
+        $raw    = ($origin && parse_url($origin, PHP_URL_HOST))
             ? parse_url($origin, PHP_URL_HOST)
             : ($request->header('X-Domain') ?: $request->getHost());
 
-        $domain = strtolower(trim($domain));
-        return preg_replace('/^www\./', '', $domain);
+        return $this->normalizeDomain($raw);
     }
 
     /**
@@ -32,50 +44,72 @@ class PortalIsolationService
             return true;
         }
 
+        // Always normalize the incoming domain before ANY comparison
+        $domain      = $this->normalizeDomain($domain);
         $userPartner = $user->partner;
-        $isUserHost = $userPartner && $userPartner->is_host;
+        $isUserHost  = $userPartner && $userPartner->is_host;
 
-        // 1. Resolve reserved domains
-        $reserved = config('domains.reserved', []);
-        $reservedLower = array_map('strtolower', $reserved);
+        // 1. Normalize ALL reserved domain values too
+        $reserved           = config('domains.reserved', []);
+        $reservedNormalized = array_map(
+            fn($v) => $this->normalizeDomain((string) $v),
+            $reserved
+        );
 
-        $partnerPortal = strtolower(trim($reserved['base_reserved_partner_portal'] ?? ''));
-        $borrowerPortal = strtolower(trim($reserved['base_reserved_borrower_portal'] ?? ''));
+        $partnerPortal  = $this->normalizeDomain($reserved['base_reserved_partner_portal'] ?? '');
+        $borrowerPortal = $this->normalizeDomain($reserved['base_reserved_borrower_portal'] ?? '');
 
-        // 2. Specific checks for reserved portals
-        if ($domain == $partnerPortal) {
-            // Reserved Partner Portal is ONLY for host users
+        // 2. Reserved partner portal — host only
+        if ($domain === $partnerPortal) {
             return (bool) $isUserHost;
         }
 
+        // 3. Reserved borrower portal — host OR certified partner with no custom borrower domain
         if ($domain === $borrowerPortal) {
-            // Reserved Borrower Portal is for host users OR certified partners without a custom borrower domain
-            $isCertifiedWithNoDomain = $userPartner &&
-                $userPartner->partner_type === Partner::PARTNER_TYPE_CERTIFIED &&
-                empty($userPartner->borrower_domain);
+            $isCertifiedWithNoDomain = $userPartner
+                && $userPartner->partner_type === Partner::PARTNER_TYPE_CERTIFIED
+                && empty($userPartner->borrower_domain);
 
             return $isUserHost || $isCertifiedWithNoDomain;
         }
 
-        // 3. Bypass other reserved domains (API, website)
-        if (in_array($domain, $reservedLower)) {
+        // 4. Other reserved domains (API, website) — always allow
+        if (in_array($domain, $reservedNormalized, strict: true)) {
             return true;
         }
 
-        // 4. Find the partner that owns this custom domain
-        $partnerDomainOwner = Cache::remember("domain_tenant:{$domain}", now()->addMinutes(10), function () use ($domain) {
-            return Partner::where('partner_domain', $domain)
-                ->orWhere('borrower_domain', $domain)
-                ->first();
-        });
+        // 5. Find partner by domain — normalize stored values at read time
+        //    so https://www.awlad.invento.com in DB matches awlad.invento.com incoming
+        $partnerDomainOwner = Cache::remember(
+            "domain_tenant:{$domain}",
+            now()->addMinutes(10),
+            function () use ($domain) {
+                // Primary: fast indexed lookup (works when DB values are already clean)
+                $partner = Partner::where('partner_domain', $domain)
+                                  ->orWhere('borrower_domain', $domain)
+                                  ->first();
+
+                if ($partner) {
+                    return $partner;
+                }
+
+                // Fallback: normalize stored values in memory for legacy dirty rows
+                // Remove this block once all DB rows are cleaned up
+                return Partner::whereNotNull('partner_domain')
+                              ->orWhereNotNull('borrower_domain')
+                              ->get()
+                              ->first(function (Partner $p) use ($domain) {
+                                  return $this->normalizeDomain((string) $p->partner_domain) === $domain
+                                      || $this->normalizeDomain((string) $p->borrower_domain) === $domain;
+                              });
+            }
+        );
 
         if ($partnerDomainOwner) {
-            // Domain belongs to a specific partner. User must belong to THIS partner (unless Host).
             return $isUserHost || $user->partner_id == $partnerDomainOwner->id;
         }
 
-        // 5. Domain does NOT belong to any partner and is NOT reserved.
-        // For strict isolation, only host users can be on unknown domains.
+        // 6. Unknown domain — host only
         return (bool) $isUserHost;
     }
 
