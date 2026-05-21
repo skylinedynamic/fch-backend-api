@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\PaymentMethod\StorePaymentMethodRequest;
 use App\Http\Resources\FCH\Common\PaymentMethod\PaymentMethodResource;
+use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use Illuminate\Http\JsonResponse;
@@ -48,13 +49,12 @@ class PaymentMethodController extends Controller
 
         if ($request->has('partner_id')) {
             $partnerId = $request->input('partner_id');
-        } elseif ($user && $user->partner) {
-            $partnerId = Partner::where('is_host', 1)->first()->id;
+        } elseif ($user && $user->entity_type == Partner::class) {
+            $partnerId = Partner::host()->id ?? null;
+        } elseif ($user && $user->entity_type == Borrower::class) {
+            $partnerId = $user->partner_id;
         }
-
-
-        $partnerId = $partnerId;
-
+        
         if (! $partnerId) {
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
         }

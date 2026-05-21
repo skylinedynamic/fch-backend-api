@@ -205,9 +205,9 @@ class GlobalPaymentService
                     } else if ($invoice->entity_type === Borrower::class) {
                         $this->handleBorrowerPayment($invoice);
 
-                        // Only charge the platform fee if the partner is strictly a White-Label Partner
-                        if ($invoice->partner_id && $invoice->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-                            $this->chargeWhiteLabelPartnerPlatformFee($invoice, $invoice->partner, $payment);
+                        // Charge the platform fee if the partner is a White-Label or Certified Partner
+                        if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
+                            $this->chargePlatformFee($invoice, $invoice->partner, $payment);
                         }
                     }
                 }
@@ -323,6 +323,13 @@ class GlobalPaymentService
             'status' => Partner::STATUS_ACTIVE,
             'updated_at' => now(),
         ]);
+        if($invoice->borrower_id) {
+            $borrower = Borrower::find($invoice->borrower_id);
+            $borrower->update([
+                'partner_payment_for_me' => true,
+                'updated_at' => now(),
+            ]);
+        }
 
         Log::info('Partner Status Activated via Payment', ['partner_id' => $partner->id]);
     }
@@ -349,11 +356,11 @@ class GlobalPaymentService
     }
 
     /**
-     * Automatically charge the White-Label Partner's enrollment fee.
+     * Automatically charge the White-Label or Certified Partner's enrollment fee.
      */
-    protected function chargeWhiteLabelPartnerPlatformFee(Invoice $invoice, Partner $partner, Payment $payment): void
+    protected function chargePlatformFee(Invoice $invoice, Partner $partner, Payment $payment): void
     {
-        // CONDITION 1: Check if the borrower belongs to a White-Label Partner.
+        // CONDITION 1: Check if the borrower belongs to a White-Label or Certified Partner.
         // If so, look for their unpaid partner invoice (with borrower_id as null).
         // If found, automatically charge the Partner's card.
         try {
@@ -459,7 +466,7 @@ class GlobalPaymentService
                 'payment_method' => $paymentMethodId,
                 'off_session' => true,
                 'confirm' => true,
-                'description' => 'White-Label platform enrollment fee — partner ' . $partner->id,
+                'description' => 'Partner enrollment fee — partner ' . $partner->id,
                 'metadata' => [
                     'partner_id' => $partner->id,
                     'invoice_id' => $invoice->id,

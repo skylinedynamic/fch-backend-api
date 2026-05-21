@@ -12,6 +12,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardService
@@ -74,8 +75,8 @@ class DashboardService
         );
 
         // Latest Unpaid Invoices
-        $isHostOrWL = $borrower?->partner?->is_host || ($borrower?->partner?->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL);
-        if ($isHostOrWL) {
+        $isPartnerType = $borrower?->partner?->is_host || ($borrower?->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) || ($borrower?->partner?->partner_type === Partner::PARTNER_TYPE_CERTIFIED);
+        if ($isPartnerType) {
             $data['invoices'] = DashboardInvoiceResource::collection(
                 $borrower->invoices()
                     ->where('is_partner_paying', false)

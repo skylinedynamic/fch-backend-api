@@ -318,9 +318,9 @@ class BorrowerService
 
                 $planId = $data['plan_id'] ?? null;
                 $partner = Partner::find($borrower->partner_id);
-                $isWL = $partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL);
+                $partnerTypeChecking = $partner && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
 
-                if ($isWL) {
+                if ($partnerTypeChecking && !$isHostCreating) {
                     $borrower->update(['partner_payment_for_me' => false]);
 
                     // Fetch dynamic WL Partner Fee plan and amount
@@ -437,7 +437,7 @@ class BorrowerService
                 ]);
                 Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
-                if ($isHostCreating || $isWL) {
+                if ($isHostCreating ) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
                         $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));

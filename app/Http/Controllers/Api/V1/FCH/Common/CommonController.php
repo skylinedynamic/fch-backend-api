@@ -92,12 +92,15 @@ class CommonController extends Controller
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
         
+        $actualPartner = auth()->user()?->partner ?? \App\Models\Partner\Partner::find(getPartnerIdFromOrigin());
+        $paymentPartner = $actualPartner ?? $partner;
+
         $isPaymentFresh = true;
-        if ($partner) {
-            $paymentMode = PaymentMethod::where('partner_id', $partner->id)->where('key', 'payment_mode')->value('value');
+        if ($paymentPartner) {
+            $paymentMode = PaymentMethod::where('partner_id', $paymentPartner->id)->where('key', 'payment_mode')->value('value');
             if ($paymentMode) {
                 $keyToCheck = $paymentMode === 'sandbox' ? 'stripe_secret_sandbox' : 'stripe_secret_production';
-                $hasSecretKey = PaymentMethod::where('partner_id', $partner->id)
+                $hasSecretKey = PaymentMethod::where('partner_id', $paymentPartner->id)
                                              ->where('key', $keyToCheck)
                                              ->whereNotNull('value')
                                              ->where('value', '!=', '')
