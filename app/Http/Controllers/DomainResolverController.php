@@ -25,7 +25,7 @@ class DomainResolverController extends Controller
             return response('', 401);
         }
 
-        $domain = strtolower(trim($domainHeader));
+        $domain = strtolower(trim($request->header('X-Domain')));
         $domain = preg_replace('/^www\./', '', $domain);
 
         if (in_array(strtolower($domain), array_map('strtolower', $this->reserved))) {
