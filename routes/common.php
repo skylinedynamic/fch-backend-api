@@ -222,6 +222,8 @@ Route::prefix('v1')->group(function () {
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
 
             Route::post('payment-methods', [PaymentMethodController::class, 'store']);
+            Route::post('payment-methods-update', [PaymentMethodController::class, 'updatePaymentMethods']);
+            Route::get('payment-methods-fetch', [PaymentMethodController::class, 'fetchPaymentMethod']);
             Route::get('payment-methods', [PaymentMethodController::class, 'show']);
 
             // Partner Tenant Config (for authenticated WL partners)

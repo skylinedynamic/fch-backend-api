@@ -384,7 +384,7 @@ class GlobalPaymentService
                     Log::info('No unpaid partner invoice found for partner ' . $partner->id);
                 }
             } else {
-                Log::info('Skipping partner auto charge: borrower has partner_payment_for_me = true or borrower not found');
+                Log::info('Skipping partner auto charge because this is host partner');
             }
         } catch (\Exception $e) {
             Log::error('Failed to automatically charge partner fee: ' . $e->getMessage());
