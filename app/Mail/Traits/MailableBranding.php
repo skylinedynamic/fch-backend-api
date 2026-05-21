@@ -5,7 +5,6 @@ namespace App\Mail\Traits;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\Setting\EmailConfiguration;
-use App\Services\Global\Notification\Mail\EmailConfigurationResolver;
 use Illuminate\Support\Facades\Cache;
 
 trait MailableBranding

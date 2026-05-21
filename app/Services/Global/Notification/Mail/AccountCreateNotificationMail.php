@@ -4,61 +4,66 @@ namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Mail\Mailables\Address;
 
 class AccountCreateNotificationMail extends Mailable
 {
-    use MailableBranding;
+    use MailableBranding, MailConfig;
 
     protected array $mailData;
+    protected array $dynamicData = [];
 
-    public function __construct(array $mailData)
+    public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
 
-        // Resolve config based on partner_id
-        $this->resolveMailConfig($mailData['partner_id'] ?? null);
+        $resolvedPartnerId = $partnerId ?? ($mailData['partner_id'] ?? null);
+        if ($resolvedPartnerId) {
+            $this->mailPartnerId = $resolvedPartnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     public function envelope(): Envelope
     {
-        $siteName = config('app.name') ?? 'Four Corner Funding';
-        if ($this->resolvedMailConfig && $this->resolvedMailConfig->site_name) {
-            $siteName = $this->resolvedMailConfig->site_name;
-        }
-
-        $defaultSubject = "Welcome to {$siteName}";
-        $subject = $this->mailData['subject'] ?? $defaultSubject;
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+        $subject = $this->mailData['subject'] ?? "Welcome to " . $branding['siteName'];
 
         return new Envelope(
-            from: new Address(
-                $this->getFromAddress(),
-                $this->getFromName(),
-            ),
-            subject: $this->getDynamicSubject($subject),
+            subject: $subject,
         );
     }
 
     public function content(): Content
     {
         $user = $this->mailData['user'];
-
         $loginUrl = match ($user->user_type) {
             \App\Models\User\User::ADMIN,
-            \App\Models\User\User::PARTNER => config('app.frontend_partner_url') . '/login',
-            \App\Models\User\User::BORROWER => config('app.frontend_borrower_url') . '/login',
-            default => config('app.frontend_partner_url') . '/login',
+            \App\Models\User\User::PARTNER => concatUrl(getPartnerDomain($this->mailPartnerId), 'login', config('app.frontend_partner_url')),
+            \App\Models\User\User::BORROWER => concatUrl(getBorrowerDomain($this->mailPartnerId), 'login', config('app.frontend_borrower_url')),
+            default => concatUrl(getPartnerDomain($this->mailPartnerId), 'login', config('app.frontend_partner_url')),
         };
 
         return new Content(
             view: 'emails.account_created',
-            with: array_merge([
+            with: [
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-            ], $this->getBrandingData()),
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+                'business_info' => [
+                    'company_name' => $this->mailData['business_info']['company_name'] ?? ($this->dynamicData['siteName'] ?? config('app.name')),
+                    'email' => $this->mailData['business_info']['email'] ?? '',
+                    'phone_number' => $this->mailData['business_info']['phone_number'] ?? '',
+                    'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',
+                ],
+            ],
         );
     }
 
