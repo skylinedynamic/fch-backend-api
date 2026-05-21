@@ -205,8 +205,8 @@ class GlobalPaymentService
                     } else if ($invoice->entity_type === Borrower::class) {
                         $this->handleBorrowerPayment($invoice);
 
-                        // Only charge the platform fee if the partner is strictly a White-Label Partner
-                        if ($invoice->partner_id && $invoice->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+                        // Charge the platform fee if the partner is a White-Label or Certified Partner
+                        if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED])) {
                             $this->chargeWhiteLabelPartnerPlatformFee($invoice, $invoice->partner, $payment);
                         }
                     }
