@@ -49,15 +49,15 @@ class PaymentMethodService
      */
     public function getSettings(?int $partnerId = null): ?object
     {
-        if ($partnerId) {
-            $partner = \App\Models\Partner\Partner::find($partnerId);
-            if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL && !$partner->is_host) {
-                $host = \App\Models\Partner\Partner::where('is_host', 1)->first();
-                if ($host) {
-                    $partnerId = $host->id;
-                }
-            }
-        }
+        // if ($partnerId) {
+        //     $partner = \App\Models\Partner\Partner::find($partnerId);
+        //     if ($partner && $partner->partner_type !== \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL && !$partner->is_host) {
+        //         $host = \App\Models\Partner\Partner::where('is_host', 1)->first();
+        //         if ($host) {
+        //             $partnerId = $host->id;
+        //         }
+        //     }
+        // }
 
         $query = PaymentMethod::query();
         
