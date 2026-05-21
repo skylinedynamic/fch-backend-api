@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
@@ -69,10 +68,7 @@ Route::prefix('v1')->group(function () {
     // Location routes
     Route::get('common/locations', [LocationController::class, 'index']);
 
-    // Site Settings & SEO (Publicly accessible for login/website)
 
-    Route::get('common/seo-settings', [SeoController::class, 'index']);
-    Route::get('common/seo', [SeoController::class, 'show']);
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
 
     Route::middleware('auth:api')->group(function () {
@@ -256,12 +252,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('update-password', [AuthProfileController::class, 'updatePassword']);
                 Route::post('update-profile', [AuthProfileController::class, 'updateProfile']);
                 Route::post('update-profile-picture', [AuthProfileController::class, 'updateProfilePicture']);
-            });
-
-            // App Configurations (Settings)
-            Route::prefix('app-config')->group(function () {
-                Route::post('/show', [SiteSettingsController::class, 'getSetting']);
-                Route::post('/save', [SiteSettingsController::class, 'saveSetting']);
             });
 
             // Common App Configurations (Key-Value)

@@ -12,24 +12,6 @@ class SiteSettingsService
 {
     use UploadsFiles;
 
-    private const ENTITY_TYPE = 'App\\Models\\Partner\\Partner';
-    private const DEFAULT_ENTITY_ID = 1;
-
-    private const TEXT_KEYS = [
-        'site_name',
-        'site_slogan',
-        'address',
-        'phone_number',
-        'email',
-        'map_iframe',
-        'agreement_signing_enabled',
-        'google_measurement_id',
-        'recaptcha_site_key',
-        'recaptcha_secret_key',
-        'primary_color',
-        'secondary_color',
-    ];
-
     private const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
@@ -42,9 +24,9 @@ class SiteSettingsService
     /**
      * Get value of a config key for a specific entity
      */
-    public function getSetting(string $key, ?string $entityType = null, ?int $entityId = null, $default = '0')
+    public function getSetting($partnerId=null)
     {
-        return AppConfiguration::get($key, $default, $entityType, $entityId);
+        return AppConfiguration::where('module', AppConfiguration::MODULE_WEBSITE)->where('partner_id', $partnerId)->get();
     }
 
     /**
@@ -60,31 +42,26 @@ class SiteSettingsService
      */
     public function getSettings(?int $partnerId = null): array
     {
-        $entityId = $partnerId ?? self::DEFAULT_ENTITY_ID;
 
-        $rows = AppConfiguration::where('entity_type', self::ENTITY_TYPE)
-            ->where('entity_id', $entityId)
-            ->get()
-            ->keyBy('key');
+        $rows = AppConfiguration::where('module', AppConfiguration::MODULE_WEBSITE)
+            ->where('partner_id', $partnerId)
+            ->pluck('value', 'key')
+            ->toArray();
 
-        $data = ['id' => $entityId, 'partner_id' => $partnerId];
+        $data=[]; 
 
-        foreach (array_merge(self::TEXT_KEYS, self::IMAGE_KEYS, ['social_links']) as $key) {
-            $raw = $rows->has($key) ? $rows[$key]->value : null;
-
-            if ($key === 'social_links') {
-                $data[$key] = json_decode($raw ?? '[]', true) ?: [];
+        foreach ($rows as $key => $row) {
+            if ($key == 'social_links') {
+                $data[$key] = json_decode($row ?? '[]', true) ?: [];
             } elseif (in_array($key, self::IMAGE_KEYS, true)) {
-                $data[$key] = $this->buildImageUrl($key, $raw);
+                $data[$key] = $this->buildImageUrl($key, $row);
             } else {
-                $data[$key] = $raw;
+                $data[$key] = $row;
             }
         }
 
-        $data['created_at'] = $rows->first()?->created_at;
-        $data['updated_at'] = $rows->last()?->updated_at;
-
         return $data;
+
     }
 
     /**
@@ -92,46 +69,29 @@ class SiteSettingsService
      */
     public function updateSettings(?int $partnerId, array $data): array
     {
-        $entityId = $partnerId ?? self::DEFAULT_ENTITY_ID;
-
         DB::beginTransaction();
         try {
-            // ── Social links ─────────────────────────────────────────────────
-            if (isset($data['social_links'])) {
-                $links = is_array($data['social_links'])
-                    ? $data['social_links']
-                    : json_decode($data['social_links'], true);
+            foreach ($data as $key => $value) {
+                if ($key === 'social_links') {
+                    $links = is_array($value)
+                        ? $value
+                        : json_decode($value, true);
 
-                if (is_array($links)) {
-                    $cleaned = array_map(function ($link) {
-                        return [
-                            'platform' => (isset($link['platform']) && $link['platform'] !== '') ? trim($link['platform']) : null,
-                            'url' => (isset($link['url']) && $link['url'] !== '') ? trim($link['url']) : null,
-                            'icon' => (isset($link['icon']) && $link['icon'] !== '') ? trim($link['icon']) : null,
-                        ];
-                    }, $links);
-                    $filtered = array_values(array_filter($cleaned ?? [], function ($link) {
-                        return !empty($link['platform']) || !empty($link['url']);
-                    }));
-                    AppConfiguration::set('social_links', json_encode($filtered), self::ENTITY_TYPE, $entityId);
-                }
-            }
-
-            // ── Text fields ──────────────────────────────────────────────────
-            foreach (self::TEXT_KEYS as $key) {
-                if (array_key_exists($key, $data) && !($data[$key] instanceof UploadedFile)) {
-                    AppConfiguration::set($key, $data[$key] ?? '', self::ENTITY_TYPE, $entityId);
-                }
-            }
-
-            // ── Image fields ─────────────────────────────────────────────────
-            foreach (self::IMAGE_KEYS as $key) {
-                if (!isset($data[$key])) {
-                    continue;
-                }
-
-                if ($data[$key] instanceof UploadedFile) {
-                    $existing = AppConfiguration::get($key, null, self::ENTITY_TYPE, $entityId);
+                    if (is_array($links)) {
+                        $cleaned = array_map(function ($link) {
+                            return [
+                                'platform' => (isset($link['platform']) && $link['platform'] !== '') ? trim($link['platform']) : null,
+                                'url' => (isset($link['url']) && $link['url'] !== '') ? trim($link['url']) : null,
+                                'icon' => (isset($link['icon']) && $link['icon'] !== '') ? trim($link['icon']) : null,
+                            ];
+                        }, $links);
+                        $filtered = array_values(array_filter($cleaned ?? [], function ($link) {
+                            return !empty($link['platform']) || !empty($link['url']);
+                        }));
+                        AppConfiguration::set('social_links', json_encode($filtered), AppConfiguration::MODULE_WEBSITE, $partnerId);
+                    }
+                } elseif (in_array($key, self::IMAGE_KEYS, true) && $value instanceof UploadedFile) {
+                    $existing = AppConfiguration::get($key, null, AppConfiguration::MODULE_WEBSITE, $partnerId);
                     if ($existing) {
                         $this->deleteFile($existing, 'public');
                     }
@@ -139,22 +99,14 @@ class SiteSettingsService
                     $prefix = match ($key) {
                         'header_logo' => 'h',
                         'footer_logo' => 'f',
-                        'primary_logo' => 'p_main',
-                        'secondary_logo' => 'p_sec',
-                        'partner_logo' => 'p',
-                        'borrower_logo' => 'b',
-                        'favicon' => 'fav',
                         'website_favicon' => 'wfav',
-                        'partner_favicon' => 'pfav',
-                        'borrower_favicon' => 'bfav',
                         default => $key,
                     };
-                    $filename = time() . "_{$prefix}_" . $data[$key]->getClientOriginalName();
-                    $upload = $this->uploadFile($data[$key], 'site-settings', 'public', $filename);
-                    AppConfiguration::set($key, $upload['path'], self::ENTITY_TYPE, $entityId);
-
-                } elseif (isset($data[$key])) {
-                    AppConfiguration::set($key, $this->normalizePath($data[$key]), self::ENTITY_TYPE, $entityId);
+                    $filename = time() . "_{$prefix}_" . $value->getClientOriginalName();
+                    $upload = $this->uploadFile($value, 'site-settings', 'public', $filename);
+                    AppConfiguration::set($key, $upload['path'], AppConfiguration::MODULE_WEBSITE, $partnerId);
+                } else {
+                    AppConfiguration::set($key, $value, AppConfiguration::MODULE_WEBSITE, $partnerId);
                 }
             }
 
@@ -168,48 +120,17 @@ class SiteSettingsService
         }
     }
 
-    private function normalizePath($path): ?string
-    {
-        if (!$path || $path === 'null' || $path === 'undefined') {
-            return null;
-        }
-
-        $path = ltrim((string) $path, '/');
-
-        // If it's a full URL, try to extract the relative path if it points to our storage
-        if (str_contains($path, '/storage/site-settings/')) {
-            $parts = explode('/storage/site-settings/', $path);
-            return 'site-settings/' . end($parts);
-        }
-
-        if (str_contains($path, '/storage/')) {
-            $parts = explode('/storage/', $path);
-            return end($parts);
-        }
-
-        if (str_starts_with($path, 'http')) {
-            return $path;
-        }
-
-        if (!str_starts_with($path, 'site-settings/')) {
-            return 'site-settings/' . $path;
-        }
-
-        return $path;
-    }
 
     private function buildImageUrl(string $key, ?string $value): ?string
     {
         if (!$value || $value === 'null' || str_ends_with($value, '/null') || !in_array($key, self::IMAGE_KEYS, true)) {
             return null;
         }
-        if (filter_var($value, FILTER_VALIDATE_URL)) {
+
+        if (filter_var($value, FILTER_VALIDATE_URL) || str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
             return $value;
         }
-        $path = ltrim($value, '/');
-        if (!str_starts_with($path, 'site-settings/')) {
-            $path = 'site-settings/' . $path;
-        }
-        return encodeUrl(asset('storage/' . $path));
+
+        return encodeUrl(asset('storage/' . $value));
     }
 }
