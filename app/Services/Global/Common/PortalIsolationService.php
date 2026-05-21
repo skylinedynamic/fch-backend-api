@@ -72,6 +72,7 @@ class PortalIsolationService
         // --- Local env bypass ---
         if (app()->environment('local')) {
             Log::debug('[PortalIsolation] ALLOWED — local environment bypass', $context);
+            Log::info('[PortalIsolation] Return 1: Local environment bypass', $context);
             return true;
         }
 
@@ -98,6 +99,9 @@ class PortalIsolationService
                 'result'  => $allowed ? 'ALLOWED' : 'DENIED',
                 'reason'  => $allowed ? 'user is host' : 'user is not host',
             ]));
+            Log::info('[PortalIsolation] Return 2: Reserved partner portal', array_merge($context, [
+                'allowed' => $allowed,
+            ]));
             return $allowed;
         }
 
@@ -118,6 +122,9 @@ class PortalIsolationService
                                                     ? 'certified partner with no borrower domain'
                                                     : 'not host and not certified without domain'),
             ]));
+            Log::info('[PortalIsolation] Return 3: Reserved borrower portal', array_merge($context, [
+                'allowed' => $allowed,
+            ]));
 
             return $allowed;
         }
@@ -127,6 +134,7 @@ class PortalIsolationService
             Log::info('[PortalIsolation] CHECK other_reserved — ALLOWED', array_merge($context, [
                 'reason' => 'domain is in reserved list (API, website, etc)',
             ]));
+            Log::info('[PortalIsolation] Return 4: Other reserved domains', $context);
             return true;
         }
 
@@ -190,6 +198,9 @@ class PortalIsolationService
                                             ? 'user is host'
                                             : ($allowed ? 'user belongs to domain owner' : 'user does not belong to domain owner'),
             ]));
+            Log::info('[PortalIsolation] Return 5: Domain owner found', array_merge($context, [
+                'allowed' => $allowed,
+            ]));
 
             return $allowed;
         }
@@ -200,6 +211,9 @@ class PortalIsolationService
             'reason' => $isUserHost
                             ? 'unknown domain but user is host'
                             : 'domain not found in reserved list or partners table',
+        ]));
+        Log::info('[PortalIsolation] Return 6: Unknown domain', array_merge($context, [
+            'allowed' => (bool) $isUserHost,
         ]));
 
         return (bool) $isUserHost;
