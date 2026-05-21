@@ -1,6 +1,6 @@
 @extends('emails.layouts.mail')
 
-@section('title', $siteName . ' - Welcome')
+@section('title', 'Welcome - ' . $siteName)
 
 
 @section('content')
