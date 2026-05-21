@@ -67,6 +67,10 @@ class AppConfigurationService
      */
     public function getBrandingSettings($partnerId = null): array
     {
+        $hostSettings = AppConfiguration::where('partner_id', Partner::host()?->id)
+            ->where('module', AppConfiguration::MODULE_BRANDING)
+            ->pluck('value', 'key');
+
         $settings = AppConfiguration::where('partner_id', $partnerId)
             ->where('module', AppConfiguration::MODULE_BRANDING)
             ->pluck('value', 'key');
@@ -84,9 +88,27 @@ class AppConfigurationService
             }
         }
 
-        if (($data['site_name'] ?? null) === null && $partner) {
-            $data['site_name'] = $partner->company_name;
+        // Fallback for image keys if null or missing
+        foreach (AppConfiguration::IMAGE_KEYS as $imageKey) {
+            if (($data[$imageKey] ?? null) === null) {
+                $hostVal = $hostSettings[$imageKey] ?? null;
+                $hostVal = $hostVal === '' ? null : $hostVal;
+                if ($hostVal !== null) {
+                    $data[$imageKey] = $hostVal;
+                    $data[$imageKey . '_full_url'] = encodeUrl(asset('storage/' . ltrim($hostVal, '/')));
+                } else {
+                    $data[$imageKey] = null;
+                    $data[$imageKey . '_full_url'] = null;
+                }
+            }
         }
+
+        if (($data['site_name'] ?? null) === null) {
+            $hostSiteName = $hostSettings['site_name'] ?? null;
+            $data['site_name'] = $hostSiteName === '' ? null : $hostSiteName;
+        }
+
+
 
         return $data;
     }
