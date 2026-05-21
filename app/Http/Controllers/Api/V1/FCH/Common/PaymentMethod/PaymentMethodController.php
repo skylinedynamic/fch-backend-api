@@ -49,11 +49,8 @@ class PaymentMethodController extends Controller
         if ($request->has('partner_id')) {
             $partnerId = $request->input('partner_id');
         } elseif ($user && $user->partner) {
-            $partnerId = Partner::where('is_host', 1)->first()->id;
+            $partnerId = $user->partner_id;
         }
-
-
-        $partnerId = $partnerId;
 
         if (! $partnerId) {
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));

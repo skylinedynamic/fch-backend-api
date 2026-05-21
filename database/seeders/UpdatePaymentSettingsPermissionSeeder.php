@@ -67,7 +67,7 @@ class UpdatePaymentSettingsPermissionSeeder extends Seeder
                 $shouldAssign = true;
             } elseif ($role->code === 'admin') {
                 $partner = Partner::find($role->partner_id);
-                if ($partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL || $partner->is_host)) {
+                if ($partner && ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL || $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED || $partner->is_host)) {
                     $shouldAssign = true;
                 }
             }

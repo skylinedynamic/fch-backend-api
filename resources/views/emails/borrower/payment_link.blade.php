@@ -1,12 +1,12 @@
 @extends('emails.layouts.mail')
 
-@section('title', config('app.name') . ' - Activate Your Account')
+@section('title', $siteName . ' - Activate Your Account')
 
 @section('content')
 <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $user->name }}!</h4>
 
 <p style="line-height: 1.5; margin-bottom: 24px;">
-    Your account has been created with <strong>{{ config('app.name') }}</strong>.
+    Your account has been created with <strong>{{ $siteName }}</strong>.
     To finalize your setup and activate your account, please complete the payment below.
 </p>
 

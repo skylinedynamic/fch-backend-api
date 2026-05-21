@@ -37,31 +37,31 @@ class SubscriptionPlanService
      */
     public function borrowerPlans()
     {
-         $user = Auth::user();
-         if ($user && $user->partner && $user->partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-             return SubscriptionPlan::where('entity_type', Borrower::class)
-                 ->whereIn('enrollment_type_slug', [
-                     SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME,
-                     SubscriptionPlan::BORROWER_ENROLMENT_TYPE_INSTALLMENT
-                 ])
-                 ->where('status', true)
-                 ->get();
-         }
+          $user = Auth::user();
+          if ($user && $user->partner && in_array($user->partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED])) {
+              return SubscriptionPlan::where('entity_type', Borrower::class)
+                  ->whereIn('enrollment_type_slug', [
+                      SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME,
+                      SubscriptionPlan::BORROWER_ENROLMENT_TYPE_INSTALLMENT
+                  ])
+                  ->where('status', true)
+                  ->get();
+            }
 
-         if(Auth::user()->user_type == User::PARTNER) {
-             $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-             ->where('is_partner_paying', true)
-             ->where('status', true)
-             ->get();
-             
-         }else{
-             $plans = SubscriptionPlan::where('entity_type', Borrower::class)
-             ->where('is_partner_paying', false)
-             ->where('status', true)
-             ->get();
-         }
+          if(Auth::user()->user_type == User::PARTNER) {
+              $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+              ->where('is_partner_paying', true)
+              ->where('status', true)
+              ->get();
+              
+          }else{
+              $plans = SubscriptionPlan::where('entity_type', Borrower::class)
+              ->where('is_partner_paying', false)
+              ->where('status', true)
+              ->get();
+          }
 
-        return $plans;
+         return $plans;
      }
 
     /**
@@ -71,7 +71,7 @@ class SubscriptionPlanService
     {
          $user = Auth::user();
               
-         if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
+         if ($user && $user->partner && in_array($user->partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED])) {
              return SubscriptionPlan::where('entity_type', Borrower::class)
                  ->whereIn('enrollment_type_slug', [
                      SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME,

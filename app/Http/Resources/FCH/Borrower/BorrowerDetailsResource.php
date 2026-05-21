@@ -79,6 +79,7 @@ class BorrowerDetailsResource extends JsonResource
             'assign_name'   => $this->assignedUser?->name,
             'partner_name'  => $this->partner?->full_name,
             'partner_id'    => $this->partner?->id,
+            'partner_type'  => $this->partner?->partner_type,
             'current_tier'  => $this->current_tier,
             'current_tier_name' => $this->tier?->name,
             'additional_data' => $this->additional_data,
