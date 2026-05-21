@@ -79,13 +79,6 @@ class PortalIsolationService
         $userPartner = $user->partner;
         $isUserHost  = $userPartner && $userPartner->is_host;
 
-        $context = array_merge($context, [
-            'domain_normalized' => $domain,
-            'partner_id'        => $userPartner?->id,
-            'is_host'           => $isUserHost,
-        ]);
-
-        Log::debug('[PortalIsolation] isUserAllowedOnDomain — start', $context);
 
         // --- Reserved domains ---
         $reserved           = config('domains.reserved', []);
@@ -97,12 +90,6 @@ class PortalIsolationService
         $partnerPortal  = $this->normalizeDomain($reserved['base_reserved_partner_portal'] ?? '');
         $borrowerPortal = $this->normalizeDomain($reserved['base_reserved_borrower_portal'] ?? '');
 
-        Log::debug('[PortalIsolation] reserved domains resolved', [
-            'partner_portal'      => $partnerPortal,
-            'borrower_portal'     => $borrowerPortal,
-            'all_reserved'        => $reservedNormalized,
-            'incoming_domain'     => $domain,
-        ]);
 
         // --- Check 1: Reserved partner portal ---
         if ($domain === $partnerPortal) {
@@ -190,11 +177,6 @@ class PortalIsolationService
             }
         );
 
-        Log::debug('[PortalIsolation] domain_lookup — cache', array_merge($context, [
-            'cache_key' => $cacheKey,
-            'cache_hit' => $cacheHit,
-            'found'     => (bool) $partnerDomainOwner,
-        ]));
 
         // --- Check 5: Domain owner found ---
         if ($partnerDomainOwner) {
