@@ -69,4 +69,35 @@ class PaymentMethodController extends Controller
         \Log::info('PaymentMethods API Response: ' . json_encode($setting));
         return ApiResponse::success(new PaymentMethodResource($setting), __('payment_method.retrieved'));
     }
+
+     public function fetchPaymentMethod(Request $request): JsonResponse
+    {
+        $partnerId = null;
+
+        // $partner = getConfigPartner();
+
+        $user = Auth::user();
+        $partnerId = $user->partner_id;
+        if (! $partnerId) {
+            return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
+        }
+
+        $setting = $this->paymentMethodService->getPaymentMethods($partnerId);
+
+        if (! $setting) {
+            return ApiResponse::notFound(__('payment_method.not_found'));
+        }
+
+        \Log::info('PaymentMethods API Partner ID: ' . $partnerId);
+        \Log::info('PaymentMethods API Response: ' . json_encode($setting));
+        return ApiResponse::success(new PaymentMethodResource($setting), __('payment_method.retrieved'));
+    }
+
+    public function updatePaymentMethods(StorePaymentMethodRequest $request): JsonResponse
+    {
+
+        $setting = $this->paymentMethodService->updatePaymentMethods($request->validated());
+
+        return ApiResponse::success(new PaymentMethodResource($setting), __('payment_method.saved'));
+    }
 }

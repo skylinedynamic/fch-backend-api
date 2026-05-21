@@ -90,4 +90,71 @@ class PaymentMethodService
 
         return $flat;
     }
+
+    public function getPaymentMethods(?int $partnerId = null): ?object
+    {
+        $query = PaymentMethod::query();
+        if ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        } else {
+            $query->whereNull('partner_id');
+        }
+
+        $methods = $query->get();
+
+        $flat = new \stdClass();
+        $flat->id = 1; // Dummy ID for backwards compatibility
+        $flat->partner_id = $partnerId;
+        
+        // Define default fallback values to prevent "Undefined property" errors
+        $flat->payment_mode = 'sandbox';
+        $flat->stripe_key_sandbox = null;
+        $flat->stripe_secret_sandbox = null;
+        $flat->stripe_key_production = null;
+        $flat->stripe_secret_production = null;
+        $flat->payment_method = 'stripe';
+        $flat->status = true;
+        $flat->configuration = null;
+
+        foreach ($methods as $method) {
+            $flat->{$method->key} = $method->value;
+        }
+
+        return $flat;
+    }
+
+        /**
+     * Update or Create Settings for a partner.
+     *
+     * @param array $data
+     * @return object
+     */
+    public function updatePaymentMethods(array $data): object
+    {
+        $partnerId = $data['partner_id'] ?? null;
+
+        // Ensure partner_id exists for context
+        if (!isset($data['partner_id']) && auth()->check()) {
+            $partnerId = auth()->user()->partner_id;
+        }
+
+        // We'll iterate through the data and store it as key-value pairs
+        // Exclude partner_id from the key-value pairs since it's a column
+        $settingsData = collect($data)->except(['partner_id']);
+
+        foreach ($settingsData as $key => $value) {
+            PaymentMethod::updateOrCreate(
+                [
+                    'partner_id' => $partnerId,
+                    'key' => $key,
+                ],
+                [
+                    'value' => $value,
+                ]
+            );
+        }
+
+        // Return the reconstructed flat object
+        return $this->getSettings($partnerId) ?: new \stdClass();
+    }
 }
