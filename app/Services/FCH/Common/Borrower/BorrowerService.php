@@ -437,7 +437,7 @@ class BorrowerService
                 ]);
                 Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
-                if ($isHostCreating || $isWL) {
+                if ($isHostCreating ) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
                         $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
