@@ -42,7 +42,7 @@ class ChangeRequestStatusMail extends Mailable
                 'status' => $this->mailData['status'],
                 'newValue' => $this->mailData['new_value'],
                 'note' => $this->mailData['note'] ?? null,
-                'loginUrl' => config('app.frontend_borrower_url') . '/login',
+                'loginUrl' => concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url')),
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],

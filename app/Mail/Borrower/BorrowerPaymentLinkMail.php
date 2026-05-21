@@ -25,7 +25,7 @@ class BorrowerPaymentLinkMail extends Mailable
         $branding = $this->getBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
-        $subject = $this->mailData['subject'] ?? "Complete Your Account Setup - {$this->dynamicData['siteName']}";
+        $subject = $this->mailData['subject'] ?? "Complete Your Account Setup";
 
         return new Envelope(
             subject: $subject,

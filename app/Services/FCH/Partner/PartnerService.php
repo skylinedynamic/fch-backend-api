@@ -146,7 +146,7 @@ class PartnerService
             // Generate subdomains if not provided
             if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
                 $subdomain = $this->generateSubdomain($partnerData['company_name']);
-                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
 
                 // Check against restricted domains OR existing subdomains
                 if (in_array($subdomain, Partner::RESTRICTED_DOMAINS) || Partner::where('partner_domain', $subdomain . '.' . $baseUrl)->exists()) {
@@ -258,7 +258,7 @@ class PartnerService
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
-                    'payment_link' => config('app.frontend_partner_url') . '/invoices',
+                    'payment_link' => concatUrl(getPartnerDomain($invoice->partner_id), 'invoices', config('app.frontend_partner_url')),
                     'amount' => $invoice->payment_amount,
                     'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
                     'business_info' => [
@@ -417,7 +417,7 @@ class PartnerService
 
             if ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED && !empty($partnerData['partner_domain'])) {
                 $subdomain = trim($partnerData['partner_domain']);
-                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.url'));
+                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
                 if (!str_ends_with($subdomain, '.' . $baseUrl)) {
                     $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
                 }

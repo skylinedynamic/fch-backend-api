@@ -132,27 +132,56 @@ if (!function_exists('getConfigPartner')) {
     }
 }
 
-if (!function_exists('currentUserPartnerDomain')) {
-    /**
-     * Get the partner_domain for the current user/context partner.
-     *
-     * @return string|null
-     */
-    function currentUserPartnerDomain(): ?string
+if (!function_exists('getPartnerDomain')) {
+    function getPartnerDomain(int $partnerId = null): ?string
     {
-        return getConfigPartner()?->partner_domain;
+        if ($partnerId) {
+            $partner = Partner::find($partnerId);
+            return $partner->partner_domain ?? config('app.frontend_partner_url');
+        }
+        $partner = auth()->user()->partner;
+        $domain = $partner->partner_domain ?? config('app.frontend_partner_url');
+        return $domain;
     }
 }
 
-if (!function_exists('currentUserBorrowerDomain')) {
-    /**
-     * Get the borrower_domain for the current user/context partner.
-     *
-     * @return string|null
-     */
-    function currentUserBorrowerDomain(): ?string
+if (!function_exists('getBorrowerDomain')) {
+    function getBorrowerDomain(int $partnerId = null): ?string
     {
-        return getConfigPartner()?->borrower_domain;
+        if($partnerId){
+            $partner = Partner::find($partnerId);
+            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        }
+        $partner = auth()->user()->partner;
+        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        return $domain;
+    }
+}
+
+if (!function_exists('concatUrl')) {
+    /**
+     * Concatenate domain and path using HTTPS protocol.
+     *
+     * @param string|null $domain
+     * @param string $path
+     * @param string|null $fallback
+     * @return string
+     */
+    function concatUrl(?string $domain, string $path, ?string $fallback = null): string
+    {
+        $target = $domain ?: $fallback;
+
+        if (empty($target)) {
+            return '';
+        }
+
+        // Remove any existing protocol
+        $target = preg_replace('/^https?:\/\//i', '', trim($target));
+
+        // Enforce HTTPS
+        $target = 'https://' . rtrim($target, '/');
+
+        return $target . '/' . ltrim($path, '/');
     }
 }
 

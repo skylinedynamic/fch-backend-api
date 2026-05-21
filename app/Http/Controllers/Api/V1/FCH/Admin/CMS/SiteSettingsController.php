@@ -22,10 +22,11 @@ class SiteSettingsController extends Controller
     public function index()
     {
         try {
-            $partnerId = request()->query('entity_id') ?? auth()->user()->partner_id;
+            $partnerId = auth()->user()->partner_id;
             $setting = $this->siteSettingsService->getSettings($partnerId);
             return ApiResponse::success($setting, __('site_settings.retrieved_success'));
         } catch (\Exception $e) {
+            \Log::error($e->getMessage());
             return ApiResponse::serverError(__('site_settings.retrieved_failed'));
         }
     }
@@ -33,33 +34,8 @@ class SiteSettingsController extends Controller
     public function update(UpdateSiteSettingsRequest $request)
     {
         try {
-            $data = $request->validated();
-            $partnerId = $request->input('entity_id') ?? auth()->user()->partner_id;
-
-            // Pass files if present
-            if ($request->hasFile('header_logo')) {
-                $data['header_logo'] = $request->file('header_logo');
-            }
-            if ($request->hasFile('footer_logo')) {
-                $data['footer_logo'] = $request->file('footer_logo');
-            }
-            if ($request->hasFile('partner_logo')) {
-                $data['partner_logo'] = $request->file('partner_logo');
-            }
-            if ($request->hasFile('borrower_logo')) {
-                $data['borrower_logo'] = $request->file('borrower_logo');
-            }
-            if ($request->hasFile('favicon')) {
-                $data['favicon'] = $request->file('favicon');
-            }
-            if ($request->hasFile('partner_favicon')) {
-                $data['partner_favicon'] = $request->file('partner_favicon');
-            }
-            if ($request->hasFile('borrower_favicon')) {
-                $data['borrower_favicon'] = $request->file('borrower_favicon');
-            }
-
-            $setting = $this->siteSettingsService->updateSettings($partnerId, $data);
+            $partnerId = auth()->user()->partner_id;
+            $setting = $this->siteSettingsService->updateSettings($partnerId, $request->validated());
 
             return ApiResponse::success($setting, __('site_settings.updated_success'));
         } catch (ValidationException $e) {
@@ -69,41 +45,4 @@ class SiteSettingsController extends Controller
         }
     }
 
-    /**
-     * Get value of a config key
-     */
-    public function getSetting(GetSettingRequest $request)
-    {
-        try {
-            $key = $request->key;
-            $auth = auth()->user();
-
-            $value = $this->siteSettingsService->getSetting($key, $auth->entity_type, $auth->partner_id);
-
-            return ApiResponse::success([
-                'key' => $key,
-                'value' => $value
-            ]);
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('site_settings.retrieved_failed'));
-        }
-    }
-
-    /**
-     * Save/Toggle value of a config key
-     */
-    public function saveSetting(SaveSettingRequest $request)
-    {
-        try {
-            $key = $request->key;
-            $value = $request->value;
-            $auth = auth()->user();
-
-            $this->siteSettingsService->saveSetting($key, $value, $auth->entity_type, $auth->partner_id);
-
-            return ApiResponse::success(null, __('app_config.saved_successfully'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('site_settings.updated_failed'));
-        }
-    }
 }

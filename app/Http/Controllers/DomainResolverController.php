@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 class DomainResolverController extends Controller
 {
@@ -19,11 +18,14 @@ class DomainResolverController extends Controller
 
     public function resolve(Request $request)
     {
-        if ($request->header('X-Internal-Key') !== config('domains.internal_key')) {
+        $domainHeader = $request->header('X-Domain');
+        $internalKeyHeader = $request->header('X-Internal-Key');
+
+        if ($internalKeyHeader !== config('domains.internal_key')) {
             return response('', 401);
         }
 
-        $domain = strtolower(trim($request->header('X-Domain')));
+        $domain = strtolower(trim($domainHeader));
         $domain = preg_replace('/^www\./', '', $domain);
 
         if (in_array(strtolower($domain), array_map('strtolower', $this->reserved))) {
@@ -34,7 +36,6 @@ class DomainResolverController extends Controller
 
         try {
             $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
-
                 $partner = Partner::where('partner_domain', $domain)
                     ->select('id')
                     ->first();
@@ -63,7 +64,6 @@ class DomainResolverController extends Controller
                 'X-Partner-Id' => (string) $result['partner_id'],
             ]);
         } catch (\Throwable $e) {
-            Log::error('Domain Resolution Failure: ' . $e->getMessage());
             // Fail-open: return 200 to let the request proceed (better than a 500 outage)
             return response('', 200, [
                 'X-Tenant-Type' => 'error',
@@ -74,7 +74,8 @@ class DomainResolverController extends Controller
 
     public function caddyCheck(Request $request)
     {
-        $domain = strtolower(trim($request->query('domain')));
+        $rawDomain = $request->query('domain');
+        $domain = strtolower(trim($rawDomain));
 
         if (!$domain) {
             return response('Bad Request', 400);
@@ -87,7 +88,8 @@ class DomainResolverController extends Controller
             return response('Forbidden', 403);
         }
 
-        if (str_ends_with($domain, '.skylinedynamic.dev')) {
+        $baseWebsite = config('app.base_website');
+        if (str_ends_with($domain, '.' . $baseWebsite)) {
             return response('OK', 200);
         }
 
@@ -95,8 +97,10 @@ class DomainResolverController extends Controller
             ->orWhere('borrower_domain', $domain)
             ->exists();
 
-        return $exists
-            ? response('OK', 200)
-            : response('Forbidden', 403);
+        if ($exists) {
+            return response('OK', 200);
+        } else {
+            return response('Forbidden', 403);
+        }
     }
 }

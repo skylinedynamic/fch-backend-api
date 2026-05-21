@@ -149,6 +149,9 @@ Route::prefix('v1/admin')
 
             // SEO
             Route::post('seo-settings-multiple-delete', [SeoController::class, 'destroy']);
+
+            Route::post('seo-settings', [SeoController::class, 'index']);
+            Route::get('seo', [SeoController::class, 'show']);
         });
 
     });

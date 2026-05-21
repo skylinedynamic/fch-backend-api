@@ -26,7 +26,7 @@ class BorrowerAccountCreatedMail extends Mailable
         $branding = $this->getBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
-        $subject = $this->mailData['subject'] ?? "Welcome to {$branding['siteName']}";
+        $subject = $this->mailData['subject'] ?? "Welcome to " . $branding['siteName'];
 
         return new Envelope(
             subject: $subject,
@@ -36,7 +36,7 @@ class BorrowerAccountCreatedMail extends Mailable
     public function content(): Content
     {
         $user = $this->mailData['user'];
-        $loginUrl = config('app.frontend_borrower_url') . '/login';
+        $loginUrl = concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url'));
 
         return new Content(
             view: 'emails.borrower.account_created',

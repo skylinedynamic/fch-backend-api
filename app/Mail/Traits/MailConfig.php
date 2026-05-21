@@ -17,12 +17,8 @@ trait MailConfig
      */
     public function setMailPartnerId(): self
     {
-        $user = auth()->user();
-        if ($user->partner->is_host || $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
-            $this->mailPartnerId = $user->partner_id;
-        } else {
-            $this->mailPartnerId = Partner::where('is_host', true)->first()->id;
-        }
+        $partner = getConfigPartner();
+        $this->mailPartnerId = $partner->id;
         return $this;
     }
 
@@ -63,6 +59,9 @@ trait MailConfig
                 'password' => $config->smtp_password ?? null,
                 'port' => $config->smtp_port ?? null,
                 'encryption' => $config->smtp_encryption ?? null,
+                'aws_access_key' => $config->aws_access_key ?? null,
+                'aws_secret_key' => $config->aws_secret_key ?? null,
+                'aws_region' => $config->aws_region ?? null,
             ]);
 
             Config::set('mail.default', $driver);

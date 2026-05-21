@@ -20,29 +20,29 @@ class EmailConfiguration extends Model
     /**
      * Accurately handle encryption with fallback for legacy plain text data
      */
-    public function getValueAttribute($value)
-    {
-        if (!$value) return $value;
+    // public function getValueAttribute($value)
+    // {
+    //     if (!$value) return $value;
 
-        if (in_array($this->key, ['smtp_password', 'aws_secret_key'])) {
-            try {
-                return Crypt::decryptString($value);
-            } catch (DecryptException $e) {
-                return $value; // Return plain text if decryption fails (legacy data)
-            }
-        }
+    //     if (in_array($this->key, ['smtp_password', 'aws_secret_key'])) {
+    //         try {
+    //             return Crypt::decryptString($value);
+    //         } catch (DecryptException $e) {
+    //             return $value; // Return plain text if decryption fails (legacy data)
+    //         }
+    //     }
 
-        return $value;
-    }
+    //     return $value;
+    // }
 
-    public function setValueAttribute($value)
-    {
-        if (in_array($this->key, ['smtp_password', 'aws_secret_key']) && $value) {
-            $this->attributes['value'] = Crypt::encryptString($value);
-        } else {
-            $this->attributes['value'] = $value;
-        }
-    }
+    // public function setValueAttribute($value)
+    // {
+    //     if (in_array($this->key, ['smtp_password', 'aws_secret_key']) && $value) {
+    //         $this->attributes['value'] = Crypt::encryptString($value);
+    //     } else {
+    //         $this->attributes['value'] = $value;
+    //     }
+    // }
 
     public function partner()
     {

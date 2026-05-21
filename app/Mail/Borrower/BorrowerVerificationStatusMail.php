@@ -43,7 +43,7 @@ class BorrowerVerificationStatusMail extends Mailable
                 'status' => $this->mailData['status'],
                 'note' => $this->mailData['note'] ?? null,
                 'taskResults' => $this->mailData['task_results'],
-                'loginUrl' => config('app.frontend_borrower_url') . '/login',
+                'loginUrl' => concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url')),
             ],
         );
     }
