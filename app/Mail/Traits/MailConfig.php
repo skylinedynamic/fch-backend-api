@@ -50,20 +50,6 @@ trait MailConfig
         if ($config && !empty($config->enable_custom_configuration)) {
             $driver = ($config->email_provider ?? 'smtp') === 'aws_ses' ? 'ses' : 'smtp';
 
-            \Illuminate\Support\Facades\Log::info("Applying custom mail config for Partner ID: {$partnerId}", [
-                'driver' => $driver,
-                'from' => $config->from_address ?? null,
-                'name' => $siteName,
-                'host' => $config->smtp_host ?? ($config->aws_region ?? 'N/A'),
-                'username' => $config->smtp_username ?? null,
-                'password' => $config->smtp_password ?? null,
-                'port' => $config->smtp_port ?? null,
-                'encryption' => $config->smtp_encryption ?? null,
-                'aws_access_key' => $config->aws_access_key ?? null,
-                'aws_secret_key' => $config->aws_secret_key ?? null,
-                'aws_region' => $config->aws_region ?? null,
-            ]);
-
             Config::set('mail.default', $driver);
 
             if ($driver == 'smtp') {

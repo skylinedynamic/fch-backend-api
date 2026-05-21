@@ -15,8 +15,8 @@ return [
 
     // Test notification (generic)
     'test' => [
-        'sms_message' => 'Test message from :appName: :message',
-        'email_subject' => 'Test Email from :appName',
+        'sms_message' => 'This is Test mail',
+        'email_subject' => 'This is Test mail',
         'email_lines' => [
             'line_1' => 'This is a test email to verify your notification system configuration.',
             'line_3' => 'If you received this email, your email service is working correctly.',

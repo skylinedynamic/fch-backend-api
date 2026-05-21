@@ -6,6 +6,8 @@ use App\Models\User\User;
 
 class TestNotification implements NotificationTypeInterface
 {
+      use MailableBranding, MailConfig;
+
     protected $message;
 
     public function __construct(string $message)
@@ -31,9 +33,7 @@ class TestNotification implements NotificationTypeInterface
     public function getEmailSubject(User $user): string
     {
         $appName = config('app.name');
-        return trans('notification.test.email_subject', [
-            'appName' => $appName,
-        ]);
+        return trans('notification.test.email_subject');
     }
 
     /**
@@ -42,7 +42,7 @@ class TestNotification implements NotificationTypeInterface
     public function getEmailContent(User $user): array
     {
         $appName = config('app.name');
-        
+
         return [
             'greeting' => trans('notification.greeting_hello_name', [
                 'name' => $user->first_name,
