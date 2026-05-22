@@ -5,6 +5,7 @@ namespace App\Http\Resources\FCH\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\Common\AppConfiguration;
 
 class InvoiceDetailResource extends JsonResource
 {
