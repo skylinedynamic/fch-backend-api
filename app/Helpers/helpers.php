@@ -185,3 +185,24 @@ if (!function_exists('concatUrl')) {
     }
 }
 
+if (!function_exists('make_url')) {
+
+    function make_url(string $domain, string $path = ''): string
+    {
+        // Remove extra spaces
+        $domain = trim($domain);
+
+        // Add https if missing
+        if (!preg_match("~^(http|https)://~i", $domain)) {
+            $domain = 'https://' . $domain;
+        }
+
+        // Remove trailing slash from domain
+        $domain = rtrim($domain, '/');
+
+        // Clean path
+        $path = ltrim($path, '/');
+
+        return $path ? "{$domain}/{$path}" : $domain;
+    }
+}

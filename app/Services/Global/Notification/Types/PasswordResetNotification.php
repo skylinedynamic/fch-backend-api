@@ -32,7 +32,7 @@ class PasswordResetNotification implements NotificationTypeInterface
 
         return trans('notification.password_reset.sms_message', [
             'appName' => $appName,
-            'resetUrl' => $resetUrl,
+            'resetUrl' => make_url($resetUrl),
         ]);
     }
 
@@ -67,7 +67,7 @@ class PasswordResetNotification implements NotificationTypeInterface
             ],
             'action' => [
                 'text' => __('notification.password_reset.action_text'),
-                'url' => $resetUrl,
+                'url' => make_url($resetUrl),
             ],
             'salutation' => __('notification.salutation_best_regards_team', [
                 'appName' => $appName,
