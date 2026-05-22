@@ -18,13 +18,7 @@ class AccountCreateNotificationMail extends Mailable
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-
-        $resolvedPartnerId = $partnerId ?? ($mailData['partner_id'] ?? null);
-        if ($resolvedPartnerId) {
-            $this->mailPartnerId = $resolvedPartnerId;
-        } else {
-            $this->setMailPartnerId();
-        }
+        $this->setMailPartnerId();
     }
 
     public function envelope(): Envelope

@@ -5,9 +5,11 @@ namespace App\Services\Global\Notification\Types;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Log;
 use PgSql\Lob;
+use App\Mail\Traits\MailableBranding;
 
 class PasswordResetNotification implements NotificationTypeInterface
 {
+    use MailableBranding;
     protected $token;
 
     public function __construct(string $token)
@@ -20,10 +22,14 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getSmsMessage(User $user): string
     {
-        $appName = config('app.name');
-        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+
+
+        $appName = $siteName;
+        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type, $user->partner_id);
         $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
-        
+
         return trans('notification.password_reset.sms_message', [
             'appName' => $appName,
             'resetUrl' => $resetUrl,
@@ -43,8 +49,11 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getEmailContent(User $user): array
     {
-        $appName = config('app.name');
-        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+        $appName = $siteName;
+
+        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type, $user->partner_id);
         $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
 
         return [
@@ -88,17 +97,18 @@ class PasswordResetNotification implements NotificationTypeInterface
     /**
      * Get the frontend URL based on user type.
      */
-    private function getFrontendUrlByUserType(?string $userType): string
+    private function getFrontendUrlByUserType(?string $userType ,$partnerId = null): string
     {
         // Handle null user type by defaulting to Partner
         if ($userType == null) {
             $userType = User::PARTNER;
         }
-        
+
         return match ($userType) {
-            User::ADMIN => config('app.frontend_partner_url'),
-            User::PARTNER => config('app.frontend_partner_url'),
-            User::BORROWER => config('app.frontend_borrower_url'),
+            User::ADMIN => getPartnerDomain($partnerId),
+            User::PARTNER =>getPartnerDomain($partnerId),
+            User::BORROWER => getBorrowerDomain($partnerId)
         };
     }
+
 }
