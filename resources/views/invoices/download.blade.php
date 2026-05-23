@@ -232,12 +232,23 @@
         <tr>
             <td>
                 @php
-                    $logoPath = public_path(parse_url($business_info['business_logo_path'], PHP_URL_PATH));
-                    $logoSrc = file_exists($logoPath)
-                        ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
-                        : $business_info['business_logo_path'];
+                    $urlPath      = parse_url($business_info['business_logo_path'], PHP_URL_PATH);
+                    $relativePath = ltrim($urlPath, '/');
+                    $subPath      = str_replace('storage/', '', $relativePath);
+                    $publicPath = public_path($relativePath);
+                    $storagePath = storage_path('app/public/' . $subPath);
+                    $diskPath = file_exists($publicPath) ? $publicPath : $storagePath;
+                    if (file_exists($diskPath)) {
+                        $ext  = strtolower(pathinfo($diskPath, PATHINFO_EXTENSION));
+                        $mime = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                                 'png' => 'image/png',   'gif' => 'image/gif',
+                                 'webp'=> 'image/webp',  'svg' => 'image/svg+xml'][$ext] ?? 'image/png';
+                        $logoSrc = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($diskPath));
+                    } else {
+                        $logoSrc = $business_info['business_logo_path'];
+                    }
                 @endphp
-                <img src="{{ $logoSrc }}" class="logo" alt="{{ $logoSrc }}">
+                <img src="{{ $logoSrc }}" class="logo" alt="{{ $business_info['company_name'] ?? 'Logo' }}">
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>
