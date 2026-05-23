@@ -263,6 +263,8 @@ class InvoiceService
 
         $business_info = $this->getBusinessInfo();
 
+        Log::info('Invoice business info', ['invoice_id' => $id, 'business_info' => $business_info]);
+
         $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
             ->setPaper('a4')
             ->setWarnings(false);
@@ -320,14 +322,14 @@ class InvoiceService
 
         return [
             'company_name' => $branding['site_name'],
-            'email' => $targetPartner->email ?? 'noreply@fourcornerfunding.com',
+            'email' => $targetPartner->email ?? '',
             'phone_number' => $targetPartner->phone_number ?? '',
             'address_line_1' => $targetPartner->address_line_1 ?? '',
             'city' => $targetPartner->city ?? '',
             'state' => $targetPartner->state ?? '',
             'postal_code' => $targetPartner->postal_code ?? '',
             'country' => $targetPartner->country ?? '',
-            'website' => $targetPartner->website ?? 'https://www.fourcornerfunding.com',
+            'website' => $targetPartner->website ?? '',
             'business_logo_path' => encodeUrl(asset('storage/'.$branding['secondary_logo'])),
         ];
     }

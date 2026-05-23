@@ -232,8 +232,6 @@
         <tr>
             <td>
                 <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
-                <!-- <div style="font-size: 12px; font-weight: bold; margin-top: 10px;">{{ $business_info['company_name'] }}
-                </div> -->
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>
