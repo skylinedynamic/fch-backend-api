@@ -231,7 +231,13 @@
     <table class="header-section">
         <tr>
             <td>
-                <img src="{{ $business_info['business_logo_path'] }}" class="logo" alt="Logo">
+                @php
+                    $logoPath = public_path(parse_url($business_info['business_logo_path'], PHP_URL_PATH));
+                    $logoSrc = file_exists($logoPath)
+                        ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
+                        : $business_info['business_logo_path'];
+                @endphp
+                <img src="{{ $logoSrc }}" class="logo" alt="{{ $logoSrc }}">
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>
