@@ -111,6 +111,7 @@ class Partner extends Model
         '2fa',
         'api',
         'website',
+        'client'
     ];
 
     const STATUS_ONBOARDING = 'OnBoarding';

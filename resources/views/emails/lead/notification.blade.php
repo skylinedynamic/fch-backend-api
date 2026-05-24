@@ -153,10 +153,6 @@
         </table>
 
         <div class="btn-container" style="margin: 30px 0; text-align: center;">
-            @php
-                $adminUrl = config('app.frontend_partner_url') ?: config('app.frontend_partner_url');
-                $leadUrl = rtrim($adminUrl, '/') . '/leads';
-            @endphp
             <a href="{{ $leadUrl }}" class="btn" style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Lead in Portal</a>
         </div>
     </div>

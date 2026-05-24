@@ -62,11 +62,15 @@ return [
             'max' => 'Partner URL must not exceed 255 characters.',
         ],
         'partner_domain' => [
-            'required' => 'Sub Domain is required for Certified Partners.',
+            'required' => 'Sub Domain is required.',
             'string' => 'Sub Domain must be a string.',
             'min' => 'Sub Domain must be at least 4 characters.',
             'max' => 'Sub Domain must not exceed 50 characters.',
             'regex' => 'Sub Domain must start with a letter and only contain letters, numbers, and hyphens, and cannot end with a hyphen.',
+            'unique' => 'This subdomain is already taken. Please choose a different one.',
+        ],
+        'borrower_domain' => [
+            'unique' => 'This borrower domain is already taken. Please choose a different one.',
         ],
         'first_reg_date' => [
             'date' => 'First registration date must be a valid date.',

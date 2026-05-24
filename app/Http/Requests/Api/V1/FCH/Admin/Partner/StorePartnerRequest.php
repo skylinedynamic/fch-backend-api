@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 use App\Helpers\ApiResponse;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Partner\Partner;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
@@ -25,6 +26,8 @@ class StorePartnerRequest extends BaseApiRequest
      */
     public function rules(): array
     {
+        $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
+
         return [
             'full_name' => ['required', 'string', 'max:255'],
             'company_name' => [
@@ -64,7 +67,20 @@ class StorePartnerRequest extends BaseApiRequest
             'monthly_platform_fee' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'total_free_users' => ['nullable', 'integer', 'min:0'],
             'total_paid_users' => ['nullable', 'integer', 'min:0'],
-            'partner_domain' => ['nullable', 'string', 'max:255'],
+            'partner_domain' => [
+                'required',
+                'string',
+                'min:4',
+                'max:50',
+                'regex:/^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/',
+                Rule::notIn(Partner::RESTRICTED_DOMAINS),
+                function ($attribute, $value, $fail) use ($baseUrl) {
+                    $fullDomain = $value . '.' . $baseUrl;
+                    if (Partner::where('partner_domain', $fullDomain)->whereNull('deleted_at')->exists()) {
+                        $fail(__('partner.validation.partner_domain.unique'));
+                    }
+                },
+            ],
             'borrower_domain' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -94,6 +110,11 @@ class StorePartnerRequest extends BaseApiRequest
             'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
             'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
             'monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),
+            'partner_domain.required' => __('partner.validation.partner_domain.required'),
+            'partner_domain.min' => __('partner.validation.partner_domain.min'),
+            'partner_domain.max' => __('partner.validation.partner_domain.max'),
+            'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
+            'partner_domain.unique' => __('partner.validation.partner_domain.unique'),
         ];
     }
 }

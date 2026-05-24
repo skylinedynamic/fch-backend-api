@@ -143,10 +143,10 @@ class PartnerService
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
 
+            $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
             // Generate subdomains if not provided
             if (empty($partnerData['partner_domain']) && !empty($partnerData['company_name'])) {
                 $subdomain = $this->generateSubdomain($partnerData['company_name']);
-                $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
 
                 // Check against restricted domains OR existing subdomains
                 if (in_array($subdomain, Partner::RESTRICTED_DOMAINS) || Partner::where('partner_domain', $subdomain . '.' . $baseUrl)->exists()) {
@@ -154,6 +154,10 @@ class PartnerService
                 }
 
                 $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
+            }
+            else{
+                // Append base url to provided subdomain
+                $partnerData['partner_domain'] = $partnerData['partner_domain'] . '.' . $baseUrl;
             }
 
             Log::info('Partner creation payload', $partnerData);

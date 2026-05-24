@@ -34,16 +34,48 @@ class UpdateTenantConfigRequest extends BaseApiRequest
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('partners', 'partner_domain')->ignore($partnerId)->whereNull('deleted_at'),
-                Rule::notIn($restrictedDomains)
+                function ($attribute, $value, $fail) use ($partnerId, $restrictedDomains) {
+                    $cleanDomain = preg_replace('/^https?:\/\//', '', $value);
+                    $cleanDomain = preg_replace('/^www\./', '', $cleanDomain);
+                    $cleanDomain = strtolower(trim($cleanDomain));
+
+                    if (in_array($cleanDomain, $restrictedDomains)) {
+                        $fail(__('partner.validation.partner_domain.unique'));
+                        return;
+                    }
+
+                    $query = Partner::where('partner_domain', $cleanDomain)->whereNull('deleted_at');
+                    if ($partnerId) {
+                        $query->where('id', '!=', $partnerId);
+                    }
+                    if ($query->exists()) {
+                        $fail(__('partner.validation.partner_domain.unique'));
+                    }
+                },
             ],
             'borrower_domain' => [
                 Rule::requiredIf($this->active_custom_url),
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('partners', 'borrower_domain')->ignore($partnerId)->whereNull('deleted_at'),
-                Rule::notIn($restrictedDomains)
+                function ($attribute, $value, $fail) use ($partnerId, $restrictedDomains) {
+                    $cleanDomain = preg_replace('/^https?:\/\//', '', $value);
+                    $cleanDomain = preg_replace('/^www\./', '', $cleanDomain);
+                    $cleanDomain = strtolower(trim($cleanDomain));
+
+                    if (in_array($cleanDomain, $restrictedDomains)) {
+                        $fail(__('partner.validation.borrower_domain.unique'));
+                        return;
+                    }
+
+                    $query = Partner::where('borrower_domain', $cleanDomain)->whereNull('deleted_at');
+                    if ($partnerId) {
+                        $query->where('id', '!=', $partnerId);
+                    }
+                    if ($query->exists()) {
+                        $fail(__('partner.validation.borrower_domain.unique'));
+                    }
+                },
             ],
         ];
     }

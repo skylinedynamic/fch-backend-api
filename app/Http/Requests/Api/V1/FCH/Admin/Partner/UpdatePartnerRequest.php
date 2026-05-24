@@ -27,7 +27,7 @@ class UpdatePartnerRequest extends BaseApiRequest
      */
     public function rules(): array
     {
-
+        $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
         return [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'company_name' => [
@@ -80,7 +80,14 @@ class UpdatePartnerRequest extends BaseApiRequest
                 'string',
                 'min:4',
                 'max:50',
-                'regex:/^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/'
+                'regex:/^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/',
+                Rule::notIn(Partner::RESTRICTED_DOMAINS),
+                function ($attribute, $value, $fail) use ($baseUrl) {
+                    $fullDomain = $value . '.' . $baseUrl;
+                    if (Partner::where('partner_domain', $fullDomain)->where('id', '!=', $this->id)->whereNull('deleted_at')->exists()) {
+                        $fail(__('partner.validation.partner_domain.unique'));
+                    }
+                },
             ],
         ];
     }
@@ -106,6 +113,8 @@ class UpdatePartnerRequest extends BaseApiRequest
             'partner_domain.min' => __('partner.validation.partner_domain.min'),
             'partner_domain.max' => __('partner.validation.partner_domain.max'),
             'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
+            'partner_domain.unique' => __('partner.validation.partner_domain.unique'),
+            'partner_domain.not_in' => __('partner.validation.partner_domain.unique'),
         ];
     }
 }

@@ -14,23 +14,20 @@ trait MailableBranding
  
         $partnerId = getConfigPartner()->id;
 
-        return Cache::remember("mail_branding_" . ($partnerId ?? 'default'), 3600, function () use ($partnerId) {
-            $module = AppConfiguration::MODULE_BRANDING;
-            $partner = $partnerId ? Partner::find($partnerId) : Partner::where('is_host', true)->first();
+        $module = AppConfiguration::MODULE_BRANDING;
+        $partner = $partnerId ? Partner::find($partnerId) : Partner::where('is_host', true)->first();
+            
+        $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
+            ->where('module', $module)
+            ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
+            ->pluck('value', 'key')
+            ->toArray();
 
-            // Site Name Resolution
-            $siteName = AppConfiguration::get('site_name', $partner?->company_name ?? config('app.name'), $module, $partnerId);
-
-            // Logo Resolution
-            $logoPath = AppConfiguration::get('secondary_logo', $partner?->company_logo, $module, $partnerId)
-                ?? AppConfiguration::get('primary_logo', $partner?->company_logo, $module, $partnerId);
-
-
-            return [
-                'siteName' => $siteName,
-                'logoUrl' => $logoPath ? asset('storage/' . $logoPath) : null,
-            ];
-        });
+    
+        return [
+            'siteName' => $brandingConfig['site_name'] ?? $partner->company_name ,
+            'logoUrl' => ($brandingConfig['secondary_logo'] && $brandingConfig['secondary_logo'] != null ) ? asset('storage/' . $brandingConfig['secondary_logo']) : asset('storage/' . $brandingConfig['primary_logo']),
+        ];
     }
 
 }
