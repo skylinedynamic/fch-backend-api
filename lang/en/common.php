@@ -11,4 +11,6 @@ return [
     'user_data_refresh_failed' => 'Failed to retrieve users.',
     'global_configurations_retrieved' => 'Global configurations retrieved successfully.',
     'error_global_configurations_retrieved' => 'Failed to retrieve global configurations.',
+    'email_changed_subject' => 'Your Email has been changed',
+    'password_updated_subject' => 'Your Password has been updated',
 ];

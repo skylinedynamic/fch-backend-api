@@ -21,7 +21,7 @@ return [
     'borrower_not_found' => 'Borrower record not found.',
     'profile_update_success' => 'Profile updated successfully.',
     'profile_picture_update_success' => 'Profile picture updated successfully.',
-    'password_changed_subject' => 'Security Alert: Password Changed - :app_name',
+    'password_changed_subject' => 'Security Alert: Password Changed',
     'greeting' => 'Hello :name!',
     'default_user' => 'User',
     'password_changed_line1' => 'This is a confirmation that your account password was recently updated.',

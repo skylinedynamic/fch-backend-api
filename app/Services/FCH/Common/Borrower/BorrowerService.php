@@ -607,7 +607,6 @@ class BorrowerService
                             'phone_number' => $hostPartner->phone_number ?? '',
                             'address_line_1' => $hostPartner->address_line_1 ?? '',
                         ],
-                        'subject' => 'Your Email has been changed - Four Corner Funding',
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $updatedUser->email]);

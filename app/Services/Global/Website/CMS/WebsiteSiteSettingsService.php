@@ -3,6 +3,7 @@
 namespace App\Services\Global\Website\CMS;
 
 use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
 use App\Traits\UploadsFiles;
 
 class WebsiteSiteSettingsService
@@ -41,64 +42,29 @@ class WebsiteSiteSettingsService
      */
     public function getSettings(): array
     {
-        $user = auth('api')->user();
-        $entityType = $user->entity_type ?? \App\Models\Partner\Partner::class;
-        $entityId = request()->input('entity_id') ?: ($user->entity_id ?? $user->partner_id ?? null);
+        // Resolve the host partner (is_host = 1)
+        $hostPartner = Partner::where('is_host', 1)->firstOrFail();
 
-        // Normalize entity type
-        if ($entityType === 'site-settings' || !str_contains($entityType, '\\')) {
-            $entityType = \App\Models\Partner\Partner::class;
-        }
+        // Fetch host site settings as a flat key => value array
+        $hostRows = AppConfiguration::where('partner_id', $hostPartner->id)
+            ->where('module', AppConfiguration::MODULE_WEBSITE)
+            ->pluck('value', 'key')
+            ->toArray();
 
-        // If no ID provided and not logged in, try to resolve from host/domain (fallback to host 1 for now)
-        if (!$entityId) {
-            $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
-            $entityId = $hostPartner?->id ?: 1;
-            $entityType = \App\Models\Partner\Partner::class;
-        }
-
-        // 1. Get configurations for the specific entity (Partner)
-        $rows = AppConfiguration::where('entity_type', $entityType)
-            ->where('entity_id', $entityId)
-            ->get()
-            ->keyBy('key');
-
-        // 2. Get configurations for the HOST as fallback
-        $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
-        $hostId = $hostPartner?->id;
-        $hostRows = [];
-
-        // Only fetch host settings if current is not host or is a different entity type
-        if ($hostId && ($entityType !== \App\Models\Partner\Partner::class || $hostId != $entityId)) {
-            $hostRows = AppConfiguration::where('entity_type', \App\Models\Partner\Partner::class)
-                ->where('entity_id', $hostId)
-                ->get()
-                ->keyBy('key');
-        }
-
-        $data = ['id' => $entityId];
+        $data = ['id' => $hostPartner->id];
 
         foreach (array_merge(self::TEXT_KEYS, self::IMAGE_KEYS, ['social_links']) as $key) {
             if ($key === 'social_links') {
-                $raw = $rows->has($key) ? $rows[$key]->value : (isset($hostRows[$key]) ? $hostRows[$key]->value : null);
+                $raw = $hostRows[$key] ?? null;
                 $data[$key] = json_decode($raw ?? '[]', true) ?: [];
                 continue;
             }
 
-            // Get value with fallback
-            $val = null;
-            if ($rows->has($key) && !empty($rows[$key]->value)) {
-                $val = $rows[$key]->value;
-            } elseif (isset($hostRows[$key]) && !empty($hostRows[$key]->value)) {
-                $val = $hostRows[$key]->value;
-            }
+            $val = !empty($hostRows[$key]) ? $hostRows[$key] : null;
 
             if (in_array($key, self::IMAGE_KEYS, true)) {
+                // buildImageUrl returns the full URL (storage or external)
                 $data[$key] = $this->buildImageUrl($key, $val);
-                // Backward compatibility for 'favicon' key if needed by frontend
-                if ($key === 'partner_favicon') {
-                    $data['favicon'] = $data[$key];
-                }
             } else {
                 $data[$key] = $val;
             }

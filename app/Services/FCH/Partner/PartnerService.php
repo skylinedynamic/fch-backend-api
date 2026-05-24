@@ -400,7 +400,6 @@ class PartnerService
                             'address_line_1' => config('app.address', ''),
                             'company_logo' => 'logo.png',
                         ],
-                        'subject' => 'Your Email has been changed - ' . config('app.name'),
                         'is_update' => true,
                     ];
 

@@ -62,6 +62,7 @@ class LeadNotificationMail extends Mailable
                 'prequalification' => $this->details->prequalification ?? null,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
+                'leadUrl' => concatUrl(getPartnerDomain($this->mailPartnerId), 'leads'),
             ],
         );
     }

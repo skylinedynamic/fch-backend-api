@@ -80,7 +80,6 @@ class ProfileService
                         'phone_number' => $hostPartner->phone_number ?? '',
                         'address_line_1' => $hostPartner->address_line_1 ?? '',
                     ],
-                    'subject' => 'Your Email has been changed - ' . config('app.name'),
                     'is_update' => true,
                 ];
                 Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);

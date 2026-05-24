@@ -26,7 +26,10 @@ class AccountCreateNotificationMail extends Mailable
         $branding = $this->getBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
-        $subject = $this->mailData['subject'] ?? "Welcome to " . $branding['siteName'];
+        $defaultSubject = !empty($this->mailData['is_update'])
+            ? __('common.email_changed_subject')
+            : "Welcome to " . $branding['siteName'];
+        $subject = $this->mailData['subject'] ?? $defaultSubject;
 
         return new Envelope(
             subject: $subject,
