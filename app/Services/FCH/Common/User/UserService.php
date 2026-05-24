@@ -165,6 +165,7 @@ class UserService
             ->with([
                 'roles',
                 'partner',
+                'borrower',
                 'entity' => function ($morphTo) {
                     $morphTo->morphWith([
                         Borrower::class => ['subscription.enrollmentPhase', 'subscription.platformFeePhase'],
@@ -342,8 +343,10 @@ class UserService
 
             // 📧 Send update notification if password or email changed
             if ($passwordUpdated || $emailChanged) {
-                $subject = ($emailChanged ? 'Your Email has been changed' : 'Your Password has been updated') . ' - Four Corner Funding';
-                $partner = $user->partner ?: \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $subject = $emailChanged 
+                    ? __('common.email_changed_subject') 
+                    : __('common.password_updated_subject');
+                $partner = $user->partner ?: Partner::where('is_host', 1)->first();
                 $this->sendCreatedMail($user, $partner, $plainPassword, $subject);
             }
 
@@ -438,7 +441,7 @@ class UserService
 
         try {
             $data = [
-                'subject' => $subject ?? ('Welcome to ' . config('app.name')),
+                'subject' => $subject,
                 'user' => $user,
                 'plain_password' => $plainPassword,
                 'partner_id' => $partnerId,

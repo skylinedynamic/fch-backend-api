@@ -302,7 +302,7 @@ class EmployeeService
 
                 // 📧 Send update notification if email was changed
                 if ($emailChanged && $plainPassword) {
-                    $this->sendAccountCreatedMail($user, $partner, $plainPassword);
+                    $this->sendAccountCreatedMail($user, $partner, $plainPassword, true);
                 }
             }
 
@@ -514,12 +514,13 @@ class EmployeeService
     /**
      * Send account created mail using partner's email config.
      */
-    public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword): void
+    public function sendAccountCreatedMail($user, $businessInfo, string $plainPassword, bool $isUpdate = false): void
     {
         $data = [
             'partner_id' => $user->partner_id,
             'user' => $user,
             'plain_password' => $plainPassword,
+            'is_update' => $isUpdate,
             'business_info' => [
                 'company_name' => $businessInfo->company_name,
                 'company_logo' => $businessInfo->company_logo,

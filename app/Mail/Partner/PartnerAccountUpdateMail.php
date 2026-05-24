@@ -26,8 +26,9 @@ class PartnerAccountUpdateMail extends Mailable
         $branding = $this->getBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+        $defaultSubject = __('common.email_changed_subject');
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Welcome to {$branding['siteName']} - Partner Account Updated",
+            subject: $this->mailData['subject'] ?? $defaultSubject,
         );
     }
 

@@ -149,8 +149,11 @@ Route::prefix('v1/admin')
 
             // SEO
             Route::post('seo-settings-multiple-delete', [SeoController::class, 'destroy']);
-
-            Route::post('seo-settings', [SeoController::class, 'index']);
+            Route::post('seo-settings', [SeoController::class, 'index']);        // list (POST)
+            Route::get('seo-settings', [SeoController::class, 'getAll']);        // list (GET)
+            Route::post('seo-settings/store', [SeoController::class, 'store']); // create new (must be before /{id})
+            Route::get('seo-settings/{id}', [SeoController::class, 'show']);     // get one
+            Route::post('seo-settings/{id}', [SeoController::class, 'update']); // update
             Route::get('seo', [SeoController::class, 'show']);
         });
 

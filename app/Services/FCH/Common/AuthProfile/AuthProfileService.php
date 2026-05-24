@@ -4,13 +4,14 @@ namespace App\Services\FCH\Common\AuthProfile;
 
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
+use App\Models\Common\AppConfiguration;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
-use Log;
 use Illuminate\Support\Facades\Mail;
+use Log;
 
 class AuthProfileService
 {
@@ -31,8 +32,12 @@ class AuthProfileService
 
         // 📧 Send Password Changed Notification
         try {
+            $partner = getConfigPartner();
+            $module = AppConfiguration::MODULE_BRANDING;
+            $siteName = AppConfiguration::get('site_name', $partner?->company_name ?? config('app.name'), $module, $partner?->id);
+
             $mailData = [
-                'subject' => __('profile.password_changed_subject', ['app_name' => config('app.name')]),
+                'subject' => __('profile.password_changed_subject'),
                 'user' => $user,
                 'notification_type' => 'security',
                 'content' => [
