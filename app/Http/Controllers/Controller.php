@@ -11,7 +11,11 @@ abstract class Controller
 {
     protected function checkWhiteLabelConfiguration()
     {
-
+        $route = request()->route();
+        if ($route && $route->getActionMethod() !== 'store') {
+            return;
+        }
+        
         $user = auth()->user();
         if ($user && $user->partner && $user->partner->partner_type == Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerId = $user->partner_id;
