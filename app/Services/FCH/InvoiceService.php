@@ -321,7 +321,7 @@ class InvoiceService
         $branding = AppConfiguration::where('partner_id',$targetPartner->id)->where('module',AppConfiguration::MODULE_BRANDING)->pluck('value','key')->toArray();
 
         return [
-            'company_name' => $branding['site_name'],
+            'company_name' => $branding['site_name'] ?? '',
             'email' => $targetPartner->email ?? '',
             'phone_number' => $targetPartner->phone_number ?? '',
             'address_line_1' => $targetPartner->address_line_1 ?? '',
@@ -330,7 +330,7 @@ class InvoiceService
             'postal_code' => $targetPartner->postal_code ?? '',
             'country' => $targetPartner->country ?? '',
             'website' => $targetPartner->website ?? '',
-            'business_logo_path' => encodeUrl(asset('storage/'.$branding['secondary_logo'])),
+            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/'.$branding['secondary_logo'])) : '',
         ];
     }
 }

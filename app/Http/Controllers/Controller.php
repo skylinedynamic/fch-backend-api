@@ -29,7 +29,7 @@ abstract class Controller
             if (!$isEmailFresh || !$isBrandingFresh) {
                 $response = response()->json([
                     'status' => false,
-                    'message' => 'Please complete your system configuration (Branding and Email) to unlock these features.',
+                    'message' => 'Please complete your Branding and Email system configuration to unlock these features.',
                     'requires_configuration' => true
                 ], 403);
                 throw new HttpResponseException($response);

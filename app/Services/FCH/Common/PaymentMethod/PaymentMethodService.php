@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\PaymentMethod;
 
+use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentMethod;
 
 class PaymentMethodService
@@ -75,18 +76,21 @@ class PaymentMethodService
         $flat->partner_id = $partnerId;
         
         // Define default fallback values to prevent "Undefined property" errors
-        $flat->payment_mode = 'sandbox';
+        $flat->payment_mode = Payment::MODE_SANDBOX;
         $flat->stripe_key_sandbox = null;
         $flat->stripe_secret_sandbox = null;
         $flat->stripe_key_production = null;
         $flat->stripe_secret_production = null;
-        $flat->payment_method = 'stripe';
+        $flat->payment_method = Payment::PAYMENT_FROM_STRIPE;
         $flat->status = true;
         $flat->configuration = null;
+        $flat->partner_auto_charge_host_fee = 1;
 
         foreach ($methods as $method) {
             $flat->{$method->key} = $method->value;
         }
+        
+        $flat->partner_auto_charge_host_fee = (bool) filter_var($flat->partner_auto_charge_host_fee, FILTER_VALIDATE_BOOLEAN);
 
         return $flat;
     }
@@ -107,18 +111,21 @@ class PaymentMethodService
         $flat->partner_id = $partnerId;
         
         // Define default fallback values to prevent "Undefined property" errors
-        $flat->payment_mode = 'sandbox';
+        $flat->payment_mode = Payment::MODE_SANDBOX;
         $flat->stripe_key_sandbox = null;
         $flat->stripe_secret_sandbox = null;
         $flat->stripe_key_production = null;
         $flat->stripe_secret_production = null;
-        $flat->payment_method = 'stripe';
+        $flat->payment_method = Payment::PAYMENT_FROM_STRIPE;
         $flat->status = true;
         $flat->configuration = null;
+        $flat->partner_auto_charge_host_fee = 1;
 
         foreach ($methods as $method) {
             $flat->{$method->key} = $method->value;
         }
+        
+        $flat->partner_auto_charge_host_fee = (bool) filter_var($flat->partner_auto_charge_host_fee, FILTER_VALIDATE_BOOLEAN);
 
         return $flat;
     }

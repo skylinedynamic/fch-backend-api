@@ -5,6 +5,7 @@ namespace App\Services\GlobalPayment;
 use \App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Mail\Payment\PaymentSuccessMail;
 use App\Mail\Payment\PaymentSuccessUserMail;
+use App\Mail\Payment\PaymentFailedMail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
@@ -207,7 +208,15 @@ class GlobalPaymentService
 
                         // Charge the platform fee if the partner is a White-Label or Certified Partner
                         if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
-                            $this->chargePlatformFee($invoice, $invoice->partner, $payment);
+                            $settings = $this->paymentMethodService->getSettings($invoice->partner_id);
+                            if ($settings->partner_auto_charge_host_fee) {
+                                Log::info('[AutoCharge] Charging platform fee for partner', [
+                                    'invoice' => $invoice,
+                                    'partner' => $invoice->partner,
+                                    'payment' => $payment,
+                                ]);
+                                $this->chargePlatformFee($invoice, $invoice->partner, $payment);
+                            }
                         }
                     }
                 }
@@ -253,7 +262,27 @@ class GlobalPaymentService
                         if ($invoice && $invoice->is_partner_paying) {
                             Mail::to(Auth::user()->email)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
                         } else {
+                            // 1. Send to Borrower
                             Mail::to($userEmail)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
+
+                            if ($invoice && $invoice->partner && $invoice->partner->email) {
+                                Mail::to($invoice->partner->email)->send(new PaymentSuccessMail($paymentData, $partnerIdForMail));
+                            }
+
+                            $settings = $this->paymentMethodService->getSettings($invoice->partner_id ?? null);
+                            if (!empty($settings->partner_auto_charge_host_fee)) {
+                                $host = Partner::where('is_host', true)->first();
+                                
+                                // 3. Send to Host
+                                if ($host && $host->email) {
+                                    Mail::to($host->email)->send(new PaymentSuccessMail($paymentData, $host->id));
+                                }
+
+                                // 4. Send to Partner again for auto charge notification
+                                if ($invoice && $invoice->partner && $invoice->partner->email) {
+                                    Mail::to($invoice->partner->email)->send(new PaymentSuccessMail($paymentData, $host->id ?? null));
+                                }
+                            }
                         }
                     } catch (\Exception $e) {
                         Log::error('Failed to send PaymentSuccessMail: ' . $e->getMessage());
@@ -416,14 +445,24 @@ class GlobalPaymentService
             $partnerPayments = $this->payment->where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
                 ->where('status', 'succeeded')
-                ->where('payment_from', 'Stripe')
+                ->where('payment_from', Payment::PAYMENT_FROM_STRIPE)
                 ->orderBy('id', 'desc')
                 ->get();
+
+            Log::info('[AutoCharge] Found partner payments', [
+                'partnerPayments' => $partnerPayments,
+            ]);
 
             $partnerPayment = null;
             foreach ($partnerPayments as $p) {
                 if (!empty($p->details['customer']) && !empty($p->details['payment_method'])) {
                     $partnerPayment = $p;
+
+                    Log::info('[AutoCharge] Customer and payment method found', [
+                        'customer' => $p->details['customer'],
+                        'payment_method' => $p->details['payment_method'],
+                    ]);
+
                     break;
                 }
             }
@@ -456,6 +495,7 @@ class GlobalPaymentService
             Log::info('[AutoCharge] Host Stripe key set for charging partner', [
                 'host_id' => $host->id,
                 'mode' => $setting->payment_mode,
+                'setting' => $setting,
             ]);
 
             // ── Step 3: Create off-session PaymentIntent on the Host's Stripe account
@@ -547,9 +587,32 @@ class GlobalPaymentService
 
             // Ensure the borrower's frontend refreshes their user state accurately
             if ($borrower) {
-                \App\Models\User\User::where('entity_id', $borrower->id)
-                    ->where('entity_type', \App\Models\Borrower\Borrower::class)
+                User::where('entity_id', $borrower->id)
+                    ->where('entity_type', Borrower::class)
                     ->update(['is_refresh' => 1]);
+            }
+
+            // ── Step 8: Send Emails
+            $paymentData = [
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'transaction_id' => $payment->transaction_id,
+                'description' => 'Partner Platform Fee Auto-Charge',
+                'date' => $payment->transaction_date,
+                'user_name' => $partner->business_name ?: $partner->first_name . ' ' . $partner->last_name,
+                'user_email' => $partner->email,
+            ];
+
+            try {
+                $host = Partner::where('is_host', true)->first();
+                if ($host && $host->email) {
+                    Mail::to($host->email)->send(new PaymentSuccessMail($paymentData, $host->id));
+                }
+                if ($partner->email) {
+                    Mail::to($partner->email)->send(new PaymentSuccessMail($paymentData, clone $host ? $host->id : null));
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send AutoCharge Success Mail: ' . $e->getMessage());
             }
 
             return true;
@@ -562,6 +625,10 @@ class GlobalPaymentService
                 'stripe_code' => $e->getStripeCode(),
             ]);
             $this->recordFailedPayment($failedData, $e->getMessage(), 'Card Declined');
+            
+            // Send Failed Mail
+            $this->sendAutoChargeFailedEmail($partner, $amount, $invoice->id, $e->getMessage());
+            
             return false;
 
         } catch (\Stripe\Exception\InvalidRequestException $e) {
@@ -572,6 +639,9 @@ class GlobalPaymentService
                 'hint' => 'Ensure partner Stripe key is used, not host key.',
             ]);
             $this->recordFailedPayment($failedData, $e->getMessage(), 'Stripe Invalid Request');
+            
+            $this->sendAutoChargeFailedEmail($partner, $amount, $invoice->id, $e->getMessage());
+
             return false;
 
         } catch (\Stripe\Exception\AuthenticationException $e) {
@@ -580,6 +650,9 @@ class GlobalPaymentService
                 'error' => $e->getMessage(),
             ]);
             $this->recordFailedPayment($failedData, $e->getMessage(), 'Stripe Authentication Error');
+            
+            $this->sendAutoChargeFailedEmail($partner, $amount, $invoice->id, $e->getMessage());
+
             return false;
 
         } catch (\Exception $e) {
@@ -589,7 +662,38 @@ class GlobalPaymentService
                 'error' => $e->getMessage(),
             ]);
             $this->recordFailedPayment($failedData, $e->getMessage(), 'System Error');
+            
+            $this->sendAutoChargeFailedEmail($partner, $amount, $invoice->id, $e->getMessage());
+
             return false;
+        }
+    }
+
+    /**
+     * Helper to send auto-charge failed email.
+     */
+    protected function sendAutoChargeFailedEmail(Partner $partner, float $amount, $invoiceId, string $errorMessage): void
+    {
+        $paymentData = [
+            'amount' => $amount,
+            'currency' => Payment::CURRENCY_USD,
+            'transaction_id' => 'FAILED-' . uniqid(),
+            'description' => 'Partner Platform Fee Auto-Charge (' . $errorMessage . ')',
+            'date' => now(),
+            'user_name' => $partner->business_name ?: $partner->first_name . ' ' . $partner->last_name,
+            'user_email' => $partner->email,
+        ];
+
+        try {
+            $host = Partner::where('is_host', true)->first();
+            if ($host && $host->email) {
+                Mail::to($host->email)->send(new PaymentFailedMail($paymentData, $host->id));
+            }
+            if ($partner->email) {
+                Mail::to($partner->email)->send(new PaymentFailedMail($paymentData, clone $host ? $host->id : null));
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send AutoCharge Failed Mail: ' . $e->getMessage());
         }
     }
 

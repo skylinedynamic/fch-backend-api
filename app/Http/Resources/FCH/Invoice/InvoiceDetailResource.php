@@ -56,9 +56,9 @@ class InvoiceDetailResource extends JsonResource
         $branding = AppConfiguration::where('partner_id',$partner->id)->where('module',AppConfiguration::MODULE_BRANDING)->pluck('value','key')->toArray();
 
         return [
-            'site_name' => $branding['site_name'],
-            'primary_logo' => encodeUrl(asset('storage/'.$branding['secondary_logo'])),
-            'logo' =>  encodeUrl(asset('storage/'.$branding['secondary_logo'])),
+            'site_name' => $branding['site_name'] ?? '',
+            'primary_logo' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/'.$branding['secondary_logo'])) : '',
+            'logo' =>  isset($branding['secondary_logo']) ? encodeUrl(asset('storage/'.$branding['secondary_logo'])) : '',
             'address' => $partner->address_line_1 ?? '',
             'city' => $partner->city ?? '',
             'state' => $partner->state ?? '',

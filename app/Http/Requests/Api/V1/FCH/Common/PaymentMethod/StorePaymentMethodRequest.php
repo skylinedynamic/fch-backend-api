@@ -30,6 +30,7 @@ class StorePaymentMethodRequest extends BaseApiRequest
             'stripe_secret_production' => 'nullable|string',
             'payment_method' => 'nullable|string',
             'configuration' => 'nullable|array',
+            'partner_auto_charge_host_fee' => 'nullable|boolean',
         ];
     }
 
