@@ -2,7 +2,9 @@
 
 namespace App\Services\Global\Notification\Types;
 
+use App\Mail\Traits\MailableBranding;
 use App\Models\User\User;
+use App\Mail\Traits\MailConfig;
 
 class TestNotification implements NotificationTypeInterface
 {
