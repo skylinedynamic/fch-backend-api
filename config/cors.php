@@ -9,10 +9,8 @@ return [
         'https://admin.fourcornerfunding.com',
     ],
     'allowed_origins_patterns' => [
-        // Wildcard for any subdomain of fourcornerfunding.com
-        '#^https://[a-zA-Z0-9\-]+\.fourcornerfunding\.com$#',
-        // Custom tenant domains
-        '#^https://[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+\.[a-zA-Z]{2,}$#',
+        // Match all origins — supports any domain, subdomain, custom domain, HTTP or HTTPS
+        '#^https?://.*$#',
     ],
     'allowed_headers' => ['*'],
     'exposed_headers' => [
