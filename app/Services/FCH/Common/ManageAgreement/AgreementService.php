@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
+/**
+ * AgreementService
+ *
+ * Centralized business logic for Agreement Templates and Signing workflows.
+ */
 class AgreementService
 {
     public function checkSignNeed(User $user): array
@@ -45,7 +50,9 @@ class AgreementService
                 return $this->noSignNeeded('Configuration error: System owner not identified.');
             }
 
-            $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', Partner::class, $hostPartner->id);
+            // 3. Check Global Signed Feature Flag
+            $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', AppConfiguration::MODULE_AGREEMENT, $hostPartner->id);
+
             if (!filter_var($signingEnabled, FILTER_VALIDATE_BOOLEAN)) {
                 return $this->noSignNeeded('The agreement signing feature is currently disabled globally.');
             }
