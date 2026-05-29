@@ -23,7 +23,7 @@ class AgreementTemplateStoreRequest extends FormRequest
     {
         return [
             'slug' => 'required|string',
-            'template_html' => 'required|string',
+            'template_html' => 'nullable|string',
             'template_json' => 'nullable|string',
         ];
     }

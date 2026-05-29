@@ -19,6 +19,11 @@ class AgreementSign extends Model
         'agreement_template_id',
         'ip_address',
         'content_html',
+        'field_values',
+    ];
+
+    protected $casts = [
+        'field_values' => 'array',
     ];
 
     /**
