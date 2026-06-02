@@ -14,7 +14,7 @@ use Exception;
 
 /**
  * AgreementService
- * 
+ *
  * Centralized business logic for Agreement Templates and Signing workflows.
  */
 class AgreementService
@@ -57,7 +57,8 @@ class AgreementService
             }
 
             // 3. Check Global Signed Feature Flag
-            $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', Partner::class, $hostPartner->id);
+            $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', AppConfiguration::MODULE_AGREEMENT, $hostPartner->id);
+
             if (!filter_var($signingEnabled, FILTER_VALIDATE_BOOLEAN)) {
                 return $this->noSignNeeded('The agreement signing feature is currently disabled globally.');
             }
@@ -232,7 +233,7 @@ class AgreementService
                 $agreement = AgreementTemplate::where('id', '=', $id)
                     ->where('partner_id', '=', $partnerId)
                     ->first();
-                
+
                 if (!$agreement) {
                     throw new Exception(__('agreement.not_found'));
                 }
@@ -256,7 +257,7 @@ class AgreementService
         $agreement = AgreementTemplate::where('partner_id', '=', $partnerId)
             ->where('slug', '=', $slug)
             ->first();
-            
+
         if (!$agreement) {
             throw new Exception(__('agreement.not_found'));
         }

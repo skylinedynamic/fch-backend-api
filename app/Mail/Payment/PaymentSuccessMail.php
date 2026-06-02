@@ -46,8 +46,10 @@ class PaymentSuccessMail extends Mailable
             'siteName' => $this->dynamicData['siteName'],
         ]);
 
+        $businessName = !empty($this->paymentData['business_name']) ? $this->paymentData['business_name'] : $this->dynamicData['siteName'];
+
         return new Envelope(
-            subject: "Payment Receipt - " . $this->dynamicData['siteName'],
+            subject: $this->paymentData['subject'] ?? ($businessName . " Enrollment Payment Receipt"),
         );
     }
 

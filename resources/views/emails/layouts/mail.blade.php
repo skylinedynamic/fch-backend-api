@@ -17,8 +17,12 @@
             <!-- Logo Section -->
             <div class="header-logo"
                 style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;">
-                <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="logo"
-                    style="display: block; margin: 0 auto; width: 200px; height: auto;">
+                @if(!empty($logoUrl))
+                    <img src="{{ $logoUrl }}" alt="{{ $siteName ?? config('app.name') }}" class="logo"
+                        style="display: block; margin: 0 auto; width: 200px; height: auto;">
+                @else
+                    <h2 style="margin: 0; color: #1a2e44;">{{ $siteName ?? config('app.name') }}</h2>
+                @endif
             </div>
             <!-- Content Area -->
             <div class="content" style="padding: 0 30px; text-align: left;">

@@ -45,11 +45,9 @@ class AuthProfileService
                     'lines' => [
                         __('profile.password_changed_line1'),
                         __('profile.password_changed_line2'),
+                        __('profile.password_changed_line3'),
                     ],
                 ],
-                'data' => [
-                    'code' => $data['new_password']
-                ]
             ];
 
             try {

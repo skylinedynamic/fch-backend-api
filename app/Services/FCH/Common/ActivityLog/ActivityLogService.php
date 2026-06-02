@@ -18,7 +18,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Mail\ActivityLog\ActivityLogMail;
 use Throwable;
+use App\Models\Common\AppConfiguration;
 
 class ActivityLogService
 {
@@ -443,30 +445,25 @@ class ActivityLogService
             $recipients = is_array($decoded) ? $decoded : array_map('trim', explode(',', $recipients));
         }
 
-        $subject = $data['subject'] ?? 'New Email from Activity Log';
-        $body = $data['description'] ?? '';
+        $emailData = [
+            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'body'    => $data['description'] ?? '',
+        ];
 
         foreach ($recipients as $recipient) {
-            if (empty($recipient))
+            if (empty($recipient)) {
                 continue;
+            }
 
-            Mail::send('emails.activity_log_mail', [
-                'subject' => $subject,
-                'body' => $body,
-                'attachments_count' => count($attachments),
-                'attachment_names' => $attachmentNames,
-            ], function ($message) use ($recipient, $subject, $attachments) {
-                $message->to($recipient)->subject($subject);
-
-                foreach ($attachments as $file) {
-                    if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-                        $message->attach($file->getRealPath(), [
-                            'as' => $file->getClientOriginalName(),
-                            'mime' => $file->getMimeType(),
-                        ]);
-                    }
-                }
-            });
+            try {
+                Mail::to($recipient)->send(new ActivityLogMail($emailData, $attachmentNames, $attachments));
+            } catch (\Throwable $e) {
+                Log::error('ActivityLog: Failed to send email to recipient', [
+                    'recipient' => $recipient,
+                    'subject'   => $emailData['subject'],
+                    'error'     => $e->getMessage(),
+                ]);
+            }
         }
     }
 
