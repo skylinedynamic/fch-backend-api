@@ -119,7 +119,7 @@ class GlobalPaymentService
             // If it's a partner paying, we MUST attach a Stripe Customer and save the card so AutoCharge works later
             $stripeCustomerId = null;
             $setupFutureUsage = null;
-            
+
             if ($entityType === Partner::class && $entityId) {
                 $partnerToSave = Partner::find($entityId);
                 if ($partnerToSave && $partnerToSave->email) {
@@ -204,9 +204,8 @@ class GlobalPaymentService
                         $this->handlePartnerPayment($invoice);
                     } else if ($invoice->entity_type === Borrower::class) {
                         $this->handleBorrowerPayment($invoice);
-
                         // Charge the platform fee if the partner is a White-Label or Certified Partner
-                        if ($invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
+                        if (Auth::user()->partner->is_host == 0 && $invoice->partner_id && in_array($invoice->partner?->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
                             $this->chargePlatformFee($invoice, $invoice->partner, $payment);
                         }
                     }
@@ -323,7 +322,7 @@ class GlobalPaymentService
             'status' => Partner::STATUS_ACTIVE,
             'updated_at' => now(),
         ]);
-        if($invoice->borrower_id) {
+        if ($invoice->borrower_id) {
             $borrower = Borrower::find($invoice->borrower_id);
             $borrower->update([
                 'partner_payment_for_me' => true,
