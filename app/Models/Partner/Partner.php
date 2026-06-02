@@ -71,6 +71,7 @@ class Partner extends Model
         'active_custom_url',
         'partner_domain',
         'borrower_domain',
+        'partner_subdomain',
         'total_free_users',
         'total_paid_users'
     ];

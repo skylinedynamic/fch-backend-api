@@ -154,10 +154,12 @@ class PartnerService
                 }
 
                 $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
+                $partnerData['partner_subdomain'] = $partnerData['partner_domain'];
             }
             else{
                 // Append base url to provided subdomain
                 $partnerData['partner_domain'] = $partnerData['partner_domain'] . '.' . $baseUrl;
+                $partnerData['partner_subdomain'] = $partnerData['partner_domain'];
             }
 
             Log::info('Partner creation payload', $partnerData);
@@ -423,6 +425,7 @@ class PartnerService
                 $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
                 if (!str_ends_with($subdomain, '.' . $baseUrl)) {
                     $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
+                    $partnerData['partner_subdomain'] = $partnerData['partner_domain'];
                 }
             }
 

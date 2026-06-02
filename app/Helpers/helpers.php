@@ -105,6 +105,7 @@ if (!function_exists('getPartnerIdFromOrigin')) {
         // Cache the lookup for performance
         return Cache::remember("domain_partner_id:{$domain}", now()->addMinutes(120), function () use ($domain) {
             $partner = Partner::where('partner_domain', $domain)
+                ->orWhere('partner_subdomain', $domain)
                 ->orWhere('borrower_domain', $domain)
                 ->first();
 
@@ -137,10 +138,10 @@ if (!function_exists('getPartnerDomain')) {
     {
         if ($partnerId) {
             $partner = Partner::find($partnerId);
-            return $partner->partner_domain ?? config('app.frontend_partner_url');
+            return $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         }
         $partner = auth()->user()->partner;
-        $domain = $partner->partner_domain ?? config('app.frontend_partner_url');
+        $domain = $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         return $domain;
     }
 }

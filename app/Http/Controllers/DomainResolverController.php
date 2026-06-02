@@ -37,8 +37,14 @@ class DomainResolverController extends Controller
         try {
             $result = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($domain) {
                 $partner = Partner::where('partner_domain', $domain)
-                    ->select('id')
+                    ->orWhere('partner_subdomain', $domain)
+                    ->select('id', 'active_custom_url')
                     ->first();
+
+                // Only active 
+                if(!$partner->active_custom_url) {    
+                    return null;
+                }
 
                 if ($partner) {
                     return ['type' => 'partner', 'partner_id' => $partner->id];
@@ -94,8 +100,18 @@ class DomainResolverController extends Controller
         }
 
         $exists = Partner::where('partner_domain', $domain)
+            ->orWhere('partner_subdomain', $domain)
             ->orWhere('borrower_domain', $domain)
-            ->exists();
+            ->first();
+
+        if(!$exists) {
+            return response('Forbidden', 403);
+        }
+
+        // Only active custom urls are allowed
+        if(!$exists->active_custom_url) {
+            return response('Forbidden', 403);
+        }
 
         if ($exists) {
             return response('OK', 200);
