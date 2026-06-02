@@ -24,6 +24,7 @@ class Invoice extends Model
         'payment_amount',
         'payment_date',
         'status',
+        'type',
         'is_partner_paying',
         'currency',
         'currency_symbol',
@@ -44,6 +45,7 @@ class Invoice extends Model
     const INVOICE_TYPE_BORROWER_ONE_TIME_ENROLLMENT = 'borrower one time enrollment';
 
     const INVOICE_TYPE_ADDITIONAL_USER_ENROLLMENT = 'additional user enrollment';
+    const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission payout';
 
 
     protected $casts = [

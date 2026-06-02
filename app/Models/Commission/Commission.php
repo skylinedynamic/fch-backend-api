@@ -47,14 +47,14 @@ class Commission extends Model
     ];
 
     public const STATUS_DRAFT = 'Draft';
-    public const STATUS_PENDING = 'Pending';
-    public const STATUS_APPROVED = 'Approved';
+    public const STATUS_PROCESSING = 'Processing';
+    public const STATUS_COMPLETE = 'Complete';
     public const STATUS_DECLINED = 'Declined';
 
     public const STATUS = [
         self::STATUS_DRAFT => self::STATUS_DRAFT,
-        self::STATUS_PENDING => self::STATUS_PENDING,
-        self::STATUS_APPROVED => self::STATUS_APPROVED,
+        self::STATUS_PROCESSING => self::STATUS_PROCESSING,
+        self::STATUS_COMPLETE => self::STATUS_COMPLETE,
         self::STATUS_DECLINED => self::STATUS_DECLINED,
     ];
 

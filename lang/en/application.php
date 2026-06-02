@@ -45,4 +45,7 @@ return [
     // Commission Service Messages
     'commission_saved_successfully' => 'Commission saved successfully.',
     'error_saving_commission' => 'Failed to save commission.',
+    'commission_already_paid' => 'Commission already paid.',
+    'commission_payout_processed_successfully' => 'Commission payout processed successfully.',
+    'error_processing_payout' => 'Failed to process commission payout.',
 ];

@@ -105,6 +105,10 @@ Route::prefix('v1/admin')
             }
         );
 
+        Route::prefix('commission')->group(function () {
+            Route::post('{id}/payout', [CommissionController::class, 'processPayout']);
+        });
+
         // Change Requests (Borrower Field Update Requests)
         Route::prefix('change-requests')->group(function () {
             Route::post('/', [ChangeRequestController::class, 'index']);
