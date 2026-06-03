@@ -17,6 +17,7 @@ use App\Services\FCH\InvoiceService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Partner\Partner;
 
 class CommissionService
 {
@@ -129,6 +130,7 @@ class CommissionService
                     'currency' => $commission->currency,
                     'currency_symbol' => $commission->currency_symbol,
                     'conversion_rate' => $commission->conversion_rate,
+                    'note' => $data['note'] ?? null,
                     'created_by' => auth()->id(),
                 ]);
 
@@ -158,6 +160,11 @@ class CommissionService
                 'commission_status' => Commission::STATUS_COMPLETED,
                 'payout_date' => now(),
             ]);
+
+            if (isset($invoice) && isset($partner) && $partner->email) {
+                \Illuminate\Support\Facades\Mail::to($partner->email)
+                    ->send(new \App\Mail\Commission\CommissionPayoutMail($commission, $invoice, $data['note'] ?? null));
+            }
 
             DB::commit();
 

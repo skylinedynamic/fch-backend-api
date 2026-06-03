@@ -273,7 +273,7 @@
                 </td>
                 <td style="width: 50%; vertical-align: top; text-align: right">
                     <div class="address-box">
-                        <div class="section-header">BILLING ADDRESS</div>
+                        <div class="section-header">{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'PARTNER DETAILS' : 'BILLING ADDRESS' }}</div>
                         <div class="name">
                             {{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}
                         </div>
@@ -326,12 +326,17 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="text-align: left;">Enrollment Details</th>
+                <th style="text-align: left;">{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payout Description' : 'Enrollment Details' }}</th>
                 <th style="text-align: right; width: 120px;">Amount</th>
             </tr>
         </thead>
         <tbody>
-            @php $items = $invoice->details['items'] ?? [['description' => $invoice->subscription->enrollment_type ?? 'Platform Service Enrollment', 'amount' => $invoice->payment_amount]]; @endphp
+            @php 
+                $defaultItemDescription = $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT 
+                    ? 'Commission Payout' 
+                    : ($invoice->subscription->enrollment_type ?? 'Platform Service Enrollment');
+                $items = $invoice->details['items'] ?? [['description' => $defaultItemDescription, 'amount' => $invoice->payment_amount]]; 
+            @endphp
             @foreach ($items as $item)
                 <tr>
                     <td>
@@ -360,10 +365,12 @@
     <!-- Payment Details -->
     <div class="payment-details">
         <div class="title">Payment Details:</div>
+        @if ($invoice->type !== \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
         <p><strong>Payment Method:</strong> <span
                 class="val">{{ $invoice->details['payment_method'] ?? 'Stripe' }}</span></p>
+        @endif
         <p><strong>Payment Status:</strong> <span class="val">{{ $invoice->status }}</span></p>
-        <p><strong>Card Holder:</strong> <span
+        <p><strong>{{ $invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT ? 'Payee Name:' : 'Card Holder:' }}</strong> <span
                 class="val">{{ $invoice->borrower ? $invoice->borrower->full_name : ($invoice->partner?->full_name ?? $invoice->partner?->company_name ?? $invoice->customer_name) }}</span>
         </p>
         @if (!empty($invoice->details['card_last4']))
@@ -376,9 +383,13 @@
     <!-- Notes -->
     <div class="notes-box">
         <strong>NOTES:</strong>
-        All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid
-        within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted
-        fee noted above.
+        @if ($invoice->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
+            {{ $invoice->note ?? 'No additional notes provided.' }}
+        @else
+            All accounts are to be paid within 7 days from receipt of invoice. To be paid by Stripe. If account is not paid
+            within 7 days the credits details supplied as confirmation of work undertaken will be charged the agreed quoted
+            fee noted above.
+        @endif
     </div>
 </body>
 

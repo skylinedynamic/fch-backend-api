@@ -31,6 +31,7 @@ class Invoice extends Model
         'conversion_rate',
         'is_platform_fee',
         'details',
+        'note',
         'created_by',
         'updated_by',
     ];
