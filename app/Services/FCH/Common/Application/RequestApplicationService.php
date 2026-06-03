@@ -14,6 +14,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Commission\Commission;
 use Illuminate\Support\Facades\Auth;
 
 class RequestApplicationService
@@ -241,7 +242,7 @@ class RequestApplicationService
         $application->save();
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
-            $commission = \App\Models\Commission\Commission::where('funding_application_id', $application->id)->first();
+            $commission = Commission::where('funding_application_id', $application->id)->first();
             if ($commission) {
                 // Ensure we use the correct base amount
                 $baseAmount = $application->total_funded_amount;
@@ -259,6 +260,8 @@ class RequestApplicationService
                     'total_commission_amount' => $totalCommissionAmount,
                     'admin_commission_amount' => $adminCommissionAmount,
                     'partner_commission_amount' => $partnerCommissionAmount,
+                    'commission_status' => Commission::STATUS_PROCESSING,
+                    'payment_status' => Commission::PAYMENT_STATUS_UNPAID,
                 ]);
             }
         }

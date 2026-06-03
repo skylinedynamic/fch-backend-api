@@ -24,6 +24,7 @@ class ProcessPayoutRequest extends FormRequest
     {
         return [
             'partner_payment_method' => ['required', 'string', 'max:255'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

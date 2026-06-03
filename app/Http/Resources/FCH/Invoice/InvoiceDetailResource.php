@@ -29,10 +29,18 @@ class InvoiceDetailResource extends JsonResource
             'payment_amount' => $this->payment_amount,
             'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->format('Y-m-d') : null,
             'status' => $this->status,
+            'type' => $this->type,
+            'note' => $this->note,
             'details' => $this->details,
-            'enrollment_type' => $this->subscription?->enrollment_type,
-            'monthly_platform_fee' => $this->subscription?->monthly_platform_fee,
-            'payable_amount_sub' => $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
+            'enrollment_type' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT 
+                ? 'Commission Payout' 
+                : $this->subscription?->enrollment_type,
+            'monthly_platform_fee' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT 
+                ? null 
+                : $this->subscription?->monthly_platform_fee,
+            'payable_amount_sub' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT 
+                ? $this->payment_amount 
+                : $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
 
             // Consolidated Billing Info (Borrower priority for Preview)
             'name' => $this->borrower

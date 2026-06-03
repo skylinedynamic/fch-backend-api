@@ -28,6 +28,7 @@ class InvoiceResource extends JsonResource
             'payment_amount' => $this->payment_amount,
             'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->format('Y-m-d') : null,
             'status' => $this->status,
+            'type' => $this->type,
             'details' => $this->details,
             // 'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'branding' => $this->resolveBrandingData(),
