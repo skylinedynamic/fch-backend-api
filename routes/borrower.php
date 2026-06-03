@@ -1,31 +1,32 @@
 <?php
 
-use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
-use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
-use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
-use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
-use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
-use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
-use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\BorrowerUserDetailController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
-use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
-use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
-use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
-use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
+use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
+use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
-use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
+use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
+use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
-use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
+use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
+use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
+use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
+use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
+use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
+use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use Illuminate\Support\Facades\Route;
 
 
 /* |-------------------------------------------------------------------------- | Borrower API Routes |-------------------------------------------------------------------------- | | Here is where you can register borrower API routes for your application. | These routes are loaded by the RouteServiceProvider and all of them will | be assigned to the "api" middleware group. Make something great! | */
@@ -103,6 +104,12 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/credit-accounts', [CreditAccountController::class, 'index']);
                     Route::get('/credit-accounts/filter-options', [CreditAccountController::class, 'filterOptions']);
                     Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply']);
+                }
+            );
+
+            Route::prefix('funding')->group(
+                function () {
+                    Route::get('/', [FundingController::class, 'index']);
                 }
             );
 
