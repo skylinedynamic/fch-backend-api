@@ -17,6 +17,9 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -97,6 +100,34 @@ Route::prefix('v1/admin')
             Route::delete('credit-accounts/{id}', [CreditAccountController::class, 'destroy']);
         }
         );
+
+        // 💰 Funding Groups (CRUD)
+        Route::prefix('funding-groups')->group(function () {
+            Route::get('/', [FundingGroupController::class, 'index']);
+            Route::post('/', [FundingGroupController::class, 'store']);
+            Route::put('{id}', [FundingGroupController::class, 'update']);
+            Route::delete('{id}', [FundingGroupController::class, 'destroy']);
+        });
+
+        // 💰 Funding Types (CRUD)
+        Route::prefix('funding-types')->group(function () {
+            Route::get('/', [FundingTypeController::class, 'index']);
+            Route::post('/', [FundingTypeController::class, 'store']);
+            Route::put('{id}', [FundingTypeController::class, 'update']);
+            Route::delete('{id}', [FundingTypeController::class, 'destroy']);
+        });
+
+
+        // 💰 Funding Sequencings
+        Route::prefix('funding-sequencings')->group(function () {
+            Route::post('fetch', [FundingSequencingController::class, 'index']);
+            Route::get('grouped', [FundingSequencingController::class, 'grouped']);
+            Route::post('/', [FundingSequencingController::class, 'store']);
+            Route::get('{id}', [FundingSequencingController::class, 'show']);
+            Route::put('{id}', [FundingSequencingController::class, 'update']);
+            Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus']);
+            Route::delete('{id}', [FundingSequencingController::class, 'destroy']);
+        });
 
 
         Route::prefix('funding-application')->group(

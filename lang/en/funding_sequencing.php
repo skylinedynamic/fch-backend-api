@@ -1,0 +1,50 @@
+<?php
+return [
+    // Funding Sequencing
+    'name_required'              => 'The funding name is required.',
+    'name_string'                => 'The funding name must be a valid string.',
+    'name_max'                   => 'The funding name may not exceed 255 characters.',
+    'subtitle_required'          => 'The subtitle is required.',
+    'subtitle_string'            => 'The subtitle must be a valid string.',
+    'subtitle_max'               => 'The subtitle may not exceed 255 characters.',
+    'funding_group_id_required'  => 'Please select a funding group.',
+    'funding_group_id_exists'    => 'The selected funding group is invalid.',
+    'funding_type_id_required'   => 'Please select a funding type.',
+    'funding_type_id_exists'     => 'The selected funding type is invalid.',
+    'description_string'         => 'The description must be a valid string.',
+    'amount_range_max'           => 'The amount range may not exceed 255 characters.',
+    'terms_max'                  => 'The terms may not exceed 255 characters.',
+    'icon_max'                   => 'The icon may not exceed 255 characters.',
+    'icon_color_max'             => 'The icon color may not exceed 255 characters.',
+    'status_in'                  => 'The status must be either Active or Inactive.',
+    'sort_order_integer'         => 'The sort order must be a valid integer.',
+    'action_url_max'             => 'The action URL may not exceed 255 characters.',
+
+    // Funding Group
+    'group_name_required'        => 'The group name is required.',
+    'group_name_string'          => 'The group name must be a valid string.',
+    'group_name_max'             => 'The group name may not exceed 255 characters.',
+    'group_name_unique'          => 'This funding group name already exists.',
+
+    // Funding Type
+    'type_name_required'         => 'The type name is required.',
+    'type_name_string'           => 'The type name must be a valid string.',
+    'type_name_max'              => 'The type name may not exceed 255 characters.',
+    'type_name_unique'           => 'This funding type name already exists.',
+
+    // Response messages
+    'list_fetched'               => 'Funding sequencings fetched successfully.',
+    'grouped_list_fetched'       => 'Grouped funding sequencings fetched successfully.',
+    'fetched'                    => 'Funding sequencing fetched successfully.',
+    'created'                    => 'Funding sequencing created successfully.',
+    'updated'                    => 'Funding sequencing updated successfully.',
+    'status_updated'             => 'Funding sequencing status updated successfully.',
+    'deleted'                    => 'Funding sequencing deleted successfully.',
+    'not_found'                  => 'Funding sequencing not found.',
+    'group_created'              => 'Funding group created successfully.',
+    'group_updated'              => 'Funding group updated successfully.',
+    'group_deleted'              => 'Funding group deleted successfully.',
+    'type_created'               => 'Funding type created successfully.',
+    'type_updated'               => 'Funding type updated successfully.',
+    'type_deleted'               => 'Funding type deleted successfully.',
+];
