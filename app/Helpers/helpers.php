@@ -103,7 +103,7 @@ if (!function_exists('getPartnerIdFromOrigin')) {
         $domain = preg_replace('/^www\./', '', $domain);
 
         // Cache the lookup for performance
-        return Cache::remember("domain_partner_id:{$domain}", now()->addMinutes(120), function () use ($domain) {
+        return Cache::remember("domain_partner_id:{$domain}", 0, function () use ($domain) {
             $partner = Partner::where('partner_domain', $domain)
                 ->orWhere('partner_subdomain', $domain)
                 ->orWhere('borrower_domain', $domain)
