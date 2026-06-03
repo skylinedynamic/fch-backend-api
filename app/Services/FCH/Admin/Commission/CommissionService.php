@@ -155,7 +155,7 @@ class CommissionService
 
             $commission->update([
                 'payment_status' => Commission::PAYMENT_STATUS_PAID,
-                'commission_status' => Commission::STATUS_APPROVED,
+                'commission_status' => Commission::STATUS_COMPLETED,
                 'payout_date' => now(),
             ]);
 
