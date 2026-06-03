@@ -30,7 +30,7 @@ jobs:
           REMOTE_USER: ${{ secrets.STAGE_EC2_USER }}
           SOURCE: "./"
           TARGET: "/var/www/html/fch-api"
-          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/"
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/, /public/storage/"
           ARGS: "-rltgoDzvO --delete"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
@@ -73,11 +73,10 @@ jobs:
             sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
 
             echo "Running Artisan Commands..."
-            # Clear everything explicitly
+            # Clear old caches and build new optimal caches
             php artisan optimize:clear
-            php artisan config:clear
-            php artisan route:clear
-            php artisan view:clear
+            php artisan optimize
+            php artisan storage:link
 
             if [ ! -f storage/oauth-private.key ]; then
                 echo "Generating Passport keys..."
@@ -85,6 +84,7 @@ jobs:
             fi
 
             php artisan migrate --force
+            php artisan queue:restart || true
 
             echo "Ensuring final directory permissions..."
             sudo chown -R www-data:www-data /var/www/html/fch-api

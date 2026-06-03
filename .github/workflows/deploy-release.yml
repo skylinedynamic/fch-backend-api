@@ -30,7 +30,7 @@ jobs:
           REMOTE_USER: ${{ secrets.PROD_EC2_USER }}
           SOURCE: "./"
           TARGET: "/var/www/html/api-portal"
-          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /bootstrap/cache/"
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/, /public/storage/"
           SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
           SCRIPT_BEFORE: |
             echo "Ensuring target directory exists..."
@@ -51,11 +51,11 @@ jobs:
             sudo rm -f bootstrap/cache/*.php
 
             echo "Running Production Artisan Commands..."
-            sudo php artisan config:clear
-            sudo php artisan route:clear
-            sudo php artisan view:clear
-            sudo php artisan migrate --force
             sudo php artisan optimize:clear
+            sudo php artisan optimize
+            sudo php artisan storage:link
+            sudo php artisan migrate --force
+            sudo php artisan queue:restart || true
 
             echo "Setting correct directory permissions for Nginx..."
             sudo chown -R www-data:www-data /var/www/html/api-portal
