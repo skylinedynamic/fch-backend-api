@@ -19,6 +19,10 @@ class AgreementTemplate extends Model
         'is_active',
     ];
 
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
+
     /**
      * Get the partner that owns the agreement template.
      */
