@@ -17,9 +17,11 @@ class PaymentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
+
         return [
             'id' => $this->id,
-            'transaction_date' => $this->transaction_date ? $this->transaction_date->format('Y-m-d') : null,
+            'transaction_date' => $this->transaction_date ? \Carbon\Carbon::parse($this->transaction_date)->setTimezone($timezone)->format('Y-m-d') : null,
             'from' => $this->payment_from ?? __('payment.na'),
             'payment_type' => $this->payment_type ?? __('payment.na'),
             'company' => $this->getCompanyName(),
@@ -27,7 +29,7 @@ class PaymentResource extends JsonResource
             'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
             'invoice_no' => $this->invoice?->invoice_id,
             'transaction_id' => $this->transaction_id,
-            'amount' => $this->amount,
+            'amount' => currencyFormat($this->amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'currency' => $this->currency,
             'status' => strtoupper($this->status),
             'is_environment' => (bool)$this->is_environment,
@@ -37,7 +39,11 @@ class PaymentResource extends JsonResource
             'entity_type' => $this->entity_type,
             'borrower_name' => ($this->entity_type === Borrower::class && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
             'partner_name' => ($this->entity_type === Partner::class && $this->partner) ? ($this->partner->full_name ?? '') : '',
-            'created_at' => $this->created_at,
+            'name' => $this->entity ? ($this->entity->full_name ?? $this->entity->company_name ?? ($this->entity->first_name . ' ' . $this->entity->last_name)) : '',
+            'email' => $this->entity?->email,
+            'phone' => $this->entity?->phone_number,
+            'address' => $this->entity?->address_line_1 ?? $this->entity?->business_address_line_1 ?? $this->entity?->postal_code ?? $this->entity?->business_postal_code,
+            'created_at' => $this->created_at ? \Carbon\Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
         ];
     }
 

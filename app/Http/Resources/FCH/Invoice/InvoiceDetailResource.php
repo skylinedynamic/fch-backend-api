@@ -16,6 +16,8 @@ class InvoiceDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
+
         return [
             'id' => $this->id,
             'invoice_id' => $this->invoice_id,
@@ -27,7 +29,7 @@ class InvoiceDetailResource extends JsonResource
             'email' => $this->email,
             'country' => $this->country,
             'payment_amount' => $this->payment_amount,
-            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->format('Y-m-d') : null,
+            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->setTimezone($timezone)->format('Y-m-d') : null,
             'status' => $this->status,
             'type' => $this->type,
             'note' => $this->note,
@@ -53,7 +55,7 @@ class InvoiceDetailResource extends JsonResource
                 : ($this->partner ? ($this->partner->address_line_1 ?: $this->partner->postal_code) : null),
 
             'branding' => $this->resolveBrandingData(),
-            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->format('Y-m-d') : null,
+            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
             // Add any other fields or relations if needed
         ];
     }
