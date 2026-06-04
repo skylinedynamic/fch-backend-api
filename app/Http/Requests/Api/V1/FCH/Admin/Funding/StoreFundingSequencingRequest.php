@@ -34,6 +34,17 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'status'           => 'nullable|string|in:Active,Inactive',
             'sort_order'       => 'nullable|integer',
             'action_url'       => 'nullable|string|max:255',
+            'speed_to_funds'   => 'nullable|string|max:255',
+            'uses'             => 'nullable|string|max:255',
+            'qualify_reasons'  => 'nullable|array',
+            'qualify_reasons.*'=> 'nullable|string',
+            'missing_documents'=> 'nullable|array',
+            'missing_documents.*'=> 'nullable|string',
+            'readiness_factors'=> 'nullable|array',
+            'readiness_factors.*.label' => 'required_with:readiness_factors|string',
+            'readiness_factors.*.status' => 'required_with:readiness_factors|string',
+            'eligibility_status'=> 'nullable|string|max:255',
+            'eligibility_label'=> 'nullable|string|max:255',
         ];
     }
 

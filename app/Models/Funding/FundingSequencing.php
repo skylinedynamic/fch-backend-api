@@ -28,6 +28,19 @@ class FundingSequencing extends Model
         'status',
         'sort_order',
         'action_url',
+        'speed_to_funds',
+        'uses',
+        'qualify_reasons',
+        'missing_documents',
+        'readiness_factors',
+        'eligibility_status',
+        'eligibility_label',
+    ];
+
+    protected $casts = [
+        'qualify_reasons' => 'array',
+        'missing_documents' => 'array',
+        'readiness_factors' => 'array',
     ];
 
     public function group(): BelongsTo

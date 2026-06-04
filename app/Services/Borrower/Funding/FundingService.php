@@ -103,4 +103,17 @@ class FundingService
 
         return [(float) min($amounts), (float) max($amounts)];
     }
+
+    /**
+     * Get a single funding sequencing detail.
+     *
+     * @param int|string $id
+     * @return \App\Models\Funding\FundingSequencing
+     */
+    public function getSequencingById($id)
+    {
+        return FundingSequencing::with(['group', 'type'])
+            ->where('status', FundingSequencing::STATUS_ACTIVE)
+            ->findOrFail($id);
+    }
 }

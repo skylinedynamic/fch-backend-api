@@ -110,6 +110,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::prefix('funding')->group(
                 function () {
                     Route::get('/', [FundingController::class, 'index']);
+                    Route::get('/{id}', [FundingController::class, 'show']);
                 }
             );
 

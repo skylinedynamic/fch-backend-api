@@ -23,6 +23,13 @@ class FundingSequencingResource extends JsonResource
             'action_url' => $this->action_url,
             'funding_group_id' => $this->funding_group_id,
             'funding_type_id' => $this->funding_type_id,
+            'speed_to_funds' => $this->speed_to_funds,
+            'uses' => $this->uses,
+            'qualify_reasons' => $this->qualify_reasons ?? [],
+            'missing_documents' => $this->missing_documents ?? [],
+            'readiness_factors' => $this->readiness_factors ?? [],
+            'eligibility_status' => $this->eligibility_status,
+            'eligibility_label' => $this->eligibility_label,
             'group' => $this->whenLoaded('group', function () {
                 return [
                     'id' => $this->group->id,
