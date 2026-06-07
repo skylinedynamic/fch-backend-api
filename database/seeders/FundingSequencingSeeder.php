@@ -41,7 +41,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-bank-card-line',
                 'icon_color' => 'green',
                 'sort_order' => 1
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Business Credit Builder Cards'],
@@ -54,7 +91,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-bank-card-line',
                 'icon_color' => 'blue',
                 'sort_order' => 2
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Premium Rewards Cards'],
@@ -67,7 +141,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-star-line',
                 'icon_color' => 'purple',
                 'sort_order' => 3
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Vendor Credit Lines'],
@@ -80,7 +191,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-shopping-cart-2-line',
                 'icon_color' => 'orange',
                 'sort_order' => 4
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
 
         // Sequencings for Working Capital
@@ -90,11 +238,48 @@ class FundingSequencingSeeder extends Seeder
                 'funding_group_id' => $groupWorking->id,
                 'funding_type_id' => $typeWorkingCapital->id,
                 'subtitle' => 'Revolving credit lines for your business needs',
-                'amount_range' => '$10K - $250K',
+                'amount_range' => '10000-250000',
                 'terms' => 'Revolving',
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
                 'icon' => 'ri-refresh-line',
                 'icon_color' => 'green',
-                'sort_order' => 1
+                'sort_order' => 1,
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false
             ]
         );
         FundingSequencing::firstOrCreate(
@@ -108,7 +293,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-bank-line',
                 'icon_color' => 'blue',
                 'sort_order' => 2
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Merchant Cash Advance'],
@@ -121,7 +343,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-camera-line',
                 'icon_color' => 'purple',
                 'sort_order' => 3
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Revenue Based Financing'],
@@ -134,7 +393,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-line-chart-line',
                 'icon_color' => 'orange',
                 'sort_order' => 4
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
 
         // Sequencings for Equipment Financing
@@ -149,7 +445,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-settings-3-line',
                 'icon_color' => 'green',
                 'sort_order' => 1
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Equipment Leasing'],
@@ -162,7 +495,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-file-text-line',
                 'icon_color' => 'blue',
                 'sort_order' => 2
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Working Capital Equipment'],
@@ -175,7 +545,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-briefcase-line',
                 'icon_color' => 'purple',
                 'sort_order' => 3
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Transportation Financing'],
@@ -188,7 +595,44 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-truck-line',
                 'icon_color' => 'orange',
                 'sort_order' => 4
-            ]
+            ,
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
 
         // Sequencings for Real Estate Financing
@@ -201,7 +645,46 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-building-4-line',
                 'icon_color' => 'green',
                 'sort_order' => 1
-            ]
+            ,
+                'amount_range' => '$5K - $500K',
+                'terms' => 'Flexible',
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Bridge Loans'],
@@ -212,7 +695,46 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-links-line',
                 'icon_color' => 'blue',
                 'sort_order' => 2
-            ]
+            ,
+                'amount_range' => '$5K - $500K',
+                'terms' => 'Flexible',
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Fix & Flip Loans'],
@@ -223,7 +745,46 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-tools-line',
                 'icon_color' => 'purple',
                 'sort_order' => 3
-            ]
+            ,
+                'amount_range' => '$5K - $500K',
+                'terms' => 'Flexible',
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
         FundingSequencing::firstOrCreate(
             ['name' => 'Construction Loans'],
@@ -234,7 +795,46 @@ class FundingSequencingSeeder extends Seeder
                 'icon' => 'ri-user-settings-line',
                 'icon_color' => 'orange',
                 'sort_order' => 4
-            ]
+            ,
+                'amount_range' => '$5K - $500K',
+                'terms' => 'Flexible',
+                'speed_to_funds' => '1-7',
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
+                'qualify_reasons' => [
+                    'Revenue exceeds minimum threshold',
+                    'Time in business exceeds requirement',
+                    'Business profile meets our lending standards',
+                    'Banking activity shows consistent deposits'
+                ],
+                'readiness_factors' => [
+                    ['label' => 'Business Credit', 'status' => 'Good'],
+                    ['label' => 'Revenue', 'status' => 'Strong'],
+                    ['label' => 'Time in Business', 'status' => 'Strong'],
+                    ['label' => 'Banking Activity', 'status' => 'Good'],
+                    ['label' => 'Existing Debt', 'status' => 'Good'],
+                    ['label' => 'Documents', 'status' => 'Missing']
+                ],
+                'missing_documents' => [
+                    'Last 3 months business bank statements',
+                    'Voided business check'
+                ],
+                'action_url' => null,
+                'min_fico' => 656,
+                'min_tib_months' => 65665,
+                'min_monthly_revenue' => 65665.00,
+                'min_monthly_deposits' => 788788.00,
+                'min_average_daily_balance' => 8755454.00,
+                'max_nsf_count' => 54553,
+                'max_negative_days' => 34323,
+                'min_dscr' => 660.00,
+                'allowed_states' => ['AZ', 'AR'],
+                'restricted_states' => ['AL', 'AK', 'AZ'],
+                'allowed_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'restricted_industries' => ['Accounting & Financial Services', 'Automotive Services & Dealerships', 'Beauty, Salon & Spa Services'],
+                'require_completed_application' => false,
+                'require_documents_uploaded' => true,
+                'manual_review_allowed' => true,
+                'exception_allowed' => false]
         );
     }
 }

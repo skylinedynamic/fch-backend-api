@@ -24,22 +24,22 @@ return new class extends Migration
             ]);
 
             // Add new Visibility Logic Fields
-            $table->integer('min_fico')->nullable();
-            $table->integer('min_tib_months')->nullable();
-            $table->decimal('min_monthly_revenue', 15, 2)->nullable();
-            $table->decimal('min_monthly_deposits', 15, 2)->nullable();
-            $table->decimal('min_average_daily_balance', 15, 2)->nullable();
-            $table->integer('max_nsf_count')->nullable();
-            $table->integer('max_negative_days')->nullable();
-            $table->decimal('min_dscr', 8, 2)->nullable();
-            $table->json('allowed_states')->nullable();
-            $table->json('restricted_states')->nullable();
-            $table->json('allowed_industries')->nullable();
-            $table->json('restricted_industries')->nullable();
-            $table->boolean('require_completed_application')->default(false);
-            $table->boolean('require_documents_uploaded')->default(false);
-            $table->boolean('manual_review_allowed')->default(false);
-            $table->boolean('exception_allowed')->default(false);
+            $table->integer('min_fico')->nullable()->after('action_url');
+            $table->integer('min_tib_months')->nullable()->after('min_fico');
+            $table->decimal('min_monthly_revenue', 15, 2)->nullable()->after('min_tib_months');
+            $table->decimal('min_monthly_deposits', 15, 2)->nullable()->after('min_monthly_revenue');
+            $table->decimal('min_average_daily_balance', 15, 2)->nullable()->after('min_monthly_deposits');
+            $table->integer('max_nsf_count')->nullable()->after('min_average_daily_balance');
+            $table->integer('max_negative_days')->nullable()->after('max_nsf_count');
+            $table->decimal('min_dscr', 8, 2)->nullable()->after('max_negative_days');
+            $table->json('allowed_states')->nullable()->after('min_dscr');
+            $table->json('restricted_states')->nullable()->after('allowed_states');
+            $table->json('allowed_industries')->nullable()->after('restricted_states');
+            $table->json('restricted_industries')->nullable()->after('allowed_industries');
+            $table->boolean('require_completed_application')->default(false)->after('restricted_industries');
+            $table->boolean('require_documents_uploaded')->default(false)->after('require_completed_application');
+            $table->boolean('manual_review_allowed')->default(false)->after('require_documents_uploaded');
+            $table->boolean('exception_allowed')->default(false)->after('manual_review_allowed');
         });
     }
 

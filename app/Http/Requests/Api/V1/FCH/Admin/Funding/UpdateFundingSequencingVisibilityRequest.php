@@ -17,7 +17,7 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
             'min_fico'                       => ['required', 'integer', 'min:300', 'max:850'],
             'min_tib_months'                 => ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'min_monthly_revenue'            => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-            'min_monthly_deposits'           => ['required', 'integer', 'min:0', 'digits_between:1,10'],
+            'min_monthly_deposits'           => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'min_average_daily_balance'      => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'max_nsf_count'                  => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
             'max_negative_days'              => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],

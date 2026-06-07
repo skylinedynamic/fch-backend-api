@@ -40,6 +40,11 @@ class FundingSequencing extends Model
         'description',
         'amount_range',
         'terms',
+        'speed_to_funds',
+        'uses',
+        'qualify_reasons',
+        'readiness_factors',
+        'missing_documents',
         'icon',
         'icon_color',
         'status',
@@ -72,6 +77,10 @@ class FundingSequencing extends Model
         'require_documents_uploaded' => 'boolean',
         'manual_review_allowed' => 'boolean',
         'exception_allowed' => 'boolean',
+        'uses' => 'array',
+        'qualify_reasons' => 'array',
+        'readiness_factors' => 'array',
+        'missing_documents' => 'array',
     ];
 
     protected $appends = [

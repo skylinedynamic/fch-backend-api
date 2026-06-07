@@ -37,6 +37,16 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'status'           => 'nullable|string|in:Active,Inactive',
             'sort_order'       => 'nullable|integer',
             'action_url'       => 'nullable|string|max:255',
+            'speed_to_funds'   => 'nullable|string|max:255',
+            'uses'             => 'nullable|array',
+            'uses.*'           => 'string|max:255',
+            'qualify_reasons'  => 'nullable|array',
+            'qualify_reasons.*'=> 'string|max:255',
+            'readiness_factors'=> 'nullable|array',
+            'readiness_factors.*.label'  => 'required|string|max:255',
+            'readiness_factors.*.status' => 'required|string|max:255',
+            'missing_documents'=> 'nullable|array',
+            'missing_documents.*'=> 'string|max:255',
         ];
     }
 

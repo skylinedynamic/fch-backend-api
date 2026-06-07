@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('funding_applications', function (Blueprint $table) {
-            $table->string('approved_funding')->nullable()->after('purpose_of_funds');
-        });
+        if (!Schema::hasColumn('funding_applications', 'approved_funding')) {
+            Schema::table('funding_applications', function (Blueprint $table) {
+                $table->string('approved_funding')->nullable()->after('purpose_of_funds');
+            });
+        }
     }
 
     /**
