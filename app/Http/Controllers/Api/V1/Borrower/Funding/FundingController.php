@@ -54,18 +54,18 @@ class FundingController extends Controller
      */
     public function show($id): JsonResponse
     {
-        try {
+        // try {
             $sequencing = $this->service->getSequencingById($id);
 
             return response()->json([
                 'status' => true,
                 'data' => new FundingSequencingResource($sequencing)
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Funding option not found or failed to load: ' . $e->getMessage()
-            ], 404);
-        }
+        // } catch (\Exception $e) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'Funding option not found or failed to load: ' . $e->getMessage()
+        //     ], 404);
+        // }
     }
 }

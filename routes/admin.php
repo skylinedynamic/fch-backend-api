@@ -125,6 +125,8 @@ Route::prefix('v1/admin')
             Route::post('/', [FundingSequencingController::class, 'store']);
             Route::get('{id}', [FundingSequencingController::class, 'show']);
             Route::put('{id}', [FundingSequencingController::class, 'update']);
+            Route::put('{id}/display', [FundingSequencingController::class, 'updateDisplay']);
+            Route::put('{id}/visibility', [FundingSequencingController::class, 'updateVisibility']);
             Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus']);
             Route::delete('{id}', [FundingSequencingController::class, 'destroy']);
         });
