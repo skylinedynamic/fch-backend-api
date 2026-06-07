@@ -17,9 +17,11 @@ class PaymentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
+
         return [
             'id' => $this->id,
-            'transaction_date' => $this->transaction_date ? $this->transaction_date->format('Y-m-d') : null,
+            'transaction_date' => $this->transaction_date ? \Carbon\Carbon::parse($this->transaction_date)->setTimezone($timezone)->format('Y-m-d') : null,
             'from' => $this->payment_from ?? __('payment.na'),
             'payment_type' => $this->payment_type ?? __('payment.na'),
             'company' => $this->getCompanyName(),
@@ -36,7 +38,7 @@ class PaymentResource extends JsonResource
             'entity_type' => $this->entity_type,
             'borrower_name' => ($this->entity_type === Borrower::class && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
             'partner_name' => ($this->entity_type === Partner::class && $this->partner) ? ($this->partner->full_name ?? '') : '',
-            'created_at' => $this->created_at,
+            'created_at' => $this->created_at ? \Carbon\Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
         ];
     }
 

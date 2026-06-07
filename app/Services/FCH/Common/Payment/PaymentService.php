@@ -26,7 +26,8 @@ class PaymentService
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
-                'invoice:id,invoice_id'
+                'invoice:id,invoice_id',
+                'entity'
             ])
             ->select('payments.*');
 
@@ -310,7 +311,7 @@ class PaymentService
      */
     public function find($id)
     {
-        $payment = Payment::with(['partner', 'borrower', 'invoice'])->find($id);
+        $payment = Payment::with(['partner', 'borrower', 'invoice', 'entity'])->find($id);
         return $payment ? new PaymentResource($payment) : null;
     }
 }

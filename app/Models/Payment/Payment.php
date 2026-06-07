@@ -53,21 +53,21 @@ class Payment extends Model
         $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
 
         return self::create([
-            'partner_id'        => $partnerId,
-            'borrower_id'       => $data['borrower_id'] ?? null,
-            'invoice_id'        => $data['invoice_id'] ?? null,
-            'entity_type'       => $data['entity_type'] ?? null,
-            'entity_id'         => $data['entity_id'] ?? null,
-            'transaction_id'    => $data['transaction_id'] ?? null,
-            'amount'            => $data['amount'] ?? 0.00,
-            'currency'          => $data['currency'] ?? self::CURRENCY_USD,
-            'payment_from'      => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
-            'payment_type'      => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
-            'status'            => $data['status'] ?? self::STATUS_PENDING,
-            'is_environment'    => $isEnvironment,
-            'details'           => $data['details'] ?? null,
-            'transaction_date'  => $data['transaction_date'] ?? now(),
-            'created_by'        => $data['created_by'] ?? auth()->id(),
+            'partner_id' => $partnerId,
+            'borrower_id' => $data['borrower_id'] ?? null,
+            'invoice_id' => $data['invoice_id'] ?? null,
+            'entity_type' => $data['entity_type'] ?? null,
+            'entity_id' => $data['entity_id'] ?? null,
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'amount' => $data['amount'] ?? 0.00,
+            'currency' => $data['currency'] ?? self::CURRENCY_USD,
+            'payment_from' => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
+            'payment_type' => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
+            'status' => $data['status'] ?? self::STATUS_PENDING,
+            'is_environment' => $isEnvironment,
+            'details' => $data['details'] ?? null,
+            'transaction_date' => $data['transaction_date'] ?? now(),
+            'created_by' => $data['created_by'] ?? auth()->id(),
         ]);
     }
 
@@ -143,6 +143,14 @@ class Payment extends Model
     public function invoice()
     {
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'invoice_id');
+    }
+
+    /**
+     * Polymorphic relation to the associated entity model.
+     */
+    public function entity()
+    {
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 
     /**
