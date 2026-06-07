@@ -55,6 +55,20 @@ class CreditAccountController extends Controller
     }
 
     /**
+     * Return all Active credit accounts without pagination (for builder dropdowns/panels).
+     */
+    public function allActive(Request $request): JsonResponse
+    {
+        $search = $request->input('search');
+        $accounts = $this->service->allActive($search);
+
+        return ApiResponse::success(
+            $accounts,
+            __('credit_account.credit_account_list_fetched')
+        );
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(StoreCreditAccountRequest $request): JsonResponse

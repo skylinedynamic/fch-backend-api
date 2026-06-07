@@ -10,6 +10,9 @@ class CreditAccount extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_INACTIVE = 'Inactive';
+
     protected $table = 'credit_accounts';
 
     protected $guarded = ['id'];

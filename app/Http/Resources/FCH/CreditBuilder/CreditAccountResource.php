@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\CreditBuilder;
 
+use App\Models\CreditBuilder\CreditAccount;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,7 +25,7 @@ class CreditAccountResource extends JsonResource
             'image_url' => $this->image_url,
             'full_image_url' => $this->full_image_url,
             'reference_url' => $this->reference_url,
-            'status' => $this->status ?? 'Active',
+            'status' => $this->status ?? CreditAccount::STATUS_ACTIVE,
             'personal_guarantee' => $this->personal_guarantee,
             'business_credit_profile' => $this->business_credit_profile,
             'final_approval' => $this->final_approval,

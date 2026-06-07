@@ -81,6 +81,23 @@ class CreditAccountService
     }
 
     /**
+     * Get ALL active credit accounts without pagination (for builder panels / dropdowns).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function allActive($search = null)
+    {
+        $query = CreditAccount::where('status', 'Active');
+        if (!empty($search)) {
+            $query->search($search);
+        }
+        return CreditAccountResource::collection(
+            $query->orderBy('card_name', 'asc')
+                ->get()
+        );
+    }
+
+    /**
      * Get a specific credit account by ID.
      *
      * @param int $id

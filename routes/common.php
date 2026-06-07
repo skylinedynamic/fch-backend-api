@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
+use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController as CommonCapitalAccessController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
@@ -166,6 +168,17 @@ Route::prefix('v1')->group(function () {
                 Route::post('verification-center-fetch-all', [VerificationCenterController::class, 'fetchAll']);
                 Route::post('verification-center-borrower-requests', [VerificationCenterController::class, 'fetchBorrowerRequests']);
                 Route::post('verification-center-status-update', [VerificationCenterController::class, 'statusUpdate']);
+
+                // Fetch all active credit accounts for Capital Access builder (no pagination)
+                Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive']);
+
+                // Capital Access CRUD
+                Route::post('capital-accesses/fetch-all', [CommonCapitalAccessController::class, 'index']);
+                Route::post('capital-accesses', [CommonCapitalAccessController::class, 'store']);
+                Route::get('capital-accesses/{id}', [CommonCapitalAccessController::class, 'show']);
+                Route::put('capital-accesses/{id}', [CommonCapitalAccessController::class, 'update']);
+                Route::patch('capital-accesses/{id}/status', [CommonCapitalAccessController::class, 'updateStatus']);
+                Route::delete('capital-accesses/{id}', [CommonCapitalAccessController::class, 'destroy']);
             });
 
             // Appointment routes
