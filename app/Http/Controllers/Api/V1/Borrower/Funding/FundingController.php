@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Borrower\Funding\FundingService;
 use App\Http\Resources\Borrower\Funding\FundingGroupResource;
 use App\Http\Resources\Borrower\Funding\FundingTypeResource;
+use App\Http\Resources\Borrower\Funding\FundingSequencingResource;
 use Illuminate\Http\JsonResponse;
 
 class FundingController extends Controller
@@ -43,5 +44,28 @@ class FundingController extends Controller
                 'message' => 'Failed to load funding data: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get a single funding option detail by ID.
+     *
+     * @param int|string $id
+     * @return JsonResponse
+     */
+    public function show($id): JsonResponse
+    {
+        // try {
+            $sequencing = $this->service->getSequencingById($id);
+
+            return response()->json([
+                'status' => true,
+                'data' => new FundingSequencingResource($sequencing)
+            ]);
+        // } catch (\Exception $e) {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'Funding option not found or failed to load: ' . $e->getMessage()
+        //     ], 404);
+        // }
     }
 }

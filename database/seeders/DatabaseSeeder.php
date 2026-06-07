@@ -93,7 +93,8 @@ class DatabaseSeeder extends Seeder
             SeoSettingSeeder::class,
             CmsPermissionUpdateSeeder::class,
             UpdateSettingsPermissionSeeder::class,
-            PaymentMethodSeeder::class
+            PaymentMethodSeeder::class,
+            FundingSequencingSeeder::class,
         ]);
     }
 }

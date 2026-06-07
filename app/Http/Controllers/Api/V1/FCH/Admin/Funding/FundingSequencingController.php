@@ -6,6 +6,8 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingDisplayRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingVisibilityRequest;
 use App\Http\Resources\FCH\Funding\FundingSequencingResource;
 use App\Services\FCH\Admin\Funding\FundingSequencingService;
 use Illuminate\Http\Request;
@@ -83,6 +85,26 @@ class FundingSequencingController extends Controller
     }
 
     public function update(UpdateFundingSequencingRequest $request, $id): JsonResponse
+    {
+        $sequencing = $this->service->update($id, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateDisplay(UpdateFundingSequencingDisplayRequest $request, $id): JsonResponse
+    {
+        $sequencing = $this->service->update($id, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateVisibility(UpdateFundingSequencingVisibilityRequest $request, $id): JsonResponse
     {
         $sequencing = $this->service->update($id, $request->validated());
 

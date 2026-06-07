@@ -37,8 +37,9 @@
     33 => 'Termwind\\Laravel\\TermwindServiceProvider',
     34 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
     35 => 'Spatie\\Permission\\PermissionServiceProvider',
-    36 => 'App\\Providers\\AppServiceProvider',
-    37 => 'App\\Providers\\RateLimitServiceProvider',
+    36 => 'Spatie\\Sluggable\\SluggableServiceProvider',
+    37 => 'App\\Providers\\AppServiceProvider',
+    38 => 'App\\Providers\\RateLimitServiceProvider',
   ),
   'eager' => 
   array (
@@ -63,8 +64,9 @@
     18 => 'Termwind\\Laravel\\TermwindServiceProvider',
     19 => 'Spatie\\Activitylog\\ActivitylogServiceProvider',
     20 => 'Spatie\\Permission\\PermissionServiceProvider',
-    21 => 'App\\Providers\\AppServiceProvider',
-    22 => 'App\\Providers\\RateLimitServiceProvider',
+    21 => 'Spatie\\Sluggable\\SluggableServiceProvider',
+    22 => 'App\\Providers\\AppServiceProvider',
+    23 => 'App\\Providers\\RateLimitServiceProvider',
   ),
   'deferred' => 
   array (

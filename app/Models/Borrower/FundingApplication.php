@@ -72,6 +72,7 @@ class FundingApplication extends Model
         'debt_balance',
         'requested_amount',
         'purpose_of_funds',
+        'approved_funding',
         'purpose_note',
         'preferred_funding_type',
         'timeframe_needed',
