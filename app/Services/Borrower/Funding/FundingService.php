@@ -17,17 +17,17 @@ class FundingService
      */
     public function getGroupedSequencings()
     {
-        $borrower = auth()->check() ? auth()->user()->borrower : null;
-
         $groups = FundingGroup::with(['sequencings' => function ($query) {
-            $query->where('status', FundingSequencing::STATUS_ACTIVE)->orderBy('sort_order', 'asc');
-        }])->where('status', FundingGroup::STATUS_ACTIVE)->orderBy('sort_order', 'asc')->get();
+            // Eager-load the type relation so engine_status can check type.status
+            $query->with('type')
+                  ->where('status', FundingSequencing::STATUS_ACTIVE)
+                  ->orderBy('sort_order', 'asc');
+        }])->where('status', FundingGroup::STATUS_ACTIVE)
+          ->orderBy('sort_order', 'asc')
+          ->get();
 
-        // Relations are already loaded with the Active sequences.
-        // We no longer need to mutate them here since the FundingSequencing 
-        // model itself uses accessors to append engine_status dynamically.
+        // Filter out sequencings whose engine_status is Hidden for the current borrower
         foreach ($groups as $group) {
-            // Filter out Hidden sequences
             $filteredSequencings = $group->sequencings->filter(function ($seq) {
                 return $seq->engine_status !== FundingSequencing::ENGINE_STATUS_HIDDEN;
             })->values();
@@ -92,25 +92,34 @@ class FundingService
      */
     private function parseAmountRange(string $range): array
     {
+        // Try to match formatted amounts: $5K, $1.5M, $250K, $10B etc.
         preg_match_all('/\$\s*([\d,]+(?:\.\d+)?)\s*([KkMmBb]?)/', $range, $matches, PREG_SET_ORDER);
 
-        if (empty($matches)) {
-            return [0.0, 0.0];
+        if (!empty($matches)) {
+            $amounts = array_map(function ($m) {
+                $num    = (float) str_replace(',', '', $m[1]);
+                $suffix = strtoupper($m[2]);
+
+                return match ($suffix) {
+                    'K'     => $num * 1_000,
+                    'M'     => $num * 1_000_000,
+                    'B'     => $num * 1_000_000_000,
+                    default => $num,
+                };
+            }, $matches);
+
+            return [(float) min($amounts), (float) max($amounts)];
         }
 
-        $amounts = array_map(function ($m) {
-            $num    = (float) str_replace(',', '', $m[1]);
-            $suffix = strtoupper($m[2]);
+        // Fallback: match raw number formats like "10000-250000" or "5000 - 500000"
+        preg_match_all('/\b(\d+(?:[.,]\d+)?)\b/', $range, $rawMatches);
 
-            return match ($suffix) {
-                'K'     => $num * 1_000,
-                'M'     => $num * 1_000_000,
-                'B'     => $num * 1_000_000_000,
-                default => $num,
-            };
-        }, $matches);
+        if (!empty($rawMatches[1])) {
+            $amounts = array_map(fn($n) => (float) str_replace(',', '', $n), $rawMatches[1]);
+            return [(float) min($amounts), (float) max($amounts)];
+        }
 
-        return [(float) min($amounts), (float) max($amounts)];
+        return [0.0, 0.0];
     }
 
     /**
@@ -121,10 +130,8 @@ class FundingService
      */
     public function getSequencingById($id)
     {
-        $seq = FundingSequencing::with(['group', 'type'])
+        return FundingSequencing::with(['group', 'type'])
             ->where('status', FundingSequencing::STATUS_ACTIVE)
             ->findOrFail($id);
-        Log::info('Funding Sequence Data', $seq->toArray());
-        return $seq;
     }
 }
