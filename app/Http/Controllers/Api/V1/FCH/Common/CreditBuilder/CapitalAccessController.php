@@ -61,7 +61,7 @@ class CapitalAccessController extends Controller
 
         return ApiResponse::success(
             new CapitalAccessResource($capitalAccess),
-            'Capital access created successfully.',
+            __('credit_builder.capital_access_created'),
             201
         );
     }
@@ -75,7 +75,7 @@ class CapitalAccessController extends Controller
 
         return ApiResponse::success(
             new CapitalAccessResource($capitalAccess),
-            'Capital access fetched successfully.'
+            __('credit_builder.capital_access_fetched')
         );
     }
 
@@ -88,7 +88,7 @@ class CapitalAccessController extends Controller
 
         return ApiResponse::success(
             new CapitalAccessResource($capitalAccess),
-            'Capital access updated successfully.'
+            __('credit_builder.capital_access_updated')
         );
     }
 
@@ -103,7 +103,7 @@ class CapitalAccessController extends Controller
 
         return ApiResponse::success(
             new CapitalAccessResource($capitalAccess),
-            'Capital access status updated successfully.'
+            __('credit_builder.capital_access_status_updated')
         );
     }
 
@@ -116,7 +116,7 @@ class CapitalAccessController extends Controller
 
         return ApiResponse::success(
             null,
-            'Capital access deleted successfully.'
+            __('credit_builder.capital_access_deleted')
         );
     }
 }

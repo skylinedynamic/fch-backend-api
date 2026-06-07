@@ -50,4 +50,26 @@ return [
     'validation_status_required' => 'Status is required.',
     'validation_status_in' => 'The selected status is invalid.',
     'validation_note_required_if' => 'A note is required when rejecting a task.',
+
+    // Capital Access
+    'capital_access_created' => 'Capital access created successfully.',
+    'capital_access_fetched' => 'Capital access fetched successfully.',
+    'capital_access_updated' => 'Capital access updated successfully.',
+    'capital_access_status_updated' => 'Capital access status updated successfully.',
+    'capital_access_deleted' => 'Capital access deleted successfully.',
+    'capital_access_list_fetched' => 'Capital access list fetched successfully.',
+
+    'validation_capital_access_name_required' => 'The program name is required.',
+    'validation_capital_access_name_max'      => 'The name may not be greater than 255 characters.',
+    'validation_capital_access_credit_accounts_required' => 'Please select at least one credit account.',
+    'validation_capital_access_credit_accounts_array' => 'Credit accounts must be an array.',
+    'validation_capital_access_credit_accounts_min' => 'Please select at least one credit account.',
+    'validation_capital_access_credit_accounts_id_exists' => 'One or more selected credit accounts are invalid.',
+    'validation_capital_access_target_exposure_min_required' => 'Target exposure min is required.',
+    'validation_capital_access_target_exposure_max_required' => 'Target exposure max is required.',
+    'validation_capital_access_target_exposure_max_gte' => 'Target exposure max must be greater than or equal to min.',
+    'validation_capital_access_approval_probability_required' => 'Approval probability is required.',
+    'validation_capital_access_est_timeline_max_gte' => 'Estimated timeline max must be greater than or equal to min.',
+    'validation_capital_access_what_you_will_get_required' => 'Please provide at least one item for What You\'ll Get.',
+    'validation_capital_access_pre_flight_checklist_required' => 'Please provide at least one pre-flight checklist requirement.',
 ];

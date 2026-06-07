@@ -85,11 +85,14 @@ class CreditAccountService
      *
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function allActive()
+    public function allActive($search = null)
     {
+        $query = CreditAccount::where('status', 'Active');
+        if (!empty($search)) {
+            $query->search($search);
+        }
         return CreditAccountResource::collection(
-            CreditAccount::where('status', 'Active')
-                ->orderBy('card_name', 'asc')
+            $query->orderBy('card_name', 'asc')
                 ->get()
         );
     }

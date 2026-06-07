@@ -14,7 +14,15 @@ return new class extends Migration
         Schema::create('capital_accesses', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->text('description')->nullable();
+            $table->string('sub_title');
+            $table->foreignId('partner_id')->nullable()->constrained('partners');
+            $table->decimal('target_exposure_min', 15, 2);
+            $table->decimal('target_exposure_max', 15, 2);
+            $table->integer('approval_probability');
+            $table->integer('est_timeline_min');
+            $table->integer('est_timeline_max');
+            $table->json('what_you_will_get');
+            $table->json('pre_flight_checklist');
             $table->string('status')->default('Active'); // Active, Inactive
             $table->timestamps();
             $table->softDeletes();

@@ -10,6 +10,12 @@ class CapitalAccess extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_INACTIVE = 'Inactive';
+
+    const HARD_PULL_YES = 'Yes';
+    const HARD_PULL_NO = 'No';
+
     protected $table = 'capital_accesses';
 
     protected $guarded = ['id'];
@@ -26,8 +32,16 @@ class CapitalAccess extends Model
             CreditAccount::class,
             'capital_access_sequences',
             'capital_access_id',
-            'credit_account_id'
-        )->withPivot('sorting_order', 'id')->orderByPivot('sorting_order', 'asc')->withTimestamps();
+        )->withPivot(
+            'sorting_order', 
+            'id', 
+            'why_this_card', 
+            'est_approval_odds', 
+            'est_limit_min', 
+            'est_limit_max', 
+            'hard_pull', 
+            'what_you_need'
+        )->orderByPivot('sorting_order', 'asc')->withTimestamps();
     }
 
     /**
@@ -47,5 +61,15 @@ class CapitalAccess extends Model
             $q->where('name', 'LIKE', "%{$search}%")
               ->orWhere('status', 'LIKE', "%{$search}%");
         });
+    }
+
+    /**
+     * Get the partner associated with this capital access.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function partner()
+    {
+        return $this->belongsTo(\App\Models\Partner::class, 'partner_id');
     }
 }
