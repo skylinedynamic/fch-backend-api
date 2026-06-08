@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\CapitalAccess\StoreCapitalAccessRequest;
 use App\Http\Requests\Api\V1\FCH\Common\CreditBuilder\CapitalAccess\UpdateCapitalAccessRequest;
 use App\Http\Resources\FCH\CreditBuilder\CapitalAccessResource;
+use App\Http\Resources\FCH\CreditBuilder\CapitalAccessDetailResource;
 use App\Services\FCH\Common\CreditBuilder\CapitalAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,7 @@ class CapitalAccessController extends Controller
         $capitalAccess = $this->service->create($request->validated());
 
         return ApiResponse::success(
-            new CapitalAccessResource($capitalAccess),
+            new CapitalAccessDetailResource($capitalAccess),
             __('credit_builder.capital_access_created'),
             201
         );
@@ -74,7 +75,7 @@ class CapitalAccessController extends Controller
         $capitalAccess = $this->service->show($id);
 
         return ApiResponse::success(
-            new CapitalAccessResource($capitalAccess),
+            new CapitalAccessDetailResource($capitalAccess),
             __('credit_builder.capital_access_fetched')
         );
     }
@@ -87,7 +88,7 @@ class CapitalAccessController extends Controller
         $capitalAccess = $this->service->update($id, $request->validated());
 
         return ApiResponse::success(
-            new CapitalAccessResource($capitalAccess),
+            new CapitalAccessDetailResource($capitalAccess),
             __('credit_builder.capital_access_updated')
         );
     }
@@ -102,7 +103,7 @@ class CapitalAccessController extends Controller
         $capitalAccess = $this->service->updateStatus($id, $request->status);
 
         return ApiResponse::success(
-            new CapitalAccessResource($capitalAccess),
+            new CapitalAccessDetailResource($capitalAccess),
             __('credit_builder.capital_access_status_updated')
         );
     }
