@@ -43,8 +43,7 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'qualify_reasons'  => 'nullable|array',
             'qualify_reasons.*'=> 'string|max:255',
             'readiness_factors'=> 'nullable|array',
-            'readiness_factors.*.label'  => 'required|string|max:255',
-            'readiness_factors.*.status' => 'required|string|max:255',
+            'readiness_factors.*'=> 'string|max:255',
             'missing_documents'=> 'nullable|array',
             'missing_documents.*'=> 'string|max:255',
         ];

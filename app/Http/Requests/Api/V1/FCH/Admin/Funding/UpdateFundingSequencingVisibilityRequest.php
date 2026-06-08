@@ -14,7 +14,7 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'min_fico'                       => ['required', 'integer', 'min:300', 'max:850'],
+            'min_fico'                       => ['required', 'integer'],
             'min_tib_months'                 => ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'min_monthly_revenue'            => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'min_monthly_deposits'           => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
@@ -40,10 +40,13 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'min_monthly_revenue.regex'      => 'Minimum monthly revenue is out of range or has invalid decimal format.',
-            'min_monthly_deposits.regex'     => 'Minimum monthly deposits is out of range or has invalid decimal format.',
-            'min_average_daily_balance.regex'=> 'Minimum average daily balance is out of range or has invalid decimal format.',
-            'min_dscr.regex'                 => 'Minimum DSCR is out of range or has invalid decimal format.',
+            'min_monthly_revenue.regex'      => __('funding_sequencing.min_monthly_revenue_regex'),
+            'min_monthly_deposits.regex'     => __('funding_sequencing.min_monthly_deposits_regex'),
+            'min_average_daily_balance.regex'=> __('funding_sequencing.min_average_daily_balance_regex'),
+            'min_dscr.regex'                 => __('funding_sequencing.min_dscr_regex'),
+
+            'min_fico.required'              => __('funding_sequencing.min_fico_required'),
+            'min_fico.integer'               => __('funding_sequencing.min_fico_integer'),
         ];
     }
 }

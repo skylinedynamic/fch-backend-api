@@ -2,8 +2,12 @@
 
 namespace App\Http\Resources\Borrower\Funding;
 
-use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\Borrower\BorrowerDocType;
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\BorrowerDocumentsChecklist;
 use App\Models\Funding\FundingSequencing;
+use App\Services\Borrower\Funding\FundingReadinessService;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class FundingSequencingResource extends JsonResource
 {
@@ -75,6 +79,15 @@ class FundingSequencingResource extends JsonResource
             $requirements[] = ['label' => 'Restricted Industries', 'value' => $val];
         }
 
+        $borrower = null;
+        if (auth()->check() && auth()->user() && auth()->user()->user_type === \App\Models\User\User::BORROWER && auth()->user()->borrower) {
+            $borrower = auth()->user()->borrower;
+        }
+
+        $readinessService = app(FundingReadinessService::class);
+        $missingDocumentsList = $readinessService->getMissingDocuments($this, $borrower);
+        $formattedReadinessFactors = $readinessService->evaluateFactors($this, $borrower, $missingDocumentsList);
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -87,8 +100,8 @@ class FundingSequencingResource extends JsonResource
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses,
             'qualify_reasons' => $this->qualify_reasons,
-            'readiness_factors' => $this->readiness_factors,
-            'missing_documents' => $this->missing_documents,
+            'readiness_factors' => $formattedReadinessFactors,
+            'missing_documents' => $missingDocumentsList,
             'action_url' => $this->action_url,
             'funding_type_id' => $this->funding_type_id,
             'funding_group_id' => $this->funding_group_id,

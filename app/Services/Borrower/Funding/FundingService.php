@@ -26,14 +26,8 @@ class FundingService
           ->orderBy('sort_order', 'asc')
           ->get();
 
-        // Filter out sequencings whose engine_status is Hidden for the current borrower
-        foreach ($groups as $group) {
-            $filteredSequencings = $group->sequencings->filter(function ($seq) {
-                return $seq->engine_status !== FundingSequencing::ENGINE_STATUS_HIDDEN;
-            })->values();
+        // Removed the filter so all funding options are always shown.
 
-            $group->setRelation('sequencings', $filteredSequencings);
-        }
 
         return $groups;
     }

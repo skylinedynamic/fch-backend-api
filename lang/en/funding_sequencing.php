@@ -25,6 +25,15 @@ return [
     'status_in'                  => 'The status must be either Active or Inactive.',
     'sort_order_integer'         => 'The sort order must be a valid integer.',
     'action_url_max'             => 'The action URL may not exceed 255 characters.',
+    'min_fico_min'               => 'The minimum FICO score must be at least 300.',
+    'min_fico_max'               => 'The minimum FICO score cannot be greater than 850.',
+    'min_fico_required'          => 'The minimum FICO score is required.',
+    'min_fico_integer'           => 'The minimum FICO score must be a valid number.',
+    'min_monthly_revenue_regex'  => 'Minimum monthly revenue is out of range or has an invalid decimal format.',
+    'min_monthly_deposits_regex' => 'Minimum monthly deposits is out of range or has an invalid decimal format.',
+    'min_average_daily_balance_regex' => 'Minimum average daily balance is out of range or has an invalid decimal format.',
+    'min_dscr_regex'             => 'Minimum DSCR is out of range or has an invalid decimal format.',
+
 
     // Funding Group
     'group_name_required'        => 'The group name is required.',
