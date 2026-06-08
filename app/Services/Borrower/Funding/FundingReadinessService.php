@@ -154,67 +154,70 @@ class FundingReadinessService
                 }
                 // Banking Activity
                 elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
-                    if (is_null($borrower->avg_bank_balance) || $borrower->avg_bank_balance <= 0) {
-                        $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_average_daily_balance)) {
-                        $multiplier = config('funding.readiness_factors.banking_activity.strong_multiplier', 2.0);
-                        if ($borrower->avg_bank_balance < $fundingOption->min_average_daily_balance) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($borrower->avg_bank_balance >= $fundingOption->min_average_daily_balance * $multiplier) ? $statusStrong : $statusGood;
-                        }
-                    } else {
-                        $status = $statusGood;
-                    }
+                    // if (is_null($borrower->avg_bank_balance) || $borrower->avg_bank_balance <= 0) {
+                    //     $status = $statusMissing;
+                    // } elseif (!is_null($fundingOption->min_average_daily_balance)) {
+                    //     $multiplier = config('funding.readiness_factors.banking_activity.strong_multiplier', 2.0);
+                    //     if ($borrower->avg_bank_balance < $fundingOption->min_average_daily_balance) {
+                    //         $status = $statusMissing;
+                    //     } else {
+                    //         $status = ($borrower->avg_bank_balance >= $fundingOption->min_average_daily_balance * $multiplier) ? $statusStrong : $statusGood;
+                    //     }
+                    // } else {
+                    //     $status = $statusGood;
+                    // }
+                    $status = $statusMissing;
                 }
                 // Existing Debt
                 elseif (str_contains($lowerLabel, 'debt')) {
                     // Check the latest funding application for the most accurate "has_business_debt" status
-                    $latestApplication = FundingApplication::where('borrower_id', $borrower->id)->latest()->first();
-                    
-                    if ($latestApplication) {
-                        if ($latestApplication->has_business_debt) {
-                            $debtBalance = (float) $latestApplication->debt_balance;
-                            $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
-                            $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
-                            
-                            if ($debtBalance <= $strongMax) {
-                                $status = $statusStrong;
-                            } elseif ($debtBalance <= $goodMax) {
-                                $status = $statusGood;
-                            } else {
-                                $status = $statusMissing;
-                            }
-                        } else {
-                            // No existing debt is a very strong indicator
-                            $status = $statusStrong; 
-                        }
-                    } else {
-                        // Fallback to the borrower's current_business_debt field
-                        if (is_null($borrower->current_business_debt) || $borrower->current_business_debt <= 0) {
-                            $status = $statusStrong;
-                        } else {
-                            $debtBalance = (float) $borrower->current_business_debt;
-                            $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
-                            $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
-                            
-                            if ($debtBalance <= $strongMax) {
-                                $status = $statusStrong;
-                            } elseif ($debtBalance <= $goodMax) {
-                                $status = $statusGood;
-                            } else {
-                                $status = $statusMissing;
-                            }
-                        }
-                    }
+                    // $latestApplication = FundingApplication::where('borrower_id', $borrower->id)->latest()->first();
+                    // 
+                    // if ($latestApplication) {
+                    //     if ($latestApplication->has_business_debt) {
+                    //         $debtBalance = (float) $latestApplication->debt_balance;
+                    //         $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
+                    //         $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
+                    //         
+                    //         if ($debtBalance <= $strongMax) {
+                    //             $status = $statusStrong;
+                    //         } elseif ($debtBalance <= $goodMax) {
+                    //             $status = $statusGood;
+                    //         } else {
+                    //             $status = $statusMissing;
+                    //         }
+                    //     } else {
+                    //         // No existing debt is a very strong indicator
+                    //         $status = $statusStrong; 
+                    //     }
+                    // } else {
+                    //     // Fallback to the borrower's current_business_debt field
+                    //     if (is_null($borrower->current_business_debt) || $borrower->current_business_debt <= 0) {
+                    //         $status = $statusStrong;
+                    //     } else {
+                    //         $debtBalance = (float) $borrower->current_business_debt;
+                    //         $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
+                    //         $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
+                    //         
+                    //         if ($debtBalance <= $strongMax) {
+                    //             $status = $statusStrong;
+                    //         } elseif ($debtBalance <= $goodMax) {
+                    //             $status = $statusGood;
+                    //         } else {
+                    //             $status = $statusMissing;
+                    //         }
+                    //     }
+                    // }
+                    $status = $statusGood;
                 }
                 // Documents
                 elseif (str_contains($lowerLabel, 'document')) {
-                    if (count($missingDocumentsList) > 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $status = $statusGood;
-                    }
+                    // if (count($missingDocumentsList) > 0) {
+                    //     $status = $statusMissing;
+                    // } else {
+                    //     $status = $statusGood;
+                    // }
+                    $status = $statusMissing;
                 }
             }
 
