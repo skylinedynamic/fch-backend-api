@@ -15,7 +15,6 @@ return new class extends Migration
             $table->json('personal_info')->nullable()->after('document_id');
         });
     }
-
     
     /**
      * Reverse the migrations.
