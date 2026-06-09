@@ -29,6 +29,7 @@ return new class extends Migration
             $table->text('summary')->nullable();
             $table->string('pdf_url')->nullable();
             $table->foreignId('document_id')->nullable()->constrained('borrower_documents')->onDelete('set null');
+            $table->json('personal_info')->nullable();
             
             // All accounts analysis
             $table->integer('all_accounts_total')->nullable();
