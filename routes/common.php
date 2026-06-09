@@ -70,7 +70,6 @@ Route::prefix('v1')->group(function () {
     // Location routes
     Route::get('common/locations', [LocationController::class, 'index']);
 
-
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
 
     Route::middleware('auth:api')->group(function () {
@@ -125,6 +124,10 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
             Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
 
+            // Credit Profile routes — must be before wildcard borrowers/{id}
+            Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
+            Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
@@ -137,6 +140,7 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);
             Route::post('borrowers-documents/{borrowerId}', [BorrowerController::class, 'fetchBorrowerDocuments']);
+
 
             Route::post('borrowers-documents/update-status/{id}', [BorrowerController::class, 'updateDocumentStatus']);
             Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
