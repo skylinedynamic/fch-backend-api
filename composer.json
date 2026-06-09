@@ -17,6 +17,7 @@
         "laravel/passport": "^13.0",
         "laravel/tinker": "^2.10.1",
         "pragmarx/google2fa": "8.0",
+        "smalot/pdfparser": "^2.12",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-permission": "^6.22",
         "spatie/laravel-sluggable": "*",

@@ -230,6 +230,11 @@ class Borrower extends Model
         }
     }
 
+    public function creditProfile()
+    {
+        return $this->hasOne(\App\Models\Borrower\BorrowerCreditProfile::class, 'borrower_id');
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if (!is_string($search) || trim($search) === '') {

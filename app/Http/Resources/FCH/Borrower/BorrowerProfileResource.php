@@ -76,6 +76,90 @@ class BorrowerProfileResource extends JsonResource
             'current_tier'  => $this->current_tier,
             'current_tier_name' => $this->tier?->name,
             'additional_data' => $this->additional_data,
+            'credit_profile' => $this->creditProfile ? [
+                'metrics' => [
+                    'fico_score' => $this->creditProfile->fico_score,
+                    'paydex_score' => $this->creditProfile->paydex_score,
+                    'experian_intelliscore' => $this->creditProfile->experian_intelliscore,
+                    'equifax_score' => $this->creditProfile->equifax_score,
+                    'active_tradelines' => $this->creditProfile->active_tradelines,
+                    'total_credit_limit' => $this->creditProfile->total_credit_limit,
+                    'credit_utilization' => $this->creditProfile->credit_utilization,
+                    'recent_inquiries' => $this->creditProfile->recent_inquiries,
+                    'delinquent_accounts' => $this->creditProfile->delinquent_accounts,
+                    'public_records' => $this->creditProfile->public_records,
+                    'collections' => $this->creditProfile->collections,
+                    'delinquencies_30_60_90' => $this->creditProfile->delinquencies_30_60_90,
+                    'summary' => $this->creditProfile->summary,
+                    'all_accounts_analysis' => array_merge([
+                        'total_accounts' => $this->creditProfile->all_accounts_total,
+                        'open_accounts' => $this->creditProfile->all_accounts_open,
+                        'closed_accounts' => $this->creditProfile->all_accounts_closed,
+                        'newest_open_date' => $this->creditProfile->all_accounts_newest_open_date,
+                        'oldest_open_date' => $this->creditProfile->all_accounts_oldest_open_date,
+                    ], $this->creditProfile->all_accounts_analysis ?? []),
+                    'open_accounts_analysis' => array_merge([
+                        'monthly_payments' => $this->creditProfile->open_accounts_monthly_payments,
+                        'balance' => $this->creditProfile->open_accounts_balance,
+                        'credit_limit' => $this->creditProfile->open_accounts_credit_limit,
+                        'available_credit' => $this->creditProfile->open_accounts_available_credit,
+                        'utilization_ratio' => $this->creditProfile->open_accounts_utilization_ratio,
+                    ], $this->creditProfile->open_accounts_analysis ?? [])
+                ],
+                'personal_info' => [
+                    'name' => $this->first_name . ' ' . $this->last_name,
+                    'dob' => $this->date_of_birth,
+                    'ssn' => $this->last_4_ssn,
+                    'email' => $this->email,
+                    'phone' => $this->phone_number,
+                ],
+                'addresses' => $this->creditProfile->addresses->map(function ($addr) {
+                    return [
+                        'type' => $addr->type,
+                        'street' => $addr->street,
+                        'city' => $addr->city,
+                        'state' => $addr->state,
+                        'zip' => $addr->zip,
+                        'date_reported' => $addr->date_reported,
+                    ];
+                })->toArray(),
+                'trade_accounts' => $this->creditProfile->trades->map(function ($trade) {
+                    return [
+                        'company' => $trade->company,
+                        'date_reported' => $trade->date_reported,
+                        'status' => $trade->status,
+                        'rating' => $trade->rating,
+                        'account_number' => $trade->account_number,
+                        'account_type' => $trade->account_type,
+                        'portfolio_type' => $trade->portfolio_type,
+                        'remarks' => $trade->remarks,
+                        'payment_history_start_date' => $trade->payment_history_start_date,
+                        'payment_frequency' => $trade->payment_frequency,
+                        'responsibility' => $trade->responsibility,
+                        'opened_date' => $trade->opened_date,
+                        'terms' => $trade->terms,
+                        'last_payment_date' => $trade->last_payment_date,
+                        'balance' => $trade->balance,
+                        'high_credit' => $trade->high_credit,
+                        'limit' => $trade->limit,
+                        'monthly_payment' => $trade->monthly_payment,
+                        'actual_payment' => $trade->actual_payment,
+                        'past_due' => $trade->past_due,
+                        'months_reviewed' => $trade->months_reviewed,
+                        'delinquencies' => $trade->delinquencies_30_60_90,
+                        'max_delinquency_date' => $trade->max_delinquency_date,
+                    ];
+                })->toArray(),
+                'inquiries' => $this->creditProfile->inquiries->map(function ($inq) {
+                    return [
+                        'date' => $inq->date,
+                        'company' => $inq->company,
+                        'industry' => $inq->industry,
+                    ];
+                })->toArray(),
+                'pdf_url' => $this->creditProfile->pdf_url,
+                'document_id' => $this->creditProfile->document_id,
+            ] : null,
 
             // Partner Details
             'partner_name' => $this->partner?->full_name,

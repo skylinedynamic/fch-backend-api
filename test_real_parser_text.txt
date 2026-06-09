@@ -1,0 +1,401 @@
+Credit Report Summary
+ 8	697
+Inquiries:	2
+Collections:	0
+Public Records:	0
+30/60/90	-/-/-
+ALL REVOLVING
+LINE
+OF
+CREDIT
+OPENINSTALLMENTMORTGAGEAUTO
+STUDENT
+LOANS
+UNKNOWNCUSTOM
+ALL ACCOUNTS ANALYSIS
+ACCOUNTS 9 8 - - -	- 1 - - -
+OPEN
+ACCOUNTS
+8 7 - - -	- 1 - - -
+CLOSED
+ACCOUNTS
+1 1 - - -	- 0 - - -
+NEWEST
+OPEN DATE
+04/15/2025 04/15/2025 - - -	- 08/08/2024 - - -
+OLDEST
+OPEN DATE
+12/06/2005 12/06/2005 - - -	- 08/08/2024 - - -
+OPEN ACCOUNTS ANALYSIS
+MONTHLY
+PAYMENTS
+$1,569 $1,189 - - -	- $380 - - -
+BALANCE $41,828 $37,258 - - -	- $4,570 - - -
+CREDIT
+LIMIT
+$37,950 $37,950 - -	$0 -	-
+AVAILABLE
+CREDIT
+$692 $692 - -	$0 -	-
+UTILIZATION
+RATIO
+98.18% 98.18% - -	- -	-
+Personal Information
+Name: CHARLES J SCHWARTZ
+Date Of Birth: 08/10/1945 SSN: 318385557 Email: FREETHROWMAN@MSN.COM Phone: 2139239999
+Credit Score
+Score Model: FICO 8	Score: 697
+Reason Codes: RATIO OF BALANCE TO LIMIT ON BANK REVOLVING OR OTHER REV ACCTS
+TOO HIGH
+PROPORTION OF LOAN BALANCES TO LOAN AMOUNTS IS TOO HIGH
+AMOUNT OWED ON REVOLVING ACCOUNTS IS TOO HIGH
+LENGTH OF TIME ACCOUNTS HAVE BEEN ESTABLISHED
+Address History
+CURRENT
+Street: 3415 MCLAUGHLIN AVE APT 107
+City: LOS ANGELES State: CA Zip: 90066
+Date Reported: 05/08/2025
+PREVIOUS
+Street: 12012 GOSHEN AVE APT 209
+City: LOS ANGELES State: CA Zip: 90049
+Date Reported: 09/01/2022
+Trade Accounts
+NO SORT SELECTED
+Company: COMENITYCAPITAL/AAAR
+Date Reported: 06/02/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 4145120046939926
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 12/04/2024
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $7737
+High Credit:
+$7839
+Credit Limit: $8000
+Monthly Payment Amount:
+$213
+Past Due:
+N/A
+Months Reviewed: 18
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 E E
+1 1 1 1 1 1 1 1 1 1 1 1
+1 E
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 1
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+LIMIT
+Payment History Start Date:
+06/02/2026
+Company: SYNCB/CARE CREDIT
+DU
+Date Reported: 06/02/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 5243060200629103
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CONSUMER DISPUTES AFTER RESOLUTION, CREDIT
+CARD, AMOUNT IN H/C COLUMN IS CREDIT LIMIT
+Payment History Start Date:
+06/02/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 04/15/2025
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $12552
+High Credit:
+$12654
+Credit Limit: $12000
+Monthly Payment Amount:
+$524
+Actual Payment Amount:
+$500
+Past Due:
+N/A
+Months Reviewed: 14
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Company: NAVY FEDERAL CREDIT
+Date Reported: 05/25/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 542217XXXXXX9206
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+LIMIT
+Payment History Start Date:
+05/25/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 12/23/2024
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $6855
+High Credit:
+$6986
+Credit Limit: $7000
+Monthly Payment Amount:
+$173
+Actual Payment Amount:
+$175
+Past Due:
+N/A
+Months Reviewed: 17
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Company: JPMCB CARD SERVICES
+Date Reported: 05/21/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 414740045259
+Account Type: FLEXIBLE SPENDING CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: FLEXIBLE SPENDING CREDIT CARD, AMOUNT IN H/C
+COLUMN IS CREDIT LIMIT
+Payment History Start Date:
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 12/22/2024
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $1985
+High Credit:
+$2180
+Credit Limit: $2100
+Monthly Payment Amount:
+$65
+Past Due:
+N/A
+Months Reviewed: 16
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 UR
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1 1 1 1 1
+05/21/2026
+Company: CITICARDS CBNA
+Date Reported: 05/21/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 542418060777
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+LIMIT
+Payment History Start Date:
+05/21/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 03/25/2006
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $1528
+High Credit:
+$2227
+Credit Limit: $1850
+Monthly Payment Amount:
+$42
+Past Due:
+N/A
+Months Reviewed: 99
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Company: BANK OF AMERICA
+Date Reported: 05/21/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 4888940128791148
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+LIMIT
+Payment History Start Date:
+05/21/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 12/06/2005
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $5743
+High Credit:
+$6028
+Credit Limit: $6000
+Monthly Payment Amount:
+$141
+Past Due:
+N/A
+Months Reviewed: 99
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Company: CAPITAL ONE BANK
+USA
+Date Reported: 05/19/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 468839037615
+Account Type: CREDIT CARD
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: CREDIT CARD, AMOUNT IN H/C COLUMN IS CREDIT
+LIMIT
+Payment History Start Date:
+05/19/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 12/21/2024
+Terms: N/A
+Last Payment Date:
+05/01/2026
+Balance: $858
+High Credit:
+$974
+Credit Limit: $1000
+Monthly Payment Amount:
+$31
+Past Due:
+N/A
+Months Reviewed: 16
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+
+1 1 1 1 1 1 1 1 1 1 E 1
+1 1 1 E UR
+1 1 1 1 1 1 1 1 1 1 1 1
+1 1 1 1 1 1 1 1
+E E E E E E E E E E E E
+E E E E
+Company: HYUNDAI MOTOR
+FINANC
+Date Reported: 04/30/2026
+Account Status:
+OPEN
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 2415721969
+Account Type: AUTO LEASE
+Portfolio Type: INSTALLMENT (FIXED NUMBER OF
+PAYMENTS)
+Remarks: AUTO, LEASE
+Payment History Start Date:
+04/30/2026
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 08/08/2024
+Terms: 33 MONTHS
+Last Payment Date:
+04/01/2026
+Balance: $4570
+High Credit:
+$11442
+Credit Limit: N/A
+Monthly Payment Amount:
+$380
+Actual Payment Amount:
+$385
+Past Due:
+N/A
+Months Reviewed: 20
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Company: SYNCB/CARE CREDIT
+Date Reported: 07/29/2025
+Date Of Closure: 03/01/2025
+Account Status:
+CLOSED
+Account Rating: PAYS ACCOUNT AS
+AGREED
+Account Number: 6019183914090899
+Account Type: CHARGE ACCOUNT
+Portfolio Type: REVOLVING (PAYMENT AMOUNTS BASED ON THE
+OUTSTANDING BALANCE)
+Remarks: PAID AND CLOSED, CLOSED OR PAID ACCOUNT/ZERO
+BALANCE, ACCOUNT CLOSED DUE TO INACTIVITY, CHARGE,
+AMOUNT IN H/C COLUMN IS CREDIT LIMIT
+Payment History Start Date:
+07/29/2025
+Payment Frequency: MONTHLY (DUE EVERY
+MONTH)
+Responsibility: INDIVIDUAL ACCOUNT
+Date Of Opening: 03/14/2024
+Terms: N/A
+Last Payment Date:
+N/A
+Balance: $0
+High Credit:
+$0
+Credit Limit: $12000
+Monthly Payment Amount:
+N/A
+Past Due:
+N/A
+Months Reviewed: 16
+30/60/90 Day Delinquencies:
+N/A
+Max Delinquency Date: N/A
+Inquiries
+Date: 12/21/2024
+Company: CAPITAL ONE BANK
+USA
+Industry: ALL BANKS
+Date: 12/04/2024
+Company: COMENITYCAPITAL/AAAR
+Industry: BANKCARD
+2270 Camino Vida Roble, Suite I, Carlsbad, CA 92011	760-579-6171 success@isoftpull.com

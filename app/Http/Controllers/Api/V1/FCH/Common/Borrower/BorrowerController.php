@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 
 use App\Helpers\ApiResponse;
+use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
 use App\Services\FCH\Common\Tier\TierService;
@@ -424,5 +426,295 @@ class BorrowerController extends Controller
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.fetch_failed'));
         }
+    }
+
+    /**
+     * Parse Credit Profile PDF
+     */
+    public function parseCreditProfile(Request $request)
+    {
+        try {
+            Log::info('parseCreditProfile start', [
+                'borrower_id_raw' => $request->input('borrower_id'),
+                'borrower_id_cast' => (int) $request->input('borrower_id'),
+                'has_pdf' => $request->hasFile('pdf'),
+                'all_inputs' => $request->all()
+            ]);
+
+            $request->validate([
+                'borrower_id' => 'required|integer|exists:borrowers,id',
+                'pdf' => 'required|file|mimes:pdf|max:15360', // max 15MB
+            ]);
+
+            $borrowerId = (int) $request->input('borrower_id');
+            $borrower = Borrower::find($borrowerId);
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $pdfFile = $request->file('pdf');
+
+            // Extract text from PDF using Smalot PDF Parser
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf = $parser->parseFile($pdfFile->getPathname());
+            $text = $pdf->getText();
+
+            // Validate that we got some text
+            if (empty(trim($text))) {
+                return ApiResponse::error('The uploaded PDF does not contain selectable text (it might be scanned). Please upload a digital PDF report.');
+            }
+
+            Log::info('parseCreditProfile: raw PDF text extracted', [
+                'text_length' => strlen($text),
+                'text_preview' => substr($text, 0, 5000),
+                'text_lines_count' => count(explode("\n", $text)),
+            ]);
+
+            // Determine parser mode from app_configurations
+            // Try partner-specific config first, then fall back to host (partner_id=null or host partner) config
+            $partnerId = $borrower->partner_id;
+            $parserMode = \App\Models\Common\AppConfiguration::get('credit_profile_parser_mode', null, 'credit_profile', $partnerId);
+            if ($parserMode === null) {
+                // Fallback: try without partner (host-level config)
+                $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $parserMode = \App\Models\Common\AppConfiguration::get('credit_profile_parser_mode', 'manual', 'credit_profile', $hostPartner?->id);
+                $partnerId = $hostPartner?->id;
+            }
+            if ($parserMode === null) {
+                $parserMode = 'manual';
+            }
+
+            Log::info('parseCreditProfile: parser mode resolved', [
+                'parser_mode' => $parserMode,
+                'partner_id' => $partnerId,
+                'borrower_partner_id' => $borrower->partner_id,
+            ]);
+
+            $parserService = $this->getParserService($parserMode, $partnerId);
+            $extractedData = $parserService->parse($text);
+
+            Log::info('parseCreditProfile: parsed data result', [
+                'trade_accounts_count' => count($extractedData['trade_accounts'] ?? []),
+                'addresses_count' => count($extractedData['addresses'] ?? []),
+                'inquiries_count' => count($extractedData['inquiries'] ?? []),
+                'personal_info' => $extractedData['personal_info'] ?? [],
+                'fico_score' => $extractedData['metrics']['fico_score'] ?? null,
+            ]);
+
+            // Store PDF in public storage under borrowers/{borrower_id}
+            $fileName = 'credit_report_' . time() . '.pdf';
+            $path = $pdfFile->storeAs("borrowers/{$borrowerId}", $fileName, 'public');
+
+            // Find an appropriate document type or use null
+            $docType = \App\Models\Borrower\BorrowerDocType::where('name', 'Others')->orWhere('name', 'Miscellaneous Documents')->first();
+
+            // Create BorrowerDocument
+            $borrowerDoc = \App\Models\Borrower\BorrowerDocument::create([
+                'borrower_id' => $borrowerId,
+                'file_name' => $pdfFile->getClientOriginalName(),
+                'file_path' => $fileName,
+                'document_type_id' => $docType?->id,
+                'file_size' => round(filesize($pdfFile->getPathname()) / 1024, 2) . ' KB',
+                'status' => \App\Models\Borrower\BorrowerDocument::STATUS_UPLOADED,
+                'created_by' => \Illuminate\Support\Facades\Auth::id(),
+            ]);
+
+            return ApiResponse::success([
+                'extracted_data' => $extractedData,
+                'pdf_url' => asset("storage/borrowers/{$borrowerId}/{$fileName}"),
+                'document_id' => $borrowerDoc->id
+            ], 'Credit profile PDF parsed successfully.');
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('parseCreditProfile error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ApiResponse::serverError('An error occurred while parsing the credit report: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Save credit profile details to database
+     */
+    public function saveCreditProfile(Request $request)
+    {
+        try {
+            $request->validate([
+                'borrower_id' => 'required|integer|exists:borrowers,id',
+                'metrics' => 'nullable|array',
+                'personal_info' => 'nullable|array',
+                'addresses' => 'nullable|array',
+                'trade_accounts' => 'nullable|array',
+                'inquiries' => 'nullable|array',
+                'pdf_url' => 'nullable|string',
+                'document_id' => 'nullable|integer|exists:borrower_documents,id',
+            ]);
+
+            $borrowerId = (int) $request->input('borrower_id');
+            $borrower = \App\Models\Borrower\Borrower::find($borrowerId);
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $metrics = $request->input('metrics') ?? [];
+            $personalInfo = $request->input('personal_info') ?? [];
+            $addresses = $request->input('addresses') ?? [];
+            $tradeAccounts = $request->input('trade_accounts') ?? [];
+            $inquiries = $request->input('inquiries') ?? [];
+            $pdfUrl = $request->input('pdf_url');
+            $documentId = $request->input('document_id');
+
+            // Update primary columns for searchability/filtering
+            $borrower->fico_score = isset($metrics['fico_score']) ? (int)$metrics['fico_score'] : null;
+            $borrower->paydex_score = isset($metrics['paydex_score']) ? (int)$metrics['paydex_score'] : null;
+            $borrower->save();
+
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // 1. Delete existing credit profile (cascades delete to addresses, trades, inquiries)
+            if ($borrower->creditProfile) {
+                $borrower->creditProfile->delete();
+            }
+
+            // 2. Create the main BorrowerCreditProfile
+            $allAccounts = $metrics['all_accounts_analysis'] ?? [];
+            $openAccounts = $metrics['open_accounts_analysis'] ?? [];
+
+            $creditProfile = \App\Models\Borrower\BorrowerCreditProfile::create([
+                'borrower_id' => $borrowerId,
+                'fico_score' => isset($metrics['fico_score']) ? (int)$metrics['fico_score'] : null,
+                'paydex_score' => isset($metrics['paydex_score']) ? (int)$metrics['paydex_score'] : null,
+                'experian_intelliscore' => isset($metrics['experian_intelliscore']) ? (int)$metrics['experian_intelliscore'] : null,
+                'equifax_score' => isset($metrics['equifax_score']) ? (int)$metrics['equifax_score'] : null,
+                'active_tradelines' => isset($metrics['active_tradelines']) ? (int)$metrics['active_tradelines'] : null,
+                'total_credit_limit' => isset($metrics['total_credit_limit']) ? (float)$metrics['total_credit_limit'] : null,
+                'credit_utilization' => isset($metrics['credit_utilization']) ? (float)$metrics['credit_utilization'] : null,
+                'recent_inquiries' => isset($metrics['recent_inquiries']) ? (int)$metrics['recent_inquiries'] : null,
+                'delinquent_accounts' => isset($metrics['delinquent_accounts']) ? (int)$metrics['delinquent_accounts'] : null,
+                'public_records' => isset($metrics['public_records']) ? (int)$metrics['public_records'] : null,
+                'collections' => isset($metrics['collections']) ? (int)$metrics['collections'] : null,
+                'delinquencies_30_60_90' => $metrics['delinquencies_30_60_90'] ?? null,
+                'summary' => $metrics['summary'] ?? null,
+                'pdf_url' => $pdfUrl,
+                'document_id' => $documentId,
+                'personal_info' => $personalInfo,
+
+                // All accounts analysis
+                'all_accounts_total' => isset($allAccounts['total_accounts']) ? (int)$allAccounts['total_accounts'] : null,
+                'all_accounts_open' => isset($allAccounts['open_accounts']) ? (int)$allAccounts['open_accounts'] : null,
+                'all_accounts_closed' => isset($allAccounts['closed_accounts']) ? (int)$allAccounts['closed_accounts'] : null,
+                'all_accounts_newest_open_date' => $allAccounts['newest_open_date'] ?? null,
+                'all_accounts_oldest_open_date' => $allAccounts['oldest_open_date'] ?? null,
+                'all_accounts_analysis' => $allAccounts,
+
+                // Open accounts analysis
+                'open_accounts_monthly_payments' => isset($openAccounts['monthly_payments']) ? (float)$openAccounts['monthly_payments'] : null,
+                'open_accounts_balance' => isset($openAccounts['balance']) ? (float)$openAccounts['balance'] : (isset($openAccounts['open_accounts_balance']) ? (float)$openAccounts['open_accounts_balance'] : null),
+                'open_accounts_credit_limit' => isset($openAccounts['credit_limit']) ? (float)$openAccounts['credit_limit'] : null,
+                'open_accounts_available_credit' => isset($openAccounts['available_credit']) ? (float)$openAccounts['available_credit'] : null,
+                'open_accounts_utilization_ratio' => isset($openAccounts['utilization_ratio']) ? (float)$openAccounts['utilization_ratio'] : null,
+                'open_accounts_analysis' => $openAccounts,
+            ]);
+
+            // 3. Create Addresses
+            foreach ($addresses as $addr) {
+                \App\Models\Borrower\BorrowerCreditAddress::create([
+                    'borrower_credit_profile_id' => $creditProfile->id,
+                    'type' => $addr['type'] ?? 'CURRENT',
+                    'street' => $addr['street'] ?? '',
+                    'city' => $addr['city'] ?? '',
+                    'state' => $addr['state'] ?? '',
+                    'zip' => $addr['zip'] ?? '',
+                    'date_reported' => $addr['date_reported'] ?? null,
+                ]);
+            }
+
+            // 4. Create Trade Accounts
+            foreach ($tradeAccounts as $trade) {
+                \App\Models\Borrower\BorrowerCreditTrade::create([
+                    'borrower_credit_profile_id' => $creditProfile->id,
+                    'company' => $trade['company'] ?? '',
+                    'date_reported' => $trade['date_reported'] ?? null,
+                    'status' => $trade['status'] ?? 'OPEN',
+                    'rating' => $trade['rating'] ?? null,
+                    'account_number' => $trade['account_number'] ?? null,
+                    'account_type' => $trade['account_type'] ?? null,
+                    'portfolio_type' => $trade['portfolio_type'] ?? null,
+                    'remarks' => $trade['remarks'] ?? null,
+                    'payment_history_start_date' => $trade['payment_history_start_date'] ?? null,
+                    'payment_frequency' => $trade['payment_frequency'] ?? null,
+                    'responsibility' => $trade['responsibility'] ?? null,
+                    'opened_date' => $trade['opened_date'] ?? null,
+                    'terms' => $trade['terms'] ?? null,
+                    'last_payment_date' => $trade['last_payment_date'] ?? null,
+                    
+                    'balance' => isset($trade['balance']) ? (float)$trade['balance'] : null,
+                    'high_credit' => isset($trade['high_credit']) ? (float)$trade['high_credit'] : null,
+                    'limit' => isset($trade['limit']) ? (float)$trade['limit'] : null,
+                    'monthly_payment' => isset($trade['monthly_payment']) ? (float)$trade['monthly_payment'] : null,
+                    'actual_payment' => isset($trade['actual_payment']) ? (float)$trade['actual_payment'] : null,
+                    'past_due' => isset($trade['past_due']) ? (float)$trade['past_due'] : null,
+                    
+                    'months_reviewed' => isset($trade['months_reviewed']) ? (int)$trade['months_reviewed'] : null,
+                    'delinquencies_30_60_90' => $trade['delinquencies'] ?? ($trade['delinquencies_30_60_90'] ?? null),
+                    'max_delinquency_date' => $trade['max_delinquency_date'] ?? null,
+                ]);
+            }
+
+            // 5. Create Inquiries
+            foreach ($inquiries as $inq) {
+                \App\Models\Borrower\BorrowerCreditInquiry::create([
+                    'borrower_credit_profile_id' => $creditProfile->id,
+                    'date' => $inq['date'] ?? null,
+                    'company' => $inq['company'] ?? '',
+                    'industry' => $inq['industry'] ?? null,
+                ]);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('saveCreditProfile error', [
+                'message' => $e->getMessage()
+            ]);
+            return ApiResponse::serverError('Failed to save credit profile: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Resolve the appropriate parser service based on configuration.
+     */
+    private function getParserService(string $mode, ?int $partnerId = null): \App\Services\FCH\Common\Borrower\CreditProfileParserInterface
+    {
+        if ($mode === 'openai') {
+            $apiKey = \App\Models\Common\AppConfiguration::get('credit_profile_openai_api_key', '', 'credit_profile', $partnerId);
+
+            // If no key for this partner, try host-level config
+            if (empty($apiKey)) {
+                $hostPartner = \App\Models\Partner\Partner::where('is_host', 1)->first();
+                $apiKey = \App\Models\Common\AppConfiguration::get('credit_profile_openai_api_key', '', 'credit_profile', $hostPartner?->id);
+                $model = \App\Models\Common\AppConfiguration::get('credit_profile_openai_model', 'gpt-4o-mini', 'credit_profile', $hostPartner?->id);
+            } else {
+                $model = \App\Models\Common\AppConfiguration::get('credit_profile_openai_model', 'gpt-4o-mini', 'credit_profile', $partnerId);
+            }
+
+            if (empty($apiKey)) {
+                Log::warning('OpenAI parser selected but no API key configured, falling back to manual parser');
+                return new \App\Services\FCH\Common\Borrower\IsoftpullParserService();
+            }
+
+            Log::info('parseCreditProfile: using OpenAI parser', [
+                'model' => $model,
+                'api_key_prefix' => substr($apiKey, 0, 7) . '...',
+            ]);
+
+            return new \App\Services\FCH\Common\Borrower\OpenAiParserService($apiKey, $model);
+        }
+
+        return new \App\Services\FCH\Common\Borrower\IsoftpullParserService();
     }
 }

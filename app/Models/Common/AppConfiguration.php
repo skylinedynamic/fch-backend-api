@@ -13,6 +13,7 @@ class AppConfiguration extends Model
     public const MODULE_BRANDING = 'branding';
     public const MODULE_MICROBILT = 'microbilt';
     public const MODULE_WEBSITE = 'website';
+    public const MODULE_CREDIT_PROFILE = 'credit_profile';
 
     protected $fillable = [
         'partner_id',
