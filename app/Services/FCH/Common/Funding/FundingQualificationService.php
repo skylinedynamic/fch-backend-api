@@ -48,7 +48,9 @@ class FundingQualificationService
             ->filter()
             ->map(function (string $label) use ($borrower, $funding) {
                 $key = config("funding_qualification.qualify_keys.{$label}");
-                if (!$key) return null;
+                if (!$key) {
+                    return ['label' => $label, 'status' => $this->status('good')];
+                }
 
                 $result = $this->evaluateSingleFactor($key, $borrower, $funding);
 

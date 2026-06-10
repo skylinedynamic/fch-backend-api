@@ -21,7 +21,7 @@ return [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.monthly_revenue',
             'funding_field'  => 'funding_sequencings.min_monthly_revenue',
-            'strong_multiplier' => 1.5,
+            'strong_offset'  => 0.01,
         ],
         'time_in_business' => [
             'type'           => 'date_compare',
