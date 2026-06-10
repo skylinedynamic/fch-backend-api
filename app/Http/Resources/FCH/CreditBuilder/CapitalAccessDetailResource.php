@@ -21,7 +21,6 @@ class CapitalAccessDetailResource extends JsonResource
             'partner_id' => $this->partner_id,
             'target_exposure_min' => $this->target_exposure_min,
             'target_exposure_max' => $this->target_exposure_max,
-            'approval_probability' => $this->approval_probability,
             'est_timeline_min' => $this->est_timeline_min,
             'est_timeline_max' => $this->est_timeline_max,
             'status' => $this->status ?? 'Active',
@@ -43,8 +42,6 @@ class CapitalAccessDetailResource extends JsonResource
                         'pivot' => [
                             'sorting_order' => $account->pivot->sorting_order,
                             'why_this_card' => $account->pivot->why_this_card,
-                            'est_approval_odds' => $account->pivot->est_approval_odds,
-                            'est_approval_odds_for_show' => $account->pivot->est_approval_odds . '%',
                             'est_limit_min' => $account->pivot->est_limit_min,
                             'est_limit_max' => $account->pivot->est_limit_max,
                             'est_limit_for_show' => currencyFormat($account->pivot->est_limit_min, 0) . ' - ' . currencyFormat($account->pivot->est_limit_max, 0),

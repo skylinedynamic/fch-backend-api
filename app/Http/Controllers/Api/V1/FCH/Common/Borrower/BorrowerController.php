@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
@@ -14,6 +15,7 @@ use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
+use App\Http\Resources\FCH\Borrower\BorrowerCreditProfileResource;
 use App\Services\FCH\Common\Borrower\BorrowerDocumentService;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\FetchBorrowerRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\StoreBorrowerRequest;
@@ -389,6 +391,49 @@ class BorrowerController extends Controller
     /**
      * Get Borrower Personal Details.
      */
+    public function getCreditProfile(int $borrowerId)
+    {
+        try {
+            $borrower = $this->borrowerService->getDetails($borrowerId);
+
+            if (!$borrower) {
+                return ApiResponse::notFound(__('borrower.not_found'));
+            }
+
+            $creditProfile = $borrower->creditProfile;
+
+            if (!$creditProfile) {
+                return ApiResponse::success(null, __('borrower.retrieved_details'));
+            }
+
+            $data = (new BorrowerCreditProfileResource($creditProfile))->toArray(request());
+
+            // Load PDF if available
+            if ($creditProfile->pdf_url) {
+                $pdfContent = null;
+                if (str_contains($creditProfile->pdf_url, '/storage/')) {
+                    $relativePath = substr($creditProfile->pdf_url, strpos($creditProfile->pdf_url, '/storage/') + strlen('/storage/'));
+                    $filePath = storage_path('app/public/' . $relativePath);
+                    if (file_exists($filePath)) {
+                        $pdfContent = file_get_contents($filePath);
+                    }
+                } else {
+                    $httpResponse = Http::timeout(30)->get($creditProfile->pdf_url);
+                    if ($httpResponse->successful()) {
+                        $pdfContent = $httpResponse->body();
+                    }
+                }
+                if ($pdfContent) {
+                    $data['pdf'] = base64_encode($pdfContent);
+                }
+            }
+
+            return ApiResponse::success($data, __('borrower.retrieved_details'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('borrower.fetch_failed'));
+        }
+    }
+
     public function getPersonalDetails(string $id)
     {
         try {
@@ -519,10 +564,20 @@ class BorrowerController extends Controller
                 'created_by' => \Illuminate\Support\Facades\Auth::id(),
             ]);
 
+            // Read PDF content as base64 for immediate frontend display
+            $pdfContent = null;
+            $storedPath = "borrowers/{$borrowerId}/{$fileName}";
+            $filePath = storage_path('app/public/' . $storedPath);
+            if (file_exists($filePath)) {
+                $pdfContent = base64_encode(file_get_contents($filePath));
+            }
+
             return ApiResponse::success([
                 'extracted_data' => $extractedData,
                 'pdf_url' => asset("storage/borrowers/{$borrowerId}/{$fileName}"),
-                'document_id' => $borrowerDoc->id
+                'document_id' => $borrowerDoc->id,
+                'pdf' => $pdfContent,
+                'mime' => 'application/pdf'
             ], 'Credit profile PDF parsed successfully.');
 
         } catch (\Exception $e) {
@@ -572,17 +627,11 @@ class BorrowerController extends Controller
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // 1. Delete existing credit profile (cascades delete to addresses, trades, inquiries)
-            if ($borrower->creditProfile) {
-                $borrower->creditProfile->delete();
-            }
-
-            // 2. Create the main BorrowerCreditProfile
+            // 2. Create or update the main BorrowerCreditProfile
             $allAccounts = $metrics['all_accounts_analysis'] ?? [];
             $openAccounts = $metrics['open_accounts_analysis'] ?? [];
 
-            $creditProfile = \App\Models\Borrower\BorrowerCreditProfile::create([
-                'borrower_id' => $borrowerId,
+            $profileData = [
                 'fico_score' => isset($metrics['fico_score']) ? (int)$metrics['fico_score'] : null,
                 'paydex_score' => isset($metrics['paydex_score']) ? (int)$metrics['paydex_score'] : null,
                 'experian_intelliscore' => isset($metrics['experian_intelliscore']) ? (int)$metrics['experian_intelliscore'] : null,
@@ -615,7 +664,19 @@ class BorrowerController extends Controller
                 'open_accounts_available_credit' => isset($openAccounts['available_credit']) ? (float)$openAccounts['available_credit'] : null,
                 'open_accounts_utilization_ratio' => isset($openAccounts['utilization_ratio']) ? (float)$openAccounts['utilization_ratio'] : null,
                 'open_accounts_analysis' => $openAccounts,
-            ]);
+            ];
+
+            $creditProfile = $borrower->creditProfile;
+            if ($creditProfile) {
+                $creditProfile->update($profileData);
+                // 1. Delete existing child entries
+                $creditProfile->addresses()->delete();
+                $creditProfile->trades()->delete();
+                $creditProfile->inquiries()->delete();
+            } else {
+                $profileData['borrower_id'] = $borrowerId;
+                $creditProfile = \App\Models\Borrower\BorrowerCreditProfile::create($profileData);
+            }
 
             // 3. Create Addresses
             foreach ($addresses as $addr) {

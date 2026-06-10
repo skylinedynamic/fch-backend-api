@@ -127,6 +127,7 @@ Route::prefix('v1')->group(function () {
             // Credit Profile routes — must be before wildcard borrowers/{id}
             Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
             Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
+            Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
 
             // Borrower routes
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);

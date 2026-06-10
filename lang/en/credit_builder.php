@@ -68,7 +68,6 @@ return [
     'validation_capital_access_target_exposure_min_required' => 'Target exposure min is required.',
     'validation_capital_access_target_exposure_max_required' => 'Target exposure max is required.',
     'validation_capital_access_target_exposure_max_gte' => 'Target exposure max must be greater than or equal to min.',
-    'validation_capital_access_approval_probability_required' => 'Approval probability is required.',
     'validation_capital_access_est_timeline_max_gte' => 'Estimated timeline max must be greater than or equal to min.',
     'validation_capital_access_what_you_will_get_required' => 'Please provide at least one item for What You\'ll Get.',
     'validation_capital_access_pre_flight_checklist_required' => 'Please provide at least one pre-flight checklist requirement.',

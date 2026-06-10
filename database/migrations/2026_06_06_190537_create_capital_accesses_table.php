@@ -18,7 +18,6 @@ return new class extends Migration
             $table->foreignId('partner_id')->nullable()->constrained('partners');
             $table->decimal('target_exposure_min', 15, 2);
             $table->decimal('target_exposure_max', 15, 2);
-            $table->integer('approval_probability');
             $table->integer('est_timeline_min');
             $table->integer('est_timeline_max');
             $table->json('what_you_will_get');
