@@ -72,6 +72,8 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'restricted_industries.*'        => 'string',
             'require_completed_application'  => 'nullable|boolean',
             'require_documents_uploaded'     => 'nullable|boolean',
+            'allowed_documents'              => 'nullable|array|required_if:require_documents_uploaded,true,1,"1","true"',
+            'allowed_documents.*'            => 'string',
             'manual_review_allowed'          => 'nullable|boolean',
             'exception_allowed'              => 'nullable|boolean',
         ];
@@ -110,6 +112,7 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'min_dscr.regex'                 => __('funding_sequencing.min_dscr_regex'),
             'min_fico.required'              => __('funding_sequencing.min_fico_required'),
             'min_fico.integer'               => __('funding_sequencing.min_fico_integer'),
+            'allowed_documents.required_if'  => __('funding_sequencing.allowed_documents_required_if'),
         ];
     }
 }

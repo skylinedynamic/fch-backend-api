@@ -164,7 +164,7 @@ class BorrowerDocumentService
     public function documentTypes()
     {
         try {
-            $documentTypes = BorrowerDocType::orderBy('sort_order', 'asc')->get();
+            $documentTypes = BorrowerDocType::orderBy('id', 'asc')->get();
 
             return ApiResponse::success(
                 BorrowerDocTypeResource::collection($documentTypes),

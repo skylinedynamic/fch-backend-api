@@ -64,6 +64,7 @@ class FundingSequencing extends Model
         'restricted_industries',
         'require_completed_application',
         'require_documents_uploaded',
+        'allowed_documents',
         'manual_review_allowed',
         'exception_allowed',
     ];
@@ -75,6 +76,7 @@ class FundingSequencing extends Model
         'restricted_industries' => 'array',
         'require_completed_application' => 'boolean',
         'require_documents_uploaded' => 'boolean',
+        'allowed_documents' => 'array',
         'manual_review_allowed' => 'boolean',
         'exception_allowed' => 'boolean',
         'uses' => 'array',

@@ -42,6 +42,7 @@ class FundingSequencingResource extends JsonResource
             'restricted_industries' => $this->restricted_industries ?? [],
             'require_completed_application' => $this->require_completed_application,
             'require_documents_uploaded' => $this->require_documents_uploaded,
+            'allowed_documents' => $this->allowed_documents ?? [],
             'manual_review_allowed' => $this->manual_review_allowed,
             'exception_allowed' => $this->exception_allowed,
             'group' => $this->whenLoaded('group', function () {
