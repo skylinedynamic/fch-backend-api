@@ -304,6 +304,7 @@ return [
     'debt_balance_min' => 'Debt balance cannot be negative',
 
     // Funding Application Funding Request
+    'requested_amount_required' => 'Requested amount is required',
     'requested_amount_numeric' => 'Requested amount must be a number',
     'requested_amount_min' => 'Requested amount cannot be negative',
     'purpose_of_funds_string' => 'Purpose of funds must be a string',
