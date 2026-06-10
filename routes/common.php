@@ -155,6 +155,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
+
+                Route::post('funding-review', [RequestApplicationController::class, 'getFundingReview']);
+                Route::post('funding-review/status-update', [RequestApplicationController::class, 'fundingReviewStatusUpdate']);
             });
 
             // Borrower Documents Checklist routes
