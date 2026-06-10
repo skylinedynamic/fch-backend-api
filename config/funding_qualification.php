@@ -6,8 +6,10 @@ return [
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
-        'Existing Debt'    => 'existing_debt',
-        'Documents'        => 'documents',
+        'Existing Debt'      => 'existing_debt',
+        'Documents'          => 'documents',
+        // 'Allowed States'     => 'allowed_states',
+        // 'Allowed Industries' => 'allowed_industries',
     ],
 
     'rules' => [
@@ -40,7 +42,17 @@ return [
         ],
         'equipment' => [
             'type' => '',
-        ]
+        ],
+        // 'allowed_states' => [
+        //     'type'           => 'in_array',
+        //     'borrower_field' => 'borrowers.state',
+        //     'funding_field'  => 'funding_sequencings.allowed_states',
+        // ],
+        // 'allowed_industries' => [
+        //     'type'           => 'in_array',
+        //     'borrower_field' => 'borrowers.business_industry_type',
+        //     'funding_field'  => 'funding_sequencings.allowed_industries',
+        // ]
     ],
 
     'statuses' => [
