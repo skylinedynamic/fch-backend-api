@@ -36,7 +36,6 @@ class CapitalAccess extends Model
             'sorting_order', 
             'id', 
             'why_this_card', 
-            'est_approval_odds', 
             'est_limit_min', 
             'est_limit_max', 
             'hard_pull', 

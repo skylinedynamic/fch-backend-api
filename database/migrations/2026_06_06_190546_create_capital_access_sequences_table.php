@@ -21,7 +21,6 @@ return new class extends Migration {
                 ->onDelete('cascade');
             $table->unsignedInteger('sorting_order')->default(0);
             $table->text('why_this_card')->nullable();
-            $table->integer('est_approval_odds')->nullable();
             $table->integer('est_limit_min')->nullable();
             $table->integer('est_limit_max')->nullable();
             $table->string('hard_pull')->default(CapitalAccess::HARD_PULL_YES);

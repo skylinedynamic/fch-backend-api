@@ -21,7 +21,6 @@ class CapitalAccessResource extends JsonResource
             'partner_id' => $this->partner_id,
             'target_exposure_min' => currencyFormat($this->target_exposure_min, 0),
             'target_exposure_max' => currencyFormat($this->target_exposure_max, 0),
-            'approval_probability' => $this->approval_probability . '%',
             'est_timeline' => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
             'status' => $this->status ?? 'Active',
             'credit_accounts' => $this->when(

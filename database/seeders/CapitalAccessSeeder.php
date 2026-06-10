@@ -41,7 +41,6 @@ class CapitalAccessSeeder extends Seeder
                 'partner_id' => $partnerId,
                 'target_exposure_min' => $minExposure,
                 'target_exposure_max' => $maxExposure,
-                'approval_probability' => $faker->numberBetween(50, 95),
                 'est_timeline_min' => $faker->numberBetween(3, 14),
                 'est_timeline_max' => $faker->numberBetween(15, 45),
                 'what_you_will_get' => json_encode([
@@ -69,7 +68,6 @@ class CapitalAccessSeeder extends Seeder
                 $syncData[$card->id] = [
                     'sorting_order' => $sortingOrder++,
                     'why_this_card' => 'This card offers great rewards and helps build your business credit profile.',
-                    'est_approval_odds' => rand(60, 95),
                     'est_limit_min' => rand(1000, 5000),
                     'est_limit_max' => rand(10000, 50000),
                     'hard_pull' => rand(0, 1) ? CapitalAccess::HARD_PULL_YES : CapitalAccess::HARD_PULL_NO,

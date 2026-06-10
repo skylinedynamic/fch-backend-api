@@ -72,7 +72,6 @@ class CapitalAccessService
             'partner_id'           => $data['partner_id'] ?? null,
             'target_exposure_min'  => $data['target_exposure_min'] ?? null,
             'target_exposure_max'  => $data['target_exposure_max'] ?? null,
-            'approval_probability' => $data['approval_probability'] ?? null,
             'est_timeline_min'     => $data['est_timeline_min'] ?? null,
             'est_timeline_max'     => $data['est_timeline_max'] ?? null,
             'what_you_will_get'    => isset($data['what_you_will_get']) ? json_encode($data['what_you_will_get']) : null,
@@ -115,7 +114,6 @@ class CapitalAccessService
             'partner_id'           => array_key_exists('partner_id', $data) ? $data['partner_id'] : $capitalAccess->partner_id,
             'target_exposure_min'  => array_key_exists('target_exposure_min', $data) ? $data['target_exposure_min'] : $capitalAccess->target_exposure_min,
             'target_exposure_max'  => array_key_exists('target_exposure_max', $data) ? $data['target_exposure_max'] : $capitalAccess->target_exposure_max,
-            'approval_probability' => array_key_exists('approval_probability', $data) ? $data['approval_probability'] : $capitalAccess->approval_probability,
             'est_timeline_min'     => array_key_exists('est_timeline_min', $data) ? $data['est_timeline_min'] : $capitalAccess->est_timeline_min,
             'est_timeline_max'     => array_key_exists('est_timeline_max', $data) ? $data['est_timeline_max'] : $capitalAccess->est_timeline_max,
             'what_you_will_get'    => array_key_exists('what_you_will_get', $data) ? json_encode($data['what_you_will_get']) : $capitalAccess->what_you_will_get,
@@ -176,7 +174,6 @@ class CapitalAccessService
             $syncData[$creditAccount['id']] = [
                 'sorting_order'     => $index + 1,
                 'why_this_card'     => $creditAccount['why_this_card'] ?? null,
-                'est_approval_odds' => $creditAccount['est_approval_odds'] ?? null,
                 'est_limit_min'     => $creditAccount['est_limit_min'] ?? null,
                 'est_limit_max'     => $creditAccount['est_limit_max'] ?? null,
                 'hard_pull'         => $creditAccount['hard_pull'] ?? 'Yes',
