@@ -33,7 +33,7 @@ return [
     'min_monthly_deposits_regex' => 'Minimum monthly deposits is out of range or has an invalid decimal format.',
     'min_average_daily_balance_regex' => 'Minimum average daily balance is out of range or has an invalid decimal format.',
     'min_dscr_regex'             => 'Minimum DSCR is out of range or has an invalid decimal format.',
-
+    'allowed_documents_required_if' => 'Allowed documents are required when Require Documents Uploaded is enabled.',
 
     // Funding Group
     'group_name_required'        => 'The group name is required.',

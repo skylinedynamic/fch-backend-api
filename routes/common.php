@@ -147,6 +147,7 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers-documents-delete/{id}', [BorrowerController::class, 'deleteDocument']);
             Route::get('borrowers-documents/download/{documentId}', [BorrowerController::class, 'downloadDocument']);
             Route::post('borrowers-tiers', [BorrowerController::class, 'getTiers']);
+            Route::get('doc-types', [BorrowerController::class, 'documentTypes']);
             Route::get('borrowers/get-borrower-profile/{borrowerId}', [BorrowerController::class, 'getBorrowerProfile']);
 
 
@@ -160,6 +161,15 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
+
+                Route::post('funding-review', [RequestApplicationController::class, 'getFundingReview']);
+                Route::post('funding-review/status-update', [RequestApplicationController::class, 'fundingReviewStatusUpdate']);
+            });
+
+            // Funding Qualification endpoints
+            Route::prefix('funding-qualification')->group(function () {
+                Route::get('{fundingId}/readiness-factors', [\App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController::class, 'getReadinessFactors']);
+                Route::get('{fundingId}/qualify-reasons', [\App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController::class, 'getQualifyReasons']);
             });
 
             // Borrower Documents Checklist routes

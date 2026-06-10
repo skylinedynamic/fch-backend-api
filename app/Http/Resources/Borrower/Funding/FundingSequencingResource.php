@@ -102,6 +102,7 @@ class FundingSequencingResource extends JsonResource
             'qualify_reasons' => $this->qualify_reasons,
             'readiness_factors' => $formattedReadinessFactors,
             'missing_documents' => $missingDocumentsList,
+            'allowed_documents' => $this->allowed_documents ?? [],
             'action_url' => $this->action_url,
             'funding_type_id' => $this->funding_type_id,
             'funding_group_id' => $this->funding_group_id,
