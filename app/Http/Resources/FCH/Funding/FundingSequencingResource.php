@@ -57,6 +57,14 @@ class FundingSequencingResource extends JsonResource
                     'name' => $this->type->name,
                 ];
             }),
+            'lenders' => $this->whenLoaded('lenders', function () {
+                return $this->lenders->map(function ($lfs) {
+                    return array_merge(
+                        $lfs->toArray(),
+                        ['lender' => $lfs->lender ? ['id' => $lfs->lender->id, 'name' => $lfs->lender->name] : null]
+                    );
+                });
+            }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

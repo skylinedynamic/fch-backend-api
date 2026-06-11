@@ -3,9 +3,11 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingType;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Lender\Lender;
 
 class FundingSequencingSeeder extends Seeder
 {
@@ -69,25 +71,6 @@ class FundingSequencingSeeder extends Seeder
                 ],
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                // Visibility — open to all states/industries
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                // Thresholds — realistic minimums
-                'min_fico'                     => 680,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                // Review settings
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -114,22 +97,6 @@ class FundingSequencingSeeder extends Seeder
                 ],
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 600,
-                'min_tib_months'               => 3,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -156,22 +123,6 @@ class FundingSequencingSeeder extends Seeder
                 ],
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 720,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 10000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -198,22 +149,6 @@ class FundingSequencingSeeder extends Seeder
                 ],
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => null,
-                'min_tib_months'               => 1,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -250,22 +185,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'Business license (if applicable)',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 5,
-                'max_negative_days'            => 5,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -298,22 +217,6 @@ class FundingSequencingSeeder extends Seeder
                     'Voided business check',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 640,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 8000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 3,
-                'max_negative_days'            => 3,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -344,22 +247,6 @@ class FundingSequencingSeeder extends Seeder
                     'Voided business check',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 500,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 10000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 10,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -390,22 +277,6 @@ class FundingSequencingSeeder extends Seeder
                     'Last 6 months merchant processing statements (if applicable)',
                     'Voided business check',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 550,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 15000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -441,22 +312,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'Voided business check',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -487,22 +342,6 @@ class FundingSequencingSeeder extends Seeder
                     'Equipment invoice or quote',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 600,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -529,22 +368,6 @@ class FundingSequencingSeeder extends Seeder
                 ],
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 640,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 8000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 5,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -576,22 +399,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'CDL (if applicable)',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 580,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -629,22 +436,6 @@ class FundingSequencingSeeder extends Seeder
                     'Purchase agreement or lease agreement',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 680,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 15000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => 1.25,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -676,22 +467,6 @@ class FundingSequencingSeeder extends Seeder
                     'Exit strategy documentation',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => 1.0,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -723,22 +498,6 @@ class FundingSequencingSeeder extends Seeder
                     'Purchase agreement',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -772,25 +531,41 @@ class FundingSequencingSeeder extends Seeder
                     'Last 2 years personal tax returns',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 680,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 20000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => 1.25,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
-        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules.');
+        // ══════════════════════════════════════════════════════════════════════
+        // GROUP 5 — Seed lender_funding_sequencings Pivot Data
+        // ══════════════════════════════════════════════════════════════════════
+
+        $lenderIds = Lender::pluck('id')->toArray();
+        $lender1 = $lenderIds[0] ?? 1;
+        $lender2 = $lenderIds[1] ?? 2;
+        $lender3 = $lenderIds[2] ?? 3;
+
+        $lenderFundingSequencings = [
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 17, 'min_fico' => null, 'min_tib_months' => null, 'min_monthly_revenue' => null, 'min_monthly_deposits' => null, 'min_average_daily_balance' => null, 'max_nsf_count' => null, 'max_negative_days' => null, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:11', 'updated_at' => '2026-06-11 03:29:11'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 19, 'min_fico' => 37, 'min_tib_months' => 12, 'min_monthly_revenue' => null, 'min_monthly_deposits' => null, 'min_average_daily_balance' => 38.00, 'max_nsf_count' => 20, 'max_negative_days' => 9, 'min_dscr' => 23.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:31', 'updated_at' => '2026-06-11 03:29:31'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 14, 'min_fico' => 16, 'min_tib_months' => 11, 'min_monthly_revenue' => 6.00, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 95.00, 'max_nsf_count' => 68, 'max_negative_days' => 21, 'min_dscr' => 8.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 0, 'exception_allowed' => 1, 'created_at' => '2026-06-11 03:47:22', 'updated_at' => '2026-06-11 03:47:22'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 20, 'min_fico' => null, 'min_tib_months' => null, 'min_monthly_revenue' => null, 'min_monthly_deposits' => null, 'min_average_daily_balance' => null, 'max_nsf_count' => null, 'max_negative_days' => null, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:57:29', 'updated_at' => '2026-06-11 03:57:29'],
+            ['lender_id' => $lender3, 'funding_sequencing_id' => 21, 'min_fico' => null, 'min_tib_months' => null, 'min_monthly_revenue' => null, 'min_monthly_deposits' => null, 'min_average_daily_balance' => null, 'max_nsf_count' => null, 'max_negative_days' => null, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:58:12', 'updated_at' => '2026-06-11 03:58:12'],
+            ['lender_id' => $lender1, 'funding_sequencing_id' => 22, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 3.00, 'min_monthly_deposits' => 12.00, 'min_average_daily_balance' => 82.00, 'max_nsf_count' => 93, 'max_negative_days' => 11, 'min_dscr' => 33.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:08:39', 'updated_at' => '2026-06-11 04:08:39'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 23, 'min_fico' => 30, 'min_tib_months' => 8, 'min_monthly_revenue' => 2.00, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 55.00, 'max_nsf_count' => 99, 'max_negative_days' => 5, 'min_dscr' => 72.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:19:15', 'updated_at' => '2026-06-11 04:19:15'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 24, 'min_fico' => 888, 'min_tib_months' => 1, 'min_monthly_revenue' => 1.00, 'min_monthly_deposits' => 11.00, 'min_average_daily_balance' => 14.00, 'max_nsf_count' => 25, 'max_negative_days' => 4, 'min_dscr' => 52.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:21:03', 'updated_at' => '2026-06-11 04:21:03'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 25, 'min_fico' => 29, 'min_tib_months' => 8, 'min_monthly_revenue' => 5.00, 'min_monthly_deposits' => 1.00, 'min_average_daily_balance' => 49.00, 'max_nsf_count' => 18, 'max_negative_days' => 24, 'min_dscr' => 92.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:24:28', 'updated_at' => '2026-06-11 04:24:28'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 26, 'min_fico' => 6566, 'min_tib_months' => 87887, 'min_monthly_revenue' => 87887.00, 'min_monthly_deposits' => 87886.00, 'min_average_daily_balance' => 87878.00, 'max_nsf_count' => null, 'max_negative_days' => null, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[4, 3, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51']
+        ];
+
+        foreach ($lenderFundingSequencings as $lfs) {
+            DB::table('lender_funding_sequencings')->updateOrInsert(
+                [
+                    'lender_id' => $lfs['lender_id'],
+                    'funding_sequencing_id' => $lfs['funding_sequencing_id']
+                ],
+                $lfs
+            );
+        }
+
+        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules. Also populated Lenders and lender_funding_sequencings.');
     }
 }

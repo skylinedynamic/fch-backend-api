@@ -5,6 +5,7 @@ namespace App\Services\FCH\Admin\Funding;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\FundingType;
+use App\Models\Lender\Lender;
 use App\Services\Global\Datatable\QueryFilter;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -15,7 +16,7 @@ class FundingSequencingService
      */
     public function list(array $filters)
     {
-        $query = FundingSequencing::with(['group', 'type']);
+        $query = FundingSequencing::with(['group', 'type', 'lenders.lender']);
 
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -96,20 +97,85 @@ class FundingSequencingService
 
     public function create(array $data): FundingSequencing
     {
-        return FundingSequencing::create($data);
+        $lenders = $data['lenders'] ?? [];
+        $lender_id = $data['lender_id'] ?? null;
+        unset($data['lenders'], $data['lender_id']);
+
+        $sequencing = FundingSequencing::create($data);
+
+        if (!empty($lenders)) {
+            $sequencing->lenders()->createMany($lenders);
+        } elseif ($lender_id !== null) {
+            $lenderData = Lender::find($lender_id);
+            
+            $tibMonths = null;
+            if ($lenderData && $lenderData->time_in_business) {
+                if (stripos($lenderData->time_in_business, 'month') !== false) {
+                    preg_match('/(\d+)/', $lenderData->time_in_business, $matches);
+                    if (isset($matches[1])) $tibMonths = (int)$matches[1];
+                } elseif (stripos($lenderData->time_in_business, 'year') !== false) {
+                    preg_match('/(\d+)/', $lenderData->time_in_business, $matches);
+                    if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
+                }
+            }
+
+            $revenue = null;
+            if ($lenderData && $lenderData->revenue_requirements) {
+                $cleanRev = preg_replace('/[^0-9.]/', '', $lenderData->revenue_requirements);
+                if (is_numeric($cleanRev)) $revenue = (float)$cleanRev;
+            }
+
+            $deposits = null;
+            if ($lenderData && $lenderData->bank_statement_requirements) {
+                $cleanDep = preg_replace('/[^0-9.]/', '', $lenderData->bank_statement_requirements);
+                if (is_numeric($cleanDep)) $deposits = (float)$cleanDep;
+            }
+
+            $sequencing->lenders()->create([
+                'lender_id' => $lender_id,
+                'min_fico' => $lenderData ? $lenderData->minimum_fico : null,
+                'min_tib_months' => $tibMonths,
+                'min_monthly_revenue' => $revenue,
+                'min_monthly_deposits' => $deposits,
+                'allowed_states' => $lenderData ? $lenderData->states_served : null,
+                'restricted_industries' => $lenderData ? $lenderData->restricted_industries : null,
+                'allowed_documents' => $lenderData ? $lenderData->required_documents : null,
+            ]);
+        }
+
+        return $sequencing->load(['group', 'type', 'lenders.lender']);
     }
 
     public function show($id): FundingSequencing
     {
-        return FundingSequencing::with(['group', 'type'])->findOrFail($id);
+        return FundingSequencing::with(['group', 'type', 'lenders.lender'])->findOrFail($id);
     }
 
     public function update($id, array $data): FundingSequencing
     {
         $sequencing = FundingSequencing::findOrFail($id);
+        
+        $lenders = array_key_exists('lenders', $data) ? $data['lenders'] : null;
+        $lender_id = array_key_exists('lender_id', $data) ? $data['lender_id'] : null;
+        unset($data['lenders'], $data['lender_id']);
+
         $sequencing->update($data);
 
-        return $sequencing;
+        if ($lenders !== null) {
+            // Visibility tab payload
+            $sequencing->lenders()->forceDelete();
+            $sequencing->lenders()->createMany($lenders);
+        } elseif ($lender_id !== null) {
+            // Display tab payload - just update the lender_id of the primary lender
+            $existingLender = $sequencing->lenders()->first();
+            if ($existingLender) {
+                $existingLender->update(['lender_id' => $lender_id]);
+            } else {
+                $sequencing->lenders()->create(['lender_id' => $lender_id]);
+            }
+        }
+
+        return $sequencing->load(['group', 'type', 'lenders.lender']);
     }
 
     public function delete($id): bool
