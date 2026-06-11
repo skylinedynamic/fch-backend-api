@@ -287,6 +287,9 @@ class BorrowerService
                 $borrowerData['business_city'] = $data['business_other_city'];
             }
 
+            $borrowerData['monthly_revenue'] = 0;
+            $borrowerData['annual_revenue'] = 0;
+
             $borrower = Borrower::create($borrowerData);
 
             // Log Borrower Creation
@@ -437,7 +440,7 @@ class BorrowerService
                 ]);
                 Log::info('Borrower subscription initialized with phases', ['borrower_id' => $borrower->id]);
 
-                if ($isHostCreating ) {
+                if ($isHostCreating) {
                     Log::info('Triggering Onboarding Email');
                     if ($amount > 0) {
                         $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));

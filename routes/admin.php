@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CMS\BlogController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -155,6 +156,12 @@ Route::prefix('v1/admin')
             Route::get('seo-settings/{id}', [SeoController::class, 'show']);     // get one
             Route::post('seo-settings/{id}', [SeoController::class, 'update']); // update
             Route::get('seo', [SeoController::class, 'show']);
+        });
+
+        // 📊 Score Configurations
+        Route::prefix('app-configuration/score')->group(function () {
+            Route::get('/', [ScoreConfigurationController::class, 'index']);
+            Route::put('/', [ScoreConfigurationController::class, 'update']);
         });
 
     });

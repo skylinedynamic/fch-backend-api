@@ -23,7 +23,7 @@ use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationContr
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
-use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CapitalAccessStrategyController;
+use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
@@ -104,10 +104,14 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/credit-accounts', [CreditAccountController::class, 'index']);
                     Route::get('/credit-accounts/filter-options', [CreditAccountController::class, 'filterOptions']);
                     Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply']);
+                }
+            );
 
-                    // Capital Access Strategies
-                    Route::get('/capital-access/strategies', [CapitalAccessStrategyController::class, 'index']);
-                    Route::get('/capital-access/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
+            // Capital Access Strategies
+            Route::prefix('capital-access')->group(
+                function () {
+                    Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
+                    Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
                 }
             );
 

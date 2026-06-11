@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Borrower\CreditBuilder;
+namespace App\Http\Controllers\Api\V1\Borrower\CapitalAccess;
 
 use App\Http\Controllers\Controller;
-use App\Services\Borrower\CreditBuilder\CapitalAccessStrategyService;
+use App\Services\Borrower\CapitalAccess\CapitalAccessStrategyService;
 use Illuminate\Http\JsonResponse;
 
 class CapitalAccessStrategyController extends Controller

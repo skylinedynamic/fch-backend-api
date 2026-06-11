@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Borrower\CreditBuilder;
+namespace App\Services\Borrower\CapitalAccess;
 
 use App\Models\CreditBuilder\CapitalAccess;
 use App\Http\Resources\Borrower\CreditBuilder\CapitalAccessStrategyResource;

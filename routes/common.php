@@ -176,14 +176,16 @@ Route::prefix('v1')->group(function () {
 
                 // Fetch all active credit accounts for Capital Access builder (no pagination)
                 Route::post('credit-accounts/all', [AdminCreditAccountController::class, 'allActive']);
+            });
 
-                // Capital Access CRUD
-                Route::post('capital-accesses/fetch-all', [CommonCapitalAccessController::class, 'index']);
-                Route::post('capital-accesses', [CommonCapitalAccessController::class, 'store']);
-                Route::get('capital-accesses/{id}', [CommonCapitalAccessController::class, 'show']);
-                Route::put('capital-accesses/{id}', [CommonCapitalAccessController::class, 'update']);
-                Route::patch('capital-accesses/{id}/status', [CommonCapitalAccessController::class, 'updateStatus']);
-                Route::delete('capital-accesses/{id}', [CommonCapitalAccessController::class, 'destroy']);
+            // Capital Access CRUD
+            Route::prefix('capital-accesses')->group(function () {
+                Route::post('fetch-all', [CommonCapitalAccessController::class, 'index']);
+                Route::post('/', [CommonCapitalAccessController::class, 'store']);
+                Route::get('{id}', [CommonCapitalAccessController::class, 'show']);
+                Route::put('{id}', [CommonCapitalAccessController::class, 'update']);
+                Route::patch('{id}/status', [CommonCapitalAccessController::class, 'updateStatus']);
+                Route::delete('{id}', [CommonCapitalAccessController::class, 'destroy']);
             });
 
             // Appointment routes
