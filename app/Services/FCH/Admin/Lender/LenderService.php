@@ -28,7 +28,7 @@ class LenderService
     public function getAllActiveLenders()
     {
         return Lender::where('status', Lender::STATUS_ACTIVE)
-            ->select('id', 'name')
+            ->select('id', 'name', 'status')
             ->orderBy('name', 'asc')
             ->get();
     }

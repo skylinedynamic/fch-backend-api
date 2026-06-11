@@ -96,6 +96,7 @@ class DatabaseSeeder extends Seeder
             PaymentMethodSeeder::class,
             LenderSeeder::class,
             FundingSequencingSeeder::class,
+            LenderFundingPermissionSeeder::class,
         ]);
     }
 }
