@@ -154,7 +154,8 @@ class FundingReadinessService
                 }
                 // Banking Activity
                 elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
-                    $docType = BorrowerDocType::where('name', 'Business Bank Statements')->first();
+                    $docName = config('funding_qualification.rules.banking_activity.document_name', BorrowerDocType::BANK_STATEMENTS);
+                    $docType = BorrowerDocType::where('name', $docName)->first();
                     if ($docType) {
                         $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
                             ->where('document_type_id', $docType->id)

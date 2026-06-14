@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Borrower\BorrowerDocType;
+
 return [
     'factor_keys' => [
         'Business Credit'  => 'business_credit',
@@ -31,7 +33,8 @@ return [
             'strong_offset'  => 12,
         ],
         'banking_activity' => [
-            'type' => '',
+            'type'          => 'specific_document',
+            'document_name' => BorrowerDocType::BANK_STATEMENTS,
         ],
         'documents' => [
             'type' => 'documents',

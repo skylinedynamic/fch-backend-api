@@ -10,6 +10,8 @@ class BorrowerDocType extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const BANK_STATEMENTS = 'Business Bank Statements';
+
     protected $table = 'borrower_doc_types';
 
     protected $guarded = [];

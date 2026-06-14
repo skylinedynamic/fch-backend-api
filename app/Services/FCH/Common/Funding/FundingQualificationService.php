@@ -76,11 +76,12 @@ class FundingQualificationService
         }
 
         return match ($rule['type'] ?? 'compare') {
-            'documents'    => $this->evaluateDocuments($rule, $borrower, $funding),
-            'ratio'        => $this->evaluateRatio($rule, $borrower, $funding),
-            'date_compare' => $this->evaluateCompare($rule, $borrower, $funding, asMonths: true),
-            'in_array'     => $this->evaluateInArray($rule, $borrower, $funding),
-            default        => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
+            'documents'         => $this->evaluateDocuments($rule, $borrower, $funding),
+            'specific_document' => $this->evaluateSpecificDocument($rule, $borrower, $funding),
+            'ratio'             => $this->evaluateRatio($rule, $borrower, $funding),
+            'date_compare'      => $this->evaluateCompare($rule, $borrower, $funding, asMonths: true),
+            'in_array'          => $this->evaluateInArray($rule, $borrower, $funding),
+            default             => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
         };
     }
 
@@ -265,6 +266,35 @@ class FundingQualificationService
 
         $rule['status'] = $this->status('missing');
         $rule['missing_docs'] = array_values($missingNames);
+        return $rule;
+    }
+
+    private function evaluateSpecificDocument(array $rule, Borrower $borrower, FundingSequencing $funding): array
+    {
+        $docName = $rule['document_name'] ?? '';
+
+        if (!$docName) {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        $docType = BorrowerDocType::where('name', $docName)->first();
+        if (!$docType) {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
+            ->where('document_type_id', $docType->id)
+            ->whereIn('status', ['Uploaded', 'Approved'])
+            ->exists();
+
+        if ($hasDoc) {
+            $rule['status'] = $this->status('good');
+        } else {
+            $rule['status'] = $this->status('missing');
+        }
+
         return $rule;
     }
 
