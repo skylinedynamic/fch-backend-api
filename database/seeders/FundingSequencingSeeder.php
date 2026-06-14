@@ -35,7 +35,6 @@ class FundingSequencingSeeder extends Seeder
             ['label' => 'Revenue',           'status' => 'Strong'],
             ['label' => 'Time in Business',  'status' => 'Strong'],
             ['label' => 'Banking Activity',  'status' => 'Good'],
-            ['label' => 'Existing Debt',     'status' => 'Good'],
             ['label' => 'Documents',         'status' => 'Missing'],
         ];
         $defaultDocs = [

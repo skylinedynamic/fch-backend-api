@@ -6,7 +6,6 @@ return [
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
-        'Existing Debt'      => 'existing_debt',
         'Documents'          => 'documents',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
@@ -32,9 +31,6 @@ return [
             'strong_offset'  => 12,
         ],
         'banking_activity' => [
-            'type' => '',
-        ],
-        'existing_debt' => [
             'type' => '',
         ],
         'documents' => [
