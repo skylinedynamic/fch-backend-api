@@ -64,17 +64,17 @@ class FundingSequencingService
             }
         }
 
-        $sortField = !empty($filters['sort_field']) ? $filters['sort_field'] : 'id';
+        $sortField = !empty($filters['sort_field']) ? $filters['sort_field'] : null;
         $rawSortOrder = $filters['sort_order'] ?? null;
         if ($rawSortOrder === 1 || $rawSortOrder === '1' || strtolower((string)$rawSortOrder) === 'asc') {
             $sortOrder = 'asc';
         } elseif ($rawSortOrder === -1 || $rawSortOrder === '-1' || strtolower((string)$rawSortOrder) === 'desc') {
             $sortOrder = 'desc';
         } else {
-            $sortOrder = 'desc'; // default: newest first
+            $sortOrder = 'desc'; // default for when a specific field is provided but no order
         }
         
-        $query = QueryFilter::apply($query, $sortField, $sortOrder, $rawFilters, ['skip_sorting' => true]);
+        $query = QueryFilter::apply($query, $sortField ?? 'id', $sortOrder, $rawFilters, ['skip_sorting' => true]);
 
         if ($sortField === 'group.name') {
             $query->join('funding_groups', 'funding_sequencings.funding_group_id', '=', 'funding_groups.id')
@@ -84,8 +84,11 @@ class FundingSequencingService
             $query->join('funding_types', 'funding_sequencings.funding_type_id', '=', 'funding_types.id')
                   ->orderBy('funding_types.name', $sortOrder)
                   ->select('funding_sequencings.*');
-        } else {
+        } elseif ($sortField) {
             $query->orderBy($sortField, $sortOrder);
+        } else {
+            // Default sort: sort_order ASC (nulls last), then id DESC
+            $query->orderByRaw('sort_order IS NULL, sort_order ASC')->orderBy('id', 'desc');
         }
 
         if ($filters['per_page'] === -1) {
