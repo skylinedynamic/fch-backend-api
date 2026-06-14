@@ -50,6 +50,11 @@ class FundingSequencing extends Model
         'status',
         'sort_order',
         'action_url',
+        'require_completed_application',
+        'require_documents_uploaded',
+        'manual_review_allowed',
+        'exception_allowed',
+        'allowed_documents',
     ];
 
     protected $casts = [
@@ -57,6 +62,11 @@ class FundingSequencing extends Model
         'qualify_reasons' => 'array',
         'readiness_factors' => 'array',
         'missing_documents' => 'array',
+        'allowed_documents' => 'array',
+        'require_completed_application' => 'boolean',
+        'require_documents_uploaded' => 'boolean',
+        'manual_review_allowed' => 'boolean',
+        'exception_allowed' => 'boolean',
     ];
 
     protected $appends = [
@@ -96,9 +106,9 @@ class FundingSequencing extends Model
         });
     }
 
-    public function lenders()
+    public function lenderVisibilities()
     {
-        return $this->hasMany(LenderFundingSequencing::class, 'funding_sequencing_id');
+        return $this->hasMany(LenderVisibility::class, 'funding_sequencing_id');
     }
 
     /**
@@ -127,13 +137,13 @@ class FundingSequencing extends Model
         }
 
         // Load lenders if not loaded
-        if (!$this->relationLoaded('lenders')) {
-            $this->load('lenders');
+        if (!$this->relationLoaded('lenderVisibilities')) {
+            $this->load('lenderVisibilities');
         }
 
         // If no lenders are configured, default to HIDDEN (or maybe ACTIVE if we want to fallback)
         // Let's fallback to ACTIVE if no lenders to not break existing data
-        if ($this->lenders->isEmpty()) {
+        if ($this->lenderVisibilities->isEmpty()) {
             return self::ENGINE_STATUS_ACTIVE;
         }
 
@@ -150,7 +160,10 @@ class FundingSequencing extends Model
         $bestStatus = self::ENGINE_STATUS_HIDDEN;
         $bestPriority = 0;
 
-        foreach ($this->lenders as $lenderSeq) {
+        foreach ($this->lenderVisibilities as $lenderSeq) {
+            // Prevent lazy loading violation by explicitly setting the parent relation
+            $lenderSeq->setRelation('fundingSequencing', $this);
+            
             $status = $lenderSeq->getEngineStatusForBorrower($borrower);
             $priority = $statusPriority[$status] ?? 0;
 

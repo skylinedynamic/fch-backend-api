@@ -13,6 +13,7 @@ return [
     'funding_type_id_exists'     => 'The selected funding type is invalid.',
     'lender_id_required'         => 'Please select a lender.',
     'lender_id_exists'           => 'The selected lender is invalid.',
+    'lender_id_distinct'         => 'Each lender can only be added once in the visibility logic.',
     'description_string'         => 'The description must be a valid string.',
     'min_amount_required'        => 'The minimum amount is required.',
     'min_amount_numeric'         => 'The minimum amount must be a number.',
@@ -42,6 +43,7 @@ return [
     'min_dscr_regex'             => 'Minimum DSCR is out of range or has an invalid decimal format.',
     'min_tib_months_required'    => 'Minimum time in business is required.',
     'allowed_documents_required_if' => 'Allowed documents are required when Require Documents Uploaded is enabled.',
+    'require_completed_application_accepted_if' => 'Require Completed Fund Application must be enabled when Require Documents Uploaded is enabled.',
 
     // Funding Group
     'group_name_required'        => 'The group name is required.',

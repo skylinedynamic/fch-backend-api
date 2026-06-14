@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Lender\Lender;
 use App\Models\Funding\FundingSequencing;
 
-class LenderFundingSequencing extends Model
+class LenderVisibility extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $table = 'lender_visibilities';
 
     protected $fillable = [
         'lender_id',
@@ -27,11 +29,6 @@ class LenderFundingSequencing extends Model
         'restricted_states',
         'allowed_industries',
         'restricted_industries',
-        'require_completed_application',
-        'require_documents_uploaded',
-        'allowed_documents',
-        'manual_review_allowed',
-        'exception_allowed',
     ];
 
     protected $casts = [
@@ -39,11 +36,6 @@ class LenderFundingSequencing extends Model
         'restricted_states' => 'array',
         'allowed_industries' => 'array',
         'restricted_industries' => 'array',
-        'allowed_documents' => 'array',
-        'require_completed_application' => 'boolean',
-        'require_documents_uploaded' => 'boolean',
-        'manual_review_allowed' => 'boolean',
-        'exception_allowed' => 'boolean',
     ];
 
     public function lender()
@@ -113,7 +105,7 @@ class LenderFundingSequencing extends Model
         }
 
         if ($failedFinancials > 0) {
-            if ($this->manual_review_allowed || $this->exception_allowed) {
+            if ($this->fundingSequencing->manual_review_allowed || $this->fundingSequencing->exception_allowed) {
                 return FundingSequencing::ENGINE_STATUS_REVIEW;
             }
             return FundingSequencing::ENGINE_STATUS_GREYED_OUT;
@@ -121,14 +113,14 @@ class LenderFundingSequencing extends Model
 
         $conditional = false;
         
-        if ($this->require_completed_application) {
+        if ($this->fundingSequencing->require_completed_application) {
             $hasApp = \App\Models\Borrower\FundingApplication::where('borrower_id', $borrower->id)->exists();
             if (!$hasApp) {
                 $conditional = true;
             }
         }
 
-        if ($this->require_documents_uploaded) {
+        if ($this->fundingSequencing->require_documents_uploaded) {
             $hasDocs = \App\Models\Borrower\BorrowerDocument::where('borrower_id', $borrower->id)->exists();
             if (!$hasDocs) {
                 $conditional = true;

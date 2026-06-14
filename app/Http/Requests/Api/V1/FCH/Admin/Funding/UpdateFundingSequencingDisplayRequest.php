@@ -47,6 +47,12 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'readiness_factors.*'=> 'string|max:255',
             'missing_documents'=> 'nullable|array',
             'missing_documents.*'=> 'string|max:255',
+            'require_completed_application' => 'accepted_if:require_documents_uploaded,true,1|nullable|boolean',
+            'require_documents_uploaded'    => 'nullable|boolean',
+            'allowed_documents'             => 'required_if:require_documents_uploaded,true,1|nullable|array',
+            'allowed_documents.*'           => 'integer',
+            'manual_review_allowed'         => 'nullable|boolean',
+            'exception_allowed'             => 'nullable|boolean',
         ];
     }
 
@@ -80,6 +86,9 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'status.in'                  => __('funding_sequencing.status_in'),
             'sort_order.integer'         => __('funding_sequencing.sort_order_integer'),
             'action_url.max'             => __('funding_sequencing.action_url_max'),
+            'readiness_factors.required'     => __('funding_sequencing.readiness_factors_required'),
+            'allowed_documents.required_if'  => __('funding_sequencing.allowed_documents_required_if'),
+            'require_completed_application.accepted_if' => __('funding_sequencing.require_completed_application_accepted_if'),
         ];
     }
 }
