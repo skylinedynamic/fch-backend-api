@@ -22,11 +22,16 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'currency' => 'required|string|max:10',
-            'years_in_business' => 'required|string',
-            'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
-            'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'currency'                              => 'required|string|max:10',
+            'years_in_business'                     => 'required|string',
+            'monthly_revenue'                       => 'required|numeric|min:0|max:999999999.99',
+            'annual_revenue'                        => 'required|numeric|min:0|max:999999999.99',
+            'bank_accounts'                         => 'nullable|array',
+            'bank_accounts.*.id'                    => 'nullable|integer|exists:borrower_bank_accounts,id',
+            'bank_accounts.*.bank_name'             => 'required_with:bank_accounts.*|string|max:255',
+            'bank_accounts.*.account_open_date'     => 'nullable|date|before_or_equal:today',
         ];
+
     }
 
     /**

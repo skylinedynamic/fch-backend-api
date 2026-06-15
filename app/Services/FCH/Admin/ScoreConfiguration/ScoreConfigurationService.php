@@ -2,33 +2,101 @@
 
 namespace App\Services\FCH\Admin\ScoreConfiguration;
 
-use App\Models\Common\ScoreConfigItem;
-use App\Models\Common\ScoreFactor;
-use App\Models\Common\ScoreModel;
-use App\Models\Common\ScoreModelFactor;
+use App\Models\Common\ScoreConfiguration;
 use Illuminate\Support\Facades\DB;
 
 class ScoreConfigurationService
 {
+    private array $modelMeta = [
+        'funding_readiness' => ['id' => 1, 'name' => 'Funding Readiness', 'description' => 'Overall business funding readiness score'],
+        'card_approval_odds' => ['id' => 2, 'name' => 'Card Approval Odds', 'description' => 'Credit card approval probability score'],
+    ];
+
+    private array $factorMeta = [
+        'fico' => ['id' => 1, 'name' => 'FICO Score', 'description' => 'Personal credit score'],
+        'utilization' => ['id' => 2, 'name' => 'Credit Card Utilization', 'description' => 'Revolving credit utilization ratio'],
+        'recent_inquiries' => ['id' => 3, 'name' => 'Recent Inquiries/New Accounts', 'description' => 'Recent credit inquiries and new accounts'],
+        'time_in_business' => ['id' => 4, 'name' => 'Time In Business', 'description' => 'Length of time business has been operating'],
+        'revenue_strength' => ['id' => 5, 'name' => 'Revenue Strength', 'description' => 'Business revenue and personal income strength'],
+        'tradeline_depth' => ['id' => 6, 'name' => 'Tradeline Depth', 'description' => 'Credit account depth and limits'],
+        'banking_relationships' => ['id' => 7, 'name' => 'Banking Relationships', 'description' => 'Banking relationship strength'],
+    ];
+
     public function getAll(): array
     {
-        $models = ScoreModel::with(['factors' => function ($q) {
-            $q->orderByPivot('sort_order');
-        }])->orderBy('sort_order')->get();
+        $dbWeights = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)->get();
 
-        $factors = ScoreFactor::with(['subscoreTiers' => function ($q) {
-            $q->orderBy('sort_order');
-        }])->orderBy('sort_order')->get();
+        $models = [];
+        foreach ($this->modelMeta as $mSlug => $meta) {
+            $mFactors = [];
+            $filteredWeights = $dbWeights->where('model_slug', $mSlug)->sortBy('sort_order');
+            foreach ($filteredWeights as $w) {
+                $fSlug = $w->factor_slug;
+                if (isset($this->factorMeta[$fSlug])) {
+                    $mFactors[] = [
+                        'id' => $this->factorMeta[$fSlug]['id'],
+                        'slug' => $fSlug,
+                        'name' => $this->factorMeta[$fSlug]['name'],
+                        'description' => $this->factorMeta[$fSlug]['description'],
+                        'pivot' => [
+                            'weight' => $w->numeric_value,
+                            'sort_order' => $w->sort_order,
+                        ],
+                    ];
+                }
+            }
+            $models[] = [
+                'id' => $meta['id'],
+                'slug' => $mSlug,
+                'name' => $meta['name'],
+                'description' => $meta['description'],
+                'factors' => $mFactors,
+            ];
+        }
 
-        $bandMappings = ScoreConfigItem::where('category', ScoreConfigItem::CATEGORY_BAND_MAPPING)
+        $dbTiers = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
             ->orderBy('sort_order')
             ->get();
 
-        $readinessBands = ScoreConfigItem::where('category', ScoreConfigItem::CATEGORY_READINESS_BAND)
+        $factors = [];
+        foreach ($this->factorMeta as $fSlug => $meta) {
+            $subscoreTiers = [];
+            $filteredTiers = $dbTiers->where('factor_slug', $fSlug);
+            foreach ($filteredTiers as $tier) {
+                $subscoreTiers[] = [
+                    'id' => $tier->id,
+                    'factor_slug' => $fSlug,
+                    'category' => $tier->category,
+                    'label' => $tier->label,
+                    'min_value' => $tier->min_value,
+                    'max_value' => $tier->max_value,
+                    'numeric_value' => $tier->numeric_value,
+                    'conditions' => $tier->conditions,
+                    'sort_order' => $tier->sort_order,
+                ];
+            }
+            $factors[] = [
+                'id' => $meta['id'],
+                'slug' => $fSlug,
+                'name' => $meta['name'],
+                'description' => $meta['description'],
+                'subscore_tiers' => $subscoreTiers,
+            ];
+        }
+
+        $bandMappings = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_BAND_MAPPING)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($item) {
+                $item->score_model_id = 2; // For backward compatibility with card approval odds model id
+                return $item;
+            });
+
+        $readinessBands = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
             ->orderBy('sort_order')
             ->get();
 
-        $playEligibility = ScoreConfigItem::where('category', ScoreConfigItem::CATEGORY_PLAY_ELIGIBILITY)
+        $playEligibility = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_PLAY_ELIGIBILITY)
             ->orderBy('sort_order')
             ->get();
 
@@ -43,76 +111,97 @@ class ScoreConfigurationService
 
     public function updateAll(array $data): void
     {
-        DB::transaction(function () use ($data) {
+        $modelSlugs = [
+            1 => 'funding_readiness',
+            2 => 'card_approval_odds',
+        ];
+        $factorSlugs = [
+            1 => 'fico',
+            2 => 'utilization',
+            3 => 'recent_inquiries',
+            4 => 'time_in_business',
+            5 => 'revenue_strength',
+            6 => 'tradeline_depth',
+            7 => 'banking_relationships',
+        ];
+
+        DB::transaction(function () use ($data, $modelSlugs, $factorSlugs) {
             if (isset($data['model_factors'])) {
-                $this->upsertModelFactors($data['model_factors']);
+                foreach ($data['model_factors'] as $factor) {
+                    $modelSlug = $modelSlugs[$factor['score_model_id']] ?? null;
+                    $factorSlug = $factorSlugs[$factor['score_factor_id']] ?? null;
+                    if ($modelSlug && $factorSlug) {
+                        ScoreConfiguration::updateOrCreate(
+                            [
+                                'category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT,
+                                'model_slug' => $modelSlug,
+                                'factor_slug' => $factorSlug,
+                            ],
+                            [
+                                'numeric_value' => $factor['weight'] ?? 0,
+                                'sort_order' => $factor['sort_order'] ?? 0,
+                            ]
+                        );
+                    }
+                }
             }
 
             if (isset($data['subscore_tiers'])) {
-                $this->upsertConfigItems(
-                    $data['subscore_tiers'],
-                    ScoreConfigItem::CATEGORY_SUBSCORE_TIER
-                );
+                foreach ($data['subscore_tiers'] as $item) {
+                    if (!empty($item['id'])) {
+                        $updateData = [
+                            'min_value' => $item['min_value'] ?? null,
+                            'max_value' => $item['max_value'] ?? null,
+                            'numeric_value' => $item['numeric_value'] ?? null,
+                        ];
+                        if (array_key_exists('conditions', $item)) {
+                            $updateData['conditions'] = $item['conditions'];
+                        }
+                        ScoreConfiguration::where('id', $item['id'])
+                            ->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+                            ->update($updateData);
+                    }
+                }
             }
 
             if (isset($data['band_mappings'])) {
-                $this->upsertConfigItems(
-                    $data['band_mappings'],
-                    ScoreConfigItem::CATEGORY_BAND_MAPPING
-                );
+                foreach ($data['band_mappings'] as $item) {
+                    if (!empty($item['id'])) {
+                        ScoreConfiguration::where('id', $item['id'])
+                            ->where('category', ScoreConfiguration::CATEGORY_BAND_MAPPING)
+                            ->update([
+                                'min_value' => $item['min_value'] ?? null,
+                                'max_value' => $item['max_value'] ?? null,
+                                'numeric_value' => $item['numeric_value'] ?? null,
+                            ]);
+                    }
+                }
             }
 
             if (isset($data['readiness_bands'])) {
-                $this->upsertConfigItems(
-                    $data['readiness_bands'],
-                    ScoreConfigItem::CATEGORY_READINESS_BAND
-                );
+                foreach ($data['readiness_bands'] as $item) {
+                    if (!empty($item['id'])) {
+                        ScoreConfiguration::where('id', $item['id'])
+                            ->where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
+                            ->update([
+                                'min_value' => $item['min_value'] ?? null,
+                                'max_value' => $item['max_value'] ?? null,
+                            ]);
+                    }
+                }
             }
 
             if (isset($data['play_eligibility'])) {
-                $this->upsertConfigItems(
-                    $data['play_eligibility'],
-                    ScoreConfigItem::CATEGORY_PLAY_ELIGIBILITY
-                );
+                foreach ($data['play_eligibility'] as $item) {
+                    if (!empty($item['id'])) {
+                        ScoreConfiguration::where('id', $item['id'])
+                            ->where('category', ScoreConfiguration::CATEGORY_PLAY_ELIGIBILITY)
+                            ->update([
+                                'numeric_value' => $item['numeric_value'] ?? null,
+                            ]);
+                    }
+                }
             }
         });
-    }
-
-    private function upsertModelFactors(array $factors): void
-    {
-        foreach ($factors as $factor) {
-            ScoreModelFactor::upsert(
-                [
-                    'score_model_id' => $factor['score_model_id'],
-                    'score_factor_id' => $factor['score_factor_id'],
-                    'weight' => $factor['weight'] ?? 0,
-                    'sort_order' => $factor['sort_order'] ?? 0,
-                ],
-                ['score_model_id', 'score_factor_id'],
-                ['weight', 'sort_order']
-            );
-        }
-    }
-
-    private function upsertConfigItems(array $items, string $category): void
-    {
-        foreach ($items as $item) {
-            $data = array_merge([
-                'category' => $category,
-                'min_value' => null,
-                'max_value' => null,
-                'numeric_value' => null,
-                'conditions' => null,
-                'sort_order' => 0,
-            ], $item);
-
-            unset($data['id'], $data['category']);
-
-            if (!empty($item['id'])) {
-                ScoreConfigItem::where('id', $item['id'])
-                    ->where('category', $category)
-                    ->update($data);
-            }
-        }
     }
 }

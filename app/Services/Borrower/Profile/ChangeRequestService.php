@@ -39,23 +39,46 @@ class ChangeRequestService
             throw new \Exception("Field mapping not found for: {$fieldName}");
         }
 
-        $dbColumn = $mapping['db_column'];
-        $fieldType = $mapping['type'];
+        $dbColumn    = $mapping['db_column'];
+        $fieldType   = $mapping['type'];
         $visibleName = $mapping['visible_column'];
-        $oldValue = $borrower->{$dbColumn};
+        // FQCN stored in entity_type — resolved from the mapping
+        $modelClass  = $mapping['model'];
+
+        $oldValue = null;
+        $entityId = $data['entity_id'] ?? null;
+
+        // Handle child table fields (e.g. BorrowerBankAccount)
+        if (isset($mapping['table']) && $entityId) {
+            $tableName = $mapping['table'];
+            $childRecord = \Illuminate\Support\Facades\DB::table($tableName)
+                ->where('id', $entityId)
+                ->where('borrower_id', $borrower->id)
+                ->first();
+
+            if ($childRecord) {
+                $oldValue = $childRecord->{$dbColumn};
+            }
+        } else {
+            // Standard borrower table field — entity_id is the borrower's own id
+            $entityId = $borrower->id;
+            $oldValue = $borrower->{$dbColumn};
+        }
 
         return BorrowerChangeRequest::create([
-            "partner_id" => $borrower->partner_id,
-            "borrower_id" => $borrower->id,
-            "field_name" => $fieldName,
-            "field_type" => $fieldType,
+            "partner_id"         => $borrower->partner_id,
+            "borrower_id"        => $borrower->id,
+            "field_name"         => $fieldName,
+            "field_type"         => $fieldType,
             "visible_field_name" => $visibleName,
-            "db_field_name" => $dbColumn,
-            "old_value" => $oldValue,
-            "new_value" => $data["new_value"],
-            "status" => BorrowerChangeRequest::STATUS_PENDING,
-            "note" => null,
-            "updated_by" => null,
+            "db_field_name"      => $dbColumn,
+            "entity_type"        => $modelClass,
+            "entity_id"          => $entityId,
+            "old_value"          => $oldValue,
+            "new_value"          => $data["new_value"],
+            "status"             => BorrowerChangeRequest::STATUS_PENDING,
+            "note"               => null,
+            "updated_by"         => null,
         ]);
     }
 }

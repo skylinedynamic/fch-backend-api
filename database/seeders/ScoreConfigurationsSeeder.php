@@ -2,77 +2,49 @@
 
 namespace Database\Seeders;
 
-use App\Models\Common\ScoreConfigItem;
-use App\Models\Common\ScoreFactor;
-use App\Models\Common\ScoreModel;
-use App\Models\Common\ScoreModelFactor;
+use App\Models\Common\ScoreConfiguration;
 use Illuminate\Database\Seeder;
 
 class ScoreConfigurationsSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedModels();
-        $this->seedFactors();
-        $this->seedModelFactors();
+        ScoreConfiguration::truncate();
+
+        $this->seedModelWeights();
         $this->seedSubscoreTiers();
         $this->seedBandMappings();
         $this->seedReadinessBands();
         $this->seedPlayEligibility();
     }
 
-    private function seedModels(): void
+    private function seedModelWeights(): void
     {
-        ScoreModel::upsert([
-            ['slug' => ScoreModel::SLUG_FUNDING_READINESS, 'name' => 'Funding Readiness', 'description' => 'Overall business funding readiness score'],
-            ['slug' => ScoreModel::SLUG_CARD_APPROVAL_ODDS, 'name' => 'Card Approval Odds', 'description' => 'Credit card approval probability score'],
-        ], ['slug'], ['name', 'description']);
-    }
+        $rows = [
+            // Card Approval Odds weights
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'card_approval_odds', 'factor_slug' => 'fico', 'numeric_value' => 40, 'sort_order' => 1],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'card_approval_odds', 'factor_slug' => 'utilization', 'numeric_value' => 25, 'sort_order' => 2],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'card_approval_odds', 'factor_slug' => 'recent_inquiries', 'numeric_value' => 15, 'sort_order' => 3],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'card_approval_odds', 'factor_slug' => 'time_in_business', 'numeric_value' => 10, 'sort_order' => 4],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'card_approval_odds', 'factor_slug' => 'revenue_strength', 'numeric_value' => 10, 'sort_order' => 5],
 
-    private function seedFactors(): void
-    {
-        ScoreFactor::upsert([
-            ['slug' => 'fico', 'name' => 'FICO Score', 'description' => 'Personal credit score', 'sort_order' => 1],
-            ['slug' => 'utilization', 'name' => 'Credit Card Utilization', 'description' => 'Revolving credit utilization ratio', 'sort_order' => 2],
-            ['slug' => 'recent_inquiries', 'name' => 'Recent Inquiries/New Accounts', 'description' => 'Recent credit inquiries and new accounts', 'sort_order' => 3],
-            ['slug' => 'time_in_business', 'name' => 'Time In Business', 'description' => 'Length of time business has been operating', 'sort_order' => 4],
-            ['slug' => 'revenue_strength', 'name' => 'Revenue Strength', 'description' => 'Business revenue and personal income strength', 'sort_order' => 5],
-            ['slug' => 'tradeline_depth', 'name' => 'Tradeline Depth', 'description' => 'Credit account depth and limits', 'sort_order' => 6],
-            ['slug' => 'banking_relationships', 'name' => 'Banking Relationships', 'description' => 'Banking relationship strength', 'sort_order' => 7],
-        ], ['slug'], ['name', 'description', 'sort_order']);
-    }
+            // Funding Readiness weights
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'fico',                 'numeric_value' => 35, 'sort_order' => 1],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'utilization',          'numeric_value' => 25, 'sort_order' => 2],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'time_in_business',     'numeric_value' => 15, 'sort_order' => 3],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'revenue_strength',     'numeric_value' => 10, 'sort_order' => 4],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'tradeline_depth',      'numeric_value' => 10, 'sort_order' => 5],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'banking_relationships', 'numeric_value' =>  5, 'sort_order' => 6],
 
-    private function seedModelFactors(): void
-    {
-        $card = ScoreModel::where('slug', ScoreModel::SLUG_CARD_APPROVAL_ODDS)->value('id');
-        $readiness = ScoreModel::where('slug', ScoreModel::SLUG_FUNDING_READINESS)->value('id');
+        ];
 
-        $factor = fn(string $slug) => ScoreFactor::where('slug', $slug)->value('id');
-
-        // Card Approval Odds weights
-        ScoreModelFactor::upsert([
-            ['score_model_id' => $card, 'score_factor_id' => $factor('fico'), 'weight' => 40, 'sort_order' => 1],
-            ['score_model_id' => $card, 'score_factor_id' => $factor('utilization'), 'weight' => 25, 'sort_order' => 2],
-            ['score_model_id' => $card, 'score_factor_id' => $factor('recent_inquiries'), 'weight' => 15, 'sort_order' => 3],
-            ['score_model_id' => $card, 'score_factor_id' => $factor('time_in_business'), 'weight' => 10, 'sort_order' => 4],
-            ['score_model_id' => $card, 'score_factor_id' => $factor('revenue_strength'), 'weight' => 10, 'sort_order' => 5],
-        ], ['score_model_id', 'score_factor_id'], ['weight', 'sort_order']);
-
-        // Funding Readiness weights
-        ScoreModelFactor::upsert([
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('fico'), 'weight' => 20, 'sort_order' => 1],
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('utilization'), 'weight' => 15, 'sort_order' => 2],
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('time_in_business'), 'weight' => 25, 'sort_order' => 3],
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('revenue_strength'), 'weight' => 20, 'sort_order' => 4],
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('tradeline_depth'), 'weight' => 10, 'sort_order' => 5],
-            ['score_model_id' => $readiness, 'score_factor_id' => $factor('banking_relationships'), 'weight' => 10, 'sort_order' => 6],
-        ], ['score_model_id', 'score_factor_id'], ['weight', 'sort_order']);
+        foreach ($rows as $row) {
+            ScoreConfiguration::create($row);
+        }
     }
 
     private function seedSubscoreTiers(): void
     {
-        ScoreConfigItem::where('category', ScoreConfigItem::CATEGORY_SUBSCORE_TIER)->delete();
-
         $items = collect();
 
         // FICO tiers
@@ -138,7 +110,9 @@ class ScoreConfigurationsSeeder extends Seeder
             ['label' => 'Moderate', 'subscore' => 60, 'order' => 3, 'conditions' => ['all' => [
                 ['field' => 'open_accounts', 'operator' => 'between', 'value' => [2, 3]],
             ]]],
-            ['label' => 'Thin', 'subscore' => 35, 'order' => 4],
+            ['label' => 'Thin', 'subscore' => 35, 'order' => 4, 'conditions' => ['all' => [
+                ['field' => 'open_accounts', 'operator' => 'between', 'value' => [0, 1]],
+            ]]],
         ]));
 
         // Banking Relationship tiers
@@ -157,23 +131,23 @@ class ScoreConfigurationsSeeder extends Seeder
             ['label' => 'Weak / None', 'subscore' => 35, 'order' => 4],
         ]));
 
-        ScoreConfigItem::insert($items->toArray());
+        foreach ($items as $item) {
+            ScoreConfiguration::create($item);
+        }
     }
 
     private function seedBandMappings(): void
     {
-        $cardModel = ScoreModel::where('slug', ScoreModel::SLUG_CARD_APPROVAL_ODDS)->value('id');
-
         $rows = [
-            ['score_model_id' => $cardModel, 'max_value' => null, 'label' => '90+', 'min_value' => 90, 'numeric_value' => 95, 'sort_order' => 1],
-            ['score_model_id' => $cardModel, 'max_value' => 89, 'label' => '80-89', 'min_value' => 80, 'numeric_value' => 85, 'sort_order' => 2],
-            ['score_model_id' => $cardModel, 'max_value' => 79, 'label' => '70-79', 'min_value' => 70, 'numeric_value' => 75, 'sort_order' => 3],
-            ['score_model_id' => $cardModel, 'max_value' => 69, 'label' => '60-69', 'min_value' => 60, 'numeric_value' => 65, 'sort_order' => 4],
-            ['score_model_id' => $cardModel, 'max_value' => 59, 'label' => '50-59', 'min_value' => 50, 'numeric_value' => 50, 'sort_order' => 5],
-            ['score_model_id' => $cardModel, 'max_value' => 49, 'label' => 'Under 50', 'min_value' => null, 'numeric_value' => 25, 'sort_order' => 6],
+            ['model_slug' => 'card_approval_odds', 'max_value' => null, 'label' => '90+', 'min_value' => 90, 'numeric_value' => 95, 'sort_order' => 1],
+            ['model_slug' => 'card_approval_odds', 'max_value' => 89, 'label' => '80-89', 'min_value' => 80, 'numeric_value' => 85, 'sort_order' => 2],
+            ['model_slug' => 'card_approval_odds', 'max_value' => 79, 'label' => '70-79', 'min_value' => 70, 'numeric_value' => 75, 'sort_order' => 3],
+            ['model_slug' => 'card_approval_odds', 'max_value' => 69, 'label' => '60-69', 'min_value' => 60, 'numeric_value' => 65, 'sort_order' => 4],
+            ['model_slug' => 'card_approval_odds', 'max_value' => 59, 'label' => '50-59', 'min_value' => 50, 'numeric_value' => 50, 'sort_order' => 5],
+            ['model_slug' => 'card_approval_odds', 'max_value' => 49, 'label' => 'Under 50', 'min_value' => null, 'numeric_value' => 25, 'sort_order' => 6],
         ];
 
-        $this->upsertWithFixedKeys($rows, ScoreConfigItem::CATEGORY_BAND_MAPPING);
+        $this->insertWithCategory($rows, ScoreConfiguration::CATEGORY_BAND_MAPPING);
     }
 
     private function seedReadinessBands(): void
@@ -186,7 +160,7 @@ class ScoreConfigurationsSeeder extends Seeder
             ['max_value' => 59, 'label' => 'Not Ready', 'min_value' => 0, 'sort_order' => 5],
         ];
 
-        $this->upsertWithFixedKeys($rows, ScoreConfigItem::CATEGORY_READINESS_BAND);
+        $this->insertWithCategory($rows, ScoreConfiguration::CATEGORY_READINESS_BAND);
     }
 
     private function seedPlayEligibility(): void
@@ -203,20 +177,14 @@ class ScoreConfigurationsSeeder extends Seeder
             ['max_value' => null, 'min_value' => null, 'label' => 'Elite 500 Play', 'numeric_value' => 760, 'sort_order' => 9],
         ];
 
-        $this->upsertWithFixedKeys($rows, ScoreConfigItem::CATEGORY_PLAY_ELIGIBILITY);
+        $this->insertWithCategory($rows, ScoreConfiguration::CATEGORY_PLAY_ELIGIBILITY);
     }
 
-    private function upsertWithFixedKeys(array $rows, string $category): void
+    private function insertWithCategory(array $rows, string $category): void
     {
-        if (empty($rows)) return;
-
-        ScoreConfigItem::where('category', $category)->delete();
-
-        $normalized = [];
         foreach ($rows as $row) {
-            $normalized[] = array_merge([
-                'partner_id' => null,
-                'score_model_id' => null,
+            $data = array_merge([
+                'model_slug' => null,
                 'factor_slug' => null,
                 'category' => $category,
                 'label' => null,
@@ -226,9 +194,9 @@ class ScoreConfigurationsSeeder extends Seeder
                 'conditions' => null,
                 'sort_order' => 0,
             ], $row);
-        }
 
-        ScoreConfigItem::insert($normalized);
+            ScoreConfiguration::create($data);
+        }
     }
 
     private function tiers(string $factorSlug, array $tiers): array
@@ -237,15 +205,14 @@ class ScoreConfigurationsSeeder extends Seeder
 
         foreach ($tiers as $tier) {
             $rows[] = [
-                'partner_id' => null,
-                'score_model_id' => null,
+                'model_slug' => 'funding_readiness',
                 'factor_slug' => $factorSlug,
-                'category' => ScoreConfigItem::CATEGORY_SUBSCORE_TIER,
+                'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
                 'label' => $tier['label'] ?? null,
                 'min_value' => $tier['min'] ?? null,
                 'max_value' => $tier['max'] ?? null,
                 'numeric_value' => $tier['subscore'] ?? null,
-                'conditions' => isset($tier['conditions']) ? json_encode($tier['conditions']) : null,
+                'conditions' => isset($tier['conditions']) ? $tier['conditions'] : null,
                 'sort_order' => $tier['order'] ?? 0,
             ];
         }

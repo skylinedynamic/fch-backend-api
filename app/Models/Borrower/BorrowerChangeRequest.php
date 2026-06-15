@@ -22,12 +22,22 @@ class BorrowerChangeRequest extends Model
         'field_type',
         'visible_field_name',
         'db_field_name',
+        'entity_type',
+        'entity_id',
         'old_value',
         'new_value',
         'status',
         'updated_by',
         'note',
     ];
+
+    /**
+     * Get the parent change requestable model (polymorphic relationship).
+     */
+    public function changeRequestable()
+    {
+        return $this->morphTo(null, 'entity_type', 'entity_id');
+    }
 
     /**
      * Get the borrower that owns the change request.

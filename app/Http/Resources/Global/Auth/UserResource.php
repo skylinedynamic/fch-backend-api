@@ -50,7 +50,7 @@ class UserResource extends JsonResource
             // For Partners, Employees, or users with null entity_type but valid partner_id
             $subscription = $this->partner?->subscription;
         }
-        
+
         $partnerInvoiceStatus = null;
         if ($this->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
             $partnerInvoice = Invoice::where('partner_id', $this->partner_id)
@@ -86,9 +86,10 @@ class UserResource extends JsonResource
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
-            'is_paid'           => $this->is_paid,
-            'start_date'        => $this->start_date ? $this->start_date->format('Y-m-d') : null,
-            'end_date'          => $this->end_date ? $this->end_date->format('Y-m-d') : null,
+            'credit_profile_updated' => $this->borrower?->credit_profile_updated,
+            'is_paid' => $this->is_paid,
+            'start_date' => $this->start_date ? $this->start_date->format('Y-m-d') : null,
+            'end_date' => $this->end_date ? $this->end_date->format('Y-m-d') : null,
             'phase' => $subscription?->phases?->phase,
             'status' => $this->status,
             'image' => $this->getEntityImage(),

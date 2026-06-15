@@ -623,7 +623,13 @@ class BorrowerController extends Controller
             // Update primary columns for searchability/filtering
             $borrower->fico_score = isset($metrics['fico_score']) ? (int)$metrics['fico_score'] : null;
             $borrower->paydex_score = isset($metrics['paydex_score']) ? (int)$metrics['paydex_score'] : null;
+            $borrower->credit_profile_updated = true;
             $borrower->save();
+
+            // Set is_refresh = true in the user table for this borrower
+            if ($borrower->user) {
+                $borrower->user->update(['is_refresh' => true]);
+            }
 
             \Illuminate\Support\Facades\DB::beginTransaction();
 

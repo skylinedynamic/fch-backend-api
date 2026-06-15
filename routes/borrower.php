@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewCont
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyController;
+use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
@@ -110,6 +111,7 @@ Route::prefix('v1/borrower')->group(function () {
             // Capital Access Strategies
             Route::prefix('capital-access')->group(
                 function () {
+                    Route::get('/overview', [CapitalAccessOverviewController::class, 'index']);
                     Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
                     Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
                 }
