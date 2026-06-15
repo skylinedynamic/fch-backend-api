@@ -555,7 +555,13 @@ class FundingSequencingSeeder extends Seeder
             ['lender_id' => $lender2, 'funding_sequencing_id' => 26, 'min_fico' => 6566, 'min_tib_months' => 87887, 'min_monthly_revenue' => 87887.00, 'min_monthly_deposits' => 87886.00, 'min_average_daily_balance' => 87878.00, 'max_nsf_count' => null, 'max_negative_days' => null, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[4, 3, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51']
         ];
 
-        foreach ($lenderFundingSequencings as $lfs) {
+        $sequencingIds = FundingSequencing::orderBy('id')->pluck('id')->toArray();
+        
+        foreach ($lenderFundingSequencings as $index => $lfs) {
+            // Map the hardcoded IDs to the actual IDs generated in this run
+            $actualSeqId = $sequencingIds[$index] ?? null;
+            if (!$actualSeqId) continue;
+
             $visibilityData = [
                 'min_fico' => $lfs['min_fico'],
                 'min_tib_months' => $lfs['min_tib_months'],
@@ -574,12 +580,12 @@ class FundingSequencingSeeder extends Seeder
             LenderVisibility::updateOrCreate(
                 [
                     'lender_id' => $lfs['lender_id'],
-                    'funding_sequencing_id' => $lfs['funding_sequencing_id']
+                    'funding_sequencing_id' => $actualSeqId
                 ],
                 $visibilityData
             );
 
-            FundingSequencing::where('id', $lfs['funding_sequencing_id'])->update([
+            FundingSequencing::where('id', $actualSeqId)->update([
                 'require_completed_application' => $lfs['require_completed_application'],
                 'require_documents_uploaded' => $lfs['require_documents_uploaded'],
                 'allowed_documents' => json_decode($lfs['allowed_documents'] ?? '[]', true) ?: [],
