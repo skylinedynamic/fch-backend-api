@@ -241,11 +241,11 @@ class FundingQualificationService
 
         if (empty($requiredIds)) {
             $hasAny = BorrowerDocument::where('borrower_id', $borrower->id)
-                ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+                ->where('status', '!=', 'Rejected')
                 ->exists();
 
             $rule['status'] = $hasAny ? $this->status('good') : $this->status('missing');
-            $rule['missing_docs'] = [];
+            $rule['missing_docs'] = $hasAny ? [] : ['Please upload supporting business documents.'];
             return $rule;
         }
 

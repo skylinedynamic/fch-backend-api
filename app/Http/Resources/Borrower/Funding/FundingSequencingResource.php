@@ -106,6 +106,7 @@ class FundingSequencingResource extends JsonResource
             'action_url' => $this->action_url,
             'funding_type_id' => $this->funding_type_id,
             'funding_group_id' => $this->funding_group_id,
+            'require_documents_uploaded' => (bool)$this->require_documents_uploaded,
             'requirements' => $requirements,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? 'Active',

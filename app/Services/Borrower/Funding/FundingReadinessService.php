@@ -18,32 +18,40 @@ class FundingReadinessService
      */
     public function getMissingDocuments($fundingOption, $borrower): array
     {
-        if (!$borrower) {
+        if (!$borrower || !$fundingOption) {
             return [];
         }
 
-        $requiredDocTypeIds = BorrowerDocumentsChecklist::where('borrower_id', $borrower->id)->pluck('borrower_doc_types_id');
-        $uploadedDocsCount = BorrowerDocument::where('borrower_id', $borrower->id)->count();
+        // If documents are not required at all, nothing is missing
+        if (!$fundingOption->require_documents_uploaded) {
+            return [];
+        }
 
-        // If the borrower has a specific checklist assigned
-        if ($requiredDocTypeIds->count() > 0) {
-            $uploadedDocTypeIds = BorrowerDocument::where('borrower_id', $borrower->id)->pluck('document_type_id');
-            $missingDocTypeIds = $requiredDocTypeIds->diff($uploadedDocTypeIds);
-            
-            if ($missingDocTypeIds->count() > 0) {
-                return BorrowerDocType::whereIn('id', $missingDocTypeIds)->pluck('name')->toArray();
+        $requiredIds = $fundingOption->allowed_documents ?? [];
+
+        // If specific documents are required, check them
+        if (!empty($requiredIds)) {
+            $uploadedIds = BorrowerDocument::where('borrower_id', $borrower->id)
+                ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+                ->pluck('document_type_id')
+                ->toArray();
+
+            $missingIds = array_values(array_diff($requiredIds, $uploadedIds));
+
+            if (empty($missingIds)) {
+                return [];
             }
-            return [];
+
+            return BorrowerDocType::whereIn('id', $missingIds)->pluck('name')->toArray();
         }
 
-        // If no checklist exists but the borrower has uploaded 0 documents
-        if ($uploadedDocsCount === 0) {
-            // Fallback to the funding option's default missing documents array, or a generic message if empty
-            $defaultMissing = ($fundingOption && is_array($fundingOption->missing_documents)) ? $fundingOption->missing_documents : [];
-            return count($defaultMissing) > 0 ? $defaultMissing : ['Please upload your required business documents.'];
-        }
+        // If no specific documents are required but documents are required in general,
+        // we just need ANY document to be uploaded.
+        $hasAny = BorrowerDocument::where('borrower_id', $borrower->id)
+            ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+            ->exists();
 
-        return [];
+        return $hasAny ? [] : ['Please upload your required business documents.'];
     }
 
     /**
@@ -159,7 +167,7 @@ class FundingReadinessService
                     if ($docType) {
                         $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
                             ->where('document_type_id', $docType->id)
-                            ->whereIn('status', ['Uploaded', 'Approved'])
+                            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
                             ->exists();
                             
                         if ($hasDoc) {
