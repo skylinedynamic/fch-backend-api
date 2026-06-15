@@ -27,7 +27,13 @@ class FundingReviewService
         $data['partner_id'] = $borrower->partner_id;
         $data['status'] = 'Pending';
 
-        $fundingReview = FundingReview::create($data);
+        $fundingReview = FundingReview::updateOrCreate(
+            [
+                'borrower_id' => $borrower->id,
+                'funding_sequence_id' => $data['funding_sequence_id']
+            ],
+            $data
+        );
 
         return [
             'id' => $fundingReview->id,
