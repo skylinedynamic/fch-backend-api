@@ -27,6 +27,7 @@ class FundingReviewController extends Controller
         try {
             return $this->fundingReviewService->getFundingReviewList($request->validated());
         } catch (\Exception $e) {
+            \Log::error($e->getMessage() . ' - ' . $e->getTraceAsString());
             return ApiResponse::serverError(__('funding_review.error_retrieving_funding_reviews'));
         }
     }

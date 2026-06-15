@@ -60,7 +60,8 @@ class FundingReview extends Model
                 $q->whereHas('borrower', function ($qBorrower) use ($search) {
                     $qBorrower->where('first_name', 'like', "%{$search}%")
                               ->orWhere('last_name', 'like', "%{$search}%")
-                              ->orWhere('company_name', 'like', "%{$search}%");
+                              ->orWhere('business_name', 'like', "%{$search}%")
+                              ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
                 })
                 // Search funding sequence relations
                 ->orWhereHas('fundingSequence', function ($qSequence) use ($search) {
