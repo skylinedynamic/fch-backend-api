@@ -126,7 +126,30 @@ class ScoreConfigurationService
         ];
 
         DB::transaction(function () use ($data, $modelSlugs, $factorSlugs) {
-            if (isset($data['model_factors'])) {
+            // 1. Update weights using nested "models" or flat "model_factors"
+            if (isset($data['models'])) {
+                foreach ($data['models'] as $model) {
+                    $modelSlug = $model['slug'] ?? ($modelSlugs[$model['id'] ?? null] ?? null);
+                    if ($modelSlug && isset($model['factors'])) {
+                        foreach ($model['factors'] as $factor) {
+                            $factorSlug = $factor['slug'] ?? ($factorSlugs[$factor['id'] ?? null] ?? null);
+                            if ($factorSlug) {
+                                ScoreConfiguration::updateOrCreate(
+                                    [
+                                        'category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT,
+                                        'model_slug' => $modelSlug,
+                                        'factor_slug' => $factorSlug,
+                                    ],
+                                    [
+                                        'numeric_value' => $factor['weight'] ?? 0,
+                                        'sort_order' => $factor['sort_order'] ?? 0,
+                                    ]
+                                );
+                            }
+                        }
+                    }
+                }
+            } elseif (isset($data['model_factors'])) {
                 foreach ($data['model_factors'] as $factor) {
                     $modelSlug = $modelSlugs[$factor['score_model_id']] ?? null;
                     $factorSlug = $factorSlugs[$factor['score_factor_id']] ?? null;
@@ -146,20 +169,55 @@ class ScoreConfigurationService
                 }
             }
 
-            if (isset($data['subscore_tiers'])) {
+            // 2. Update subscore tiers using nested "factors" or flat "subscore_tiers"
+            if (isset($data['factors'])) {
+                foreach ($data['factors'] as $factor) {
+                    if (isset($factor['tiers'])) {
+                        foreach ($factor['tiers'] as $item) {
+                            if (!empty($item['id'])) {
+                                $updateData = [];
+                                if (array_key_exists('min_value', $item)) {
+                                    $updateData['min_value'] = $item['min_value'];
+                                }
+                                if (array_key_exists('max_value', $item)) {
+                                    $updateData['max_value'] = $item['max_value'];
+                                }
+                                if (array_key_exists('numeric_value', $item)) {
+                                    $updateData['numeric_value'] = $item['numeric_value'];
+                                }
+                                if (array_key_exists('conditions', $item)) {
+                                    $updateData['conditions'] = $item['conditions'];
+                                }
+                                if (!empty($updateData)) {
+                                    ScoreConfiguration::where('id', $item['id'])
+                                        ->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+                                        ->update($updateData);
+                                }
+                            }
+                        }
+                    }
+                }
+            } elseif (isset($data['subscore_tiers'])) {
                 foreach ($data['subscore_tiers'] as $item) {
                     if (!empty($item['id'])) {
-                        $updateData = [
-                            'min_value' => $item['min_value'] ?? null,
-                            'max_value' => $item['max_value'] ?? null,
-                            'numeric_value' => $item['numeric_value'] ?? null,
-                        ];
+                        $updateData = [];
+                        if (array_key_exists('min_value', $item)) {
+                            $updateData['min_value'] = $item['min_value'];
+                        }
+                        if (array_key_exists('max_value', $item)) {
+                            $updateData['max_value'] = $item['max_value'];
+                        }
+                        if (array_key_exists('numeric_value', $item)) {
+                            $updateData['numeric_value'] = $item['numeric_value'];
+                        }
                         if (array_key_exists('conditions', $item)) {
                             $updateData['conditions'] = $item['conditions'];
                         }
-                        ScoreConfiguration::where('id', $item['id'])
-                            ->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
-                            ->update($updateData);
+                        if (!empty($updateData)) {
+                            ScoreConfiguration::where('id', $item['id'])
+                                ->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+                                ->update($updateData);
+                        }
                     }
                 }
             }
@@ -167,13 +225,21 @@ class ScoreConfigurationService
             if (isset($data['band_mappings'])) {
                 foreach ($data['band_mappings'] as $item) {
                     if (!empty($item['id'])) {
-                        ScoreConfiguration::where('id', $item['id'])
-                            ->where('category', ScoreConfiguration::CATEGORY_BAND_MAPPING)
-                            ->update([
-                                'min_value' => $item['min_value'] ?? null,
-                                'max_value' => $item['max_value'] ?? null,
-                                'numeric_value' => $item['numeric_value'] ?? null,
-                            ]);
+                        $updateData = [];
+                        if (array_key_exists('min_value', $item)) {
+                            $updateData['min_value'] = $item['min_value'];
+                        }
+                        if (array_key_exists('max_value', $item)) {
+                            $updateData['max_value'] = $item['max_value'];
+                        }
+                        if (array_key_exists('numeric_value', $item)) {
+                            $updateData['numeric_value'] = $item['numeric_value'];
+                        }
+                        if (!empty($updateData)) {
+                            ScoreConfiguration::where('id', $item['id'])
+                                ->where('category', ScoreConfiguration::CATEGORY_BAND_MAPPING)
+                                ->update($updateData);
+                        }
                     }
                 }
             }
@@ -181,12 +247,18 @@ class ScoreConfigurationService
             if (isset($data['readiness_bands'])) {
                 foreach ($data['readiness_bands'] as $item) {
                     if (!empty($item['id'])) {
-                        ScoreConfiguration::where('id', $item['id'])
-                            ->where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
-                            ->update([
-                                'min_value' => $item['min_value'] ?? null,
-                                'max_value' => $item['max_value'] ?? null,
-                            ]);
+                        $updateData = [];
+                        if (array_key_exists('min_value', $item)) {
+                            $updateData['min_value'] = $item['min_value'];
+                        }
+                        if (array_key_exists('max_value', $item)) {
+                            $updateData['max_value'] = $item['max_value'];
+                        }
+                        if (!empty($updateData)) {
+                            ScoreConfiguration::where('id', $item['id'])
+                                ->where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
+                                ->update($updateData);
+                        }
                     }
                 }
             }
@@ -194,11 +266,21 @@ class ScoreConfigurationService
             if (isset($data['play_eligibility'])) {
                 foreach ($data['play_eligibility'] as $item) {
                     if (!empty($item['id'])) {
-                        ScoreConfiguration::where('id', $item['id'])
-                            ->where('category', ScoreConfiguration::CATEGORY_PLAY_ELIGIBILITY)
-                            ->update([
-                                'numeric_value' => $item['numeric_value'] ?? null,
-                            ]);
+                        $updateData = [];
+                        if (array_key_exists('min_value', $item)) {
+                            $updateData['min_value'] = $item['min_value'];
+                        }
+                        if (array_key_exists('max_value', $item)) {
+                            $updateData['max_value'] = $item['max_value'];
+                        }
+                        if (array_key_exists('numeric_value', $item)) {
+                            $updateData['numeric_value'] = $item['numeric_value'];
+                        }
+                        if (!empty($updateData)) {
+                            ScoreConfiguration::where('id', $item['id'])
+                                ->where('category', ScoreConfiguration::CATEGORY_PLAY_ELIGIBILITY)
+                                ->update($updateData);
+                        }
                     }
                 }
             }
