@@ -5,6 +5,7 @@ namespace App\Http\Resources\Borrower\Funding;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\BorrowerDocumentsChecklist;
+use App\Models\Borrower\FundingReview;
 use App\Models\Funding\FundingSequencing;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -88,6 +89,21 @@ class FundingSequencingResource extends JsonResource
         $missingDocumentsList = $readinessService->getMissingDocuments($this, $borrower);
         $formattedReadinessFactors = $readinessService->evaluateFactors($this, $borrower, $missingDocumentsList);
 
+        $latestRequestedAmount = null;
+        $latestUseOfFunds = null;
+
+        if ($borrower) {
+            $latestReview = FundingReview::where('borrower_id', $borrower->id)
+                ->where('funding_sequence_id', $this->id)
+                ->orderBy('id', 'desc')
+                ->first();
+            
+            if ($latestReview) {
+                $latestRequestedAmount = $latestReview->requested_amount;
+                $latestUseOfFunds = $latestReview->use_of_funds;
+            }
+        }
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -108,6 +124,8 @@ class FundingSequencingResource extends JsonResource
             'funding_group_id' => $this->funding_group_id,
             'require_documents_uploaded' => (bool)$this->require_documents_uploaded,
             'requirements' => $requirements,
+            'latest_requested_amount' => $latestRequestedAmount,
+            'latest_use_of_funds' => $latestUseOfFunds,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? 'Active',
             'engine_status_label' => $this->engine_status_label ?? 'Eligible Now',
