@@ -2,7 +2,7 @@
 
 namespace App\Models\Lender;
 
-use App\Models\Funding\LenderFundingSequencing;
+use App\Models\Funding\LenderVisibility;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -52,8 +52,8 @@ class Lender extends Model
         return $query;
     }
 
-    public function lenderFundingSequencings()
+    public function visibilities()
     {
-        return $this->hasMany(LenderFundingSequencing::class);
+        return $this->hasMany(LenderVisibility::class);
     }
 }

@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use App\Models\Funding\FundingGroup;
-use App\Models\Funding\FundingType;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Funding\FundingType;
+use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
+use Illuminate\Database\Seeder;
 
 class FundingSequencingSeeder extends Seeder
 {
@@ -556,15 +556,38 @@ class FundingSequencingSeeder extends Seeder
         ];
 
         foreach ($lenderFundingSequencings as $lfs) {
-            DB::table('lender_funding_sequencings')->updateOrInsert(
+            $visibilityData = [
+                'min_fico' => $lfs['min_fico'],
+                'min_tib_months' => $lfs['min_tib_months'],
+                'min_monthly_revenue' => $lfs['min_monthly_revenue'],
+                'min_monthly_deposits' => $lfs['min_monthly_deposits'],
+                'min_average_daily_balance' => $lfs['min_average_daily_balance'],
+                'max_nsf_count' => $lfs['max_nsf_count'],
+                'max_negative_days' => $lfs['max_negative_days'],
+                'min_dscr' => $lfs['min_dscr'],
+                'allowed_states' => json_decode($lfs['allowed_states'] ?? '[]', true) ?: [],
+                'restricted_states' => json_decode($lfs['restricted_states'] ?? '[]', true) ?: [],
+                'allowed_industries' => json_decode($lfs['allowed_industries'] ?? '[]', true) ?: [],
+                'restricted_industries' => json_decode($lfs['restricted_industries'] ?? '[]', true) ?: [],
+            ];
+
+            LenderVisibility::updateOrCreate(
                 [
                     'lender_id' => $lfs['lender_id'],
                     'funding_sequencing_id' => $lfs['funding_sequencing_id']
                 ],
-                $lfs
+                $visibilityData
             );
+
+            FundingSequencing::where('id', $lfs['funding_sequencing_id'])->update([
+                'require_completed_application' => $lfs['require_completed_application'],
+                'require_documents_uploaded' => $lfs['require_documents_uploaded'],
+                'allowed_documents' => json_decode($lfs['allowed_documents'] ?? '[]', true) ?: [],
+                'manual_review_allowed' => $lfs['manual_review_allowed'],
+                'exception_allowed' => $lfs['exception_allowed'],
+            ]);
         }
 
-        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules. Also populated Lenders and lender_funding_sequencings.');
+        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules. Also populated Lenders and lender_visibilities.');
     }
 }
