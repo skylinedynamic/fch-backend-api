@@ -241,6 +241,11 @@ class Borrower extends Model
         return $this->hasMany(\App\Models\Borrower\BorrowerBankAccount::class, 'borrower_id');
     }
 
+    public function creditProfileRequests()
+    {
+        return $this->hasMany(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if (!is_string($search) || trim($search) === '') {

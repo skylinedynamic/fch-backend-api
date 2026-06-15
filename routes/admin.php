@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SeoController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -162,6 +163,12 @@ Route::prefix('v1/admin')
         Route::prefix('app-configuration/score')->group(function () {
             Route::get('/', [ScoreConfigurationController::class, 'index']);
             Route::put('/', [ScoreConfigurationController::class, 'update']);
+        });
+
+        // Credit Profile Requests
+        Route::prefix('credit-profile-requests')->group(function () {
+            Route::post('/', [CreditProfileRequestAdminController::class, 'index']);
+            Route::get('/{id}', [CreditProfileRequestAdminController::class, 'show']);
         });
 
     });
