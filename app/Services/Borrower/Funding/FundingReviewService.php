@@ -62,7 +62,11 @@ class FundingReviewService
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('funding_type', 'like', "%{$search}%")
-                  ->orWhere('use_of_funds', 'like', "%{$search}%");
+                  ->orWhere('use_of_funds', 'like', "%{$search}%")
+                  ->orWhere('requested_amount', 'like', "%{$search}%")
+                  ->orWhere('status', 'like', "%{$search}%")
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%b %d, %Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y') LIKE ?", ["%{$search}%"]);
             });
         }
 
