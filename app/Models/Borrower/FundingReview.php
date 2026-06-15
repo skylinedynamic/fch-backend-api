@@ -50,4 +50,29 @@ class FundingReview extends Model
     {
         return $this->belongsTo(FundingSequencing::class);
     }
+
+    public function scopeSearch($query, $search)
+    {
+        if (!empty($search)) {
+            $search = trim((string) $search);
+            $query->where(function ($q) use ($search) {
+                // Search borrower relations
+                $q->whereHas('borrower', function ($qBorrower) use ($search) {
+                    $qBorrower->where('first_name', 'like', "%{$search}%")
+                              ->orWhere('last_name', 'like', "%{$search}%")
+                              ->orWhere('company_name', 'like', "%{$search}%");
+                })
+                // Search funding sequence relations
+                ->orWhereHas('fundingSequence', function ($qSequence) use ($search) {
+                    $qSequence->where('name', 'like', "%{$search}%");
+                })
+                // Search own fields
+                ->orWhere('funding_type', 'like', "%{$search}%")
+                ->orWhere('use_of_funds', 'like', "%{$search}%")
+                ->orWhere('requested_amount', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%");
+            });
+        }
+        return $query;
+    }
 }
