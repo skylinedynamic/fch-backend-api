@@ -78,21 +78,12 @@ class ScoreConfigurationsSeeder extends Seeder
             ['label' => 'Below 6 months', 'max' => 5, 'subscore' => 25, 'order' => 5],
         ]));
 
-        // Revenue tiers (with compound conditions)
+        // Revenue tiers
         $items->push(...$this->tiers('revenue_strength', [
-            ['label' => 'Strong', 'subscore' => 100, 'order' => 1, 'conditions' => ['any' => [
-                ['field' => 'business_revenue_monthly', 'operator' => '>=', 'value' => 25000],
-                ['field' => 'personal_income_annual', 'operator' => '>=', 'value' => 150000],
-            ]]],
-            ['label' => 'Moderate', 'subscore' => 75, 'order' => 2, 'conditions' => ['any' => [
-                ['field' => 'business_revenue_monthly', 'operator' => '>=', 'value' => 10000],
-                ['field' => 'personal_income_annual', 'operator' => '>=', 'value' => 75000],
-            ]]],
-            ['label' => 'Limited', 'subscore' => 55, 'order' => 3, 'conditions' => ['any' => [
-                ['field' => 'business_revenue_monthly', 'operator' => '>=', 'value' => 1000],
-                ['field' => 'personal_income_annual', 'operator' => '>=', 'value' => 40000],
-            ]]],
-            ['label' => 'Weak', 'subscore' => 25, 'order' => 4],
+            ['label' => 'Strong', 'min' => 500000, 'subscore' => 100, 'order' => 1],
+            ['label' => 'Moderate', 'min' => 150000, 'max' => 499999, 'subscore' => 75, 'order' => 2],
+            ['label' => 'Limited', 'min' => 50000, 'max' => 149999, 'subscore' => 55, 'order' => 3],
+            ['label' => 'Weak', 'max' => 49999, 'subscore' => 25, 'order' => 4],
         ]));
 
         // Tradeline Depth tiers (with compound AND conditions)
@@ -100,18 +91,20 @@ class ScoreConfigurationsSeeder extends Seeder
             ['label' => 'Multiple High-Limit', 'subscore' => 100, 'order' => 1, 'conditions' => ['all' => [
                 ['field' => 'open_accounts', 'operator' => '>=', 'value' => 5],
                 ['field' => 'high_limit_accounts', 'operator' => '>=', 'value' => 2],
-                ['field' => 'avg_high_limit', 'operator' => '>=', 'value' => 15000],
+                ['field' => 'limit', 'operator' => '>=', 'value' => 15000],
             ]]],
             ['label' => 'Good Depth', 'subscore' => 80, 'order' => 2, 'conditions' => ['all' => [
                 ['field' => 'open_accounts', 'operator' => '>=', 'value' => 3],
                 ['field' => 'high_limit_accounts', 'operator' => '>=', 'value' => 1],
-                ['field' => 'avg_high_limit', 'operator' => '>=', 'value' => 10000],
+                ['field' => 'limit', 'operator' => '>=', 'value' => 10000],
             ]]],
             ['label' => 'Moderate', 'subscore' => 60, 'order' => 3, 'conditions' => ['all' => [
                 ['field' => 'open_accounts', 'operator' => 'between', 'value' => [2, 3]],
             ]]],
-            ['label' => 'Thin', 'subscore' => 35, 'order' => 4, 'conditions' => ['all' => [
+            ['label' => 'Thin', 'subscore' => 35, 'order' => 4, 'conditions' => ['any' => [
                 ['field' => 'open_accounts', 'operator' => 'between', 'value' => [0, 1]],
+                ['field' => 'high_limit_accounts', 'operator' => '=', 'value' => 0],
+                ['field' => 'limit', 'operator' => '=', 'value' => 0],
             ]]],
         ]));
 

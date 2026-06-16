@@ -43,6 +43,9 @@ class StoreCapitalAccessRequest extends BaseApiRequest
             'credit_accounts.*.hard_pull' => 'nullable|in:Yes,No',
             'credit_accounts.*.what_you_need' => 'nullable|array',
             'credit_accounts.*.what_you_need.*' => 'nullable|string',
+            'credit_accounts.*.access_time' => 'nullable|string|in:Morning,Evening,Day',
+            'credit_accounts.*.access_day' => 'nullable|integer|min:1|max:60',
+            'credit_accounts.*.access_day_time' => 'nullable|string|in:Morning,Evening',
         ];
     }
 

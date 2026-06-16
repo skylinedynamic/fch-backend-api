@@ -39,7 +39,10 @@ class CapitalAccess extends Model
             'est_limit_min', 
             'est_limit_max', 
             'hard_pull', 
-            'what_you_need'
+            'what_you_need',
+            'access_time',
+            'access_day',
+            'access_day_time'
         )->orderByPivot('sorting_order', 'asc')->withTimestamps();
     }
 

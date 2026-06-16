@@ -47,6 +47,9 @@ class CapitalAccessDetailResource extends JsonResource
                             'est_limit_for_show' => currencyFormat($account->pivot->est_limit_min, 0) . ' - ' . currencyFormat($account->pivot->est_limit_max, 0),
                             'hard_pull' => $account->pivot->hard_pull,
                             'what_you_need' => $account->pivot->what_you_need ? json_decode($account->pivot->what_you_need, true) : [],
+                            'access_time' => $account->pivot->access_time,
+                            'access_day' => $account->pivot->access_day,
+                            'access_day_time' => $account->pivot->access_day_time,
                         ],
                     ];
                 })

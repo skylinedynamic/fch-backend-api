@@ -178,6 +178,9 @@ class CapitalAccessService
                 'est_limit_max'     => $creditAccount['est_limit_max'] ?? null,
                 'hard_pull'         => $creditAccount['hard_pull'] ?? 'Yes',
                 'what_you_need'     => isset($creditAccount['what_you_need']) ? json_encode($creditAccount['what_you_need']) : null,
+                'access_time'       => $creditAccount['access_time'] ?? null,
+                'access_day'        => $creditAccount['access_day'] ?? null,
+                'access_day_time'   => $creditAccount['access_day_time'] ?? null,
             ];
         }
 
