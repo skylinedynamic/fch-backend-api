@@ -88,40 +88,46 @@ class ScoreConfigurationsSeeder extends Seeder
 
         // Tradeline Depth tiers (with compound AND conditions)
         $items->push(...$this->tiers('tradeline_depth', [
-            ['label' => 'Multiple High-Limit', 'subscore' => 100, 'order' => 1, 'conditions' => ['all' => [
-                ['field' => 'open_accounts', 'operator' => '>=', 'value' => 5],
-                ['field' => 'high_limit_accounts', 'operator' => '>=', 'value' => 2],
-                ['field' => 'limit', 'operator' => '>=', 'value' => 15000],
-            ]]],
-            ['label' => 'Good Depth', 'subscore' => 80, 'order' => 2, 'conditions' => ['all' => [
-                ['field' => 'open_accounts', 'operator' => '>=', 'value' => 3],
-                ['field' => 'high_limit_accounts', 'operator' => '>=', 'value' => 1],
-                ['field' => 'limit', 'operator' => '>=', 'value' => 10000],
-            ]]],
-            ['label' => 'Moderate', 'subscore' => 60, 'order' => 3, 'conditions' => ['all' => [
-                ['field' => 'open_accounts', 'operator' => 'between', 'value' => [2, 3]],
-            ]]],
-            ['label' => 'Thin', 'subscore' => 35, 'order' => 4, 'conditions' => ['any' => [
-                ['field' => 'open_accounts', 'operator' => 'between', 'value' => [0, 1]],
-                ['field' => 'high_limit_accounts', 'operator' => '=', 'value' => 0],
-                ['field' => 'limit', 'operator' => '=', 'value' => 0],
-            ]]],
+            ['label' => 'Multiple High-Limit', 'subscore' => 100, 'order' => 1, 'conditions' => [
+                ['open_accounts' => ['operator' => '>=', 'value' => 5]],
+                ['high_limit_accounts' => ['operator' => '>=', 'value' => 2]],
+                ['limit' => ['operator' => '>=', 'value' => 15000]],
+            ]],
+            ['label' => 'Good Depth', 'subscore' => 80, 'order' => 2, 'conditions' => [
+                ['open_accounts' => ['operator' => '>=', 'value' => 3]],
+                ['high_limit_accounts' => ['operator' => '>=', 'value' => 1]],
+                ['limit' => ['operator' => '>=', 'value' => 10000]],
+            ]],
+            ['label' => 'Moderate', 'subscore' => 60, 'order' => 3, 'conditions' => [
+                ['open_accounts' => ['operator' => '>=', 'value' => 2]],
+            ]],
+            ['label' => 'Thin', 'subscore' => 35, 'order' => 4, 'conditions' => [
+                ['open_accounts' => ['operator' => '>=', 'value' => 0]],
+            ]],
         ]));
+
+        
 
         // Banking Relationship tiers
         $items->push(...$this->tiers('banking_relationships', [
-            ['label' => 'Strong Multi-Year', 'subscore' => 100, 'order' => 1, 'conditions' => ['all' => [
-                ['field' => 'checking_years', 'operator' => '>=', 'value' => 3],
-                ['field' => 'has_savings_or_loc', 'operator' => '=', 'value' => true],
-            ]]],
-            ['label' => 'Established', 'subscore' => 80, 'order' => 2, 'conditions' => ['all' => [
-                ['field' => 'checking_months', 'operator' => '>=', 'value' => 12],
-                ['field' => 'has_regular_deposits', 'operator' => '=', 'value' => true],
-            ]]],
-            ['label' => 'Basic', 'subscore' => 60, 'order' => 3, 'conditions' => ['all' => [
-                ['field' => 'checking_months', 'operator' => '<', 'value' => 12],
-            ]]],
-            ['label' => 'Weak / None', 'subscore' => 35, 'order' => 4],
+            ['label' => 'Multiple active business banking relationships, each > 12 months', 'subscore' => 100, 'order' => 1, 'conditions' => [
+                ['accounts' => ['operator' => '>=', 'value' => 2]],
+                ['checking_months' => ['operator' => '>', 'value' => 12]], 
+                ['each' => true]
+            ]],
+            ['label' => 'One active business banking relationship > 12 months', 'subscore' => 75, 'order' => 2, 'conditions' => [
+                ['accounts' => ['operator' => '>=', 'value' => 1]],
+                ['checking_months' => ['operator' => '>', 'value' => 12]],
+                ['each' => false]
+            ]],
+            ['label' => 'One banking relationship only', 'subscore' => 50, 'order' => 3, 'conditions' => [
+                ['accounts' => ['operator' => '>=', 'value' => 1]],
+                ['each' => false]
+            ]],
+            ['label' => 'No meaningful banking relationship', 'subscore' => 20, 'order' => 4, 'conditions' => [
+                ['accounts' => ['operator' => '=', 'value' => 0]],
+                ['each' => false]
+            ]],
         ]));
 
         foreach ($items as $item) {

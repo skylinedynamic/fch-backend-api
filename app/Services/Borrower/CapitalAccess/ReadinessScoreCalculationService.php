@@ -202,11 +202,6 @@ class ReadinessScoreCalculationService
         });
 
         $openAccounts = $openTrades->count();
-        $limits = $openTrades->pluck('limit')
-            ->filter()
-            ->map(fn($v) => (float) $v)
-            ->values()
-            ->toArray();
 
         $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
             ->where('model_slug', 'funding_readiness')
@@ -225,24 +220,24 @@ class ReadinessScoreCalculationService
         foreach ($tiers as $tier) {
             if ($tier->conditions) {
                 $conditions = $tier->conditions;
-                $type = isset($conditions['all']) ? 'all' : (isset($conditions['any']) ? 'any' : null);
-                if (!$type)
-                    continue;
-
-                $rules = $conditions[$type];
+                $rules = $conditions;
                 $results = [];
 
                 foreach ($rules as $rule) {
-                    $field = $rule['field'];
-                    $operator = $rule['operator'];
-                    $targetValue = $rule['value'];
-                    $borrowerValue = $this->getTradelineFieldValue($field, $openAccounts, $highLimitAccounts, $avgLimit, $maxLimit);
+                    $field = array_key_first($rule);
+                    $operator = $rule[$field]['operator'];
+                    $targetValue = $rule[$field]['value'];
+                    
+                    if ($field === 'open_accounts') {
+                        $borrowerValue = $openAccounts;
+                    } else {
+                        $borrowerValue = 0;
+                    }
+                    
                     $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
                 }
 
-                $matched = $type === 'all'
-                    ? !in_array(false, $results, true)
-                    : in_array(true, $results, true);
+                $matched = !in_array(false, $results, true);
 
                 if ($matched) {
                     $value = (float) $tier->numeric_value;
@@ -251,22 +246,7 @@ class ReadinessScoreCalculationService
             }
         }
 
-        if ($value === 0.0) {
-            $value = 35;
-        }
-
         return $value * ($subScoreWeight / 100);
-    }
-
-    private function getTradelineFieldValue(string $field, int $openAccounts, int $highLimitAccounts, float $avgLimit, float $maxLimit)
-    {
-        return match ($field) {
-            'open_accounts' => $openAccounts,
-            'high_limit_accounts' => $highLimitAccounts,
-            'avg_high_limit' => $avgLimit,
-            'max_limit' => $maxLimit,
-            default => 0,
-        };
     }
 
     private function compareValues($value, string $operator, $target): bool
@@ -293,22 +273,63 @@ class ReadinessScoreCalculationService
         $hasSavingsOrLoc = isset($additional['has_savings_or_loc'])
             ? filter_var($additional['has_savings_or_loc'], FILTER_VALIDATE_BOOLEAN)
             : false;
-        $hasRegularDeposits = isset($additional['has_regular_deposits'])
-            ? filter_var($additional['has_regular_deposits'], FILTER_VALIDATE_BOOLEAN)
-            : false;
 
-        if ($checkingMonths > 12 && $hasSavingsOrLoc && $hasRegularDeposits) {
-            return 100;
+        $accounts = ($checkingMonths > 0 ? 1 : 0) + ($hasSavingsOrLoc ? 1 : 0);
+
+        $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
+            ->where('model_slug', 'funding_readiness')
+            ->where('factor_slug', 'banking_relationships')
+            ->value('numeric_value');
+
+        $subScoreWeight = $subScore !== null ? (float) $subScore : 0;
+
+        $tiers = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+            ->where('model_slug', 'funding_readiness')
+            ->where('factor_slug', 'banking_relationships')
+            ->orderBy('sort_order')
+            ->get();
+
+        $value = 0;
+        foreach ($tiers as $tier) {
+            if ($tier->conditions) {
+                $rules = $tier->conditions;
+                $results = [];
+
+                foreach ($rules as $rule) {
+                    $field = array_key_first($rule);
+                    $val = $rule[$field];
+
+                    if (!is_array($val) || !isset($val['operator'], $val['value'])) {
+                        continue;
+                    }
+
+                    $operator = $val['operator'];
+                    $targetValue = $val['value'];
+
+                    if ($field === 'checking_months') {
+                        $borrowerValue = $checkingMonths;
+                    } elseif ($field === 'accounts') {
+                        $borrowerValue = $accounts;
+                    } else {
+                        $borrowerValue = 0;
+                    }
+
+                    $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
+                }
+
+                $matched = !in_array(false, $results, true);
+
+                if ($matched) {
+                    $value = (float) $tier->numeric_value;
+                    break;
+                }
+            }
         }
 
-        if ($checkingMonths > 12 && ($hasSavingsOrLoc || $hasRegularDeposits)) {
-            return 75;
+        if ($value === 0.0) {
+            $value = 20;
         }
 
-        if ($checkingMonths > 0 || $hasSavingsOrLoc || $hasRegularDeposits) {
-            return 50;
-        }
-
-        return 20;
+        return $value * ($subScoreWeight / 100);
     }
 }
