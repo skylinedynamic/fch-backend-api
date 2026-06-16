@@ -204,14 +204,9 @@ class ReadinessScoreCalculationService
         $openAccounts = $openTrades->count();
         $limits = $openTrades->pluck('limit')
             ->filter()
-            ->map(fn($v) => (float) $v)  // ✅ safe cast
+            ->map(fn($v) => (float) $v)
             ->values()
             ->toArray();
-        $maxLimit = !empty($limits) ? max($limits) : 0;
-        $avgLimit = !empty($limits) ? array_sum($limits) / count($limits) : 0;
-        $highLimitAccounts = $openTrades->filter(function ($trade) {
-            return ($trade->limit ?? 0) >= 10000 || ($trade->high_credit ?? 0) >= 10000;
-        })->count();
 
         $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
             ->where('model_slug', 'funding_readiness')
@@ -268,7 +263,7 @@ class ReadinessScoreCalculationService
         return match ($field) {
             'open_accounts' => $openAccounts,
             'high_limit_accounts' => $highLimitAccounts,
-            'limit' => $avgLimit,
+            'avg_high_limit' => $avgLimit,
             'max_limit' => $maxLimit,
             default => 0,
         };
