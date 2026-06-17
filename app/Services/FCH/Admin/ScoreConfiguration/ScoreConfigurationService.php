@@ -96,24 +96,43 @@ class ScoreConfigurationService
             ];
         }
 
+        $readinessBands = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
+            ->where('model_slug', 'funding_readiness')
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($band) {
+                return [
+                    'id' => $band->id,
+                    'category' => $band->category,
+                    'label' => $band->label,
+                    'color' => $band->color,
+                    'min_value' => $band->min_value,
+                    'max_value' => $band->max_value,
+                    'sort_order' => $band->sort_order,
+                ];
+            })->values()->all();
+
         return [
             'models' => $models,
             'factors' => $factors,
+            'readiness_bands' => $readinessBands,
         ];
     }
 
     public function updateAll(array $data): void
     {
         DB::transaction(function () use ($data) {
-            if (!isset($data['funding_readiness'])) {
-                return;
+            if (isset($data['funding_readiness'])) {
+                $fr = $data['funding_readiness'];
+                $this->saveCoreCreditStrength($fr);
+                $this->saveFinancialCapacity($fr);
+                $this->saveBusinessMaturityBanking($fr);
+                $this->saveBureauDepth($fr);
             }
 
-            $fr = $data['funding_readiness'];
-            $this->saveCoreCreditStrength($fr);
-            $this->saveFinancialCapacity($fr);
-            $this->saveBusinessMaturityBanking($fr);
-            $this->saveBureauDepth($fr);
+            if (isset($data['readiness_bands'])) {
+                $this->saveReadinessBands($data['readiness_bands']);
+            }
         });
     }
 
@@ -146,6 +165,38 @@ class ScoreConfigurationService
     {
         if (isset($fundingReadiness['tradeline_depth'])) {
             $this->saveFactorWeightAndTiers('funding_readiness', 'tradeline_depth', $fundingReadiness['tradeline_depth']);
+        }
+    }
+
+    private function saveReadinessBands(array $bands): void
+    {
+        foreach ($bands as $band) {
+            $sortOrder = $band['sort_order'] ?? 0;
+
+            $updateData = [];
+            if (array_key_exists('label', $band)) {
+                $updateData['label'] = $band['label'];
+            }
+            if (array_key_exists('color', $band)) {
+                $updateData['color'] = $band['color'];
+            }
+            if (array_key_exists('min_value', $band)) {
+                $updateData['min_value'] = $band['min_value'];
+            }
+            if (array_key_exists('max_value', $band)) {
+                $updateData['max_value'] = $band['max_value'];
+            }
+
+            if (!empty($updateData)) {
+                ScoreConfiguration::updateOrCreate(
+                    [
+                        'category' => ScoreConfiguration::CATEGORY_READINESS_BAND,
+                        'model_slug' => 'funding_readiness',
+                        'sort_order' => $sortOrder,
+                    ],
+                    $updateData
+                );
+            }
         }
     }
 

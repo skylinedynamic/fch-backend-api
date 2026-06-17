@@ -8,23 +8,78 @@ use Carbon\Carbon;
 
 class ReadinessScoreCalculationService
 {
-    public function calculate(Borrower $borrower): int
+    public function calculate(Borrower $borrower): array
     {
-        $ficoScore = $this->getFicoSubscore($borrower);
-        $utilizationScore = $this->getUtilizationSubscore($borrower);
-        $timeInBusinessScore = $this->getTimeInBusinessSubscore($borrower);
-        $revenueIncomeScore = $this->getRevenueIncomeSubscore($borrower);
-        $tradelineDepthScore = $this->getTradelineDepthSubscore($borrower);
-        $bankingRelationshipScore = $this->getBankingRelationshipSubscore($borrower);
+        $factors = [
+            'fico'                 => ['label' => 'Personal Credit',      'slug' => 'fico'],
+            'utilization'          => ['label' => 'Utilization',           'slug' => 'utilization'],
+            'time_in_business'     => ['label' => 'Time in Business',      'slug' => 'time_in_business'],
+            'revenue_strength'     => ['label' => 'Revenue Strength',      'slug' => 'revenue_strength'],
+            'tradeline_depth'      => ['label' => 'Tradeline Depth',       'slug' => 'tradeline_depth'],
+            'banking_relationships'=> ['label' => 'Banking Relationships',  'slug' => 'banking_relationships'],
+        ];
 
-        $totalScore = $ficoScore
-            + $utilizationScore
-            + $timeInBusinessScore
-            + $revenueIncomeScore
-            + $tradelineDepthScore
-            + $bankingRelationshipScore;
+        $factorScores = [];
+        $totalScore = 0;
 
-        return (int) round($totalScore);
+        foreach ($factors as $key => $info) {
+            $method = 'get' . str_replace('_', '', ucwords($key, '_')) . 'Subscore';
+            $weightedScore = $this->$method($borrower);
+            $weight = $this->getFactorWeight($key);
+            $rawScore = $weight > 0 ? round($weightedScore / ($weight / 100), 2) : 0;
+            $factorScores[] = [
+                'slug'           => $info['slug'],
+                'label'          => $info['label'],
+                'weighted_score' => round($weightedScore, 2),
+                'raw_score'      => $rawScore,
+            ];
+            $totalScore += $weightedScore;
+        }
+
+        $totalScore = (int) round($totalScore);
+
+        $band = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
+            ->where('model_slug', 'funding_readiness')
+            ->orderBy('sort_order')
+            ->get()
+            ->first(fn($b) => $b->min_value === null || $totalScore >= (float) $b->min_value);
+
+        return [
+            'total_score'       => $totalScore,
+            'score_label'       => $band?->label ?? 'Not Ready',
+            'score_label_color' => $band?->color ?? '#6c757d',
+            'factors'           => $factorScores,
+        ];
+    }
+
+    public function getSubscoreForFactor(string $slug, Borrower $borrower): float
+    {
+        $methodMap = [
+            'fico'                 => 'getFicoSubscore',
+            'utilization'          => 'getUtilizationSubscore',
+            'time_in_business'     => 'getTimeInBusinessSubscore',
+            'revenue_strength'     => 'getRevenueIncomeSubscore',
+            'tradeline_depth'      => 'getTradelineDepthSubscore',
+            'banking_relationships'=> 'getBankingRelationshipSubscore',
+        ];
+
+        if (!isset($methodMap[$slug])) {
+            return 0;
+        }
+
+        $weight = $this->getFactorWeight($slug);
+
+        return $this->{$methodMap[$slug]}($borrower) / ($weight > 0 ? ($weight / 100) : 1);
+    }
+
+    private function getFactorWeight(string $slug): float
+    {
+        $weight = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
+            ->where('model_slug', 'funding_readiness')
+            ->where('factor_slug', $slug)
+            ->value('numeric_value');
+
+        return $weight !== null ? (float) $weight : 0;
     }
 
     private function getFicoSubscore(Borrower $borrower): float

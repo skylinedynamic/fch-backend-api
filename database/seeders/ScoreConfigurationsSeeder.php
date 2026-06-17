@@ -13,6 +13,7 @@ class ScoreConfigurationsSeeder extends Seeder
 
         $this->seedModelWeights();
         $this->seedSubscoreTiers();
+        $this->seedReadinessBands();
     }
 
     private function seedModelWeights(): void
@@ -114,6 +115,30 @@ class ScoreConfigurationsSeeder extends Seeder
 
         foreach ($items as $item) {
             ScoreConfiguration::create($item);
+        }
+    }
+
+    private function seedReadinessBands(): void
+    {
+        // Bands form a contiguous score range from 0 to 850
+        // Each band's max is computed as (next band's min - 1), last band goes to 0
+        $rows = [
+            ['label' => 'Premium',    'min' => 720, 'color' => '#198754', 'order' => 1],
+            ['label' => 'Prime',      'min' => 680, 'color' => '#0d6efd', 'order' => 2],
+            ['label' => 'Near Prime', 'min' => 640, 'color' => '#ffc107', 'order' => 3],
+            ['label' => 'Subprime',   'min' => 580, 'color' => '#fd7e14', 'order' => 4],
+            ['label' => 'Deep Subprime',               'color' => '#dc3545', 'order' => 5],
+        ];
+
+        foreach ($rows as $row) {
+            ScoreConfiguration::create([
+                'category' => ScoreConfiguration::CATEGORY_READINESS_BAND,
+                'model_slug' => 'funding_readiness',
+                'label' => $row['label'],
+                'color' => $row['color'] ?? null,
+                'min_value' => $row['min'] ?? null,
+                'sort_order' => $row['order'],
+            ]);
         }
     }
 

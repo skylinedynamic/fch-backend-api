@@ -20,44 +20,23 @@ class CapitalAccessOverviewController extends Controller
 
         // Call the service to calculate readiness score
         $calculationService = app(\App\Services\Borrower\CapitalAccess\ReadinessScoreCalculationService::class);
-        $score = $calculationService->calculate($borrower);
+        $result = $calculationService->calculate($borrower);
 
-        // Determine readiness status dynamically
-        $status = 'Not Ready';
-        $bands = \App\Models\Common\ScoreConfiguration::where('category', \App\Models\Common\ScoreConfiguration::CATEGORY_READINESS_BAND)
-            ->orderBy('sort_order', 'asc')
-            ->get();
-
-        foreach ($bands as $band) {
-            $minMatched = ($band->min_value === null || $score >= (float) $band->min_value);
-            $maxMatched = ($band->max_value === null || $score <= (float) $band->max_value);
-            if ($minMatched && $maxMatched) {
-                $status = $band->label;
-                break;
-            }
-        }
+        $score = $result['total_score'];
+        $status = $result['score_label'];
 
         // Dynamic contributing factors
         $contributingFactors = [];
-        $factorLabels = [
-            'fico' => 'Personal Credit',
-            'utilization' => 'Utilization',
-            'time_in_business' => 'Time in Business',
-            'revenue_strength' => 'Revenue Strength',
-            'tradeline_depth' => 'Tradeline Depth',
-            'banking_relationships' => 'Banking Relationships',
-        ];
 
-        foreach ($factorLabels as $slug => $labelName) {
-            $subscore = $calculationService->getSubscoreForFactor($slug, $borrower);
-            if ($subscore >= 80) {
+        foreach ($result['factors'] as $factor) {
+            if ($factor['raw_score'] >= 80) {
                 $tier = \App\Models\Common\ScoreConfiguration::where('category', \App\Models\Common\ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
                     ->where('model_slug', 'funding_readiness')
-                    ->where('factor_slug', $slug)
-                    ->where('numeric_value', $subscore)
+                    ->where('factor_slug', $factor['slug'])
+                    ->where('numeric_value', $factor['raw_score'])
                     ->first();
                 $detail = $tier ? $tier->label : 'Good';
-                $contributingFactors[] = "{$labelName}: {$detail}";
+                $contributingFactors[] = "{$factor['label']}: {$detail}";
             }
         }
 
@@ -101,6 +80,8 @@ class CapitalAccessOverviewController extends Controller
         $data = [
             'readiness_score' => $score,
             'readiness_status' => $status,
+            'readiness_status_color' => $result['score_label_color'],
+            'factors' => $result['factors'],
             'score_labels_top' => [
                 'min' => 501,
                 'max' => 900,
