@@ -33,7 +33,5 @@ class ScoreConfiguration extends Model
 
     public const CATEGORY_MODEL_WEIGHT = 'model_weight';
     public const CATEGORY_SUBSCORE_TIER = 'subscore_tier';
-    public const CATEGORY_BAND_MAPPING = 'band_mapping';
     public const CATEGORY_READINESS_BAND = 'readiness_band';
-    public const CATEGORY_PLAY_ELIGIBILITY = 'play_eligibility';
 }

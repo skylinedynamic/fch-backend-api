@@ -227,13 +227,13 @@ class ReadinessScoreCalculationService
                     $field = array_key_first($rule);
                     $operator = $rule[$field]['operator'];
                     $targetValue = $rule[$field]['value'];
-                    
+
                     if ($field === 'open_accounts') {
                         $borrowerValue = $openAccounts;
                     } else {
                         $borrowerValue = 0;
                     }
-                    
+
                     $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
                 }
 
@@ -268,13 +268,17 @@ class ReadinessScoreCalculationService
 
     private function getBankingRelationshipSubscore(Borrower $borrower): float
     {
-        $additional = $borrower->additional_data ?? [];
-        $checkingMonths = isset($additional['checking_months']) ? (float) $additional['checking_months'] : 0;
-        $hasSavingsOrLoc = isset($additional['has_savings_or_loc'])
-            ? filter_var($additional['has_savings_or_loc'], FILTER_VALIDATE_BOOLEAN)
-            : false;
+        $allAccounts = $borrower->bankAccounts;
+        $totalAccounts = $allAccounts->count();
 
-        $accounts = ($checkingMonths > 0 ? 1 : 0) + ($hasSavingsOrLoc ? 1 : 0);
+        $accountAges = $allAccounts->map(function ($account) {
+            return $account->account_open_date
+                ? Carbon::parse($account->account_open_date)->diffInMonths()
+                : 0;
+        });
+
+        $minAge = $accountAges->min() ?: 0;
+        $maxAge = $accountAges->max() ?: 0;
 
         $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
             ->where('model_slug', 'funding_readiness')
@@ -291,43 +295,61 @@ class ReadinessScoreCalculationService
 
         $value = 0;
         foreach ($tiers as $tier) {
-            if ($tier->conditions) {
-                $rules = $tier->conditions;
-                $results = [];
+            if (!$tier->conditions) {
+                continue;
+            }
 
-                foreach ($rules as $rule) {
-                    $field = array_key_first($rule);
-                    $val = $rule[$field];
+            $rules = $tier->conditions;
 
-                    if (!is_array($val) || !isset($val['operator'], $val['value'])) {
-                        continue;
-                    }
-
-                    $operator = $val['operator'];
-                    $targetValue = $val['value'];
-
-                    if ($field === 'checking_months') {
-                        $borrowerValue = $checkingMonths;
-                    } elseif ($field === 'accounts') {
-                        $borrowerValue = $accounts;
-                    } else {
-                        $borrowerValue = 0;
-                    }
-
-                    $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
+            $each = false;
+            $checkingMonthsValue = null;
+            $checkingMonthsOperator = null;
+            foreach ($rules as $rule) {
+                $field = array_key_first($rule);
+                if ($field === 'each') {
+                    $each = (bool) $rule[$field];
                 }
-
-                $matched = !in_array(false, $results, true);
-
-                if ($matched) {
-                    $value = (float) $tier->numeric_value;
-                    break;
+                if ($field === 'checking_months') {
+                    $checkingMonthsValue = $rule[$field]['value'] ?? null;
+                    $checkingMonthsOperator = $rule[$field]['operator'] ?? null;
                 }
             }
-        }
 
-        if ($value === 0.0) {
-            $value = 20;
+            $results = [];
+            foreach ($rules as $rule) {
+                $field = array_key_first($rule);
+                $val = $rule[$field];
+
+                if (!is_array($val) || !isset($val['operator'], $val['value'])) {
+                    continue;
+                }
+
+                $operator = $val['operator'];
+                $targetValue = $val['value'];
+
+                if ($field === 'accounts') {
+                    if ($checkingMonthsValue !== null && $checkingMonthsOperator !== null && !$each) {
+                        $borrowerValue = $accountAges->filter(function ($age) use ($checkingMonthsValue, $checkingMonthsOperator) {
+                            return $this->compareValues($age, $checkingMonthsOperator, $checkingMonthsValue);
+                        })->count();
+                    } else {
+                        $borrowerValue = $totalAccounts;
+                    }
+                } elseif ($field === 'checking_months') {
+                    $borrowerValue = $each ? $minAge : $maxAge;
+                } else {
+                    $borrowerValue = 0;
+                }
+
+                $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
+            }
+
+            $matched = !in_array(false, $results, true);
+
+            if ($matched) {
+                $value = (float) $tier->numeric_value;
+                break;
+            }
         }
 
         return $value * ($subScoreWeight / 100);
