@@ -14,7 +14,7 @@ class CapitalAccessStrategyService
      */
     public function list(): JsonResponse
     {
-        $strategies = CapitalAccess::where('status', CapitalAccess::STATUS_ACTIVE)->get();
+        $strategies = CapitalAccess::with('creditAccounts')->where('status', CapitalAccess::STATUS_ACTIVE)->get();
 
         $recommended = $strategies->first();
         $recommendedId = $recommended ? $recommended->id : null;

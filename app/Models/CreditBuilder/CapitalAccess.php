@@ -2,6 +2,7 @@
 
 namespace App\Models\CreditBuilder;
 
+use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -72,6 +73,6 @@ class CapitalAccess extends Model
      */
     public function partner()
     {
-        return $this->belongsTo(\App\Models\Partner::class, 'partner_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 }

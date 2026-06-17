@@ -38,6 +38,9 @@ class CapitalAccessStrategyResource extends JsonResource
                     'status' => $status,
                     'why' => $account->pivot->why_this_card,
                     'hard_pull' => $account->pivot->hard_pull,
+                    'access_time' => $account->pivot->access_time,
+                    'access_day' => $account->pivot->access_day,
+                    'access_day_time' => $account->pivot->access_day_time,
                     'requirements' => is_string($account->pivot->what_you_need) ? json_decode($account->pivot->what_you_need, true) : ($account->pivot->what_you_need ?? []),
                     'result' => null,
                 ];

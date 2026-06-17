@@ -13,6 +13,7 @@ class ScoreConfiguration extends Model
         'model_slug',
         'factor_slug',
         'label',
+        'color',
         'min_value',
         'max_value',
         'numeric_value',

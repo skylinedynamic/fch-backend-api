@@ -24,6 +24,13 @@ class UpdateScoreConfigurationRequest extends BaseApiRequest
             'funding_readiness.*.factors.*.sort_order' => 'nullable|integer|min:0',
             'funding_readiness.*.factors.*.condition' => 'nullable|array',
             'funding_readiness.*.factors.*.label' => 'nullable|string',
+
+            'readiness_bands' => 'nullable|array',
+            'readiness_bands.*.sort_order' => 'required|integer|min:1',
+            'readiness_bands.*.label' => 'nullable|string|max:255',
+            'readiness_bands.*.color' => 'nullable|string|max:20',
+            'readiness_bands.*.min_value' => 'nullable|numeric',
+            'readiness_bands.*.max_value' => 'nullable|numeric',
         ];
     }
 }

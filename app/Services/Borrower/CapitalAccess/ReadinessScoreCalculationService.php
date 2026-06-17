@@ -58,9 +58,9 @@ class ReadinessScoreCalculationService
             'fico'                 => 'getFicoSubscore',
             'utilization'          => 'getUtilizationSubscore',
             'time_in_business'     => 'getTimeInBusinessSubscore',
-            'revenue_strength'     => 'getRevenueIncomeSubscore',
+            'revenue_strength'     => 'getRevenueStrengthSubscore',
             'tradeline_depth'      => 'getTradelineDepthSubscore',
-            'banking_relationships'=> 'getBankingRelationshipSubscore',
+            'banking_relationships'=> 'getBankingRelationshipsSubscore',
         ];
 
         if (!isset($methodMap[$slug])) {
@@ -204,7 +204,7 @@ class ReadinessScoreCalculationService
         return $value * ($subScoreWeight / 100);
     }
 
-    private function getRevenueIncomeSubscore(Borrower $borrower): float
+    private function getRevenueStrengthSubscore(Borrower $borrower): float
     {
         $annualRevenue = $borrower->annual_revenue !== null
             ? (float) $borrower->annual_revenue
@@ -321,7 +321,7 @@ class ReadinessScoreCalculationService
         };
     }
 
-    private function getBankingRelationshipSubscore(Borrower $borrower): float
+    private function getBankingRelationshipsSubscore(Borrower $borrower): float
     {
         $allAccounts = $borrower->bankAccounts;
         $totalAccounts = $allAccounts->count();
