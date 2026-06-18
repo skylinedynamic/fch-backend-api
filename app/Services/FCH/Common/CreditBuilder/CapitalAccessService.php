@@ -67,16 +67,19 @@ class CapitalAccessService
     public function create(array $data): CapitalAccess
     {
         $capitalAccess = CapitalAccess::create([
-            'name'                 => $data['name'],
-            'sub_title'            => $data['sub_title'] ?? null,
-            'partner_id'           => $data['partner_id'] ?? null,
-            'target_exposure_min'  => $data['target_exposure_min'] ?? null,
-            'target_exposure_max'  => $data['target_exposure_max'] ?? null,
-            'est_timeline_min'     => $data['est_timeline_min'] ?? null,
-            'est_timeline_max'     => $data['est_timeline_max'] ?? null,
-            'what_you_will_get'    => isset($data['what_you_will_get']) ? json_encode($data['what_you_will_get']) : null,
-            'pre_flight_checklist' => isset($data['pre_flight_checklist']) ? json_encode($data['pre_flight_checklist']) : null,
-            'status'               => $data['status'] ?? 'Active',
+            'name'                        => $data['name'],
+            'sub_title'                   => $data['sub_title'] ?? null,
+            'partner_id'                  => $data['partner_id'] ?? null,
+            'target_exposure_min'         => $data['target_exposure_min'] ?? null,
+            'target_exposure_max'         => $data['target_exposure_max'] ?? null,
+            'est_timeline_min'            => $data['est_timeline_min'] ?? null,
+            'est_timeline_max'            => $data['est_timeline_max'] ?? null,
+            'minimum_fico_requirement'    => $data['minimum_fico_requirement'] ?? null,
+            'maximum_utilization_threshold' => $data['maximum_utilization_threshold'] ?? null,
+            'difficulty_modifier'         => $data['difficulty_modifier'] ?? null,
+            'what_you_will_get'           => isset($data['what_you_will_get']) ? json_encode($data['what_you_will_get']) : null,
+            'pre_flight_checklist'        => isset($data['pre_flight_checklist']) ? json_encode($data['pre_flight_checklist']) : null,
+            'status'                      => $data['status'] ?? 'Active',
         ]);
 
         if (!empty($data['credit_accounts'])) {
@@ -109,16 +112,19 @@ class CapitalAccessService
         $capitalAccess = CapitalAccess::findOrFail($id);
 
         $capitalAccess->update([
-            'name'                 => $data['name'] ?? $capitalAccess->name,
-            'sub_title'            => array_key_exists('sub_title', $data) ? $data['sub_title'] : $capitalAccess->sub_title,
-            'partner_id'           => array_key_exists('partner_id', $data) ? $data['partner_id'] : $capitalAccess->partner_id,
-            'target_exposure_min'  => array_key_exists('target_exposure_min', $data) ? $data['target_exposure_min'] : $capitalAccess->target_exposure_min,
-            'target_exposure_max'  => array_key_exists('target_exposure_max', $data) ? $data['target_exposure_max'] : $capitalAccess->target_exposure_max,
-            'est_timeline_min'     => array_key_exists('est_timeline_min', $data) ? $data['est_timeline_min'] : $capitalAccess->est_timeline_min,
-            'est_timeline_max'     => array_key_exists('est_timeline_max', $data) ? $data['est_timeline_max'] : $capitalAccess->est_timeline_max,
-            'what_you_will_get'    => array_key_exists('what_you_will_get', $data) ? json_encode($data['what_you_will_get']) : $capitalAccess->what_you_will_get,
-            'pre_flight_checklist' => array_key_exists('pre_flight_checklist', $data) ? json_encode($data['pre_flight_checklist']) : $capitalAccess->pre_flight_checklist,
-            'status'               => $data['status'] ?? $capitalAccess->status,
+            'name'                        => $data['name'] ?? $capitalAccess->name,
+            'sub_title'                   => array_key_exists('sub_title', $data) ? $data['sub_title'] : $capitalAccess->sub_title,
+            'partner_id'                  => array_key_exists('partner_id', $data) ? $data['partner_id'] : $capitalAccess->partner_id,
+            'target_exposure_min'         => array_key_exists('target_exposure_min', $data) ? $data['target_exposure_min'] : $capitalAccess->target_exposure_min,
+            'target_exposure_max'         => array_key_exists('target_exposure_max', $data) ? $data['target_exposure_max'] : $capitalAccess->target_exposure_max,
+            'est_timeline_min'            => array_key_exists('est_timeline_min', $data) ? $data['est_timeline_min'] : $capitalAccess->est_timeline_min,
+            'est_timeline_max'            => array_key_exists('est_timeline_max', $data) ? $data['est_timeline_max'] : $capitalAccess->est_timeline_max,
+            'minimum_fico_requirement'    => array_key_exists('minimum_fico_requirement', $data) ? $data['minimum_fico_requirement'] : $capitalAccess->minimum_fico_requirement,
+            'maximum_utilization_threshold' => array_key_exists('maximum_utilization_threshold', $data) ? $data['maximum_utilization_threshold'] : $capitalAccess->maximum_utilization_threshold,
+            'difficulty_modifier'         => array_key_exists('difficulty_modifier', $data) ? $data['difficulty_modifier'] : $capitalAccess->difficulty_modifier,
+            'what_you_will_get'           => array_key_exists('what_you_will_get', $data) ? json_encode($data['what_you_will_get']) : $capitalAccess->what_you_will_get,
+            'pre_flight_checklist'        => array_key_exists('pre_flight_checklist', $data) ? json_encode($data['pre_flight_checklist']) : $capitalAccess->pre_flight_checklist,
+            'status'                      => $data['status'] ?? $capitalAccess->status,
         ]);
 
         if (array_key_exists('credit_accounts', $data)) {

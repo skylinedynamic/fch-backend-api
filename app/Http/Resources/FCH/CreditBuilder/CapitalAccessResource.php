@@ -22,6 +22,9 @@ class CapitalAccessResource extends JsonResource
             'target_exposure_min' => currencyFormat($this->target_exposure_min, 0),
             'target_exposure_max' => currencyFormat($this->target_exposure_max, 0),
             'est_timeline' => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
+            'minimum_fico_requirement' => $this->minimum_fico_requirement,
+            'maximum_utilization_threshold' => $this->maximum_utilization_threshold,
+            'difficulty_modifier' => $this->difficulty_modifier,
             'status' => $this->status ?? 'Active',
             'credit_accounts' => $this->when(
                 $this->relationLoaded('creditAccounts'),

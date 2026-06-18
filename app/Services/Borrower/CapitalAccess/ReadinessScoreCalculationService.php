@@ -38,7 +38,7 @@ class ReadinessScoreCalculationService
             $totalScore += $weightedScore['score'];
         }
 
-        $totalScore = (int) round($totalScore);
+        $totalScore = (int) round($totalScore) > 100 ? 100 : (int) round($totalScore);
 
         $band = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)
             ->where('model_slug', 'funding_readiness')
@@ -358,10 +358,6 @@ class ReadinessScoreCalculationService
                 : 0;
         });
 
-        $minAge = $accountAges->min() ?: 0;
-        $maxAge = $accountAges->max() ?: 0;
-
-
         $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
             ->where('model_slug', 'funding_readiness')
             ->where('factor_slug', 'banking_relationships')
@@ -377,7 +373,6 @@ class ReadinessScoreCalculationService
 
         $value = 0;
         $message = 'No banking relationship';
-        $conditionalValue = 0;
 
         foreach ($tiers as $tier) {
             if (!$tier->conditions) {
@@ -386,74 +381,80 @@ class ReadinessScoreCalculationService
 
             $rules = $tier->conditions;
 
+            // Extract meta flags and rule definitions
             $each = false;
-            $checkingMonthsValue = null;
-            $checkingMonthsOperator = null;
+            $accountsRule = null;
+            $checkingMonthsRule = null;
 
             foreach ($rules as $rule) {
                 $field = array_key_first($rule);
 
                 if ($field === 'each') {
                     $each = (bool) $rule[$field];
-                }
-
-                if ($field === 'checking_months') {
-                    $checkingMonthsValue = $rule[$field]['value'] ?? null;
-                    $checkingMonthsOperator = $rule[$field]['operator'] ?? null;
-                }
-            }
-
-            $results = [];
-
-            foreach ($rules as $rule) {
-                $field = array_key_first($rule);
-                $val = $rule[$field];
-
-                if (!is_array($val) || !isset($val['operator'], $val['value'])) {
-                    continue;
-                }
-
-                $operator = $val['operator'];
-                $targetValue = $val['value'];
-
-                if ($field === 'accounts') {
-
-                    if ($checkingMonthsValue !== null && $checkingMonthsOperator !== null && !$each) {
-                        $borrowerValue = $accountAges->filter(function ($age) use ($checkingMonthsValue, $checkingMonthsOperator) {
-                            return $this->compareValues($age, $checkingMonthsOperator, $checkingMonthsValue);
-                        })->count();
-                    } else {
-                        $borrowerValue = $totalAccounts;
-                    }
-
+                } elseif ($field === 'accounts') {
+                    $accountsRule = $rule[$field]; // ['operator' => '>=', 'value' => 2]
                 } elseif ($field === 'checking_months') {
-
-                    $borrowerValue = $each ? $minAge : $maxAge;
-
-                } else {
-                    $borrowerValue = 0;
+                    $checkingMonthsRule = $rule[$field]; // ['operator' => '>', 'value' => 12]
                 }
-
-                $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
             }
 
-            if (!in_array(false, $results, true)) {
+            $passed = false;
 
+            // Case 1: accounts = 0 (no accounts expected)
+            if ($accountsRule && (int) $accountsRule['value'] === 0 && $accountsRule['operator'] === '=') {
+                $passed = $totalAccounts === 0;
+
+                // Case 2: each = true — minimum N accounts AND all of those N must satisfy checking_months
+            } elseif ($each && $accountsRule && $checkingMonthsRule) {
+                $requiredCount = (int) $accountsRule['value'];
+                $monthsTarget = $checkingMonthsRule['value'];
+                $monthsOperator = $checkingMonthsRule['operator'];
+
+                // Count how many accounts satisfy the checking_months condition
+                $qualifyingCount = $accountAges->filter(function ($age) use ($monthsOperator, $monthsTarget) {
+                    return $this->compareValues($age, $monthsOperator, $monthsTarget);
+                })->count();
+
+                // All required accounts must meet the age condition
+                $passed = $this->compareValues($totalAccounts, $accountsRule['operator'], $requiredCount)
+                    && $qualifyingCount >= $requiredCount;
+
+                // Case 3: each = false + checking_months exists — min 1 account must satisfy checking_months
+            } elseif (!$each && $accountsRule && $checkingMonthsRule) {
+                $monthsTarget = $checkingMonthsRule['value'];
+                $monthsOperator = $checkingMonthsRule['operator'];
+
+                $anyQualifies = $accountAges->contains(function ($age) use ($monthsOperator, $monthsTarget) {
+                    return $this->compareValues($age, $monthsOperator, $monthsTarget);
+                });
+
+                $passed = $this->compareValues($totalAccounts, $accountsRule['operator'], $accountsRule['value'])
+                    && $anyQualifies;
+
+                // Case 4: no checking_months — just check account count
+            } elseif ($accountsRule && !$checkingMonthsRule) {
+                $passed = $this->compareValues($totalAccounts, $accountsRule['operator'], $accountsRule['value']);
+            }
+
+            if ($passed) {
                 $value = (float) $tier->numeric_value;
 
-                // Generate short explanation
-                if ($each) {
+                if ($each && $checkingMonthsRule) {
+                    $requiredCount = (int) $accountsRule['value'];
                     $message = sprintf(
-                        '%d accounts, each %d months old',
-                        $totalAccounts,
-                        $minAge
+                        '%d accounts, each older than %d months',
+                        $requiredCount,
+                        $checkingMonthsRule['value']
                     );
-                } else {
+                } elseif (!$each && $checkingMonthsRule) {
+                    $maxAge = $accountAges->max() ?: 0;
                     $message = sprintf(
                         '%d accounts, oldest relationship %d months',
                         $totalAccounts,
                         $maxAge
                     );
+                } else {
+                    $message = sprintf('%d account(s)', $totalAccounts);
                 }
 
                 break;
