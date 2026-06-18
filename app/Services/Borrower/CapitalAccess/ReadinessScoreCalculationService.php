@@ -5,18 +5,19 @@ namespace App\Services\Borrower\CapitalAccess;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\ScoreConfiguration;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class ReadinessScoreCalculationService
 {
     public function calculate(Borrower $borrower): array
     {
         $factors = [
-            'fico'                 => ['label' => 'Personal Credit',      'slug' => 'fico'],
-            'utilization'          => ['label' => 'Utilization',           'slug' => 'utilization'],
-            'time_in_business'     => ['label' => 'Time in Business',      'slug' => 'time_in_business'],
-            'revenue_strength'     => ['label' => 'Revenue Strength',      'slug' => 'revenue_strength'],
-            'tradeline_depth'      => ['label' => 'Tradeline Depth',       'slug' => 'tradeline_depth'],
-            'banking_relationships'=> ['label' => 'Banking Relationships',  'slug' => 'banking_relationships'],
+            'fico' => ['label' => 'Personal Credit', 'slug' => 'fico'],
+            'utilization' => ['label' => 'Utilization', 'slug' => 'utilization'],
+            'time_in_business' => ['label' => 'Time in Business', 'slug' => 'time_in_business'],
+            'revenue_strength' => ['label' => 'Revenue Strength', 'slug' => 'revenue_strength'],
+            'tradeline_depth' => ['label' => 'Tradeline Depth', 'slug' => 'tradeline_depth'],
+            'banking_relationships' => ['label' => 'Banking Relationships', 'slug' => 'banking_relationships'],
         ];
 
         $factorScores = [];
@@ -26,14 +27,15 @@ class ReadinessScoreCalculationService
             $method = 'get' . str_replace('_', '', ucwords($key, '_')) . 'Subscore';
             $weightedScore = $this->$method($borrower);
             $weight = $this->getFactorWeight($key);
-            $rawScore = $weight > 0 ? round($weightedScore / ($weight / 100), 2) : 0;
+            $rawScore = $weight > 0 ? round($weightedScore['score'] / ($weight / 100), 2) : 0;
             $factorScores[] = [
-                'slug'           => $info['slug'],
-                'label'          => $info['label'],
-                'weighted_score' => round($weightedScore, 2),
-                'raw_score'      => $rawScore,
+                'slug' => $info['slug'],
+                'label' => $info['label'],
+                'value' => $weightedScore['value'],
+                'weighted_score' => round($weightedScore['score'], 2),
+                'raw_score' => $rawScore,
             ];
-            $totalScore += $weightedScore;
+            $totalScore += $weightedScore['score'];
         }
 
         $totalScore = (int) round($totalScore);
@@ -45,22 +47,22 @@ class ReadinessScoreCalculationService
             ->first(fn($b) => $b->min_value === null || $totalScore >= (float) $b->min_value);
 
         return [
-            'total_score'       => $totalScore,
-            'score_label'       => $band?->label ?? 'Not Ready',
+            'total_score' => $totalScore,
+            'score_label' => $band?->label ?? 'Not Ready',
             'score_label_color' => $band?->color ?? '#6c757d',
-            'factors'           => $factorScores,
+            'factors' => $factorScores,
         ];
     }
 
     public function getSubscoreForFactor(string $slug, Borrower $borrower): float
     {
         $methodMap = [
-            'fico'                 => 'getFicoSubscore',
-            'utilization'          => 'getUtilizationSubscore',
-            'time_in_business'     => 'getTimeInBusinessSubscore',
-            'revenue_strength'     => 'getRevenueStrengthSubscore',
-            'tradeline_depth'      => 'getTradelineDepthSubscore',
-            'banking_relationships'=> 'getBankingRelationshipsSubscore',
+            'fico' => 'getFicoSubscore',
+            'utilization' => 'getUtilizationSubscore',
+            'time_in_business' => 'getTimeInBusinessSubscore',
+            'revenue_strength' => 'getRevenueStrengthSubscore',
+            'tradeline_depth' => 'getTradelineDepthSubscore',
+            'banking_relationships' => 'getBankingRelationshipsSubscore',
         ];
 
         if (!isset($methodMap[$slug])) {
@@ -82,7 +84,7 @@ class ReadinessScoreCalculationService
         return $weight !== null ? (float) $weight : 0;
     }
 
-    private function getFicoSubscore(Borrower $borrower): float
+    private function getFicoSubscore(Borrower $borrower)
     {
         $fico = null;
 
@@ -120,11 +122,13 @@ class ReadinessScoreCalculationService
             }
         }
 
-
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $fico,
+        ];
     }
 
-    private function getUtilizationSubscore(Borrower $borrower): float
+    private function getUtilizationSubscore(Borrower $borrower)
     {
         $utilization = null;
 
@@ -167,11 +171,13 @@ class ReadinessScoreCalculationService
             }
         }
 
-
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $utilization,
+        ];
     }
 
-    private function getTimeInBusinessSubscore(Borrower $borrower): float
+    private function getTimeInBusinessSubscore(Borrower $borrower)
     {
         $months = $borrower->business_start_date
             ? Carbon::parse($borrower->business_start_date)->diffInMonths()
@@ -201,10 +207,13 @@ class ReadinessScoreCalculationService
             }
         }
 
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $months > 0 ? floor($months) . ' months+' : 'New business',
+        ];
     }
 
-    private function getRevenueStrengthSubscore(Borrower $borrower): float
+    private function getRevenueStrengthSubscore(Borrower $borrower)
     {
         $annualRevenue = $borrower->annual_revenue !== null
             ? (float) $borrower->annual_revenue
@@ -227,6 +236,8 @@ class ReadinessScoreCalculationService
             ->orderBy('sort_order')
             ->get();
 
+        $status = null;
+
         if ((!$annualRevenue || $annualRevenue == null || $annualRevenue == 0) && $months <= 24) {
             $value = 55;
         } else {
@@ -237,16 +248,20 @@ class ReadinessScoreCalculationService
 
                 if ($minMatched && $maxMatched) {
                     $value = (float) $tier->numeric_value;
+                    $status = $tier->label;
                     break;
                 }
             }
         }
 
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $status,
+        ];
     }
 
 
-    private function getTradelineDepthSubscore(Borrower $borrower): float
+    private function getTradelineDepthSubscore(Borrower $borrower)
     {
         if (!$borrower->creditProfile) {
             return 0;
@@ -272,6 +287,7 @@ class ReadinessScoreCalculationService
             ->get();
 
         $value = 0;
+        $status = null;
         foreach ($tiers as $tier) {
             if ($tier->conditions) {
                 $conditions = $tier->conditions;
@@ -280,8 +296,14 @@ class ReadinessScoreCalculationService
 
                 foreach ($rules as $rule) {
                     $field = array_key_first($rule);
-                    $operator = $rule[$field]['operator'];
-                    $targetValue = $rule[$field]['value'];
+                    $val = $rule[$field];
+
+                    if (!is_array($val) || !isset($val['operator'], $val['value'])) {
+                        continue;
+                    }
+
+                    $operator = $val['operator'];
+                    $targetValue = $val['value'];
 
                     if ($field === 'open_accounts') {
                         $borrowerValue = $openAccounts;
@@ -296,12 +318,16 @@ class ReadinessScoreCalculationService
 
                 if ($matched) {
                     $value = (float) $tier->numeric_value;
+                    $status = $tier->label;
                     break;
                 }
             }
         }
 
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $status,
+        ];
     }
 
     private function compareValues($value, string $operator, $target): bool
@@ -321,7 +347,7 @@ class ReadinessScoreCalculationService
         };
     }
 
-    private function getBankingRelationshipsSubscore(Borrower $borrower): float
+    private function getBankingRelationshipsSubscore(Borrower $borrower)
     {
         $allAccounts = $borrower->bankAccounts;
         $totalAccounts = $allAccounts->count();
@@ -334,6 +360,7 @@ class ReadinessScoreCalculationService
 
         $minAge = $accountAges->min() ?: 0;
         $maxAge = $accountAges->max() ?: 0;
+
 
         $subScore = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
             ->where('model_slug', 'funding_readiness')
@@ -349,6 +376,9 @@ class ReadinessScoreCalculationService
             ->get();
 
         $value = 0;
+        $message = 'No banking relationship';
+        $conditionalValue = 0;
+
         foreach ($tiers as $tier) {
             if (!$tier->conditions) {
                 continue;
@@ -359,11 +389,14 @@ class ReadinessScoreCalculationService
             $each = false;
             $checkingMonthsValue = null;
             $checkingMonthsOperator = null;
+
             foreach ($rules as $rule) {
                 $field = array_key_first($rule);
+
                 if ($field === 'each') {
                     $each = (bool) $rule[$field];
                 }
+
                 if ($field === 'checking_months') {
                     $checkingMonthsValue = $rule[$field]['value'] ?? null;
                     $checkingMonthsOperator = $rule[$field]['operator'] ?? null;
@@ -371,6 +404,7 @@ class ReadinessScoreCalculationService
             }
 
             $results = [];
+
             foreach ($rules as $rule) {
                 $field = array_key_first($rule);
                 $val = $rule[$field];
@@ -383,6 +417,7 @@ class ReadinessScoreCalculationService
                 $targetValue = $val['value'];
 
                 if ($field === 'accounts') {
+
                     if ($checkingMonthsValue !== null && $checkingMonthsOperator !== null && !$each) {
                         $borrowerValue = $accountAges->filter(function ($age) use ($checkingMonthsValue, $checkingMonthsOperator) {
                             return $this->compareValues($age, $checkingMonthsOperator, $checkingMonthsValue);
@@ -390,8 +425,11 @@ class ReadinessScoreCalculationService
                     } else {
                         $borrowerValue = $totalAccounts;
                     }
+
                 } elseif ($field === 'checking_months') {
+
                     $borrowerValue = $each ? $minAge : $maxAge;
+
                 } else {
                     $borrowerValue = 0;
                 }
@@ -399,14 +437,32 @@ class ReadinessScoreCalculationService
                 $results[] = $this->compareValues($borrowerValue, $operator, $targetValue);
             }
 
-            $matched = !in_array(false, $results, true);
+            if (!in_array(false, $results, true)) {
 
-            if ($matched) {
                 $value = (float) $tier->numeric_value;
+
+                // Generate short explanation
+                if ($each) {
+                    $message = sprintf(
+                        '%d accounts, each %d months old',
+                        $totalAccounts,
+                        $minAge
+                    );
+                } else {
+                    $message = sprintf(
+                        '%d accounts, oldest relationship %d months',
+                        $totalAccounts,
+                        $maxAge
+                    );
+                }
+
                 break;
             }
         }
 
-        return $value * ($subScoreWeight / 100);
+        return [
+            'score' => $value * ($subScoreWeight / 100),
+            'value' => $message,
+        ];
     }
 }

@@ -19,12 +19,12 @@ class ScoreConfigurationsSeeder extends Seeder
     private function seedModelWeights(): void
     {
         $rows = [
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'fico',                 'numeric_value' => 35, 'sort_order' => 1],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'utilization',          'numeric_value' => 25, 'sort_order' => 2],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'time_in_business',     'numeric_value' => 15, 'sort_order' => 3],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'revenue_strength',     'numeric_value' => 10, 'sort_order' => 4],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'tradeline_depth',      'numeric_value' => 10, 'sort_order' => 5],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'banking_relationships', 'numeric_value' =>  5, 'sort_order' => 6],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'fico', 'numeric_value' => 35, 'sort_order' => 1],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'utilization', 'numeric_value' => 25, 'sort_order' => 2],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'time_in_business', 'numeric_value' => 15, 'sort_order' => 3],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'revenue_strength', 'numeric_value' => 10, 'sort_order' => 4],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'tradeline_depth', 'numeric_value' => 10, 'sort_order' => 5],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'banking_relationships', 'numeric_value' => 5, 'sort_order' => 6],
         ];
 
         foreach ($rows as $row) {
@@ -74,43 +74,79 @@ class ScoreConfigurationsSeeder extends Seeder
 
         // Bureau Depth
         $items->push(...$this->tiers('tradeline_depth', [
-            ['label' => 'Multiple High-Limit & Installment Depth', 'subscore' => 100, 'order' => 1, 'conditions' => [
-                ['open_accounts' => ['operator' => '>=', 'value' => 5]],
-                ['high_limit_accounts' => ['operator' => '>=', 'value' => 2]],
-                ['limit' => ['operator' => '>=', 'value' => 15000]],
-            ]],
-            ['label' => 'Good Depth with High-Limit account', 'subscore' => 80, 'order' => 2, 'conditions' => [
-                ['open_accounts' => ['operator' => '>=', 'value' => 3]],
-                ['high_limit_accounts' => ['operator' => '>=', 'value' => 1]],
-                ['limit' => ['operator' => '>=', 'value' => 10000]],
-            ]],
-            ['label' => 'Moderate Depth', 'subscore' => 60, 'order' => 3, 'conditions' => [
-                ['open_accounts' => ['operator' => '>=', 'value' => 2]],
-            ]],
-            ['label' => 'Thin File', 'subscore' => 35, 'order' => 4, 'conditions' => [
-                ['open_accounts' => ['operator' => '>=', 'value' => 0]],
-            ]],
+            [
+                'label' => 'Multiple High-Limit & Installment Depth',
+                'subscore' => 100,
+                'order' => 1,
+                'conditions' => [
+                    ['open_accounts' => ['operator' => '>=', 'value' => 5]],
+                    ['high_limit_accounts' => ['operator' => '>=', 'value' => 2]],
+                    ['limit' => ['operator' => '>=', 'value' => 15000]],
+                ]
+            ],
+            [
+                'label' => 'Good Depth with High-Limit account',
+                'subscore' => 80,
+                'order' => 2,
+                'conditions' => [
+                    ['open_accounts' => ['operator' => '>=', 'value' => 3]],
+                    ['high_limit_accounts' => ['operator' => '>=', 'value' => 1]],
+                    ['limit' => ['operator' => '>=', 'value' => 10000]],
+                ]
+            ],
+            [
+                'label' => 'Moderate Depth',
+                'subscore' => 60,
+                'order' => 3,
+                'conditions' => [
+                    ['open_accounts' => ['operator' => '>=', 'value' => 2]],
+                ]
+            ],
+            [
+                'label' => 'Thin File',
+                'subscore' => 35,
+                'order' => 4,
+                'conditions' => [
+                    ['open_accounts' => ['operator' => '>=', 'value' => 0]],
+                ]
+            ],
         ]));
 
         $items->push(...$this->tiers('banking_relationships', [
-            ['subscore' => 100, 'order' => 1, 'conditions' => [
-                ['accounts' => ['operator' => '>=', 'value' => 2]],
-                ['checking_months' => ['operator' => '>', 'value' => 12]],
-                ['each' => true]
-            ]],
-            ['subscore' => 75, 'order' => 2, 'conditions' => [
-                ['accounts' => ['operator' => '>=', 'value' => 1]],
-                ['checking_months' => ['operator' => '>', 'value' => 12]],
-                ['each' => false]
-            ]],
-            ['subscore' => 50, 'order' => 3, 'conditions' => [
-                ['accounts' => ['operator' => '>=', 'value' => 1]],
-                ['each' => false]
-            ]],
-            ['subscore' => 20, 'order' => 4, 'conditions' => [
-                ['accounts' => ['operator' => '=', 'value' => 0]],
-                ['each' => false]
-            ]],
+            [
+                'subscore' => 100,
+                'order' => 1,
+                'conditions' => [
+                    ['accounts' => ['operator' => '>=', 'value' => 2]],
+                    ['checking_months' => ['operator' => '>', 'value' => 12]],
+                    ['each' => true]
+                ]
+            ],
+            [
+                'subscore' => 75,
+                'order' => 2,
+                'conditions' => [
+                    ['accounts' => ['operator' => '>=', 'value' => 1]],
+                    ['checking_months' => ['operator' => '>', 'value' => 12]],
+                    ['each' => false]
+                ]
+            ],
+            [
+                'subscore' => 50,
+                'order' => 3,
+                'conditions' => [
+                    ['accounts' => ['operator' => '>=', 'value' => 1]],
+                    ['each' => false]
+                ]
+            ],
+            [
+                'subscore' => 20,
+                'order' => 4,
+                'conditions' => [
+                    ['accounts' => ['operator' => '=', 'value' => 0]],
+                    ['each' => false]
+                ]
+            ],
         ]));
 
         foreach ($items as $item) {
@@ -123,11 +159,11 @@ class ScoreConfigurationsSeeder extends Seeder
         // Bands form a contiguous score range from 0 to 850
         // Each band's max is computed as (next band's min - 1), last band goes to 0
         $rows = [
-            ['label' => 'Premium',    'min' => 720, 'color' => '#198754', 'order' => 1],
-            ['label' => 'Prime',      'min' => 680, 'color' => '#0d6efd', 'order' => 2],
-            ['label' => 'Near Prime', 'min' => 640, 'color' => '#ffc107', 'order' => 3],
-            ['label' => 'Subprime',   'min' => 580, 'color' => '#fd7e14', 'order' => 4],
-            ['label' => 'Deep Subprime',               'color' => '#dc3545', 'order' => 5],
+            ['label' => 'Elite Ready', 'min' => 720, 'color' => '#198754', 'order' => 1],
+            ['label' => 'Executive Ready', 'min' => 680, 'color' => '#0d6efd', 'order' => 2],
+            ['label' => 'Foundation Ready', 'min' => 640, 'color' => '#ffc107', 'order' => 3],
+            ['label' => 'Conditional', 'min' => 580, 'color' => '#fd7e14', 'order' => 4],
+            ['label' => 'Not ready', 'color' => '#dc3545', 'order' => 5],
         ];
 
         foreach ($rows as $row) {
