@@ -38,6 +38,8 @@ class UpdateCapitalAccessRequest extends BaseApiRequest
             'minimum_fico_requirement' => 'nullable|integer|min:300|max:850',
             'maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
             'difficulty_modifier' => 'nullable|numeric',
+            'allow_recent_late_payment' => 'nullable|boolean',
+            'late_payment_lookback_months' => 'nullable|integer|min:0',
             'credit_accounts' => 'required|array|min:1',
             'credit_accounts.*.id' => 'required|integer|exists:credit_accounts,id',
             'credit_accounts.*.why_this_card' => 'nullable|string',

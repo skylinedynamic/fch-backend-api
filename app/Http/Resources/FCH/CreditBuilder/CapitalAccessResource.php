@@ -25,6 +25,8 @@ class CapitalAccessResource extends JsonResource
             'minimum_fico_requirement' => $this->minimum_fico_requirement,
             'maximum_utilization_threshold' => $this->maximum_utilization_threshold,
             'difficulty_modifier' => $this->difficulty_modifier,
+            'allow_recent_late_payment' => (bool) ($this->allow_recent_late_payment ?? true),
+            'late_payment_lookback_months' => $this->late_payment_lookback_months,
             'status' => $this->status ?? 'Active',
             'credit_accounts' => $this->when(
                 $this->relationLoaded('creditAccounts'),

@@ -152,6 +152,8 @@ class CapitalAccessSeeder extends Seeder
                 'minimum_fico_requirement'    => $program['minimum_fico_requirement'],
                 'maximum_utilization_threshold' => $program['maximum_utilization_threshold'],
                 'difficulty_modifier'         => $program['difficulty_modifier'],
+                'allow_recent_late_payment'   => true,
+                'late_payment_lookback_months' => 12,
                 'est_timeline_min'            => $program['est_timeline_min'],
                 'est_timeline_max'            => $program['est_timeline_max'],
                 'what_you_will_get'           => json_encode([
