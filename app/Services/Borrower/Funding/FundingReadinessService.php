@@ -90,19 +90,36 @@ class FundingReadinessService
                     if (is_null($businessScore) || $businessScore == 0) {
                         $status = $statusMissing;
                     } else {
-                        $score = (float) $businessScore;
-                        $maxScore = config('funding.readiness_factors.business_credit.max_score', 850);
-                        $strongPct = config('funding.readiness_factors.business_credit.strong_percentage', 80);
-                        $goodPct = config('funding.readiness_factors.business_credit.good_percentage', 60);
-                        
-                        $percentage = ($score / $maxScore) * 100;
-                        
-                        if ($percentage >= $strongPct) {
-                            $status = $statusStrong;
-                        } elseif ($percentage >= $goodPct) {
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
                             $status = $statusGood;
                         } else {
-                            $status = $statusMissing;
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            $buffer = 20; // Default offset for business credit
+
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_fico)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($businessScore >= $lender->min_fico) {
+                                        $passCount++;
+                                    }
+                                    if ($businessScore >= $lender->min_fico + $buffer) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
                         }
                     }
                 }
@@ -110,54 +127,123 @@ class FundingReadinessService
                 elseif (str_contains($lowerLabel, 'credit')) {
                     if (is_null($borrower->fico_score) || $borrower->fico_score == 0) {
                         $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_fico)) {
-                        $buffer = config('funding.readiness_factors.personal_credit.strong_buffer', 50);
-                        if ($borrower->fico_score < $fundingOption->min_fico) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($borrower->fico_score >= $fundingOption->min_fico + $buffer) ? $statusStrong : $statusGood;
-                        }
                     } else {
-                        $status = $statusGood;
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
+                            $status = $statusGood;
+                        } else {
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            $buffer = config('funding.readiness_factors.personal_credit.strong_buffer', 50);
+
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_fico)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($borrower->fico_score >= $lender->min_fico) {
+                                        $passCount++;
+                                    }
+                                    if ($borrower->fico_score >= $lender->min_fico + $buffer) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
+                        }
                     }
                 }
                 // Revenue
-                elseif (str_contains($lowerLabel, 'revenue')) {
+                elseif (str_contains($lowerLabel, 'revenue') || str_contains($lowerLabel, 'sales')) {
                     if (is_null($borrower->monthly_revenue) || $borrower->monthly_revenue <= 0) {
                         $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_monthly_revenue)) {
-                        $multiplier = config('funding.readiness_factors.revenue.strong_multiplier', 2.0);
-                        if ($borrower->monthly_revenue < $fundingOption->min_monthly_revenue) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($borrower->monthly_revenue >= $fundingOption->min_monthly_revenue * $multiplier) ? $statusStrong : $statusGood;
-                        }
                     } else {
-                        $status = $statusGood;
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
+                            $status = $statusGood;
+                        } else {
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            $multiplier = config('funding.readiness_factors.revenue.strong_multiplier', 2.0);
+                            
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_monthly_revenue)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($borrower->monthly_revenue >= $lender->min_monthly_revenue) {
+                                        $passCount++;
+                                    }
+                                    if ($borrower->monthly_revenue >= $lender->min_monthly_revenue * $multiplier) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
+                        }
                     }
                 }
                 // Time in business
                 elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
                     if (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '') {
                         $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_tib_months)) {
-                        $bufferMonths = config('funding.readiness_factors.time_in_business.strong_buffer_months', 12);
-                        $tibMonths = 0;
-                        if (stripos($borrower->years_in_business, 'month') !== false) {
-                            preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                            if (isset($matches[1])) $tibMonths = (int)$matches[1];
-                        } elseif (stripos($borrower->years_in_business, 'year') !== false) {
-                            preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                            if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
-                        }
-                        
-                        if ($tibMonths < $fundingOption->min_tib_months) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($tibMonths >= $fundingOption->min_tib_months + $bufferMonths) ? $statusStrong : $statusGood;
-                        }
                     } else {
-                        $status = $statusGood;
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
+                            $status = $statusGood;
+                        } else {
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            $bufferMonths = config('funding.readiness_factors.time_in_business.strong_buffer_months', 12);
+
+                            $tibMonths = 0;
+                            if (stripos($borrower->years_in_business, 'month') !== false) {
+                                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                                if (isset($matches[1])) $tibMonths = (int)$matches[1];
+                            } elseif (stripos($borrower->years_in_business, 'year') !== false) {
+                                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                                if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
+                            }
+
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_tib_months)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($tibMonths >= $lender->min_tib_months) {
+                                        $passCount++;
+                                    }
+                                    if ($tibMonths >= $lender->min_tib_months + $bufferMonths) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
+                        }
                     }
                 }
                 // Banking Activity
