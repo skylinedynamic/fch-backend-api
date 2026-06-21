@@ -34,17 +34,17 @@ class CapitalAccess extends Model
             'capital_access_sequences',
             'capital_access_id',
         )->withPivot(
-            'sorting_order', 
-            'id', 
-            'why_this_card', 
-            'est_limit_min', 
-            'est_limit_max', 
-            'hard_pull', 
-            'what_you_need',
-            'access_time',
-            'access_day',
-            'access_day_time'
-        )->orderByPivot('sorting_order', 'asc')->withTimestamps();
+                'sorting_order',
+                'id',
+                'why_this_card',
+                'est_limit_min',
+                'est_limit_max',
+                'hard_pull',
+                'what_you_need',
+                'access_time',
+                'access_day',
+                'access_day_time'
+            )->orderByPivot('sorting_order', 'asc')->withTimestamps();
     }
 
     /**
@@ -62,8 +62,14 @@ class CapitalAccess extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'LIKE', "%{$search}%")
-              ->orWhere('status', 'LIKE', "%{$search}%");
+                ->orWhere('status', 'LIKE', "%{$search}%");
         });
+    }
+
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
     }
 
     /**

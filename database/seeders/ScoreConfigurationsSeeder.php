@@ -14,6 +14,32 @@ class ScoreConfigurationsSeeder extends Seeder
         $this->seedModelWeights();
         $this->seedSubscoreTiers();
         $this->seedReadinessBands();
+        $this->seedLatePaymentModifiers();
+        $this->seedApprovalProbabilityTiers();
+    }
+
+    private function seedLatePaymentModifiers(): void
+    {
+        $rows = [
+            ['factor_slug' => 'late_30_1', 'label' => '1 x 30-day late', 'min_value' => 1, 'numeric_value' => -5, 'sort_order' => 1],
+            ['factor_slug' => 'late_30_2_plus', 'label' => '2+ x 30-day lates', 'min_value' => 2, 'numeric_value' => -10, 'sort_order' => 2],
+            ['factor_slug' => 'late_60_1', 'label' => '1 x 60-day late', 'min_value' => 1, 'numeric_value' => -15, 'sort_order' => 3],
+            ['factor_slug' => 'late_60_2_plus', 'label' => '2+ x 60-day lates', 'min_value' => 2, 'numeric_value' => -25, 'sort_order' => 4],
+            ['factor_slug' => 'late_90_1', 'label' => '1 x 90-day late', 'min_value' => 1, 'numeric_value' => -30, 'sort_order' => 5],
+            ['factor_slug' => 'late_90_2_plus', 'label' => '2+ x 90-day lates', 'min_value' => 2, 'numeric_value' => -50, 'sort_order' => 6],
+        ];
+
+        foreach ($rows as $row) {
+            ScoreConfiguration::create([
+                'category' => ScoreConfiguration::CATEGORY_LATE_PAYMENT_MODIFIER,
+                'model_slug' => ScoreConfiguration::MODEL_APPROVAL_PROBABILITY,
+                'factor_slug' => $row['factor_slug'],
+                'label' => $row['label'],
+                'min_value' => $row['min_value'],
+                'numeric_value' => $row['numeric_value'],
+                'sort_order' => $row['sort_order'],
+            ]);
+        }
     }
 
     private function seedModelWeights(): void
@@ -57,11 +83,11 @@ class ScoreConfigurationsSeeder extends Seeder
         ]));
 
         $items->push(...$this->tiers('time_in_business', [
-            ['min' => 36, 'subscore' => 100, 'order' => 1],
-            ['min' => 24, 'max' => 35, 'subscore' => 85, 'order' => 2],
-            ['min' => 12, 'max' => 23, 'subscore' => 70, 'order' => 3],
-            ['min' => 6, 'max' => 11, 'subscore' => 50, 'order' => 4],
-            ['max' => 5, 'subscore' => 25, 'order' => 5],
+            ['label' => 'Established', 'min' => 36, 'subscore' => 100, 'order' => 1],
+            ['label' => 'Mature', 'min' => 24, 'max' => 35, 'subscore' => 85, 'order' => 2],
+            ['label' => 'Young', 'min' => 12, 'max' => 23, 'subscore' => 70, 'order' => 3],
+            ['label' => 'Early Stage', 'min' => 6, 'max' => 11, 'subscore' => 50, 'order' => 4],
+            ['label' => 'Startup', 'max' => 5, 'subscore' => 25, 'order' => 5],
         ]));
 
         // Financial Capacity
@@ -196,6 +222,73 @@ class ScoreConfigurationsSeeder extends Seeder
             ];
         }
 
+        return $rows;
+    }
+
+    private function seedApprovalProbabilityTiers(): void
+    {
+        $items = collect();
+
+        $items->push(...$this->probTiers('fico_above_minimum', [
+            ['min' => 40, 'points' => 7, 'label' => '40+ points above minimum', 'order' => 1],
+            ['min' => 20, 'max' => 39, 'points' => 4, 'label' => '20–39 points above minimum', 'order' => 2],
+            ['min' => 0, 'max' => 19, 'points' => 0, 'label' => '0–19 points above minimum', 'order' => 3],
+        ]));
+
+        $items->push(...$this->probTiers('utilization', [
+            ['min' => 0, 'max' => 5, 'points' => 5, 'label' => '0–5%', 'order' => 1],
+            ['min' => 5.01, 'max' => 10, 'points' => 3, 'label' => '5.01–10%', 'order' => 2],
+            ['min' => 10.01, 'max' => 20, 'points' => 0, 'label' => '10.01–20%', 'order' => 3],
+            ['min' => 20.01, 'max' => 25, 'points' => -5, 'label' => '20.01–25%', 'order' => 4],
+            ['min' => 25.01, 'points' => -10, 'label' => '25.01%+', 'order' => 5],
+        ]));
+
+        $items->push(...$this->probTiers('recent_inquiries', [
+            ['min' => 0, 'max' => 2, 'points' => 3, 'label' => '0–2 inquiries', 'order' => 1],
+            ['min' => 3, 'max' => 4, 'points' => 0, 'label' => '3–4 inquiries', 'order' => 2],
+            ['min' => 5, 'points' => -8, 'label' => '5+ inquiries', 'order' => 3],
+        ]));
+
+        $items->push(...$this->probTiers('banking_relationship', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_STRONG, 'order' => 1],
+            ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 3],
+        ]));
+
+        $items->push(...$this->probTiers('tradeline_depth', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_HIGH, 'order' => 1],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 2],
+            ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 3],
+        ]));
+
+        $items->push(...$this->probTiers('revenue_income', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG, 'order' => 1],
+            ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED, 'order' => 3],
+            ['points' => -5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP, 'order' => 4],
+        ]));
+
+        foreach ($items as $item) {
+            ScoreConfiguration::create($item);
+        }
+    }
+
+    private function probTiers(string $factorSlug, array $tiers): array
+    {
+        $rows = [];
+        foreach ($tiers as $tier) {
+            $rows[] = [
+                'model_slug' => ScoreConfiguration::MODEL_APPROVAL_PROBABILITY,
+                'factor_slug' => $factorSlug,
+                'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
+                'label' => $tier['label'] ?? null,
+                'min_value' => $tier['min'] ?? null,
+                'max_value' => $tier['max'] ?? null,
+                'numeric_value' => $tier['points'] ?? null,
+                'conditions' => null,
+                'sort_order' => $tier['order'] ?? 0,
+            ];
+        }
         return $rows;
     }
 }

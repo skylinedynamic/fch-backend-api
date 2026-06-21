@@ -70,8 +70,10 @@ class ReadinessScoreCalculationService
         }
 
         $weight = $this->getFactorWeight($slug);
+        $weightedScore = $this->{$methodMap[$slug]}($borrower);
+        $score = is_array($weightedScore) ? $weightedScore['score'] : (float) $weightedScore;
 
-        return $this->{$methodMap[$slug]}($borrower) / ($weight > 0 ? ($weight / 100) : 1);
+        return $score / ($weight > 0 ? ($weight / 100) : 1);
     }
 
     private function getFactorWeight(string $slug): float
@@ -264,7 +266,10 @@ class ReadinessScoreCalculationService
     private function getTradelineDepthSubscore(Borrower $borrower)
     {
         if (!$borrower->creditProfile) {
-            return 0;
+            return [
+                'score' => 0,
+                'value' => null,
+            ];
         }
 
         $openTrades = $borrower->creditProfile->trades->filter(function ($trade) {

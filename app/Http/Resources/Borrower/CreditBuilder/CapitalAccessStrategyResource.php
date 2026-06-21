@@ -15,6 +15,18 @@ class CapitalAccessStrategyResource extends JsonResource
     public function toArray(Request $request): array
     {
         $recommendedId = $this->additional['recommended_id'] ?? null;
+        $borrower = auth()->user()?->borrower;
+        $probability = 0;
+        $status = true;
+        $reasonCode = null;
+
+        if ($borrower) {
+            $service = app(\App\Services\Borrower\CapitalAccess\ApprovalProbabilityService::class);
+            $probData = $service->calculate($borrower, $this->resource);
+            $probability = $probData['probability'];
+            $status = $probData['status'];
+            $reasonCode = $probData['reason_code'];
+        }
 
         return [
             'id' => $this->id,
@@ -23,9 +35,13 @@ class CapitalAccessStrategyResource extends JsonResource
             'isRecommended' => $recommendedId === $this->id,
             'target_exposure' => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline' => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
+            'approval_probability' => $probability . '%',
+            'approval_status' => $status,
+            'reason_code' => $reasonCode,
+            'ReasonCode' => $reasonCode,
             'benefits' => is_string($this->what_you_will_get) ? json_decode($this->what_you_will_get, true) : ($this->what_you_will_get ?? []),
             'checklist' => is_string($this->pre_flight_checklist) ? json_decode($this->pre_flight_checklist, true) : ($this->pre_flight_checklist ?? []),
-            'roadmap' => $this->relationLoaded('creditAccounts') ? $this->creditAccounts->map(function ($account, $index) {
+            'roadmap' => $this->relationLoaded('creditAccounts') ? $this->creditAccounts->map(function ($account, $index) use ($probability) {
                 // Status: first step is Active, others are Locked
                 $status = $index === 0 ? 'Active' : 'Locked';
 
@@ -37,6 +53,7 @@ class CapitalAccessStrategyResource extends JsonResource
                     'exposure' => currencyFormat($account->pivot->est_limit_min ?? 0) . ' - ' . currencyFormat($account->pivot->est_limit_max ?? 0),
                     'status' => $status,
                     'why' => $account->pivot->why_this_card,
+                    'approval_odds' => $probability . '%',
                     'hard_pull' => $account->pivot->hard_pull,
                     'access_time' => $account->pivot->access_time,
                     'access_day' => $account->pivot->access_day,

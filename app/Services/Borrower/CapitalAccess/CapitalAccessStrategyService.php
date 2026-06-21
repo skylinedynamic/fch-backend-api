@@ -14,10 +14,31 @@ class CapitalAccessStrategyService
      */
     public function list(): JsonResponse
     {
-        $strategies = CapitalAccess::with('creditAccounts')->where('status', CapitalAccess::STATUS_ACTIVE)->get();
+        $strategies = CapitalAccess::with('creditAccounts')->active()->get();
+        $borrower = auth()->user()?->borrower;
+        $recommendedId = null;
 
-        $recommended = $strategies->first();
-        $recommendedId = $recommended ? $recommended->id : null;
+        if ($borrower && $strategies->isNotEmpty()) {
+            $probabilityService = app(ApprovalProbabilityService::class);
+            $bestPlay = null;
+            $bestProb = -1;
+
+            foreach ($strategies as $strategy) {
+                $probData = $probabilityService->calculate($borrower, $strategy);
+                $prob = $probData['probability'];
+                if ($prob > $bestProb) {
+                    $bestProb = $prob;
+                    $bestPlay = $strategy;
+                }
+            }
+            if ($bestPlay) {
+                $recommendedId = $bestPlay->id;
+            }
+        }
+
+        if (!$recommendedId && $strategies->isNotEmpty()) {
+            $recommendedId = $strategies->first()->id;
+        }
 
         $resourceCollection = CapitalAccessStrategyResource::collection($strategies);
 
@@ -38,13 +59,35 @@ class CapitalAccessStrategyService
     public function show(int $id): JsonResponse
     {
         $strategy = CapitalAccess::with('creditAccounts')
-            ->where('status', CapitalAccess::STATUS_ACTIVE)
+            ->active()
             ->findOrFail($id);
 
-        // Fetch all active strategies to find the recommended one
-        $strategies = CapitalAccess::where('status', CapitalAccess::STATUS_ACTIVE)->get();
-        $recommended = $strategies->first();
-        $recommendedId = $recommended ? $recommended->id : null;
+        // Fetch all active strategies to find the recommended one dynamically
+        $strategies = CapitalAccess::active()->get();
+        $borrower = auth()->user()?->borrower;
+        $recommendedId = null;
+
+        if ($borrower && $strategies->isNotEmpty()) {
+            $probabilityService = app(ApprovalProbabilityService::class);
+            $bestPlay = null;
+            $bestProb = -1;
+
+            foreach ($strategies as $strat) {
+                $probData = $probabilityService->calculate($borrower, $strat);
+                $prob = $probData['probability'];
+                if ($prob > $bestProb) {
+                    $bestProb = $prob;
+                    $bestPlay = $strat;
+                }
+            }
+            if ($bestPlay) {
+                $recommendedId = $bestPlay->id;
+            }
+        }
+
+        if (!$recommendedId && $strategies->isNotEmpty()) {
+            $recommendedId = $strategies->first()->id;
+        }
 
         $resource = new CapitalAccessStrategyResource($strategy);
         $resource->additional(['recommended_id' => $recommendedId]);

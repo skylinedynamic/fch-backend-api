@@ -31,6 +31,24 @@ class UpdateScoreConfigurationRequest extends BaseApiRequest
             'readiness_bands.*.color' => 'nullable|string|max:20',
             'readiness_bands.*.min_value' => 'nullable|numeric',
             'readiness_bands.*.max_value' => 'nullable|numeric',
+
+            'late_payment_modifiers' => 'nullable|array',
+            'late_payment_modifiers.*.sort_order' => 'required|integer|min:1',
+            'late_payment_modifiers.*.factor_slug' => 'required|string|max:255',
+            'late_payment_modifiers.*.label' => 'nullable|string|max:255',
+            'late_payment_modifiers.*.min_value' => 'required|numeric|min:1',
+            'late_payment_modifiers.*.numeric_value' => 'required|numeric',
+
+            'approval_probability' => 'nullable|array',
+            'approval_probability.*.weight' => 'nullable|numeric|min:0|max:100',
+            'approval_probability.*.order_sort' => 'nullable|integer|min:0',
+            'approval_probability.*.factors' => 'nullable|array',
+            'approval_probability.*.factors.*.min_value' => 'nullable|numeric',
+            'approval_probability.*.factors.*.max_value' => 'nullable|numeric',
+            'approval_probability.*.factors.*.sub_score' => 'nullable|numeric',
+            'approval_probability.*.factors.*.sort_order' => 'nullable|integer|min:0',
+            'approval_probability.*.factors.*.condition' => 'nullable|array',
+            'approval_probability.*.factors.*.label' => 'nullable|string',
         ];
     }
 }
