@@ -2,11 +2,9 @@
 
 namespace App\Http\Resources\Borrower\Funding;
 
-use App\Models\Borrower\BorrowerDocType;
-use App\Models\Borrower\BorrowerDocument;
-use App\Models\Borrower\BorrowerDocumentsChecklist;
-use App\Models\Borrower\FundingReview;
 use App\Models\Funding\FundingSequencing;
+use App\Models\FundingReview\FundingReview;
+use App\Models\User\User;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -81,7 +79,7 @@ class FundingSequencingResource extends JsonResource
         }
 
         $borrower = null;
-        if (auth()->check() && auth()->user() && auth()->user()->user_type === \App\Models\User\User::BORROWER && auth()->user()->borrower) {
+        if (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
             $borrower = auth()->user()->borrower;
         }
 
@@ -115,7 +113,6 @@ class FundingSequencingResource extends JsonResource
             'terms' => $this->terms,
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses,
-            'qualify_reasons' => $this->qualify_reasons,
             'readiness_factors' => $formattedReadinessFactors,
             'missing_documents' => $missingDocumentsList,
             'allowed_documents' => $this->allowed_documents ?? [],
@@ -127,8 +124,8 @@ class FundingSequencingResource extends JsonResource
             'latest_requested_amount' => $latestRequestedAmount,
             'latest_use_of_funds' => $latestUseOfFunds,
             // Dynamic engine fields
-            'engine_status' => $this->engine_status ?? 'Active',
-            'engine_status_label' => $this->engine_status_label ?? 'Eligible Now',
+            'engine_status' => $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE,
+            'engine_status_label' => $this->engine_status_label ?? FundingSequencing::ENGINE_LABEL_ACTIVE,
         ];
     }
 }

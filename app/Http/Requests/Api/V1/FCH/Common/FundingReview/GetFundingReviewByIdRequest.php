@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\FundingReview;
 
+use App\Models\FundingReview\FundingReview;
 use Illuminate\Foundation\Http\FormRequest;
 
 class GetFundingReviewByIdRequest extends FormRequest
@@ -20,7 +21,7 @@ class GetFundingReviewByIdRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $id = $this->route('id');
-            if (!$id || !\App\Models\Borrower\FundingReview::where('id', $id)->exists()) {
+            if (!$id || !FundingReview::where('id', $id)->exists()) {
                 $validator->errors()->add('id', 'Funding review not found.');
             }
         });

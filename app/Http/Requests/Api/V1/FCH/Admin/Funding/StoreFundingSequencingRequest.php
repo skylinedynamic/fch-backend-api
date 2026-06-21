@@ -48,8 +48,6 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'speed_to_funds'   => 'nullable|string|max:255',
             'uses'             => 'nullable|array',
             'uses.*'           => 'string|max:255',
-            'qualify_reasons'  => 'nullable|array',
-            'qualify_reasons.*'=> 'string|max:255',
             'readiness_factors'=> 'required|array|min:1',
             'readiness_factors.*'=> 'string|max:255',
             'missing_documents'=> 'nullable|array',

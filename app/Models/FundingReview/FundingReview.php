@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Models\Borrower;
+namespace App\Models\FundingReview;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Funding\FundingSequencing;
+use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\FCH\Common\Partner;
-use App\Models\Funding\FundingSequencing;
 
 class FundingReview extends Model
 {

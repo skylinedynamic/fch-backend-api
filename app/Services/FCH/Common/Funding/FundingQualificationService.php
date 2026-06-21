@@ -39,27 +39,6 @@ class FundingQualificationService
             ->toArray();
     }
 
-    public function evaluateQualifyReasons(Borrower $borrower, int|string $fundingId): array
-    {
-        $funding = FundingSequencing::findOrFail($fundingId);
-
-        return collect($funding->qualify_reasons ?? [])
-            ->map(fn($reason) => $this->extractLabel($reason))
-            ->filter()
-            ->map(function (string $label) use ($borrower, $funding) {
-                $key = config("funding_qualification.qualify_keys.{$label}");
-                if (!$key) {
-                    return ['label' => $label, 'status' => $this->status('good')];
-                }
-
-                $result = $this->evaluateSingleFactor($key, $borrower, $funding);
-
-                return array_merge(['label' => $label], $result);
-            })
-            ->filter()
-            ->values()
-            ->toArray();
-    }
 
     // ─── Core evaluator ───────────────────────────────────────────────────────
 
@@ -241,7 +220,7 @@ class FundingQualificationService
 
         if (empty($requiredIds)) {
             $hasAny = BorrowerDocument::where('borrower_id', $borrower->id)
-                ->where('status', '!=', 'Rejected')
+                ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
                 ->exists();
 
             $rule['status'] = $hasAny ? $this->status('good') : $this->status('missing');
@@ -286,7 +265,7 @@ class FundingQualificationService
 
         $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
             ->where('document_type_id', $docType->id)
-            ->whereIn('status', ['Uploaded', 'Approved'])
+            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
             ->exists();
 
         if ($hasDoc) {

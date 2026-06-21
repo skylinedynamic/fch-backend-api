@@ -40,8 +40,6 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'max_amount'       => 'required|numeric|gt:0',
             'uses'             => 'nullable|array',
             'uses.*'           => 'string|max:255',
-            'qualify_reasons'  => 'nullable|array',
-            'qualify_reasons.*'=> 'string|max:255',
             'readiness_factors'=> 'required|array|min:1',
             'readiness_factors.*'=> 'string|max:255',
             'missing_documents'=> 'nullable|array',

@@ -63,11 +63,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Inventory', 'Payroll', 'Marketing'],
-                'qualify_reasons'              => [
-                    'Credit score meets minimum threshold',
-                    'Business profile meets lending standards',
-                    'Revenue shows consistent deposits',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
             ]
@@ -89,11 +85,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Inventory', 'Payroll'],
-                'qualify_reasons'              => [
-                    'Business entity is properly established',
-                    'EIN is registered with the IRS',
-                    'Business bank account is open',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
             ]
@@ -115,11 +107,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Travel', 'Marketing', 'Operations'],
-                'qualify_reasons'              => [
-                    'Strong credit profile qualifies for premium products',
-                    'Revenue demonstrates ability to service credit',
-                    'Established business history meets requirements',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
             ]
@@ -141,11 +129,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Inventory', 'Supplies', 'Equipment', 'Operations'],
-                'qualify_reasons'              => [
-                    'Business entity is established and in good standing',
-                    'Basic business profile requirements are met',
-                    'No major derogatory marks on business credit',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
             ]
@@ -171,12 +155,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Payroll', 'Inventory', 'Cash Flow'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum monthly threshold',
-                    'Time in business meets requirement',
-                    'Banking activity shows consistent deposits',
-                    'No excessive NSF or negative balance days',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -203,12 +182,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Expansion', 'Hiring', 'Equipment', 'Inventory', 'Working Capital'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum threshold for requested amount',
-                    'Time in business demonstrates stability',
-                    'FICO score qualifies for standard term loan',
-                    'Business banking shows consistent cash flow',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -235,11 +209,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Payroll', 'Marketing', 'Emergency Costs'],
-                'qualify_reasons'              => [
-                    'Monthly revenue meets minimum requirement',
-                    'Business bank statements show consistent deposits',
-                    'Time in business meets minimum threshold',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -265,11 +235,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Growth', 'Payroll', 'Inventory'],
-                'qualify_reasons'              => [
-                    'Monthly revenue meets minimum threshold',
-                    'Revenue is predictable and consistent',
-                    'Business has been operating at least 6 months',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 6 months business bank statements',
@@ -299,11 +265,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment Purchase', 'Machinery', 'Technology', 'Vehicles'],
-                'qualify_reasons'              => [
-                    'Equipment qualifies as collateral',
-                    'Credit score meets minimum threshold',
-                    'Time in business meets requirement',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -330,11 +292,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment', 'Technology', 'Medical Devices', 'Vehicles'],
-                'qualify_reasons'              => [
-                    'Equipment qualifies for leasing program',
-                    'Credit profile meets minimum requirements',
-                    'Business is in good standing',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -360,11 +318,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment', 'Working Capital', 'Inventory', 'Operations'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum threshold',
-                    'Equipment qualifies for financing',
-                    'Business has been operating at least 1 year',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
             ]
@@ -386,11 +340,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Trucks', 'Trailers', 'Fleet', 'Transportation'],
-                'qualify_reasons'              => [
-                    'Vehicle qualifies as collateral',
-                    'CDL and DOT number on file (if applicable)',
-                    'Business profile meets transportation lending standards',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -421,12 +371,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Purchase', 'Refinancing', 'Renovation', 'Investment'],
-                'qualify_reasons'              => [
-                    'Property qualifies as collateral',
-                    'DSCR meets minimum ratio',
-                    'Business and personal financials meet requirements',
-                    'Down payment or equity meets LTV requirements',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 2 years business and personal tax returns',
@@ -454,11 +399,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Acquisition', 'Bridge Financing', 'Quick Close'],
-                'qualify_reasons'              => [
-                    'Property has sufficient equity or down payment',
-                    'Clear exit strategy is in place',
-                    'Property is in good marketable condition',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Property appraisal or estimated value',
@@ -485,11 +426,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Purchase', 'Renovation', 'Fix & Flip', 'Investment'],
-                'qualify_reasons'              => [
-                    'Property has investment potential',
-                    'Renovation plan and budget are realistic',
-                    'Experience in real estate investing (preferred)',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Property appraisal or ARV estimate',
@@ -516,12 +453,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['New Construction', 'Ground-Up Development', 'Land Development'],
-                'qualify_reasons'              => [
-                    'Construction plans are approved',
-                    'Contractor is licensed and insured',
-                    'Land is owned or under contract',
-                    'Permits are in place or pending',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Approved construction plans',

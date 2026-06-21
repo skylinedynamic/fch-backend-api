@@ -2,7 +2,7 @@
 
 namespace App\Services\Borrower\Funding;
 
-use App\Models\Borrower\FundingReview;
+use App\Models\FundingReview\FundingReview;
 use App\Http\Resources\Borrower\Funding\FundingReviewResource;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;

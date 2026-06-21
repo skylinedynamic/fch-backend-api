@@ -25,7 +25,6 @@ class FundingSequencingResource extends JsonResource
             'funding_type_id' => $this->funding_type_id,
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses ?? [],
-            'qualify_reasons' => $this->qualify_reasons ?? [],
             'readiness_factors' => $this->readiness_factors ?? [],
             'missing_documents' => $this->missing_documents ?? [],
             'min_fico' => $this->min_fico,

@@ -16,7 +16,6 @@ return new class extends Migration
             $table->dropColumn([
                 'speed_to_funds',
                 'uses',
-                'qualify_reasons',
                 'missing_documents',
                 'readiness_factors',
                 'eligibility_status',
@@ -52,7 +51,6 @@ return new class extends Migration
             // Re-add old columns
             $table->string('speed_to_funds')->nullable();
             $table->string('uses')->nullable();
-            $table->json('qualify_reasons')->nullable();
             $table->json('missing_documents')->nullable();
             $table->json('readiness_factors')->nullable();
             $table->string('eligibility_status')->nullable();

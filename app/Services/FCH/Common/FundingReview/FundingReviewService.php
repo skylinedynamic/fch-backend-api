@@ -2,7 +2,7 @@
 
 namespace App\Services\FCH\Common\FundingReview;
 
-use App\Models\Borrower\FundingReview;
+use App\Models\FundingReview\FundingReview;
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
 use Carbon\Carbon;

@@ -2,9 +2,8 @@
 
 namespace App\Models\Funding;
 
-use App\Models\Borrower\BorrowerDocument;
-use App\Models\Borrower\FundingApplication;
 use App\Models\User\User;
+use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,7 +41,6 @@ class FundingSequencing extends Model
         'terms',
         'speed_to_funds',
         'uses',
-        'qualify_reasons',
         'readiness_factors',
         'missing_documents',
         'icon',
@@ -59,7 +57,6 @@ class FundingSequencing extends Model
 
     protected $casts = [
         'uses' => 'array',
-        'qualify_reasons' => 'array',
         'readiness_factors' => 'array',
         'missing_documents' => 'array',
         'allowed_documents' => 'array',
@@ -170,6 +167,19 @@ class FundingSequencing extends Model
             if ($priority > $bestPriority) {
                 $bestPriority = $priority;
                 $bestStatus = $status;
+            }
+        }
+
+        // If currently evaluated as ACTIVE, let's also check Readiness Factors
+        if ($bestStatus === self::ENGINE_STATUS_ACTIVE) {
+            $readinessService = app(FundingReadinessService::class);
+            $missingDocs = $readinessService->getMissingDocuments($this, $borrower);
+            $factors = $readinessService->evaluateFactors($this, $borrower, $missingDocs);
+            
+            $hasMissing = collect($factors)->contains('status', config('funding.readiness_factors.statuses.missing', 'Missing'));
+            
+            if ($hasMissing) {
+                $bestStatus = self::ENGINE_STATUS_GREYED_OUT;
             }
         }
 

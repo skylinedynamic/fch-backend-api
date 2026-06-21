@@ -167,7 +167,7 @@ Route::prefix('v1')->group(function () {
             // Funding Qualification endpoints
             Route::prefix('funding-qualification')->group(function () {
                 Route::get('{fundingId}/readiness-factors', [FundingQualificationController::class, 'getReadinessFactors']);
-                Route::get('{fundingId}/qualify-reasons', [FundingQualificationController::class, 'getQualifyReasons']);
+
             });
 
             // Borrower Documents Checklist routes
