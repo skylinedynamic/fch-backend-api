@@ -52,23 +52,42 @@ class FundingReview extends Model
             $borrowerDocs = $this->borrower->borrowerDocuments;
             foreach ($uploaded as $docName) {
                 $docNameString = str_replace('_', ' ', $docName);
-                $bDoc = $borrowerDocs->first(function($d) use ($docNameString, $docName) {
+                $matchingDocs = $borrowerDocs->filter(function($d) use ($docNameString, $docName) {
                     $type = $d->documentType ? $d->documentType->name : '';
                     return strtolower($type) === strtolower($docNameString) || strtolower($type) === strtolower($docName);
                 });
 
-                $docs[] = [
-                    'name' => $docName,
-                    'document_id' => $bDoc ? $bDoc->id : null,
-                    'file_name' => $bDoc ? $bDoc->file_name : null,
-                    'document_number' => $bDoc ? $bDoc->document_number : null,
-                    'document_type' => $bDoc && $bDoc->documentType ? $bDoc->documentType->name : null,
-                    'file_type' => $bDoc && $bDoc->file_name ? strtoupper(pathinfo($bDoc->file_name, PATHINFO_EXTENSION)) : null,
-                    'file_size' => $bDoc ? $bDoc->file_size : null,
-                    'status' => $bDoc ? $bDoc->status : 'Not Uploaded',
-                    'uploaded_on' => $bDoc ? $bDoc->created_at->format('M d, Y h:i A') : null,
-                    'url' => $bDoc ? $bDoc->url : null
-                ];
+                if ($matchingDocs->isNotEmpty()) {
+                    foreach ($matchingDocs as $bDoc) {
+                        $docs[] = [
+                            'name' => $docName,
+                            'document_id' => $bDoc->id,
+                            'file_name' => $bDoc->file_name,
+                            'document_number' => $bDoc->document_number,
+                            'document_type' => $bDoc->documentType ? $bDoc->documentType->name : null,
+                            'file_type' => $bDoc->file_name ? strtoupper(pathinfo($bDoc->file_name, PATHINFO_EXTENSION)) : null,
+                            'file_size' => $bDoc->file_size,
+                            'status' => $bDoc->status,
+                            'uploaded_on' => $bDoc->created_at ? $bDoc->created_at->format('M d, Y h:i A') : null,
+                            'uploaded_timestamp' => $bDoc->created_at ? $bDoc->created_at->timestamp : 0,
+                            'url' => $bDoc->url
+                        ];
+                    }
+                } else {
+                    $docs[] = [
+                        'name' => $docName,
+                        'document_id' => null,
+                        'file_name' => null,
+                        'document_number' => null,
+                        'document_type' => null,
+                        'file_type' => null,
+                        'file_size' => null,
+                        'status' => 'Not Uploaded',
+                        'uploaded_on' => null,
+                        'uploaded_timestamp' => 0,
+                        'url' => null
+                    ];
+                }
             }
         } else {
             // If relations not loaded, just return names without URLs
@@ -83,10 +102,18 @@ class FundingReview extends Model
                     'file_size' => null,
                     'status' => 'Not Uploaded',
                     'uploaded_on' => null,
+                    'uploaded_timestamp' => 0,
                     'url' => null
                 ];
             }
         }
+
+        usort($docs, function ($a, $b) {
+            $timeA = $a['uploaded_timestamp'] ?? 0;
+            $timeB = $b['uploaded_timestamp'] ?? 0;
+            return $timeB <=> $timeA;
+        });
+
         return $docs;
     }
 
