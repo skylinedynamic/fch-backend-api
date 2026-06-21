@@ -60,7 +60,7 @@ class FundingReviewService
     {
         $authUser = Auth::user();
         
-        $review = FundingReview::with('borrower', 'fundingSequence')
+        $review = FundingReview::with(['borrower.borrowerDocuments.documentType', 'fundingSequence'])
             ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             })

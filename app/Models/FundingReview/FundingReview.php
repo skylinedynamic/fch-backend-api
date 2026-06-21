@@ -34,8 +34,61 @@ class FundingReview extends Model
 
     protected $casts = [
         'documents_uploaded' => 'array',
+        'is_approved' => 'boolean',
         'approved_at' => 'datetime',
     ];
+
+    protected $appends = ['documents_with_urls'];
+
+    public function getDocumentsWithUrlsAttribute()
+    {
+        $docs = [];
+        $uploaded = $this->documents_uploaded ?? [];
+        if (!is_array($uploaded)) {
+            return $docs;
+        }
+
+        if ($this->relationLoaded('borrower') && $this->borrower && $this->borrower->relationLoaded('borrowerDocuments')) {
+            $borrowerDocs = $this->borrower->borrowerDocuments;
+            foreach ($uploaded as $docName) {
+                $docNameString = str_replace('_', ' ', $docName);
+                $bDoc = $borrowerDocs->first(function($d) use ($docNameString, $docName) {
+                    $type = $d->documentType ? $d->documentType->name : '';
+                    return strtolower($type) === strtolower($docNameString) || strtolower($type) === strtolower($docName);
+                });
+
+                $docs[] = [
+                    'name' => $docName,
+                    'document_id' => $bDoc ? $bDoc->id : null,
+                    'file_name' => $bDoc ? $bDoc->file_name : null,
+                    'document_number' => $bDoc ? $bDoc->document_number : null,
+                    'document_type' => $bDoc && $bDoc->documentType ? $bDoc->documentType->name : null,
+                    'file_type' => $bDoc && $bDoc->file_name ? strtoupper(pathinfo($bDoc->file_name, PATHINFO_EXTENSION)) : null,
+                    'file_size' => $bDoc ? $bDoc->file_size : null,
+                    'status' => $bDoc ? $bDoc->status : 'Not Uploaded',
+                    'uploaded_on' => $bDoc ? $bDoc->created_at->format('M d, Y h:i A') : null,
+                    'url' => $bDoc ? $bDoc->url : null
+                ];
+            }
+        } else {
+            // If relations not loaded, just return names without URLs
+            foreach ($uploaded as $docName) {
+                $docs[] = [
+                    'name' => $docName,
+                    'document_id' => null,
+                    'file_name' => null,
+                    'document_number' => null,
+                    'document_type' => null,
+                    'file_type' => null,
+                    'file_size' => null,
+                    'status' => 'Not Uploaded',
+                    'uploaded_on' => null,
+                    'url' => null
+                ];
+            }
+        }
+        return $docs;
+    }
 
     public function partner()
     {
