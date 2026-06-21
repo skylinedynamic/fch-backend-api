@@ -108,6 +108,43 @@ class FundingSequencing extends Model
         return $this->hasMany(LenderVisibility::class, 'funding_sequencing_id');
     }
 
+    public function getMinFicoAttribute() { return $this->getMinLenderRequirement('min_fico'); }
+    public function getMinTibMonthsAttribute() { return $this->getMinLenderRequirement('min_tib_months'); }
+    public function getMinMonthlyRevenueAttribute() { return $this->getMinLenderRequirement('min_monthly_revenue'); }
+    public function getMinMonthlyDepositsAttribute() { return $this->getMinLenderRequirement('min_monthly_deposits'); }
+    public function getMinAverageDailyBalanceAttribute() { return $this->getMinLenderRequirement('min_average_daily_balance'); }
+    public function getMinDscrAttribute() { return $this->getMinLenderRequirement('min_dscr'); }
+    public function getMaxNsfCountAttribute() { return $this->getMaxLenderRequirement('max_nsf_count'); }
+    public function getMaxNegativeDaysAttribute() { return $this->getMaxLenderRequirement('max_negative_days'); }
+
+    protected function getMinLenderRequirement($field)
+    {
+        if (!$this->relationLoaded('lenderVisibilities')) {
+            $this->load('lenderVisibilities');
+        }
+        if ($this->lenderVisibilities->isEmpty()) {
+            return null;
+        }
+        if ($this->lenderVisibilities->containsStrict($field, null)) {
+            return null;
+        }
+        return $this->lenderVisibilities->min($field);
+    }
+
+    protected function getMaxLenderRequirement($field)
+    {
+        if (!$this->relationLoaded('lenderVisibilities')) {
+            $this->load('lenderVisibilities');
+        }
+        if ($this->lenderVisibilities->isEmpty()) {
+            return null;
+        }
+        if ($this->lenderVisibilities->containsStrict($field, null)) {
+            return null;
+        }
+        return $this->lenderVisibilities->max($field);
+    }
+
     /**
      * Virtual attributes to expose engine status via the model itself
      */
