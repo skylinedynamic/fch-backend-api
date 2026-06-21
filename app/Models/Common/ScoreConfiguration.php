@@ -68,10 +68,12 @@ class ScoreConfiguration extends Model
     // Approval Probability Tier Labels — Banking Relationship factor
     public const PROB_STATUS_BANKING_STRONG = 'Strong business banking relationship';
     public const PROB_STATUS_BANKING_MODERATE = 'Moderate banking relationship';
+    public const PROB_STATUS_BANKING_LIMITED = 'Limited banking relationship';
     public const PROB_STATUS_BANKING_NONE = 'No meaningful banking relationship';
 
     // Approval Probability Tier Labels — Tradeline Depth factor
-    public const PROB_STATUS_TRADE_HIGH = 'Existing high-limit tradeline';
+    public const PROB_STATUS_TRADE_MULTIPLE_HIGH = 'Multiple High-Limit & Installment Depth';
+    public const PROB_STATUS_TRADE_GOOD_DEPTH = 'Good Depth with High-Limit account';
     public const PROB_STATUS_TRADE_MODERATE = 'Moderate tradeline depth';
     public const PROB_STATUS_TRADE_THIN = 'Thin file';
 

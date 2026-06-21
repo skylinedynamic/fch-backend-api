@@ -8,11 +8,9 @@ use Illuminate\Http\JsonResponse;
 
 class CapitalAccessStrategyController extends Controller
 {
-    public function __construct(protected CapitalAccessStrategyService $service)
-    {
-    }
+    public function __construct(protected CapitalAccessStrategyService $service) {}
 
-    /**
+    /** 
      * List capital access strategies for borrower.
      */
     public function index(): JsonResponse

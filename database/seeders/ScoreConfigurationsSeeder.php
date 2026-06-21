@@ -27,6 +27,8 @@ class ScoreConfigurationsSeeder extends Seeder
             ['factor_slug' => 'late_60_2_plus', 'label' => '2+ x 60-day lates', 'min_value' => 2, 'numeric_value' => -25, 'sort_order' => 4],
             ['factor_slug' => 'late_90_1', 'label' => '1 x 90-day late', 'min_value' => 1, 'numeric_value' => -30, 'sort_order' => 5],
             ['factor_slug' => 'late_90_2_plus', 'label' => '2+ x 90-day lates', 'min_value' => 2, 'numeric_value' => -50, 'sort_order' => 6],
+            ['factor_slug' => 'late_120_1', 'label' => '1 x 120-day late', 'min_value' => 1, 'numeric_value' => -40, 'sort_order' => 7],
+            ['factor_slug' => 'late_120_2_plus', 'label' => '2+ x 120-day lates', 'min_value' => 2, 'numeric_value' => -60, 'sort_order' => 8],
         ];
 
         foreach ($rows as $row) {
@@ -140,6 +142,7 @@ class ScoreConfigurationsSeeder extends Seeder
 
         $items->push(...$this->tiers('banking_relationships', [
             [
+                'label' => 'Strong',
                 'subscore' => 100,
                 'order' => 1,
                 'conditions' => [
@@ -149,6 +152,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
+                'label' => 'Moderate',
                 'subscore' => 75,
                 'order' => 2,
                 'conditions' => [
@@ -158,6 +162,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
+                'label' => 'Limited',
                 'subscore' => 50,
                 'order' => 3,
                 'conditions' => [
@@ -166,6 +171,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
+                'label' => 'None',
                 'subscore' => 20,
                 'order' => 4,
                 'conditions' => [
@@ -185,11 +191,11 @@ class ScoreConfigurationsSeeder extends Seeder
         // Bands form a contiguous score range from 0 to 850
         // Each band's max is computed as (next band's min - 1), last band goes to 0
         $rows = [
-            ['label' => 'Elite Ready', 'min' => 720, 'color' => '#198754', 'order' => 1],
-            ['label' => 'Executive Ready', 'min' => 680, 'color' => '#0d6efd', 'order' => 2],
-            ['label' => 'Foundation Ready', 'min' => 640, 'color' => '#ffc107', 'order' => 3],
-            ['label' => 'Conditional', 'min' => 580, 'color' => '#fd7e14', 'order' => 4],
-            ['label' => 'Not ready', 'color' => '#dc3545', 'order' => 5],
+            ['label' => 'Elite Ready', 'min' => 90, 'color' => '#198754', 'order' => 1],
+            ['label' => 'Executive Ready', 'min' => 80, 'color' => '#0d6efd', 'order' => 2],
+            ['label' => 'Foundation Ready', 'min' => 70, 'color' => '#ffc107', 'order' => 3],
+            ['label' => 'Conditional', 'min' => 60, 'color' => '#fd7e14', 'order' => 4],
+            ['label' => 'Not Ready', 'color' => '#dc3545', 'order' => 5],
         ];
 
         foreach ($rows as $row) {
@@ -252,13 +258,15 @@ class ScoreConfigurationsSeeder extends Seeder
         $items->push(...$this->probTiers('banking_relationship', [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_STRONG, 'order' => 1],
             ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE, 'order' => 2],
-            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 3],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED, 'order' => 3],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 4],
         ]));
 
         $items->push(...$this->probTiers('tradeline_depth', [
-            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_HIGH, 'order' => 1],
-            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 2],
-            ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 3],
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH, 'order' => 1],
+            ['points' => 3, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 3],
+            ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 4],
         ]));
 
         $items->push(...$this->probTiers('revenue_income', [

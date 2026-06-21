@@ -34,6 +34,7 @@ class ReadinessScoreCalculationService
                 'value' => $weightedScore['value'],
                 'weighted_score' => round($weightedScore['score'], 2),
                 'raw_score' => $rawScore,
+                'status' => $weightedScore['status'] ?? null
             ];
             $totalScore += $weightedScore['score'];
         }
@@ -127,6 +128,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $fico,
+            'status' => null
         ];
     }
 
@@ -176,6 +178,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $utilization,
+            'status' => null
         ];
     }
 
@@ -199,12 +202,14 @@ class ReadinessScoreCalculationService
             ->get();
 
         $value = 0;
+        $status = null;
         foreach ($tiers as $tier) {
             $minMatched = ($tier->min_value === null || $months >= (float) $tier->min_value);
             $maxMatched = ($tier->max_value === null || $months <= (float) $tier->max_value);
 
             if ($minMatched && $maxMatched) {
                 $value = (float) $tier->numeric_value;
+                $status = $tier->label;
                 break;
             }
         }
@@ -212,6 +217,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $months > 0 ? floor($months) . ' months+' : 'New business',
+            'status' => $status
         ];
     }
 
@@ -259,6 +265,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $status,
+            'status' => $status
         ];
     }
 
@@ -332,6 +339,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $status,
+            'status' => $status
         ];
     }
 
@@ -378,6 +386,7 @@ class ReadinessScoreCalculationService
 
         $value = 0;
         $message = 'No banking relationship';
+        $status = null;
 
         foreach ($tiers as $tier) {
             if (!$tier->conditions) {
@@ -443,6 +452,7 @@ class ReadinessScoreCalculationService
 
             if ($passed) {
                 $value = (float) $tier->numeric_value;
+                $status = $tier->label;
 
                 if ($each && $checkingMonthsRule) {
                     $requiredCount = (int) $accountsRule['value'];
@@ -469,6 +479,7 @@ class ReadinessScoreCalculationService
         return [
             'score' => $value * ($subScoreWeight / 100),
             'value' => $message,
+            'status' => $status,
         ];
     }
 }

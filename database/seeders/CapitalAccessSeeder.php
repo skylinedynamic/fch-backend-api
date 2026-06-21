@@ -40,6 +40,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => 5,
                 'est_timeline_min' => 5,
                 'est_timeline_max' => 14,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Startup Launch Play™',
@@ -51,6 +53,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -5,
                 'est_timeline_min' => 7,
                 'est_timeline_max' => 21,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Zero-Cost Capital Play™',
@@ -62,6 +66,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => 0,
                 'est_timeline_min' => 10,
                 'est_timeline_max' => 30,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Relationship Banking Play™',
@@ -73,6 +79,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => 3,
                 'est_timeline_min' => 8,
                 'est_timeline_max' => 28,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Investor Liquidity Play™',
@@ -84,6 +92,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -3,
                 'est_timeline_min' => 12,
                 'est_timeline_max' => 35,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Foundation-to-Expansion Play™',
@@ -95,6 +105,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -5,
                 'est_timeline_min' => 10,
                 'est_timeline_max' => 30,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Executive 250 Play™',
@@ -106,6 +118,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -10,
                 'est_timeline_min' => 14,
                 'est_timeline_max' => 40,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Business Acquisition Play™',
@@ -117,6 +131,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -12,
                 'est_timeline_min' => 14,
                 'est_timeline_max' => 45,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Elite 500 Play™',
@@ -128,6 +144,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -20,
                 'est_timeline_min' => 14,
                 'est_timeline_max' => 45,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
             [
                 'name' => 'Recovery & Rebuild Play™',
@@ -139,6 +157,8 @@ class CapitalAccessSeeder extends Seeder
                 'difficulty_modifier' => -8,
                 'est_timeline_min' => 3,
                 'est_timeline_max' => 10,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
             ],
         ];
 
@@ -152,8 +172,8 @@ class CapitalAccessSeeder extends Seeder
                 'minimum_fico_requirement'    => $program['minimum_fico_requirement'],
                 'maximum_utilization_threshold' => $program['maximum_utilization_threshold'],
                 'difficulty_modifier'         => $program['difficulty_modifier'],
-                'allow_recent_late_payment'   => true,
-                'late_payment_lookback_months' => 12,
+                'allow_recent_late_payment'   => $program['allow_recent_late_payment'],
+                'late_payment_lookback_months' => $program['late_payment_lookback_months'],
                 'est_timeline_min'            => $program['est_timeline_min'],
                 'est_timeline_max'            => $program['est_timeline_max'],
                 'what_you_will_get'           => json_encode([
