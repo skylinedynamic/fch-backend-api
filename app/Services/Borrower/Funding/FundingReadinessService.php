@@ -84,269 +84,41 @@ class FundingReadinessService
             if ($borrower) {
                 $lowerLabel = strtolower($label);
                 
-                // Business Credit
+                $lenders = $fundingOption->lenderVisibilities ?? collect();
+
                 if (str_contains($lowerLabel, 'business credit') || $lowerLabel === 'business credit') {
-                    $businessScore = $borrower->paydex_score ?? null;
-                    if (is_null($businessScore) || $businessScore == 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            $buffer = 20; // Default offset for business credit
-
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_fico)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($businessScore >= $lender->min_fico) {
-                                        $passCount++;
-                                    }
-                                    if ($businessScore >= $lender->min_fico + $buffer) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
+                    $status = $this->evaluateCriteria($borrower->paydex_score, $lenders, 'min_fico', 'buffer', 20);
+                } elseif (str_contains($lowerLabel, 'credit')) {
+                    $status = $this->evaluateCriteria($borrower->fico_score, $lenders, 'min_fico', 'buffer', config('funding.readiness_factors.personal_credit.strong_buffer', 50));
+                } elseif (str_contains($lowerLabel, 'revenue') || str_contains($lowerLabel, 'sales')) {
+                    $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_revenue', 'multiplier', config('funding.readiness_factors.revenue.strong_multiplier', 2.0));
+                } elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
+                    $tibMonths = 0;
+                    if (stripos($borrower->years_in_business, 'month') !== false) {
+                        preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                        if (isset($matches[1])) $tibMonths = (int)$matches[1];
+                    } elseif (stripos($borrower->years_in_business, 'year') !== false) {
+                        preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                        if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
                     }
-                }
-                // Personal Credit
-                elseif (str_contains($lowerLabel, 'credit')) {
-                    if (is_null($borrower->fico_score) || $borrower->fico_score == 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            $buffer = config('funding.readiness_factors.personal_credit.strong_buffer', 50);
-
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_fico)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($borrower->fico_score >= $lender->min_fico) {
-                                        $passCount++;
-                                    }
-                                    if ($borrower->fico_score >= $lender->min_fico + $buffer) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
-                    }
-                }
-                // Revenue
-                elseif (str_contains($lowerLabel, 'revenue') || str_contains($lowerLabel, 'sales')) {
-                    if (is_null($borrower->monthly_revenue) || $borrower->monthly_revenue <= 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            $multiplier = config('funding.readiness_factors.revenue.strong_multiplier', 2.0);
-                            
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_monthly_revenue)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($borrower->monthly_revenue >= $lender->min_monthly_revenue) {
-                                        $passCount++;
-                                    }
-                                    if ($borrower->monthly_revenue >= $lender->min_monthly_revenue * $multiplier) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
-                    }
-                }
-                // Time in business
-                elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
                     if (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '') {
                         $status = $statusMissing;
                     } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            $bufferMonths = config('funding.readiness_factors.time_in_business.strong_buffer_months', 12);
-
-                            $tibMonths = 0;
-                            if (stripos($borrower->years_in_business, 'month') !== false) {
-                                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                                if (isset($matches[1])) $tibMonths = (int)$matches[1];
-                            } elseif (stripos($borrower->years_in_business, 'year') !== false) {
-                                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                                if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
-                            }
-
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_tib_months)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($tibMonths >= $lender->min_tib_months) {
-                                        $passCount++;
-                                    }
-                                    if ($tibMonths >= $lender->min_tib_months + $bufferMonths) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
+                        $status = $this->evaluateCriteria($tibMonths, $lenders, 'min_tib_months', 'buffer', config('funding.readiness_factors.time_in_business.strong_buffer_months', 12));
                     }
-                }
-                // Banking Activity
-                elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
+                } elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
                     $docName = config('funding_qualification.rules.banking_activity.document_name', BorrowerDocType::BANK_STATEMENTS);
                     $docType = BorrowerDocType::where('name', $docName)->first();
-                    if ($docType) {
-                        $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
-                            ->where('document_type_id', $docType->id)
-                            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
-                            ->exists();
-                            
-                        if ($hasDoc) {
-                            $status = $statusGood;
-                        } else {
-                            $status = $statusMissing;
-                        }
+                    if ($docType && BorrowerDocument::where('borrower_id', $borrower->id)->where('document_type_id', $docType->id)->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])->exists()) {
+                        $status = $statusGood;
                     } else {
                         $status = $statusMissing;
                     }
-                }
-                // Minimum Monthly Deposits
-                elseif (str_contains($lowerLabel, 'deposit')) {
-                    // For now, mapping monthly deposits to borrower's monthly_revenue as they are correlated
-                    if (is_null($borrower->monthly_revenue) || $borrower->monthly_revenue <= 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_monthly_deposits)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($borrower->monthly_revenue >= $lender->min_monthly_deposits) {
-                                        $passCount++;
-                                    }
-                                    if ($borrower->monthly_revenue >= $lender->min_monthly_deposits * 1.5) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
-                    }
-                }
-                // Minimum Average Balance
-                elseif (str_contains($lowerLabel, 'balance')) {
-                    if (is_null($borrower->avg_bank_balance)) {
-                        $status = $statusMissing;
-                    } else {
-                        $lenders = $fundingOption->lenderVisibilities ?? collect();
-                        if ($lenders->isEmpty()) {
-                            $status = $statusGood;
-                        } else {
-                            $passCount = 0;
-                            $strongPassCount = 0;
-                            $totalLenders = $lenders->count();
-                            
-                            foreach ($lenders as $lender) {
-                                if (is_null($lender->min_average_daily_balance)) {
-                                    $passCount++;
-                                    $strongPassCount++;
-                                } else {
-                                    if ($borrower->avg_bank_balance >= $lender->min_average_daily_balance) {
-                                        $passCount++;
-                                    }
-                                    if ($borrower->avg_bank_balance >= $lender->min_average_daily_balance * 1.5) {
-                                        $strongPassCount++;
-                                    }
-                                }
-                            }
-
-                            if ($passCount < $totalLenders) {
-                                $status = $statusMissing;
-                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
-                                $status = $statusStrong;
-                            } else {
-                                $status = $statusGood;
-                            }
-                        }
-                    }
-                }
-                // Documents
-                elseif (str_contains($lowerLabel, 'document')) {
-                    // if (count($missingDocumentsList) > 0) {
-                    //     $status = $statusMissing;
-                    // } else {
-                    //     $status = $statusGood;
-                    // }
+                } elseif (str_contains($lowerLabel, 'deposit')) {
+                    $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_deposits', 'multiplier', 1.5);
+                } elseif (str_contains($lowerLabel, 'balance')) {
+                    $status = $this->evaluateCriteria($borrower->avg_bank_balance, $lenders, 'min_average_daily_balance', 'multiplier', 1.5);
+                } elseif (str_contains($lowerLabel, 'document')) {
                     $status = $statusMissing;
                 }
             }
@@ -358,5 +130,55 @@ class FundingReadinessService
         }
 
         return $formattedReadinessFactors;
+    }
+
+    /**
+     * Helper to evaluate a specific lender criteria against borrower value.
+     */
+    private function evaluateCriteria($borrowerValue, $lenders, $lenderField, $strongType = 'buffer', $strongValue = 0)
+    {
+        $statusMissing = config('funding.readiness_factors.statuses.missing', 'Missing');
+        $statusGood = config('funding.readiness_factors.statuses.good', 'Good');
+        $statusStrong = config('funding.readiness_factors.statuses.strong', 'Strong');
+
+        if (is_null($borrowerValue) || (is_numeric($borrowerValue) && $borrowerValue <= 0 && $lenderField !== 'min_tib_months')) {
+            return $statusMissing;
+        }
+
+        if (!$lenders || $lenders->isEmpty()) {
+            return $statusGood;
+        }
+
+        $passCount = 0;
+        $strongPassCount = 0;
+        $totalLenders = $lenders->count();
+
+        foreach ($lenders as $lender) {
+            $lenderValue = $lender->{$lenderField};
+            if (is_null($lenderValue)) {
+                $passCount++;
+                $strongPassCount++;
+            } else {
+                if ($borrowerValue >= $lenderValue) {
+                    $passCount++;
+                }
+                
+                $strongThreshold = $strongType === 'multiplier' 
+                    ? $lenderValue * $strongValue 
+                    : $lenderValue + $strongValue;
+                    
+                if ($borrowerValue >= $strongThreshold) {
+                    $strongPassCount++;
+                }
+            }
+        }
+
+        if ($passCount < $totalLenders) {
+            return $statusMissing;
+        } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+            return $statusStrong;
+        }
+
+        return $statusGood;
     }
 }

@@ -129,7 +129,7 @@ class FundingReviewService
             throw new Exception("Borrower profile not found for this user.");
         }
 
-        $review = FundingReview::with(['borrower', 'fundingSequence'])
+        $review = FundingReview::with(['borrower', 'fundingSequence', 'reviewer'])
             ->where('borrower_id', $borrower->id)
             ->where('id', $id)
             ->first();

@@ -5,6 +5,7 @@ namespace App\Models\FundingReview;
 use App\Models\Borrower\Borrower;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -134,7 +135,7 @@ class FundingReview extends Model
 
     public function reviewer()
     {
-        return $this->belongsTo(\App\Models\User\User::class, 'approved_by');
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function scopeSearch($query, $search)

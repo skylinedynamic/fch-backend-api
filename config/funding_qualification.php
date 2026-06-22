@@ -17,7 +17,7 @@ return [
     'rules' => [
         'business_credit' => [
             'type'           => 'compare',
-            'borrower_field' => 'borrowers.paydex_score',
+            'borrower_field' => 'borrowers.fico_score',
             'funding_field'  => 'lender_visibilities.min_fico',
             'strong_offset'  => 20,
         ],

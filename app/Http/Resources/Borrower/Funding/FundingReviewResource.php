@@ -80,7 +80,12 @@ class FundingReviewResource extends JsonResource
                 'last_name' => $this->borrower->last_name ?? null,
                 'company_name' => $this->borrower->company_name ?? null,
             ],
-            'approved_by_name' => $this->approved_by ? ($this->approver->name ?? null) : null,
+            'reviewer' => $this->whenLoaded('reviewer', function () {
+                return [
+                    'id' => $this->reviewer->id ?? null,
+                    'name' => $this->reviewer->name ?? null,
+                ];
+            }),
         ];
     }
 }
