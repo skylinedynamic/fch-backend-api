@@ -132,6 +132,11 @@ class FundingReview extends Model
         return $this->belongsTo(FundingSequencing::class);
     }
 
+    public function reviewer()
+    {
+        return $this->belongsTo(\App\Models\User\User::class, 'approved_by');
+    }
+
     public function scopeSearch($query, $search)
     {
         if (!empty($search)) {

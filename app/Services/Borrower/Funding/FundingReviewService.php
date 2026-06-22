@@ -70,7 +70,7 @@ class FundingReviewService
         $query = FundingReview::query()
             ->select('funding_reviews.*')
             ->leftJoin('funding_sequencings', 'funding_reviews.funding_sequence_id', '=', 'funding_sequencings.id')
-            ->with(['borrower', 'fundingSequence'])
+            ->with(['borrower', 'fundingSequence', 'reviewer'])
             ->where('funding_reviews.borrower_id', $borrower->id);
 
         if (!empty($filters['status'])) {
