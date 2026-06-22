@@ -196,12 +196,44 @@ class ScoreConfigurationService
             })->values()->all();
         }
 
+        $dbOddsTiers = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+            ->where('model_slug', ScoreConfiguration::MODEL_APPROVAL_ODDS)
+            ->orderBy('sort_order')
+            ->get();
+
+        $oddsFactors = [];
+        foreach ($probFactorSlugs as $i => $fSlug) {
+            $subscoreTiers = [];
+            $filteredTiers = $dbOddsTiers->where('factor_slug', $fSlug);
+            foreach ($filteredTiers as $tier) {
+                $subscoreTiers[] = [
+                    'id' => $tier->id,
+                    'factor_slug' => $fSlug,
+                    'category' => $tier->category,
+                    'label' => $tier->label,
+                    'min_value' => $tier->min_value,
+                    'max_value' => $tier->max_value,
+                    'numeric_value' => $tier->numeric_value,
+                    'conditions' => $tier->conditions,
+                    'sort_order' => $tier->sort_order,
+                ];
+            }
+            $oddsFactors[] = [
+                'id' => $i + 1,
+                'slug' => $fSlug,
+                'name' => $this->factorLabel($fSlug),
+                'description' => $this->factorDescription($fSlug),
+                'subscore_tiers' => $subscoreTiers,
+            ];
+        }
+
         return [
             'models' => $models,
             'factors' => $factors,
             'readiness_bands' => $readinessBands,
             'late_payment_modifiers' => $latePaymentModifiers,
             'probability_factors' => $probFactors,
+            'odds_factors' => $oddsFactors,
         ];
     }
 
@@ -229,6 +261,15 @@ class ScoreConfigurationService
                 foreach (['fico_above_minimum', 'utilization', 'recent_inquiries', 'banking_relationship', 'tradeline_depth', 'revenue_income'] as $slug) {
                     if (isset($ap[$slug])) {
                         $this->saveFactorWeightAndTiers(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY, $slug, $ap[$slug]);
+                    }
+                }
+            }
+
+            if (isset($data['approval_odds'])) {
+                $ao = $data['approval_odds'];
+                foreach (['fico_above_minimum', 'utilization', 'recent_inquiries', 'banking_relationship', 'tradeline_depth', 'revenue_income'] as $slug) {
+                    if (isset($ao[$slug])) {
+                        $this->saveFactorWeightAndTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, $slug, $ao[$slug]);
                     }
                 }
             }

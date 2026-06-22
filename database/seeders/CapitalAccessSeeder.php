@@ -202,6 +202,9 @@ class CapitalAccessSeeder extends Seeder
                     'est_limit_max' => rand(10000, 50000),
                     'hard_pull' => rand(0, 1) ? CapitalAccess::HARD_PULL_YES : CapitalAccess::HARD_PULL_NO,
                     'what_you_need' => json_encode(['Good personal credit', 'Established business entity']),
+                    'minimum_fico_requirement' => rand(600, 750),
+                    'maximum_utilization_threshold' => rand(10, 40),
+                    'difficulty_modifier' => rand(-5, 5),
                 ];
             }
 

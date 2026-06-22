@@ -49,6 +49,17 @@ class UpdateScoreConfigurationRequest extends BaseApiRequest
             'approval_probability.*.factors.*.sort_order' => 'nullable|integer|min:0',
             'approval_probability.*.factors.*.condition' => 'nullable|array',
             'approval_probability.*.factors.*.label' => 'nullable|string',
+
+            'approval_odds' => 'nullable|array',
+            'approval_odds.*.weight' => 'nullable|numeric|min:0|max:100',
+            'approval_odds.*.order_sort' => 'nullable|integer|min:0',
+            'approval_odds.*.factors' => 'nullable|array',
+            'approval_odds.*.factors.*.min_value' => 'nullable|numeric',
+            'approval_odds.*.factors.*.max_value' => 'nullable|numeric',
+            'approval_odds.*.factors.*.sub_score' => 'nullable|numeric',
+            'approval_odds.*.factors.*.sort_order' => 'nullable|integer|min:0',
+            'approval_odds.*.factors.*.condition' => 'nullable|array',
+            'approval_odds.*.factors.*.label' => 'nullable|string',
         ];
     }
 }

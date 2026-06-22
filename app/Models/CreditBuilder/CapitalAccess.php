@@ -43,8 +43,23 @@ class CapitalAccess extends Model
                 'what_you_need',
                 'access_time',
                 'access_day',
-                'access_day_time'
+                'access_day_time',
+                'minimum_fico_requirement',
+                'maximum_utilization_threshold',
+                'difficulty_modifier'
             )->orderByPivot('sorting_order', 'asc')->withTimestamps();
+    }
+
+    /**
+     * Get the capital access sequences (pivot rows) directly as a first-class relation.
+     * Each sequence contains card-specific requirements, modifiers, and sort order.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function sequences()
+    {
+        return $this->hasMany(CapitalAccessSequence::class, 'capital_access_id')
+            ->orderBy('sorting_order', 'asc');
     }
 
     /**

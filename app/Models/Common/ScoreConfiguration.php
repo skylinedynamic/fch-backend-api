@@ -39,6 +39,7 @@ class ScoreConfiguration extends Model
 
     public const MODEL_FUNDING_READINESS = 'funding_readiness';
     public const MODEL_APPROVAL_PROBABILITY = 'approval_probability';
+    public const MODEL_APPROVAL_ODDS = 'approval_odds';
 
     // Revenue Strength Statuses (Readiness subscore labels)
     public const STATUS_REVENUE_STRONG = 'Strong';

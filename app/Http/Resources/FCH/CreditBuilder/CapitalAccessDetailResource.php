@@ -55,6 +55,9 @@ class CapitalAccessDetailResource extends JsonResource
                             'access_time' => $account->pivot->access_time,
                             'access_day' => $account->pivot->access_day,
                             'access_day_time' => $account->pivot->access_day_time,
+                            'minimum_fico_requirement' => $account->pivot->minimum_fico_requirement,
+                            'maximum_utilization_threshold' => $account->pivot->maximum_utilization_threshold,
+                            'difficulty_modifier' => $account->pivot->difficulty_modifier,
                         ],
                     ];
                 })

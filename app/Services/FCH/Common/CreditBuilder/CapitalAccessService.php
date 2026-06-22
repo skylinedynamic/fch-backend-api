@@ -182,15 +182,18 @@ class CapitalAccessService
 
         foreach ($creditAccounts as $index => $creditAccount) {
             $syncData[$creditAccount['id']] = [
-                'sorting_order'     => $index + 1,
-                'why_this_card'     => $creditAccount['why_this_card'] ?? null,
-                'est_limit_min'     => $creditAccount['est_limit_min'] ?? null,
-                'est_limit_max'     => $creditAccount['est_limit_max'] ?? null,
-                'hard_pull'         => $creditAccount['hard_pull'] ?? 'Yes',
-                'what_you_need'     => isset($creditAccount['what_you_need']) ? json_encode($creditAccount['what_you_need']) : null,
-                'access_time'       => $creditAccount['access_time'] ?? null,
-                'access_day'        => $creditAccount['access_day'] ?? null,
-                'access_day_time'   => $creditAccount['access_day_time'] ?? null,
+                'sorting_order'                 => $index + 1,
+                'why_this_card'                 => $creditAccount['why_this_card'] ?? null,
+                'est_limit_min'                 => $creditAccount['est_limit_min'] ?? null,
+                'est_limit_max'                 => $creditAccount['est_limit_max'] ?? null,
+                'hard_pull'                     => $creditAccount['hard_pull'] ?? 'Yes',
+                'what_you_need'                 => isset($creditAccount['what_you_need']) ? json_encode($creditAccount['what_you_need']) : null,
+                'access_time'                   => $creditAccount['access_time'] ?? null,
+                'access_day'                    => $creditAccount['access_day'] ?? null,
+                'access_day_time'               => $creditAccount['access_day_time'] ?? null,
+                'minimum_fico_requirement'      => $creditAccount['minimum_fico_requirement'] ?? null,
+                'maximum_utilization_threshold' => $creditAccount['maximum_utilization_threshold'] ?? null,
+                'difficulty_modifier'           => $creditAccount['difficulty_modifier'] ?? null,
             ];
         }
 

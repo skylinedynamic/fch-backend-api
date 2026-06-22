@@ -51,6 +51,9 @@ class StoreCapitalAccessRequest extends BaseApiRequest
             'credit_accounts.*.access_time' => 'nullable|string',
             'credit_accounts.*.access_day' => 'nullable|integer|min:1|max:60',
             'credit_accounts.*.access_day_time' => 'nullable|string',
+            'credit_accounts.*.minimum_fico_requirement' => 'nullable|integer|min:300|max:850',
+            'credit_accounts.*.maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
+            'credit_accounts.*.difficulty_modifier' => 'nullable|numeric',
         ];
     }
 

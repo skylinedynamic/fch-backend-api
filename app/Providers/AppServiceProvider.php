@@ -20,7 +20,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Score configuration singleton — loads all score_configurations rows once
+        // per request and serves every tier/modifier lookup from memory.
+        $this->app->singleton(
+            \App\Services\Borrower\CapitalAccess\ScoreConfigurationCache::class
+        );
     }
 
     /**

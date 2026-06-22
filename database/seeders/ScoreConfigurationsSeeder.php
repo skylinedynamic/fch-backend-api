@@ -16,6 +16,7 @@ class ScoreConfigurationsSeeder extends Seeder
         $this->seedReadinessBands();
         $this->seedLatePaymentModifiers();
         $this->seedApprovalProbabilityTiers();
+        $this->seedApprovalOddsTiers();
     }
 
     private function seedLatePaymentModifiers(): void
@@ -283,10 +284,15 @@ class ScoreConfigurationsSeeder extends Seeder
 
     private function probTiers(string $factorSlug, array $tiers): array
     {
+        return $this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY, $factorSlug, $tiers);
+    }
+
+    private function modelTiers(string $modelSlug, string $factorSlug, array $tiers): array
+    {
         $rows = [];
         foreach ($tiers as $tier) {
             $rows[] = [
-                'model_slug' => ScoreConfiguration::MODEL_APPROVAL_PROBABILITY,
+                'model_slug' => $modelSlug,
                 'factor_slug' => $factorSlug,
                 'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
                 'label' => $tier['label'] ?? null,
@@ -298,5 +304,55 @@ class ScoreConfigurationsSeeder extends Seeder
             ];
         }
         return $rows;
+    }
+
+    private function seedApprovalOddsTiers(): void
+    {
+        $items = collect();
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'fico_above_minimum', [
+            ['min' => 40, 'points' => 7, 'label' => '40+ points above minimum', 'order' => 1],
+            ['min' => 20, 'max' => 39, 'points' => 4, 'label' => '20–39 points above minimum', 'order' => 2],
+            ['min' => 0, 'max' => 19, 'points' => 0, 'label' => '0–19 points above minimum', 'order' => 3],
+        ]));
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'utilization', [
+            ['min' => 0, 'max' => 5, 'points' => 5, 'label' => '0–5%', 'order' => 1],
+            ['min' => 5.01, 'max' => 10, 'points' => 3, 'label' => '5.01–10%', 'order' => 2],
+            ['min' => 10.01, 'max' => 20, 'points' => 0, 'label' => '10.01–20%', 'order' => 3],
+            ['min' => 20.01, 'max' => 25, 'points' => -5, 'label' => '20.01–25%', 'order' => 4],
+            ['min' => 25.01, 'points' => -10, 'label' => '25.01%+', 'order' => 5],
+        ]));
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'recent_inquiries', [
+            ['min' => 0, 'max' => 2, 'points' => 3, 'label' => '0–2 inquiries', 'order' => 1],
+            ['min' => 3, 'max' => 4, 'points' => 0, 'label' => '3–4 inquiries', 'order' => 2],
+            ['min' => 5, 'points' => -8, 'label' => '5+ inquiries', 'order' => 3],
+        ]));
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'banking_relationship', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_STRONG, 'order' => 1],
+            ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED, 'order' => 3],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 4],
+        ]));
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'tradeline_depth', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH, 'order' => 1],
+            ['points' => 3, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 3],
+            ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 4],
+        ]));
+
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'revenue_income', [
+            ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG, 'order' => 1],
+            ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE, 'order' => 2],
+            ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED, 'order' => 3],
+            ['points' => -5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP, 'order' => 4],
+        ]));
+
+        foreach ($items as $item) {
+            ScoreConfiguration::create($item);
+        }
     }
 }
