@@ -265,6 +265,81 @@ class FundingReadinessService
                         $status = $statusMissing;
                     }
                 }
+                // Minimum Monthly Deposits
+                elseif (str_contains($lowerLabel, 'deposit')) {
+                    // For now, mapping monthly deposits to borrower's monthly_revenue as they are correlated
+                    if (is_null($borrower->monthly_revenue) || $borrower->monthly_revenue <= 0) {
+                        $status = $statusMissing;
+                    } else {
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
+                            $status = $statusGood;
+                        } else {
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_monthly_deposits)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($borrower->monthly_revenue >= $lender->min_monthly_deposits) {
+                                        $passCount++;
+                                    }
+                                    if ($borrower->monthly_revenue >= $lender->min_monthly_deposits * 1.5) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
+                        }
+                    }
+                }
+                // Minimum Average Balance
+                elseif (str_contains($lowerLabel, 'balance')) {
+                    if (is_null($borrower->avg_bank_balance)) {
+                        $status = $statusMissing;
+                    } else {
+                        $lenders = $fundingOption->lenderVisibilities ?? collect();
+                        if ($lenders->isEmpty()) {
+                            $status = $statusGood;
+                        } else {
+                            $passCount = 0;
+                            $strongPassCount = 0;
+                            $totalLenders = $lenders->count();
+                            
+                            foreach ($lenders as $lender) {
+                                if (is_null($lender->min_average_daily_balance)) {
+                                    $passCount++;
+                                    $strongPassCount++;
+                                } else {
+                                    if ($borrower->avg_bank_balance >= $lender->min_average_daily_balance) {
+                                        $passCount++;
+                                    }
+                                    if ($borrower->avg_bank_balance >= $lender->min_average_daily_balance * 1.5) {
+                                        $strongPassCount++;
+                                    }
+                                }
+                            }
+
+                            if ($passCount < $totalLenders) {
+                                $status = $statusMissing;
+                            } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+                                $status = $statusStrong;
+                            } else {
+                                $status = $statusGood;
+                            }
+                        }
+                    }
+                }
                 // Documents
                 elseif (str_contains($lowerLabel, 'document')) {
                     // if (count($missingDocumentsList) > 0) {

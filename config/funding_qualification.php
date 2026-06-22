@@ -8,7 +8,8 @@ return [
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
-        'Documents'          => 'documents',
+        'Minimum Monthly Deposits' => 'min_monthly_deposits',
+        'Minimum Average Balance' => 'min_average_balance',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
     ],
@@ -36,8 +37,17 @@ return [
             'type'          => 'specific_document',
             'document_name' => BorrowerDocType::BANK_STATEMENTS,
         ],
-        'documents' => [
-            'type' => 'documents',
+        'min_monthly_deposits' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.monthly_revenue',
+            'funding_field'  => 'lender_visibilities.min_monthly_deposits',
+            'strong_offset'  => 0.01,
+        ],
+        'min_average_balance' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.avg_bank_balance',
+            'funding_field'  => 'lender_visibilities.min_average_daily_balance',
+            'strong_offset'  => 0.01,
         ],
         'equipment' => [
             'type' => '',
