@@ -23,6 +23,16 @@ class FundingReviewService
         $user = Auth::user();
         $borrower = $user->borrower;
 
+        $fundingOption = \App\Models\Funding\FundingSequencing::find($data['funding_sequence_id']);
+        if ($fundingOption) {
+            $readinessService = app(\App\Services\Borrower\Funding\FundingReadinessService::class);
+            $missingDocs = $readinessService->getMissingDocuments($fundingOption, $borrower);
+            
+            if (!empty($missingDocs)) {
+                throw new Exception("Please upload all required documents before submitting.");
+            }
+        }
+
         $data['borrower_id'] = $borrower->id;
         $data['partner_id'] = $borrower->partner_id;
         $data['status'] = 'Pending';

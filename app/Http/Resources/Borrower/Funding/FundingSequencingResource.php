@@ -89,6 +89,7 @@ class FundingSequencingResource extends JsonResource
 
         $latestRequestedAmount = null;
         $latestUseOfFunds = null;
+        $latestReviewStatus = null;
 
         if ($borrower) {
             $latestReview = FundingReview::where('borrower_id', $borrower->id)
@@ -99,6 +100,7 @@ class FundingSequencingResource extends JsonResource
             if ($latestReview) {
                 $latestRequestedAmount = $latestReview->requested_amount;
                 $latestUseOfFunds = $latestReview->use_of_funds;
+                $latestReviewStatus = $latestReview->status;
             }
         }
 
@@ -123,6 +125,7 @@ class FundingSequencingResource extends JsonResource
             'requirements' => $requirements,
             'latest_requested_amount' => $latestRequestedAmount,
             'latest_use_of_funds' => $latestUseOfFunds,
+            'latest_review_status' => $latestReviewStatus,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE,
             'engine_status_label' => $this->engine_status_label ?? FundingSequencing::ENGINE_LABEL_ACTIVE,

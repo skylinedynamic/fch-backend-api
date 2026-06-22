@@ -17,19 +17,19 @@ return [
         'business_credit' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.paydex_score',
-            'funding_field'  => 'funding_sequencings.min_fico',
+            'funding_field'  => 'lender_visibilities.min_fico',
             'strong_offset'  => 20,
         ],
         'revenue' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.monthly_revenue',
-            'funding_field'  => 'funding_sequencings.min_monthly_revenue',
+            'funding_field'  => 'lender_visibilities.min_monthly_revenue',
             'strong_offset'  => 0.01,
         ],
         'time_in_business' => [
             'type'           => 'date_compare',
             'borrower_field' => 'borrowers.business_start_date',
-            'funding_field'  => 'funding_sequencings.min_tib_months',
+            'funding_field'  => 'lender_visibilities.min_tib_months',
             'strong_offset'  => 12,
         ],
         'banking_activity' => [
