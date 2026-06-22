@@ -127,7 +127,7 @@ class FundingReview extends Model
             return [];
         }
         return Lender::whereIn('id', $this->lender_ids)
-            ->select('id', 'name', 'contact_name', 'contact_email as email', 'contact_phone as phone')
+            ->select('id', 'name', 'legal_name', 'contact_name', 'contact_email as email', 'contact_phone as phone')
             ->get();
     }
 
