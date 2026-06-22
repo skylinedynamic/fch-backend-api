@@ -69,6 +69,9 @@ class FundingReviewResource extends JsonResource
             'reject_reason' => $this->reject_reason,
             'approved_at' => $this->approved_at,
             'created_at' => $this->created_at,
+            'lender_ids' => $this->lender_ids,
+            'matched_lenders' => $this->matched_lenders,
+            'lender_names' => $this->lender_names,
             'funding_sequence' => [
                 'id' => $this->fundingSequence->id ?? null,
                 'name' => $this->fundingSequence->name ?? null,

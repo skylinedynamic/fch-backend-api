@@ -2,11 +2,13 @@
 
 namespace App\Services\Borrower\Funding;
 
-use App\Models\FundingReview\FundingReview;
 use App\Http\Resources\Borrower\Funding\FundingReviewResource;
+use App\Models\Funding\FundingSequencing;
+use App\Models\FundingReview\FundingReview;
+use App\Services\Borrower\Funding\FundingReadinessService;
 use App\Traits\PaginatesApi;
-use Illuminate\Support\Facades\Auth;
 use Exception;
+use Illuminate\Support\Facades\Auth;
 
 class FundingReviewService
 {
@@ -23,19 +25,33 @@ class FundingReviewService
         $user = Auth::user();
         $borrower = $user->borrower;
 
-        $fundingOption = \App\Models\Funding\FundingSequencing::find($data['funding_sequence_id']);
+        $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
+        $lenderIds = [];
         if ($fundingOption) {
-            $readinessService = app(\App\Services\Borrower\Funding\FundingReadinessService::class);
+            $readinessService = app(FundingReadinessService::class);
             $missingDocs = $readinessService->getMissingDocuments($fundingOption, $borrower);
             
             if (!empty($missingDocs)) {
                 throw new Exception("Please upload all required documents before submitting.");
+            }
+
+            // Calculate matched lenders
+            $lenders = $fundingOption->lenderVisibilities;
+            foreach ($lenders as $lenderSeq) {
+                $status = $lenderSeq->getEngineStatusForBorrower($borrower);
+                if ($status !== FundingSequencing::ENGINE_STATUS_HIDDEN) {
+                    $lenderIds[] = $lenderSeq->lender_id;
+                }
+            }
+            if (empty($lenderIds)) {
+                $lenderIds = $lenders->pluck('lender_id')->toArray();
             }
         }
 
         $data['borrower_id'] = $borrower->id;
         $data['partner_id'] = $borrower->partner_id;
         $data['status'] = 'Pending';
+        $data['lender_ids'] = $data['lender_ids'] ?? $lenderIds;
 
         $fundingReview = FundingReview::updateOrCreate(
             [

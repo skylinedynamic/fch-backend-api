@@ -54,6 +54,12 @@ class LenderVisibility extends Model
             return FundingSequencing::ENGINE_STATUS_ACTIVE;
         }
 
+        // Ensure fundingSequencing relation is loaded to prevent lazy loading errors
+        if (!$this->relationLoaded('fundingSequencing')) {
+            $this->load('fundingSequencing');
+        }
+        $fundingSequencing = $this->fundingSequencing;
+
         // Geography & Industry hard stops
         if (!empty($this->restricted_states) && in_array($borrower->state, $this->restricted_states)) {
             return FundingSequencing::ENGINE_STATUS_HIDDEN;
@@ -105,7 +111,7 @@ class LenderVisibility extends Model
         }
 
         if ($failedFinancials > 0) {
-            if ($this->fundingSequencing->manual_review_allowed || $this->fundingSequencing->exception_allowed) {
+            if ($fundingSequencing->manual_review_allowed || $fundingSequencing->exception_allowed) {
                 return FundingSequencing::ENGINE_STATUS_REVIEW;
             }
             return FundingSequencing::ENGINE_STATUS_GREYED_OUT;
@@ -113,14 +119,14 @@ class LenderVisibility extends Model
 
         $conditional = false;
         
-        if ($this->fundingSequencing->require_completed_application) {
+        if ($fundingSequencing->require_completed_application) {
             $hasApp = \App\Models\Borrower\FundingApplication::where('borrower_id', $borrower->id)->exists();
             if (!$hasApp) {
                 $conditional = true;
             }
         }
 
-        if ($this->fundingSequencing->require_documents_uploaded) {
+        if ($fundingSequencing->require_documents_uploaded) {
             $hasDocs = \App\Models\Borrower\BorrowerDocument::where('borrower_id', $borrower->id)->exists();
             if (!$hasDocs) {
                 $conditional = true;

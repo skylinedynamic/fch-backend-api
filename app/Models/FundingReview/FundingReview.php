@@ -4,6 +4,7 @@ namespace App\Models\FundingReview;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,15 +32,17 @@ class FundingReview extends Model
         'approved_at',
         'approved_by',
         'reject_reason',
+        'lender_ids',
     ];
 
     protected $casts = [
         'documents_uploaded' => 'array',
         'is_approved' => 'boolean',
         'approved_at' => 'datetime',
+        'lender_ids' => 'array',
     ];
 
-    protected $appends = ['documents_with_urls'];
+    protected $appends = ['documents_with_urls', 'matched_lenders', 'lender_names'];
 
     public function getDocumentsWithUrlsAttribute()
     {
@@ -118,6 +121,24 @@ class FundingReview extends Model
         return $docs;
     }
 
+    public function getMatchedLendersAttribute()
+    {
+        if (empty($this->lender_ids)) {
+            return [];
+        }
+        return Lender::whereIn('id', $this->lender_ids)
+            ->select('id', 'name', 'contact_name', 'contact_email as email', 'contact_phone as phone')
+            ->get();
+    }
+
+    public function getLenderNamesAttribute()
+    {
+        if (empty($this->lender_ids)) {
+            return '';
+        }
+        return Lender::whereIn('id', $this->lender_ids)->pluck('name')->implode(', ');
+    }
+
     public function partner()
     {
         return $this->belongsTo(Partner::class);
@@ -159,6 +180,14 @@ class FundingReview extends Model
                 ->orWhere('use_of_funds', 'like', "%{$search}%")
                 ->orWhere('requested_amount', 'like', "%{$search}%")
                 ->orWhere('status', 'like', "%{$search}%");
+
+                // Search matching lenders
+                $lenderIds = \App\Models\Lender\Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();
+                if (!empty($lenderIds)) {
+                    foreach ($lenderIds as $lId) {
+                        $q->orWhereJsonContains('lender_ids', $lId);
+                    }
+                }
             });
         }
         return $query;
