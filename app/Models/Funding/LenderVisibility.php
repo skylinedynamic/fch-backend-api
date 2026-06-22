@@ -81,8 +81,14 @@ class LenderVisibility extends Model
         }
 
         if (!is_null($this->min_tib_months)) {
-            if ($borrower->years_in_business) {
-                $tibMonths = 0;
+            $tibMonths = 0;
+            if ($borrower->business_start_date) {
+                try {
+                    $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
+                } catch (\Exception $e) {
+                    $tibMonths = 0;
+                }
+            } elseif ($borrower->years_in_business) {
                 if (stripos($borrower->years_in_business, 'month') !== false) {
                     preg_match('/(\d+)/', $borrower->years_in_business, $matches);
                     if (isset($matches[1])) $tibMonths = (int)$matches[1];
@@ -90,10 +96,11 @@ class LenderVisibility extends Model
                     preg_match('/(\d+)/', $borrower->years_in_business, $matches);
                     if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
                 }
-                if ($tibMonths < $this->min_tib_months) {
-                    $failedFinancials++;
-                }
             } else {
+                $tibMonths = 0;
+            }
+
+            if ($tibMonths < $this->min_tib_months) {
                 $failedFinancials++;
             }
         }
@@ -106,7 +113,7 @@ class LenderVisibility extends Model
             $failedFinancials++;
         }
 
-        if (!is_null($this->max_nsf_count) && (is_null($borrower->nsf_days) || $borrower->nsf_days > $this->max_nsf_count)) {
+        if (!is_null($this->max_nsf_count) && !is_null($borrower->nsf_days) && $borrower->nsf_days > $this->max_nsf_count) {
             $failedFinancials++;
         }
 

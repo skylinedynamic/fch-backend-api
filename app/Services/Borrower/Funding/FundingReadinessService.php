@@ -94,14 +94,22 @@ class FundingReadinessService
                     $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_revenue', 'multiplier', config('funding.readiness_factors.revenue.strong_multiplier', 2.0));
                 } elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
                     $tibMonths = 0;
-                    if (stripos($borrower->years_in_business, 'month') !== false) {
-                        preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                        if (isset($matches[1])) $tibMonths = (int)$matches[1];
-                    } elseif (stripos($borrower->years_in_business, 'year') !== false) {
-                        preg_match('/(\d+)/', $borrower->years_in_business, $matches);
-                        if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
+                    if ($borrower->business_start_date) {
+                        try {
+                            $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
+                        } catch (\Exception $e) {
+                            $tibMonths = 0;
+                        }
+                    } elseif ($borrower->years_in_business) {
+                        if (stripos($borrower->years_in_business, 'month') !== false) {
+                            preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                            if (isset($matches[1])) $tibMonths = (int)$matches[1];
+                        } elseif (stripos($borrower->years_in_business, 'year') !== false) {
+                            preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                            if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
+                        }
                     }
-                    if (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '') {
+                    if (!$borrower->business_start_date && (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '')) {
                         $status = $statusMissing;
                     } else {
                         $status = $this->evaluateCriteria($tibMonths, $lenders, 'min_tib_months', 'buffer', config('funding.readiness_factors.time_in_business.strong_buffer_months', 12));
