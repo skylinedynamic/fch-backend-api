@@ -67,32 +67,39 @@ class FundingReviewService
             throw new Exception("Borrower profile not found for this user.");
         }
 
-        $query = FundingReview::query()->with(['borrower', 'fundingSequence'])
-            ->where('borrower_id', $borrower->id);
+        $query = FundingReview::query()
+            ->select('funding_reviews.*')
+            ->leftJoin('funding_sequencings', 'funding_reviews.funding_sequence_id', '=', 'funding_sequencings.id')
+            ->with(['borrower', 'fundingSequence'])
+            ->where('funding_reviews.borrower_id', $borrower->id);
 
         if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            $query->where('funding_reviews.status', $filters['status']);
         }
 
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
-                $q->where('funding_type', 'like', "%{$search}%")
-                  ->orWhere('use_of_funds', 'like', "%{$search}%")
-                  ->orWhere('requested_amount', 'like', "%{$search}%")
-                  ->orWhere('status', 'like', "%{$search}%")
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%b %d, %Y') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%M %d, %Y') LIKE ?", ["%{$search}%"]);
+                $q->where('funding_reviews.funding_type', 'like', "%{$search}%")
+                  ->orWhere('funding_reviews.use_of_funds', 'like', "%{$search}%")
+                  ->orWhere('funding_reviews.requested_amount', 'like', "%{$search}%")
+                  ->orWhere('funding_reviews.status', 'like', "%{$search}%")
+                  ->orWhereRaw("DATE_FORMAT(funding_reviews.created_at, '%b %d, %Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(funding_reviews.created_at, '%M %d, %Y') LIKE ?", ["%{$search}%"])
+                  ->orWhere('funding_sequencings.amount_range', 'like', "%{$search}%")
+                  ->orWhere('funding_sequencings.name', 'like', "%{$search}%");
             });
         }
 
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
-        if (in_array($sortField, ['id', 'created_at', 'requested_amount', 'status'])) {
-            $query->orderBy($sortField, $sortOrder);
+        if (in_array($sortField, ['id', 'created_at', 'requested_amount', 'status', 'funding_type', 'use_of_funds'])) {
+            $query->orderBy("funding_reviews.{$sortField}", $sortOrder);
+        } elseif ($sortField === 'amount_range') {
+            $query->orderBy('funding_sequencings.amount_range', $sortOrder);
         } else {
-            $query->orderBy('id', 'desc');
+            $query->orderBy('funding_reviews.id', 'desc');
         }
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;

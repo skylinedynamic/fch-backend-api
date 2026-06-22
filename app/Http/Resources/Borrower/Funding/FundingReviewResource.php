@@ -14,6 +14,48 @@ class FundingReviewResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $uploadedDocNames = is_array($this->documents_uploaded) ? $this->documents_uploaded : json_decode($this->documents_uploaded, true) ?? [];
+        
+        $actualDocs = [];
+        if ($this->borrower && count($uploadedDocNames) > 0) {
+            $allBorrowerDocs = $this->borrower->borrowerDocuments()->with('documentType')->get();
+            
+            foreach ($uploadedDocNames as $idx => $name) {
+                $nameSmart = str_replace("'", "’", $name);
+                $nameStraight = str_replace(['’', '‘'], "'", $name);
+                
+                $matchingDoc = $allBorrowerDocs->filter(function($doc) use ($name, $nameSmart, $nameStraight) {
+                    if (!$doc->documentType) return false;
+                    $docName = $doc->documentType->name;
+                    return $docName === $name || $docName === $nameSmart || $docName === $nameStraight;
+                })->sortByDesc('id')->first();
+                
+                if ($matchingDoc) {
+                    $actualDocs[] = [
+                        'id' => $matchingDoc->id,
+                        'document_name' => $name,
+                        'file_name' => $matchingDoc->file_name,
+                        'file_path' => $matchingDoc->file_path,
+                        'document_url' => $matchingDoc->url,
+                        'status' => $matchingDoc->status,
+                        'created_at' => $matchingDoc->created_at,
+                        'rejection_reason' => $matchingDoc->rejection_reason,
+                    ];
+                } else {
+                    $actualDocs[] = [
+                        'id' => 'missing_' . $idx,
+                        'document_name' => $name,
+                        'file_name' => null,
+                        'file_path' => null,
+                        'document_url' => null,
+                        'status' => 'Pending',
+                        'created_at' => null,
+                        'rejection_reason' => null,
+                    ];
+                }
+            }
+        }
+
         return [
             'id' => $this->id,
             'borrower_id' => $this->borrower_id,
@@ -21,12 +63,16 @@ class FundingReviewResource extends JsonResource
             'requested_amount' => $this->requested_amount,
             'use_of_funds' => $this->use_of_funds,
             'status' => $this->status,
+            'documents_uploaded' => $this->documents_uploaded,
+            'actual_documents' => $actualDocs,
+            'estimated_speed' => $this->estimated_speed,
             'reject_reason' => $this->reject_reason,
             'approved_at' => $this->approved_at,
             'created_at' => $this->created_at,
             'funding_sequence' => [
                 'id' => $this->fundingSequence->id ?? null,
                 'name' => $this->fundingSequence->name ?? null,
+                'amount_range' => $this->fundingSequence->amount_range ?? null,
             ],
             'borrower' => [
                 'id' => $this->borrower->id ?? null,
