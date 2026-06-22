@@ -98,8 +98,8 @@ class FundingReviewService
             $review->reject_reason = null; // Maybe we could use reject_reason as a general note or add a separate note column? The prompt just said "reason note accurately". Let's assume reject_reason is used for reject notes. Wait, I should probably save approval note as well if it exists? The model only has reject_reason. Let's just save reject_reason even if it's approved? No, let's keep it null for approval.
         } elseif ($data['status'] === FundingReview::STATUS_REJECTED) {
             $review->reject_reason = $data['reject_reason'] ?? null;
-            $review->approved_at = null;
-            $review->approved_by = null;
+            $review->approved_at = Carbon::now();
+            $review->approved_by = $authUser->id;
         }
 
         $review->save();
