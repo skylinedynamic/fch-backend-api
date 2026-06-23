@@ -34,6 +34,7 @@ return [
     'min_fico_max'               => 'The minimum FICO score cannot be greater than 850.',
     'min_fico_required'          => 'The minimum FICO score is required.',
     'min_fico_integer'           => 'The minimum FICO score must be a valid number.',
+    'min_deposit_count_required' => 'The minimum deposit count is required.',
     'min_monthly_revenue_required' => 'Minimum monthly revenue is required.',
     'min_monthly_revenue_regex'  => 'Minimum monthly revenue is out of range or has an invalid decimal format.',
     'min_monthly_deposits_required' => 'Minimum monthly deposits is required.',
