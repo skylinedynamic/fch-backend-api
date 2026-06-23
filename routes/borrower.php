@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
