@@ -14,32 +14,32 @@ class FundingSequencingSeeder extends Seeder
     public function run(): void
     {
         // ── Funding Types ──────────────────────────────────────────────────────
-        $typeCreditCards    = FundingType::firstOrCreate(['name' => 'Credit Cards'],       ['sort_order' => 1, 'status' => 'Active']);
-        $typeWorkingCapital = FundingType::firstOrCreate(['name' => 'Working Capital'],    ['sort_order' => 2, 'status' => 'Active']);
-        $typeEquipment      = FundingType::firstOrCreate(['name' => 'Equipment'],          ['sort_order' => 3, 'status' => 'Active']);
-        $typeRealEstate     = FundingType::firstOrCreate(['name' => 'Real Estate'],        ['sort_order' => 4, 'status' => 'Active']);
-        FundingType::firstOrCreate(['name' => 'SBA Loans'],          ['sort_order' => 5, 'status' => 'Active']);
-        FundingType::firstOrCreate(['name' => 'Lines of Credit'],    ['sort_order' => 6, 'status' => 'Active']);
-        FundingType::firstOrCreate(['name' => 'Term Loans'],         ['sort_order' => 7, 'status' => 'Active']);
-        FundingType::firstOrCreate(['name' => 'Invoice Financing'],  ['sort_order' => 8, 'status' => 'Active']);
+        $typeCreditCards = FundingType::firstOrCreate(['name' => 'Credit Cards'], ['sort_order' => 1, 'status' => 'Active']);
+        $typeWorkingCapital = FundingType::firstOrCreate(['name' => 'Working Capital'], ['sort_order' => 2, 'status' => 'Active']);
+        $typeEquipment = FundingType::firstOrCreate(['name' => 'Equipment'], ['sort_order' => 3, 'status' => 'Active']);
+        $typeRealEstate = FundingType::firstOrCreate(['name' => 'Real Estate'], ['sort_order' => 4, 'status' => 'Active']);
+        FundingType::firstOrCreate(['name' => 'SBA Loans'], ['sort_order' => 5, 'status' => 'Active']);
+        FundingType::firstOrCreate(['name' => 'Lines of Credit'], ['sort_order' => 6, 'status' => 'Active']);
+        FundingType::firstOrCreate(['name' => 'Term Loans'], ['sort_order' => 7, 'status' => 'Active']);
+        FundingType::firstOrCreate(['name' => 'Invoice Financing'], ['sort_order' => 8, 'status' => 'Active']);
 
         // ── Funding Groups ─────────────────────────────────────────────────────
-        $groupCredit     = FundingGroup::firstOrCreate(['name' => 'Business Credit & Credit Cards'], ['sort_order' => 1, 'status' => 'Active']);
-        $groupWorking    = FundingGroup::firstOrCreate(['name' => 'Working Capital Solutions'],       ['sort_order' => 2, 'status' => 'Active']);
-        $groupEquipment  = FundingGroup::firstOrCreate(['name' => 'Equipment Financing'],             ['sort_order' => 3, 'status' => 'Active']);
-        $groupRealEstate = FundingGroup::firstOrCreate(['name' => 'Real Estate Financing'],           ['sort_order' => 4, 'status' => 'Active']);
+        $groupCredit = FundingGroup::firstOrCreate(['name' => 'Business Credit & Credit Cards'], ['sort_order' => 1, 'status' => 'Active']);
+        $groupWorking = FundingGroup::firstOrCreate(['name' => 'Working Capital Solutions'], ['sort_order' => 2, 'status' => 'Active']);
+        $groupEquipment = FundingGroup::firstOrCreate(['name' => 'Equipment Financing'], ['sort_order' => 3, 'status' => 'Active']);
+        $groupRealEstate = FundingGroup::firstOrCreate(['name' => 'Real Estate Financing'], ['sort_order' => 4, 'status' => 'Active']);
 
         // ── Shared helper for common readiness factors ─────────────────────────
         $defaultReadiness = [
-            ['label' => 'Business Credit',            'status' => 'Good'],
-            ['label' => 'Revenue',                    'status' => 'Strong'],
-            ['label' => 'Time in Business',           'status' => 'Strong'],
-            ['label' => 'Banking Activity',           'status' => 'Good'],
-            ['label' => 'Minimum Monthly Deposits',   'status' => 'Good'],
-            ['label' => 'Monthly Deposit Count',      'status' => 'Good'],
-            ['label' => 'Minimum Average Daily Balance',    'status' => 'Good'],
-            ['label' => 'Max NSF Count',              'status' => 'Good'],
-            ['label' => 'Max Negative Days',          'status' => 'Good'],
+            ['label' => 'Business Credit', 'status' => 'Good'],
+            ['label' => 'Revenue', 'status' => 'Strong'],
+            ['label' => 'Time in Business', 'status' => 'Strong'],
+            ['label' => 'Banking Activity', 'status' => 'Good'],
+            ['label' => 'Minimum Monthly Deposits', 'status' => 'Good'],
+            ['label' => 'Monthly Deposit Count', 'status' => 'Good'],
+            ['label' => 'Minimum Average Daily Balance', 'status' => 'Good'],
+            ['label' => 'Max NSF Count', 'status' => 'Good'],
+            ['label' => 'Max Negative Days', 'status' => 'Good'],
         ];
         $defaultDocs = [
             'Last 3 months business bank statements',
@@ -54,88 +54,88 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => '0% Intro Business Cards'],
             [
-                'funding_group_id'             => $groupCredit->id,
-                'funding_type_id'              => $typeCreditCards->id,
-                'subtitle'                     => 'Low/no personal guarantee, 0% APR intro period',
-                'description'                  => 'Access business credit cards with 0% intro APR for 12–18 months. Ideal for startups and growing businesses looking to manage cash flow without interest.',
-                'amount_range'                 => '$5K - $250K',
-                'terms'                        => '0% APR (12–18 mo)',
-                'speed_to_funds'               => '7-14 Days',
-                'icon'                         => 'ri-bank-card-line',
-                'icon_color'                   => 'green',
-                'sort_order'                   => 1,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Inventory', 'Payroll', 'Marketing'],
+                'funding_group_id' => $groupCredit->id,
+                'funding_type_id' => $typeCreditCards->id,
+                'subtitle' => 'Low/no personal guarantee, 0% APR intro period',
+                'description' => 'Access business credit cards with 0% intro APR for 12–18 months. Ideal for startups and growing businesses looking to manage cash flow without interest.',
+                'amount_range' => '$5K - $250K',
+                'terms' => '0% APR (12–18 mo)',
+                'speed_to_funds' => '7-14 Days',
+                'icon' => 'ri-bank-card-line',
+                'icon_color' => 'green',
+                'sort_order' => 1,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Inventory', 'Payroll', 'Marketing'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => $defaultDocs,
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => $defaultDocs,
             ]
         );
 
         FundingSequencing::updateOrCreate(
             ['name' => 'Business Credit Builder Cards'],
             [
-                'funding_group_id'             => $groupCredit->id,
-                'funding_type_id'              => $typeCreditCards->id,
-                'subtitle'                     => 'Build business credit while accessing revolving capital',
-                'description'                  => 'Net-30 vendor accounts and secured business credit cards designed to establish and grow your business credit profile.',
-                'amount_range'                 => '$2K - $100K',
-                'terms'                        => 'Net 30',
-                'speed_to_funds'               => '7-14 Days',
-                'icon'                         => 'ri-bank-card-line',
-                'icon_color'                   => 'blue',
-                'sort_order'                   => 2,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Inventory', 'Payroll'],
+                'funding_group_id' => $groupCredit->id,
+                'funding_type_id' => $typeCreditCards->id,
+                'subtitle' => 'Build business credit while accessing revolving capital',
+                'description' => 'Net-30 vendor accounts and secured business credit cards designed to establish and grow your business credit profile.',
+                'amount_range' => '$2K - $100K',
+                'terms' => 'Net 30',
+                'speed_to_funds' => '7-14 Days',
+                'icon' => 'ri-bank-card-line',
+                'icon_color' => 'blue',
+                'sort_order' => 2,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Inventory', 'Payroll'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => $defaultDocs,
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => $defaultDocs,
             ]
         );
 
         FundingSequencing::updateOrCreate(
             ['name' => 'Premium Rewards Cards'],
             [
-                'funding_group_id'             => $groupCredit->id,
-                'funding_type_id'              => $typeCreditCards->id,
-                'subtitle'                     => 'High-limit cards with cash back, travel & premium perks',
-                'description'                  => 'Premium business credit cards with high credit limits, bonus rewards programs, and exclusive benefits for established businesses.',
-                'amount_range'                 => '$10K - $500K',
-                'terms'                        => 'Rewards',
-                'speed_to_funds'               => '7-14 Days',
-                'icon'                         => 'ri-star-line',
-                'icon_color'                   => 'purple',
-                'sort_order'                   => 3,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Travel', 'Marketing', 'Operations'],
+                'funding_group_id' => $groupCredit->id,
+                'funding_type_id' => $typeCreditCards->id,
+                'subtitle' => 'High-limit cards with cash back, travel & premium perks',
+                'description' => 'Premium business credit cards with high credit limits, bonus rewards programs, and exclusive benefits for established businesses.',
+                'amount_range' => '$10K - $500K',
+                'terms' => 'Rewards',
+                'speed_to_funds' => '7-14 Days',
+                'icon' => 'ri-star-line',
+                'icon_color' => 'purple',
+                'sort_order' => 3,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Travel', 'Marketing', 'Operations'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => $defaultDocs,
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => $defaultDocs,
             ]
         );
 
         FundingSequencing::updateOrCreate(
             ['name' => 'Vendor Credit Lines'],
             [
-                'funding_group_id'             => $groupCredit->id,
-                'funding_type_id'              => $typeCreditCards->id,
-                'subtitle'                     => 'Net 30/60/90 terms with major vendors & suppliers',
-                'description'                  => 'Establish trade credit lines with major vendors and suppliers. Purchase inventory and supplies on net terms to preserve cash flow.',
-                'amount_range'                 => '$1K - $250K',
-                'terms'                        => 'Net 30/60/90',
-                'speed_to_funds'               => '3-7 Days',
-                'icon'                         => 'ri-shopping-cart-2-line',
-                'icon_color'                   => 'orange',
-                'sort_order'                   => 4,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Inventory', 'Supplies', 'Equipment', 'Operations'],
+                'funding_group_id' => $groupCredit->id,
+                'funding_type_id' => $typeCreditCards->id,
+                'subtitle' => 'Net 30/60/90 terms with major vendors & suppliers',
+                'description' => 'Establish trade credit lines with major vendors and suppliers. Purchase inventory and supplies on net terms to preserve cash flow.',
+                'amount_range' => '$1K - $250K',
+                'terms' => 'Net 30/60/90',
+                'speed_to_funds' => '3-7 Days',
+                'icon' => 'ri-shopping-cart-2-line',
+                'icon_color' => 'orange',
+                'sort_order' => 4,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Inventory', 'Supplies', 'Equipment', 'Operations'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => $defaultDocs,
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => $defaultDocs,
             ]
         );
 
@@ -146,22 +146,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Business Lines of Credit'],
             [
-                'funding_group_id'             => $groupWorking->id,
-                'funding_type_id'              => $typeWorkingCapital->id,
-                'subtitle'                     => 'Revolving credit line — draw, repay, repeat',
-                'description'                  => 'Flexible revolving business line of credit. Draw funds as needed, only pay interest on what you use. Perfect for managing cash flow and seasonal needs.',
-                'amount_range'                 => '$10K - $250K',
-                'terms'                        => 'Revolving / 6-24 mo',
-                'speed_to_funds'               => '1-5 Days',
-                'icon'                         => 'ri-refresh-line',
-                'icon_color'                   => 'green',
-                'sort_order'                   => 1,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Payroll', 'Inventory', 'Cash Flow'],
+                'funding_group_id' => $groupWorking->id,
+                'funding_type_id' => $typeWorkingCapital->id,
+                'subtitle' => 'Revolving credit line — draw, repay, repeat',
+                'description' => 'Flexible revolving business line of credit. Draw funds as needed, only pay interest on what you use. Perfect for managing cash flow and seasonal needs.',
+                'amount_range' => '$10K - $250K',
+                'terms' => 'Revolving / 6-24 mo',
+                'speed_to_funds' => '1-5 Days',
+                'icon' => 'ri-refresh-line',
+                'icon_color' => 'green',
+                'sort_order' => 1,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Payroll', 'Inventory', 'Cash Flow'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Voided business check',
                     'Government-issued ID',
@@ -173,22 +173,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Term Loans'],
             [
-                'funding_group_id'             => $groupWorking->id,
-                'funding_type_id'              => $typeWorkingCapital->id,
-                'subtitle'                     => 'Fixed monthly payments for business expansion & growth',
-                'description'                  => 'Business term loans with fixed monthly payments and competitive rates. Use funds for expansion, hiring, equipment, or any business need.',
-                'amount_range'                 => '$25K - $5M',
-                'terms'                        => '6-60 Months',
-                'speed_to_funds'               => '3-7 Days',
-                'icon'                         => 'ri-bank-line',
-                'icon_color'                   => 'blue',
-                'sort_order'                   => 2,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Expansion', 'Hiring', 'Equipment', 'Inventory', 'Working Capital'],
+                'funding_group_id' => $groupWorking->id,
+                'funding_type_id' => $typeWorkingCapital->id,
+                'subtitle' => 'Fixed monthly payments for business expansion & growth',
+                'description' => 'Business term loans with fixed monthly payments and competitive rates. Use funds for expansion, hiring, equipment, or any business need.',
+                'amount_range' => '$25K - $5M',
+                'terms' => '6-60 Months',
+                'speed_to_funds' => '3-7 Days',
+                'icon' => 'ri-bank-line',
+                'icon_color' => 'blue',
+                'sort_order' => 2,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Expansion', 'Hiring', 'Equipment', 'Inventory', 'Working Capital'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Last 2 years business tax returns',
                     'Voided business check',
@@ -200,22 +200,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Merchant Cash Advance'],
             [
-                'funding_group_id'             => $groupWorking->id,
-                'funding_type_id'              => $typeWorkingCapital->id,
-                'subtitle'                     => 'Fast funding based on daily credit card & bank receipts',
-                'description'                  => 'Advance against your future business receipts. Repayment is a fixed percentage of daily sales — easy approval, no fixed monthly payments.',
-                'amount_range'                 => '$5K - $500K',
-                'terms'                        => '3-18 Months',
-                'speed_to_funds'               => '24-72 Hours',
-                'icon'                         => 'ri-speed-line',
-                'icon_color'                   => 'purple',
-                'sort_order'                   => 3,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Payroll', 'Marketing', 'Emergency Costs'],
+                'funding_group_id' => $groupWorking->id,
+                'funding_type_id' => $typeWorkingCapital->id,
+                'subtitle' => 'Fast funding based on daily credit card & bank receipts',
+                'description' => 'Advance against your future business receipts. Repayment is a fixed percentage of daily sales — easy approval, no fixed monthly payments.',
+                'amount_range' => '$5K - $500K',
+                'terms' => '3-18 Months',
+                'speed_to_funds' => '24-72 Hours',
+                'icon' => 'ri-speed-line',
+                'icon_color' => 'purple',
+                'sort_order' => 3,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Payroll', 'Marketing', 'Emergency Costs'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Voided business check',
                     'Government-issued ID',
@@ -226,22 +226,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Revenue Based Financing'],
             [
-                'funding_group_id'             => $groupWorking->id,
-                'funding_type_id'              => $typeWorkingCapital->id,
-                'subtitle'                     => 'Flexible funding — repay as a % of monthly revenue',
-                'description'                  => 'Revenue-based financing with flexible repayment tied to your monthly sales. Payments scale with your revenue — lower when sales are slow, higher when sales are strong.',
-                'amount_range'                 => '$10K - $3M',
-                'terms'                        => 'Flexible / % of Revenue',
-                'speed_to_funds'               => '3-7 Days',
-                'icon'                         => 'ri-line-chart-line',
-                'icon_color'                   => 'orange',
-                'sort_order'                   => 4,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Working Capital', 'Growth', 'Payroll', 'Inventory'],
+                'funding_group_id' => $groupWorking->id,
+                'funding_type_id' => $typeWorkingCapital->id,
+                'subtitle' => 'Flexible funding — repay as a % of monthly revenue',
+                'description' => 'Revenue-based financing with flexible repayment tied to your monthly sales. Payments scale with your revenue — lower when sales are slow, higher when sales are strong.',
+                'amount_range' => '$10K - $3M',
+                'terms' => 'Flexible / % of Revenue',
+                'speed_to_funds' => '3-7 Days',
+                'icon' => 'ri-line-chart-line',
+                'icon_color' => 'orange',
+                'sort_order' => 4,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Working Capital', 'Growth', 'Payroll', 'Inventory'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 6 months business bank statements',
                     'Last 6 months merchant processing statements (if applicable)',
                     'Voided business check',
@@ -256,22 +256,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Equipment Loans'],
             [
-                'funding_group_id'             => $groupEquipment->id,
-                'funding_type_id'              => $typeEquipment->id,
-                'subtitle'                     => 'Finance new or used equipment with competitive rates',
-                'description'                  => 'Business equipment loans with fixed monthly payments. The equipment itself serves as collateral — easier approval than unsecured loans.',
-                'amount_range'                 => '$10K - $2M',
-                'terms'                        => 'Up to 84 Months',
-                'speed_to_funds'               => '3-10 Days',
-                'icon'                         => 'ri-settings-3-line',
-                'icon_color'                   => 'green',
-                'sort_order'                   => 1,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Equipment Purchase', 'Machinery', 'Technology', 'Vehicles'],
+                'funding_group_id' => $groupEquipment->id,
+                'funding_type_id' => $typeEquipment->id,
+                'subtitle' => 'Finance new or used equipment with competitive rates',
+                'description' => 'Business equipment loans with fixed monthly payments. The equipment itself serves as collateral — easier approval than unsecured loans.',
+                'amount_range' => '$10K - $2M',
+                'terms' => 'Up to 84 Months',
+                'speed_to_funds' => '3-10 Days',
+                'icon' => 'ri-settings-3-line',
+                'icon_color' => 'green',
+                'sort_order' => 1,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Equipment Purchase', 'Machinery', 'Technology', 'Vehicles'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Equipment invoice or quote',
                     'Government-issued ID',
@@ -283,22 +283,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Equipment Leasing'],
             [
-                'funding_group_id'             => $groupEquipment->id,
-                'funding_type_id'              => $typeEquipment->id,
-                'subtitle'                     => 'Preserve cash flow — use equipment without buying it',
-                'description'                  => 'Lease equipment with low monthly payments. Conserve capital, stay current with technology, and enjoy potential tax advantages.',
-                'amount_range'                 => '$5K - $1M',
-                'terms'                        => '$1 Buyout Option',
-                'speed_to_funds'               => '3-10 Days',
-                'icon'                         => 'ri-file-text-line',
-                'icon_color'                   => 'blue',
-                'sort_order'                   => 2,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Equipment', 'Technology', 'Medical Devices', 'Vehicles'],
+                'funding_group_id' => $groupEquipment->id,
+                'funding_type_id' => $typeEquipment->id,
+                'subtitle' => 'Preserve cash flow — use equipment without buying it',
+                'description' => 'Lease equipment with low monthly payments. Conserve capital, stay current with technology, and enjoy potential tax advantages.',
+                'amount_range' => '$5K - $1M',
+                'terms' => '$1 Buyout Option',
+                'speed_to_funds' => '3-10 Days',
+                'icon' => 'ri-file-text-line',
+                'icon_color' => 'blue',
+                'sort_order' => 2,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Equipment', 'Technology', 'Medical Devices', 'Vehicles'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Equipment invoice or quote',
                     'Government-issued ID',
@@ -309,44 +309,44 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Working Capital Equipment'],
             [
-                'funding_group_id'             => $groupEquipment->id,
-                'funding_type_id'              => $typeEquipment->id,
-                'subtitle'                     => 'Equipment financing bundled with working capital',
-                'description'                  => 'Finance equipment AND receive additional working capital in a single facility. Ideal for businesses that need to upgrade equipment while maintaining cash flow.',
-                'amount_range'                 => '$25K - $500K',
-                'terms'                        => '12-60 Months',
-                'speed_to_funds'               => '3-7 Days',
-                'icon'                         => 'ri-briefcase-line',
-                'icon_color'                   => 'purple',
-                'sort_order'                   => 3,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Equipment', 'Working Capital', 'Inventory', 'Operations'],
+                'funding_group_id' => $groupEquipment->id,
+                'funding_type_id' => $typeEquipment->id,
+                'subtitle' => 'Equipment financing bundled with working capital',
+                'description' => 'Finance equipment AND receive additional working capital in a single facility. Ideal for businesses that need to upgrade equipment while maintaining cash flow.',
+                'amount_range' => '$25K - $500K',
+                'terms' => '12-60 Months',
+                'speed_to_funds' => '3-7 Days',
+                'icon' => 'ri-briefcase-line',
+                'icon_color' => 'purple',
+                'sort_order' => 3,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Equipment', 'Working Capital', 'Inventory', 'Operations'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => $defaultDocs,
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => $defaultDocs,
             ]
         );
 
         FundingSequencing::updateOrCreate(
             ['name' => 'Transportation Financing'],
             [
-                'funding_group_id'             => $groupEquipment->id,
-                'funding_type_id'              => $typeEquipment->id,
-                'subtitle'                     => 'Trucks, trailers & fleet financing solutions',
-                'description'                  => 'Finance commercial vehicles, trucks, trailers, and transportation fleets. Expand your logistics capacity with competitive rates and long terms.',
-                'amount_range'                 => '$25K - $1M',
-                'terms'                        => 'Up to 72 Months',
-                'speed_to_funds'               => '3-10 Days',
-                'icon'                         => 'ri-truck-line',
-                'icon_color'                   => 'orange',
-                'sort_order'                   => 4,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Trucks', 'Trailers', 'Fleet', 'Transportation'],
+                'funding_group_id' => $groupEquipment->id,
+                'funding_type_id' => $typeEquipment->id,
+                'subtitle' => 'Trucks, trailers & fleet financing solutions',
+                'description' => 'Finance commercial vehicles, trucks, trailers, and transportation fleets. Expand your logistics capacity with competitive rates and long terms.',
+                'amount_range' => '$25K - $1M',
+                'terms' => 'Up to 72 Months',
+                'speed_to_funds' => '3-10 Days',
+                'icon' => 'ri-truck-line',
+                'icon_color' => 'orange',
+                'sort_order' => 4,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Trucks', 'Trailers', 'Fleet', 'Transportation'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 3 months business bank statements',
                     'Vehicle invoice or listing',
                     'Government-issued ID',
@@ -362,22 +362,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Commercial Real Estate'],
             [
-                'funding_group_id'             => $groupRealEstate->id,
-                'funding_type_id'              => $typeRealEstate->id,
-                'subtitle'                     => 'Purchase, refinance, or renovate commercial properties',
-                'description'                  => 'Long-term commercial real estate loans for purchasing or refinancing commercial properties. Competitive rates with up to 25-year amortization.',
-                'amount_range'                 => '$100K - $10M',
-                'terms'                        => '10-25 Years',
-                'speed_to_funds'               => '30-60 Days',
-                'icon'                         => 'ri-building-4-line',
-                'icon_color'                   => 'green',
-                'sort_order'                   => 1,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Property Purchase', 'Refinancing', 'Renovation', 'Investment'],
+                'funding_group_id' => $groupRealEstate->id,
+                'funding_type_id' => $typeRealEstate->id,
+                'subtitle' => 'Purchase, refinance, or renovate commercial properties',
+                'description' => 'Long-term commercial real estate loans for purchasing or refinancing commercial properties. Competitive rates with up to 25-year amortization.',
+                'amount_range' => '$100K - $10M',
+                'terms' => '10-25 Years',
+                'speed_to_funds' => '30-60 Days',
+                'icon' => 'ri-building-4-line',
+                'icon_color' => 'green',
+                'sort_order' => 1,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Property Purchase', 'Refinancing', 'Renovation', 'Investment'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Last 2 years business and personal tax returns',
                     'Property appraisal',
                     'Last 3 months business bank statements',
@@ -390,22 +390,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Bridge Loans'],
             [
-                'funding_group_id'             => $groupRealEstate->id,
-                'funding_type_id'              => $typeRealEstate->id,
-                'subtitle'                     => 'Short-term financing for real estate opportunities',
-                'description'                  => 'Bridge loans provide short-term financing when you need to close quickly on a property before securing long-term financing.',
-                'amount_range'                 => '$50K - $5M',
-                'terms'                        => '6-24 Months',
-                'speed_to_funds'               => '7-21 Days',
-                'icon'                         => 'ri-links-line',
-                'icon_color'                   => 'blue',
-                'sort_order'                   => 2,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Property Acquisition', 'Bridge Financing', 'Quick Close'],
+                'funding_group_id' => $groupRealEstate->id,
+                'funding_type_id' => $typeRealEstate->id,
+                'subtitle' => 'Short-term financing for real estate opportunities',
+                'description' => 'Bridge loans provide short-term financing when you need to close quickly on a property before securing long-term financing.',
+                'amount_range' => '$50K - $5M',
+                'terms' => '6-24 Months',
+                'speed_to_funds' => '7-21 Days',
+                'icon' => 'ri-links-line',
+                'icon_color' => 'blue',
+                'sort_order' => 2,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Property Acquisition', 'Bridge Financing', 'Quick Close'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Property appraisal or estimated value',
                     'Purchase agreement',
                     'Exit strategy documentation',
@@ -417,22 +417,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Fix & Flip Loans'],
             [
-                'funding_group_id'             => $groupRealEstate->id,
-                'funding_type_id'              => $typeRealEstate->id,
-                'subtitle'                     => 'Finance your real estate investment & renovation projects',
-                'description'                  => 'Short-term loans designed for real estate investors to purchase, renovate, and sell residential or commercial properties.',
-                'amount_range'                 => '$50K - $3M',
-                'terms'                        => '6-18 Months',
-                'speed_to_funds'               => '7-14 Days',
-                'icon'                         => 'ri-tools-line',
-                'icon_color'                   => 'purple',
-                'sort_order'                   => 3,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['Property Purchase', 'Renovation', 'Fix & Flip', 'Investment'],
+                'funding_group_id' => $groupRealEstate->id,
+                'funding_type_id' => $typeRealEstate->id,
+                'subtitle' => 'Finance your real estate investment & renovation projects',
+                'description' => 'Short-term loans designed for real estate investors to purchase, renovate, and sell residential or commercial properties.',
+                'amount_range' => '$50K - $3M',
+                'terms' => '6-18 Months',
+                'speed_to_funds' => '7-14 Days',
+                'icon' => 'ri-tools-line',
+                'icon_color' => 'purple',
+                'sort_order' => 3,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['Property Purchase', 'Renovation', 'Fix & Flip', 'Investment'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Property appraisal or ARV estimate',
                     'Renovation scope and budget',
                     'Purchase agreement',
@@ -444,22 +444,22 @@ class FundingSequencingSeeder extends Seeder
         FundingSequencing::updateOrCreate(
             ['name' => 'Construction Loans'],
             [
-                'funding_group_id'             => $groupRealEstate->id,
-                'funding_type_id'              => $typeRealEstate->id,
-                'subtitle'                     => 'Ground-up construction financing for new development',
-                'description'                  => 'Construction loans for ground-up development projects. Funds are disbursed in draws as construction milestones are completed.',
-                'amount_range'                 => '$100K - $10M',
-                'terms'                        => '12-24 Months',
-                'speed_to_funds'               => '21-45 Days',
-                'icon'                         => 'ri-user-settings-line',
-                'icon_color'                   => 'orange',
-                'sort_order'                   => 4,
-                'status'                       => 'Active',
-                'action_url'                   => null,
-                'uses'                         => ['New Construction', 'Ground-Up Development', 'Land Development'],
+                'funding_group_id' => $groupRealEstate->id,
+                'funding_type_id' => $typeRealEstate->id,
+                'subtitle' => 'Ground-up construction financing for new development',
+                'description' => 'Construction loans for ground-up development projects. Funds are disbursed in draws as construction milestones are completed.',
+                'amount_range' => '$100K - $10M',
+                'terms' => '12-24 Months',
+                'speed_to_funds' => '21-45 Days',
+                'icon' => 'ri-user-settings-line',
+                'icon_color' => 'orange',
+                'sort_order' => 4,
+                'status' => 'Active',
+                'action_url' => null,
+                'uses' => ['New Construction', 'Ground-Up Development', 'Land Development'],
 
-                'readiness_factors'            => $defaultReadiness,
-                'missing_documents'            => [
+                'readiness_factors' => $defaultReadiness,
+                'missing_documents' => [
                     'Approved construction plans',
                     'Contractor agreement and budget',
                     'Land deed or purchase agreement',
@@ -495,13 +495,15 @@ class FundingSequencingSeeder extends Seeder
             ['lender_id' => $lenderIds[13] ?? 14, 'funding_sequencing_id' => 30, 'min_fico' => 680, 'min_tib_months' => 24, 'min_monthly_revenue' => 15000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 15000.00, 'min_average_daily_balance' => 5000.00, 'max_nsf_count' => 2, 'max_negative_days' => 2, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
             ['lender_id' => $lenderIds[14] ?? 15, 'funding_sequencing_id' => 31, 'min_fico' => 700, 'min_tib_months' => 36, 'min_monthly_revenue' => 25000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 25000.00, 'min_average_daily_balance' => 10000.00, 'max_nsf_count' => 1, 'max_negative_days' => 1, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
             ['lender_id' => $lenderIds[15] ?? 16, 'funding_sequencing_id' => 32, 'min_fico' => 640, 'min_tib_months' => 12, 'min_monthly_revenue' => 12000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 12000.00, 'min_average_daily_balance' => 4000.00, 'max_nsf_count' => 4, 'max_negative_days' => 4, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51']
+        ];
 
         $sequencingIds = FundingSequencing::orderBy('id')->pluck('id')->toArray();
-        
+
         foreach ($lenderFundingSequencings as $index => $lfs) {
             // Map the hardcoded IDs to the actual IDs generated in this run
             $actualSeqId = $sequencingIds[$index] ?? null;
-            if (!$actualSeqId) continue;
+            if (!$actualSeqId)
+                continue;
 
             $visibilityData = [
                 'min_fico' => $lfs['min_fico'],
