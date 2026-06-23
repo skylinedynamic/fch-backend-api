@@ -17,6 +17,14 @@ class CapitalAccess extends Model
     const HARD_PULL_YES = 'Yes';
     const HARD_PULL_NO = 'No';
 
+    // Pre-flight checklist task labels
+    const TASK_BUSINESS_INFORMATION  = 'Business Information';
+    const TASK_EIN_VERIFIED          = 'EIN Verified';
+    const TASK_PERSONAL_CREDIT_PULLED = 'Personal Credit Pulled';
+    const TASK_BUSINESS_BANK_ACCOUNT = 'Business Bank Account';
+    const TASK_IDENTITY_VERIFIED     = 'Identity Verified';
+    const TASK_NO_RECENT_DEROGATORIES = 'No Recent Derogatories';
+
     protected $table = 'capital_accesses';
 
     protected $guarded = ['id'];

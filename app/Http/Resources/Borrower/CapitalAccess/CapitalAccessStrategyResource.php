@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Resources\Borrower\CreditBuilder;
+namespace App\Http\Resources\Borrower\CapitalAccess;
 
 use App\Models\CreditBuilder\CapitalAccessSequence;
 use App\Models\Common\ScoreConfiguration;
@@ -9,6 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class CapitalAccessStrategyResource extends JsonResource
 {
+    use HasEvaluatedChecklist;
     /**
      * Transform the resource into an array.
      *
@@ -101,9 +102,7 @@ class CapitalAccessStrategyResource extends JsonResource
             'benefits'           => is_string($this->what_you_will_get)
                 ? json_decode($this->what_you_will_get, true)
                 : ($this->what_you_will_get ?? []),
-            'checklist'          => is_string($this->pre_flight_checklist)
-                ? json_decode($this->pre_flight_checklist, true)
-                : ($this->pre_flight_checklist ?? []),
+            'checklist'          => $this->getEvaluatedChecklist($borrower, $this->pre_flight_checklist),
             'roadmap'            => $roadmap,
         ];
     }

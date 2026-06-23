@@ -37,7 +37,7 @@ class ApprovalOddsService
         Log::info("ApprovalOddsService::calculate - Starting", [
             'borrower_id' => $borrower->id,
             'sequence_id' => $seq->id ?? null,
-            'play_id'     => $play->id,
+            'play_id' => $play->id,
         ]);
 
         // Build context / load tiers if not pre-supplied
@@ -59,13 +59,13 @@ class ApprovalOddsService
         $odds = $ctx->readinessScore + $difficultyModifier;
 
         Log::info("ApprovalOddsService::calculate - Base odds", [
-            'readiness_score'     => $ctx->readinessScore,
+            'readiness_score' => $ctx->readinessScore,
             'difficulty_modifier' => $difficultyModifier,
-            'base_odds'           => $odds,
+            'base_odds' => $odds,
         ]);
 
         // 3. FICO above card minimum
-        $minFico   = $seq->minimum_fico_requirement !== null ? (int) $seq->minimum_fico_requirement : 0;
+        $minFico = $seq->minimum_fico_requirement !== null ? (int) $seq->minimum_fico_requirement : 0;
         $fico_diff = max(0, $ctx->ficoScore - $minFico);
         $ficoPoints = $this->matchTier($oddsTiers->get('fico_above_minimum') ?? collect(), $fico_diff);
 
@@ -77,38 +77,38 @@ class ApprovalOddsService
 
         // 6. Banking relationship (label-based fit modifier)
         $bankProbLabel = $this->mapBankingLabel($ctx->bankingLabel);
-        $bankPoints    = (int) (($oddsTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
+        $bankPoints = (int) (($oddsTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
 
         // 7. Tradeline depth (label-based fit modifier)
         $tradeProbLabel = $this->mapTradelineLabel($ctx->tradeLabel);
-        $tradePoints    = (int) (($oddsTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
+        $tradePoints = (int) (($oddsTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
 
         // 8. Revenue / Income (label-based fit modifier)
         $revProbLabel = $this->mapRevenueLabel($ctx->revenueLabel);
-        $revPoints    = (int) (($oddsTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
+        $revPoints = (int) (($oddsTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
 
         $odds += $ficoPoints + $utilPoints + $inquiryPoints + $bankPoints + $tradePoints + $revPoints;
 
         Log::info("ApprovalOddsService::calculate - Factor points", [
-            'fico_points'    => $ficoPoints,
-            'util_points'    => $utilPoints,
+            'fico_points' => $ficoPoints,
+            'util_points' => $utilPoints,
             'inquiry_points' => $inquiryPoints,
-            'bank_points'    => $bankPoints,
-            'trade_points'   => $tradePoints,
-            'rev_points'     => $revPoints,
-            'intermediate'   => $odds,
+            'bank_points' => $bankPoints,
+            'trade_points' => $tradePoints,
+            'rev_points' => $revPoints,
+            'intermediate' => $odds,
         ]);
 
         $finalOdds = max(0, min(99, (int) round($odds)));
 
         Log::info("ApprovalOddsService::calculate - Final odds", [
-            'raw_odds'   => $odds,
+            'raw_odds' => $odds,
             'final_odds' => $finalOdds,
         ]);
 
         return [
             'probability' => $finalOdds,
-            'status'      => true,
+            'status' => true,
             'reason_code' => null,
         ];
     }
@@ -153,10 +153,10 @@ class ApprovalOddsService
     private function mapBankingLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_BANKING_STRONG   => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
+            ScoreConfiguration::STATUS_BANKING_STRONG => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
             ScoreConfiguration::STATUS_BANKING_MODERATE => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE,
-            ScoreConfiguration::STATUS_BANKING_LIMITED  => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
+            ScoreConfiguration::STATUS_BANKING_LIMITED => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
         };
     }
 
@@ -164,19 +164,19 @@ class ApprovalOddsService
     {
         return match ($label) {
             ScoreConfiguration::STATUS_TRADE_MULTIPLE_HIGH => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH,
-            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH    => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
-            ScoreConfiguration::STATUS_TRADE_MODERATE      => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
-            default                                        => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
+            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
+            ScoreConfiguration::STATUS_TRADE_MODERATE => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
+            default => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
         };
     }
 
     private function mapRevenueLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_REVENUE_STRONG   => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
+            ScoreConfiguration::STATUS_REVENUE_STRONG => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
             ScoreConfiguration::STATUS_REVENUE_MODERATE => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE,
-            ScoreConfiguration::STATUS_REVENUE_LIMITED  => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
+            ScoreConfiguration::STATUS_REVENUE_LIMITED => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
         };
     }
 

@@ -5,6 +5,11 @@ namespace App\Http\Controllers\Api\V1\Borrower\CapitalAccess;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use App\Models\CreditBuilder\CapitalAccess;
+use App\Services\Borrower\CapitalAccess\BorrowerContext;
+use App\Services\Borrower\CapitalAccess\ScoreConfigurationCache;
+use App\Models\Common\ScoreConfiguration;
+use App\Services\Borrower\CapitalAccess\ApprovalProbabilityService;
 
 class CapitalAccessOverviewController extends Controller
 {
@@ -18,43 +23,46 @@ class CapitalAccessOverviewController extends Controller
             return ApiResponse::notFound(__('borrower.not_found'));
         }
 
-        // Call the service to calculate readiness score
-        $calculationService = app(\App\Services\Borrower\CapitalAccess\ReadinessScoreCalculationService::class);
-        $result = $calculationService->calculate($borrower);
+        // Build BorrowerContext once
+        $ctx = BorrowerContext::from($borrower);
+        $result = $ctx->readinessData;
 
-        $score = $result['total_score'];
-        $status = $result['score_label'];
+        $score = $result['total_score'] ?? 0;
+        $status = $result['score_label'] ?? 'N/A';
 
-        // Dynamic contributing factors
-        $contributingFactors = [];
+        // Calculate dynamic estimated access limit
+        $strategies = CapitalAccess::active()->get();
+        $totalExposureMax = 0;
+        $exposureBreakdown = [];
 
-        foreach ($result['factors'] as $factor) {
-            if ($factor['raw_score'] >= 80) {
-                $tier = \App\Models\Common\ScoreConfiguration::where('category', \App\Models\Common\ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
-                    ->where('model_slug', 'funding_readiness')
-                    ->where('factor_slug', $factor['slug'])
-                    ->where('numeric_value', $factor['raw_score'])
-                    ->first();
-                $detail = $tier ? $tier->label : 'Good';
-                $contributingFactors[] = "{$factor['label']}: {$detail}";
+        if ($strategies->isNotEmpty()) {
+            $cache = app(ScoreConfigurationCache::class);
+            $probTiers = $cache->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $modifiers = $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $probabilityService = app(ApprovalProbabilityService::class);
+
+            foreach ($strategies as $strat) {
+                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
+                if (isset($probData['status']) && $probData['status'] === true) {
+                    $maxVal = (float) ($strat->target_exposure_max ?? 0);
+                    $totalExposureMax += $maxVal;
+                    $exposureBreakdown[] = [
+                        'name' => $strat->name,
+                        'max_exposure' => $maxVal,
+                    ];
+                }
             }
         }
 
-        if (empty($contributingFactors)) {
-            $contributingFactors = ['Initial Profile Setup'];
-        }
-
-        // Access values based on status/score
-        $estimatedAccess = '$150000';
-
+        $estimatedAccess = '$' . number_format($totalExposureMax);
 
         $data = [
             'readiness_score' => $score,
             'readiness_status' => $status,
-            'readiness_status_color' => $result['score_label_color'],
-            'factors' => $result['factors'],
-            'contributing_factors' => $contributingFactors,
+            'readiness_status_color' => $result['score_label_color'] ?? null,
+            'factors' => $result['factors'] ?? [],
             'estimated_total_access' => $estimatedAccess,
+            'exposure_breakdown' => $exposureBreakdown,
         ];
 
         return ApiResponse::success(

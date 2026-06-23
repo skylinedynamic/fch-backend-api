@@ -117,8 +117,14 @@ Route::prefix('v1/borrower')->group(function () {
             Route::prefix('capital-access')->group(
                 function () {
                     Route::get('/overview', [CapitalAccessOverviewController::class, 'index']);
+                    Route::get('/strategies-list', [CapitalAccessStrategyController::class, 'listForSelection']);
                     Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
                     Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
+                    Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview']);
+                    Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist']);
+                    Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap']);
+                    Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep']);
+                    Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep']);
                 }
             );
 
