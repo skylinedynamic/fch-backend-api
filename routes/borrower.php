@@ -31,6 +31,8 @@ use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocum
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingReviewController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
 
 
 /* |-------------------------------------------------------------------------- | Borrower API Routes |-------------------------------------------------------------------------- | | Here is where you can register borrower API routes for your application. | These routes are loaded by the RouteServiceProvider and all of them will | be assigned to the "api" middleware group. Make something great! | */
@@ -95,6 +97,16 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/', [DocumentController::class, 'index']);
                     Route::post('/upload', [DocumentController::class, 'store']);
                     Route::delete('/{id}', [DocumentController::class, 'destroy']);
+                }
+            );
+
+            Route::prefix('funding')->group(
+                function () {
+                    Route::post('/reviews', [FundingReviewController::class, 'store']);
+                    Route::post('/reviews/list', [FundingReviewController::class, 'index']);
+                    Route::get('/reviews/{id}', [FundingReviewController::class, 'show']);
+                    Route::get('/', [FundingController::class, 'index']);
+                    Route::get('/{id}', [FundingController::class, 'show']);
                 }
             );
 
