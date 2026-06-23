@@ -15,7 +15,9 @@ use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
 use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
-use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
