@@ -35,6 +35,11 @@ class UpdateCapitalAccessRequest extends BaseApiRequest
             'pre_flight_checklist' => 'required|array|min:1',
             'pre_flight_checklist.*' => 'required|string|min:1',
             'status' => 'required|string|in:' . CapitalAccess::STATUS_ACTIVE . ',' . CapitalAccess::STATUS_INACTIVE,
+            'minimum_fico_requirement' => 'nullable|integer|min:300|max:850',
+            'maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
+            'difficulty_modifier' => 'nullable|numeric',
+            'allow_recent_late_payment' => 'nullable|boolean',
+            'late_payment_lookback_months' => 'nullable|integer|min:0',
             'credit_accounts' => 'required|array|min:1',
             'credit_accounts.*.id' => 'required|integer|exists:credit_accounts,id',
             'credit_accounts.*.why_this_card' => 'nullable|string',
@@ -43,6 +48,12 @@ class UpdateCapitalAccessRequest extends BaseApiRequest
             'credit_accounts.*.hard_pull' => 'nullable|in:Yes,No',
             'credit_accounts.*.what_you_need' => 'nullable|array',
             'credit_accounts.*.what_you_need.*' => 'nullable|string',
+            'credit_accounts.*.access_time' => 'nullable|string',
+            'credit_accounts.*.access_day' => 'nullable|integer|min:1|max:60',
+            'credit_accounts.*.access_day_time' => 'nullable|string',
+            'credit_accounts.*.minimum_fico_requirement' => 'nullable|integer|min:300|max:850',
+            'credit_accounts.*.maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
+            'credit_accounts.*.difficulty_modifier' => 'nullable|numeric',
         ];
     }
 

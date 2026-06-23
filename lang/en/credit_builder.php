@@ -54,6 +54,7 @@ return [
     // Capital Access
     'capital_access_created' => 'Capital access created successfully.',
     'capital_access_fetched' => 'Capital access fetched successfully.',
+    'capital_access_overview_fetched' => 'Capital access overview fetched successfully.',
     'capital_access_updated' => 'Capital access updated successfully.',
     'capital_access_status_updated' => 'Capital access status updated successfully.',
     'capital_access_deleted' => 'Capital access deleted successfully.',

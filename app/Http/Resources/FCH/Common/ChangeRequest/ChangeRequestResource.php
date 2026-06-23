@@ -22,6 +22,8 @@ class ChangeRequestResource extends JsonResource
             'old_value' => $this->old_value,
             'new_value' => $this->new_value,
             'status' => $this->status,
+            'entity_type' => $this->entity_type,
+            'entity_id' => $this->entity_id,
             'note' => $this->note,
             'updated_by' => $this->updated_by,
             'updater_name' => $this->updater?->full_name ?: $this->updater?->name,

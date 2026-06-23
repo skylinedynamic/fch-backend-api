@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\Borrower\CapitalAccess;
+
+use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use App\Models\CreditBuilder\CapitalAccess;
+use App\Services\Borrower\CapitalAccess\BorrowerContext;
+use App\Services\Borrower\CapitalAccess\ScoreConfigurationCache;
+use App\Models\Common\ScoreConfiguration;
+use App\Services\Borrower\CapitalAccess\ApprovalProbabilityService;
+
+class CapitalAccessOverviewController extends Controller
+{
+    /**
+     * Get the capital access overview data for the authenticated borrower.
+     */
+    public function index(): JsonResponse
+    {
+        $borrower = auth()->user()->borrower;
+        if (!$borrower) {
+            return ApiResponse::notFound(__('borrower.not_found'));
+        }
+
+        // Build BorrowerContext once
+        $ctx = BorrowerContext::from($borrower);
+        $result = $ctx->readinessData;
+
+        $score = $result['total_score'] ?? 0;
+        $status = $result['score_label'] ?? 'N/A';
+
+        // Calculate dynamic estimated access limit
+        $strategies = CapitalAccess::active()->get();
+        $totalExposureMax = 0;
+        $exposureBreakdown = [];
+
+        if ($strategies->isNotEmpty()) {
+            $cache = app(ScoreConfigurationCache::class);
+            $probTiers = $cache->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $modifiers = $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $probabilityService = app(ApprovalProbabilityService::class);
+
+            foreach ($strategies as $strat) {
+                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
+                if (isset($probData['status']) && $probData['status'] === true) {
+                    $maxVal = (float) ($strat->target_exposure_max ?? 0);
+                    $totalExposureMax += $maxVal;
+                    $exposureBreakdown[] = [
+                        'name' => $strat->name,
+                        'max_exposure' => $maxVal,
+                    ];
+                }
+            }
+        }
+
+        $estimatedAccess = '$' . number_format($totalExposureMax);
+
+        $data = [
+            'readiness_score' => $score,
+            'readiness_status' => $status,
+            'readiness_status_color' => $result['score_label_color'] ?? null,
+            'factors' => $result['factors'] ?? [],
+            'estimated_total_access' => $estimatedAccess,
+            'exposure_breakdown' => $exposureBreakdown,
+        ];
+
+        return ApiResponse::success(
+            $data,
+            __('credit_builder.capital_access_overview_fetched')
+        );
+    }
+}

@@ -47,6 +47,7 @@ class Borrower extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'partner_payment_for_me' => 'boolean',
+        'credit_profile_updated' => 'boolean',
     ];
 
     const STATUS_ONBOARDING = 'OnBoarding';
@@ -233,6 +234,16 @@ class Borrower extends Model
     public function creditProfile()
     {
         return $this->hasOne(\App\Models\Borrower\BorrowerCreditProfile::class, 'borrower_id');
+    }
+
+    public function bankAccounts()
+    {
+        return $this->hasMany(\App\Models\Borrower\BorrowerBankAccount::class, 'borrower_id');
+    }
+
+    public function creditProfileRequests()
+    {
+        return $this->hasMany(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
     }
 
     public function scopeSearch($query, ?string $search)

@@ -29,39 +29,169 @@ class CapitalAccessSeeder extends Seeder
             return;
         }
 
-        $faker = \Faker\Factory::create();
+        $programs = [
+            [
+                'name' => 'Foundation 100 Play™',
+                'sub_title' => 'Build your foundation with these starter cards',
+                'target_exposure_min' => 5000,
+                'target_exposure_max' => 25000,
+                'minimum_fico_requirement' => 680,
+                'maximum_utilization_threshold' => 30,
+                'difficulty_modifier' => 5,
+                'est_timeline_min' => 5,
+                'est_timeline_max' => 14,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Startup Launch Play™',
+                'sub_title' => 'Launch your business credit profile',
+                'target_exposure_min' => 10000,
+                'target_exposure_max' => 50000,
+                'minimum_fico_requirement' => 680,
+                'maximum_utilization_threshold' => 30,
+                'difficulty_modifier' => -5,
+                'est_timeline_min' => 7,
+                'est_timeline_max' => 21,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Zero-Cost Capital Play™',
+                'sub_title' => 'Access capital without interest costs',
+                'target_exposure_min' => 15000,
+                'target_exposure_max' => 75000,
+                'minimum_fico_requirement' => 720,
+                'maximum_utilization_threshold' => 20,
+                'difficulty_modifier' => 0,
+                'est_timeline_min' => 10,
+                'est_timeline_max' => 30,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Relationship Banking Play™',
+                'sub_title' => 'Leverage banking relationships for growth',
+                'target_exposure_min' => 25000,
+                'target_exposure_max' => 100000,
+                'minimum_fico_requirement' => 700,
+                'maximum_utilization_threshold' => 25,
+                'difficulty_modifier' => 3,
+                'est_timeline_min' => 8,
+                'est_timeline_max' => 28,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Investor Liquidity Play™',
+                'sub_title' => 'Unlock investor-level liquidity',
+                'target_exposure_min' => 50000,
+                'target_exposure_max' => 200000,
+                'minimum_fico_requirement' => 740,
+                'maximum_utilization_threshold' => 15,
+                'difficulty_modifier' => -3,
+                'est_timeline_min' => 12,
+                'est_timeline_max' => 35,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Foundation-to-Expansion Play™',
+                'sub_title' => 'Scale from foundation to expansion',
+                'target_exposure_min' => 30000,
+                'target_exposure_max' => 150000,
+                'minimum_fico_requirement' => 720,
+                'maximum_utilization_threshold' => 20,
+                'difficulty_modifier' => -5,
+                'est_timeline_min' => 10,
+                'est_timeline_max' => 30,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Executive 250 Play™',
+                'sub_title' => 'Executive-level credit building',
+                'target_exposure_min' => 50000,
+                'target_exposure_max' => 250000,
+                'minimum_fico_requirement' => 760,
+                'maximum_utilization_threshold' => 10,
+                'difficulty_modifier' => -10,
+                'est_timeline_min' => 14,
+                'est_timeline_max' => 40,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Business Acquisition Play™',
+                'sub_title' => 'Finance your next business acquisition',
+                'target_exposure_min' => 100000,
+                'target_exposure_max' => 500000,
+                'minimum_fico_requirement' => 780,
+                'maximum_utilization_threshold' => 10,
+                'difficulty_modifier' => -12,
+                'est_timeline_min' => 14,
+                'est_timeline_max' => 45,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Elite 500 Play™',
+                'sub_title' => 'Premium elite credit building',
+                'target_exposure_min' => 100000,
+                'target_exposure_max' => 500000,
+                'minimum_fico_requirement' => 800,
+                'maximum_utilization_threshold' => 5,
+                'difficulty_modifier' => -20,
+                'est_timeline_min' => 14,
+                'est_timeline_max' => 45,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+            [
+                'name' => 'Recovery & Rebuild Play™',
+                'sub_title' => 'Rebuild your business credit profile',
+                'target_exposure_min' => 3000,
+                'target_exposure_max' => 15000,
+                'minimum_fico_requirement' => 600,
+                'maximum_utilization_threshold' => 40,
+                'difficulty_modifier' => -8,
+                'est_timeline_min' => 3,
+                'est_timeline_max' => 10,
+                'allow_recent_late_payment' => true,
+                'late_payment_lookback_months' => 12,
+            ],
+        ];
 
-        for ($i = 1; $i <= 10; $i++) {
-            $minExposure = $faker->randomElement([5000, 10000, 25000, 50000]);
-            $maxExposure = $minExposure + $faker->randomElement([10000, 25000, 50000, 100000]);
-
+        foreach ($programs as $program) {
             $capitalAccess = CapitalAccess::create([
-                'name' => $faker->catchPhrase() . ' Funding',
-                'sub_title' => $faker->sentence(6),
-                'partner_id' => $partnerId,
-                'target_exposure_min' => $minExposure,
-                'target_exposure_max' => $maxExposure,
-                'est_timeline_min' => $faker->numberBetween(3, 14),
-                'est_timeline_max' => $faker->numberBetween(15, 45),
-                'what_you_will_get' => json_encode([
-                    $faker->sentence(4),
-                    $faker->sentence(5),
-                    $faker->sentence(4)
+                'name'                        => $program['name'],
+                'sub_title'                   => $program['sub_title'],
+                'partner_id'                  => $partnerId,
+                'target_exposure_min'         => $program['target_exposure_min'],
+                'target_exposure_max'         => $program['target_exposure_max'],
+                'minimum_fico_requirement'    => $program['minimum_fico_requirement'],
+                'maximum_utilization_threshold' => $program['maximum_utilization_threshold'],
+                'difficulty_modifier'         => $program['difficulty_modifier'],
+                'allow_recent_late_payment'   => $program['allow_recent_late_payment'],
+                'late_payment_lookback_months' => $program['late_payment_lookback_months'],
+                'est_timeline_min'            => $program['est_timeline_min'],
+                'est_timeline_max'            => $program['est_timeline_max'],
+                'what_you_will_get'           => json_encode([
+                    'Step-by-step card sequence',
+                    'Estimated approval odds for each card',
+                    'Timeline & milestone tracking',
                 ]),
                 'pre_flight_checklist' => json_encode([
                     'Business Information',
                     'EIN Verified',
                     'Personal Credit Pulled',
-                    'Business Bank Account'
+                    'Business Bank Account',
                 ]),
                 'status' => CapitalAccess::STATUS_ACTIVE,
             ]);
 
-            // Sync credit accounts with demo sequence details
             $syncData = [];
             $sortingOrder = 1;
-            
-            // Take 2 or 3 cards for each program
             $cardsToAttach = $creditAccounts->random(rand(2, 3));
 
             foreach ($cardsToAttach as $card) {
@@ -72,6 +202,9 @@ class CapitalAccessSeeder extends Seeder
                     'est_limit_max' => rand(10000, 50000),
                     'hard_pull' => rand(0, 1) ? CapitalAccess::HARD_PULL_YES : CapitalAccess::HARD_PULL_NO,
                     'what_you_need' => json_encode(['Good personal credit', 'Established business entity']),
+                    'minimum_fico_requirement' => rand(600, 750),
+                    'maximum_utilization_threshold' => rand(10, 40),
+                    'difficulty_modifier' => rand(-5, 5),
                 ];
             }
 

@@ -11,8 +11,6 @@ use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideCon
 use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
-use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
-use App\Http\Controllers\Api\V1\Borrower\Funding\FundingReviewController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
@@ -23,11 +21,13 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\FinancialInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\PersonalInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ProfileCompletionController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\CreditProfileRequestController;
+use App\Http\Controllers\Api\V1\Borrower\Profile\BorrowerCreditProfileController;
+use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyController;
+use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessOverviewController;
+use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
-use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CapitalAccessStrategyController;
-use Illuminate\Support\Facades\Route;
 
 
 /* |-------------------------------------------------------------------------- | Borrower API Routes |-------------------------------------------------------------------------- | | Here is where you can register borrower API routes for your application. | These routes are loaded by the RouteServiceProvider and all of them will | be assigned to the "api" middleware group. Make something great! | */
@@ -69,6 +69,9 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/financial-info', [FinancialInfoController::class, 'update']);
                     Route::get('/completion', [ProfileCompletionController::class, 'check']);
                     Route::post('/change-request', [ChangeRequestController::class, 'store']);
+                    Route::get('/credit-profile-request', [CreditProfileRequestController::class, 'show']);
+                    Route::post('/credit-profile-request', [CreditProfileRequestController::class, 'store']);
+                    Route::get('/credit-profile', [BorrowerCreditProfileController::class, 'show']);
                 }
             );
 
@@ -105,22 +108,22 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/credit-accounts', [CreditAccountController::class, 'index']);
                     Route::get('/credit-accounts/filter-options', [CreditAccountController::class, 'filterOptions']);
                     Route::post('/credit-accounts/{id}/apply', [CreditAccountController::class, 'apply']);
-
-                    // Capital Access Strategies
-                    Route::get('/capital-access/strategies', [CapitalAccessStrategyController::class, 'index']);
-                    Route::get('/capital-access/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
                 }
             );
 
-
-            Route::prefix('funding')->group(
+            // Capital Access Strategies
+            Route::prefix('capital-access')->group(
                 function () {
-                    Route::post('/reviews', [FundingReviewController::class, 'store']);
-                    Route::post('/reviews/list', [FundingReviewController::class, 'index']);
-                    Route::get('/reviews/{id}', [FundingReviewController::class, 'show']);
-                    Route::get('/', [FundingController::class, 'index']);
-                    Route::get('/{id}', [FundingController::class, 'show']);
-                }
+                Route::get('/overview', [CapitalAccessOverviewController::class, 'index']);
+                Route::get('/strategies-list', [CapitalAccessStrategyController::class, 'listForSelection']);
+                Route::get('/strategies', [CapitalAccessStrategyController::class, 'index']);
+                Route::get('/strategies/{id}', [CapitalAccessStrategyController::class, 'show']);
+                Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview']);
+                Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist']);
+                Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap']);
+                Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep']);
+                Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep']);
+            }
             );
 
 

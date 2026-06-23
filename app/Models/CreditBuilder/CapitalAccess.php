@@ -2,6 +2,7 @@
 
 namespace App\Models\CreditBuilder;
 
+use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,6 +16,14 @@ class CapitalAccess extends Model
 
     const HARD_PULL_YES = 'Yes';
     const HARD_PULL_NO = 'No';
+
+    // Pre-flight checklist task labels
+    const TASK_BUSINESS_INFORMATION  = 'Business Information';
+    const TASK_EIN_VERIFIED          = 'EIN Verified';
+    const TASK_PERSONAL_CREDIT_PULLED = 'Personal Credit Pulled';
+    const TASK_BUSINESS_BANK_ACCOUNT = 'Business Bank Account';
+    const TASK_IDENTITY_VERIFIED     = 'Identity Verified';
+    const TASK_NO_RECENT_DEROGATORIES = 'No Recent Derogatories';
 
     protected $table = 'capital_accesses';
 
@@ -33,14 +42,32 @@ class CapitalAccess extends Model
             'capital_access_sequences',
             'capital_access_id',
         )->withPivot(
-            'sorting_order', 
-            'id', 
-            'why_this_card', 
-            'est_limit_min', 
-            'est_limit_max', 
-            'hard_pull', 
-            'what_you_need'
-        )->orderByPivot('sorting_order', 'asc')->withTimestamps();
+                'sorting_order',
+                'id',
+                'why_this_card',
+                'est_limit_min',
+                'est_limit_max',
+                'hard_pull',
+                'what_you_need',
+                'access_time',
+                'access_day',
+                'access_day_time',
+                'minimum_fico_requirement',
+                'maximum_utilization_threshold',
+                'difficulty_modifier'
+            )->orderByPivot('sorting_order', 'asc')->withTimestamps();
+    }
+
+    /**
+     * Get the capital access sequences (pivot rows) directly as a first-class relation.
+     * Each sequence contains card-specific requirements, modifiers, and sort order.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function sequences()
+    {
+        return $this->hasMany(CapitalAccessSequence::class, 'capital_access_id')
+            ->orderBy('sorting_order', 'asc');
     }
 
     /**
@@ -58,8 +85,14 @@ class CapitalAccess extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'LIKE', "%{$search}%")
-              ->orWhere('status', 'LIKE', "%{$search}%");
+                ->orWhere('status', 'LIKE', "%{$search}%");
         });
+    }
+
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', self::STATUS_ACTIVE);
     }
 
     /**
@@ -69,6 +102,6 @@ class CapitalAccess extends Model
      */
     public function partner()
     {
-        return $this->belongsTo(\App\Models\Partner::class, 'partner_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 }

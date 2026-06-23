@@ -43,6 +43,10 @@ class BorrowerTaskVerificationRequest extends Model
     public const MANUALLY_VERIFIED = 'Manual';
     public const MICROBILT_VERIFIED = 'MicroBilt';
 
+    // Task IDs
+    public const TASK_EIN_VERIFICATION      = 1;
+    public const TASK_IDENTITY_VERIFICATION = 7;
+
     public const STATUS = [
         self::PENDING => self::PENDING,
         self::PROCESSING => self::PROCESSING,

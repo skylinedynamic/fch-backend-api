@@ -105,12 +105,31 @@ class ChangeRequestService
             'updated_by' => auth()->id(),
         ]);
 
-        // If approved, apply the change to the borrower model
+        // If approved, apply the change to the correct model/table
         if ($data['status'] === BorrowerChangeRequest::STATUS_APPROVED) {
             $borrower = $changeRequest->borrower;
             if ($borrower) {
-                $borrower->{$changeRequest->db_field_name} = $changeRequest->new_value;
-                $borrower->save();
+                $entityType = $changeRequest->entity_type;
+                $entityId   = $changeRequest->entity_id;
+
+                if ($entityType && $entityId) {
+                    // entity_type is a fully-qualified model class name
+                    if ($entityType === \App\Models\Borrower\Borrower::class) {
+                        // Borrower's own table — update via the model directly
+                        $borrower->{$changeRequest->db_field_name} = $changeRequest->new_value;
+                        $borrower->save();
+                    } elseif (class_exists($entityType)) {
+                        // Child model (e.g. BorrowerBankAccount) — resolve table dynamically
+                        $tableName = (new $entityType)->getTable();
+                        \Illuminate\Support\Facades\DB::table($tableName)
+                            ->where('id', $entityId)
+                            ->where('borrower_id', $borrower->id)
+                            ->update([
+                                $changeRequest->db_field_name => $changeRequest->new_value,
+                                'updated_at' => now(),
+                            ]);
+                    }
+                }
             }
         }
 
