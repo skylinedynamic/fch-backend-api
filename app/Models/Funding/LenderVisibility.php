@@ -27,7 +27,8 @@ class LenderVisibility extends Model
         'min_deposit_count',
         'min_monthly_deposits',
         'min_average_daily_balance',
-        'max_nsf_negative_days',
+        'max_nsf_count',
+        'max_negative_days',
         'min_dscr',
         'allowed_states',
         'restricted_states',
@@ -125,7 +126,11 @@ class LenderVisibility extends Model
             $failedFinancials++;
         }
 
-        if (!is_null($this->max_nsf_negative_days) && !is_null($borrower->nsf_days) && $borrower->nsf_days > $this->max_nsf_negative_days) {
+        if (!is_null($this->max_nsf_count) && !is_null($borrower->nsf_count) && $borrower->nsf_count > $this->max_nsf_count) {
+            $failedFinancials++;
+        }
+
+        if (!is_null($this->max_negative_days) && !is_null($borrower->negative_days) && $borrower->negative_days > $this->max_negative_days) {
             $failedFinancials++;
         }
 

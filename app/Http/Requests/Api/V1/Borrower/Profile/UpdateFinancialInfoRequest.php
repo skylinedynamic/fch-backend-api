@@ -26,6 +26,12 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'years_in_business' => 'required|string',
             'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
             'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'current_business_debt' => 'nullable|numeric|min:0|max:999999999.99',
+            'average_monthly_deposits' => 'required|numeric|min:0|max:999999999.99',
+            'monthly_deposit_count' => 'required|integer|min:0',
+            'avg_bank_balance' => 'required|numeric|min:0|max:999999999.99',
+            'nsf_count' => 'required|integer|min:0',
+            'negative_days' => 'required|integer|min:0',
         ];
     }
 

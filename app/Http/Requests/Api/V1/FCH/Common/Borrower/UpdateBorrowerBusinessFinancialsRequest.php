@@ -46,7 +46,8 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'fico_score'                => ['nullable', 'integer', 'min:0'],
             'paydex_score'              => ['nullable', 'integer', 'min:0'],
             'number_of_employees'       => ['nullable', 'integer', 'min:0'],
-            'nsf_days'                  => ['nullable', 'integer', 'min:0'],
+            'nsf_count'                 => ['nullable', 'integer', 'min:0'],
+            'negative_days'             => ['nullable', 'integer', 'min:0'],
             'funding_urgency'           => ['nullable', 'string', 'max:255'],
         ];
     }

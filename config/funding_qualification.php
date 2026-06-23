@@ -60,7 +60,7 @@ return [
         'max_nsf' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.nsf_days',
-            'funding_field'  => 'lender_visibilities.max_nsf_negative_days',
+            'funding_field'  => 'lender_visibilities.max_nsf_count',
             'strong_offset'  => -1,
         ],
         'equipment' => [
