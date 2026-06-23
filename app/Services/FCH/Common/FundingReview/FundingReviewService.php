@@ -107,7 +107,7 @@ class FundingReviewService
         $review->save();
 
         if (in_array($data['status'], [FundingReview::STATUS_APPROVED, FundingReview::STATUS_REJECTED])) {
-            $borrowerEmail = $review->borrower->email ?? $review->borrower->business_email;
+            $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
             if ($borrowerEmail) {
                 Mail::to($borrowerEmail)
                     ->send(new UnderwritingStatusUpdated($review));
