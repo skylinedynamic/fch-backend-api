@@ -2,12 +2,14 @@
 
 namespace App\Services\FCH\Common\FundingReview;
 
+use App\Helpers\ApiResponse;
+use App\Mail\FundingReview\UnderwritingStatusUpdated;
 use App\Models\FundingReview\FundingReview;
 use App\Models\User\User;
-use App\Helpers\ApiResponse;
+use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
-use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Mail;
 
 class FundingReviewService
 {
@@ -103,6 +105,14 @@ class FundingReviewService
         }
 
         $review->save();
+
+        if (in_array($data['status'], [FundingReview::STATUS_APPROVED, FundingReview::STATUS_REJECTED])) {
+            $borrowerEmail = $review->borrower->email ?? $review->borrower->business_email;
+            if ($borrowerEmail) {
+                Mail::to($borrowerEmail)
+                    ->send(new UnderwritingStatusUpdated($review));
+            }
+        }
 
         return ApiResponse::success($review, __('funding_review.status_updated_successfully'));
     }

@@ -3,12 +3,15 @@
 namespace App\Services\Borrower\Funding;
 
 use App\Http\Resources\Borrower\Funding\FundingReviewResource;
+use App\Mail\FundingReview\UnderwritingSubmitted;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingReview\FundingReview;
+use App\Models\Partner\Partner;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use App\Traits\PaginatesApi;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 
 class FundingReviewService
 {
@@ -60,6 +63,16 @@ class FundingReviewService
             ],
             $data
         );
+
+        if ($fundingReview->wasRecentlyCreated || $fundingReview->status === 'Pending') {
+            $hostPartners = Partner::where('is_host', 1)->first();
+            foreach ($hostPartners as $hostPartner) {
+                if ($hostPartner->email) {
+                    Mail::to($hostPartner->email)
+                        ->send(new UnderwritingSubmitted($fundingReview));
+                }
+            }
+        }
 
         return [
             'id' => $fundingReview->id,
