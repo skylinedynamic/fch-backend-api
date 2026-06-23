@@ -2,11 +2,12 @@
 
 namespace App\Mail\FundingReview;
 
+use App\Mail\Traits\MailableBranding;
+use App\Models\FundingReview\FundingReview;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\FundingReview\FundingReview;
-use App\Mail\Traits\MailableBranding;
+use Illuminate\Support\Facades\Log;
 
 class UnderwritingSubmitted extends Mailable
 {
@@ -22,6 +23,8 @@ class UnderwritingSubmitted extends Mailable
     public function build()
     {
         $branding = $this->getHostBrandingData();
+        Log::info($branding);
+        Log::info('Host Email');
         return $this->subject('New Underwriting Review Submitted')
                     ->view('emails.partner.underwriting_submitted')
                     ->with([
