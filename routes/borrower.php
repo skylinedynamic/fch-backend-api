@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\BorrowerCreditProfileController
 use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyController;
 use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessOverviewController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
+use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 
@@ -181,7 +182,6 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/payment-methods', [PaymentMethodController::class, 'show']);
 
             Route::post('/process-payment', [GlobalPaymentController::class, 'processPayment']);
-
 
             // auth profile
             Route::prefix('auth-profile')->group(

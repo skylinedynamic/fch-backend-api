@@ -19,6 +19,9 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderController;
 // ✅ Import Role & Permission Controllers
 
