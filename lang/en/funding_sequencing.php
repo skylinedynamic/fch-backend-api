@@ -42,6 +42,8 @@ return [
     'min_average_daily_balance_regex' => 'Minimum average daily balance is out of range or has an invalid decimal format.',
     'min_dscr_regex'             => 'Minimum DSCR is out of range or has an invalid decimal format.',
     'min_tib_months_required'    => 'Minimum time in business is required.',
+    'max_nsf_count_required'     => 'Max NSF Count is required.',
+    'max_negative_days_required' => 'Max Negative Days is required.',
     'allowed_documents_required_if' => 'Required documents are mandatory when Require Documents Uploaded is enabled.',
     'require_completed_application_accepted_if' => 'Require Completed Fund Application must be enabled when Require Documents Uploaded is enabled.',
 
