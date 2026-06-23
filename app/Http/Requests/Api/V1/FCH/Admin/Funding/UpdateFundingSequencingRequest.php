@@ -63,9 +63,9 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'lender_visibilities.*.min_monthly_deposits' => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'lender_visibilities.*.min_avg_deposits'     => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'lender_visibilities.*.min_average_daily_balance' => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-            'lender_visibilities.*.min_deposit_count'    => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
-            'lender_visibilities.*.max_nsf_count'=> ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
-            'lender_visibilities.*.max_negative_days'=> ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.min_deposit_count'    => ['required', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.max_nsf_count'=> ['required', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.max_negative_days'=> ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'lender_visibilities.*.min_dscr'             => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,8}(\.\d{1,4})?$/'],
             'lender_visibilities.*.allowed_states'       => 'nullable|array',
             'lender_visibilities.*.allowed_states.*'     => 'string',
@@ -120,9 +120,12 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'lender_visibilities.*.min_tib_months.required'        => __('funding_sequencing.min_tib_months_required'),
             'lender_visibilities.*.min_fico.required'              => __('funding_sequencing.min_fico_required'),
             'lender_visibilities.*.min_fico.integer'               => __('funding_sequencing.min_fico_integer'),
+            'lender_visibilities.*.min_deposit_count.required'     => __('funding_sequencing.min_deposit_count_required'),
             'allowed_documents.required_if'  => __('funding_sequencing.allowed_documents_required_if'),
             'require_completed_application.accepted_if' => __('funding_sequencing.require_completed_application_accepted_if'),
             'lender_visibilities.*.lender_id.distinct'   => __('funding_sequencing.lender_id_distinct'),
+            'lender_visibilities.*.max_nsf_count.required'         => __('funding_sequencing.max_nsf_count_required'),
+            'lender_visibilities.*.max_negative_days.required'     => __('funding_sequencing.max_negative_days_required'),
         ];
     }
 }
