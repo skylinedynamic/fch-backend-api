@@ -9,7 +9,7 @@ return [
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
         'Minimum Monthly Deposits' => 'min_monthly_deposits',
-        'Minimum Average Balance' => 'min_average_balance',
+        'Minimum Average Daily Balance' => 'min_average_balance',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
     ],
