@@ -71,6 +71,7 @@ class FundingReviewResource extends JsonResource
             'reject_reason' => $this->reject_reason,
             'approved_at' => $this->approved_at?->timezone($timezone)->format('M d Y, g:i A'),
             'created_at' => $this->created_at?->timezone($timezone)->format('M d Y, g:i A'),
+            'updated_at' => $this->updated_at?->timezone($timezone)->format('M d Y, g:i A'),
             'lender_ids' => $this->lender_ids,
             'matched_lenders' => $this->matched_lenders,
             'lender_names' => $this->lender_names,
