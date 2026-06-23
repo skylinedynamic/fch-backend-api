@@ -211,9 +211,11 @@ class FundingSequencing extends Model
         if ($bestStatus === self::ENGINE_STATUS_ACTIVE) {
             $readinessService = app(FundingReadinessService::class);
             $missingDocs = $readinessService->getMissingDocuments($this, $borrower);
-            $factors = $readinessService->evaluateFactors($this, $borrower, $missingDocs);
             
-            $hasMissing = collect($factors)->contains('status', config('funding.readiness_factors.statuses.missing', 'Missing'));
+            $qualificationService = app(\App\Services\FCH\Common\Funding\FundingQualificationService::class);
+            $factors = $qualificationService->evaluateReadinessFactors($borrower, $this->id);
+            
+            $hasMissing = collect($factors)->contains('status', config('funding_qualification.statuses.missing', 'Missing'));
             
             if ($hasMissing) {
                 $bestStatus = self::ENGINE_STATUS_GREYED_OUT;
