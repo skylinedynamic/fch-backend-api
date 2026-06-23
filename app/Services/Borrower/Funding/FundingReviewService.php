@@ -72,11 +72,9 @@ class FundingReviewService
             }
         }
 
-        return [
-            'id' => $fundingReview->id,
-            'status' => $fundingReview->status,
-            'created_at' => $fundingReview->created_at->format('M d, Y h:i A')
-        ];
+        $fundingReview->loadMissing(['borrower', 'fundingSequence', 'reviewer']);
+        $request = request();
+        return (new FundingReviewResource($fundingReview))->toArray($request);
     }
 
     /**

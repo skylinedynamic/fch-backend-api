@@ -14,6 +14,8 @@ class FundingReviewResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+
         $uploadedDocNames = is_array($this->documents_uploaded) ? $this->documents_uploaded : json_decode($this->documents_uploaded, true) ?? [];
         
         $actualDocs = [];
@@ -67,8 +69,8 @@ class FundingReviewResource extends JsonResource
             'actual_documents' => $actualDocs,
             'estimated_speed' => $this->estimated_speed,
             'reject_reason' => $this->reject_reason,
-            'approved_at' => $this->approved_at,
-            'created_at' => $this->created_at,
+            'approved_at' => $this->approved_at?->timezone($timezone)->format('M d Y, g:i A'),
+            'created_at' => $this->created_at?->timezone($timezone)->format('M d Y, g:i A'),
             'lender_ids' => $this->lender_ids,
             'matched_lenders' => $this->matched_lenders,
             'lender_names' => $this->lender_names,
