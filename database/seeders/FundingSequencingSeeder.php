@@ -36,7 +36,10 @@ class FundingSequencingSeeder extends Seeder
             ['label' => 'Time in Business',           'status' => 'Strong'],
             ['label' => 'Banking Activity',           'status' => 'Good'],
             ['label' => 'Minimum Monthly Deposits',   'status' => 'Good'],
+            ['label' => 'Monthly Deposit Count',      'status' => 'Good'],
             ['label' => 'Minimum Average Daily Balance',    'status' => 'Good'],
+            ['label' => 'Max NSF Count',              'status' => 'Good'],
+            ['label' => 'Max Negative Days',          'status' => 'Good'],
         ];
         $defaultDocs = [
             'Last 3 months business bank statements',
