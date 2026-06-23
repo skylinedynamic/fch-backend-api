@@ -84,8 +84,10 @@ class FundingSequencingResource extends JsonResource
         }
 
         $readinessService = app(FundingReadinessService::class);
-        $missingDocumentsList = $readinessService->getMissingDocuments($this, $borrower);
-        $formattedReadinessFactors = $readinessService->evaluateFactors($this, $borrower, $missingDocumentsList);
+        $missingDocumentsList = $readinessService->getMissingDocuments($this->resource, $borrower);
+        
+        $qualificationService = app(\App\Services\FCH\Common\Funding\FundingQualificationService::class);
+        $formattedReadinessFactors = $qualificationService->evaluateReadinessFactors($borrower, $this->id);
 
         $latestRequestedAmount = null;
         $latestUseOfFunds = null;
