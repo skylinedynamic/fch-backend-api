@@ -37,6 +37,7 @@ class FinancialInfoService
             'monthly_revenue'  => $data['monthly_revenue']  ?? $borrower->monthly_revenue,
             'annual_revenue'   => $data['annual_revenue']   ?? $borrower->annual_revenue,
         ]);
+        
 
         // Sync bank accounts (replace all with the submitted list)
         if (array_key_exists('bank_accounts', $data)) {
