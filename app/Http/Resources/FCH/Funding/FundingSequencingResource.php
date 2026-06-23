@@ -25,7 +25,6 @@ class FundingSequencingResource extends JsonResource
             'funding_type_id' => $this->funding_type_id,
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses ?? [],
-            'qualify_reasons' => $this->qualify_reasons ?? [],
             'readiness_factors' => $this->readiness_factors ?? [],
             'missing_documents' => $this->missing_documents ?? [],
             'min_fico' => $this->min_fico,
@@ -56,6 +55,14 @@ class FundingSequencingResource extends JsonResource
                     'id' => $this->type->id,
                     'name' => $this->type->name,
                 ];
+            }),
+            'lender_visibilities' => $this->whenLoaded('lenderVisibilities', function () {
+                return $this->lenderVisibilities->map(function ($lfs) {
+                    return array_merge(
+                        $lfs->toArray(),
+                        ['lender' => $lfs->lender ? ['id' => $lfs->lender->id, 'name' => $lfs->lender->name] : null]
+                    );
+                });
             }),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

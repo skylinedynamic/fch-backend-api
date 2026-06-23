@@ -5,6 +5,7 @@ namespace App\Services\FCH\Admin\Funding;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\FundingType;
+use App\Models\Lender\Lender;
 use App\Services\Global\Datatable\QueryFilter;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -15,7 +16,7 @@ class FundingSequencingService
      */
     public function list(array $filters)
     {
-        $query = FundingSequencing::with(['group', 'type']);
+        $query = FundingSequencing::with(['group', 'type', 'lenderVisibilities.lender']);
 
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -63,17 +64,17 @@ class FundingSequencingService
             }
         }
 
-        $sortField = !empty($filters['sort_field']) ? $filters['sort_field'] : 'id';
+        $sortField = !empty($filters['sort_field']) ? $filters['sort_field'] : null;
         $rawSortOrder = $filters['sort_order'] ?? null;
         if ($rawSortOrder === 1 || $rawSortOrder === '1' || strtolower((string)$rawSortOrder) === 'asc') {
             $sortOrder = 'asc';
         } elseif ($rawSortOrder === -1 || $rawSortOrder === '-1' || strtolower((string)$rawSortOrder) === 'desc') {
             $sortOrder = 'desc';
         } else {
-            $sortOrder = 'desc'; // default: newest first
+            $sortOrder = 'desc'; // default for when a specific field is provided but no order
         }
         
-        $query = QueryFilter::apply($query, $sortField, $sortOrder, $rawFilters, ['skip_sorting' => true]);
+        $query = QueryFilter::apply($query, $sortField ?? 'id', $sortOrder, $rawFilters, ['skip_sorting' => true]);
 
         if ($sortField === 'group.name') {
             $query->join('funding_groups', 'funding_sequencings.funding_group_id', '=', 'funding_groups.id')
@@ -83,8 +84,11 @@ class FundingSequencingService
             $query->join('funding_types', 'funding_sequencings.funding_type_id', '=', 'funding_types.id')
                   ->orderBy('funding_types.name', $sortOrder)
                   ->select('funding_sequencings.*');
-        } else {
+        } elseif ($sortField) {
             $query->orderBy($sortField, $sortOrder);
+        } else {
+            // Default sort: sort_order ASC (nulls last), then id DESC
+            $query->orderByRaw('sort_order IS NULL, sort_order ASC')->orderBy('id', 'desc');
         }
 
         if ($filters['per_page'] === -1) {
@@ -96,20 +100,38 @@ class FundingSequencingService
 
     public function create(array $data): FundingSequencing
     {
-        return FundingSequencing::create($data);
+        $lenderVisibilities = $data['lender_visibilities'] ?? [];
+        unset($data['lender_visibilities'], $data['lender_id']);
+
+        $sequencing = FundingSequencing::create($data);
+
+        if (!empty($lenderVisibilities)) {
+            $sequencing->lenderVisibilities()->createMany($lenderVisibilities);
+        }
+        return $sequencing->load(['group', 'type', 'lenderVisibilities.lender']);
     }
 
     public function show($id): FundingSequencing
     {
-        return FundingSequencing::with(['group', 'type'])->findOrFail($id);
+        return FundingSequencing::with(['group', 'type', 'lenderVisibilities.lender'])->findOrFail($id);
     }
 
     public function update($id, array $data): FundingSequencing
     {
         $sequencing = FundingSequencing::findOrFail($id);
+        
+        $lenderVisibilities = array_key_exists('lender_visibilities', $data) ? $data['lender_visibilities'] : null;
+        unset($data['lender_visibilities'], $data['lender_id']);
+
         $sequencing->update($data);
 
-        return $sequencing;
+        if ($lenderVisibilities !== null) {
+            // Visibility tab payload
+            $sequencing->lenderVisibilities()->forceDelete();
+            $sequencing->lenderVisibilities()->createMany($lenderVisibilities);
+        }
+
+        return $sequencing->load(['group', 'type', 'lenderVisibilities.lender']);
     }
 
     public function delete($id): bool

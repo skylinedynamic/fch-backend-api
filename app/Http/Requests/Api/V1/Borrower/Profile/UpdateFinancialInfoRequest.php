@@ -22,14 +22,20 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'currency'                              => 'required|string|max:10',
-            'years_in_business'                     => 'required|string',
-            'monthly_revenue'                       => 'required|numeric|min:0|max:999999999.99',
-            'annual_revenue'                        => 'required|numeric|min:0|max:999999999.99',
-            'bank_accounts'                         => 'nullable|array',
-            'bank_accounts.*.id'                    => 'nullable|integer|exists:borrower_bank_accounts,id',
-            'bank_accounts.*.bank_name'             => 'required_with:bank_accounts.*|string|max:255',
-            'bank_accounts.*.account_open_date'     => 'nullable|date|before_or_equal:today',
+            'currency' => 'required|string|max:10',
+            'years_in_business' => 'required|string',
+            'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'current_business_debt' => 'nullable|numeric|min:0|max:999999999.99',
+            'average_monthly_deposits' => 'required|numeric|min:0|max:999999999.99',
+            'monthly_deposit_count' => 'required|integer|min:0',
+            'avg_bank_balance' => 'required|numeric|min:0|max:999999999.99',
+            'nsf_count' => 'required|integer|min:0',
+            'negative_days' => 'required|integer|min:0',
+            'bank_accounts' => 'nullable|array',
+            'bank_accounts.*.id' => 'nullable|integer|exists:borrower_bank_accounts,id',
+            'bank_accounts.*.bank_name' => 'required_with:bank_accounts.*|string|max:255',
+            'bank_accounts.*.account_open_date' => 'nullable|date|before_or_equal:today',
         ];
 
     }
@@ -45,16 +51,16 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'currency.required' => __('borrower_validation.currency_required'),
             'currency.string' => __('borrower_validation.currency_string'),
             'currency.max' => __('borrower_validation.currency_max'),
-            
+
             'years_in_business.required' => __('borrower_validation.years_in_business_required'),
             'years_in_business.string' => __('borrower_validation.years_in_business_string'),
 
-            
+
             'monthly_revenue.required' => __('borrower_validation.monthly_revenue_required'),
             'monthly_revenue.numeric' => __('borrower_validation.monthly_revenue_numeric'),
             'monthly_revenue.min' => __('borrower_validation.monthly_revenue_min'),
             'monthly_revenue.max' => __('borrower_validation.monthly_revenue_max'),
-            
+
             'annual_revenue.numeric' => __('borrower_validation.annual_revenue_numeric'),
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
             'annual_revenue.max' => __('borrower_validation.annual_revenue_max'),

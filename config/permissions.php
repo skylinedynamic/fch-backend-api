@@ -204,6 +204,24 @@ return [
         ],
     ],
 
+    'funding' => [
+        'permissions' => [
+            ['name' => 'view funding', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create funding', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update funding', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete funding', 'is_certified' => 0, 'is_host' => 1],
+        ],
+    ],
+
+    'lenders' => [
+        'permissions' => [
+            ['name' => 'view lenders', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'create lenders', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update lenders', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'delete lenders', 'is_certified' => 0, 'is_host' => 1],
+        ],
+    ],
+
     'cms' => [
         'permissions' => [
             ['name' => 'view site settings', 'is_certified' => 0, 'is_host' => 1],

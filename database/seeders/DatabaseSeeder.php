@@ -94,7 +94,9 @@ class DatabaseSeeder extends Seeder
             CmsPermissionUpdateSeeder::class,
             UpdateSettingsPermissionSeeder::class,
             PaymentMethodSeeder::class,
+            LenderSeeder::class,
             FundingSequencingSeeder::class,
+            LenderFundingPermissionSeeder::class,
         ]);
     }
 }

@@ -14,8 +14,7 @@ return new class extends Migration
         Schema::table('funding_sequencings', function (Blueprint $table) {
             $table->string('speed_to_funds')->nullable()->after('terms');
             $table->json('uses')->nullable()->after('speed_to_funds');
-            $table->json('qualify_reasons')->nullable()->after('uses');
-            $table->json('readiness_factors')->nullable()->after('qualify_reasons');
+            $table->json('readiness_factors')->nullable()->after('uses');
             $table->json('missing_documents')->nullable()->after('readiness_factors');
         });
     }
@@ -29,7 +28,6 @@ return new class extends Migration
             $table->dropColumn([
                 'speed_to_funds',
                 'uses',
-                'qualify_reasons',
                 'readiness_factors',
                 'missing_documents'
             ]);

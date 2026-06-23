@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Configuration\AppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\ScoreConfiguration\ScoreConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest\CreditProfileRequestAdminController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -106,6 +107,16 @@ Route::prefix('v1/admin')
             Route::post('/', [FundingGroupController::class, 'store']);
             Route::put('{id}', [FundingGroupController::class, 'update']);
             Route::delete('{id}', [FundingGroupController::class, 'destroy']);
+        });
+
+        // 🏦 Lenders (CRUD)
+        Route::prefix('lenders')->group(function () {
+            Route::get('/', [LenderController::class, 'index']);
+            Route::get('get/all', [LenderController::class, 'getAll']);
+            Route::post('/', [LenderController::class, 'store']);
+            Route::get('{id}', [LenderController::class, 'show']);
+            Route::put('{id}', [LenderController::class, 'update']);
+            Route::delete('{id}', [LenderController::class, 'destroy']);
         });
 
         // 💰 Funding Types (CRUD)

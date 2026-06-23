@@ -1,13 +1,17 @@
 <?php
 
+use App\Models\Borrower\BorrowerDocType;
+
 return [
     'factor_keys' => [
         'Business Credit'  => 'business_credit',
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
-        'Existing Debt'      => 'existing_debt',
-        'Documents'          => 'documents',
+        'Minimum Monthly Deposits' => 'min_monthly_deposits',
+        'Monthly Deposit Count' => 'min_deposit_count',
+        'Minimum Average Daily Balance' => 'min_average_balance',
+        'Max NSF / Negative Days' => 'max_nsf',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
     ],
@@ -15,30 +19,49 @@ return [
     'rules' => [
         'business_credit' => [
             'type'           => 'compare',
-            'borrower_field' => 'borrowers.paydex_score',
-            'funding_field'  => 'funding_sequencings.min_fico',
+            'borrower_field' => 'borrowers.fico_score',
+            'funding_field'  => 'lender_visibilities.min_fico',
             'strong_offset'  => 20,
         ],
         'revenue' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.monthly_revenue',
-            'funding_field'  => 'funding_sequencings.min_monthly_revenue',
+            'funding_field'  => 'lender_visibilities.min_monthly_revenue',
             'strong_offset'  => 0.01,
         ],
         'time_in_business' => [
             'type'           => 'date_compare',
             'borrower_field' => 'borrowers.business_start_date',
-            'funding_field'  => 'funding_sequencings.min_tib_months',
+            'funding_field'  => 'lender_visibilities.min_tib_months',
             'strong_offset'  => 12,
         ],
         'banking_activity' => [
-            'type' => '',
+            'type'          => 'specific_document',
+            'document_name' => BorrowerDocType::BANK_STATEMENTS,
         ],
-        'existing_debt' => [
-            'type' => '',
+        'min_monthly_deposits' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.average_monthly_deposits',
+            'funding_field'  => 'lender_visibilities.min_avg_deposits',
+            'strong_offset'  => 0.01,
         ],
-        'documents' => [
-            'type' => 'documents',
+        'min_deposit_count' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.monthly_deposit_count',
+            'funding_field'  => 'lender_visibilities.min_deposit_count',
+            'strong_offset'  => 1,
+        ],
+        'min_average_balance' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.avg_bank_balance',
+            'funding_field'  => 'lender_visibilities.min_average_daily_balance',
+            'strong_offset'  => 0.01,
+        ],
+        'max_nsf' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.nsf_days',
+            'funding_field'  => 'lender_visibilities.max_nsf_count',
+            'strong_offset'  => -1,
         ],
         'equipment' => [
             'type' => '',

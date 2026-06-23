@@ -5,7 +5,7 @@ namespace App\Services\FCH\Common\Application;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
-use App\Models\Borrower\FundingReview;
+use App\Models\FundingReview\FundingReview;
 use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
@@ -309,81 +309,4 @@ class RequestApplicationService
         ]);
     }
 
-    /**
-     * Get Funding Review List
-     */
-    public function getFundingReviewList(array $filters)
-    {
-        $authUser = Auth::user();
-        
-        $query = FundingReview::query()->with('borrower', 'fundingSequence')
-            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-                $query->where('partner_id', $authUser->partner_id);
-            });
-
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        // Apply Search
-        if (!empty($filters['search'])) {
-            $search = trim((string) $filters['search']);
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('borrower', function ($qBorrower) use ($search) {
-                    $qBorrower->where('first_name', 'like', "%{$search}%")
-                              ->orWhere('last_name', 'like', "%{$search}%")
-                              ->orWhere('company_name', 'like', "%{$search}%");
-                });
-            });
-        }
-
-        $sortField = $filters['sort_field'] ?? 'id';
-        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
-
-        if ($sortField === 'id' || $sortField === 'created_at') {
-            $query->orderBy($sortField, $sortOrder);
-        } else {
-            $query->orderBy('id', 'desc'); // Fallback
-        }
-
-        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
-        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
-        
-        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
-
-        return $this->respondWithPagination($paginator, 'Funding reviews retrieved successfully.');
-    }
-
-    /**
-     * Update Funding Review Status
-     */
-    public function fundingReviewStatusUpdate(array $data)
-    {
-        $authUser = Auth::user();
-
-        $review = FundingReview::where('id', $data['id'])
-            ->when($authUser->user_type == User::PARTNER, function ($q) use ($authUser) {
-                $q->where('partner_id', $authUser->partner_id);
-            })->first();
-
-        if (!$review) {
-            return ApiResponse::error('Funding review not found.');
-        }
-
-        $review->status = $data['status'];
-        
-        if ($data['status'] === FundingReview::STATUS_APPROVED) {
-            $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser->id;
-            $review->reject_reason = null;
-        } elseif ($data['status'] === FundingReview::STATUS_REJECTED) {
-            $review->reject_reason = $data['reject_reason'] ?? null;
-            $review->approved_at = null;
-            $review->approved_by = null;
-        }
-
-        $review->save();
-
-        return ApiResponse::success($review, 'Status updated successfully.');
-    }
 }

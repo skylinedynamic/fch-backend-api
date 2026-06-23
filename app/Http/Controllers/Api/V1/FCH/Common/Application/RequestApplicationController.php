@@ -141,48 +141,5 @@ class RequestApplicationController extends Controller
         }
     }
 
-    /**
-     * Get Funding Review List
-     */
-    public function getFundingReview(FetchRequestApplicationRequest $request): JsonResponse
-    {
-        try {
-            $input = $request->validated();
 
-            $filters = [
-                'per_page'      => $input['per_page'] ?? null,
-                'page'          => $input['page'] ?? 1,
-                'search'        => $input['search'] ?? null,
-                'filters'       => $input['filters'] ?? [],
-                'sort_field'    => $input['sort_field'] ?? null,
-                'sort_order'    => $input['sort_order'] ?? null,
-                'status'        => $input['status'] ?? null,
-            ];
-
-            return $this->requestApplicationService->getFundingReviewList($filters);
-
-        } catch (\Exception $e) {
-            return ApiResponse::serverError('Error retrieving funding review list.');
-        }
-    }
-
-    /**
-     * Update Funding Review Status
-     */
-    public function fundingReviewStatusUpdate(\Illuminate\Http\Request $request): JsonResponse
-    {
-        try {
-            $request->validate([
-                'id' => 'required|integer|exists:funding_reviews,id',
-                'status' => 'required|string|in:Pending,Approved,Rejected',
-                'reject_reason' => 'nullable|string'
-            ]);
-            
-            return $this->requestApplicationService->fundingReviewStatusUpdate($request->all());
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return ApiResponse::validationError('Validation error', $e->errors());
-        } catch (\Exception $e) {
-            return ApiResponse::serverError('Error updating status.');
-        }
-    }
 }

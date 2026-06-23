@@ -18,32 +18,40 @@ class FundingReadinessService
      */
     public function getMissingDocuments($fundingOption, $borrower): array
     {
-        if (!$borrower) {
+        if (!$borrower || !$fundingOption) {
             return [];
         }
 
-        $requiredDocTypeIds = BorrowerDocumentsChecklist::where('borrower_id', $borrower->id)->pluck('borrower_doc_types_id');
-        $uploadedDocsCount = BorrowerDocument::where('borrower_id', $borrower->id)->count();
+        // If documents are not required at all, nothing is missing
+        if (!$fundingOption->require_documents_uploaded) {
+            return [];
+        }
 
-        // If the borrower has a specific checklist assigned
-        if ($requiredDocTypeIds->count() > 0) {
-            $uploadedDocTypeIds = BorrowerDocument::where('borrower_id', $borrower->id)->pluck('document_type_id');
-            $missingDocTypeIds = $requiredDocTypeIds->diff($uploadedDocTypeIds);
-            
-            if ($missingDocTypeIds->count() > 0) {
-                return BorrowerDocType::whereIn('id', $missingDocTypeIds)->pluck('name')->toArray();
+        $requiredIds = $fundingOption->allowed_documents ?? [];
+
+        // If specific documents are required, check them
+        if (!empty($requiredIds)) {
+            $uploadedIds = BorrowerDocument::where('borrower_id', $borrower->id)
+                ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+                ->pluck('document_type_id')
+                ->toArray();
+
+            $missingIds = array_values(array_diff($requiredIds, $uploadedIds));
+
+            if (empty($missingIds)) {
+                return [];
             }
-            return [];
+
+            return BorrowerDocType::whereIn('id', $missingIds)->pluck('name')->toArray();
         }
 
-        // If no checklist exists but the borrower has uploaded 0 documents
-        if ($uploadedDocsCount === 0) {
-            // Fallback to the funding option's default missing documents array, or a generic message if empty
-            $defaultMissing = ($fundingOption && is_array($fundingOption->missing_documents)) ? $fundingOption->missing_documents : [];
-            return count($defaultMissing) > 0 ? $defaultMissing : ['Please upload your required business documents.'];
-        }
+        // If no specific documents are required but documents are required in general,
+        // we just need ANY document to be uploaded.
+        $hasAny = BorrowerDocument::where('borrower_id', $borrower->id)
+            ->where('status', '!=', BorrowerDocument::STATUS_REJECTED)
+            ->exists();
 
-        return [];
+        return $hasAny ? [] : ['Please upload your required business documents.'];
     }
 
     /**
@@ -76,65 +84,23 @@ class FundingReadinessService
             if ($borrower) {
                 $lowerLabel = strtolower($label);
                 
-                // Business Credit
+                $lenders = $fundingOption->lenderVisibilities ?? collect();
+
                 if (str_contains($lowerLabel, 'business credit') || $lowerLabel === 'business credit') {
-                    $businessScore = $borrower->paydex_score ?? null;
-                    if (is_null($businessScore) || $businessScore == 0) {
-                        $status = $statusMissing;
-                    } else {
-                        $score = (float) $businessScore;
-                        $maxScore = config('funding.readiness_factors.business_credit.max_score', 850);
-                        $strongPct = config('funding.readiness_factors.business_credit.strong_percentage', 80);
-                        $goodPct = config('funding.readiness_factors.business_credit.good_percentage', 60);
-                        
-                        $percentage = ($score / $maxScore) * 100;
-                        
-                        if ($percentage >= $strongPct) {
-                            $status = $statusStrong;
-                        } elseif ($percentage >= $goodPct) {
-                            $status = $statusGood;
-                        } else {
-                            $status = $statusMissing;
+                    $status = $this->evaluateCriteria($borrower->paydex_score, $lenders, 'min_fico', 'buffer', 20);
+                } elseif (str_contains($lowerLabel, 'credit')) {
+                    $status = $this->evaluateCriteria($borrower->fico_score, $lenders, 'min_fico', 'buffer', config('funding.readiness_factors.personal_credit.strong_buffer', 50));
+                } elseif (str_contains($lowerLabel, 'revenue') || str_contains($lowerLabel, 'sales')) {
+                    $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_revenue', 'multiplier', config('funding.readiness_factors.revenue.strong_multiplier', 2.0));
+                } elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
+                    $tibMonths = 0;
+                    if ($borrower->business_start_date) {
+                        try {
+                            $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
+                        } catch (\Exception $e) {
+                            $tibMonths = 0;
                         }
-                    }
-                }
-                // Personal Credit
-                elseif (str_contains($lowerLabel, 'credit')) {
-                    if (is_null($borrower->fico_score) || $borrower->fico_score == 0) {
-                        $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_fico)) {
-                        $buffer = config('funding.readiness_factors.personal_credit.strong_buffer', 50);
-                        if ($borrower->fico_score < $fundingOption->min_fico) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($borrower->fico_score >= $fundingOption->min_fico + $buffer) ? $statusStrong : $statusGood;
-                        }
-                    } else {
-                        $status = $statusGood;
-                    }
-                }
-                // Revenue
-                elseif (str_contains($lowerLabel, 'revenue')) {
-                    if (is_null($borrower->monthly_revenue) || $borrower->monthly_revenue <= 0) {
-                        $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_monthly_revenue)) {
-                        $multiplier = config('funding.readiness_factors.revenue.strong_multiplier', 2.0);
-                        if ($borrower->monthly_revenue < $fundingOption->min_monthly_revenue) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($borrower->monthly_revenue >= $fundingOption->min_monthly_revenue * $multiplier) ? $statusStrong : $statusGood;
-                        }
-                    } else {
-                        $status = $statusGood;
-                    }
-                }
-                // Time in business
-                elseif (str_contains($lowerLabel, 'time') || str_contains($lowerLabel, 'business')) {
-                    if (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '') {
-                        $status = $statusMissing;
-                    } elseif (!is_null($fundingOption->min_tib_months)) {
-                        $bufferMonths = config('funding.readiness_factors.time_in_business.strong_buffer_months', 12);
-                        $tibMonths = 0;
+                    } elseif ($borrower->years_in_business) {
                         if (stripos($borrower->years_in_business, 'month') !== false) {
                             preg_match('/(\d+)/', $borrower->years_in_business, $matches);
                             if (isset($matches[1])) $tibMonths = (int)$matches[1];
@@ -142,81 +108,25 @@ class FundingReadinessService
                             preg_match('/(\d+)/', $borrower->years_in_business, $matches);
                             if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
                         }
-                        
-                        if ($tibMonths < $fundingOption->min_tib_months) {
-                            $status = $statusMissing;
-                        } else {
-                            $status = ($tibMonths >= $fundingOption->min_tib_months + $bufferMonths) ? $statusStrong : $statusGood;
-                        }
-                    } else {
-                        $status = $statusGood;
                     }
-                }
-                // Banking Activity
-                elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
-                    // if (is_null($borrower->avg_bank_balance) || $borrower->avg_bank_balance <= 0) {
-                    //     $status = $statusMissing;
-                    // } elseif (!is_null($fundingOption->min_average_daily_balance)) {
-                    //     $multiplier = config('funding.readiness_factors.banking_activity.strong_multiplier', 2.0);
-                    //     if ($borrower->avg_bank_balance < $fundingOption->min_average_daily_balance) {
-                    //         $status = $statusMissing;
-                    //     } else {
-                    //         $status = ($borrower->avg_bank_balance >= $fundingOption->min_average_daily_balance * $multiplier) ? $statusStrong : $statusGood;
-                    //     }
-                    // } else {
-                    //     $status = $statusGood;
-                    // }
-                    $status = $statusMissing;
-                }
-                // Existing Debt
-                elseif (str_contains($lowerLabel, 'debt')) {
-                    // Check the latest funding application for the most accurate "has_business_debt" status
-                    // $latestApplication = FundingApplication::where('borrower_id', $borrower->id)->latest()->first();
-                    // 
-                    // if ($latestApplication) {
-                    //     if ($latestApplication->has_business_debt) {
-                    //         $debtBalance = (float) $latestApplication->debt_balance;
-                    //         $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
-                    //         $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
-                    //         
-                    //         if ($debtBalance <= $strongMax) {
-                    //             $status = $statusStrong;
-                    //         } elseif ($debtBalance <= $goodMax) {
-                    //             $status = $statusGood;
-                    //         } else {
-                    //             $status = $statusMissing;
-                    //         }
-                    //     } else {
-                    //         // No existing debt is a very strong indicator
-                    //         $status = $statusStrong; 
-                    //     }
-                    // } else {
-                    //     // Fallback to the borrower's current_business_debt field
-                    //     if (is_null($borrower->current_business_debt) || $borrower->current_business_debt <= 0) {
-                    //         $status = $statusStrong;
-                    //     } else {
-                    //         $debtBalance = (float) $borrower->current_business_debt;
-                    //         $strongMax = config('funding.readiness_factors.existing_debt.strong_max_balance', 1000);
-                    //         $goodMax = config('funding.readiness_factors.existing_debt.good_max_balance', 50000);
-                    //         
-                    //         if ($debtBalance <= $strongMax) {
-                    //             $status = $statusStrong;
-                    //         } elseif ($debtBalance <= $goodMax) {
-                    //             $status = $statusGood;
-                    //         } else {
-                    //             $status = $statusMissing;
-                    //         }
-                    //     }
-                    // }
-                    $status = $statusGood;
-                }
-                // Documents
-                elseif (str_contains($lowerLabel, 'document')) {
-                    // if (count($missingDocumentsList) > 0) {
-                    //     $status = $statusMissing;
-                    // } else {
-                    //     $status = $statusGood;
-                    // }
+                    if (!$borrower->business_start_date && (is_null($borrower->years_in_business) || trim($borrower->years_in_business) === '')) {
+                        $status = $statusMissing;
+                    } else {
+                        $status = $this->evaluateCriteria($tibMonths, $lenders, 'min_tib_months', 'buffer', config('funding.readiness_factors.time_in_business.strong_buffer_months', 12));
+                    }
+                } elseif (str_contains($lowerLabel, 'bank') || str_contains($lowerLabel, 'activit')) {
+                    $docName = config('funding_qualification.rules.banking_activity.document_name', BorrowerDocType::BANK_STATEMENTS);
+                    $docType = BorrowerDocType::where('name', $docName)->first();
+                    if ($docType && BorrowerDocument::where('borrower_id', $borrower->id)->where('document_type_id', $docType->id)->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])->exists()) {
+                        $status = $statusGood;
+                    } else {
+                        $status = $statusMissing;
+                    }
+                } elseif (str_contains($lowerLabel, 'deposit')) {
+                    $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_deposits', 'multiplier', 1.5);
+                } elseif (str_contains($lowerLabel, 'balance')) {
+                    $status = $this->evaluateCriteria($borrower->avg_bank_balance, $lenders, 'min_average_daily_balance', 'multiplier', 1.5);
+                } elseif (str_contains($lowerLabel, 'document')) {
                     $status = $statusMissing;
                 }
             }
@@ -228,5 +138,55 @@ class FundingReadinessService
         }
 
         return $formattedReadinessFactors;
+    }
+
+    /**
+     * Helper to evaluate a specific lender criteria against borrower value.
+     */
+    private function evaluateCriteria($borrowerValue, $lenders, $lenderField, $strongType = 'buffer', $strongValue = 0)
+    {
+        $statusMissing = config('funding.readiness_factors.statuses.missing', 'Missing');
+        $statusGood = config('funding.readiness_factors.statuses.good', 'Good');
+        $statusStrong = config('funding.readiness_factors.statuses.strong', 'Strong');
+
+        if (is_null($borrowerValue) || (is_numeric($borrowerValue) && $borrowerValue <= 0 && $lenderField !== 'min_tib_months')) {
+            return $statusMissing;
+        }
+
+        if (!$lenders || $lenders->isEmpty()) {
+            return $statusGood;
+        }
+
+        $passCount = 0;
+        $strongPassCount = 0;
+        $totalLenders = $lenders->count();
+
+        foreach ($lenders as $lender) {
+            $lenderValue = $lender->{$lenderField};
+            if (is_null($lenderValue)) {
+                $passCount++;
+                $strongPassCount++;
+            } else {
+                if ($borrowerValue >= $lenderValue) {
+                    $passCount++;
+                }
+                
+                $strongThreshold = $strongType === 'multiplier' 
+                    ? $lenderValue * $strongValue 
+                    : $lenderValue + $strongValue;
+                    
+                if ($borrowerValue >= $strongThreshold) {
+                    $strongPassCount++;
+                }
+            }
+        }
+
+        if ($passCount < $totalLenders) {
+            return $statusMissing;
+        } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+            return $statusStrong;
+        }
+
+        return $statusGood;
     }
 }

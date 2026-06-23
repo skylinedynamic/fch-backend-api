@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
@@ -12,24 +13,25 @@ use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistCo
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
-use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController as CommonCapitalAccessController;
-use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
+use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
+use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
+use App\Http\Controllers\Api\V1\FCH\Common\FundingReview\FundingReviewController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
+use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
-
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
-use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
@@ -37,11 +39,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as Common
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
 use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
-
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
-
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use Illuminate\Support\Facades\Route;
@@ -161,15 +160,19 @@ Route::prefix('v1')->group(function () {
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
+            });
 
-                Route::post('funding-review', [RequestApplicationController::class, 'getFundingReview']);
-                Route::post('funding-review/status-update', [RequestApplicationController::class, 'fundingReviewStatusUpdate']);
+            // Funding Review
+            Route::prefix('funding-review')->group(function () {
+                Route::post('', [FundingReviewController::class, 'getFundingReview']);
+                Route::get('{id}', [FundingReviewController::class, 'getFundingReviewById']);
+                Route::post('status-update', [FundingReviewController::class, 'fundingReviewStatusUpdate']);
             });
 
             // Funding Qualification endpoints
             Route::prefix('funding-qualification')->group(function () {
-                Route::get('{fundingId}/readiness-factors', [\App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController::class, 'getReadinessFactors']);
-                Route::get('{fundingId}/qualify-reasons', [\App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController::class, 'getQualifyReasons']);
+                Route::get('{fundingId}/readiness-factors', [FundingQualificationController::class, 'getReadinessFactors']);
+
             });
 
             // Borrower Documents Checklist routes

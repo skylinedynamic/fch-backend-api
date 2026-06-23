@@ -152,6 +152,11 @@ class Borrower extends Model
         return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
     }
 
+    public function borrowerDocuments()
+    {
+        return $this->hasMany(BorrowerDocument::class, 'borrower_id');
+    }
+
     /**
      * Get the signed agreement for the borrower.
      */

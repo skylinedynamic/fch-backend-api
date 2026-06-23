@@ -39,27 +39,6 @@ class FundingQualificationService
             ->toArray();
     }
 
-    public function evaluateQualifyReasons(Borrower $borrower, int|string $fundingId): array
-    {
-        $funding = FundingSequencing::findOrFail($fundingId);
-
-        return collect($funding->qualify_reasons ?? [])
-            ->map(fn($reason) => $this->extractLabel($reason))
-            ->filter()
-            ->map(function (string $label) use ($borrower, $funding) {
-                $key = config("funding_qualification.qualify_keys.{$label}");
-                if (!$key) {
-                    return ['label' => $label, 'status' => $this->status('good')];
-                }
-
-                $result = $this->evaluateSingleFactor($key, $borrower, $funding);
-
-                return array_merge(['label' => $label], $result);
-            })
-            ->filter()
-            ->values()
-            ->toArray();
-    }
 
     // ─── Core evaluator ───────────────────────────────────────────────────────
 
@@ -76,11 +55,12 @@ class FundingQualificationService
         }
 
         return match ($rule['type'] ?? 'compare') {
-            'documents'    => $this->evaluateDocuments($rule, $borrower, $funding),
-            'ratio'        => $this->evaluateRatio($rule, $borrower, $funding),
-            'date_compare' => $this->evaluateCompare($rule, $borrower, $funding, asMonths: true),
-            'in_array'     => $this->evaluateInArray($rule, $borrower, $funding),
-            default        => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
+            'documents'             => $this->evaluateDocuments($rule, $borrower, $funding),
+            'specific_document'     => $this->evaluateSpecificDocument($rule, $borrower, $funding),
+            'ratio'                 => $this->evaluateRatio($rule, $borrower, $funding),
+            'date_compare'          => $this->evaluateCompare($rule, $borrower, $funding, asMonths: true),
+            'in_array'              => $this->evaluateInArray($rule, $borrower, $funding),
+            default                 => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
         };
     }
 
@@ -133,18 +113,10 @@ class FundingQualificationService
         }
 
         $borrowerVal = $borrower->{$bField};
-        $fundingVal  = $funding->{$fField};
-
         $rule['borrower_value'] = $borrowerVal;
-        $rule['funding_value']  = $fundingVal;
 
         if (is_null($borrowerVal) || $borrowerVal === '') {
             $rule['status'] = $this->status('missing');
-            return $rule;
-        }
-
-        if (is_null($fundingVal) || $fundingVal === '') {
-            $rule['status'] = $this->status('good');
             return $rule;
         }
 
@@ -159,26 +131,67 @@ class FundingQualificationService
         }
 
         $borrowerVal = (float) $borrowerVal;
-        $fundingVal  = (float) $fundingVal;
 
-        $strongOffset     = isset($rule['strong_offset'])     ? (float) $rule['strong_offset']     : null;
-        $strongMultiplier = isset($rule['strong_multiplier']) ? (float) $rule['strong_multiplier'] : 1.0;
-
-        $strongThreshold = $strongOffset !== null
-            ? $fundingVal + $strongOffset
-            : $fundingVal * $strongMultiplier;
-
-        if ($borrowerVal >= $strongThreshold) {
-            $rule['status'] = $this->status('strong');
-            return $rule;
+        if (!$funding->relationLoaded('lenderVisibilities')) {
+            $funding->load('lenderVisibilities');
         }
-        
-        if ($borrowerVal >= $fundingVal) {
+
+        $lenders = $funding->lenderVisibilities;
+        if ($lenders->isEmpty()) {
             $rule['status'] = $this->status('good');
             return $rule;
         }
 
-        $rule['status'] = $this->status('not_good');
+        $passCount = 0;
+        $strongPassCount = 0;
+        $totalLenders = $lenders->count();
+
+        $strongOffset     = isset($rule['strong_offset'])     ? (float) $rule['strong_offset']     : null;
+        $strongMultiplier = isset($rule['strong_multiplier']) ? (float) $rule['strong_multiplier'] : 1.0;
+
+        foreach ($lenders as $lender) {
+            $fundingVal = $lender->{$fField};
+            
+            if (is_null($fundingVal) || $fundingVal === '') {
+                $passCount++;
+                $strongPassCount++;
+                continue;
+            }
+
+            $fundingVal = (float) $fundingVal;
+            $strongThreshold = $strongOffset !== null
+                ? $fundingVal + $strongOffset
+                : $fundingVal * $strongMultiplier;
+
+            $isMax = str_starts_with($fField, 'max_');
+
+            if ($isMax) {
+                if ($borrowerVal <= $fundingVal) {
+                    $passCount++;
+                }
+                // For max_ fields, 'strong' means lower. But we don't have strong offset for max_ fields yet.
+                // Assuming strong logic applies to min_ fields primarily, or offset is negative for max.
+                if ($borrowerVal <= $strongThreshold) {
+                    $strongPassCount++;
+                }
+            } else {
+                if ($borrowerVal >= $fundingVal) {
+                    $passCount++;
+                }
+                if ($borrowerVal >= $strongThreshold) {
+                    $strongPassCount++;
+                }
+            }
+        }
+
+        if ($passCount < $totalLenders) {
+            $rule['status'] = $this->status('missing');
+        } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+            $rule['status'] = $this->status('strong');
+        } else {
+            $rule['status'] = $this->status('good');
+        }
+
         return $rule;
     }
 
@@ -244,7 +257,7 @@ class FundingQualificationService
                 ->exists();
 
             $rule['status'] = $hasAny ? $this->status('good') : $this->status('missing');
-            $rule['missing_docs'] = [];
+            $rule['missing_docs'] = $hasAny ? [] : ['Please upload supporting business documents.'];
             return $rule;
         }
 
@@ -265,6 +278,36 @@ class FundingQualificationService
 
         $rule['status'] = $this->status('missing');
         $rule['missing_docs'] = array_values($missingNames);
+        return $rule;
+    }
+
+    private function evaluateSpecificDocument(array $rule, Borrower $borrower, FundingSequencing $funding): array
+    {
+        $docName = $rule['document_name'] ?? '';
+
+        if (!$docName) {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        $docType = BorrowerDocType::where('name', $docName)->first();
+        if (!$docType) {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        $hasDoc = BorrowerDocument::where('borrower_id', $borrower->id)
+            ->where('document_type_id', $docType->id)
+            ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
+            ->exists();
+
+        if ($hasDoc) {
+            $rule['status'] = $this->status('good');
+        } else {
+            $rule['status'] = $this->status('missing');
+            $rule['missing_docs'] = [$docName];
+        }
+
         return $rule;
     }
 

@@ -32,7 +32,7 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'max_amount'       => 'required|numeric|gt:0',
             'amount_range'     => 'nullable|string|max:255',
             'terms'            => 'nullable|string|max:255',
-            'icon'             => 'nullable|string|max:255',
+            'icon'             => 'required|string|max:255',
             'icon_color'       => 'nullable|string|max:255',
             'status'           => 'nullable|string|in:Active,Inactive',
             'sort_order'       => 'nullable|integer',
@@ -40,12 +40,16 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'speed_to_funds'   => 'nullable|string|max:255',
             'uses'             => 'nullable|array',
             'uses.*'           => 'string|max:255',
-            'qualify_reasons'  => 'nullable|array',
-            'qualify_reasons.*'=> 'string|max:255',
             'readiness_factors'=> 'nullable|array',
             'readiness_factors.*'=> 'string|max:255',
             'missing_documents'=> 'nullable|array',
             'missing_documents.*'=> 'string|max:255',
+            'require_completed_application' => 'nullable|boolean',
+            'require_documents_uploaded'    => 'nullable|boolean',
+            'allowed_documents'             => 'required_if:require_documents_uploaded,true,1|nullable|array',
+            'allowed_documents.*'           => 'integer',
+            'manual_review_allowed'         => 'nullable|boolean',
+            'exception_allowed'             => 'nullable|boolean',
         ];
     }
 
@@ -71,11 +75,15 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'max_amount.gt'              => __('funding_sequencing.max_amount_gt', [], 'en', 'Maximum amount must be greater than 0'),
             'amount_range.max'           => __('funding_sequencing.amount_range_max'),
             'terms.max'                  => __('funding_sequencing.terms_max'),
+            'icon.required'              => __('funding_sequencing.icon_required'),
             'icon.max'                   => __('funding_sequencing.icon_max'),
             'icon_color.max'             => __('funding_sequencing.icon_color_max'),
             'status.in'                  => __('funding_sequencing.status_in'),
             'sort_order.integer'         => __('funding_sequencing.sort_order_integer'),
             'action_url.max'             => __('funding_sequencing.action_url_max'),
+            'readiness_factors.required'     => __('funding_sequencing.readiness_factors_required'),
+            'allowed_documents.required_if'  => __('funding_sequencing.allowed_documents_required_if'),
+            'require_completed_application.accepted_if' => __('funding_sequencing.require_completed_application_accepted_if'),
         ];
     }
 }

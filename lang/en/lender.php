@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'fetched_successfully' => 'Lender fetched successfully',
+    'created_successfully' => 'Lender created successfully',
+    'updated_successfully' => 'Lender updated successfully',
+    'deleted_successfully' => 'Lender deleted successfully',
+
+    'name_required' => 'The name field is required.',
+    'name_string' => 'The name field must be a string.',
+    'name_max' => 'The name field may not be greater than 255 characters.',
+
+    'office_address_required' => 'The office address field is required.',
+    'office_address_string' => 'The office address field must be a string.',
+
+    'contact_required' => 'The phone number field is required.',
+    'contact_string' => 'The phone number field must be a string.',
+    'contact_regex' => 'The phone number format is invalid.',
+    'contact_max' => 'The phone number field may not be greater than 255 characters.',
+    'contact_unique' => 'This phone number has already been taken.',
+
+    'legal_name_required' => 'The legal name is required.',
+    'product_categories_required' => 'Product categories are required.',
+    'contact_name_required' => 'The contact name is required.',
+    'contact_title_required' => 'The contact title is required.',
+    'contact_phone_required' => 'The contact phone is required.',
+    'contact_email_required' => 'The contact email is required.',
+    'contact_email_email' => 'The contact email must be a valid email address.',
+    'contact_phone_max' => 'The contact phone must not exceed 20 characters.',
+    'contact_phone_unique' => 'The contact phone is already in use by another lender.',
+    'website_url' => 'The website must be a valid URL.',
+    'website_max' => 'The website may not be greater than 255 characters.',
+    'submission_email_email' => 'The submission email must be a valid email address.',
+    'submission_portal_link_url' => 'The submission portal URL must be a valid URL.',
+    'submission_portal_link_max' => 'The submission portal URL may not be greater than 255 characters.',
+    'status_required' => 'The status is required.',
+    'status_in' => 'The status must be either Active or Inactive.',
+    'last_verified_date_required' => 'The last verified date is required.',
+    'last_verified_date_date' => 'The last verified date must be a valid date.',
+];

@@ -61,8 +61,19 @@ class FundingApplicationService
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
 
+            $matchId = $data['id'] ?? null;
+            if (empty($matchId)) {
+                $existing = FundingApplication::where('borrower_id', $borrowerId)
+                    ->where('status', FundingApplication::ON_HOLD)
+                    ->latest()
+                    ->first();
+                if ($existing) {
+                    $matchId = $existing->id;
+                }
+            }
+
             $fundingApplication = FundingApplication::updateOrCreate(
-                ['id' => $data['id']],
+                ['id' => $matchId],
                 $data
             );
 

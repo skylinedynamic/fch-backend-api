@@ -26,7 +26,26 @@ trait MailableBranding
     
         return [
             'siteName' => $brandingConfig['site_name'] ?? $partner->company_name ,
-            'logoUrl' => ($brandingConfig['secondary_logo'] && $brandingConfig['secondary_logo'] != null ) ? asset('storage/' . $brandingConfig['secondary_logo']) : asset('storage/' . $brandingConfig['primary_logo']),
+            'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) ? asset('storage/' . $brandingConfig['secondary_logo']) : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
+        ];
+    }
+
+    protected function getHostBrandingData(): array
+    {
+        $hostPartner = Partner::where('is_host', true)->first();
+        $partnerId = $hostPartner ? $hostPartner->id : null;
+
+        $module = AppConfiguration::MODULE_BRANDING;
+            
+        $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
+            ->where('module', $module)
+            ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
+            ->pluck('value', 'key')
+            ->toArray();
+
+        return [
+            'siteName' => $brandingConfig['site_name'] ?? ($hostPartner ? $hostPartner->company_name : config('app.name')),
+            'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) ? asset('storage/' . $brandingConfig['secondary_logo']) : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
         ];
     }
 

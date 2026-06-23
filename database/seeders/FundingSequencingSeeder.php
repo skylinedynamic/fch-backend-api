@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Funding\FundingGroup;
-use App\Models\Funding\FundingType;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Funding\FundingType;
+use App\Models\Funding\LenderVisibility;
+use App\Models\Lender\Lender;
+use Illuminate\Database\Seeder;
 
 class FundingSequencingSeeder extends Seeder
 {
@@ -29,12 +31,12 @@ class FundingSequencingSeeder extends Seeder
 
         // ── Shared helper for common readiness factors ─────────────────────────
         $defaultReadiness = [
-            ['label' => 'Business Credit',  'status' => 'Good'],
-            ['label' => 'Revenue',           'status' => 'Strong'],
-            ['label' => 'Time in Business',  'status' => 'Strong'],
-            ['label' => 'Banking Activity',  'status' => 'Good'],
-            ['label' => 'Existing Debt',     'status' => 'Good'],
-            ['label' => 'Documents',         'status' => 'Missing'],
+            ['label' => 'Business Credit',            'status' => 'Good'],
+            ['label' => 'Revenue',                    'status' => 'Strong'],
+            ['label' => 'Time in Business',           'status' => 'Strong'],
+            ['label' => 'Banking Activity',           'status' => 'Good'],
+            ['label' => 'Minimum Monthly Deposits',   'status' => 'Good'],
+            ['label' => 'Minimum Average Daily Balance',    'status' => 'Good'],
         ];
         $defaultDocs = [
             'Last 3 months business bank statements',
@@ -62,32 +64,9 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Inventory', 'Payroll', 'Marketing'],
-                'qualify_reasons'              => [
-                    'Credit score meets minimum threshold',
-                    'Business profile meets lending standards',
-                    'Revenue shows consistent deposits',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                // Visibility — open to all states/industries
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                // Thresholds — realistic minimums
-                'min_fico'                     => 680,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                // Review settings
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -107,29 +86,9 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Inventory', 'Payroll'],
-                'qualify_reasons'              => [
-                    'Business entity is properly established',
-                    'EIN is registered with the IRS',
-                    'Business bank account is open',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 600,
-                'min_tib_months'               => 3,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -149,29 +108,9 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Travel', 'Marketing', 'Operations'],
-                'qualify_reasons'              => [
-                    'Strong credit profile qualifies for premium products',
-                    'Revenue demonstrates ability to service credit',
-                    'Established business history meets requirements',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 720,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 10000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -191,29 +130,9 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Inventory', 'Supplies', 'Equipment', 'Operations'],
-                'qualify_reasons'              => [
-                    'Business entity is established and in good standing',
-                    'Basic business profile requirements are met',
-                    'No major derogatory marks on business credit',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => null,
-                'min_tib_months'               => 1,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -237,12 +156,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Payroll', 'Inventory', 'Cash Flow'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum monthly threshold',
-                    'Time in business meets requirement',
-                    'Banking activity shows consistent deposits',
-                    'No excessive NSF or negative balance days',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -250,22 +164,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'Business license (if applicable)',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 5,
-                'max_negative_days'            => 5,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -285,12 +183,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Expansion', 'Hiring', 'Equipment', 'Inventory', 'Working Capital'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum threshold for requested amount',
-                    'Time in business demonstrates stability',
-                    'FICO score qualifies for standard term loan',
-                    'Business banking shows consistent cash flow',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -298,22 +191,6 @@ class FundingSequencingSeeder extends Seeder
                     'Voided business check',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 640,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 8000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 3,
-                'max_negative_days'            => 3,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -333,33 +210,13 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Payroll', 'Marketing', 'Emergency Costs'],
-                'qualify_reasons'              => [
-                    'Monthly revenue meets minimum requirement',
-                    'Business bank statements show consistent deposits',
-                    'Time in business meets minimum threshold',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
                     'Voided business check',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 500,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 10000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 10,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -379,33 +236,13 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Working Capital', 'Growth', 'Payroll', 'Inventory'],
-                'qualify_reasons'              => [
-                    'Monthly revenue meets minimum threshold',
-                    'Revenue is predictable and consistent',
-                    'Business has been operating at least 6 months',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 6 months business bank statements',
                     'Last 6 months merchant processing statements (if applicable)',
                     'Voided business check',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 550,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 15000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -429,11 +266,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment Purchase', 'Machinery', 'Technology', 'Vehicles'],
-                'qualify_reasons'              => [
-                    'Equipment qualifies as collateral',
-                    'Credit score meets minimum threshold',
-                    'Time in business meets requirement',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -441,22 +274,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'Voided business check',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -476,33 +293,13 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment', 'Technology', 'Medical Devices', 'Vehicles'],
-                'qualify_reasons'              => [
-                    'Equipment qualifies for leasing program',
-                    'Credit profile meets minimum requirements',
-                    'Business is in good standing',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
                     'Equipment invoice or quote',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 600,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -522,29 +319,9 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Equipment', 'Working Capital', 'Inventory', 'Operations'],
-                'qualify_reasons'              => [
-                    'Revenue meets minimum threshold',
-                    'Equipment qualifies for financing',
-                    'Business has been operating at least 1 year',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => $defaultDocs,
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 640,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => 8000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 5,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -564,11 +341,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Trucks', 'Trailers', 'Fleet', 'Transportation'],
-                'qualify_reasons'              => [
-                    'Vehicle qualifies as collateral',
-                    'CDL and DOT number on file (if applicable)',
-                    'Business profile meets transportation lending standards',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 3 months business bank statements',
@@ -576,22 +349,6 @@ class FundingSequencingSeeder extends Seeder
                     'Government-issued ID',
                     'CDL (if applicable)',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 580,
-                'min_tib_months'               => 6,
-                'min_monthly_revenue'          => 5000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => false,
-                'require_documents_uploaded'    => false,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => true,
             ]
         );
 
@@ -615,12 +372,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Purchase', 'Refinancing', 'Renovation', 'Investment'],
-                'qualify_reasons'              => [
-                    'Property qualifies as collateral',
-                    'DSCR meets minimum ratio',
-                    'Business and personal financials meet requirements',
-                    'Down payment or equity meets LTV requirements',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Last 2 years business and personal tax returns',
@@ -629,22 +381,6 @@ class FundingSequencingSeeder extends Seeder
                     'Purchase agreement or lease agreement',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 680,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 15000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => 1.25,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -664,11 +400,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Acquisition', 'Bridge Financing', 'Quick Close'],
-                'qualify_reasons'              => [
-                    'Property has sufficient equity or down payment',
-                    'Clear exit strategy is in place',
-                    'Property is in good marketable condition',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Property appraisal or estimated value',
@@ -676,22 +408,6 @@ class FundingSequencingSeeder extends Seeder
                     'Exit strategy documentation',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => 1.0,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -711,11 +427,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['Property Purchase', 'Renovation', 'Fix & Flip', 'Investment'],
-                'qualify_reasons'              => [
-                    'Property has investment potential',
-                    'Renovation plan and budget are realistic',
-                    'Experience in real estate investing (preferred)',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Property appraisal or ARV estimate',
@@ -723,22 +435,6 @@ class FundingSequencingSeeder extends Seeder
                     'Purchase agreement',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 620,
-                'min_tib_months'               => 12,
-                'min_monthly_revenue'          => null,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => null,
-                'max_negative_days'            => null,
-                'min_dscr'                     => null,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
@@ -758,12 +454,7 @@ class FundingSequencingSeeder extends Seeder
                 'status'                       => 'Active',
                 'action_url'                   => null,
                 'uses'                         => ['New Construction', 'Ground-Up Development', 'Land Development'],
-                'qualify_reasons'              => [
-                    'Construction plans are approved',
-                    'Contractor is licensed and insured',
-                    'Land is owned or under contract',
-                    'Permits are in place or pending',
-                ],
+
                 'readiness_factors'            => $defaultReadiness,
                 'missing_documents'            => [
                     'Approved construction plans',
@@ -772,25 +463,72 @@ class FundingSequencingSeeder extends Seeder
                     'Last 2 years personal tax returns',
                     'Government-issued ID',
                 ],
-                'allowed_states'               => null,
-                'restricted_states'            => null,
-                'allowed_industries'           => null,
-                'restricted_industries'        => null,
-                'min_fico'                     => 680,
-                'min_tib_months'               => 24,
-                'min_monthly_revenue'          => 20000,
-                'min_monthly_deposits'         => null,
-                'min_average_daily_balance'    => null,
-                'max_nsf_count'                => 0,
-                'max_negative_days'            => 0,
-                'min_dscr'                     => 1.25,
-                'require_completed_application' => true,
-                'require_documents_uploaded'    => true,
-                'manual_review_allowed'         => true,
-                'exception_allowed'             => false,
             ]
         );
 
-        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules.');
+        // ══════════════════════════════════════════════════════════════════════
+        // GROUP 5 — Seed lender_funding_sequencings Pivot Data
+        // ══════════════════════════════════════════════════════════════════════
+
+        $lenderIds = Lender::pluck('id')->toArray();
+        $lender1 = $lenderIds[0] ?? 1;
+        $lender2 = $lenderIds[1] ?? 2;
+        $lender3 = $lenderIds[2] ?? 3;
+
+        $lenderFundingSequencings = [
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 17, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:11', 'updated_at' => '2026-06-11 03:29:11'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 19, 'min_fico' => 37, 'min_tib_months' => 12, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 38.00, 'max_nsf_count' => 20, 'max_negative_days' => 20, 'min_dscr' => 23.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:31', 'updated_at' => '2026-06-11 03:29:31'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 14, 'min_fico' => 16, 'min_tib_months' => 11, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 95.00, 'max_nsf_count' => 68, 'max_negative_days' => 68, 'min_dscr' => 8.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 0, 'exception_allowed' => 1, 'created_at' => '2026-06-11 03:47:22', 'updated_at' => '2026-06-11 03:47:22'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 20, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:57:29', 'updated_at' => '2026-06-11 03:57:29'],
+            ['lender_id' => $lender3, 'funding_sequencing_id' => 21, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:58:12', 'updated_at' => '2026-06-11 03:58:12'],
+            ['lender_id' => $lender1, 'funding_sequencing_id' => 22, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 3.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 12.00, 'min_average_daily_balance' => 82.00, 'max_nsf_count' => 93, 'max_negative_days' => 93, 'min_dscr' => 33.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:08:39', 'updated_at' => '2026-06-11 04:08:39'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 23, 'min_fico' => 30, 'min_tib_months' => 8, 'min_monthly_revenue' => 2.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 55.00, 'max_nsf_count' => 99, 'max_negative_days' => 99, 'min_dscr' => 72.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:19:15', 'updated_at' => '2026-06-11 04:19:15'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 24, 'min_fico' => 888, 'min_tib_months' => 1, 'min_monthly_revenue' => 1.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 11.00, 'min_average_daily_balance' => 14.00, 'max_nsf_count' => 25, 'max_negative_days' => 25, 'min_dscr' => 52.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:21:03', 'updated_at' => '2026-06-11 04:21:03'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 25, 'min_fico' => 29, 'min_tib_months' => 8, 'min_monthly_revenue' => 5.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 1.00, 'min_average_daily_balance' => 49.00, 'max_nsf_count' => 18, 'max_negative_days' => 18, 'min_dscr' => 92.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:24:28', 'updated_at' => '2026-06-11 04:24:28'],
+            ['lender_id' => $lender2, 'funding_sequencing_id' => 26, 'min_fico' => 10, 'min_tib_months' => 10, 'min_monthly_revenue' => 87887.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 87886.00, 'min_average_daily_balance' => 87878.00, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[4, 3, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51']
+        ];
+
+        $sequencingIds = FundingSequencing::orderBy('id')->pluck('id')->toArray();
+        
+        foreach ($lenderFundingSequencings as $index => $lfs) {
+            // Map the hardcoded IDs to the actual IDs generated in this run
+            $actualSeqId = $sequencingIds[$index] ?? null;
+            if (!$actualSeqId) continue;
+
+            $visibilityData = [
+                'min_fico' => $lfs['min_fico'],
+                'min_tib_months' => $lfs['min_tib_months'],
+                'min_monthly_revenue' => $lfs['min_monthly_revenue'],
+                'min_avg_deposits' => $lfs['min_avg_deposits'],
+                'min_deposit_count' => $lfs['min_deposit_count'],
+                'min_monthly_deposits' => $lfs['min_monthly_deposits'],
+                'min_average_daily_balance' => $lfs['min_average_daily_balance'],
+                'max_nsf_count' => $lfs['max_nsf_count'] ?? null,
+                'max_negative_days' => $lfs['max_negative_days'] ?? null,
+                'min_dscr' => $lfs['min_dscr'],
+                'allowed_states' => json_decode($lfs['allowed_states'] ?? '[]', true) ?: [],
+                'restricted_states' => json_decode($lfs['restricted_states'] ?? '[]', true) ?: [],
+                'allowed_industries' => json_decode($lfs['allowed_industries'] ?? '[]', true) ?: [],
+                'restricted_industries' => json_decode($lfs['restricted_industries'] ?? '[]', true) ?: [],
+            ];
+
+            LenderVisibility::updateOrCreate(
+                [
+                    'lender_id' => $lfs['lender_id'],
+                    'funding_sequencing_id' => $actualSeqId
+                ],
+                $visibilityData
+            );
+
+            FundingSequencing::where('id', $actualSeqId)->update([
+                'require_completed_application' => $lfs['require_completed_application'],
+                'require_documents_uploaded' => $lfs['require_documents_uploaded'],
+                'allowed_documents' => json_decode($lfs['allowed_documents'] ?? '[]', true) ?: [],
+                'manual_review_allowed' => $lfs['manual_review_allowed'],
+                'exception_allowed' => $lfs['exception_allowed'],
+            ]);
+        }
+
+        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules. Also populated Lenders and lender_visibilities.');
     }
 }
