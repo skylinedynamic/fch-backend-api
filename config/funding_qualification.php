@@ -11,7 +11,8 @@ return [
         'Minimum Monthly Deposits' => 'min_monthly_deposits',
         'Monthly Deposit Count' => 'min_deposit_count',
         'Minimum Average Daily Balance' => 'min_average_balance',
-        'Max NSF / Negative Days' => 'max_nsf',
+        'Max NSF Count' => 'max_nsf',
+        'Max Negative Days' => 'max_negative_days',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
     ],
@@ -59,8 +60,14 @@ return [
         ],
         'max_nsf' => [
             'type'           => 'compare',
-            'borrower_field' => 'borrowers.nsf_days',
+            'borrower_field' => 'borrowers.nsf_count',
             'funding_field'  => 'lender_visibilities.max_nsf_count',
+            'strong_offset'  => -1,
+        ],
+        'max_negative_days' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.negative_days',
+            'funding_field'  => 'lender_visibilities.max_negative_days',
             'strong_offset'  => -1,
         ],
         'equipment' => [
