@@ -53,7 +53,7 @@ class FundingReviewService
 
         $data['borrower_id'] = $borrower->id;
         $data['partner_id'] = $borrower->partner_id;
-        $data['status'] = 'Pending';
+        $data['status'] = FundingReview::STATUS_PENDING;
         $data['lender_ids'] = $data['lender_ids'] ?? $lenderIds;
 
         $fundingReview = FundingReview::updateOrCreate(
@@ -64,13 +64,11 @@ class FundingReviewService
             $data
         );
 
-        if ($fundingReview->wasRecentlyCreated || $fundingReview->status === 'Pending') {
-            $hostPartners = Partner::where('is_host', 1)->first();
-            foreach ($hostPartners as $hostPartner) {
-                if ($hostPartner->email) {
-                    Mail::to($hostPartner->email)
-                        ->send(new UnderwritingSubmitted($fundingReview));
-                }
+        if ($fundingReview->wasRecentlyCreated || $fundingReview->status === FundingReview::STATUS_PENDING) {
+            $hostPartner = Partner::where('is_host', 1)->first();
+            if ($hostPartner && $hostPartner->email) {
+                Mail::to($hostPartner->email)
+                    ->send(new UnderwritingSubmitted($fundingReview));
             }
         }
 

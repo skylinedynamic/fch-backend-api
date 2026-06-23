@@ -6,10 +6,11 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use App\Models\FundingReview\FundingReview;
+use App\Mail\Traits\MailableBranding;
 
 class UnderwritingStatusUpdated extends Mailable
 {
-    use Queueable, SerializesModels;
+    use Queueable, SerializesModels, MailableBranding;
 
     public $fundingReview;
 
@@ -21,7 +22,12 @@ class UnderwritingStatusUpdated extends Mailable
     public function build()
     {
         $status = $this->fundingReview->status;
+        $branding = $this->getBrandingData();
         return $this->subject("Underwriting Review {$status}")
-                    ->view('emails.borrower.underwriting_status_updated');
+                    ->view('emails.borrower.underwriting_status_updated')
+                    ->with([
+                        'siteName' => $branding['siteName'],
+                        'logoUrl'  => $branding['logoUrl'],
+                    ]);
     }
 }
