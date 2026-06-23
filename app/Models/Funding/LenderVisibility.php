@@ -2,11 +2,14 @@
 
 namespace App\Models\Funding;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Lender\Lender;
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
+use App\Models\Lender\Lender;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class LenderVisibility extends Model
 {
@@ -20,10 +23,11 @@ class LenderVisibility extends Model
         'min_fico',
         'min_tib_months',
         'min_monthly_revenue',
+        'min_avg_deposits',
+        'min_deposit_count',
         'min_monthly_deposits',
         'min_average_daily_balance',
-        'max_nsf_count',
-        'max_negative_days',
+        'max_nsf_negative_days',
         'min_dscr',
         'allowed_states',
         'restricted_states',
@@ -84,7 +88,7 @@ class LenderVisibility extends Model
             $tibMonths = 0;
             if ($borrower->business_start_date) {
                 try {
-                    $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
+                    $tibMonths = Carbon::parse($borrower->business_start_date)->diffInMonths(Carbon::now());
                 } catch (\Exception $e) {
                     $tibMonths = 0;
                 }
@@ -113,7 +117,15 @@ class LenderVisibility extends Model
             $failedFinancials++;
         }
 
-        if (!is_null($this->max_nsf_count) && !is_null($borrower->nsf_days) && $borrower->nsf_days > $this->max_nsf_count) {
+        if (!is_null($this->min_avg_deposits) && (is_null($borrower->average_monthly_deposits) || $borrower->average_monthly_deposits < $this->min_avg_deposits)) {
+            $failedFinancials++;
+        }
+
+        if (!is_null($this->min_deposit_count) && (is_null($borrower->monthly_deposit_count) || $borrower->monthly_deposit_count < $this->min_deposit_count)) {
+            $failedFinancials++;
+        }
+
+        if (!is_null($this->max_nsf_negative_days) && !is_null($borrower->nsf_days) && $borrower->nsf_days > $this->max_nsf_negative_days) {
             $failedFinancials++;
         }
 
@@ -127,14 +139,14 @@ class LenderVisibility extends Model
         $conditional = false;
         
         if ($fundingSequencing->require_completed_application) {
-            $hasApp = \App\Models\Borrower\FundingApplication::where('borrower_id', $borrower->id)->exists();
+            $hasApp = FundingApplication::where('borrower_id', $borrower->id)->exists();
             if (!$hasApp) {
                 $conditional = true;
             }
         }
 
         if ($fundingSequencing->require_documents_uploaded) {
-            $hasDocs = \App\Models\Borrower\BorrowerDocument::where('borrower_id', $borrower->id)->exists();
+            $hasDocs = BorrowerDocument::where('borrower_id', $borrower->id)->exists();
             if (!$hasDocs) {
                 $conditional = true;
             }

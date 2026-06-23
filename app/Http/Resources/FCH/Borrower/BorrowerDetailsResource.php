@@ -65,6 +65,8 @@ class BorrowerDetailsResource extends JsonResource
             'monthly_revenue'           => formatComma($this->monthly_revenue),
             'annual_revenue'            => formatComma($this->annual_revenue),
             'avg_bank_balance'          => formatComma($this->avg_bank_balance),
+            'average_monthly_deposits'  => formatComma($this->average_monthly_deposits),
+            'monthly_deposit_count'     => $this->monthly_deposit_count,
             'profit_margin'             => $this->profit_margin,
             'current_business_debt'     => formatComma($this->current_business_debt),
             'fico_score'                => $this->fico_score,

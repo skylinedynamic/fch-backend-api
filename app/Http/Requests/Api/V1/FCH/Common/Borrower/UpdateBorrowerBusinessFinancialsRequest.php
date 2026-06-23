@@ -17,6 +17,7 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'monthly_revenue',
             'annual_revenue',
             'avg_bank_balance',
+            'average_monthly_deposits',
             'current_business_debt',
             'profit_margin'
         ];
@@ -38,6 +39,8 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'monthly_revenue'           => ['nullable', 'numeric', 'min:0'],
             'annual_revenue'            => ['nullable', 'numeric', 'min:0'],
             'avg_bank_balance'          => ['nullable', 'numeric', 'min:0'],
+            'average_monthly_deposits'  => ['nullable', 'numeric', 'min:0'],
+            'monthly_deposit_count'     => ['nullable', 'integer', 'min:0'],
             'profit_margin'             => ['nullable', 'numeric'],
             'current_business_debt'     => ['nullable', 'numeric', 'min:0'],
             'fico_score'                => ['nullable', 'integer', 'min:0'],

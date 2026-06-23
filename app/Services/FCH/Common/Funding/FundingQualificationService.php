@@ -305,6 +305,7 @@ class FundingQualificationService
             $rule['status'] = $this->status('good');
         } else {
             $rule['status'] = $this->status('missing');
+            $rule['missing_docs'] = [$docName];
         }
 
         return $rule;

@@ -59,6 +59,8 @@ class BorrowerProfileResource extends JsonResource
             'monthly_revenue'           => $this->monthly_revenue,
             'annual_revenue'            => $this->annual_revenue,
             'avg_bank_balance'          => $this->avg_bank_balance,
+            'average_monthly_deposits'  => $this->average_monthly_deposits,
+            'monthly_deposit_count'     => $this->monthly_deposit_count,
             'profit_margin'             => $this->profit_margin,
             'current_business_debt'     => $this->current_business_debt,
             'fico_score'                => $this->fico_score,
