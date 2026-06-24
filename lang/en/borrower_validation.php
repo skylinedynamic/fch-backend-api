@@ -177,6 +177,17 @@ return [
     'number_of_employees_min' => 'Number of employees cannot be negative',
     'nsf_days_integer' => 'NSF days must be an integer',
     'nsf_days_min' => 'NSF days cannot be negative',
+
+    'nsf_count_required' => 'NSF Count is required',
+    'nsf_count_integer' => 'NSF Count must be an integer',
+    'nsf_count_min' => 'NSF Count cannot be negative',
+    'nsf_count_max' => 'NSF Count cannot exceed 99,999',
+
+    'negative_days_required' => 'Negative Days is required',
+    'negative_days_integer' => 'Negative Days must be an integer',
+    'negative_days_min' => 'Negative Days cannot be negative',
+    'negative_days_max' => 'Negative Days cannot exceed 99,999',
+
     'funding_urgency_string' => 'Funding urgency must be a string',
     'funding_urgency_max' => 'Funding urgency cannot exceed 255 characters',
     'payment_amount_numeric' => 'Payment amount must be a number',

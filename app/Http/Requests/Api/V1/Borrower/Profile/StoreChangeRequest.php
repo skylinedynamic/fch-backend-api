@@ -51,6 +51,8 @@ class StoreChangeRequest extends BaseApiRequest
             'years_in_business' => 'required|string',
             'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
             'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'nsf_count' => 'required|integer|min:0|max:99999',
+            'negative_days' => 'required|integer|min:0|max:99999',
 
             // Personal Info
             'first_name' => 'required|string|max:255',
