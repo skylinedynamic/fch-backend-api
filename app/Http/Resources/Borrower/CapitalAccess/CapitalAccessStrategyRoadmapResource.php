@@ -67,16 +67,19 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
         ) {
             $card = $seq->creditAccount;
 
-            // Per-card odds
-            $odds       = 0;
+            $app = $applications->get($seq->id);
+
+            $reasonCode = null;
+            $odds = null;
             $oddsStatus = true;
             if ($borrower) {
-                $oddsData   = $oddsService->calculate($borrower, $seq, $this->resource, $ctx, $oddsTiers);
-                $odds       = $oddsData['probability'] ?? 0;
-                $oddsStatus = ($oddsData['status'] ?? true) !== false;
+                if (!$app) {
+                    $oddsData   = $oddsService->calculate($borrower, $seq, $this->resource, $ctx, $oddsTiers);
+                    $odds       = $oddsData['probability'] ?? 0;
+                    $oddsStatus = ($oddsData['status'] ?? true) !== false;
+                    $reasonCode = $oddsData['reason_code'] ?? null;
+                }
             }
-
-            $app = $applications->get($seq->id);
 
             return [
                 'id'              => $seq->id,
@@ -93,8 +96,11 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
                 'requirements'    => is_string($seq->what_you_need)
                     ? json_decode($seq->what_you_need, true)
                     : ($seq->what_you_need ?? []),
-                'approval_odds'   => $odds . '%',
+                'approval_odds'   => $odds !== null ? $odds . '%' : null,
                 'probability_status' => $oddsStatus,   // false → card is locked
+                'reason_code'     => $reasonCode,
+                'minimum_fico_requirement' => $seq->minimum_fico_requirement,
+                'maximum_utilization_threshold' => $seq->maximum_utilization_threshold,
                 'application_status' => $app ? $app->status : null,
                 'application'     => $app ? [
                     'id'           => $app->id,

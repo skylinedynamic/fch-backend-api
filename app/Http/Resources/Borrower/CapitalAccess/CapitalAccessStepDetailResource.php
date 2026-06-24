@@ -25,10 +25,17 @@ class CapitalAccessStepDetailResource extends JsonResource
         $ctx   = $this->additional['borrower_ctx'] ?? null;
         $cache = $this->additional['score_cache']  ?? null;
 
-        // Per-card approval odds
-        $odds       = 0;
-        $oddsStatus = true;
+        $application = null;
         if ($borrower) {
+            $application = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+                ->where('capital_access_sequence_id', $seq->id)
+                ->first();
+        }
+
+        // Per-card approval odds
+        $odds       = null;
+        $oddsStatus = true;
+        if ($borrower && !$application) {
             $oddsTiers  = $cache?->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_ODDS);
             $oddsData   = app(\App\Services\Borrower\CapitalAccess\ApprovalOddsService::class)
                 ->calculate($borrower, $seq, $play, $ctx, $oddsTiers);
@@ -66,7 +73,7 @@ class CapitalAccessStepDetailResource extends JsonResource
             'requirements'    => is_string($seq->what_you_need)
                 ? json_decode($seq->what_you_need, true)
                 : ($seq->what_you_need ?? []),
-            'approval_odds'   => $odds . '%',
+            'approval_odds'   => $odds !== null ? $odds . '%' : null,
             'probability_status' => $oddsStatus,
             // Play context
             'play' => [
