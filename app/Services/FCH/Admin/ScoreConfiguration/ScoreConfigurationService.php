@@ -227,6 +227,21 @@ class ScoreConfigurationService
             ];
         }
 
+        $timeSettings = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->where('model_slug', ScoreConfiguration::MODEL_GENERAL_SETTING)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($setting) {
+                return [
+                    'id' => $setting->id,
+                    'label' => $setting->label,
+                    'start' => $setting->min_value,
+                    'end' => $setting->max_value,
+                    'sort_order' => $setting->sort_order,
+                ];
+            })->values()->all();
+
         return [
             'models' => $models,
             'factors' => $factors,
@@ -234,6 +249,7 @@ class ScoreConfigurationService
             'late_payment_modifiers' => $latePaymentModifiers,
             'probability_factors' => $probFactors,
             'odds_factors' => $oddsFactors,
+            'time_settings' => $timeSettings,
         ];
     }
 
@@ -272,6 +288,10 @@ class ScoreConfigurationService
                         $this->saveFactorWeightAndTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, $slug, $ao[$slug]);
                     }
                 }
+            }
+
+            if (isset($data['time_settings'])) {
+                $this->saveTimeSettings($data['time_settings']);
             }
         });
     }
@@ -411,6 +431,27 @@ class ScoreConfigurationService
                     'min_value' => $mod['min_value'],
                     'numeric_value' => $mod['numeric_value'],
                     'sort_order' => $mod['sort_order'] ?? 0,
+                ]
+            );
+        }
+    }
+
+    private function saveTimeSettings(array $timeSettings): void
+    {
+        foreach ($timeSettings as $setting) {
+            $sortOrder = $setting['sort_order'] ?? 0;
+            ScoreConfiguration::updateOrCreate(
+                [
+                    'category' => ScoreConfiguration::CATEGORY_TIME,
+                    'model_slug' => ScoreConfiguration::MODEL_GENERAL_SETTING,
+                    'factor_slug' => ScoreConfiguration::FACTOR_TIME_SETTING,
+                    'sort_order' => $sortOrder,
+                ],
+                [
+                    'label' => $setting['label'] ?? null,
+                    'min_value' => isset($setting['start']) ? (float) $setting['start'] : null,
+                    'max_value' => isset($setting['end']) ? (float) $setting['end'] : null,
+                    'conditions' => null,
                 ]
             );
         }

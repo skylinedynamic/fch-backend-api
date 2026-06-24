@@ -36,10 +36,14 @@ class ScoreConfiguration extends Model
     public const CATEGORY_SUBSCORE_TIER = 'subscore_tier';
     public const CATEGORY_READINESS_BAND = 'readiness_band';
     public const CATEGORY_LATE_PAYMENT_MODIFIER = 'late_payment_modifier';
+    public const CATEGORY_TIME = 'time';
 
     public const MODEL_FUNDING_READINESS = 'funding_readiness';
     public const MODEL_APPROVAL_PROBABILITY = 'approval_probability';
     public const MODEL_APPROVAL_ODDS = 'approval_odds';
+    public const MODEL_GENERAL_SETTING = 'general_setting';
+
+    public const FACTOR_TIME_SETTING = 'time_setting';
 
     // Revenue Strength Statuses (Readiness subscore labels)
     public const STATUS_REVENUE_STRONG = 'Strong';
