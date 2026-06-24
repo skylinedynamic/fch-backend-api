@@ -46,8 +46,8 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'fico_score'                => ['nullable', 'integer', 'min:0'],
             'paydex_score'              => ['nullable', 'integer', 'min:0'],
             'number_of_employees'       => ['nullable', 'integer', 'min:0'],
-            'nsf_count'                 => ['nullable', 'integer', 'min:0'],
-            'negative_days'             => ['nullable', 'integer', 'min:0'],
+            'nsf_count'                 => ['nullable', 'integer', 'min:0', 'max:99999'],
+            'negative_days'             => ['nullable', 'integer', 'min:0', 'max:99999'],
             'funding_urgency'           => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -57,6 +57,12 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
         return [
             'monthly_revenue.numeric'   => __('borrower_validation.monthly_revenue_numeric'),
             'annual_revenue.numeric'    => __('borrower_validation.annual_revenue_numeric'),
+            'nsf_count.integer'         => __('borrower_validation.nsf_count_integer'),
+            'nsf_count.min'             => __('borrower_validation.nsf_count_min'),
+            'nsf_count.max'             => __('borrower_validation.nsf_count_max'),
+            'negative_days.integer'     => __('borrower_validation.negative_days_integer'),
+            'negative_days.min'         => __('borrower_validation.negative_days_min'),
+            'negative_days.max'         => __('borrower_validation.negative_days_max'),
         ];
     }
 }

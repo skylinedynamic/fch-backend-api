@@ -30,8 +30,8 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'average_monthly_deposits' => 'required|numeric|min:0|max:999999999.99',
             'monthly_deposit_count' => 'required|integer|min:0',
             'avg_bank_balance' => 'required|numeric|min:0|max:999999999.99',
-            'nsf_count' => 'required|integer|min:0',
-            'negative_days' => 'required|integer|min:0',
+            'nsf_count' => 'required|integer|min:0|max:99999',
+            'negative_days' => 'required|integer|min:0|max:99999',
             'bank_accounts' => 'nullable|array',
             'bank_accounts.*.id' => 'nullable|integer|exists:borrower_bank_accounts,id',
             'bank_accounts.*.bank_name' => 'required_with:bank_accounts.*|string|max:255',
@@ -65,6 +65,16 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
             'annual_revenue.max' => __('borrower_validation.annual_revenue_max'),
             'annual_revenue.required' => __('borrower_validation.annual_revenue_required'),
+
+            'nsf_count.required' => __('borrower_validation.nsf_count_required'),
+            'nsf_count.integer' => __('borrower_validation.nsf_count_integer'),
+            'nsf_count.min' => __('borrower_validation.nsf_count_min'),
+            'nsf_count.max' => __('borrower_validation.nsf_count_max'),
+
+            'negative_days.required' => __('borrower_validation.negative_days_required'),
+            'negative_days.integer' => __('borrower_validation.negative_days_integer'),
+            'negative_days.min' => __('borrower_validation.negative_days_min'),
+            'negative_days.max' => __('borrower_validation.negative_days_max'),
         ];
     }
 }
