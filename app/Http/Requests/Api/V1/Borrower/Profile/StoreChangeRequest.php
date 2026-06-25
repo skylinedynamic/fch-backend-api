@@ -51,6 +51,7 @@ class StoreChangeRequest extends BaseApiRequest
             'years_in_business' => 'required|string',
             'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
             'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
+            'annual_personal_income' => 'required|numeric|min:0|max:999999999.99',
 
             // Bank Accounts
             'bank_name' => 'required|string|max:255',

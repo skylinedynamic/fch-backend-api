@@ -233,11 +233,12 @@ class ScoreConfigurationService
             ->orderBy('sort_order')
             ->get()
             ->map(function ($setting) {
+                $conditions = $setting->conditions;
                 return [
                     'id' => $setting->id,
                     'label' => $setting->label,
-                    'start' => $setting->min_value,
-                    'end' => $setting->max_value,
+                    'start' => isset($conditions['start']) ? (float) $conditions['start'] : ($setting->min_value !== null ? (float) $setting->min_value : null),
+                    'end' => isset($conditions['end']) ? (float) $conditions['end'] : ($setting->max_value !== null ? (float) $setting->max_value : null),
                     'sort_order' => $setting->sort_order,
                 ];
             })->values()->all();
@@ -451,7 +452,10 @@ class ScoreConfigurationService
                     'label' => $setting['label'] ?? null,
                     'min_value' => isset($setting['start']) ? (float) $setting['start'] : null,
                     'max_value' => isset($setting['end']) ? (float) $setting['end'] : null,
-                    'conditions' => null,
+                    'conditions' => [
+                        'start' => isset($setting['start']) ? (float) $setting['start'] : null,
+                        'end' => isset($setting['end']) ? (float) $setting['end'] : null,
+                    ],
                 ]
             );
         }

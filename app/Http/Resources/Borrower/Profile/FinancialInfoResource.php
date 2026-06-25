@@ -15,13 +15,14 @@ class FinancialInfoResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'currency'         => $this->currency ?? null,
-            'years_in_business'=> $this->years_in_business ?? null,
-            'monthly_revenue'  => $this->monthly_revenue ?? null,
-            'annual_revenue'   => $this->annual_revenue ?? null,
-            'bank_accounts'    => $this->bankAccounts->map(fn ($b) => [
-                'id'                => $b->id,
-                'bank_name'         => $b->bank_name,
+            'currency' => $this->currency ?? null,
+            'years_in_business' => $this->years_in_business ?? null,
+            'monthly_revenue' => $this->monthly_revenue ?? null,
+            'annual_revenue' => $this->annual_revenue ?? null,
+            'annual_personal_income' => $this->annual_personal_income ?? null,
+            'bank_accounts' => $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
                 'account_open_date' => $b->account_open_date
                     ? $b->account_open_date->format('Y-m-d')
                     : null,

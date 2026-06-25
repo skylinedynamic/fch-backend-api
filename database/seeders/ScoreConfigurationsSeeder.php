@@ -17,6 +17,7 @@ class ScoreConfigurationsSeeder extends Seeder
         $this->seedLatePaymentModifiers();
         $this->seedApprovalProbabilityTiers();
         $this->seedApprovalOddsTiers();
+        $this->seedTimeSettings();
     }
 
     private function seedLatePaymentModifiers(): void
@@ -353,6 +354,31 @@ class ScoreConfigurationsSeeder extends Seeder
 
         foreach ($items as $item) {
             ScoreConfiguration::create($item);
+        }
+    }
+
+    private function seedTimeSettings(): void
+    {
+        $rows = [
+            ['label' => 'Morning', 'start' => 6.0, 'end' => 12.0, 'order' => 1],
+            ['label' => 'Mid Day', 'start' => 12.0, 'end' => 17.0, 'order' => 2],
+            ['label' => 'Evening', 'start' => 17.0, 'end' => 22.0, 'order' => 3],
+        ];
+
+        foreach ($rows as $row) {
+            ScoreConfiguration::create([
+                'category' => ScoreConfiguration::CATEGORY_TIME,
+                'model_slug' => ScoreConfiguration::MODEL_GENERAL_SETTING,
+                'factor_slug' => ScoreConfiguration::FACTOR_TIME_SETTING,
+                'label' => $row['label'],
+                'min_value' => $row['start'],
+                'max_value' => $row['end'],
+                'conditions' => [
+                    'start' => $row['start'],
+                    'end' => $row['end'],
+                ],
+                'sort_order' => $row['order'],
+            ]);
         }
     }
 }
