@@ -308,9 +308,24 @@ class ScoreConfigurationService
 
     private function saveFinancialCapacity(array $fundingReadiness): void
     {
-        if (isset($fundingReadiness['revenue_strength'])) {
-            $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', $fundingReadiness['revenue_strength']);
+        if (!isset($fundingReadiness['revenue_strength'])) {
+            return;
         }
+
+        $factorData = $fundingReadiness['revenue_strength'];
+
+        // Flatten nested factor groups (business_revenue, personal_revenue) into a single tiers array
+        if (isset($factorData['factors']) && is_array($factorData['factors'])) {
+            $flattened = [];
+            foreach ($factorData['factors'] as $group) {
+                if (is_array($group)) {
+                    array_push($flattened, ...$group);
+                }
+            }
+            $factorData['factors'] = $flattened;
+        }
+
+        $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', $factorData);
     }
 
     private function saveBusinessMaturityBanking(array $fundingReadiness): void
