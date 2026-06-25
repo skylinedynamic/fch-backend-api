@@ -14,6 +14,8 @@ class ScoreConfigurationService
             'utilization' => 'Credit Card Utilization',
             'time_in_business' => 'Time In Business',
             'revenue_strength' => 'Revenue Strength',
+            'business_revenue_strength' => 'Business Revenue Strength',
+            'personal_revenue_strength' => 'Personal Revenue Strength',
             'tradeline_depth' => 'Tradeline Depth',
             'banking_relationships' => 'Banking Relationships',
             'fico_above_minimum' => 'FICO Above Play Minimum',
@@ -31,6 +33,8 @@ class ScoreConfigurationService
             'utilization' => 'Revolving credit utilization ratio',
             'time_in_business' => 'Length of time business has been operating',
             'revenue_strength' => 'Business revenue and personal income strength',
+            'business_revenue_strength' => 'Business monthly revenue',
+            'personal_revenue_strength' => 'Personal annual income',
             'tradeline_depth' => 'Credit account depth and limits',
             'banking_relationships' => 'Banking relationship strength',
             'fico_above_minimum' => 'Points above play minimum FICO score',
@@ -312,20 +316,39 @@ class ScoreConfigurationService
             return;
         }
 
-        $factorData = $fundingReadiness['revenue_strength'];
+        $rs = $fundingReadiness['revenue_strength'];
 
-        // Flatten nested factor groups (business_revenue, personal_revenue) into a single tiers array
-        if (isset($factorData['factors']) && is_array($factorData['factors'])) {
-            $flattened = [];
-            foreach ($factorData['factors'] as $group) {
-                if (is_array($group)) {
-                    array_push($flattened, ...$group);
-                }
-            }
-            $factorData['factors'] = $flattened;
+        // Save weight and order_sort
+        if (isset($rs['weight'])) {
+            ScoreConfiguration::updateOrCreate(
+                [
+                    'category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT,
+                    'model_slug' => 'funding_readiness',
+                    'factor_slug' => 'revenue_strength',
+                ],
+                [
+                    'numeric_value' => $rs['weight'],
+                    'sort_order' => $rs['order_sort'] ?? 0,
+                ]
+            );
         }
 
-        $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', $factorData);
+        // Save factor tiers from nested groups: business_revenue → business_revenue_strength, personal_revenue → personal_revenue_strength
+        $map = [
+            'business_revenue' => 'business_revenue_strength',
+            'personal_revenue' => 'personal_revenue_strength',
+        ];
+
+        if (isset($rs['factors']) && is_array($rs['factors'])) {
+            foreach ($map as $groupKey => $factorSlug) {
+                if (!isset($rs['factors'][$groupKey])) {
+                    continue;
+                }
+                $this->saveFactorWeightAndTiers('funding_readiness', $factorSlug, [
+                    'factors' => $rs['factors'][$groupKey],
+                ]);
+            }
+        }
     }
 
     private function saveBusinessMaturityBanking(array $fundingReadiness): void

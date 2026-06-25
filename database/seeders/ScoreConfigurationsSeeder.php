@@ -102,6 +102,20 @@ class ScoreConfigurationsSeeder extends Seeder
             ['label' => 'Weak', 'max' => 49999, 'subscore' => 25, 'order' => 4],
         ]));
 
+        $items->push(...$this->tiers('business_revenue_strength', [
+            ['label' => 'Strong', 'min' => 500000, 'subscore' => 100, 'order' => 1],
+            ['label' => 'Moderate', 'min' => 150000, 'max' => 499999, 'subscore' => 75, 'order' => 2],
+            ['label' => 'Limited', 'min' => 50000, 'max' => 149999, 'subscore' => 55, 'order' => 3],
+            ['label' => 'Weak', 'max' => 49999, 'subscore' => 25, 'order' => 4],
+        ]));
+
+        $items->push(...$this->tiers('personal_revenue_strength', [
+            ['label' => 'Strong', 'min' => 500000, 'subscore' => 100, 'order' => 1],
+            ['label' => 'Moderate', 'min' => 150000, 'max' => 499999, 'subscore' => 75, 'order' => 2],
+            ['label' => 'Limited', 'min' => 50000, 'max' => 149999, 'subscore' => 55, 'order' => 3],
+            ['label' => 'Weak', 'max' => 49999, 'subscore' => 25, 'order' => 4],
+        ]));
+
         // Bureau Depth
         $items->push(...$this->tiers('tradeline_depth', [
             [
