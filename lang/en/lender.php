@@ -37,4 +37,9 @@ return [
     'status_in' => 'The status must be either Active or Inactive.',
     'last_verified_date_required' => 'The last verified date is required.',
     'last_verified_date_date' => 'The last verified date must be a valid date.',
+
+    'category_fetched' => 'Category fetched successfully',
+    'category_created' => 'Category created successfully',
+    'category_updated' => 'Category updated successfully',
+    'category_deleted' => 'Category deleted successfully',
 ];

@@ -19,6 +19,7 @@ class LenderVisibility extends Model
 
     protected $fillable = [
         'lender_id',
+        'lender_product_category_id',
         'funding_sequencing_id',
         'min_fico',
         'min_tib_months',

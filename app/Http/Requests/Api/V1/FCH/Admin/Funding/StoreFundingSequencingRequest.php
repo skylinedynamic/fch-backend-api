@@ -59,7 +59,7 @@ class StoreFundingSequencingRequest extends BaseApiRequest
             'manual_review_allowed'         => 'nullable|boolean',
             'exception_allowed'             => 'nullable|boolean',
             'lender_visibilities'                        => 'nullable|array',
-            'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id|distinct',
+            'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id',
             'lender_visibilities.*.min_fico'             => ['required', 'integer'],
             'lender_visibilities.*.min_tib_months'       => ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'lender_visibilities.*.min_monthly_revenue'  => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],

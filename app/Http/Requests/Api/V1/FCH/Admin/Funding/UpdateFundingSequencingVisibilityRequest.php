@@ -15,7 +15,8 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
     {
         return [
             'lender_visibilities'                        => 'nullable|array',
-            'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id|distinct',
+            'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id',
+            'lender_visibilities.*.lender_product_category_id' => 'nullable|integer|exists:lender_product_categories,id',
             'lender_visibilities.*.min_fico'             => ['required', 'integer'],
             'lender_visibilities.*.min_tib_months'       => ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'lender_visibilities.*.min_monthly_revenue'  => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
@@ -42,7 +43,6 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
         return [
             'lender_visibilities.*.lender_id.required'   => __('funding_sequencing.lender_id_required'),
             'lender_visibilities.*.lender_id.exists'     => __('funding_sequencing.lender_id_exists'),
-            'lender_visibilities.*.lender_id.distinct'   => __('funding_sequencing.lender_id_distinct'),
             
             'lender_visibilities.*.min_monthly_revenue.required'      => __('funding_sequencing.min_monthly_revenue_required'),
             'lender_visibilities.*.min_monthly_revenue.regex'      => __('funding_sequencing.min_monthly_revenue_regex'),

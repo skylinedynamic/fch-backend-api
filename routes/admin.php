@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingGroupController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderController;
+use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderProductCategoryController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -112,6 +113,14 @@ Route::prefix('v1/admin')
 
         // 🏦 Lenders (CRUD)
         Route::prefix('lenders')->group(function () {
+            // Product Categories
+            Route::prefix('product-categories')->group(function () {
+                Route::get('/', [LenderProductCategoryController::class, 'index']);
+                Route::post('/', [LenderProductCategoryController::class, 'store']);
+                Route::put('{id}', [LenderProductCategoryController::class, 'update']);
+                Route::delete('{id}', [LenderProductCategoryController::class, 'destroy']);
+            });
+
             Route::get('/', [LenderController::class, 'index']);
             Route::get('get/all', [LenderController::class, 'getAll']);
             Route::post('/', [LenderController::class, 'store']);
