@@ -35,6 +35,12 @@ trait MailableBranding
         $hostPartner = Partner::where('is_host', true)->first();
         $partnerId = $hostPartner ? $hostPartner->id : null;
 
+        if (!$hostPartner) {
+            \Illuminate\Support\Facades\Log::warning('MailableBranding (getHostBrandingData): No host partner found (is_host = true).');
+        } else {
+            \Illuminate\Support\Facades\Log::info("MailableBranding (getHostBrandingData): Fetched host partner (ID: {$partnerId}).");
+        }
+
         $module = AppConfiguration::MODULE_BRANDING;
             
         $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
@@ -43,8 +49,11 @@ trait MailableBranding
             ->pluck('value', 'key')
             ->toArray();
 
+        $siteName = $brandingConfig['site_name'] ?? ($hostPartner ? $hostPartner->company_name : config('app.name'));
+        \Illuminate\Support\Facades\Log::info("MailableBranding: Using siteName '{$siteName}'");
+
         return [
-            'siteName' => $brandingConfig['site_name'] ?? ($hostPartner ? $hostPartner->company_name : config('app.name')),
+            'siteName' => $siteName,
             'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) ? asset('storage/' . $brandingConfig['secondary_logo']) : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
         ];
     }

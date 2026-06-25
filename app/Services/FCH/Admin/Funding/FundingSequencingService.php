@@ -126,9 +126,25 @@ class FundingSequencingService
         $sequencing->update($data);
 
         if ($lenderVisibilities !== null) {
-            // Visibility tab payload
-            $sequencing->lenderVisibilities()->forceDelete();
-            $sequencing->lenderVisibilities()->createMany($lenderVisibilities);
+            // Visibility tab payload: Update existing rows accurately without recreating them
+            $existingIds = [];
+            foreach ($lenderVisibilities as $visibilityData) {
+                $visibility = $sequencing->lenderVisibilities()->updateOrCreate(
+                    [
+                        'lender_id' => $visibilityData['lender_id'],
+                        'lender_product_category_id' => $visibilityData['lender_product_category_id'] ?? null
+                    ],
+                    $visibilityData
+                );
+                $existingIds[] = $visibility->id;
+            }
+            
+            // Remove any visibility rows that are no longer in the payload
+            if (!empty($existingIds)) {
+                $sequencing->lenderVisibilities()->whereNotIn('id', $existingIds)->delete();
+            } else {
+                $sequencing->lenderVisibilities()->delete();
+            }
         }
 
         return $sequencing->load(['group', 'type', 'lenderVisibilities.lender']);

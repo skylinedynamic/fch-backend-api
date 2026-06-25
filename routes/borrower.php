@@ -12,7 +12,7 @@ use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
-use App\Http\Controllers\Api\V1\Borrower\Funding\FundingReviewController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
@@ -115,9 +115,9 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::prefix('funding')->group(
                 function () {
-                    Route::post('/reviews', [FundingReviewController::class, 'store']);
-                    Route::post('/reviews/list', [FundingReviewController::class, 'index']);
-                    Route::get('/reviews/{id}', [FundingReviewController::class, 'show']);
+                    Route::post('/reviews', [FundingRequestController::class, 'store']);
+                    Route::post('/reviews/list', [FundingRequestController::class, 'index']);
+                    Route::get('/reviews/{id}', [FundingRequestController::class, 'show']);
                     Route::get('/', [FundingController::class, 'index']);
                     Route::get('/{id}', [FundingController::class, 'show']);
                 }

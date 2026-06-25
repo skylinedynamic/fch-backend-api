@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\FundingReview;
+namespace App\Models\FundingRequest;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Funding\FundingSequencing;
@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class FundingReview extends Model
+class FundingRequest extends Model
 {
     use HasFactory, SoftDeletes;
 

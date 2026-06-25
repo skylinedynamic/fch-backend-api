@@ -1,28 +1,28 @@
 <?php
 
-namespace App\Services\FCH\Common\FundingReview;
+namespace App\Services\FCH\Common\FundingRequest;
 
 use App\Helpers\ApiResponse;
-use App\Mail\FundingReview\UnderwritingStatusUpdated;
-use App\Models\FundingReview\FundingReview;
+use App\Mail\FundingRequest\UnderwritingStatusUpdated;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 
-class FundingReviewService
+class FundingRequestService
 {
     use PaginatesApi;
 
     /**
-     * Get Funding Review List
+     * Get Funding Request List
      */
-    public function getFundingReviewList(array $filters)
+    public function getFundingRequestList(array $filters)
     {
         $authUser = Auth::user();
 
-        $query = FundingReview::with(['borrower', 'fundingSequence'])
+        $query = FundingRequest::with(['borrower', 'fundingSequence'])
             ->when($authUser->user_type == User::PARTNER, function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             });
@@ -52,17 +52,17 @@ class FundingReviewService
         
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
-        return $this->respondWithPagination($paginator, __('funding_review.funding_reviews_retrieved'));
+        return $this->respondWithPagination($paginator, __('funding_request.funding_requests_retrieved'));
     }
 
     /**
-     * Get Funding Review By ID
+     * Get Funding Request By ID
      */
-    public function getFundingReviewById($id)
+    public function getFundingRequestById($id)
     {
         $authUser = Auth::user();
         
-        $review = FundingReview::with(['borrower.borrowerDocuments.documentType', 'fundingSequence'])
+        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence'])
             ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             })
@@ -70,35 +70,35 @@ class FundingReviewService
             ->first();
 
         if (!$review) {
-            return ApiResponse::error(__('funding_review.funding_review_not_found'));
+            return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
         return ApiResponse::success($review);
     }
 
     /**
-     * Update Funding Review Status
+     * Update Funding Request Status
      */
-    public function fundingReviewStatusUpdate(array $data)
+    public function fundingRequestStatusUpdate(array $data)
     {
         $authUser = Auth::user();
 
-        $review = FundingReview::where('id', $data['id'])
+        $review = FundingRequest::where('id', $data['id'])
             ->when($authUser->user_type == User::PARTNER, function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             })->first();
 
         if (!$review) {
-            return ApiResponse::error(__('funding_review.funding_review_not_found'));
+            return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
         $review->status = $data['status'];
         
-        if ($data['status'] === FundingReview::STATUS_APPROVED) {
+        if ($data['status'] === FundingRequest::STATUS_APPROVED) {
             $review->approved_at = Carbon::now();
             $review->approved_by = $authUser->id;
             $review->reject_reason = null; // Maybe we could use reject_reason as a general note or add a separate note column? The prompt just said "reason note accurately". Let's assume reject_reason is used for reject notes. Wait, I should probably save approval note as well if it exists? The model only has reject_reason. Let's just save reject_reason even if it's approved? No, let's keep it null for approval.
-        } elseif ($data['status'] === FundingReview::STATUS_REJECTED) {
+        } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
             $review->reject_reason = $data['reject_reason'] ?? null;
             $review->approved_at = Carbon::now();
             $review->approved_by = $authUser->id;
@@ -106,7 +106,7 @@ class FundingReviewService
 
         $review->save();
 
-        if (in_array($data['status'], [FundingReview::STATUS_APPROVED, FundingReview::STATUS_REJECTED])) {
+        if (in_array($data['status'], [FundingRequest::STATUS_APPROVED, FundingRequest::STATUS_REJECTED])) {
             $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
             if ($borrowerEmail) {
                 Mail::to($borrowerEmail)
@@ -114,6 +114,6 @@ class FundingReviewService
             }
         }
 
-        return ApiResponse::success($review, __('funding_review.status_updated_successfully'));
+        return ApiResponse::success($review, __('funding_request.status_updated_successfully'));
     }
 }

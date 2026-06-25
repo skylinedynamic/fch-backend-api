@@ -3,7 +3,7 @@
 namespace App\Http\Resources\Borrower\Funding;
 
 use App\Models\Funding\FundingSequencing;
-use App\Models\FundingReview\FundingReview;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -94,7 +94,7 @@ class FundingSequencingResource extends JsonResource
         $latestReviewStatus = null;
 
         if ($borrower) {
-            $latestReview = FundingReview::where('borrower_id', $borrower->id)
+            $latestReview = FundingRequest::where('borrower_id', $borrower->id)
                 ->where('funding_sequence_id', $this->id)
                 ->orderBy('id', 'desc')
                 ->first();

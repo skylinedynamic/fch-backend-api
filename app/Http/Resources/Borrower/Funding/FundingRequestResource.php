@@ -5,7 +5,7 @@ namespace App\Http\Resources\Borrower\Funding;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class FundingReviewResource extends JsonResource
+class FundingRequestResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
