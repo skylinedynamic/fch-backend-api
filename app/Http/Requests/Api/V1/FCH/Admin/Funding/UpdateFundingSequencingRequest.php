@@ -49,7 +49,7 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'status'           => 'nullable|string|in:Active,Inactive',
             'sort_order'       => 'nullable|integer',
             'action_url'       => 'nullable|string|max:255',
-            'require_completed_application' => 'accepted_if:require_documents_uploaded,true,1|nullable|boolean',
+            'require_completed_application' => 'nullable|boolean',
             'require_documents_uploaded'    => 'nullable|boolean',
             'allowed_documents'             => 'required_if:require_documents_uploaded,true,1|nullable|array',
             'allowed_documents.*'           => 'integer',
