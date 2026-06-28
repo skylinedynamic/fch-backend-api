@@ -54,6 +54,21 @@ class CapitalAccessOverviewController extends Controller
             }
         }
 
+        $latestApp = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+            ->orderBy('updated_at', 'desc')
+            ->first();
+
+        $currentPlay = null;
+        if ($latestApp) {
+            $strat = CapitalAccess::find($latestApp->capital_access_id);
+            if ($strat) {
+                $currentPlay = [
+                    'id' => $strat->id,
+                    'name' => $strat->name,
+                ];
+            }
+        }
+
         $estimatedAccess = '$' . number_format($totalExposureMax);
 
         $data = [
@@ -63,6 +78,7 @@ class CapitalAccessOverviewController extends Controller
             'factors' => $result['factors'] ?? [],
             'estimated_total_access' => $estimatedAccess,
             'exposure_breakdown' => $exposureBreakdown,
+            'current_play' => $currentPlay,
         ];
 
         return ApiResponse::success(

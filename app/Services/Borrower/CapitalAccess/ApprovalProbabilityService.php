@@ -97,18 +97,6 @@ class ApprovalProbabilityService
             'intermediate'   => $probability,
         ]);
 
-        // 9. Late payment modifiers
-        $lookbackMonths = $play->late_payment_lookback_months !== null ? (int) $play->late_payment_lookback_months : 12;
-        [$recent30, $recent60, $recent90, $recent120] = BorrowerContext::extractRecentDelinquencies($borrower, $lookbackMonths);
-
-        $lateModifier = $this->calcLatePaymentModifier($modifiers, $recent30, $recent60, $recent90, $recent120);
-        $probability += $lateModifier;
-
-        Log::info("ApprovalProbabilityService::calculate - Late payment modifier", [
-            'recent_30_60_90_120' => [$recent30, $recent60, $recent90, $recent120],
-            'modifier'            => $lateModifier,
-        ]);
-
         $finalProbability = max(0, min(99, (int) round($probability)));
 
         Log::info("ApprovalProbabilityService::calculate - Final probability", [
@@ -148,13 +136,9 @@ class ApprovalProbabilityService
 
         // Recent delinquencies
         $lookbackMonths  = $play->late_payment_lookback_months !== null ? (int) $play->late_payment_lookback_months : 12;
-        $allowRecentLate = (bool) $play->allow_recent_late_payment;
-
-        if (!$allowRecentLate) {
-            [$r30, $r60, $r90, $r120] = BorrowerContext::extractRecentDelinquencies($borrower, $lookbackMonths);
-            if ($r30 > 0 || $r60 > 0 || $r90 > 0 || $r120 > 0) {
-                return $this->disqualify('RECENT_LATE_PAYMENTS');
-            }
+        [$r30, $r60, $r90, $r120] = BorrowerContext::extractRecentDelinquencies($borrower, $lookbackMonths);
+        if ($r30 > 0 || $r60 > 0 || $r90 > 0 || $r120 > 0) {
+            return $this->disqualify('RECENT_LATE_PAYMENTS');
         }
 
         return null;
@@ -205,52 +189,6 @@ class ApprovalProbabilityService
             ScoreConfiguration::STATUS_REVENUE_LIMITED  => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
             default                                     => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
         };
-    }
-
-    private function calcLatePaymentModifier(
-        Collection $modifiers,
-        int $recent30, int $recent60, int $recent90, int $recent120
-    ): int {
-        $totalLates = $recent30 + $recent60 + $recent90 + $recent120;
-        if ($totalLates === 0) {
-            return 5;
-        }
-
-        $mod = 0;
-
-        $late30_1_qty = (int) ($modifiers->get('late_30_1')?->min_value ?? 1);
-        $late30_1_val = (int) ($modifiers->get('late_30_1')?->numeric_value ?? -5);
-        $late30_2_qty = (int) ($modifiers->get('late_30_2_plus')?->min_value ?? 2);
-        $late30_2_val = (int) ($modifiers->get('late_30_2_plus')?->numeric_value ?? -10);
-
-        $late60_1_qty = (int) ($modifiers->get('late_60_1')?->min_value ?? 1);
-        $late60_1_val = (int) ($modifiers->get('late_60_1')?->numeric_value ?? -15);
-        $late60_2_qty = (int) ($modifiers->get('late_60_2_plus')?->min_value ?? 2);
-        $late60_2_val = (int) ($modifiers->get('late_60_2_plus')?->numeric_value ?? -25);
-
-        $late90_1_qty = (int) ($modifiers->get('late_90_1')?->min_value ?? 1);
-        $late90_1_val = (int) ($modifiers->get('late_90_1')?->numeric_value ?? -30);
-        $late90_2_qty = (int) ($modifiers->get('late_90_2_plus')?->min_value ?? 2);
-        $late90_2_val = (int) ($modifiers->get('late_90_2_plus')?->numeric_value ?? -50);
-
-        $late120_1_qty = (int) ($modifiers->get('late_120_1')?->min_value ?? 1);
-        $late120_1_val = (int) ($modifiers->get('late_120_1')?->numeric_value ?? -40);
-        $late120_2_qty = (int) ($modifiers->get('late_120_2_plus')?->min_value ?? 2);
-        $late120_2_val = (int) ($modifiers->get('late_120_2_plus')?->numeric_value ?? -60);
-
-        if ($recent30 >= $late30_2_qty)       $mod += $late30_2_val;
-        elseif ($recent30 >= $late30_1_qty)   $mod += $late30_1_val;
-
-        if ($recent60 >= $late60_2_qty)       $mod += $late60_2_val;
-        elseif ($recent60 >= $late60_1_qty)   $mod += $late60_1_val;
-
-        if ($recent90 >= $late90_2_qty)       $mod += $late90_2_val;
-        elseif ($recent90 >= $late90_1_qty)   $mod += $late90_1_val;
-
-        if ($recent120 >= $late120_2_qty)     $mod += $late120_2_val;
-        elseif ($recent120 >= $late120_1_qty) $mod += $late120_1_val;
-
-        return $mod;
     }
 
     private function disqualify(string $reasonCode): array

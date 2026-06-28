@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\Borrower\CapitalAccess;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
+use App\Models\CreditBuilder\CapitalAccessApplication;
+
 class SubmitCapitalAccessStepRequest extends BaseApiRequest
 {
     /**
@@ -27,10 +29,13 @@ class SubmitCapitalAccessStepRequest extends BaseApiRequest
         $min = $seq ? ($seq->est_limit_min ?? 0) : 0;
         $max = $seq ? ($seq->est_limit_max ?? 999999999) : 999999999;
 
+        $statuses = implode(',', CapitalAccessApplication::STATUSES);
+        $approvedStatus = CapitalAccessApplication::STATUS_APPROVED;
+
         return [
-            'credit_limit' => "required|numeric|min:{$min}|max:{$max}",
+            'status'       => "required|string|in:{$statuses}",
+            'credit_limit' => "required_if:status,{$approvedStatus}|nullable|numeric|min:{$min}|max:{$max}",
             'notes'        => 'nullable|string',
-            'status'       => 'nullable|string',
         ];
     }
 

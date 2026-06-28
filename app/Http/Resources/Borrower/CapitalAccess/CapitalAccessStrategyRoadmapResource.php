@@ -18,6 +18,29 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
     {
         $borrower = auth()->user()?->borrower;
 
+        $timeConfigs = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->whereIn('model_slug', [ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::MODEL_GENERAL_SETTING])
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->get();
+
+        $formatConfig = function ($config) {
+            if (!$config) {
+                return null;
+            }
+            $conditions = $config->conditions;
+            return [
+                'id'          => $config->id,
+                'label'       => $config->label,
+                'min_value'   => $config->min_value !== null ? (float) $config->min_value : null,
+                'max_value'   => $config->max_value !== null ? (float) $config->max_value : null,
+                'start'       => isset($conditions['start']) ? (float) $conditions['start'] : ($config->min_value !== null ? (float) $config->min_value : null),
+                'end'         => isset($conditions['end']) ? (float) $conditions['end'] : ($config->max_value !== null ? (float) $config->max_value : null),
+                'sort_order'  => $config->sort_order,
+            ];
+        };
+
+        $timeSettingsFormatted = $timeConfigs->map($formatConfig)->values()->all();
+
         /** @var \App\Services\Borrower\CapitalAccess\BorrowerContext|null $ctx */
         $ctx   = $this->additional['borrower_ctx'] ?? null;
         $cache = $this->additional['score_cache']  ?? null;
@@ -63,7 +86,7 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
 
         // --- Map sequences into roadmap steps ------------------------------
         $roadmap = $sequences->map(function (CapitalAccessSequence $seq, int $index) use (
-            $borrower, $ctx, $oddsTiers, $oddsService, $applications
+            $borrower, $ctx, $oddsTiers, $oddsService, $applications, $timeConfigs, $formatConfig
         ) {
             $card = $seq->creditAccount;
 
@@ -81,17 +104,26 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
                 }
             }
 
+            $accessTimeLower = $seq->access_time ? strtolower($seq->access_time) : null;
+            $accessDayTimeLower = $seq->access_day_time ? strtolower($seq->access_day_time) : null;
+
+            $accessTimeDetail = $accessTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessTimeLower) : null;
+            $accessDayTimeDetail = $accessDayTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessDayTimeLower) : null;
+
             return [
                 'id'              => $seq->id,
                 'sequence_order'  => $index + 1,
                 'credit_account_id' => $seq->credit_account_id,
                 'issuer'          => $card?->issuer,
                 'card_name'       => $card?->card_name,
+                'reference_url'   => $card?->reference_url,
                 'exposure'        => currencyFormat($seq->est_limit_min ?? 0) . ' - ' . currencyFormat($seq->est_limit_max ?? 0),
                 'hard_pull'       => $seq->hard_pull,
                 'access_time'     => $seq->access_time,
                 'access_day'      => $seq->access_day,
                 'access_day_time' => $seq->access_day_time,
+                'access_time_detail' => $formatConfig($accessTimeDetail),
+                'access_day_time_detail' => $formatConfig($accessDayTimeDetail),
                 'why_this_card'   => $seq->why_this_card,
                 'requirements'    => is_string($seq->what_you_need)
                     ? json_decode($seq->what_you_need, true)
@@ -111,11 +143,21 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
             ];
         })->all();
 
+        $firstSubmittedAt = null;
+        if ($applications->isNotEmpty()) {
+            $earliestApp = $applications->sortBy('created_at')->first();
+            if ($earliestApp) {
+                $firstSubmittedAt = $earliestApp->created_at?->toIso8601String();
+            }
+        }
+
         return [
             'id'              => $this->id,
             'name'            => $this->name,
             'target_exposure' => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline'    => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
+            'time_settings'   => $timeSettingsFormatted,
+            'first_submitted_at' => $firstSubmittedAt,
             'roadmap'         => $roadmap,
         ];
     }

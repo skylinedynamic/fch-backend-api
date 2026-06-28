@@ -45,6 +45,19 @@ class ScoreConfiguration extends Model
 
     public const FACTOR_TIME_SETTING = 'time_setting';
 
+    // Factor Slugs
+    public const FACTOR_FICO = 'fico';
+    public const FACTOR_UTILIZATION = 'utilization';
+    public const FACTOR_TIME_IN_BUSINESS = 'time_in_business';
+    public const FACTOR_REVENUE_STRENGTH = 'revenue_strength';
+    public const FACTOR_TRADELINE_DEPTH = 'tradeline_depth';
+    public const FACTOR_BANKING_RELATIONSHIPS = 'banking_relationships';
+
+    public const FACTOR_FICO_ABOVE_MINIMUM = 'fico_above_minimum';
+    public const FACTOR_RECENT_INQUIRIES = 'recent_inquiries';
+    public const FACTOR_BANKING_RELATIONSHIP = 'banking_relationship';
+    public const FACTOR_REVENUE_INCOME = 'revenue_income';
+
     // Revenue Strength Statuses (Readiness subscore labels)
     public const STATUS_REVENUE_STRONG = 'Strong';
     public const STATUS_REVENUE_MODERATE = 'Moderate';

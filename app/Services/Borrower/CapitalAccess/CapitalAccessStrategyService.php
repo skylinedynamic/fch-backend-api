@@ -281,7 +281,7 @@ class CapitalAccessStrategyService
                 'capital_access_id' => $strategy->id,
                 'credit_limit'      => $data['credit_limit'] ?? null,
                 'notes'             => $data['notes'] ?? null,
-                'status'            => $data['status'] ?? 'Submitted',
+                'status'            => $data['status'] ?? \App\Models\CreditBuilder\CapitalAccessApplication::STATUS_PENDING,
             ]
         );
 

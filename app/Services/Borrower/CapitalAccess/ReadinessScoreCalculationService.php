@@ -13,35 +13,23 @@ class ReadinessScoreCalculationService
     /**
      * Calculate the funding readiness score.
      *
-     * Accepts an optional pre-loaded config collection (from ScoreConfigurationCache)
-     * to avoid firing per-factor queries. When $configs is null the service falls back
-     * to loading only what it needs — backward-compatible with direct callers.
-     *
      * @param Borrower        $borrower
-     * @param Collection|null $configs  All ScoreConfiguration rows (pre-loaded)
      * @return array
      */
-    public function calculate(Borrower $borrower, ?Collection $configs = null): array
+    public function calculate(Borrower $borrower): array
     {
-        // Load all funding_readiness configs in a single query when not pre-supplied
-        if ($configs === null) {
-            $configs = ScoreConfiguration::where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)->get();
-        } else {
-            // Filter to only funding_readiness rows from the full collection
-            $configs = $configs->where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)->values();
-        }
-
-        $weights = $configs->where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)->keyBy('factor_slug');
-        $tiers = $configs->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)->groupBy('factor_slug');
-        $bands = $configs->where('category', ScoreConfiguration::CATEGORY_READINESS_BAND)->sortBy('sort_order')->values();
+        $cache = app(ScoreConfigurationCache::class);
+        $weights = $cache->getWeightsFor(ScoreConfiguration::MODEL_FUNDING_READINESS);
+        $tiers = $cache->getTiersFor(ScoreConfiguration::MODEL_FUNDING_READINESS);
+        $bands = $cache->getReadinessBands();
 
         $factors = [
-            'fico' => ['label' => 'Personal Credit', 'slug' => 'fico'],
-            'utilization' => ['label' => 'Utilization', 'slug' => 'utilization'],
-            'time_in_business' => ['label' => 'Time in Business', 'slug' => 'time_in_business'],
-            'revenue_strength' => ['label' => 'Revenue Strength', 'slug' => 'revenue_strength'],
-            'tradeline_depth' => ['label' => 'Tradeline Depth', 'slug' => 'tradeline_depth'],
-            'banking_relationships' => ['label' => 'Banking Relationships', 'slug' => 'banking_relationships'],
+            ScoreConfiguration::FACTOR_FICO => ['label' => 'Personal Credit', 'slug' => ScoreConfiguration::FACTOR_FICO],
+            ScoreConfiguration::FACTOR_UTILIZATION => ['label' => 'Utilization', 'slug' => ScoreConfiguration::FACTOR_UTILIZATION],
+            ScoreConfiguration::FACTOR_TIME_IN_BUSINESS => ['label' => 'Time in Business', 'slug' => ScoreConfiguration::FACTOR_TIME_IN_BUSINESS],
+            ScoreConfiguration::FACTOR_REVENUE_STRENGTH => ['label' => 'Revenue Strength', 'slug' => ScoreConfiguration::FACTOR_REVENUE_STRENGTH],
+            ScoreConfiguration::FACTOR_TRADELINE_DEPTH => ['label' => 'Tradeline Depth', 'slug' => ScoreConfiguration::FACTOR_TRADELINE_DEPTH],
+            ScoreConfiguration::FACTOR_BANKING_RELATIONSHIPS => ['label' => 'Banking Relationships', 'slug' => ScoreConfiguration::FACTOR_BANKING_RELATIONSHIPS],
         ];
 
         $factorScores = [];
@@ -83,7 +71,7 @@ class ReadinessScoreCalculationService
      */
     public function getSubscoreForFactor(string $slug, Borrower $borrower): float
     {
-        $configs = ScoreConfiguration::where('model_slug', 'funding_readiness')->get();
+        $configs = ScoreConfiguration::where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)->get();
         $weight = (float) ($configs->where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)->where('factor_slug', $slug)->first()?->numeric_value ?? 0);
         $factorTiers = $configs->where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)->where('factor_slug', $slug)->values();
 
@@ -195,26 +183,125 @@ class ReadinessScoreCalculationService
     private function getRevenueStrengthSubscore(Borrower $borrower, float $subScoreWeight, Collection $tiers): array
     {
         $annualRevenue = $borrower->annual_revenue !== null ? (float) $borrower->annual_revenue : 0;
+        $personalIncome = $borrower->annual_personal_income !== null ? (float) $borrower->annual_personal_income : 0;
+
         $months = $borrower->business_start_date
             ? Carbon::parse($borrower->business_start_date)->diffInMonths()
             : 0;
 
-        $status = null;
-
-        if ((!$annualRevenue || $annualRevenue == 0) && $months <= 24) {
-            $value = 55;
+        // 1. Calculate Business Revenue Subscore
+        $busSubscore = 0;
+        $busStatus = null;
+        if ($annualRevenue == 0 && $months <= 24) {
+            $busSubscore = 55;
+            $busStatus = 'Startup';
         } else {
-            $value = 0;
             foreach ($tiers as $tier) {
-                if (
-                    ($tier->min_value === null || $annualRevenue >= (float) $tier->min_value)
-                    && ($tier->max_value === null || $annualRevenue <= (float) $tier->max_value)
-                ) {
-                    $value = (float) $tier->numeric_value;
-                    $status = $tier->label;
+                $conditions = $tier->conditions;
+                if (is_string($conditions)) {
+                    $conditions = json_decode($conditions, true);
+                }
+
+                if (empty($conditions)) {
+                    $comparisonValue = $annualRevenue;
+                    if (
+                        ($tier->min_value === null || $comparisonValue >= (float) $tier->min_value)
+                        && ($tier->max_value === null || $comparisonValue <= (float) $tier->max_value)
+                    ) {
+                        $busSubscore = (float) $tier->numeric_value;
+                        $busStatus = $tier->label;
+                        break;
+                    }
+                    continue;
+                }
+
+                $busVal = null;
+                $busOp = '>=';
+                foreach ($conditions as $cond) {
+                    if (isset($cond['business_revenue'])) {
+                        $busVal = (float) ($cond['business_revenue']['value'] ?? 0);
+                        $busOp = $cond['business_revenue']['operator'] ?? '>=';
+                        break;
+                    }
+                }
+
+                $busMatch = false;
+                if ($busVal !== null) {
+                    if ($busOp === '>=') {
+                        $busMatch = $annualRevenue >= $busVal;
+                    } else if ($busOp === '<') {
+                        $busMatch = $annualRevenue < $busVal;
+                    }
+                }
+
+                if ($busMatch) {
+                    $busSubscore = (float) $tier->numeric_value;
+                    $busStatus = $tier->label;
                     break;
                 }
             }
+        }
+
+        // 2. Calculate Personal Income Subscore
+        $persSubscore = 0;
+        $persStatus = null;
+        if ($personalIncome == 0 && $months <= 24) {
+            $persSubscore = 55;
+            $persStatus = 'Startup';
+        } else {
+            foreach ($tiers as $tier) {
+                $conditions = $tier->conditions;
+                if (is_string($conditions)) {
+                    $conditions = json_decode($conditions, true);
+                }
+
+                if (empty($conditions)) {
+                    $comparisonValue = $personalIncome;
+                    if (
+                        ($tier->min_value === null || $comparisonValue >= (float) $tier->min_value)
+                        && ($tier->max_value === null || $comparisonValue <= (float) $tier->max_value)
+                    ) {
+                        $persSubscore = (float) $tier->numeric_value;
+                        $persStatus = $tier->label;
+                        break;
+                    }
+                    continue;
+                }
+
+                $persVal = null;
+                $persOp = '>=';
+                foreach ($conditions as $cond) {
+                    if (isset($cond['personal_income'])) {
+                        $persVal = (float) ($cond['personal_income']['value'] ?? 0);
+                        $persOp = $cond['personal_income']['operator'] ?? '>=';
+                        break;
+                    }
+                }
+
+                $persMatch = false;
+                if ($persVal !== null) {
+                    if ($persOp === '>=') {
+                        $persMatch = $personalIncome >= $persVal;
+                    } else if ($persOp === '<') {
+                        $persMatch = $personalIncome < $persVal;
+                    }
+                }
+
+                if ($persMatch) {
+                    $persSubscore = (float) $tier->numeric_value;
+                    $persStatus = $tier->label;
+                    break;
+                }
+            }
+        }
+
+        // 3. Select the greater subscore
+        if ($busSubscore >= $persSubscore) {
+            $value = $busSubscore;
+            $status = $busStatus;
+        } else {
+            $value = $persSubscore;
+            $status = $persStatus;
         }
 
         return [

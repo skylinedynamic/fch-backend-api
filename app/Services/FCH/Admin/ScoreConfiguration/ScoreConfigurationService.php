@@ -163,30 +163,8 @@ class ScoreConfigurationService
             ->orderBy('sort_order')
             ->get();
 
-        if ($dbModifiers->isEmpty()) {
-            $defaultModifiers = [
-                ['factor_slug' => 'late_30_1', 'label' => '1 x 30-day late', 'min_value' => 1, 'numeric_value' => -5, 'sort_order' => 1],
-                ['factor_slug' => 'late_30_2_plus', 'label' => '2+ x 30-day lates', 'min_value' => 2, 'numeric_value' => -10, 'sort_order' => 2],
-                ['factor_slug' => 'late_60_1', 'label' => '1 x 60-day late', 'min_value' => 1, 'numeric_value' => -15, 'sort_order' => 3],
-                ['factor_slug' => 'late_60_2_plus', 'label' => '2+ x 60-day lates', 'min_value' => 2, 'numeric_value' => -25, 'sort_order' => 4],
-                ['factor_slug' => 'late_90_1', 'label' => '1 x 90-day late', 'min_value' => 1, 'numeric_value' => -30, 'sort_order' => 5],
-                ['factor_slug' => 'late_90_2_plus', 'label' => '2+ x 90-day lates', 'min_value' => 2, 'numeric_value' => -50, 'sort_order' => 6],
-                ['factor_slug' => 'late_120_1', 'label' => '1 x 120-day late', 'min_value' => 1, 'numeric_value' => -40, 'sort_order' => 7],
-                ['factor_slug' => 'late_120_2_plus', 'label' => '2+ x 120-day lates', 'min_value' => 2, 'numeric_value' => -60, 'sort_order' => 8],
-            ];
-            $latePaymentModifiers = [];
-            foreach ($defaultModifiers as $dm) {
-                $latePaymentModifiers[] = [
-                    'id' => null,
-                    'category' => ScoreConfiguration::CATEGORY_LATE_PAYMENT_MODIFIER,
-                    'factor_slug' => $dm['factor_slug'],
-                    'label' => $dm['label'],
-                    'min_value' => $dm['min_value'],
-                    'numeric_value' => $dm['numeric_value'],
-                    'sort_order' => $dm['sort_order'],
-                ];
-            }
-        } else {
+        $latePaymentModifiers = [];
+        if (!$dbModifiers->isEmpty()) {
             $latePaymentModifiers = $dbModifiers->map(function ($mod) {
                 return [
                     'id' => $mod->id,
@@ -333,21 +311,10 @@ class ScoreConfigurationService
             );
         }
 
-        // Save factor tiers from nested groups: business_revenue → business_revenue_strength, personal_revenue → personal_revenue_strength
-        $map = [
-            'business_revenue' => 'business_revenue_strength',
-            'personal_revenue' => 'personal_revenue_strength',
-        ];
-
         if (isset($rs['factors']) && is_array($rs['factors'])) {
-            foreach ($map as $groupKey => $factorSlug) {
-                if (!isset($rs['factors'][$groupKey])) {
-                    continue;
-                }
-                $this->saveFactorWeightAndTiers('funding_readiness', $factorSlug, [
-                    'factors' => $rs['factors'][$groupKey],
-                ]);
-            }
+            $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', [
+                'factors' => $rs['factors'],
+            ]);
         }
     }
 

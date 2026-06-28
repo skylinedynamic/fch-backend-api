@@ -21,6 +21,27 @@ class CapitalAccessStepDetailResource extends JsonResource
         $play     = $seq->capitalAccess;
         $borrower = auth()->user()?->borrower;
 
+        $timeConfigs = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->whereIn('model_slug', [ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::MODEL_GENERAL_SETTING])
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->get();
+
+        $formatConfig = function ($config) {
+            if (!$config) {
+                return null;
+            }
+            $conditions = $config->conditions;
+            return [
+                'id'          => $config->id,
+                'label'       => $config->label,
+                'min_value'   => $config->min_value !== null ? (float) $config->min_value : null,
+                'max_value'   => $config->max_value !== null ? (float) $config->max_value : null,
+                'start'       => isset($conditions['start']) ? (float) $conditions['start'] : ($config->min_value !== null ? (float) $config->min_value : null),
+                'end'         => isset($conditions['end']) ? (float) $conditions['end'] : ($config->max_value !== null ? (float) $config->max_value : null),
+                'sort_order'  => $config->sort_order,
+            ];
+        };
+
         /** @var \App\Services\Borrower\CapitalAccess\BorrowerContext|null $ctx */
         $ctx   = $this->additional['borrower_ctx'] ?? null;
         $cache = $this->additional['score_cache']  ?? null;
@@ -43,12 +64,11 @@ class CapitalAccessStepDetailResource extends JsonResource
             $oddsStatus = ($oddsData['status'] ?? true) !== false;
         }
 
-        $application = null;
-        if ($borrower) {
-            $application = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
-                ->where('capital_access_sequence_id', $seq->id)
-                ->first();
-        }
+        $accessTimeLower = $seq->access_time ? strtolower($seq->access_time) : null;
+        $accessDayTimeLower = $seq->access_day_time ? strtolower($seq->access_day_time) : null;
+
+        $accessTimeDetail = $accessTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessTimeLower) : null;
+        $accessDayTimeDetail = $accessDayTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessDayTimeLower) : null;
 
         return [
             'id'              => $seq->id,
@@ -62,6 +82,9 @@ class CapitalAccessStepDetailResource extends JsonResource
             'credit_account_id' => $seq->credit_account_id,
             'issuer'          => $card?->issuer,
             'card_name'       => $card?->card_name,
+            'image_url'       => $card?->image_url,
+            'full_image_url'  => $card?->full_image_url,
+            'reference_url'   => $card?->reference_url,
             'exposure'        => currencyFormat($seq->est_limit_min ?? 0) . ' - ' . currencyFormat($seq->est_limit_max ?? 0),
             'est_limit_min'   => $seq->est_limit_min,
             'est_limit_max'   => $seq->est_limit_max,
@@ -69,6 +92,8 @@ class CapitalAccessStepDetailResource extends JsonResource
             'access_time'     => $seq->access_time,
             'access_day'      => $seq->access_day,
             'access_day_time' => $seq->access_day_time,
+            'access_time_detail' => $formatConfig($accessTimeDetail),
+            'access_day_time_detail' => $formatConfig($accessDayTimeDetail),
             'why_this_card'   => $seq->why_this_card,
             'requirements'    => is_string($seq->what_you_need)
                 ? json_decode($seq->what_you_need, true)

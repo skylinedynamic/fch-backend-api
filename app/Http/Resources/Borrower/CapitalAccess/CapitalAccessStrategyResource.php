@@ -20,6 +20,29 @@ class CapitalAccessStrategyResource extends JsonResource
         $recommendedId = $this->additional['recommended_id'] ?? null;
         $borrower      = auth()->user()?->borrower;
 
+        $timeConfigs = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->whereIn('model_slug', [ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::MODEL_GENERAL_SETTING])
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->get();
+
+        $formatConfig = function ($config) {
+            if (!$config) {
+                return null;
+            }
+            $conditions = $config->conditions;
+            return [
+                'id'          => $config->id,
+                'label'       => $config->label,
+                'min_value'   => $config->min_value !== null ? (float) $config->min_value : null,
+                'max_value'   => $config->max_value !== null ? (float) $config->max_value : null,
+                'start'       => isset($conditions['start']) ? (float) $conditions['start'] : ($config->min_value !== null ? (float) $config->min_value : null),
+                'end'         => isset($conditions['end']) ? (float) $conditions['end'] : ($config->max_value !== null ? (float) $config->max_value : null),
+                'sort_order'  => $config->sort_order,
+            ];
+        };
+
+        $timeSettingsFormatted = $timeConfigs->map($formatConfig)->values()->all();
+
         /** @var \App\Services\Borrower\CapitalAccess\BorrowerContext|null $ctx */
         $ctx   = $this->additional['borrower_ctx'] ?? null;
         $cache = $this->additional['score_cache']  ?? null;
@@ -52,7 +75,7 @@ class CapitalAccessStrategyResource extends JsonResource
             $oddsService = app(\App\Services\Borrower\CapitalAccess\ApprovalOddsService::class);
 
             $roadmap = $this->sequences->map(function (CapitalAccessSequence $seq, int $index) use (
-                $borrower, $ctx, $oddsTiers, $oddsService
+                $borrower, $ctx, $oddsTiers, $oddsService, $timeConfigs, $formatConfig
             ) {
                 $seqStatus = $index === 0 ? 'Active' : 'Locked';
 
@@ -64,11 +87,18 @@ class CapitalAccessStrategyResource extends JsonResource
 
                 $card = $seq->creditAccount;
 
+                $accessTimeLower = $seq->access_time ? strtolower($seq->access_time) : null;
+                $accessDayTimeLower = $seq->access_day_time ? strtolower($seq->access_day_time) : null;
+
+                $accessTimeDetail = $accessTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessTimeLower) : null;
+                $accessDayTimeDetail = $accessDayTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessDayTimeLower) : null;
+
                 return [
                     'id'                            => $seq->credit_account_id,
                     'day'                           => $seq->sorting_order ?? ($index + 1),
                     'issuer'                        => $card?->issuer,
                     'card_name'                     => $card?->card_name,
+                    'reference_url'                 => $card?->reference_url,
                     'exposure'                      => currencyFormat($seq->est_limit_min ?? 0) . ' - ' . currencyFormat($seq->est_limit_max ?? 0),
                     'status'                        => $seqStatus,
                     'why'                           => $seq->why_this_card,
@@ -77,6 +107,8 @@ class CapitalAccessStrategyResource extends JsonResource
                     'access_time'                   => $seq->access_time,
                     'access_day'                    => $seq->access_day,
                     'access_day_time'               => $seq->access_day_time,
+                    'access_time_detail'            => $formatConfig($accessTimeDetail),
+                    'access_day_time_detail'        => $formatConfig($accessDayTimeDetail),
                     'minimum_fico_requirement'      => $seq->minimum_fico_requirement,
                     'maximum_utilization_threshold' => $seq->maximum_utilization_threshold,
                     'difficulty_modifier'           => $seq->difficulty_modifier,
@@ -103,6 +135,7 @@ class CapitalAccessStrategyResource extends JsonResource
                 ? json_decode($this->what_you_will_get, true)
                 : ($this->what_you_will_get ?? []),
             'checklist'          => $this->getEvaluatedChecklist($borrower, $this->pre_flight_checklist),
+            'time_settings'      => $timeSettingsFormatted,
             'roadmap'            => $roadmap,
         ];
     }

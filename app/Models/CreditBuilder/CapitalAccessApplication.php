@@ -8,6 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CapitalAccessApplication extends Model
 {
+    public const STATUS_PENDING = 'Pending';
+    public const STATUS_APPROVED = 'Approved';
+    public const STATUS_DECLINED = 'Declined';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_APPROVED,
+        self::STATUS_DECLINED,
+    ];
+
     protected $table = 'capital_access_applications';
 
     protected $guarded = ['id'];
