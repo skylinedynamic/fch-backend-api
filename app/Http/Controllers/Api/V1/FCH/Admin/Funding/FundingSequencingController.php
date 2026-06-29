@@ -125,6 +125,16 @@ class FundingSequencingController extends Controller
         );
     }
 
+    public function updateSingleCategoryVisibility(UpdateFundingSequencingVisibilityRequest $request, $id, $lenderId, $categoryId): JsonResponse
+    {
+        $sequencing = $this->service->updateSingleCategoryVisibility($id, $lenderId, $categoryId, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
     public function deleteVisibilities(DeleteFundingSequencingVisibilityRequest $request, $id): JsonResponse
     {
         $this->service->deleteVisibilities($id, $request->visibility_ids);

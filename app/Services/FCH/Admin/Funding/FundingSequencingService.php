@@ -200,6 +200,52 @@ class FundingSequencingService
         return $this->show($id);
     }
 
+    public function updateSingleCategoryVisibility($id, $lenderId, $categoryId, array $data)
+    {
+        $sequencing = FundingSequencing::findOrFail($id);
+        $lenderVisibilities = array_key_exists('lender_visibilities', $data) ? $data['lender_visibilities'] : [];
+
+        // Normalize category ID: if 'general' or '0' or empty, treat as null
+        $targetCategoryId = ($categoryId === 'general' || $categoryId === '0' || empty($categoryId)) ? null : $categoryId;
+
+        if ($lenderVisibilities !== null) {
+            $existingIds = [];
+            foreach ($lenderVisibilities as $visibilityData) {
+                // Ensure we only update for the specified lenderId and categoryId
+                if ((string)$visibilityData['lender_id'] !== (string)$lenderId) continue;
+                
+                $vCatId = !empty($visibilityData['lender_product_category_id']) ? $visibilityData['lender_product_category_id'] : null;
+                
+                // Compare values
+                $vCatIdStr = $vCatId !== null ? (string)$vCatId : null;
+                $targetCatIdStr = $targetCategoryId !== null ? (string)$targetCategoryId : null;
+                if ($vCatIdStr !== $targetCatIdStr) continue;
+
+                $visibility = $sequencing->lenderVisibilities()->updateOrCreate(
+                    [
+                        'lender_id' => $lenderId,
+                        'lender_product_category_id' => $targetCategoryId
+                    ],
+                    $visibilityData
+                );
+                $existingIds[] = $visibility->id;
+            }
+            
+            // Remove any visibility rows for THIS lender AND THIS category that are no longer in the payload
+            if (empty($existingIds)) {
+                $query = $sequencing->lenderVisibilities()->where('lender_id', $lenderId);
+                if ($targetCategoryId === null) {
+                    $query->whereNull('lender_product_category_id');
+                } else {
+                    $query->where('lender_product_category_id', $targetCategoryId);
+                }
+                $query->delete();
+            }
+        }
+
+        return $this->show($id);
+    }
+
     public function deleteVisibilities($id, array $visibilityIds): void
     {
         $sequencing = FundingSequencing::findOrFail($id);

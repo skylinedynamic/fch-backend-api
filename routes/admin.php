@@ -149,6 +149,7 @@ Route::prefix('v1/admin')
             Route::put('{id}/display', [FundingSequencingController::class, 'updateDisplay']);
             Route::put('{id}/visibility', [FundingSequencingController::class, 'updateVisibility']);
             Route::post('{id}/lender/{lenderId}/visibility', [FundingSequencingController::class, 'updateSingleLenderVisibility']);
+            Route::post('{id}/lender/{lenderId}/category/{categoryId}/visibility', [FundingSequencingController::class, 'updateSingleCategoryVisibility']);
             Route::delete('{id}/visibilities', [FundingSequencingController::class, 'deleteVisibilities']);
             Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus']);
             Route::delete('{id}', [FundingSequencingController::class, 'destroy']);
