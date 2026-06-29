@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingDisplayRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingVisibilityRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\DeleteFundingSequencingVisibilityRequest;
 use App\Http\Resources\FCH\Funding\FundingSequencingResource;
 use App\Services\FCH\Admin\Funding\FundingSequencingService;
 use Illuminate\Http\Request;
@@ -114,6 +115,23 @@ class FundingSequencingController extends Controller
         );
     }
 
+    public function updateSingleLenderVisibility(UpdateFundingSequencingVisibilityRequest $request, $id, $lenderId): JsonResponse
+    {
+        $sequencing = $this->service->updateSingleLenderVisibility($id, $lenderId, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function deleteVisibilities(DeleteFundingSequencingVisibilityRequest $request, $id): JsonResponse
+    {
+        $this->service->deleteVisibilities($id, $request->visibility_ids);
+
+        return ApiResponse::success(null, __('funding_sequencing.visibility_deleted'));
+    }
+
     public function updateStatus(Request $request, $id): JsonResponse
     {
         $request->validate(['status' => 'required|string|in:Active,Inactive']);
@@ -123,6 +141,11 @@ class FundingSequencingController extends Controller
             new FundingSequencingResource($sequencing),
             __('funding_sequencing.status_updated')
         );
+    }
+
+    public function fetchVisibilities(Request $request, $id): JsonResponse
+    {
+        return $this->service->getPaginatedVisibilities($id, $request->all());
     }
 
     public function destroy($id): JsonResponse

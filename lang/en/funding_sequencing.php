@@ -47,6 +47,10 @@ return [
     'max_negative_days_required' => 'Max Negative Days is required.',
     'allowed_documents_required_if' => 'Required documents are mandatory when Require Documents Uploaded is enabled.',
     'require_completed_application_accepted_if' => 'Require Completed Fund Application must be enabled when Require Documents Uploaded is enabled.',
+    'visibility_ids_required'    => 'Please select at least one visibility rule to delete.',
+    'visibility_ids_array'       => 'The visibility rules must be provided as an array.',
+    'visibility_ids_integer'     => 'The visibility rule ID must be a valid number.',
+    'visibility_ids_exists'      => 'One or more selected visibility rules are invalid or do not exist.',
 
     // Funding Group
     'group_name_required'        => 'The group name is required.',
@@ -68,6 +72,7 @@ return [
     'updated'                    => 'Funding sequencing updated successfully.',
     'status_updated'             => 'Funding sequencing status updated successfully.',
     'deleted'                    => 'Funding sequencing deleted successfully.',
+    'visibility_deleted'         => 'Visibility logic removed successfully.',
     'not_found'                  => 'Funding sequencing not found.',
     'group_created'              => 'Funding group created successfully.',
     'group_updated'              => 'Funding group updated successfully.',

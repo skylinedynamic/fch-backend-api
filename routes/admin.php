@@ -143,10 +143,13 @@ Route::prefix('v1/admin')
             Route::post('fetch', [FundingSequencingController::class, 'index']);
             Route::get('grouped', [FundingSequencingController::class, 'grouped']);
             Route::post('/', [FundingSequencingController::class, 'store']);
+            Route::post('{id}/visibilities/fetch', [FundingSequencingController::class, 'fetchVisibilities']);
             Route::get('{id}', [FundingSequencingController::class, 'show']);
             Route::put('{id}', [FundingSequencingController::class, 'update']);
             Route::put('{id}/display', [FundingSequencingController::class, 'updateDisplay']);
             Route::put('{id}/visibility', [FundingSequencingController::class, 'updateVisibility']);
+            Route::post('{id}/lender/{lenderId}/visibility', [FundingSequencingController::class, 'updateSingleLenderVisibility']);
+            Route::delete('{id}/visibilities', [FundingSequencingController::class, 'deleteVisibilities']);
             Route::patch('{id}/status', [FundingSequencingController::class, 'updateStatus']);
             Route::delete('{id}', [FundingSequencingController::class, 'destroy']);
         });

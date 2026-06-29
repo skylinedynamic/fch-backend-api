@@ -5,12 +5,16 @@ namespace App\Services\FCH\Admin\Funding;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\FundingType;
+use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
 use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class FundingSequencingService
 {
+    use PaginatesApi;
+
     /**
      * Get paginated and filtered funding sequencings.
      */
@@ -129,10 +133,22 @@ class FundingSequencingService
             // Visibility tab payload: Update existing rows accurately without recreating them
             $existingIds = [];
             foreach ($lenderVisibilities as $visibilityData) {
+                $categoryId = !empty($visibilityData['lender_product_category_id']) ? $visibilityData['lender_product_category_id'] : null;
+                
+                // If the frontend sent a string name instead of an integer ID, try to find it or create it
+                if ($categoryId !== null && !is_numeric($categoryId)) {
+                    $catModel = \App\Models\Lender\LenderProductCategory::firstOrCreate(
+                        ['name' => $categoryId],
+                        ['status' => 'Active', 'sort_order' => \App\Models\Lender\LenderProductCategory::max('sort_order') + 1]
+                    );
+                    $categoryId = $catModel->id;
+                }
+                
+                $visibilityData['lender_product_category_id'] = $categoryId;
                 $visibility = $sequencing->lenderVisibilities()->updateOrCreate(
                     [
                         'lender_id' => $visibilityData['lender_id'],
-                        'lender_product_category_id' => $visibilityData['lender_product_category_id'] ?? null
+                        'lender_product_category_id' => $categoryId
                     ],
                     $visibilityData
                 );
@@ -150,6 +166,46 @@ class FundingSequencingService
         return $sequencing->load(['group', 'type', 'lenderVisibilities.lender']);
     }
 
+    public function updateSingleLenderVisibility($id, $lenderId, array $data)
+    {
+        $sequencing = FundingSequencing::findOrFail($id);
+        $lenderVisibilities = array_key_exists('lender_visibilities', $data) ? $data['lender_visibilities'] : [];
+
+        if ($lenderVisibilities !== null) {
+            $existingIds = [];
+            foreach ($lenderVisibilities as $visibilityData) {
+                // Ensure we only update for the specified lenderId
+                if ((string)$visibilityData['lender_id'] !== (string)$lenderId) continue;
+                
+                $categoryId = !empty($visibilityData['lender_product_category_id']) ? $visibilityData['lender_product_category_id'] : null;
+                $visibilityData['lender_product_category_id'] = $categoryId;
+                $visibility = $sequencing->lenderVisibilities()->updateOrCreate(
+                    [
+                        'lender_id' => $lenderId,
+                        'lender_product_category_id' => $categoryId
+                    ],
+                    $visibilityData
+                );
+                $existingIds[] = $visibility->id;
+            }
+            
+            // Remove any visibility rows for THIS lender that are no longer in the payload
+            if (!empty($existingIds)) {
+                $sequencing->lenderVisibilities()->where('lender_id', $lenderId)->whereNotIn('id', $existingIds)->delete();
+            } else {
+                $sequencing->lenderVisibilities()->where('lender_id', $lenderId)->delete();
+            }
+        }
+
+        return $this->show($id);
+    }
+
+    public function deleteVisibilities($id, array $visibilityIds): void
+    {
+        $sequencing = FundingSequencing::findOrFail($id);
+        $sequencing->lenderVisibilities()->whereIn('id', $visibilityIds)->delete();
+    }
+
     public function delete($id): bool
     {
         $sequencing = FundingSequencing::findOrFail($id);
@@ -163,6 +219,77 @@ class FundingSequencingService
         $sequencing->save();
         
         return $sequencing;
+    }
+
+    /**
+     * Get paginated visibilities for a funding sequence.
+     */
+    public function getPaginatedVisibilities($id, array $filters)
+    {
+        $query = LenderVisibility::with(['lender', 'productCategory'])
+            ->where('funding_sequencing_id', $id)
+            ->select('lender_visibilities.*');
+
+        if (!empty($filters['search'])) {
+            $query->search($filters['search']);
+        }
+
+        if (!empty($filters['lender_id'])) {
+            $query->where('lender_id', $filters['lender_id']);
+        }
+
+        if (!empty($filters['lender_product_category_id'])) {
+            $query->where('lender_product_category_id', $filters['lender_product_category_id']);
+        }
+
+        $sortField = $filters['sortField'] ?? 'id';
+        $sortOrder = ($filters['sortOrder'] ?? -1) == 1 ? 'asc' : 'desc';
+
+        $rawFilters = $filters['filters'] ?? [];
+        if (is_string($rawFilters)) {
+            $rawFilters = json_decode($rawFilters, true) ?? [];
+        }
+
+        $skipSorting = false;
+        if ($sortField === '_lenderName') {
+            $query->orderBy(
+                Lender::select('name')
+                    ->whereColumn('lenders.id', 'lender_visibilities.lender_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        } elseif ($sortField === '_categoryName') {
+            $query->orderBy(
+                \App\Models\Lender\LenderProductCategory::select('name')
+                    ->whereColumn('lender_product_categories.id', 'lender_visibilities.lender_product_category_id')
+                    ->limit(1),
+                $sortOrder
+            );
+            $skipSorting = true;
+        }
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $rawFilters,
+            [
+                'skip_sorting' => $skipSorting,
+                'aliases' => [],
+            ]
+        );
+
+        $perPage = isset($filters['rows']) ? max(1, (int) $filters['rows']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPagination(
+            $paginator,
+            __('funding_sequencing.visibilities_fetched'),
+            200
+        );
     }
 
     /**
