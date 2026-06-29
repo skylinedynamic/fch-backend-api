@@ -56,6 +56,8 @@ class User extends Authenticatable implements OAuthenticatable
         'end_date',
         'is_refresh',
         'payment_status',
+        'is_free_trail',
+        'free_trail_end_date',
     ];
 
     /**
@@ -82,6 +84,8 @@ class User extends Authenticatable implements OAuthenticatable
             'is_paid' => 'boolean',
             'start_date' => 'date',
             'end_date' => 'date',
+            'is_free_trail' => 'boolean',
+            'free_trail_end_date' => 'date',
         ];
     }
 

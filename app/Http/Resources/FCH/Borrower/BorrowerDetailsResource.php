@@ -84,6 +84,8 @@ class BorrowerDetailsResource extends JsonResource
             'current_tier_name' => $this->tier?->name,
             'additional_data' => $this->additional_data,
             'other_city'    => $this->other_city,
+            'is_free_trail' => $this->user?->is_free_trail ? true : false,
+            'free_trail_end_date' => $this->user?->free_trail_end_date ? Carbon::parse($this->user->free_trail_end_date)->format('Y-m-d') : null,
             'invoice' => $this->latestInvoice ? [
                 'id' => $this->latestInvoice->id,
                 'invoice_id' => $this->latestInvoice->invoice_id,

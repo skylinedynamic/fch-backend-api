@@ -27,7 +27,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->ignore(User::where('entity_type', Borrower::class)->where('entity_id', (int)$this->route('id'))->value('id'))->whereNull('deleted_at')
+                Rule::unique('users', 'email')->ignore(User::where('entity_type', Borrower::class)->where('entity_id', (int) $this->route('id'))->value('id'))->whereNull('deleted_at')
             ],
 
             // 'signup_id'                 => ['sometimes', 'required', 'string', 'max:255', 'unique:borrowers,signup_id,' . $this->route('borrower')->id],
@@ -75,7 +75,16 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'additional_data' => ['nullable', 'json'],
             'fico_score' => ['nullable', 'numeric'],
             'paydex_score' => ['nullable', 'numeric'],
+            'is_free_trail' => ['nullable', 'boolean'],
         ];
+
+        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
+            $rules['free_trail_end_date'] = ['required'];
+        } else {
+            $rules['free_trail_end_date'] = ['nullable'];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
@@ -112,6 +121,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'assign_id.exists' => __('borrower_validation.assign_id_exists'),
             'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric' => __('borrower_validation.paydex_score_numeric'),
+            'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
         ];
     }
 }

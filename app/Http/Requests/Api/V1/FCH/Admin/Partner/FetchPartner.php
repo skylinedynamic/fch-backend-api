@@ -25,6 +25,7 @@ class FetchPartner extends FormRequest
             'partner_id'        => ['nullable'],
             'assigned_user_id'  => ['nullable'],
             'search'            => ['nullable', 'string'],
+            'is_free_trail'     => ['nullable'],
             'filters'           => ['nullable', 'array'],
             'page'              => ['nullable', 'integer', 'min:1'],
             'per_page'          => ['nullable', 'integer', 'min:1'],

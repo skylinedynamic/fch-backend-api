@@ -95,6 +95,8 @@ class UserResource extends JsonResource
             'role_id' => $roleId,
             'role_name' => $roleName,
             'is_agreement_signed' => $this->entity?->has_sign ?? false,
+            'is_free_trail' => (boolval($this->is_free_trail)),
+            'free_trail_end_date' => $this->free_trail_end_date?->toDateString(),
             'permissions' => $permissionNames,
         ];
     }

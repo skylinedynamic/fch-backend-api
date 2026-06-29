@@ -28,7 +28,7 @@ class StorePartnerRequest extends BaseApiRequest
     {
         $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
 
-        return [
+        $rules = [
             'full_name' => ['required', 'string', 'max:255'],
             'company_name' => [
                 'required',
@@ -62,9 +62,6 @@ class StorePartnerRequest extends BaseApiRequest
             'company_logo' => ['nullable'], // 2MB max
             'partner_image' => ['nullable'], // 2MB max
             'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
-            'enrollment_type' => ['required', 'string', 'max:255'],
-            'enrollment_amount' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
-            'monthly_platform_fee' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'total_free_users' => ['nullable', 'integer', 'min:0'],
             'total_paid_users' => ['nullable', 'integer', 'min:0'],
             'partner_domain' => [
@@ -82,7 +79,22 @@ class StorePartnerRequest extends BaseApiRequest
                 },
             ],
             'borrower_domain' => ['nullable', 'string', 'max:255'],
+            'is_free_trail' => ['nullable', 'boolean'],
         ];
+
+        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
+            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+            $rules['enrollment_type'] = ['nullable', 'string', 'max:255'];
+            $rules['enrollment_amount'] = ['nullable'];
+            $rules['monthly_platform_fee'] = ['nullable'];
+        } else {
+            $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
+            $rules['enrollment_type'] = ['required', 'string', 'max:255'];
+            $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            $rules['monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -107,6 +119,8 @@ class StorePartnerRequest extends BaseApiRequest
             'enrollment_amount.gt' => __('partner.validation.enrollment_amount_gt'),
             'enrollment_amount.regex' => __('partner.validation.enrollment_amount_regex'),
             'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
+            'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
+            'free_trail_end_date.after_or_equal' => 'Trial end date must be today or a future date.',
             'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
             'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
             'monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),

@@ -14,7 +14,7 @@ class StoreBorrowerRequest extends BaseApiRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             // Personal Info
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -45,13 +45,23 @@ class StoreBorrowerRequest extends BaseApiRequest
             'last_4_ssn' => ['nullable', 'string', 'max:4'],
             'date_of_birth' => ['nullable'],
             'country_code' => ['nullable', 'string', 'max:5'], // Matching country_code_max
-            'plan_id' => ['required', 'exists:subscription_plans,id'],
-            'enrollment_payment' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'notes' => ['nullable'],
             'fico_score' => ['nullable', 'numeric'],
             'paydex_score' => ['nullable', 'numeric'],
-
+            'is_free_trail' => ['nullable', 'boolean'],
         ];
+
+        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
+            $rules['free_trail_end_date'] = ['required'];
+            $rules['plan_id'] = ['nullable', 'exists:subscription_plans,id'];
+            $rules['enrollment_payment'] = ['nullable'];
+        } else {
+            $rules['free_trail_end_date'] = ['nullable'];
+            $rules['plan_id'] = ['required', 'exists:subscription_plans,id'];
+            $rules['enrollment_payment'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+        }
+
+        return $rules;
     }
 
     public function messages(): array
@@ -119,6 +129,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'plan_id.exists' => __('borrower_validation.plan_id_exists'),
             'enrollment_payment.required' => __('borrower_validation.enrollment_payment_required'),
             'enrollment_payment.numeric' => __('borrower_validation.enrollment_payment_numeric'),
+            'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
             'enrollment_payment.gt' => __('borrower_validation.enrollment_payment_gt'),
             'enrollment_payment.regex' => __('borrower_validation.enrollment_payment_regex'),
             'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
