@@ -72,8 +72,13 @@ class LenderVisibility extends Model
             })
             ->orWhereHas('productCategory', function ($pq) use ($term) {
                 $pq->where('name', 'like', '%' . $term . '%');
-            })
-            ->orWhere('min_fico', 'like', '%' . $term . '%')
+            });
+
+            if (strtolower(trim($term)) === 'general') {
+                $q->orWhereNull('lender_product_category_id');
+            }
+
+            $q->orWhere('min_fico', 'like', '%' . $term . '%')
             ->orWhere('min_tib_months', 'like', '%' . $term . '%')
             ->orWhere('min_monthly_revenue', 'like', '%' . $term . '%')
             ->orWhere('min_monthly_deposits', 'like', '%' . $term . '%')
