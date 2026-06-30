@@ -272,8 +272,8 @@ class BorrowerService
      */
     private function calculateBorrowerSubscriptionAmounts(?SubscriptionPlan $plan, array $data, float $fallbackAmount = 2497.00): array
     {
-        $default  = $plan ? (float) ($plan->payment_amount ?? $fallbackAmount) : $fallbackAmount;
-        $amount   = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
+        $default = $plan ? (float) ($plan->payment_amount ?? $fallbackAmount) : $fallbackAmount;
+        $amount = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
             ? (float) $data['enrollment_payment']
             : $default;
 
@@ -308,12 +308,12 @@ class BorrowerService
      */
     private function buildBorrowerInvoicesAndSendEmail(
         Borrower $borrower,
-        Partner  $partner,
-        object   $user,
-        array    $data,
-        array    $mailData,
-        bool     $isHostCreating,
-        bool     $isMigration = false
+        Partner $partner,
+        object $user,
+        array $data,
+        array $mailData,
+        bool $isHostCreating,
+        bool $isMigration = false
     ): void {
         $planId = isset($data['plan_id']) ? (int) $data['plan_id'] : null;
         $partnerTypeChecking = in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
@@ -328,15 +328,15 @@ class BorrowerService
             $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->payment_amount ?? 800.00) : 800.00;
 
             $partnerInvoice = $this->invoiceService->create([
-                'partner_id'      => $borrower->partner_id,
-                'borrower_id'     => $borrower->id,
-                'entity_type'     => Partner::class,
-                'entity_id'       => $borrower->partner_id,
-                'customer_name'   => $partner->full_name,
-                'email'           => $partner->email,
-                'country'         => $partner->country,
-                'payment_amount'  => $wlPartnerFeeAmount,
-                'status'          => Invoice::STATUS_UNPAID,
+                'partner_id' => $borrower->partner_id,
+                'borrower_id' => $borrower->id,
+                'entity_type' => Partner::class,
+                'entity_id' => $borrower->partner_id,
+                'customer_name' => $partner->full_name,
+                'email' => $partner->email,
+                'country' => $partner->country,
+                'payment_amount' => $wlPartnerFeeAmount,
+                'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => true,
                 'is_platform_fee' => false,
             ]);
@@ -346,15 +346,15 @@ class BorrowerService
             $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data);
 
             $invoice = $this->invoiceService->create([
-                'partner_id'      => $borrower->partner_id,
-                'borrower_id'     => $borrower->id,
-                'entity_type'     => Borrower::class,
-                'entity_id'       => $borrower->id,
-                'customer_name'   => $borrower->full_name,
-                'email'           => $borrower->email,
-                'country'         => $borrower->country,
-                'payment_amount'  => $amounts['amount'],
-                'status'          => Invoice::STATUS_UNPAID,
+                'partner_id' => $borrower->partner_id,
+                'borrower_id' => $borrower->id,
+                'entity_type' => Borrower::class,
+                'entity_id' => $borrower->id,
+                'customer_name' => $borrower->full_name,
+                'email' => $borrower->email,
+                'country' => $borrower->country,
+                'payment_amount' => $amounts['amount'],
+                'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => false,
                 'is_platform_fee' => false,
             ]);
@@ -365,15 +365,15 @@ class BorrowerService
             $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data, 0);
 
             $invoice = $this->invoiceService->create([
-                'partner_id'      => $borrower->partner_id,
-                'borrower_id'     => $borrower->id,
-                'entity_type'     => Borrower::class,
-                'entity_id'       => $borrower->id,
-                'customer_name'   => $borrower->full_name,
-                'email'           => $borrower->email,
-                'country'         => $borrower->country,
-                'payment_amount'  => $amounts['amount'],
-                'status'          => Invoice::STATUS_UNPAID,
+                'partner_id' => $borrower->partner_id,
+                'borrower_id' => $borrower->id,
+                'entity_type' => Borrower::class,
+                'entity_id' => $borrower->id,
+                'customer_name' => $borrower->full_name,
+                'email' => $borrower->email,
+                'country' => $borrower->country,
+                'payment_amount' => $amounts['amount'],
+                'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => $isHostCreating ? false : true,
                 'is_platform_fee' => false,
             ]);
@@ -381,23 +381,23 @@ class BorrowerService
         }
 
         $this->subscriptionService->startSubscription($borrower, $plan, [
-            'monthly_platform_fee'     => 0,
+            'monthly_platform_fee' => 0,
             'total_subscription_amount' => $amounts['total'],
-            'payable_amount'           => $amounts['amount'],
-            'is_custom'                => $amounts['isCustom'],
+            'payable_amount' => $amounts['amount'],
+            'is_custom' => $amounts['isCustom'],
         ]);
 
         if ($isMigration) {
             // Free-trial → paid migration: only notify if there's an amount due
             if ($amounts['amount'] > 0) {
                 $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
-                $mailData['amount']       = $invoice->payment_amount;
+                $mailData['amount'] = $invoice->payment_amount;
                 $this->sendBorrowerMail($user->email, new \App\Mail\Borrower\BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id);
             }
         } elseif ($isHostCreating) {
             if ($amounts['amount'] > 0) {
                 $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
-                $mailData['amount']       = $invoice->payment_amount;
+                $mailData['amount'] = $invoice->payment_amount;
                 $this->sendBorrowerMail($user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id);
             } else {
                 $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
@@ -506,7 +506,12 @@ class BorrowerService
                 // ── PAID / STANDARD PATH ─────────────────────────────────────────────────
                 else {
                     $this->buildBorrowerInvoicesAndSendEmail(
-                        $borrower, $partner, $user, $data, $mailData, $isHostCreating
+                        $borrower,
+                        $partner,
+                        $user,
+                        $data,
+                        $mailData,
+                        $isHostCreating
                     );
                 }
             }
@@ -657,19 +662,25 @@ class BorrowerService
                 $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
 
                 $mailData = [
-                    'user'         => $user,
+                    'user' => $user,
                     'business_info' => [
-                        'company_name'  => $clientPartner->company_name ?? 'Four Corner Funding',
-                        'company_logo'  => $clientPartner->company_logo ?? 'logo.png',
-                        'email'         => $clientPartner->email ?? config('mail.from.address'),
-                        'phone_number'  => $clientPartner->phone_number ?? '',
+                        'company_name' => $clientPartner->company_name ?? 'Four Corner Funding',
+                        'company_logo' => $clientPartner->company_logo ?? 'logo.png',
+                        'email' => $clientPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $clientPartner->phone_number ?? '',
                         'address_line_1' => $clientPartner->address_line_1 ?? '',
                     ],
                 ];
 
                 $partner = Partner::find($borrower->partner_id);
                 $this->buildBorrowerInvoicesAndSendEmail(
-                    $borrower, $partner, $user, $data, $mailData, $isHostCreating, isMigration: true
+                    $borrower,
+                    $partner,
+                    $user,
+                    $data,
+                    $mailData,
+                    $isHostCreating,
+                    isMigration: true
                 );
             }
 
@@ -702,6 +713,8 @@ class BorrowerService
                 $this->createOrUpdateUser($data, $borrower);
             }
 
+
+            $user->update(['is_refresh' => true]);
             DB::commit();
 
             // Return consistent format or just borrower? Controller expects resource.
