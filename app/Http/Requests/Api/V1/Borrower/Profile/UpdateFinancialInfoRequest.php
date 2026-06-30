@@ -30,6 +30,7 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'average_monthly_deposits' => 'required|numeric|min:0|max:999999999.99',
             'monthly_deposit_count' => 'required|integer|min:0',
             'avg_bank_balance' => 'required|numeric|min:0|max:999999999.99',
+            'annual_personal_income' => 'required|numeric|min:0|max:999999999.99',
             'nsf_count' => 'required|integer|min:0|max:99999',
             'negative_days' => 'required|integer|min:0|max:99999',
             'bank_accounts' => 'nullable|array',
@@ -65,6 +66,11 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'annual_revenue.min' => __('borrower_validation.annual_revenue_min'),
             'annual_revenue.max' => __('borrower_validation.annual_revenue_max'),
             'annual_revenue.required' => __('borrower_validation.annual_revenue_required'),
+
+            'annual_personal_income.numeric' => __('borrower_validation.annual_personal_income_numeric'),
+            'annual_personal_income.min' => __('borrower_validation.annual_personal_income_min'),
+            'annual_personal_income.max' => __('borrower_validation.annual_personal_income_max'),
+            'annual_personal_income.required' => __('borrower_validation.annual_personal_income_required'),
 
             'nsf_count.required' => __('borrower_validation.nsf_count_required'),
             'nsf_count.integer' => __('borrower_validation.nsf_count_integer'),

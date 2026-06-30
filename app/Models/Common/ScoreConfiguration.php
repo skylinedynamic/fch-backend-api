@@ -36,10 +36,27 @@ class ScoreConfiguration extends Model
     public const CATEGORY_SUBSCORE_TIER = 'subscore_tier';
     public const CATEGORY_READINESS_BAND = 'readiness_band';
     public const CATEGORY_LATE_PAYMENT_MODIFIER = 'late_payment_modifier';
+    public const CATEGORY_TIME = 'time';
 
     public const MODEL_FUNDING_READINESS = 'funding_readiness';
     public const MODEL_APPROVAL_PROBABILITY = 'approval_probability';
     public const MODEL_APPROVAL_ODDS = 'approval_odds';
+    public const MODEL_GENERAL_SETTING = 'general_setting';
+
+    public const FACTOR_TIME_SETTING = 'time_setting';
+
+    // Factor Slugs
+    public const FACTOR_FICO = 'fico';
+    public const FACTOR_UTILIZATION = 'utilization';
+    public const FACTOR_TIME_IN_BUSINESS = 'time_in_business';
+    public const FACTOR_REVENUE_STRENGTH = 'revenue_strength';
+    public const FACTOR_TRADELINE_DEPTH = 'tradeline_depth';
+    public const FACTOR_BANKING_RELATIONSHIPS = 'banking_relationships';
+
+    public const FACTOR_FICO_ABOVE_MINIMUM = 'fico_above_minimum';
+    public const FACTOR_RECENT_INQUIRIES = 'recent_inquiries';
+    public const FACTOR_BANKING_RELATIONSHIP = 'banking_relationship';
+    public const FACTOR_REVENUE_INCOME = 'revenue_income';
 
     // Revenue Strength Statuses (Readiness subscore labels)
     public const STATUS_REVENUE_STRONG = 'Strong';

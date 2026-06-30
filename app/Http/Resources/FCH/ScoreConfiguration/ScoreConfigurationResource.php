@@ -19,6 +19,7 @@ class ScoreConfigurationResource extends JsonResource
             'late_payment_modifiers' => $this->resource['late_payment_modifiers'] ?? [],
             'probability_factors' => $this->resource['probability_factors'] ?? [],
             'odds_factors' => $this->resource['odds_factors'] ?? [],
+            'time_settings' => $this->resource['time_settings'] ?? [],
         ];
     }
 }

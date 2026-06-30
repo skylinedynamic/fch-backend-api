@@ -14,6 +14,8 @@ class ScoreConfigurationService
             'utilization' => 'Credit Card Utilization',
             'time_in_business' => 'Time In Business',
             'revenue_strength' => 'Revenue Strength',
+            'business_revenue_strength' => 'Business Revenue Strength',
+            'personal_revenue_strength' => 'Personal Revenue Strength',
             'tradeline_depth' => 'Tradeline Depth',
             'banking_relationships' => 'Banking Relationships',
             'fico_above_minimum' => 'FICO Above Play Minimum',
@@ -31,6 +33,8 @@ class ScoreConfigurationService
             'utilization' => 'Revolving credit utilization ratio',
             'time_in_business' => 'Length of time business has been operating',
             'revenue_strength' => 'Business revenue and personal income strength',
+            'business_revenue_strength' => 'Business monthly revenue',
+            'personal_revenue_strength' => 'Personal annual income',
             'tradeline_depth' => 'Credit account depth and limits',
             'banking_relationships' => 'Banking relationship strength',
             'fico_above_minimum' => 'Points above play minimum FICO score',
@@ -159,30 +163,8 @@ class ScoreConfigurationService
             ->orderBy('sort_order')
             ->get();
 
-        if ($dbModifiers->isEmpty()) {
-            $defaultModifiers = [
-                ['factor_slug' => 'late_30_1', 'label' => '1 x 30-day late', 'min_value' => 1, 'numeric_value' => -5, 'sort_order' => 1],
-                ['factor_slug' => 'late_30_2_plus', 'label' => '2+ x 30-day lates', 'min_value' => 2, 'numeric_value' => -10, 'sort_order' => 2],
-                ['factor_slug' => 'late_60_1', 'label' => '1 x 60-day late', 'min_value' => 1, 'numeric_value' => -15, 'sort_order' => 3],
-                ['factor_slug' => 'late_60_2_plus', 'label' => '2+ x 60-day lates', 'min_value' => 2, 'numeric_value' => -25, 'sort_order' => 4],
-                ['factor_slug' => 'late_90_1', 'label' => '1 x 90-day late', 'min_value' => 1, 'numeric_value' => -30, 'sort_order' => 5],
-                ['factor_slug' => 'late_90_2_plus', 'label' => '2+ x 90-day lates', 'min_value' => 2, 'numeric_value' => -50, 'sort_order' => 6],
-                ['factor_slug' => 'late_120_1', 'label' => '1 x 120-day late', 'min_value' => 1, 'numeric_value' => -40, 'sort_order' => 7],
-                ['factor_slug' => 'late_120_2_plus', 'label' => '2+ x 120-day lates', 'min_value' => 2, 'numeric_value' => -60, 'sort_order' => 8],
-            ];
-            $latePaymentModifiers = [];
-            foreach ($defaultModifiers as $dm) {
-                $latePaymentModifiers[] = [
-                    'id' => null,
-                    'category' => ScoreConfiguration::CATEGORY_LATE_PAYMENT_MODIFIER,
-                    'factor_slug' => $dm['factor_slug'],
-                    'label' => $dm['label'],
-                    'min_value' => $dm['min_value'],
-                    'numeric_value' => $dm['numeric_value'],
-                    'sort_order' => $dm['sort_order'],
-                ];
-            }
-        } else {
+        $latePaymentModifiers = [];
+        if (!$dbModifiers->isEmpty()) {
             $latePaymentModifiers = $dbModifiers->map(function ($mod) {
                 return [
                     'id' => $mod->id,
@@ -227,6 +209,22 @@ class ScoreConfigurationService
             ];
         }
 
+        $timeSettings = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->where('model_slug', ScoreConfiguration::MODEL_GENERAL_SETTING)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function ($setting) {
+                $conditions = $setting->conditions;
+                return [
+                    'id' => $setting->id,
+                    'label' => $setting->label,
+                    'start' => isset($conditions['start']) ? (float) $conditions['start'] : ($setting->min_value !== null ? (float) $setting->min_value : null),
+                    'end' => isset($conditions['end']) ? (float) $conditions['end'] : ($setting->max_value !== null ? (float) $setting->max_value : null),
+                    'sort_order' => $setting->sort_order,
+                ];
+            })->values()->all();
+
         return [
             'models' => $models,
             'factors' => $factors,
@@ -234,6 +232,7 @@ class ScoreConfigurationService
             'late_payment_modifiers' => $latePaymentModifiers,
             'probability_factors' => $probFactors,
             'odds_factors' => $oddsFactors,
+            'time_settings' => $timeSettings,
         ];
     }
 
@@ -273,6 +272,10 @@ class ScoreConfigurationService
                     }
                 }
             }
+
+            if (isset($data['time_settings'])) {
+                $this->saveTimeSettings($data['time_settings']);
+            }
         });
     }
 
@@ -287,8 +290,31 @@ class ScoreConfigurationService
 
     private function saveFinancialCapacity(array $fundingReadiness): void
     {
-        if (isset($fundingReadiness['revenue_strength'])) {
-            $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', $fundingReadiness['revenue_strength']);
+        if (!isset($fundingReadiness['revenue_strength'])) {
+            return;
+        }
+
+        $rs = $fundingReadiness['revenue_strength'];
+
+        // Save weight and order_sort
+        if (isset($rs['weight'])) {
+            ScoreConfiguration::updateOrCreate(
+                [
+                    'category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT,
+                    'model_slug' => 'funding_readiness',
+                    'factor_slug' => 'revenue_strength',
+                ],
+                [
+                    'numeric_value' => $rs['weight'],
+                    'sort_order' => $rs['order_sort'] ?? 0,
+                ]
+            );
+        }
+
+        if (isset($rs['factors']) && is_array($rs['factors'])) {
+            $this->saveFactorWeightAndTiers('funding_readiness', 'revenue_strength', [
+                'factors' => $rs['factors'],
+            ]);
         }
     }
 
@@ -411,6 +437,30 @@ class ScoreConfigurationService
                     'min_value' => $mod['min_value'],
                     'numeric_value' => $mod['numeric_value'],
                     'sort_order' => $mod['sort_order'] ?? 0,
+                ]
+            );
+        }
+    }
+
+    private function saveTimeSettings(array $timeSettings): void
+    {
+        foreach ($timeSettings as $setting) {
+            $sortOrder = $setting['sort_order'] ?? 0;
+            ScoreConfiguration::updateOrCreate(
+                [
+                    'category' => ScoreConfiguration::CATEGORY_TIME,
+                    'model_slug' => ScoreConfiguration::MODEL_GENERAL_SETTING,
+                    'factor_slug' => ScoreConfiguration::FACTOR_TIME_SETTING,
+                    'sort_order' => $sortOrder,
+                ],
+                [
+                    'label' => $setting['label'] ?? null,
+                    'min_value' => isset($setting['start']) ? (float) $setting['start'] : null,
+                    'max_value' => isset($setting['end']) ? (float) $setting['end'] : null,
+                    'conditions' => [
+                        'start' => isset($setting['start']) ? (float) $setting['start'] : null,
+                        'end' => isset($setting['end']) ? (float) $setting['end'] : null,
+                    ],
                 ]
             );
         }

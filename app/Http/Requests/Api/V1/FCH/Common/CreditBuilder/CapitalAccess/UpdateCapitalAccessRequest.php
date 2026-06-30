@@ -51,8 +51,8 @@ class UpdateCapitalAccessRequest extends BaseApiRequest
             'credit_accounts.*.access_time' => 'nullable|string',
             'credit_accounts.*.access_day' => 'nullable|integer|min:1|max:60',
             'credit_accounts.*.access_day_time' => 'nullable|string',
-            'credit_accounts.*.minimum_fico_requirement' => 'nullable|integer|min:300|max:850',
-            'credit_accounts.*.maximum_utilization_threshold' => 'nullable|numeric|min:0|max:100',
+            'credit_accounts.*.minimum_fico_requirement' => 'nullable|integer',
+            'credit_accounts.*.maximum_utilization_threshold' => 'nullable|numeric',
             'credit_accounts.*.difficulty_modifier' => 'nullable|numeric',
         ];
     }
@@ -60,17 +60,17 @@ class UpdateCapitalAccessRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'name.required'                 => __('credit_builder.validation_capital_access_name_required'),
-            'name.max'                      => __('credit_builder.validation_capital_access_name_max'),
-            'credit_accounts.required'      => __('credit_builder.validation_capital_access_credit_accounts_required'),
-            'credit_accounts.array'         => __('credit_builder.validation_capital_access_credit_accounts_array'),
-            'credit_accounts.min'           => __('credit_builder.validation_capital_access_credit_accounts_min'),
-            'credit_accounts.*.id.exists'   => __('credit_builder.validation_capital_access_credit_accounts_id_exists'),
-            'target_exposure_min.required'  => __('credit_builder.validation_capital_access_target_exposure_min_required'),
-            'target_exposure_max.required'  => __('credit_builder.validation_capital_access_target_exposure_max_required'),
-            'target_exposure_max.gte'       => __('credit_builder.validation_capital_access_target_exposure_max_gte'),
-            'est_timeline_max.gte'          => __('credit_builder.validation_capital_access_est_timeline_max_gte'),
-            'what_you_will_get.required'    => __('credit_builder.validation_capital_access_what_you_will_get_required'),
+            'name.required' => __('credit_builder.validation_capital_access_name_required'),
+            'name.max' => __('credit_builder.validation_capital_access_name_max'),
+            'credit_accounts.required' => __('credit_builder.validation_capital_access_credit_accounts_required'),
+            'credit_accounts.array' => __('credit_builder.validation_capital_access_credit_accounts_array'),
+            'credit_accounts.min' => __('credit_builder.validation_capital_access_credit_accounts_min'),
+            'credit_accounts.*.id.exists' => __('credit_builder.validation_capital_access_credit_accounts_id_exists'),
+            'target_exposure_min.required' => __('credit_builder.validation_capital_access_target_exposure_min_required'),
+            'target_exposure_max.required' => __('credit_builder.validation_capital_access_target_exposure_max_required'),
+            'target_exposure_max.gte' => __('credit_builder.validation_capital_access_target_exposure_max_gte'),
+            'est_timeline_max.gte' => __('credit_builder.validation_capital_access_est_timeline_max_gte'),
+            'what_you_will_get.required' => __('credit_builder.validation_capital_access_what_you_will_get_required'),
             'pre_flight_checklist.required' => __('credit_builder.validation_capital_access_pre_flight_checklist_required'),
         ];
     }

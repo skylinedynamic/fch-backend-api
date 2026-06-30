@@ -60,6 +60,12 @@ class UpdateScoreConfigurationRequest extends BaseApiRequest
             'approval_odds.*.factors.*.sort_order' => 'nullable|integer|min:0',
             'approval_odds.*.factors.*.condition' => 'nullable|array',
             'approval_odds.*.factors.*.label' => 'nullable|string',
+
+            'time_settings' => 'nullable|array',
+            'time_settings.*.label' => 'nullable|string|max:255',
+            'time_settings.*.start' => 'nullable|numeric',
+            'time_settings.*.end' => 'nullable|numeric',
+            'time_settings.*.sort_order' => 'required|integer|min:1',
         ];
     }
 }

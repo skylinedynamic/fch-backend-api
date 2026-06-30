@@ -14,35 +14,9 @@ class ScoreConfigurationsSeeder extends Seeder
         $this->seedModelWeights();
         $this->seedSubscoreTiers();
         $this->seedReadinessBands();
-        $this->seedLatePaymentModifiers();
         $this->seedApprovalProbabilityTiers();
         $this->seedApprovalOddsTiers();
-    }
-
-    private function seedLatePaymentModifiers(): void
-    {
-        $rows = [
-            ['factor_slug' => 'late_30_1', 'label' => '1 x 30-day late', 'min_value' => 1, 'numeric_value' => -5, 'sort_order' => 1],
-            ['factor_slug' => 'late_30_2_plus', 'label' => '2+ x 30-day lates', 'min_value' => 2, 'numeric_value' => -10, 'sort_order' => 2],
-            ['factor_slug' => 'late_60_1', 'label' => '1 x 60-day late', 'min_value' => 1, 'numeric_value' => -15, 'sort_order' => 3],
-            ['factor_slug' => 'late_60_2_plus', 'label' => '2+ x 60-day lates', 'min_value' => 2, 'numeric_value' => -25, 'sort_order' => 4],
-            ['factor_slug' => 'late_90_1', 'label' => '1 x 90-day late', 'min_value' => 1, 'numeric_value' => -30, 'sort_order' => 5],
-            ['factor_slug' => 'late_90_2_plus', 'label' => '2+ x 90-day lates', 'min_value' => 2, 'numeric_value' => -50, 'sort_order' => 6],
-            ['factor_slug' => 'late_120_1', 'label' => '1 x 120-day late', 'min_value' => 1, 'numeric_value' => -40, 'sort_order' => 7],
-            ['factor_slug' => 'late_120_2_plus', 'label' => '2+ x 120-day lates', 'min_value' => 2, 'numeric_value' => -60, 'sort_order' => 8],
-        ];
-
-        foreach ($rows as $row) {
-            ScoreConfiguration::create([
-                'category' => ScoreConfiguration::CATEGORY_LATE_PAYMENT_MODIFIER,
-                'model_slug' => ScoreConfiguration::MODEL_APPROVAL_PROBABILITY,
-                'factor_slug' => $row['factor_slug'],
-                'label' => $row['label'],
-                'min_value' => $row['min_value'],
-                'numeric_value' => $row['numeric_value'],
-                'sort_order' => $row['sort_order'],
-            ]);
-        }
+        $this->seedTimeSettings();
     }
 
     private function seedModelWeights(): void
@@ -95,10 +69,42 @@ class ScoreConfigurationsSeeder extends Seeder
 
         // Financial Capacity
         $items->push(...$this->tiers('revenue_strength', [
-            ['label' => 'Strong', 'min' => 500000, 'subscore' => 100, 'order' => 1],
-            ['label' => 'Moderate', 'min' => 150000, 'max' => 499999, 'subscore' => 75, 'order' => 2],
-            ['label' => 'Limited', 'min' => 50000, 'max' => 149999, 'subscore' => 55, 'order' => 3],
-            ['label' => 'Weak', 'max' => 49999, 'subscore' => 25, 'order' => 4],
+            [
+                'label' => 'Strong',
+                'subscore' => 100,
+                'order' => 1,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '>=', 'value' => 500000]],
+                    ['personal_income' => ['operator' => '>=', 'value' => 150000]],
+                ]
+            ],
+            [
+                'label' => 'Moderate',
+                'subscore' => 75,
+                'order' => 2,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '>=', 'value' => 150000]],
+                    ['personal_income' => ['operator' => '>=', 'value' => 50000]],
+                ]
+            ],
+            [
+                'label' => 'Limited',
+                'subscore' => 55,
+                'order' => 3,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '>=', 'value' => 50000]],
+                    ['personal_income' => ['operator' => '>=', 'value' => 25000]],
+                ]
+            ],
+            [
+                'label' => 'Weak',
+                'subscore' => 25,
+                'order' => 4,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '<', 'value' => 50000]],
+                    ['personal_income' => ['operator' => '<', 'value' => 25000]],
+                ]
+            ],
         ]));
 
         // Bureau Depth
@@ -353,6 +359,31 @@ class ScoreConfigurationsSeeder extends Seeder
 
         foreach ($items as $item) {
             ScoreConfiguration::create($item);
+        }
+    }
+
+    private function seedTimeSettings(): void
+    {
+        $rows = [
+            ['label' => 'Morning', 'start' => 6.0, 'end' => 12.0, 'order' => 1],
+            ['label' => 'Mid Day', 'start' => 12.0, 'end' => 17.0, 'order' => 2],
+            ['label' => 'Evening', 'start' => 17.0, 'end' => 22.0, 'order' => 3],
+        ];
+
+        foreach ($rows as $row) {
+            ScoreConfiguration::create([
+                'category' => ScoreConfiguration::CATEGORY_TIME,
+                'model_slug' => ScoreConfiguration::MODEL_GENERAL_SETTING,
+                'factor_slug' => ScoreConfiguration::FACTOR_TIME_SETTING,
+                'label' => $row['label'],
+                'min_value' => $row['start'],
+                'max_value' => $row['end'],
+                'conditions' => [
+                    'start' => $row['start'],
+                    'end' => $row['end'],
+                ],
+                'sort_order' => $row['order'],
+            ]);
         }
     }
 }

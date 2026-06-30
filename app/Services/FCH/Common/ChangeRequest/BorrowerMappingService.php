@@ -54,6 +54,7 @@ class BorrowerMappingService
             'years_in_business' => ['db_column' => 'years_in_business', 'visible_column' => 'Years in Business', 'type' => 'string',  'model' => $borrowerModel],
             'monthly_revenue'   => ['db_column' => 'monthly_revenue',   'visible_column' => 'Monthly Revenue',   'type' => 'decimal', 'model' => $borrowerModel],
             'annual_revenue'    => ['db_column' => 'annual_revenue',    'visible_column' => 'Annual Revenue',    'type' => 'decimal', 'model' => $borrowerModel],
+            'annual_personal_income' => ['db_column' => 'annual_personal_income', 'visible_column' => 'Annual Personal Income', 'type' => 'decimal', 'model' => $borrowerModel],
 
             // Bank Accounts (child table — entity_id identifies the row)
             'bank_name'         => ['db_column' => 'bank_name',         'visible_column' => 'Bank Name',         'type' => 'string',  'model' => $bankAccountModel, 'table' => 'borrower_bank_accounts'],
