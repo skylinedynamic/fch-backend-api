@@ -29,6 +29,15 @@ class FundingRequestService
         $user = Auth::user();
         $borrower = $user->borrower;
 
+        $existingPending = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->where('status', FundingRequest::STATUS_PENDING)
+            ->first();
+
+        if ($existingPending) {
+            throw new Exception("Already applied. Please wait for approval or rejection.");
+        }
+
         $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
         $lenderIds = [];
         if ($fundingOption) {
