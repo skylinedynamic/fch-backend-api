@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Borrower\CapitalAccess;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\CreditBuilder\CapitalAccessApplication;
 use Illuminate\Http\JsonResponse;
 use App\Models\CreditBuilder\CapitalAccess;
 use App\Services\Borrower\CapitalAccess\BorrowerContext;
@@ -41,20 +42,34 @@ class CapitalAccessOverviewController extends Controller
             $modifiers = $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
             $probabilityService = app(ApprovalProbabilityService::class);
 
+            $bestProb = -1;
+            $recommendedStrat = null;
+
             foreach ($strategies as $strat) {
                 $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
                 if (isset($probData['status']) && $probData['status'] === true) {
-                    $maxVal = (float) ($strat->target_exposure_max ?? 0);
-                    $totalExposureMax += $maxVal;
+                    // All eligible strategies populate the chart
                     $exposureBreakdown[] = [
                         'name' => $strat->name,
-                        'max_exposure' => $maxVal,
+                        'max_exposure' => (float) ($strat->target_exposure_max ?? 0),
                     ];
+
+                    // Track the highest-probability strategy as recommended
+                    $prob = $probData['probability'] ?? 0;
+                    if ($prob > $bestProb) {
+                        $bestProb = $prob;
+                        $recommendedStrat = $strat;
+                    }
                 }
+            }
+
+            // Estimated Total Access = recommended strategy only
+            if ($recommendedStrat) {
+                $totalExposureMax = (float) ($recommendedStrat->target_exposure_max ?? 0);
             }
         }
 
-        $latestApp = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+        $latestApp = CapitalAccessApplication::where('borrower_id', $borrower->id)
             ->orderBy('updated_at', 'desc')
             ->first();
 

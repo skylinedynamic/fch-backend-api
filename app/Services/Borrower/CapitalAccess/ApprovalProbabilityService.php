@@ -32,8 +32,8 @@ class ApprovalProbabilityService
     ): array {
         Log::info("ApprovalProbabilityService::calculate - Starting calculation", [
             'borrower_id' => $borrower->id,
-            'play_id'     => $play->id,
-            'play_name'   => $play->name ?? '',
+            'play_id' => $play->id,
+            'play_name' => $play->name ?? '',
         ]);
 
         // Build context on-the-fly if not supplied (standalone / backward-compat)
@@ -43,9 +43,9 @@ class ApprovalProbabilityService
 
         // Load tiers / modifiers if not supplied
         if ($probTiers === null || $modifiers === null) {
-            $cache       = app(ScoreConfigurationCache::class);
-            $probTiers   = $probTiers   ?? $cache->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
-            $modifiers   = $modifiers   ?? $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $cache = app(ScoreConfigurationCache::class);
+            $probTiers = $probTiers ?? $cache->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
+            $modifiers = $modifiers ?? $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
         }
 
         // 1. Lock-status check (uses pre-computed context values)
@@ -58,13 +58,13 @@ class ApprovalProbabilityService
         $probability = $ctx->readinessScore + ($play->difficulty_modifier ?? 0);
 
         Log::info("ApprovalProbabilityService::calculate - Base probability", [
-            'readiness_score'     => $ctx->readinessScore,
+            'readiness_score' => $ctx->readinessScore,
             'difficulty_modifier' => $play->difficulty_modifier,
-            'base_probability'    => $probability,
+            'base_probability' => $probability,
         ]);
 
         // 3. FICO above play minimum
-        $fico_diff  = max(0, $ctx->ficoScore - ((int) ($play->minimum_fico_requirement ?? 0)));
+        $fico_diff = max(0, $ctx->ficoScore - ((int) ($play->minimum_fico_requirement ?? 0)));
         $ficoPoints = $this->matchTier($probTiers->get('fico_above_minimum') ?? collect(), $fico_diff);
 
         // 4. Utilization
@@ -75,38 +75,38 @@ class ApprovalProbabilityService
 
         // 6. Banking relationship (label-based)
         $bankProbLabel = $this->mapBankingLabel($ctx->bankingLabel);
-        $bankPoints    = (int) (($probTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
+        $bankPoints = (int) (($probTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
 
         // 7. Tradeline depth (label-based)
         $tradeProbLabel = $this->mapTradelineLabel($ctx->tradeLabel);
-        $tradePoints    = (int) (($probTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
+        $tradePoints = (int) (($probTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
 
         // 8. Revenue / Income (label-based)
         $revProbLabel = $this->mapRevenueLabel($ctx->revenueLabel);
-        $revPoints    = (int) (($probTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
+        $revPoints = (int) (($probTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
 
         $probability += $ficoPoints + $utilPoints + $inquiryPoints + $bankPoints + $tradePoints + $revPoints;
 
         Log::info("ApprovalProbabilityService::calculate - Subscore points", [
-            'fico_points'    => $ficoPoints,
-            'util_points'    => $utilPoints,
+            'fico_points' => $ficoPoints,
+            'util_points' => $utilPoints,
             'inquiry_points' => $inquiryPoints,
-            'bank_points'    => $bankPoints,
-            'trade_points'   => $tradePoints,
-            'rev_points'     => $revPoints,
-            'intermediate'   => $probability,
+            'bank_points' => $bankPoints,
+            'trade_points' => $tradePoints,
+            'rev_points' => $revPoints,
+            'intermediate' => $probability,
         ]);
 
         $finalProbability = max(0, min(99, (int) round($probability)));
 
         Log::info("ApprovalProbabilityService::calculate - Final probability", [
-            'raw_probability'   => $probability,
+            'raw_probability' => $probability,
             'final_probability' => $finalProbability,
         ]);
 
         return [
             'probability' => $finalProbability,
-            'status'      => true,
+            'status' => true,
             'reason_code' => null,
         ];
     }
@@ -135,12 +135,13 @@ class ApprovalProbabilityService
         }
 
         // Recent delinquencies
-        $lookbackMonths  = $play->late_payment_lookback_months !== null ? (int) $play->late_payment_lookback_months : 12;
-        [$r30, $r60, $r90, $r120] = BorrowerContext::extractRecentDelinquencies($borrower, $lookbackMonths);
-        if ($r30 > 0 || $r60 > 0 || $r90 > 0 || $r120 > 0) {
-            return $this->disqualify('RECENT_LATE_PAYMENTS');
+        if (!$play->allow_recent_late_payment) {
+            $lookbackMonths = $play->late_payment_lookback_months !== null ? (int) $play->late_payment_lookback_months : 12;
+            [$r30, $r60, $r90, $r120] = BorrowerContext::extractRecentDelinquencies($borrower, $lookbackMonths);
+            if ($r30 > 0 || $r60 > 0 || $r90 > 0 || $r120 > 0) {
+                return $this->disqualify('RECENT_LATE_PAYMENTS');
+            }
         }
-
         return null;
     }
 
@@ -164,10 +165,10 @@ class ApprovalProbabilityService
     private function mapBankingLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_BANKING_STRONG   => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
+            ScoreConfiguration::STATUS_BANKING_STRONG => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
             ScoreConfiguration::STATUS_BANKING_MODERATE => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE,
-            ScoreConfiguration::STATUS_BANKING_LIMITED  => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
+            ScoreConfiguration::STATUS_BANKING_LIMITED => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
         };
     }
 
@@ -175,19 +176,19 @@ class ApprovalProbabilityService
     {
         return match ($label) {
             ScoreConfiguration::STATUS_TRADE_MULTIPLE_HIGH => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH,
-            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH    => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
-            ScoreConfiguration::STATUS_TRADE_MODERATE      => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
-            default                                        => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
+            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
+            ScoreConfiguration::STATUS_TRADE_MODERATE => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
+            default => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
         };
     }
 
     private function mapRevenueLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_REVENUE_STRONG   => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
+            ScoreConfiguration::STATUS_REVENUE_STRONG => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
             ScoreConfiguration::STATUS_REVENUE_MODERATE => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE,
-            ScoreConfiguration::STATUS_REVENUE_LIMITED  => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
+            ScoreConfiguration::STATUS_REVENUE_LIMITED => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
         };
     }
 
