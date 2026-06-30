@@ -18,6 +18,8 @@ return [
         'lead_details_update' => 'Lead Details Updated',
         'lead_contact_update' => 'Lead Contact Info Updated',
         'email_update' => ':model Email Address Updated',
+        'borrower_free_trial' => 'Client Free Trial Started',
+        'partner_free_trial' => 'Partner Free Trial Started',
         'default' => ':model :action',
     ],
 
@@ -31,6 +33,8 @@ return [
         'appointment' => 'Appointment (:subject) :action for :entity_name on :time.',
         'payment' => ':model of :amount :currency :action successfully.',
         'invoice' => ':model (:invoice_id) :action for :display_name',
+        'borrower_free_trial' => 'Client profile free trial started for :display_name.',
+        'partner_free_trial' => 'Partner profile free trial started for :display_name.',
         'default' => ':model profile :action for :display_name',
     ],
 

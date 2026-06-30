@@ -322,6 +322,14 @@ class ActivityLogService
             $action = 'Paid';
             $descriptionAction = 'payment successful';
             $customSubject = $customSubject ?? ($logType === ActivityLog::LOG_TYPE_PARTNER_PAYMENT ? 'Partner Subscription Payment Successful' : 'Client Subscription Payment Successful');
+        } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL) {
+            $action = 'Free Trial';
+            $descriptionAction = 'free trial started';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.borrower_free_trial', 'Client Free Trial Started');
+        } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL) {
+            $action = 'Free Trial';
+            $descriptionAction = 'free trial started';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.partner_free_trial', 'Partner Free Trial Started');
         } else {
             $action = $actionMap[$actionRaw] ?? trim(ucwords($actionRaw));
             $descriptionAction = strtolower($action);
@@ -360,6 +368,12 @@ class ActivityLogService
             );
         } elseif ($logType === ActivityLog::LOG_TYPE_TASK_VERIFICATION) {
             $description = $customDescription ?? __('verification_center.tasks_processed_desc');
+        } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL) {
+            $descPattern = config('activity_messages.descriptions.borrower_free_trial', 'Client profile free trial started for :display_name.');
+            $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
+        } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL) {
+            $descPattern = config('activity_messages.descriptions.partner_free_trial', 'Partner profile free trial started for :display_name.');
+            $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } elseif ($model instanceof Employee) {
             $descPattern = config('activity_messages.descriptions.employee_default', 'Employee profile :action for :display_name.');
             $description = $customDescription ?? str_replace(
@@ -447,7 +461,7 @@ class ActivityLogService
 
         $emailData = [
             'subject' => $data['subject'] ?? 'New Email from Activity Log',
-            'body'    => $data['description'] ?? '',
+            'body' => $data['description'] ?? '',
         ];
 
         foreach ($recipients as $recipient) {
@@ -460,8 +474,8 @@ class ActivityLogService
             } catch (\Throwable $e) {
                 Log::error('ActivityLog: Failed to send email to recipient', [
                     'recipient' => $recipient,
-                    'subject'   => $emailData['subject'],
-                    'error'     => $e->getMessage(),
+                    'subject' => $emailData['subject'],
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

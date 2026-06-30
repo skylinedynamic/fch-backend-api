@@ -156,4 +156,5 @@ return [
 
 
     'borrower_not_found' => 'Borrower not found.',
+    'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>. No invoice or subscription was created.',
 ];

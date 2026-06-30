@@ -201,22 +201,33 @@ class PartnerService
             $this->createPartnerRoles($partner->id, $user);
 
             if (isset($data['is_free_trail']) && $data['is_free_trail']) {
+                $hostPartner = Partner::where('is_host', 1)->first();
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'trial_end_date' => $data['free_trail_end_date'] ?? null,
                     'business_info' => [
-                        'company_name' => config('app.name'),
-                        'email' => config('mail.from.address'),
-                        'phone_number' => config('app.phone_number', ''),
-                        'address_line_1' => config('app.address', ''),
-                        'company_logo' => 'logo.png',
+                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'email' => $hostPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $hostPartner->phone_number ?? config('app.phone_number', ''),
+                        'address_line_1' => $hostPartner->address_line_1 ?? config('app.address', ''),
+                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
                     ],
                 ];
 
                 $authUser = Auth::user();
-                $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
+                $senderPartnerId = $authUser ? $authUser->partner_id : ($hostPartner ? $hostPartner->id : null);
                 $this->sendTrialWelcomeEmail($mailData, $senderPartnerId);
+
+                // Activity log — free trial details
+                $trialEndDate = $data['free_trail_end_date'] ?? null;
+                $this->activityLogService->logModelEvent(
+                    $partner,
+                    ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL,
+                    [],
+                    null,
+                    __('partner.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
+                );
             } else {
                 $partnerType = $data['partner_type'] ?? null;
                 $enrollmentType = $data['enrollment_type'] ?? null;

@@ -64,7 +64,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
+            ->with(['user:id,entity_type,entity_id,is_free_trail', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
@@ -303,7 +303,7 @@ class BorrowerService
             $plainPassword = $userDataResult['plain_password'];
 
             if ($user && $plainPassword) {
-                $hostPartner = Partner::where('is_host', 1)->first();
+                $clientPartner = Partner::where('id', $data['partner_id'])->first();
                 $authUser = Auth::user();
                 $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
 
@@ -311,11 +311,11 @@ class BorrowerService
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'business_info' => [
-                        'company_name' => $hostPartner->company_name ?? 'Four Corner Funding',
-                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
-                        'email' => $hostPartner->email ?? config('mail.from.address'),
-                        'phone_number' => $hostPartner->phone_number ?? '',
-                        'address_line_1' => $hostPartner->address_line_1 ?? '',
+                        'company_name' => $clientPartner->company_name ?? 'Four Corner Funding',
+                        'company_logo' => $clientPartner->company_logo ?? 'logo.png',
+                        'email' => $clientPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $clientPartner->phone_number ?? '',
+                        'address_line_1' => $clientPartner->address_line_1 ?? '',
                     ]
                 ];
 
@@ -335,7 +335,7 @@ class BorrowerService
                         ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL,
                         [],
                         null,
-                        'Borrower account created on a Free Trial plan. Trial end date: ' . ($trialEndDate ?? 'N/A') . '. No invoice or subscription was created.'
+                        __('borrower.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                     );
 
                     // Send free-trial welcome email (no payment details)
