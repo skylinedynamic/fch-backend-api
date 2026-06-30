@@ -111,6 +111,7 @@ class ActivityLog extends Activity
     const LOG_TYPE_CHECKLIST_UPDATE = 'checklist_update';
     const LOG_TYPE_TASK_VERIFICATION = 'task_verification';
     const LOG_TYPE_BORROWER_FREE_TRIAL = 'borrower_free_trial';
+    const LOG_TYPE_PARTNER_FREE_TRIAL = 'partner_free_trial';
 
     const STATUS_SENT = 'sent';
     const STATUS_PENDING = 'pending';

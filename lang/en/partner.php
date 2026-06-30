@@ -169,4 +169,5 @@ return [
     'subscription_not_found' => 'Subscription not found.',
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
 
+    'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>. No invoice or subscription was created.',
 ];
