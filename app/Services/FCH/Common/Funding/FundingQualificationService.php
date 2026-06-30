@@ -23,6 +23,45 @@ class FundingQualificationService
     {
         $funding = FundingSequencing::findOrFail($fundingId);
 
+        if (!$funding->relationLoaded('lenderVisibilities')) {
+            $funding->load('lenderVisibilities');
+        }
+
+        $allLenders = $funding->lenderVisibilities;
+
+        if ($allLenders->isEmpty()) {
+            return $this->evaluateFactorsForFunding($borrower, $funding);
+        }
+
+        $bestFactors = null;
+        $fewestMissing = PHP_INT_MAX;
+
+        foreach ($allLenders as $lender) {
+            // Evaluate strictly against this single lender/category profile
+            $funding->setRelation('lenderVisibilities', collect([$lender]));
+            
+            $factors = $this->evaluateFactorsForFunding($borrower, $funding);
+            $missingCount = collect($factors)->where('status', $this->status('missing'))->count();
+            
+            if ($missingCount < $fewestMissing) {
+                $fewestMissing = $missingCount;
+                $bestFactors = $factors;
+            }
+            
+            // If they completely pass this lender, we can stop evaluating and return it
+            if ($missingCount === 0) {
+                break;
+            }
+        }
+
+        // Restore original relation
+        $funding->setRelation('lenderVisibilities', $allLenders);
+
+        return $bestFactors ?? $this->evaluateFactorsForFunding($borrower, $funding);
+    }
+
+    private function evaluateFactorsForFunding(Borrower $borrower, FundingSequencing $funding): array
+    {
         return collect($funding->readiness_factors ?? [])
             ->map(fn($factor) => $this->extractLabel($factor))
             ->filter()
@@ -184,9 +223,9 @@ class FundingQualificationService
             }
         }
 
-        if ($passCount < $totalLenders) {
+        if ($passCount === 0) {
             $rule['status'] = $this->status('missing');
-        } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+        } elseif ($strongPassCount > 0) {
             $rule['status'] = $this->status('strong');
         } else {
             $rule['status'] = $this->status('good');
