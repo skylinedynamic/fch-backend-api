@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CapitalAccessStrategyController;
+use App\Http\Controllers\Api\V1\Borrower\ActivityLog\BorrowerActivityLogController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -200,6 +201,15 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::get('/', [ResourceController::class, 'index']);
                 Route::get('/{id}', [ResourceController::class, 'show']);
                 Route::get('/{id}/download', [ResourceController::class, 'download']);
+            });
+
+            // Activity Log routes
+            Route::prefix('activity-logs')->group(function () {
+                Route::post('fetch-all-activities', [BorrowerActivityLogController::class, 'index']);
+                Route::post('attachments/download', [BorrowerActivityLogController::class, 'downloadAttachment']);
+                Route::get('/', [BorrowerActivityLogController::class, 'index']);
+                Route::get('/{id}', [BorrowerActivityLogController::class, 'show']);
+                Route::post('/', [BorrowerActivityLogController::class, 'store']);
             });
         }
     );

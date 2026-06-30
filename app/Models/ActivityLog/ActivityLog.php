@@ -110,6 +110,8 @@ class ActivityLog extends Activity
     const LOG_TYPE_DOCUMENT_UPLOAD = 'document_upload';
     const LOG_TYPE_CHECKLIST_UPDATE = 'checklist_update';
     const LOG_TYPE_TASK_VERIFICATION = 'task_verification';
+    const LOG_TYPE_FUNDING_REQUEST_CREATE = 'funding_request_create';
+    const LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE = 'funding_request_status_update';
 
     const STATUS_SENT = 'sent';
     const STATUS_PENDING = 'pending';

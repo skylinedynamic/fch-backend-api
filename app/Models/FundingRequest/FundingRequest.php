@@ -16,7 +16,9 @@ class FundingRequest extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_PENDING = 'Pending';
+    const STATUS_IN_PROGRESS = 'In Progress';
     const STATUS_APPROVED = 'Approved';
+    const STATUS_ACCEPTED = 'Accepted';
     const STATUS_REJECTED = 'Rejected';
 
     protected $fillable = [

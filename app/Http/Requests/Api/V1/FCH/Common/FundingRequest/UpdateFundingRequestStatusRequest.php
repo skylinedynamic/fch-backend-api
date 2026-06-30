@@ -15,7 +15,7 @@ class UpdateFundingRequestStatusRequest extends BaseApiRequest
     {
         return [
             'id' => ['required', 'integer', 'exists:funding_requests,id'],
-            'status' => ['required', 'string', 'in:Pending,Approved,Rejected'],
+            'status' => ['required', 'string', 'in:Pending,In Progress,Approved,Accepted,Rejected'],
             'reject_reason' => ['nullable', 'string', 'required_if:status,Rejected'],
         ];
     }

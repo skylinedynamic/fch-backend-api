@@ -10,6 +10,8 @@ use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class FundingRequestService
 {
@@ -113,6 +115,17 @@ class FundingRequestService
                     ->send(new UnderwritingStatusUpdated($review));
             }
         }
+
+        app(ActivityLogService::class)->logSystemEvent(
+            FundingRequest::class,
+            $review->id,
+            $review->partner_id,
+            $review->borrower_id,
+            'Funding Request Status Updated',
+            "Status updated to: " . ucfirst(strtolower($data['status'])),
+            ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE,
+            ['status' => $data['status'], 'reject_reason' => $data['reject_reason'] ?? null]
+        );
 
         return ApiResponse::success($review, __('funding_request.status_updated_successfully'));
     }

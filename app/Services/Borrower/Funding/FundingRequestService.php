@@ -13,6 +13,8 @@ use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Models\ActivityLog\ActivityLog;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class FundingRequestService
 {
@@ -94,6 +96,18 @@ class FundingRequestService
                     ]);
                 }
             }
+        }
+
+        if ($fundingRequest->wasRecentlyCreated) {
+            app(ActivityLogService::class)->logSystemEvent(
+                FundingRequest::class,
+                $fundingRequest->id,
+                $fundingRequest->partner_id,
+                $fundingRequest->borrower_id,
+                'Funding Request Submitted',
+                'Borrower submitted a new funding request for ' . ($fundingOption ? $fundingOption->name : 'funding sequence'),
+                ActivityLog::LOG_TYPE_FUNDING_REQUEST_CREATE
+            );
         }
 
         $fundingRequest->loadMissing(['borrower', 'fundingSequence', 'reviewer']);
