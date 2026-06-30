@@ -5,7 +5,7 @@ namespace App\Services\FCH\Common\Application;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
-use App\Models\FundingReview\FundingReview;
+use App\Models\FundingRequest\FundingRequest;
 use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;

@@ -4,30 +4,30 @@ namespace App\Http\Controllers\Api\V1\Borrower\Funding;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
-use App\Http\Requests\Api\V1\Borrower\Funding\StoreFundingReviewRequest;
-use App\Http\Requests\Api\V1\Borrower\Funding\FetchFundingReviewRequest;
-use App\Services\Borrower\Funding\FundingReviewService;
+use App\Http\Requests\Api\V1\Borrower\Funding\StoreFundingRequestRequest;
+use App\Http\Requests\Api\V1\Borrower\Funding\FetchFundingRequestRequest;
+use App\Services\Borrower\Funding\FundingRequestService;
 use Exception;
 
-class FundingReviewController extends Controller
+class FundingRequestController extends Controller
 {
-    protected FundingReviewService $fundingReviewService;
+    protected FundingRequestService $fundingRequestService;
 
-    public function __construct(FundingReviewService $fundingReviewService)
+    public function __construct(FundingRequestService $fundingRequestService)
     {
-        $this->fundingReviewService = $fundingReviewService;
+        $this->fundingRequestService = $fundingRequestService;
     }
 
     /**
-     * Get a list of funding reviews.
+     * Get a list of funding requests.
      *
-     * @param FetchFundingReviewRequest $request
+     * @param FetchFundingRequestRequest $request
      * @return JsonResponse
      */
-    public function index(FetchFundingReviewRequest $request): JsonResponse
+    public function index(FetchFundingRequestRequest $request): JsonResponse
     {
         try {
-            return $this->fundingReviewService->index($request->validated());
+            return $this->fundingRequestService->index($request->validated());
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -37,7 +37,7 @@ class FundingReviewController extends Controller
     }
 
     /**
-     * Get a specific funding review.
+     * Get a specific funding request.
      *
      * @param int $id
      * @return JsonResponse
@@ -45,7 +45,7 @@ class FundingReviewController extends Controller
     public function show($id): JsonResponse
     {
         try {
-            return $this->fundingReviewService->show($id);
+            return $this->fundingRequestService->show($id);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -57,17 +57,17 @@ class FundingReviewController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param StoreFundingReviewRequest $request
+     * @param StoreFundingRequestRequest $request
      * @return JsonResponse
      */
-    public function store(StoreFundingReviewRequest $request): JsonResponse
+    public function store(StoreFundingRequestRequest $request): JsonResponse
     {
         try {
-            $data = $this->fundingReviewService->store($request->validated());
+            $data = $this->fundingRequestService->store($request->validated());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Funding review submitted successfully.',
+                'message' => 'funding request submitted successfully.',
                 'data' => $data
             ], 201);
         } catch (Exception $e) {

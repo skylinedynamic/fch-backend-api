@@ -50,6 +50,13 @@ trait MailConfig
         if ($config && !empty($config->enable_custom_configuration)) {
             $driver = ($config->email_provider ?? 'smtp') === 'aws_ses' ? 'ses' : 'smtp';
 
+            \Illuminate\Support\Facades\Log::info("MailConfig: Using CUSTOM email configuration for Partner ID: {$partnerId}", [
+                'driver' => $driver,
+                'host' => $driver == 'smtp' ? ($config->smtp_host ?? null) : null,
+                'from_address' => $config->from_address ?? null,
+                'from_name' => $siteName,
+            ]);
+
             Config::set('mail.default', $driver);
 
             if ($driver == 'smtp') {
@@ -77,6 +84,8 @@ trait MailConfig
 
             // Re-resolve the mailer instance with the new configuration
             $mailer = app('mail.manager')->mailer($driver);
+        } else {
+            \Illuminate\Support\Facades\Log::info("MailConfig: Using DEFAULT .env email configuration for Partner ID: {$partnerId}");
         }
 
         try {

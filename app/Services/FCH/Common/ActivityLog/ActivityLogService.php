@@ -5,14 +5,15 @@ namespace App\Services\FCH\Common\ActivityLog;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Models\ActivityLog\ActivityLog;
+use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
-use App\Models\User\User;
-use App\Models\Employee\Employee;
-use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
-use App\Models\Appointment\Appointment;
+use App\Models\User\User;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,13 @@ class ActivityLogService
             });
         }
 
+        if (!empty($filters['funding_request_id'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('subject_type', FundingRequest::class)
+                    ->where('subject_id', $filters['funding_request_id']);
+            });
+        }
+
         $limit = $filters['limit'] ?? 15;
         $page = $filters['page'] ?? 1;
 
@@ -135,6 +143,9 @@ class ActivityLogService
             } elseif (!empty($data['partner_id'])) {
                 $subjectType = \App\Models\Partner\Partner::class;
                 $subjectId = $data['partner_id'];
+            } elseif (!empty($data['funding_request_id'])) {
+                $subjectType = \App\Models\FundingRequest\FundingRequest::class;
+                $subjectId = $data['funding_request_id'];
             }
 
             // Sync targets

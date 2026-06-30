@@ -18,7 +18,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterContr
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
-use App\Http\Controllers\Api\V1\FCH\Common\FundingReview\FundingReviewController;
+use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
@@ -162,11 +162,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
 
-            // Funding Review
-            Route::prefix('funding-review')->group(function () {
-                Route::post('', [FundingReviewController::class, 'getFundingReview']);
-                Route::get('{id}', [FundingReviewController::class, 'getFundingReviewById']);
-                Route::post('status-update', [FundingReviewController::class, 'fundingReviewStatusUpdate']);
+            // Funding Request
+            Route::prefix('funding-request')->group(function () {
+                Route::post('', [FundingRequestController::class, 'getFundingRequest']);
+                Route::get('{id}', [FundingRequestController::class, 'getFundingRequestById']);
+                Route::post('status-update', [FundingRequestController::class, 'fundingRequestStatusUpdate']);
             });
 
             // Funding Qualification endpoints

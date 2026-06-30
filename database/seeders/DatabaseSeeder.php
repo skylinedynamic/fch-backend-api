@@ -6,8 +6,6 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Database\Seeders\SiteSettingSeeder;
-
 class DatabaseSeeder extends Seeder
 {
     /**
@@ -94,6 +92,7 @@ class DatabaseSeeder extends Seeder
             CmsPermissionUpdateSeeder::class,
             UpdateSettingsPermissionSeeder::class,
             PaymentMethodSeeder::class,
+            LenderProductCategorySeeder::class,
             LenderSeeder::class,
             FundingSequencingSeeder::class,
             LenderFundingPermissionSeeder::class,

@@ -6,6 +6,7 @@ use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,6 +20,7 @@ class LenderVisibility extends Model
 
     protected $fillable = [
         'lender_id',
+        'lender_product_category_id',
         'funding_sequencing_id',
         'min_fico',
         'min_tib_months',
@@ -48,9 +50,48 @@ class LenderVisibility extends Model
         return $this->belongsTo(Lender::class);
     }
 
+    public function productCategory()
+    {
+        return $this->belongsTo(LenderProductCategory::class, 'lender_product_category_id');
+    }
+
     public function fundingSequencing()
     {
         return $this->belongsTo(FundingSequencing::class);
+    }
+
+    public function scopeSearch($query, $term)
+    {
+        if (empty($term)) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($term) {
+            $q->whereHas('lender', function ($lq) use ($term) {
+                $lq->where('name', 'like', '%' . $term . '%');
+            })
+            ->orWhereHas('productCategory', function ($pq) use ($term) {
+                $pq->where('name', 'like', '%' . $term . '%');
+            });
+
+            if (strtolower(trim($term)) === 'general') {
+                $q->orWhereNull('lender_product_category_id');
+            }
+
+            $q->orWhere('min_fico', 'like', '%' . $term . '%')
+            ->orWhere('min_tib_months', 'like', '%' . $term . '%')
+            ->orWhere('min_monthly_revenue', 'like', '%' . $term . '%')
+            ->orWhere('min_monthly_deposits', 'like', '%' . $term . '%')
+            ->orWhere('min_deposit_count', 'like', '%' . $term . '%')
+            ->orWhere('min_average_daily_balance', 'like', '%' . $term . '%')
+            ->orWhere('max_nsf_count', 'like', '%' . $term . '%')
+            ->orWhere('max_negative_days', 'like', '%' . $term . '%')
+            ->orWhere('min_dscr', 'like', '%' . $term . '%')
+            ->orWhere('allowed_states', 'like', '%' . $term . '%')
+            ->orWhere('restricted_states', 'like', '%' . $term . '%')
+            ->orWhere('allowed_industries', 'like', '%' . $term . '%')
+            ->orWhere('restricted_industries', 'like', '%' . $term . '%');
+        });
     }
 
     public function getEngineStatusForBorrower($borrower)

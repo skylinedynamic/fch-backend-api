@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderStepGuideCon
 use App\Http\Controllers\Api\V1\Borrower\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\Borrower\Document\DocumentController;
 use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
+use App\Http\Controllers\Api\V1\Borrower\Funding\FundingRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
@@ -27,12 +29,11 @@ use App\Http\Controllers\Api\V1\Borrower\Profile\CreditProfileRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\BorrowerCreditProfileController;
 use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessStrategyController;
 use App\Http\Controllers\Api\V1\Borrower\CapitalAccess\CapitalAccessOverviewController;
-use App\Http\Controllers\Api\V1\Borrower\FundApplication\FundingApplicationDocumentController;
 use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationController;
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
+use App\Http\Controllers\Api\V1\Borrower\ActivityLog\BorrowerActivityLogController;
 use App\Http\Controllers\Api\V1\Borrower\Funding\FundingReviewController;
-use App\Http\Controllers\Api\V1\Borrower\Funding\FundingController;
 
 
 /* |-------------------------------------------------------------------------- | Borrower API Routes |-------------------------------------------------------------------------- | | Here is where you can register borrower API routes for your application. | These routes are loaded by the RouteServiceProvider and all of them will | be assigned to the "api" middleware group. Make something great! | */
@@ -217,6 +218,15 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::get('/', [ResourceController::class, 'index']);
                 Route::get('/{id}', [ResourceController::class, 'show']);
                 Route::get('/{id}/download', [ResourceController::class, 'download']);
+            });
+
+            // Activity Log routes
+            Route::prefix('activity-logs')->group(function () {
+                Route::post('fetch-all-activities', [BorrowerActivityLogController::class, 'index']);
+                Route::post('attachments/download', [BorrowerActivityLogController::class, 'downloadAttachment']);
+                Route::get('/', [BorrowerActivityLogController::class, 'index']);
+                Route::get('/{id}', [BorrowerActivityLogController::class, 'show']);
+                Route::post('/', [BorrowerActivityLogController::class, 'store']);
             });
         }
     );
