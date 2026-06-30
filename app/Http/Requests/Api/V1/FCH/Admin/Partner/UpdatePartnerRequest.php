@@ -89,7 +89,16 @@ class UpdatePartnerRequest extends BaseApiRequest
                     }
                 },
             ],
+            'is_free_trail' => ['nullable', 'boolean'],
         ];
+
+        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
+            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+        } else {
+            $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -115,6 +124,8 @@ class UpdatePartnerRequest extends BaseApiRequest
             'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
             'partner_domain.unique' => __('partner.validation.partner_domain.unique'),
             'partner_domain.not_in' => __('partner.validation.partner_domain.unique'),
+            'free_trail_end_date.required_if' => 'Trial end date is required when free trial is enabled.',
+            'free_trail_end_date.after_or_equal' => 'Trial end date must be today or a future date.',
         ];
     }
 }

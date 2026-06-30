@@ -58,7 +58,7 @@
             @if ($invoice->status === 'Paid')
                 <p style="line-height: 1.5; margin-bottom: 24px;">You can securely access and view your paid invoice in the
                     Invoices section.</p>
-                <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn"
+                <a href="{{ concatUrl($invoice->is_partner_paying ? getPartnerDomain($invoice->partner_id) : getBorrowerDomain($invoice->partner_id), 'invoices', $invoice->is_partner_paying ? config('app.frontend_partner_url') : config('app.frontend_borrower_url')) }}" class="btn"
                     style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View
                     Invoice</a>
                 <p style="color: #64748b; font-size: 13px; margin-top: 24px; margin-bottom: 0;">Invoice Status: <strong
@@ -66,7 +66,7 @@
             @else
                 <p style="line-height: 1.5; margin-bottom: 24px;">You can securely view and pay your invoice online through
                     the Invoice section.</p>
-                <a href="{{ config('app.frontend_partner_url') }}/invoices" class="btn"
+                <a href="{{ concatUrl($invoice->is_partner_paying ? getPartnerDomain($invoice->partner_id) : getBorrowerDomain($invoice->partner_id), 'invoices', $invoice->is_partner_paying ? config('app.frontend_partner_url') : config('app.frontend_borrower_url')) }}" class="btn"
                     style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View
                     & Pay
                     Invoice</a>
@@ -82,7 +82,7 @@
         </p>
         <p style="color: #64748b; line-height: 1.5; margin-top: 24px; margin-bottom: 0;">
             Regards,<br>
-            <strong style="color: #495057;">{{ config('app.name') }}</strong><br>
+            <strong style="color: #495057;">{{ $siteName ?? config('app.name') }}</strong><br>
             Billing Department
         </p>
     </div>

@@ -60,7 +60,7 @@
             <p style="line-height: 1.5; margin-bottom: 24px;">Please log in to your partner portal using your updated
                 credentials to confirm the changes.
             </p>
-            <a href="{{ config('app.frontend_partner_url') }}/login" class="btn"
+            <a href="{{ concatUrl(getPartnerDomain(), 'login', config('app.frontend_partner_url')) }}" class="btn"
                 style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Access
                 Partner Portal</a>
         </div>
@@ -81,7 +81,7 @@
 
         <p style="color: #64748b; line-height: 1.5; margin-top: 32px; margin-bottom: 0;">
             Regards,<br>
-            <strong style="color: #495057;">{{ config('app.name') }}</strong><br>
+            <strong style="color: #495057;">{{ $siteName ?? config('app.name') }}</strong><br>
             Partner Operations Team
         </p>
     </div>

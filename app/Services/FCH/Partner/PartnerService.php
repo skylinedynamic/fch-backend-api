@@ -24,6 +24,7 @@ use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
 use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
+use App\Mail\Trial\PartnerTrialMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
@@ -54,6 +55,25 @@ class PartnerService
             ]);
         } catch (\Exception $e) {
             Log::error('Partner payment link email failed', [
+                'partner_id' => $partnerId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Send free trial welcome email using partner's own email config.
+     */
+    private function sendTrialWelcomeEmail(array $mailData, int $partnerId): void
+    {
+        try {
+            Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $partnerId));
+            Log::info('Partner trial welcome email sent', [
+                'partner_id' => $partnerId,
+                'email' => $mailData['user']->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Partner trial welcome email failed', [
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
@@ -92,6 +112,8 @@ class PartnerService
         'country' => 'country',
         'address_line_1' => 'address_line_1',
         'address_line_2' => 'address_line_2',
+        'is_free_trail' => 'is_free_trail',
+        'free_trail_end_date' => 'free_trail_end_date',
     ];
 
     /**
@@ -155,14 +177,12 @@ class PartnerService
 
                 $partnerData['partner_domain'] = $subdomain . '.' . $baseUrl;
                 $partnerData['partner_subdomain'] = $partnerData['partner_domain'];
-            }
-            else{
+            } else {
                 // Append base url to provided subdomain
                 $partnerData['partner_domain'] = $partnerData['partner_domain'] . '.' . $baseUrl;
                 $partnerData['partner_subdomain'] = $partnerData['partner_domain'];
             }
 
-            Log::info('Partner creation payload', $partnerData);
             $partner = Partner::create($partnerData);
 
             // Log Partner Creation
@@ -182,91 +202,11 @@ class PartnerService
 
             $this->createPartnerRoles($partner->id, $user);
 
-            $partnerType = $data['partner_type'] ?? null;
-            $enrollmentType = $data['enrollment_type'] ?? null;
-
-            $plan = SubscriptionPlan::where('partner_type', $partnerType)
-                ->where('enrollment_type', $enrollmentType)
-                ->first();
-
-            // Fallback to slug comparison
-            if (!$plan && $partnerType && $enrollmentType) {
-                $plan = SubscriptionPlan::where('partner_type_slug', Str::slug($partnerType))
-                    ->where('enrollment_type_slug', Str::slug($enrollmentType))
-                    ->first();
-            }
-
-            // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
-            $enrollmentAmount = (float) ($plan->payment_amount ?? 0);
-            $monthlyPlatformFee = (float) ($plan->platform_fee ?? 0);
-            $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-            $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
-
-            if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
-                $enrollmentAmount = (float) $data['enrollment_amount'];
-                // Calculate total based on custom enrollment and installment count
-                $totalSubscriptionAmount = $enrollmentAmount * $totalInstallments;
-            }
-
-            if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
-                $monthlyPlatformFee = (float) $data['monthly_platform_fee'];
-            }
-
-            // Mark as custom if any value differs from the original plan
-            $isCustom = false;
-            if ($plan) {
-                $isCustom = (abs($enrollmentAmount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
-                    (abs($monthlyPlatformFee - (float) ($plan->platform_fee ?? 0)) > 0.01) ||
-                    (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
-            }
-
-            // Create subscription if enrollment data exists
-            if ($enrollmentType) {
-                $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
-                    'partner_type' => $plan->partner_type ?? $partnerType,
-                    'monthly_platform_fee' => $monthlyPlatformFee,
-                    'payable_amount' => $enrollmentAmount,
-                    'total_subscription_amount' => $totalSubscriptionAmount,
-                    'is_custom' => $isCustom,
-                ]);
-                Log::info('Partner subscription initialized', [
-                    'entity_id' => $partner->id,
-                    'is_custom' => $isCustom,
-                    'enrollment_amount' => $enrollmentAmount,
-                    'monthly_fee' => $monthlyPlatformFee
-                ]);
-            }
-
-            // Determine if host is creating this partner
-            $authUser = Auth::user();
-            $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
-
-            // Create invoice and send email if enrollment type exists or amount > 0
-            if ($enrollmentType || $enrollmentAmount > 0) {
-                $invoice = $this->invoiceService->create([
-                    'partner_id' => $partner->id,
-                    'entity_type' => Partner::class,
-                    'entity_id' => $partner->id,
-                    'customer_name' => $partner->full_name,
-                    'email' => $partner->email,
-                    'country' => $partner->country,
-                    'payment_amount' => $enrollmentAmount,
-                    'is_partner_paying' => $isHostCreating ? false : true,
-                    'status' => Invoice::STATUS_UNPAID,
-                ]);
-
-                // Log Invoice Creation
-                $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
-
-                Log::info('Partner invoice created', ['invoice_id' => $invoice->id]);
-
-                // Prepare email data and send payment link
+            if (isset($data['is_free_trail']) && $data['is_free_trail']) {
                 $mailData = [
                     'user' => $user,
                     'plain_password' => $plainPassword,
-                    'payment_link' => concatUrl(getPartnerDomain($invoice->partner_id), 'invoices', config('app.frontend_partner_url')),
-                    'amount' => $invoice->payment_amount,
-                    'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
+                    'trial_end_date' => $data['free_trail_end_date'] ?? null,
                     'business_info' => [
                         'company_name' => config('app.name'),
                         'email' => config('mail.from.address'),
@@ -276,8 +216,99 @@ class PartnerService
                     ],
                 ];
 
+                $authUser = Auth::user();
                 $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
-                $this->sendPaymentLinkEmail($mailData, $senderPartnerId);
+                $this->sendTrialWelcomeEmail($mailData, $senderPartnerId);
+            } else {
+                $partnerType = $data['partner_type'] ?? null;
+                $enrollmentType = $data['enrollment_type'] ?? null;
+
+                $plan = SubscriptionPlan::where('partner_type', $partnerType)
+                    ->where('enrollment_type', $enrollmentType)
+                    ->first();
+
+                // Fallback to slug comparison
+                if (!$plan && $partnerType && $enrollmentType) {
+                    $plan = SubscriptionPlan::where('partner_type_slug', Str::slug($partnerType))
+                        ->where('enrollment_type_slug', Str::slug($enrollmentType))
+                        ->first();
+                }
+
+                // Determine subscription amounts: use custom if provided in request, otherwise plan defaults
+                $enrollmentAmount = (float) ($plan->payment_amount ?? 0);
+                $monthlyPlatformFee = (float) ($plan->platform_fee ?? 0);
+                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
+                $totalSubscriptionAmount = (float) ($plan->total_amount ?? 0);
+
+                if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
+                    $enrollmentAmount = (float) $data['enrollment_amount'];
+                    // Calculate total based on custom enrollment and installment count
+                    $totalSubscriptionAmount = $enrollmentAmount * $totalInstallments;
+                }
+
+                if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
+                    $monthlyPlatformFee = (float) $data['monthly_platform_fee'];
+                }
+
+                // Mark as custom if any value differs from the original plan
+                $isCustom = false;
+                if ($plan) {
+                    $isCustom = (abs($enrollmentAmount - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
+                        (abs($monthlyPlatformFee - (float) ($plan->platform_fee ?? 0)) > 0.01) ||
+                        (abs($totalSubscriptionAmount - (float) ($plan->total_amount ?? 0)) > 0.01);
+                }
+
+                // Create subscription if enrollment data exists
+                if ($enrollmentType) {
+                    $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
+                        'partner_type' => $plan->partner_type ?? $partnerType,
+                        'monthly_platform_fee' => $monthlyPlatformFee,
+                        'payable_amount' => $enrollmentAmount,
+                        'total_subscription_amount' => $totalSubscriptionAmount,
+                        'is_custom' => $isCustom,
+                    ]);
+                }
+
+                // Determine if host is creating this partner
+                $authUser = Auth::user();
+                $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host == 1;
+
+                // Create invoice and send email if enrollment type exists or amount > 0
+                if ($enrollmentType || $enrollmentAmount > 0) {
+                    $invoice = $this->invoiceService->create([
+                        'partner_id' => $partner->id,
+                        'entity_type' => Partner::class,
+                        'entity_id' => $partner->id,
+                        'customer_name' => $partner->full_name,
+                        'email' => $partner->email,
+                        'country' => $partner->country,
+                        'payment_amount' => $enrollmentAmount,
+                        'is_partner_paying' => $isHostCreating ? false : true,
+                        'status' => Invoice::STATUS_UNPAID,
+                    ]);
+
+                    // Log Invoice Creation
+                    $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
+
+                    // Prepare email data and send payment link
+                    $mailData = [
+                        'user' => $user,
+                        'plain_password' => $plainPassword,
+                        'payment_link' => concatUrl(getPartnerDomain($invoice->partner_id), 'invoices', config('app.frontend_partner_url')),
+                        'amount' => $invoice->payment_amount,
+                        'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
+                        'business_info' => [
+                            'company_name' => config('app.name'),
+                            'email' => config('mail.from.address'),
+                            'phone_number' => config('app.phone_number', ''),
+                            'address_line_1' => config('app.address', ''),
+                            'company_logo' => 'logo.png',
+                        ],
+                    ];
+
+                    $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
+                    $this->sendPaymentLinkEmail($mailData, $senderPartnerId);
+                }
             }
 
             DB::commit();
@@ -571,6 +602,12 @@ class PartnerService
     private function createOrUpdateUser(array $data, ?User $existingUser = null): array
     {
         $userData = $this->mapUserData($data);
+        if (array_key_exists('free_trail_end_date', $userData) && $userData['free_trail_end_date']) {
+            $userData['free_trail_end_date'] = normalizeDate($userData['free_trail_end_date']);
+        }
+        if (array_key_exists('is_free_trail', $userData)) {
+            $userData['is_free_trail'] = $userData['is_free_trail'] ? 1 : 0;
+        }
         $plainPassword = null;
 
         if ($existingUser) {
@@ -580,7 +617,6 @@ class PartnerService
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
                 $plainPassword = bin2hex(random_bytes(4));
                 $userData['password'] = bcrypt($plainPassword);
-                Log::info('🔑 Password reset for Partner user due to email change', ['user_id' => $existingUser->id]);
             }
 
             $userData['is_refresh'] = true;
@@ -639,6 +675,9 @@ class PartnerService
             ->with([
                 'assignedUser' => function ($userQuery) {
                     $userQuery->select('id', 'name');
+                },
+                'partnerUser' => function ($userQuery) {
+                    $userQuery->select('id', 'entity_type', 'entity_id', 'is_free_trail', 'free_trail_end_date');
                 }
             ]);
 
@@ -659,6 +698,13 @@ class PartnerService
         // 🔍 Filter by assigned_user_id (exact match)
         if (!empty($filters['assigned_user_id'])) {
             $query->where('partners.assign_to', $filters['assigned_user_id']);
+        }
+
+        // 🔍 Filter by is_free_trail (morphUser.is_free_trail)
+        if (isset($filters['is_free_trail']) && $filters['is_free_trail'] !== '') {
+            $query->whereHas('partnerUser', function ($q) use ($filters) {
+                $q->where('is_free_trail', $filters['is_free_trail']);
+            });
         }
 
         // 🔍 Search filter (uses scopeSearch from Partner model)

@@ -45,6 +45,7 @@ class PartnerController extends Controller
                 'search' => isset($input['search']) ? trim((string) $input['search']) : null,
                 'partner_id' => $this->normalizeFilterValue($input['partner_id'] ?? null),
                 'assigned_user_id' => $this->normalizeFilterValue($input['assigned_user_id'] ?? null),
+                'is_free_trail' => $this->normalizeFilterValue($input['is_free_trail'] ?? null),
                 'filters' => $input['filters'] ?? null, // array expected per request rules
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,

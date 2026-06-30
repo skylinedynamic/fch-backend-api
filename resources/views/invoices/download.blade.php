@@ -279,8 +279,8 @@
                         </div>
                         <p>
                             {{ $invoice->borrower
-    ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
-    : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
+                                ? ($invoice->borrower->business_address_line_1 ?: $invoice->borrower->business_postal_code)
+                                : ($invoice->partner ? ($invoice->partner->address_line_1 ?: $invoice->partner->postal_code) : 'Address not specified') }}
                         </p>
                         <p>Phone:
                             {{ $invoice->borrower ? $invoice->borrower->phone_number : ($invoice->partner?->phone_number ?? 'N/A') }}

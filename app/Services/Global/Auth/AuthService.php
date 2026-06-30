@@ -87,6 +87,12 @@ class AuthService
             }
         }
 
+        if ($user->is_free_trail && $user->free_trail_end_date && Carbon::parse($user->free_trail_end_date)->isPast()) {
+            $partner = $user->partner;
+            $partnerName = $partner ? ($partner->company_name ?? $partner->full_name ?? 'your partner') : 'your partner';
+            return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+        }
+
         $partner = $user->partner;
 
         // 1. Check User Account Status
