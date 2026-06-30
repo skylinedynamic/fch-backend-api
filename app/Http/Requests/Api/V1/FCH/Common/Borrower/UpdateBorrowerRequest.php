@@ -16,6 +16,11 @@ class UpdateBorrowerRequest extends BaseApiRequest
 
     public function rules(): array
     {
+        $borrower = Borrower::find((int) $this->route('id'));
+        $user = $borrower ? $borrower->user : null;
+        $wasFreeTrial = $user ? (bool) $user->is_free_trail : false;
+        $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
+
         return [
             // Personal Info
             'first_name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -76,15 +81,29 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'fico_score' => ['nullable', 'numeric'],
             'paydex_score' => ['nullable', 'numeric'],
             'is_free_trail' => ['nullable', 'boolean'],
+            'free_trail_end_date' => [
+                Rule::requiredIf(function () use ($isFreeTrialInput) {
+                    return $isFreeTrialInput;
+                }),
+                'nullable'
+            ],
+            'plan_id' => [
+                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
+                    return $wasFreeTrial && !$isFreeTrialInput;
+                }),
+                'nullable',
+                'exists:subscription_plans,id'
+            ],
+            'enrollment_payment' => [
+                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
+                    return $wasFreeTrial && !$isFreeTrialInput;
+                }),
+                'nullable',
+                'numeric',
+                'gt:0',
+                'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
+            ],
         ];
-
-        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
-            $rules['free_trail_end_date'] = ['required'];
-        } else {
-            $rules['free_trail_end_date'] = ['nullable'];
-        }
-
-        return $rules;
     }
 
     public function messages(): array

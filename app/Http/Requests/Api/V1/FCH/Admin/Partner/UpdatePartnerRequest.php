@@ -28,6 +28,10 @@ class UpdatePartnerRequest extends BaseApiRequest
     public function rules(): array
     {
         $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
+        $partner = Partner::find($this->id);
+        $wasFreeTrial = ($partner && $partner->partnerUser) ? (bool) $partner->partnerUser->is_free_trail : false;
+        $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
+
         return [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'company_name' => [
@@ -69,8 +73,6 @@ class UpdatePartnerRequest extends BaseApiRequest
             'company_logo' => ['nullable'], // 2MB max
             'partner_image' => ['nullable'], // 2MB max
             'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user     
-            'enrollment_amount' => ['nullable', 'numeric', 'min:0'],
-            'monthly_platform_fee' => ['nullable', 'numeric', 'min:0'],
             'partner_domain' => [
                 Rule::requiredIf(function () {
                     $partner = Partner::find($this->id);
@@ -90,15 +92,41 @@ class UpdatePartnerRequest extends BaseApiRequest
                 },
             ],
             'is_free_trail' => ['nullable', 'boolean'],
+            'free_trail_end_date' => [
+                Rule::requiredIf(function () use ($isFreeTrialInput) {
+                    return $isFreeTrialInput;
+                }),
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:today'
+            ],
+            'enrollment_type' => [
+                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
+                    return $wasFreeTrial && !$isFreeTrialInput;
+                }),
+                'nullable',
+                'string',
+                'max:255'
+            ],
+            'enrollment_amount' => [
+                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
+                    return $wasFreeTrial && !$isFreeTrialInput;
+                }),
+                'nullable',
+                'numeric',
+                'gt:0',
+                'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
+            ],
+            'monthly_platform_fee' => [
+                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
+                    return $wasFreeTrial && !$isFreeTrialInput;
+                }),
+                'nullable',
+                'numeric',
+                'gt:0',
+                'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
+            ],
         ];
-
-        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
-            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
-        } else {
-            $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
-        }
-
-        return $rules;
     }
 
     /**
@@ -124,8 +152,17 @@ class UpdatePartnerRequest extends BaseApiRequest
             'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
             'partner_domain.unique' => __('partner.validation.partner_domain.unique'),
             'partner_domain.not_in' => __('partner.validation.partner_domain.unique'),
-            'free_trail_end_date.required_if' => 'Trial end date is required when free trial is enabled.',
+            'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
             'free_trail_end_date.after_or_equal' => 'Trial end date must be today or a future date.',
+            'enrollment_type.required' => __('partner.validation.enrollment_type_required'),
+            'enrollment_amount.required' => __('partner.validation.enrollment_amount_required'),
+            'enrollment_amount.numeric' => __('partner.validation.enrollment_amount_numeric'),
+            'enrollment_amount.gt' => __('partner.validation.enrollment_amount_gt'),
+            'enrollment_amount.regex' => __('partner.validation.enrollment_amount_regex'),
+            'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
+            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
+            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
+            'monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),
         ];
     }
 }

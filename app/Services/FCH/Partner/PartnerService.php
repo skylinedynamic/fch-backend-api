@@ -196,9 +196,9 @@ class PartnerService
     private function calculatePartnerSubscriptionAmounts(?SubscriptionPlan $plan, array $data): array
     {
         $enrollment = (float) ($plan->payment_amount ?? 0);
-        $monthly    = (float) ($plan->platform_fee ?? 0);
+        $monthly = (float) ($plan->platform_fee ?? 0);
         $installments = (int) ($plan->total_installments_count ?? 1);
-        $total      = (float) ($plan->total_amount ?? 0);
+        $total = (float) ($plan->total_amount ?? 0);
 
         if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
             $enrollment = (float) $data['enrollment_amount'];
@@ -234,25 +234,25 @@ class PartnerService
         bool $isMigration = false
     ): void {
         $invoice = $this->invoiceService->create([
-            'partner_id'      => $partner->id,
-            'entity_type'     => Partner::class,
-            'entity_id'       => $partner->id,
-            'customer_name'   => $partner->full_name,
-            'email'           => $partner->email,
-            'country'         => $partner->country,
-            'payment_amount'  => $enrollmentAmount,
+            'partner_id' => $partner->id,
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'customer_name' => $partner->full_name,
+            'email' => $partner->email,
+            'country' => $partner->country,
+            'payment_amount' => $enrollmentAmount,
             'is_partner_paying' => false,
-            'status'          => Invoice::STATUS_UNPAID,
+            'status' => Invoice::STATUS_UNPAID,
         ]);
 
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
         $mailData = array_merge([
-            'user'            => $user,
-            'payment_link'    => $paymentLink,
-            'amount'          => $invoice->payment_amount,
+            'user' => $user,
+            'payment_link' => $paymentLink,
+            'amount' => $invoice->payment_amount,
             'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
-            'business_info'   => $businessInfo,
+            'business_info' => $businessInfo,
         ], $extraMailData ?? []);
 
         if ($isMigration) {
@@ -268,11 +268,11 @@ class PartnerService
     private function getHostPartnerBusinessInfo(?Partner $hostPartner): array
     {
         return [
-            'company_name'  => $hostPartner->company_name ?? config('app.name'),
-            'email'         => $hostPartner->email ?? config('mail.from.address'),
-            'phone_number'  => $hostPartner->phone_number ?? config('app.phone_number', ''),
+            'company_name' => $hostPartner->company_name ?? config('app.name'),
+            'email' => $hostPartner->email ?? config('mail.from.address'),
+            'phone_number' => $hostPartner->phone_number ?? config('app.phone_number', ''),
             'address_line_1' => $hostPartner->address_line_1 ?? config('app.address', ''),
-            'company_logo'  => $hostPartner->company_logo ?? 'logo.png',
+            'company_logo' => $hostPartner->company_logo ?? 'logo.png',
         ];
     }
 
@@ -334,10 +334,10 @@ class PartnerService
             if (isset($data['is_free_trail']) && $data['is_free_trail']) {
                 $hostPartner = Partner::where('is_host', 1)->first();
                 $mailData = [
-                    'user'            => $user,
-                    'plain_password'  => $plainPassword,
-                    'trial_end_date'  => $data['free_trail_end_date'] ?? null,
-                    'business_info'   => $this->getHostPartnerBusinessInfo($hostPartner),
+                    'user' => $user,
+                    'plain_password' => $plainPassword,
+                    'trial_end_date' => $data['free_trail_end_date'] ?? null,
+                    'business_info' => $this->getHostPartnerBusinessInfo($hostPartner),
                 ];
 
                 $authUser = Auth::user();
@@ -353,18 +353,18 @@ class PartnerService
                     __('partner.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                 );
             } else {
-                $partnerType   = $data['partner_type'] ?? null;
+                $partnerType = $data['partner_type'] ?? null;
                 $enrollmentType = $data['enrollment_type'] ?? null;
                 $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType);
                 $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
 
                 if ($enrollmentType) {
                     $this->subscriptionService->startSubscription($partner, $plan, [
-                        'partner_type'             => $plan->partner_type ?? $partnerType,
-                        'monthly_platform_fee'     => $amounts['monthly'],
-                        'payable_amount'           => $amounts['enrollment'],
+                        'partner_type' => $plan->partner_type ?? $partnerType,
+                        'monthly_platform_fee' => $amounts['monthly'],
+                        'payable_amount' => $amounts['enrollment'],
                         'total_subscription_amount' => $amounts['total'],
-                        'is_custom'                => $amounts['isCustom'],
+                        'is_custom' => $amounts['isCustom'],
                     ]);
                 }
 
@@ -380,11 +380,11 @@ class PartnerService
                         $enrollmentType,
                         $paymentLink,
                         [
-                            'company_name'  => config('app.name'),
-                            'email'         => config('mail.from.address'),
-                            'phone_number'  => config('app.phone_number', ''),
+                            'company_name' => config('app.name'),
+                            'email' => config('mail.from.address'),
+                            'phone_number' => config('app.phone_number', ''),
                             'address_line_1' => config('app.address', ''),
-                            'company_logo'  => 'logo.png',
+                            'company_logo' => 'logo.png',
                         ],
                         ['plain_password' => $plainPassword],
                         $senderPartnerId
@@ -395,8 +395,8 @@ class PartnerService
             DB::commit();
 
             return [
-                'partner'        => $partner->fresh(),
-                'user'           => $user->fresh(),
+                'partner' => $partner->fresh(),
+                'user' => $user->fresh(),
                 'plain_password' => $plainPassword,
             ];
         } catch (\Exception $e) {
@@ -609,7 +609,7 @@ class PartnerService
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
             if ($subscription) {
-                $plan    = $subscription->subscriptionPlan;
+                $plan = $subscription->subscriptionPlan;
                 $finalEnrollment = (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '')
                     ? (float) $data['enrollment_amount']
                     : (float) $subscription->payable_amount;
@@ -628,31 +628,31 @@ class PartnerService
                 );
 
                 $subscription->update([
-                    'payable_amount'            => $finalEnrollment,
-                    'monthly_platform_fee'      => $finalMonthly,
+                    'payable_amount' => $finalEnrollment,
+                    'monthly_platform_fee' => $finalMonthly,
                     'total_subscription_amount' => $finalTotal,
-                    'is_custom'                 => $isCustom,
+                    'is_custom' => $isCustom,
                 ]);
                 Log::info('Partner subscription reassessed and updated', [
                     'subscription_id' => $subscription->id,
-                    'is_custom'       => $isCustom,
-                    'payable'         => $finalEnrollment,
-                    'monthly'         => $finalMonthly,
+                    'is_custom' => $isCustom,
+                    'payable' => $finalEnrollment,
+                    'monthly' => $finalMonthly,
                 ]);
             } elseif ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
-                $partnerType    = $data['partner_type'] ?? $partner->partner_type;
+                $partnerType = $data['partner_type'] ?? $partner->partner_type;
                 $enrollmentType = $data['enrollment_type'] ?? null;
                 $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType);
                 $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
 
                 if ($enrollmentType) {
                     $this->subscriptionService->startSubscription($partner, $plan, [
-                        'partner_type'             => $plan->partner_type ?? $partnerType,
-                        'monthly_platform_fee'     => $amounts['monthly'],
-                        'payable_amount'           => $amounts['enrollment'],
+                        'partner_type' => $plan->partner_type ?? $partnerType,
+                        'monthly_platform_fee' => $amounts['monthly'],
+                        'payable_amount' => $amounts['enrollment'],
                         'total_subscription_amount' => $amounts['total'],
-                        'is_custom'                => $amounts['isCustom'],
+                        'is_custom' => $amounts['isCustom'],
                     ]);
                 }
 
@@ -677,7 +677,7 @@ class PartnerService
             }
 
             Log::info('Partner updated successfully', ['partner_id' => $partner->id]);
-
+            $user->update(['is_refresh' => true]);
             DB::commit();
 
             return $partner->fresh();
@@ -685,7 +685,7 @@ class PartnerService
             DB::rollBack();
             Log::error('Partner update failed', [
                 'partner_id' => $partner->id ?? null,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
             throw $e;
         }
