@@ -111,6 +111,7 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'action_url.max'             => __('funding_sequencing.action_url_max'),
             'readiness_factors.required' => __('funding_sequencing.readiness_factors_required'),
             'readiness_factors.min'      => __('funding_sequencing.readiness_factors_required'),
+            'lender_visibilities.*.lender_product_category_id.required' => 'The product category is required.',
             'lender_visibilities.*.min_monthly_revenue.required'      => __('funding_sequencing.min_monthly_revenue_required'),
             'lender_visibilities.*.min_monthly_revenue.regex'      => __('funding_sequencing.min_monthly_revenue_regex'),
             'lender_visibilities.*.min_monthly_deposits.required'     => __('funding_sequencing.min_monthly_deposits_required'),
