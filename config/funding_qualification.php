@@ -9,6 +9,7 @@ return [
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
         'Minimum Monthly Deposits' => 'min_monthly_deposits',
+        'Monthly Deposit Count' => 'min_deposit_count',
         'Minimum Average Daily Balance' => 'min_average_balance',
         'Max NSF Count' => 'max_nsf',
         'Max Negative Days' => 'max_negative_days',

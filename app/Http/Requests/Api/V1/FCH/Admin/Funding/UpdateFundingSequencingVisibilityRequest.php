@@ -20,7 +20,7 @@ class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
             'lender_visibilities.*.min_fico'             => ['required', 'integer'],
             'lender_visibilities.*.min_tib_months'       => ['required', 'integer', 'min:0', 'digits_between:1,5'],
             'lender_visibilities.*.min_monthly_revenue'  => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
-            'lender_visibilities.*.min_monthly_deposits' => ['required', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
+            'lender_visibilities.*.min_monthly_deposits' => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'lender_visibilities.*.min_average_daily_balance' => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'lender_visibilities.*.min_avg_deposits'     => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,13}(\.\d{1,2})?$/'],
             'lender_visibilities.*.min_deposit_count'    => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
