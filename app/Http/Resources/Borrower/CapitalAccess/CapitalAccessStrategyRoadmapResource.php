@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\CapitalAccess;
 
+use App\Models\CreditBuilder\CapitalAccess;
 use App\Models\CreditBuilder\CapitalAccessSequence;
 use App\Models\Common\ScoreConfiguration;
 use Illuminate\Http\Request;
@@ -74,8 +75,17 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
          *   access_time = 'Day'      → group 3, sub-sorted by access_day ASC,
          *                              then access_day_time: Morning→0, Evening→1, Anytime→2
          */
-        $timeOrder     = ['Morning' => 0, 'Evening' => 1, 'Anytime' => 2, 'Day' => 3];
-        $dayTimeOrder  = ['Morning' => 0, 'Evening' => 1, 'Anytime' => 2];
+        $timeOrder     = [
+            CapitalAccess::ACCESS_TIME_MORNING => 0,
+            CapitalAccess::ACCESS_TIME_EVENING => 1,
+            CapitalAccess::ACCESS_TIME_ANYTIME => 2,
+            CapitalAccess::ACCESS_TIME_DAY     => 3,
+        ];
+        $dayTimeOrder  = [
+            CapitalAccess::ACCESS_TIME_MORNING => 0,
+            CapitalAccess::ACCESS_TIME_EVENING => 1,
+            CapitalAccess::ACCESS_TIME_ANYTIME => 2,
+        ];
 
         $sequences = $sequences->sortBy(function (CapitalAccessSequence $seq) use ($timeOrder, $dayTimeOrder) {
             $group   = $timeOrder[$seq->access_time] ?? 99;

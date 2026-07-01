@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Borrower\CapitalAccess;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\CreditBuilder\CapitalAccessApplication;
+use App\Models\CreditBuilder\BorrowerCapitalAccessPlay;
 use Illuminate\Http\JsonResponse;
 use App\Models\CreditBuilder\CapitalAccess;
 use App\Services\Borrower\CapitalAccess\BorrowerContext;
@@ -45,16 +46,27 @@ class CapitalAccessOverviewController extends Controller
             $bestProb = -1;
             $recommendedStrat = null;
 
+            // Pre-load completed play IDs — one query, skip them in chart & estimated access
+            $completedPlayIds = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                ->where('status', BorrowerCapitalAccessPlay::STATUS_COMPLETED)
+                ->pluck('capital_access_id')
+                ->all();
+
             foreach ($strategies as $strat) {
+                // Skip completed plays — they should not count toward access totals or chart
+                if (in_array($strat->id, $completedPlayIds)) {
+                    continue;
+                }
+
                 $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
                 if (isset($probData['status']) && $probData['status'] === true) {
-                    // All eligible strategies populate the chart
+                    // Only non-completed, eligible strategies populate the chart
                     $exposureBreakdown[] = [
                         'name' => $strat->name,
                         'max_exposure' => (float) ($strat->target_exposure_max ?? 0),
                     ];
 
-                    // Track the highest-probability strategy as recommended
+                    // Track the highest-probability non-completed strategy as recommended
                     $prob = $probData['probability'] ?? 0;
                     if ($prob > $bestProb) {
                         $bestProb = $prob;
@@ -63,7 +75,7 @@ class CapitalAccessOverviewController extends Controller
                 }
             }
 
-            // Estimated Total Access = recommended strategy only
+            // Estimated Total Access = recommended non-completed strategy only
             if ($recommendedStrat) {
                 $totalExposureMax = (float) ($recommendedStrat->target_exposure_max ?? 0);
             }
@@ -77,23 +89,41 @@ class CapitalAccessOverviewController extends Controller
         if ($latestApp) {
             $strat = CapitalAccess::find($latestApp->capital_access_id);
             if ($strat) {
-                $currentPlay = [
-                    'id' => $strat->id,
-                    'name' => $strat->name,
-                ];
+                $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                    ->where('capital_access_id', $strat->id)
+                    ->first();
+
+                if ($playStatus) {
+                    $isCompleted = ($playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED);
+                } else {
+                    $totalSteps = $strat->sequences()->count();
+                    $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
+                        ->where('capital_access_id', $strat->id)
+                        ->where('status', CapitalAccessApplication::STATUS_APPROVED)
+                        ->count();
+
+                    $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
+                }
+
+                if (!$isCompleted) {
+                    $currentPlay = [
+                        'id' => $strat->id,
+                        'name' => $strat->name,
+                    ];
+                }
             }
         }
 
-        $estimatedAccess = '$' . number_format($totalExposureMax);
+        $estimatedAccess = currencyFormat($totalExposureMax);
 
         $data = [
-            'readiness_score' => $score,
-            'readiness_status' => $status,
+            'readiness_score'        => $score,
+            'readiness_status'       => $status,
             'readiness_status_color' => $result['score_label_color'] ?? null,
-            'factors' => $result['factors'] ?? [],
+            'factors'                => $result['factors'] ?? [],
             'estimated_total_access' => $estimatedAccess,
-            'exposure_breakdown' => $exposureBreakdown,
-            'current_play' => $currentPlay,
+            'exposure_breakdown'     => $exposureBreakdown,
+            'current_play'           => $currentPlay,
         ];
 
         return ApiResponse::success(

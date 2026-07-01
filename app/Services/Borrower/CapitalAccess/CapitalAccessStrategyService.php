@@ -167,6 +167,10 @@ class CapitalAccessStrategyService
             }
         }
 
+        if ($borrower) {
+            $this->ensurePlayStatusRunning($borrower, $id);
+        }
+
         $resource = new CapitalAccessStrategyChecklistResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
@@ -209,6 +213,10 @@ class CapitalAccessStrategyService
             }
         }
 
+        if ($borrower) {
+            $this->ensurePlayStatusRunning($borrower, $id);
+        }
+
         $resource = new CapitalAccessStrategyRoadmapResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
@@ -243,6 +251,10 @@ class CapitalAccessStrategyService
         if ($borrower) {
             $ctx   = BorrowerContext::from($borrower);
             $cache = app(ScoreConfigurationCache::class);
+        }
+
+        if ($borrower) {
+            $this->ensurePlayStatusRunning($borrower, $strategyId);
         }
 
         $resource = new CapitalAccessStepDetailResource($seq);
@@ -282,6 +294,27 @@ class CapitalAccessStrategyService
                 'credit_limit'      => $data['credit_limit'] ?? null,
                 'notes'             => $data['notes'] ?? null,
                 'status'            => $data['status'] ?? \App\Models\CreditBuilder\CapitalAccessApplication::STATUS_PENDING,
+            ]
+        );
+
+        // --- Maintain separate status in borrower_capital_access_plays ---
+        $totalSteps = $strategy->sequences()->count();
+        $approvedSteps = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+            ->where('capital_access_id', $strategy->id)
+            ->where('status', \App\Models\CreditBuilder\CapitalAccessApplication::STATUS_APPROVED)
+            ->count();
+
+        $status = ($totalSteps > 0 && $approvedSteps === $totalSteps)
+            ? \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_COMPLETED
+            : \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_RUNNING;
+
+        \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::updateOrCreate(
+            [
+                'borrower_id'       => $borrower->id,
+                'capital_access_id' => $strategy->id,
+            ],
+            [
+                'status'            => $status,
             ]
         );
 
@@ -338,12 +371,47 @@ class CapitalAccessStrategyService
                         $targetStrategy->approval_probability_data = $probData;
                     }
 
+                    // --- CHECK IF COMPLETED (Check separate status table with fallback sync) ---
+                    $playStatus = \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                        ->where('capital_access_id', $strat->id)
+                        ->first();
+
+                    if ($playStatus) {
+                        $isCompleted = ($playStatus->status === \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_COMPLETED);
+                    } else {
+                        // Fallback: check dynamic counts (for legacy data sync)
+                        $totalSteps = $strat->sequences()->count();
+                        $approvedSteps = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+                            ->where('capital_access_id', $strat->id)
+                            ->where('status', \App\Models\CreditBuilder\CapitalAccessApplication::STATUS_APPROVED)
+                            ->count();
+                        
+                        $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
+
+                        // If they have worked on this strategy, create play status row
+                        $hasStarted = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+                            ->where('capital_access_id', $strat->id)
+                            ->exists();
+
+                        if ($hasStarted) {
+                            \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::create([
+                                'borrower_id'       => $borrower->id,
+                                'capital_access_id' => $strat->id,
+                                'status'            => $isCompleted ? \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_COMPLETED : \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_RUNNING,
+                            ]);
+                        }
+                    }
+                    $strat->is_completed = $isCompleted;
+
                     $filteredStrategies->push($strat);
 
-                    $prob = $probData['probability'];
-                    if ($prob > $bestProb) {
-                        $bestProb      = $prob;
-                        $recommendedId = $strat->id;
+                    // Only recommend if it is NOT completed
+                    if (!$isCompleted) {
+                        $prob = $probData['probability'];
+                        if ($prob > $bestProb) {
+                            $bestProb      = $prob;
+                            $recommendedId = $strat->id;
+                        }
                     }
                 }
             }
@@ -352,10 +420,29 @@ class CapitalAccessStrategyService
             $strategies = $filteredStrategies->sortByDesc(fn($s) => $s->approval_probability_data['probability'] ?? 0)->values();
         }
 
+        // If no recommended ID is selected (e.g. all are completed), default to the first uncompleted strategy
         if (!$recommendedId && $strategies->isNotEmpty()) {
-            $recommendedId = $strategies->first()->id;
+            $uncompleted = $strategies->first(fn($s) => !($s->is_completed ?? false));
+            $recommendedId = $uncompleted ? $uncompleted->id : $strategies->first()->id;
         }
 
         return [$recommendedId, $ctx, $cache, $strategies];
     }
+
+    /**
+     * Ensure a capital access play status is registered as 'running' for the borrower.
+     */
+    private function ensurePlayStatusRunning(\App\Models\Borrower\Borrower $borrower, int $strategyId): void
+    {
+        \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::firstOrCreate(
+            [
+                'borrower_id'       => $borrower->id,
+                'capital_access_id' => $strategyId,
+            ],
+            [
+                'status'            => \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::STATUS_RUNNING,
+            ]
+        );
+    }
 }
+

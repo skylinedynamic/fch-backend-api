@@ -37,6 +37,7 @@ class CapitalAccessStrategySelectionResource extends JsonResource
             'name'                 => $this->name,
             'description'          => $this->sub_title,
             'isRecommended'        => $recommendedId === $this->id,
+            'isCompleted'          => (bool) ($this->is_completed ?? false),
             'target_exposure'      => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline'         => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
             'approval_probability' => $probability . '%',
@@ -46,3 +47,4 @@ class CapitalAccessStrategySelectionResource extends JsonResource
         ];
     }
 }
+
