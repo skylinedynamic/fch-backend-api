@@ -132,8 +132,6 @@ class PartnerService
         'country' => 'country',
         'address_line_1' => 'address_line_1',
         'address_line_2' => 'address_line_2',
-        'is_free_trail' => 'is_free_trail',
-        'free_trail_end_date' => 'free_trail_end_date',
     ];
 
     /**
@@ -165,6 +163,8 @@ class PartnerService
         'partner_domain' => 'partner_domain',
         'borrower_domain' => 'borrower_domain',
         'assign_to' => 'assign_to', // Assigned agent/user
+        'is_free_trail' => 'is_free_trail',
+        'free_trail_end_date' => 'free_trail_end_date',
     ];
 
     /**
@@ -498,7 +498,7 @@ class PartnerService
             // Update user
             // Assuming the partner has a linked user via polymorphic relation or we find by email
             $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
-            $wasFreeTrial = $user ? (bool) $user->is_free_trail : false;
+            $wasFreeTrial = (bool) $partner->is_free_trail;
 
             if ($user) {
                 $userResult = $this->createOrUpdateUser($data, $user);
@@ -711,12 +711,6 @@ class PartnerService
     private function createOrUpdateUser(array $data, ?User $existingUser = null): array
     {
         $userData = $this->mapUserData($data);
-        if (array_key_exists('free_trail_end_date', $userData) && $userData['free_trail_end_date']) {
-            $userData['free_trail_end_date'] = normalizeDate($userData['free_trail_end_date']);
-        }
-        if (array_key_exists('is_free_trail', $userData)) {
-            $userData['is_free_trail'] = $userData['is_free_trail'] ? 1 : 0;
-        }
         $plainPassword = null;
 
         if ($existingUser) {
@@ -786,7 +780,7 @@ class PartnerService
                     $userQuery->select('id', 'name');
                 },
                 'partnerUser' => function ($userQuery) {
-                    $userQuery->select('id', 'entity_type', 'entity_id', 'is_free_trail', 'free_trail_end_date');
+                    $userQuery->select('id', 'entity_type', 'entity_id');
                 }
             ]);
 
@@ -809,11 +803,9 @@ class PartnerService
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
 
-        // 🔍 Filter by is_free_trail (morphUser.is_free_trail)
+        // 🔍 Filter by is_free_trail (directly on partners table)
         if (isset($filters['is_free_trail']) && $filters['is_free_trail'] !== '') {
-            $query->whereHas('partnerUser', function ($q) use ($filters) {
-                $q->where('is_free_trail', $filters['is_free_trail']);
-            });
+            $query->where('partners.is_free_trail', $filters['is_free_trail']);
         }
 
         // 🔍 Search filter (uses scopeSearch from Partner model)

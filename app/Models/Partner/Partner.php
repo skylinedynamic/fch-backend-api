@@ -72,7 +72,9 @@ class Partner extends Model
         'partner_domain',
         'borrower_domain',
         'total_free_users',
-        'total_paid_users'
+        'total_paid_users',
+        'is_free_trail',
+        'free_trail_end_date',
     ];
 
     /**
@@ -84,6 +86,8 @@ class Partner extends Model
         'is_host' => 'boolean',
         'has_sign' => 'boolean',
         'active_custom_url' => 'boolean',
+        'is_free_trail' => 'boolean',
+        'free_trail_end_date' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

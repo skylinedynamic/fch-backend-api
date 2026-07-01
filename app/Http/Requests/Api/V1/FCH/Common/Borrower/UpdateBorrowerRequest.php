@@ -18,7 +18,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
     {
         $borrower = Borrower::find((int) $this->route('id'));
         $user = $borrower ? $borrower->user : null;
-        $wasFreeTrial = $user ? (bool) $user->is_free_trail : false;
+        $wasFreeTrial = $borrower ? (bool) $borrower->is_free_trail : false;
         $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
         return [

@@ -28,7 +28,7 @@ class BorrowerTrialMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: $this->mailData['subject'] ?? 'Welcome to ' . $this->dynamicData['siteName'] . ' —  Free Trail',
+            subject: $this->mailData['subject'] ?? 'Welcome to ' . $this->dynamicData['siteName'] . ' —  Limited Free Edition',
         );
     }
 

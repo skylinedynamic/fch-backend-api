@@ -78,7 +78,8 @@ class BorrowerResource extends JsonResource
             'current_tier_name' => $this->tier?->name,
             'additional_data' => $this->additional_data,
             'other_city'    => $this->other_city,
-            'is_free_trail' => (bool) ($this->user?->is_free_trail ?? false),
+            'is_free_trail' => (bool) ($this->is_free_trail ?? false),
+            'free_trail_end_date' => $this->free_trail_end_date ? $this->free_trail_end_date->toDateString() : null,
             // 'invoice' => $this->latestInvoice ? [
             //     'id' => $this->latestInvoice->id,
             //     'invoice_id' => $this->latestInvoice->invoice_id,
