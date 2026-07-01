@@ -28,7 +28,7 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
             'current_business_debt' => 'nullable|numeric|min:0|max:999999999.99',
             'average_monthly_deposits' => 'required|numeric|min:0|max:999999999.99',
-            'monthly_deposit_count' => 'required|integer|min:0',
+            'monthly_deposit_count' => 'nullable|integer|min:0',
             'avg_bank_balance' => 'nullable|numeric|min:0|max:999999999.99',
             'nsf_count' => 'nullable|integer|min:0|max:99999',
             'negative_days' => 'nullable|integer|min:0|max:99999',

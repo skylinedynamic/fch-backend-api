@@ -94,12 +94,13 @@ class FundingRequestService
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
+        $oldStatus = $review->status;
         $review->status = $data['status'];
         
         if ($data['status'] === FundingRequest::STATUS_APPROVED) {
             $review->approved_at = Carbon::now();
             $review->approved_by = $authUser->id;
-            $review->reject_reason = null; // Maybe we could use reject_reason as a general note or add a separate note column? The prompt just said "reason note accurately". Let's assume reject_reason is used for reject notes. Wait, I should probably save approval note as well if it exists? The model only has reject_reason. Let's just save reject_reason even if it's approved? No, let's keep it null for approval.
+            $review->reject_reason = null; 
         } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
             $review->reject_reason = $data['reject_reason'] ?? null;
             $review->approved_at = Carbon::now();
@@ -116,12 +117,16 @@ class FundingRequestService
             }
         }
 
+        $oldStatusFormatted = ucwords(strtolower($oldStatus));
+        $newStatusFormatted = ucwords(strtolower($data['status']));
+        $title = "Funding Request Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+
         app(ActivityLogService::class)->logSystemEvent(
             FundingRequest::class,
             $review->id,
             $review->partner_id,
             $review->borrower_id,
-            'Funding Request Status Updated',
+            $title,
             "Status updated to: " . ucfirst(strtolower($data['status'])),
             ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE,
             ['status' => $data['status'], 'reject_reason' => $data['reject_reason'] ?? null]
