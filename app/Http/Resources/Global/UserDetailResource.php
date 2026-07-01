@@ -28,8 +28,8 @@ class UserDetailResource extends JsonResource
             'total_paid_users' => $this->partner?->total_paid_users,
             'total_free_users' => $this->partner?->total_free_users,
             'is_refresh' => (boolval($this->is_refresh)),
-            'is_free_trail' => (boolval($this->is_free_trail)),
-            'free_trail_end_date' => $this->free_trail_end_date?->toDateString(),
+            'is_free_trail' => (bool) ($this->entity?->is_free_trail ?? $this->partner?->is_free_trail ?? false),
+            'free_trail_end_date' => ($this->entity?->free_trail_end_date ?? $this->partner?->free_trail_end_date ?? null)?->toDateString(),
         ];
     }
 }

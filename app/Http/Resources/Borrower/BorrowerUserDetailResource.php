@@ -49,8 +49,8 @@ class BorrowerUserDetailResource extends JsonResource
             'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
             'is_refresh' => $this->is_refresh,
-            'is_free_trail' => (boolval($this->is_free_trail)),
-            'free_trail_end_date' => $this->free_trail_end_date?->toDateString(),
+            'is_free_trail' => (bool) ($this->entity?->is_free_trail ?? false),
+            'free_trail_end_date' => ($this->entity?->free_trail_end_date ?? null)?->toDateString(),
         ];
     }
 }

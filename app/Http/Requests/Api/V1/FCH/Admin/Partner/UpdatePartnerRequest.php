@@ -29,7 +29,7 @@ class UpdatePartnerRequest extends BaseApiRequest
     {
         $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
         $partner = Partner::find($this->id);
-        $wasFreeTrial = ($partner && $partner->partnerUser) ? (bool) $partner->partnerUser->is_free_trail : false;
+        $wasFreeTrial = $partner ? (bool) $partner->is_free_trail : false;
         $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
         return [

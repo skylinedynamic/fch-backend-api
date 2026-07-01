@@ -14,17 +14,20 @@
         </p>
 
         <p style="line-height: 1.5; margin-bottom: 32px; color: #64748b;">
-            Your <strong>free trial account</strong> has been successfully created. You now have full access to the
+            Your <strong>limited free edition account</strong> has been successfully created. You now have full access to
+            the
             <strong>{{ $business_info['company_name'] }} Client Portal</strong> for the duration of your trial period.
         </p>
 
         {{-- Trial Notice --}}
-        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f97316; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-            <p style="font-size: 13px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px;">
-                🎉 Free Trial Active
+        <div
+            style="background-color: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f97316; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+            <p
+                style="font-size: 13px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px;">
+                Limited Free Edition Active
             </p>
             <p style="color: #7c3d12; font-size: 13px; line-height: 1.6; margin: 0;">
-                You are on a <strong>Free Trial</strong> plan. No payment is required at this time.
+                You are on a <strong>Limited Free Edition</strong> plan. No payment is required at this time.
                 @if (!empty($trialEndDate))
                     Your trial access expires on <strong>{{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}</strong>.
                 @endif
@@ -56,7 +59,8 @@
                     Name</td>
                 <td class="value"
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
-                    {{ $user->name }}</td>
+                    {{ $user->name }}
+                </td>
             </tr>
             <tr>
                 <td class="label"
@@ -64,7 +68,8 @@
                     Email</td>
                 <td class="value"
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
-                    {{ $user->email }}</td>
+                    {{ $user->email }}
+                </td>
             </tr>
             <tr>
                 <td class="label"
@@ -72,16 +77,17 @@
                     Account Type</td>
                 <td class="value"
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #f97316; text-align: right; padding-right: 10px;">
-                    Free Trial</td>
+                    Limited Free Edition</td>
             </tr>
             @if (!empty($trialEndDate))
                 <tr>
                     <td class="label"
                         style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                        Trial Expires</td>
+                        Limited Free Edition Expires</td>
                     <td class="value"
                         style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #c2410c; text-align: right; padding-right: 10px;">
-                        {{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}</td>
+                        {{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}
+                    </td>
                 </tr>
             @endif
             @if (!empty($plainPassword))
@@ -119,9 +125,10 @@
                 style="font-size: 13px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
                 Trial Reminder:</p>
             <p style="color: #7c3d12; font-size: 12px; line-height: 1.6; margin: 0;">
-                This is a free trial account. No payment is required during the trial period.
+                This is a Limited Free Edition account. No payment is required during the trial period.
                 @if (!empty($trialEndDate))
-                    After <strong>{{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}</strong>, continued access will require an active subscription.
+                    After <strong>{{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}</strong>, continued access will
+                    require an active subscription.
                 @endif
                 If you have any questions, please reach out to our support team.
             </p>

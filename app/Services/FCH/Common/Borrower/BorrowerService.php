@@ -64,7 +64,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['user:id,entity_type,entity_id,is_free_trail', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
+            ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
@@ -434,12 +434,11 @@ class BorrowerService
                 'is_partner_paying',
                 'amount',
                 'business_other_city',
-                'is_free_trail',
-                'free_trail_end_date'
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : null;
+            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : null;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -540,7 +539,7 @@ class BorrowerService
         DB::beginTransaction();
         try {
             $user = $borrower->user;
-            $wasFreeTrial = $user ? (bool) $user->is_free_trail : false;
+            $wasFreeTrial = (bool) $borrower->is_free_trail;
 
             if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
                 if ($borrower->business_logo) {
@@ -554,12 +553,11 @@ class BorrowerService
                 'plan_id',
                 'is_partner_paying',
                 'business_other_city',
-                'is_free_trail',
-                'free_trail_end_date'
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
+            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : $borrower->free_trail_end_date;
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -803,14 +801,6 @@ class BorrowerService
 
         if (isset($data['first_name']) && isset($data['last_name'])) {
             $userData['name'] = $data['first_name'] . ' ' . $data['last_name'];
-        }
-
-        if (array_key_exists('is_free_trail', $data)) {
-            $userData['is_free_trail'] = $data['is_free_trail'] ? 1 : 0;
-        }
-
-        if (array_key_exists('free_trail_end_date', $data)) {
-            $userData['free_trail_end_date'] = $data['free_trail_end_date'] ? normalizeDate($data['free_trail_end_date']) : null;
         }
 
         if (isset($data['email'])) {

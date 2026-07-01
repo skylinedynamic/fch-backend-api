@@ -53,6 +53,7 @@ class PartnerController extends Controller
 
             return $this->partnerService->list($filters);
         } catch (\Exception $e) {
+            Log::error($e->getMessage());
             return ApiResponse::serverError(__('partner.error.list_failed'));
         }
     }
