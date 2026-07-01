@@ -99,6 +99,7 @@ class FundingQualificationService
             'ratio'                 => $this->evaluateRatio($rule, $borrower, $funding),
             'date_compare'          => $this->evaluateCompare($rule, $borrower, $funding, asMonths: true),
             'in_array'              => $this->evaluateInArray($rule, $borrower, $funding),
+            'not_in_array'          => $this->evaluateNotInArray($rule, $borrower, $funding),
             default                 => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
         };
     }
@@ -116,28 +117,104 @@ class FundingQualificationService
         }
 
         $borrowerVal = $borrower->{$bField};
-        $fundingVal  = $funding->{$fField}; // Expected to be an array or JSON cast to array
-
         $rule['borrower_value'] = $borrowerVal;
-        $rule['funding_value']  = $fundingVal;
 
         if (is_null($borrowerVal) || $borrowerVal === '') {
             $rule['status'] = $this->status('missing');
             return $rule;
         }
 
-        if (empty($fundingVal) || !is_array($fundingVal)) {
-            // If funding doesn't restrict it, it's good
+        if (!$funding->relationLoaded('lenderVisibilities')) {
+            $funding->load('lenderVisibilities');
+        }
+
+        $lenders = $funding->lenderVisibilities;
+        if ($lenders->isEmpty()) {
             $rule['status'] = $this->status('good');
             return $rule;
         }
 
-        if (in_array($borrowerVal, $fundingVal, true)) {
+        $passCount = 0;
+
+        foreach ($lenders as $lender) {
+            $fundingVal = $lender->{$fField};
+            
+            if (is_string($fundingVal)) {
+                $fundingVal = json_decode($fundingVal, true);
+            }
+
+            if (empty($fundingVal) || !is_array($fundingVal)) {
+                $passCount++;
+                continue;
+            }
+
+            if (in_array($borrowerVal, $fundingVal, true) || in_array($borrowerVal, $fundingVal)) {
+                $passCount++;
+            }
+        }
+
+        if ($passCount === 0) {
+            $rule['status'] = $this->status('not_good');
+        } else {
+            $rule['status'] = $this->status('good');
+        }
+
+        return $rule;
+    }
+
+    private function evaluateNotInArray(array $rule, Borrower $borrower, FundingSequencing $funding): array
+    {
+        $bField = $this->columnName($rule['borrower_field'] ?? '');
+        $fField = $this->columnName($rule['funding_field']  ?? '');
+
+        if (!$bField || !$fField) {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        $borrowerVal = $borrower->{$bField};
+        $rule['borrower_value'] = $borrowerVal;
+
+        if (is_null($borrowerVal) || $borrowerVal === '') {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        if (!$funding->relationLoaded('lenderVisibilities')) {
+            $funding->load('lenderVisibilities');
+        }
+
+        $lenders = $funding->lenderVisibilities;
+        if ($lenders->isEmpty()) {
             $rule['status'] = $this->status('good');
             return $rule;
         }
 
-        $rule['status'] = $this->status('not_good');
+        $passCount = 0;
+
+        foreach ($lenders as $lender) {
+            $fundingVal = $lender->{$fField}; 
+            
+            if (is_string($fundingVal)) {
+                $fundingVal = json_decode($fundingVal, true);
+            }
+
+            if (empty($fundingVal) || !is_array($fundingVal)) {
+                $passCount++;
+                continue;
+            }
+
+            if (!in_array($borrowerVal, $fundingVal, true) && !in_array($borrowerVal, $fundingVal)) {
+                $passCount++;
+            }
+        }
+
+        if ($passCount === 0) {
+            $rule['status'] = $this->status('not_good'); 
+        } else {
+            $rule['status'] = $this->status('good');
+        }
+
         return $rule;
     }
 
