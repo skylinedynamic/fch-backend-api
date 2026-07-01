@@ -116,14 +116,6 @@ class FundingQualificationService
             return $rule;
         }
 
-        $borrowerVal = $borrower->{$bField};
-        $rule['borrower_value'] = $borrowerVal;
-
-        if (is_null($borrowerVal) || $borrowerVal === '') {
-            $rule['status'] = $this->status('missing');
-            return $rule;
-        }
-
         if (!$funding->relationLoaded('lenderVisibilities')) {
             $funding->load('lenderVisibilities');
         }
@@ -134,18 +126,34 @@ class FundingQualificationService
             return $rule;
         }
 
+        $lendersRequiring = $lenders->filter(function ($lender) use ($fField) {
+            $fundingVal = $lender->{$fField};
+            if (is_string($fundingVal)) {
+                $fundingVal = json_decode($fundingVal, true);
+            }
+            return !empty($fundingVal) && is_array($fundingVal);
+        });
+
+        if ($lendersRequiring->isEmpty()) {
+            $rule['status'] = $this->status('good');
+            return $rule;
+        }
+
+        $borrowerVal = $borrower->{$bField};
+        $rule['borrower_value'] = $borrowerVal;
+
+        if (is_null($borrowerVal) || $borrowerVal === '') {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
         $passCount = 0;
 
-        foreach ($lenders as $lender) {
+        foreach ($lendersRequiring as $lender) {
             $fundingVal = $lender->{$fField};
             
             if (is_string($fundingVal)) {
                 $fundingVal = json_decode($fundingVal, true);
-            }
-
-            if (empty($fundingVal) || !is_array($fundingVal)) {
-                $passCount++;
-                continue;
             }
 
             if (in_array($borrowerVal, $fundingVal, true) || in_array($borrowerVal, $fundingVal)) {
@@ -154,7 +162,7 @@ class FundingQualificationService
         }
 
         if ($passCount === 0) {
-            $rule['status'] = $this->status('not_good');
+            $rule['status'] = $this->status('missing');
         } else {
             $rule['status'] = $this->status('good');
         }
@@ -172,14 +180,6 @@ class FundingQualificationService
             return $rule;
         }
 
-        $borrowerVal = $borrower->{$bField};
-        $rule['borrower_value'] = $borrowerVal;
-
-        if (is_null($borrowerVal) || $borrowerVal === '') {
-            $rule['status'] = $this->status('missing');
-            return $rule;
-        }
-
         if (!$funding->relationLoaded('lenderVisibilities')) {
             $funding->load('lenderVisibilities');
         }
@@ -190,18 +190,34 @@ class FundingQualificationService
             return $rule;
         }
 
+        $lendersRequiring = $lenders->filter(function ($lender) use ($fField) {
+            $fundingVal = $lender->{$fField};
+            if (is_string($fundingVal)) {
+                $fundingVal = json_decode($fundingVal, true);
+            }
+            return !empty($fundingVal) && is_array($fundingVal);
+        });
+
+        if ($lendersRequiring->isEmpty()) {
+            $rule['status'] = $this->status('good');
+            return $rule;
+        }
+
+        $borrowerVal = $borrower->{$bField};
+        $rule['borrower_value'] = $borrowerVal;
+
+        if (is_null($borrowerVal) || $borrowerVal === '') {
+            $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
         $passCount = 0;
 
-        foreach ($lenders as $lender) {
+        foreach ($lendersRequiring as $lender) {
             $fundingVal = $lender->{$fField}; 
             
             if (is_string($fundingVal)) {
                 $fundingVal = json_decode($fundingVal, true);
-            }
-
-            if (empty($fundingVal) || !is_array($fundingVal)) {
-                $passCount++;
-                continue;
             }
 
             if (!in_array($borrowerVal, $fundingVal, true) && !in_array($borrowerVal, $fundingVal)) {
@@ -210,7 +226,7 @@ class FundingQualificationService
         }
 
         if ($passCount === 0) {
-            $rule['status'] = $this->status('not_good'); 
+            $rule['status'] = $this->status('missing'); 
         } else {
             $rule['status'] = $this->status('good');
         }
@@ -225,6 +241,26 @@ class FundingQualificationService
 
         if (!$bField || !$fField) {
             $rule['status'] = $this->status('missing');
+            return $rule;
+        }
+
+        if (!$funding->relationLoaded('lenderVisibilities')) {
+            $funding->load('lenderVisibilities');
+        }
+
+        $lenders = $funding->lenderVisibilities;
+        if ($lenders->isEmpty()) {
+            $rule['status'] = $this->status('good');
+            return $rule;
+        }
+
+        $lendersRequiring = $lenders->filter(function ($lender) use ($fField) {
+            $fundingVal = $lender->{$fField};
+            return !is_null($fundingVal) && $fundingVal !== '';
+        });
+
+        if ($lendersRequiring->isEmpty()) {
+            $rule['status'] = $this->status('good');
             return $rule;
         }
 
@@ -248,33 +284,14 @@ class FundingQualificationService
 
         $borrowerVal = (float) $borrowerVal;
 
-        if (!$funding->relationLoaded('lenderVisibilities')) {
-            $funding->load('lenderVisibilities');
-        }
-
-        $lenders = $funding->lenderVisibilities;
-        if ($lenders->isEmpty()) {
-            $rule['status'] = $this->status('good');
-            return $rule;
-        }
-
         $passCount = 0;
         $strongPassCount = 0;
-        $totalLenders = $lenders->count();
-
         $strongOffset     = isset($rule['strong_offset'])     ? (float) $rule['strong_offset']     : null;
         $strongMultiplier = isset($rule['strong_multiplier']) ? (float) $rule['strong_multiplier'] : 1.0;
 
-        foreach ($lenders as $lender) {
-            $fundingVal = $lender->{$fField};
+        foreach ($lendersRequiring as $lender) {
+            $fundingVal = (float) $lender->{$fField};
             
-            if (is_null($fundingVal) || $fundingVal === '') {
-                $passCount++;
-                $strongPassCount++;
-                continue;
-            }
-
-            $fundingVal = (float) $fundingVal;
             $strongThreshold = $strongOffset !== null
                 ? $fundingVal + $strongOffset
                 : $fundingVal * $strongMultiplier;
@@ -285,8 +302,6 @@ class FundingQualificationService
                 if ($borrowerVal <= $fundingVal) {
                     $passCount++;
                 }
-                // For max_ fields, 'strong' means lower. But we don't have strong offset for max_ fields yet.
-                // Assuming strong logic applies to min_ fields primarily, or offset is negative for max.
                 if ($borrowerVal <= $strongThreshold) {
                     $strongPassCount++;
                 }

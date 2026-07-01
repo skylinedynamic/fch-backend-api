@@ -98,7 +98,6 @@ return [
     'statuses' => [
         'strong'   => 'Strong',
         'good'     => 'Good',
-        'not_good' => 'Not Good',
         'missing'  => 'Missing',
     ],
 
