@@ -7,6 +7,7 @@ use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\FundingType;
 use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -137,9 +138,9 @@ class FundingSequencingService
                 
                 // If the frontend sent a string name instead of an integer ID, try to find it or create it
                 if ($categoryId !== null && !is_numeric($categoryId)) {
-                    $catModel = \App\Models\Lender\LenderProductCategory::firstOrCreate(
+                    $catModel = LenderProductCategory::firstOrCreate(
                         ['name' => $categoryId],
-                        ['status' => 'Active', 'sort_order' => \App\Models\Lender\LenderProductCategory::max('sort_order') + 1]
+                        ['status' => 'Active', 'sort_order' => LenderProductCategory::max('sort_order') + 1]
                     );
                     $categoryId = $catModel->id;
                 }
@@ -307,7 +308,7 @@ class FundingSequencingService
             $skipSorting = true;
         } elseif ($sortField === '_categoryName') {
             $query->orderBy(
-                \App\Models\Lender\LenderProductCategory::select('name')
+                LenderProductCategory::select('name')
                     ->whereColumn('lender_product_categories.id', 'lender_visibilities.lender_product_category_id')
                     ->limit(1),
                 $sortOrder

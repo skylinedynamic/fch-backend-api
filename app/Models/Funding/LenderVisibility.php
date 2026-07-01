@@ -163,9 +163,7 @@ class LenderVisibility extends Model
             $failedFinancials++;
         }
 
-        if (!is_null($this->min_deposit_count) && (is_null($borrower->monthly_deposit_count) || $borrower->monthly_deposit_count < $this->min_deposit_count)) {
-            $failedFinancials++;
-        }
+
 
         if (!is_null($this->max_nsf_count) && !is_null($borrower->nsf_count) && $borrower->nsf_count > $this->max_nsf_count) {
             $failedFinancials++;
