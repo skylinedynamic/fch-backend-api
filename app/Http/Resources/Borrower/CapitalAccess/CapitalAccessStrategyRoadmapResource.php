@@ -154,7 +154,15 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
         })->all();
 
         $firstSubmittedAt = null;
-        if ($applications->isNotEmpty()) {
+        if ($borrower) {
+            $playStatus = \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                ->where('capital_access_id', $this->id)
+                ->first();
+            if ($playStatus) {
+                $firstSubmittedAt = $playStatus->created_at?->toIso8601String();
+            }
+        }
+        if (!$firstSubmittedAt && $applications->isNotEmpty()) {
             $earliestApp = $applications->sortBy('created_at')->first();
             if ($earliestApp) {
                 $firstSubmittedAt = $earliestApp->created_at?->toIso8601String();
