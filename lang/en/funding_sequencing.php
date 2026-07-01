@@ -67,6 +67,7 @@ return [
     // Response messages
     'list_fetched'               => 'Funding sequencings fetched successfully.',
     'grouped_list_fetched'       => 'Grouped funding sequencings fetched successfully.',
+    'visibilities_fetched'       => 'Visibility logics fetched successfully.',
     'fetched'                    => 'Funding sequencing fetched successfully.',
     'created'                    => 'Funding sequencing created successfully.',
     'updated'                    => 'Funding sequencing updated successfully.',

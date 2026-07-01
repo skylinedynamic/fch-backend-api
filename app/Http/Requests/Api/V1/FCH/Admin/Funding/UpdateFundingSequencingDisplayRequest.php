@@ -34,7 +34,7 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'terms'            => 'nullable|string|max:255',
             'icon'             => 'required|string|max:255',
             'icon_color'       => 'nullable|string|max:255',
-            'status'           => 'nullable|string|in:Active,Inactive',
+            'status'           => 'required|string|in:Active,Inactive',
             'sort_order'       => 'nullable|integer',
             'action_url'       => 'nullable|string|max:255',
             'speed_to_funds'   => 'nullable|string|max:255',
