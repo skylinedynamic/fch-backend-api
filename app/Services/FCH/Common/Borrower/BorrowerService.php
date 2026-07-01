@@ -448,9 +448,6 @@ class BorrowerService
                 $borrowerData['business_city'] = $data['business_other_city'];
             }
 
-            $borrowerData['monthly_revenue'] = 0;
-            $borrowerData['annual_revenue'] = 0;
-
             $borrower = Borrower::create($borrowerData);
 
             // Log Borrower Creation

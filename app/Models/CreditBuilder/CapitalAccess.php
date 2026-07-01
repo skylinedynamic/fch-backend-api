@@ -17,6 +17,12 @@ class CapitalAccess extends Model
     const HARD_PULL_YES = 'Yes';
     const HARD_PULL_NO = 'No';
 
+    // Access Time Constants
+    const ACCESS_TIME_MORNING = 'Morning';
+    const ACCESS_TIME_EVENING = 'Evening';
+    const ACCESS_TIME_ANYTIME = 'Anytime';
+    const ACCESS_TIME_DAY     = 'Day';
+
     // Pre-flight checklist task labels
     const TASK_BUSINESS_INFORMATION  = 'Business Information';
     const TASK_EIN_VERIFIED          = 'EIN Verified';
