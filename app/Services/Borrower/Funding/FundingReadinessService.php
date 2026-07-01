@@ -122,8 +122,10 @@ class FundingReadinessService
                     } else {
                         $status = $statusMissing;
                     }
+                } elseif (str_contains($lowerLabel, 'deposit count')) {
+                    $status = $this->evaluateCriteria($borrower->monthly_deposit_count, $lenders, 'min_deposit_count', 'multiplier', 1.5);
                 } elseif (str_contains($lowerLabel, 'deposit')) {
-                    $status = $this->evaluateCriteria($borrower->monthly_revenue, $lenders, 'min_monthly_deposits', 'multiplier', 1.5);
+                    $status = $this->evaluateCriteria($borrower->average_monthly_deposits, $lenders, 'min_monthly_deposits', 'multiplier', 1.5);
                 } elseif (str_contains($lowerLabel, 'balance')) {
                     $status = $this->evaluateCriteria($borrower->avg_bank_balance, $lenders, 'min_average_daily_balance', 'multiplier', 1.5);
                 } elseif (str_contains($lowerLabel, 'document')) {

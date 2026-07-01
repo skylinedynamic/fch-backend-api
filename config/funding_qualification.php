@@ -9,9 +9,10 @@ return [
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
         'Minimum Monthly Deposits' => 'min_monthly_deposits',
-        'Minimum Average Daily Balance' => 'min_average_balance',
-        'Max NSF Count' => 'max_nsf',
-        'Max Negative Days' => 'max_negative_days',
+        // 'Monthly Deposit Count' => 'min_deposit_count',
+        // 'Minimum Average Daily Balance' => 'min_average_balance',
+        // 'Max NSF Count' => 'max_nsf',
+        // 'Max Negative Days' => 'max_negative_days',
         // 'Allowed States'     => 'allowed_states',
         // 'Allowed Industries' => 'allowed_industries',
     ],
@@ -42,7 +43,7 @@ return [
         'min_monthly_deposits' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.average_monthly_deposits',
-            'funding_field'  => 'lender_visibilities.min_avg_deposits',
+            'funding_field'  => 'lender_visibilities.min_monthly_deposits',
             'strong_offset'  => 0.01,
         ],
         'min_deposit_count' => [
@@ -72,22 +73,31 @@ return [
         'equipment' => [
             'type' => '',
         ],
-        // 'allowed_states' => [
-        //     'type'           => 'in_array',
-        //     'borrower_field' => 'borrowers.state',
-        //     'funding_field'  => 'funding_sequencings.allowed_states',
-        // ],
-        // 'allowed_industries' => [
-        //     'type'           => 'in_array',
-        //     'borrower_field' => 'borrowers.business_industry_type',
-        //     'funding_field'  => 'funding_sequencings.allowed_industries',
-        // ]
+        'allowed_states' => [
+            'type'           => 'in_array',
+            'borrower_field' => 'borrowers.state',
+            'funding_field'  => 'lender_visibilities.allowed_states',
+        ],
+        'restricted_states' => [
+            'type'           => 'not_in_array',
+            'borrower_field' => 'borrowers.state',
+            'funding_field'  => 'lender_visibilities.restricted_states',
+        ],
+        'allowed_industries' => [
+            'type'           => 'in_array',
+            'borrower_field' => 'borrowers.business_industry_type',
+            'funding_field'  => 'lender_visibilities.allowed_industries',
+        ],
+        'restricted_industries' => [
+            'type'           => 'not_in_array',
+            'borrower_field' => 'borrowers.business_industry_type',
+            'funding_field'  => 'lender_visibilities.restricted_industries',
+        ]
     ],
 
     'statuses' => [
         'strong'   => 'Strong',
         'good'     => 'Good',
-        'not_good' => 'Not Good',
         'missing'  => 'Missing',
     ],
 
