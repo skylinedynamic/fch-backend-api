@@ -288,9 +288,13 @@ class FundingQualificationService
         $strongPassCount = 0;
         $strongOffset     = isset($rule['strong_offset'])     ? (float) $rule['strong_offset']     : null;
         $strongMultiplier = isset($rule['strong_multiplier']) ? (float) $rule['strong_multiplier'] : 1.0;
+        $fundingValSample = null;
 
         foreach ($lendersRequiring as $lender) {
             $fundingVal = (float) $lender->{$fField};
+            if (is_null($fundingValSample) || $fundingVal > $fundingValSample) {
+                $fundingValSample = $fundingVal;
+            }
             
             $strongThreshold = $strongOffset !== null
                 ? $fundingVal + $strongOffset
@@ -314,6 +318,8 @@ class FundingQualificationService
                 }
             }
         }
+
+        $rule['required_value'] = $fundingValSample;
 
         if ($passCount === 0) {
             $rule['status'] = $this->status('missing');
@@ -377,6 +383,8 @@ class FundingQualificationService
         if (!$funding->require_documents_uploaded) {
             $rule['status'] = $this->status('good');
             $rule['missing_docs'] = [];
+            $rule['required_value'] = 'Uploaded';
+            $rule['borrower_value'] = 'Uploaded';
             return $rule;
         }
 
@@ -388,6 +396,8 @@ class FundingQualificationService
                 ->exists();
 
             $rule['status'] = $hasAny ? $this->status('good') : $this->status('missing');
+            $rule['borrower_value'] = $hasAny ? 'Uploaded' : 'Missing';
+            $rule['required_value'] = 'Uploaded';
             $rule['missing_docs'] = $hasAny ? [] : ['Please upload supporting business documents.'];
             return $rule;
         }
@@ -399,8 +409,11 @@ class FundingQualificationService
 
         $missingIds = array_values(array_diff($requiredIds, $uploadedIds));
 
+        $rule['required_value'] = 'Uploaded';
+
         if (empty($missingIds)) {
             $rule['status'] = $this->status('good');
+            $rule['borrower_value'] = 'Uploaded';
             $rule['missing_docs'] = [];
             return $rule;
         }
@@ -408,6 +421,7 @@ class FundingQualificationService
         $missingNames = BorrowerDocType::whereIn('id', $missingIds)->pluck('name')->toArray();
 
         $rule['status'] = $this->status('missing');
+        $rule['borrower_value'] = 'Missing';
         $rule['missing_docs'] = array_values($missingNames);
         return $rule;
     }
@@ -418,12 +432,16 @@ class FundingQualificationService
 
         if (!$docName) {
             $rule['status'] = $this->status('missing');
+            $rule['required_value'] = 'Uploaded';
+            $rule['borrower_value'] = 'Missing';
             return $rule;
         }
 
         $docType = BorrowerDocType::where('name', $docName)->first();
         if (!$docType) {
             $rule['status'] = $this->status('missing');
+            $rule['required_value'] = 'Uploaded';
+            $rule['borrower_value'] = 'Missing';
             return $rule;
         }
 
@@ -432,10 +450,14 @@ class FundingQualificationService
             ->whereIn('status', [BorrowerDocument::STATUS_UPLOADED, BorrowerDocument::STATUS_ACCEPTED])
             ->exists();
 
+        $rule['required_value'] = 'Uploaded';
+
         if ($hasDoc) {
             $rule['status'] = $this->status('good');
+            $rule['borrower_value'] = 'Uploaded';
         } else {
             $rule['status'] = $this->status('missing');
+            $rule['borrower_value'] = 'Missing';
             $rule['missing_docs'] = [$docName];
         }
 
