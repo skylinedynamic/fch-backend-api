@@ -139,7 +139,14 @@ class FundingRequestService
 
         $oldStatusFormatted = ucwords(strtolower($oldStatus));
         $newStatusFormatted = ucwords(strtolower($data['status']));
-        $title = "Funding Request Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+
+        if ($oldStatus === $data['status']) {
+            $title = "Funding Request Review Note Updated";
+            $description = "Review note / rejection reason was updated.";
+        } else {
+            $title = "Funding Request Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+            $description = "Status updated to: " . ucfirst(strtolower($data['status']));
+        }
 
         app(ActivityLogService::class)->logSystemEvent(
             FundingRequest::class,
@@ -147,7 +154,7 @@ class FundingRequestService
             $review->partner_id,
             $review->borrower_id,
             $title,
-            "Status updated to: " . ucfirst(strtolower($data['status'])),
+            $description,
             ActivityLog::LOG_TYPE_FUNDING_REQUEST_STATUS_UPDATE,
             ['status' => $data['status'], 'reject_reason' => $data['reject_reason'] ?? null]
         );
