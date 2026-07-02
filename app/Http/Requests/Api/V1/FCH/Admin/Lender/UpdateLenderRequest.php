@@ -40,7 +40,7 @@ class UpdateLenderRequest extends BaseApiRequest
             'iso_status' => 'nullable|string|max:255',
             'status' => 'required|string|in:' . Lender::STATUS_ACTIVE . ',' . Lender::STATUS_INACTIVE,
             'internal_notes' => 'nullable|string',
-            'last_verified_date' => 'required|date',
+            'last_verified_date' => 'nullable|date',
         ];
     }
 

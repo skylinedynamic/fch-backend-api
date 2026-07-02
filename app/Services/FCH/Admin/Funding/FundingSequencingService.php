@@ -2,9 +2,9 @@
 
 namespace App\Services\FCH\Admin\Funding;
 
+use App\Http\Resources\FCH\Funding\FundingSequencingResource;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
-use App\Models\Funding\FundingType;
 use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
@@ -96,14 +96,32 @@ class FundingSequencingService
             $query->orderByRaw('sort_order IS NULL, sort_order ASC')->orderBy('id', 'desc');
         }
 
-        if ($filters['per_page'] === -1) {
-            return $query->get();
+        $perPage = $filters['per_page'] ?? ($filters['rows'] ?? 10);
+        $page = $filters['page'] ?? 1;
+
+        if (isset($filters['first']) && isset($filters['rows']) && $filters['rows'] > 0) {
+            $page = (int) ($filters['first'] / $filters['rows']) + 1;
         }
 
-        return $query->paginate($filters['per_page'], ['*'], 'page', $filters['page']);
+        if ($perPage == -1 || $perPage == 'All') {
+            $items = $query->get();
+            $perPage = $items->count() > 0 ? $items->count() : 10;
+        }
+
+        $perPage = is_numeric($perPage) ? max(1, (int) $perPage) : 1000000;
+        $page = max(1, (int) $page);
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            FundingSequencingResource::class,
+            __('funding_sequencing.list_fetched'),
+            200
+        );
     }
 
-    public function create(array $data): FundingSequencing
+    public function store(array $data): FundingSequencing
     {
         $lenderVisibilities = $data['lender_visibilities'] ?? [];
         unset($data['lender_visibilities'], $data['lender_id']);

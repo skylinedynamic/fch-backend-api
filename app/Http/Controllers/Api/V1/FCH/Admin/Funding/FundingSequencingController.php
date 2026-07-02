@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\Funding;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\FetchFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingDisplayRequest;
@@ -23,39 +24,13 @@ class FundingSequencingController extends Controller
         $this->service = $service;
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(FetchFundingSequencingRequest $request): JsonResponse
     {
-        $input = $request->all();
-
-        $filters = [
-            'per_page' => isset($input['per_page']) ? $input['per_page'] : ($input['rows'] ?? null),
-            'page' => isset($input['page']) ? $input['page'] : ($input['first'] ?? 1),
-            'search' => isset($input['search']) ? trim((string) $input['search']) : null,
-            'status' => $input['status'] ?? null,
-            'funding_group_id' => $input['funding_group_id'] ?? null,
-            'funding_type_id' => $input['funding_type_id'] ?? null,
-            'sort_field' => $input['sort_field'] ?? null,
-            'sort_order' => $input['sort_order'] ?? null,
-            'filters' => $input['filters'] ?? [],
-        ];
-
-        $filters['per_page'] = ($filters['per_page'] === 'All' || $filters['per_page'] == -1) ? -1 : (int) ($filters['per_page'] ?? 10);
-
-        if (isset($input['first']) && isset($input['rows'])) {
-            $filters['page'] = (int) ($input['first'] / $input['rows']) + 1;
-        } else {
-            $filters['page'] = max(1, (int) $filters['page']);
+        try {
+            return $this->service->list($request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('funding_sequencing.list_failed'));
         }
-
-        $data = $this->service->list($filters);
-
-        if ($filters['per_page'] === -1) {
-            return ApiResponse::success(FundingSequencingResource::collection($data), __('funding_sequencing.list_fetched'));
-        }
-
-        $resource = FundingSequencingResource::collection($data);
-        $paginated = $resource->response()->getData(true);
-        return ApiResponse::success($paginated, __('funding_sequencing.list_fetched'));
     }
     
     public function grouped(): JsonResponse
@@ -66,7 +41,7 @@ class FundingSequencingController extends Controller
 
     public function store(StoreFundingSequencingRequest $request): JsonResponse
     {
-        $sequencing = $this->service->create($request->validated());
+        $sequencing = $this->service->store($request->validated());
 
         return ApiResponse::success(
             new FundingSequencingResource($sequencing),

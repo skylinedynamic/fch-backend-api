@@ -21,27 +21,11 @@ class LenderController extends Controller
     }
     public function index(FetchLenderRequest $request)
     {
-        $perPage = $request->input('per_page', 10);
-        $sortField = $request->input('sort_field', 'id');
-        $sortOrder = $request->input('sort_order', 'desc');
-        $search = $request->input('search');
-
-        $lenders = $this->lenderService->getLenders($perPage, $sortField, $sortOrder, $search);
-
-        if ($perPage == -1 || $perPage == 'All') {
-            return ApiResponse::success(LenderResource::collection($lenders), __('lender.fetched_successfully'));
+        try {
+            return $this->lenderService->list($request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('lender.list_failed'));
         }
-
-        return ApiResponse::successWithPagination(
-            LenderResource::collection($lenders->items()),
-            [
-                'current_page' => $lenders->currentPage(),
-                'last_page' => $lenders->lastPage(),
-                'per_page' => $lenders->perPage(),
-                'total' => $lenders->total(),
-            ],
-            __('lender.fetched_successfully')
-        );
     }
 
     public function getAll()
@@ -53,7 +37,7 @@ class LenderController extends Controller
     public function store(StoreLenderRequest $request)
     {
         $validated = $request->validated();
-        $lender = $this->lenderService->createLender($validated);
+        $lender = $this->lenderService->store($validated);
 
         return ApiResponse::success(new LenderResource($lender), __('lender.created_successfully'), 201);
     }
@@ -69,7 +53,7 @@ class LenderController extends Controller
         $validated = $request->validated();
         $lender = Lender::findOrFail($id);
         
-        $lender = $this->lenderService->updateLender($lender, $validated);
+        $lender = $this->lenderService->update($lender, $validated);
 
         return ApiResponse::success(new LenderResource($lender), __('lender.updated_successfully'));
     }
@@ -77,7 +61,7 @@ class LenderController extends Controller
     public function destroy($id)
     {
         $lender = Lender::findOrFail($id);
-        $this->lenderService->deleteLender($lender);
+        $this->lenderService->delete($lender);
 
         return ApiResponse::success(null, __('lender.deleted_successfully'));
     }

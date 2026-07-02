@@ -22,10 +22,12 @@ class FetchLenderRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'per_page'   => 'nullable',
+            'page'       => 'nullable|integer|min:1',
+            'per_page'   => 'nullable', // Can be integer or 'All' or '-1'
             'sort_field' => 'nullable|string',
             'sort_order' => 'nullable|string|in:asc,desc',
             'search'     => 'nullable|string',
+            'filters'    => 'nullable', // Can be array or JSON string
         ];
     }
 }
