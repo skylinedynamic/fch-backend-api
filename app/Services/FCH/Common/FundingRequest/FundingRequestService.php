@@ -34,6 +34,10 @@ class FundingRequestService
             $query->where('status', $filters['status']);
         }
 
+        if (!empty($filters['funding_sequence_id'])) {
+            $query->where('funding_sequence_id', $filters['funding_sequence_id']);
+        }
+
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }

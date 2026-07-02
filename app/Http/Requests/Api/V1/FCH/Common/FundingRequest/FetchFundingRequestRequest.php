@@ -14,13 +14,14 @@ class FetchFundingRequestRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'per_page'      => ['nullable', 'integer', 'min:1'],
-            'page'          => ['nullable', 'integer', 'min:1'],
-            'search'        => ['nullable', 'string'],
-            'filters'       => ['nullable', 'array'],
-            'sort_field'    => ['nullable', 'string'],
-            'sort_order'    => ['nullable', 'in:asc,desc'],
-            'status'        => ['nullable', 'string'],
+            'per_page'              => ['nullable', 'integer', 'min:1'],
+            'page'                  => ['nullable', 'integer', 'min:1'],
+            'search'                => ['nullable', 'string'],
+            'filters'               => ['nullable', 'array'],
+            'sort_field'            => ['nullable', 'string'],
+            'sort_order'            => ['nullable', 'in:asc,desc'],
+            'status'                => ['nullable', 'string'],
+            'funding_sequence_id'   => ['nullable', 'integer'],
         ];
     }
     
