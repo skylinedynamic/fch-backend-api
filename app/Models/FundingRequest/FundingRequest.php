@@ -173,6 +173,10 @@ class FundingRequest extends Model
                               ->orWhere('business_name', 'like', "%{$search}%")
                               ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
                 })
+                // Search partner relations
+                ->orWhereHas('partner', function ($qPartner) use ($search) {
+                    $qPartner->where('full_name', 'like', "%{$search}%");
+                })
                 // Search funding sequence relations
                 ->orWhereHas('fundingSequence', function ($qSequence) use ($search) {
                     $qSequence->where('name', 'like', "%{$search}%");

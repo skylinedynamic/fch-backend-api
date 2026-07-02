@@ -70,6 +70,8 @@ return [
             ['name' => 'update pre qualification', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view funding application', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update funding application', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view funding request', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'update funding request', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view change requests', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update change requests', 'is_certified' => 0, 'is_host' => 1],
         ],

@@ -24,8 +24,8 @@ class FundingRequestService
     {
         $authUser = Auth::user();
 
-        $query = FundingRequest::with(['borrower', 'fundingSequence'])
-            ->when($authUser->user_type == User::PARTNER, function ($q) use ($authUser) {
+        $query = FundingRequest::with(['borrower', 'fundingSequence', 'partner'])
+            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             });
 
@@ -41,10 +41,26 @@ class FundingRequestService
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
-        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id'];
+        $allowedSortFields = ['id', 'created_at', 'funding_type', 'use_of_funds', 'requested_amount', 'status', 'funding_sequence_id', 'borrower_name', 'partner_name'];
         
         if (in_array($sortField, $allowedSortFields)) {
-            $query->orderBy($sortField, $sortOrder);
+            if ($sortField === 'borrower_name') {
+                $query->orderBy(
+                    \App\Models\Borrower\Borrower::select('first_name')
+                        ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            } elseif ($sortField === 'partner_name') {
+                $query->orderBy(
+                    \App\Models\Partner\Partner::select('full_name')
+                        ->whereColumn('partners.id', 'funding_requests.partner_id')
+                        ->limit(1),
+                    $sortOrder
+                );
+            } else {
+                $query->orderBy($sortField, $sortOrder);
+            }
         } else {
             $query->orderBy('id', 'desc'); // Fallback
         }
@@ -64,8 +80,8 @@ class FundingRequestService
     {
         $authUser = Auth::user();
         
-        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence'])
-            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner'])
+            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             })
             ->where('id', $id)
@@ -86,7 +102,7 @@ class FundingRequestService
         $authUser = Auth::user();
 
         $review = FundingRequest::where('id', $data['id'])
-            ->when($authUser->user_type == User::PARTNER, function ($q) use ($authUser) {
+            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             })->first();
 
