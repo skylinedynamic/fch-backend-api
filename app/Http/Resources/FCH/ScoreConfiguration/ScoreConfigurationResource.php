@@ -20,6 +20,7 @@ class ScoreConfigurationResource extends JsonResource
             'probability_factors' => $this->resource['probability_factors'] ?? [],
             'odds_factors' => $this->resource['odds_factors'] ?? [],
             'time_settings' => $this->resource['time_settings'] ?? [],
+            'next_play_delay' => $this->resource['next_play_delay'] ?? 0,
         ];
     }
 }

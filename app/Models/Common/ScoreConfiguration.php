@@ -44,6 +44,7 @@ class ScoreConfiguration extends Model
     public const MODEL_GENERAL_SETTING = 'general_setting';
 
     public const FACTOR_TIME_SETTING = 'time_setting';
+    public const FACTOR_NEXT_PLAY_DELAY = 'next_play_delay';
 
     // Factor Slugs
     public const FACTOR_FICO = 'fico';

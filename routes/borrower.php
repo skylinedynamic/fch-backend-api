@@ -123,6 +123,7 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/strategies/{id}/overview', [CapitalAccessStrategyController::class, 'showOverview']);
                     Route::get('/strategies/{id}/checklist', [CapitalAccessStrategyController::class, 'showChecklist']);
                     Route::get('/strategies/{id}/roadmap', [CapitalAccessStrategyController::class, 'showRoadmap']);
+                    Route::post('/strategies/{id}/start', [CapitalAccessStrategyController::class, 'startPlay']);
                     Route::get('/strategies/{id}/step/{sequenceId}', [CapitalAccessStrategyController::class, 'showStep']);
                     Route::post('/strategies/{id}/step/{sequenceId}/submit', [CapitalAccessStrategyController::class, 'submitStep']);
                 }

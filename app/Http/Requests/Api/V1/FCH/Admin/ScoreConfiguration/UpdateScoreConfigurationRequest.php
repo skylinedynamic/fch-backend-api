@@ -66,6 +66,7 @@ class UpdateScoreConfigurationRequest extends BaseApiRequest
             'time_settings.*.start' => 'nullable|numeric',
             'time_settings.*.end' => 'nullable|numeric',
             'time_settings.*.sort_order' => 'required|integer|min:1',
+            'next_play_delay' => 'nullable|integer|min:0',
         ];
     }
 }

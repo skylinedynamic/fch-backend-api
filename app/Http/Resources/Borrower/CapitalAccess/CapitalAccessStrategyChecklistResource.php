@@ -33,9 +33,16 @@ class CapitalAccessStrategyChecklistResource extends JsonResource
             $reasonCode  = $probData['reason_code'];
         }
 
+        $recommendedId = $this->additional['recommended_id'] ?? null;
+        $isRecommended = $recommendedId === $this->id;
+        $isCompleted   = (bool) ($this->is_completed ?? false);
+
         return [
             'id'              => $this->id,
             'name'            => $this->name,
+            'isRecommended'   => $isRecommended,
+            'isCompleted'     => $isCompleted,
+            'isAccessible'    => $isRecommended || $isCompleted,
             'approval_status' => $status,
             'reason_code'     => $reasonCode,
             'checklist'       => $this->getEvaluatedChecklist($borrower, $this->pre_flight_checklist),

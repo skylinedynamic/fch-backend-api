@@ -58,7 +58,7 @@ class CapitalAccessOverviewController extends Controller
                     continue;
                 }
 
-                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
+                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers, true);
                 if (isset($probData['status']) && $probData['status'] === true) {
                     // Only non-completed, eligible strategies populate the chart
                     $exposureBreakdown[] = [
@@ -78,6 +78,11 @@ class CapitalAccessOverviewController extends Controller
             // Estimated Total Access = recommended non-completed strategy only
             if ($recommendedStrat) {
                 $totalExposureMax = (float) ($recommendedStrat->target_exposure_max ?? 0);
+
+                // Run next play delay calculation on the recommended strategy
+                $probDataDelay = $probabilityService->calculate($borrower, $recommendedStrat, $ctx, $probTiers, $modifiers, false);
+                $reasonCode = $probDataDelay['reason_code'] ?? null;
+                $unlockAt = $probDataDelay['unlock_at'] ?? null;
             }
         }
 
@@ -124,6 +129,8 @@ class CapitalAccessOverviewController extends Controller
             'estimated_total_access' => $estimatedAccess,
             'exposure_breakdown'     => $exposureBreakdown,
             'current_play'           => $currentPlay,
+            'reason_code'            => $reasonCode ?? null,
+            'unlock_at'              => $unlockAt ?? null,
         ];
 
         return ApiResponse::success(

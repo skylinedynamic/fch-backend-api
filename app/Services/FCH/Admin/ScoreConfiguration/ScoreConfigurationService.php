@@ -225,6 +225,13 @@ class ScoreConfigurationService
                 ];
             })->values()->all();
 
+        $nextPlayDelay = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->where('model_slug', ScoreConfiguration::MODEL_GENERAL_SETTING)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_NEXT_PLAY_DELAY)
+            ->first();
+
+        $nextPlayDelayValue = $nextPlayDelay ? (int) $nextPlayDelay->numeric_value : 0;
+
         return [
             'models' => $models,
             'factors' => $factors,
@@ -233,6 +240,7 @@ class ScoreConfigurationService
             'probability_factors' => $probFactors,
             'odds_factors' => $oddsFactors,
             'time_settings' => $timeSettings,
+            'next_play_delay' => $nextPlayDelayValue,
         ];
     }
 
@@ -276,7 +284,26 @@ class ScoreConfigurationService
             if (isset($data['time_settings'])) {
                 $this->saveTimeSettings($data['time_settings']);
             }
+
+            if (isset($data['next_play_delay'])) {
+                $this->saveNextPlayDelay((int) $data['next_play_delay']);
+            }
         });
+    }
+
+    private function saveNextPlayDelay(int $days): void
+    {
+        ScoreConfiguration::updateOrCreate(
+            [
+                'category' => ScoreConfiguration::CATEGORY_TIME,
+                'model_slug' => ScoreConfiguration::MODEL_GENERAL_SETTING,
+                'factor_slug' => ScoreConfiguration::FACTOR_NEXT_PLAY_DELAY,
+            ],
+            [
+                'label' => 'Next Play Delay',
+                'numeric_value' => $days,
+            ]
+        );
     }
 
     private function saveCoreCreditStrength(array $fundingReadiness): void
