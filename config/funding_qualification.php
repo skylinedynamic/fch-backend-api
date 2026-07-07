@@ -4,7 +4,7 @@ use App\Models\Borrower\BorrowerDocType;
 
 return [
     'factor_keys' => [
-        'Business Credit'  => 'business_credit',
+        'Personal Credit'  => 'business_credit',
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
