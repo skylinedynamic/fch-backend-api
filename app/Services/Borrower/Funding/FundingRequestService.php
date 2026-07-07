@@ -78,19 +78,29 @@ class FundingRequestService
 
         if ($fundingRequest->wasRecentlyCreated || $fundingRequest->status === FundingRequest::STATUS_PENDING) {
             $hostPartner = Partner::where('is_host', 1)->first();
+            $borrowerPartner = $borrower->partner;
             
-            if (!$hostPartner) {
-                Log::warning('UnderwritingSubmitted email not sent: No host partner found (is_host = 1).');
-            } elseif (empty($hostPartner->email)) {
-                Log::warning("UnderwritingSubmitted email not sent: Host partner (ID: {$hostPartner->id}) does not have an email address set.");
+            $emailsToNotify = [];
+
+            if ($hostPartner && !empty($hostPartner->email)) {
+                $emailsToNotify[] = $hostPartner->email;
             } else {
-                Log::info("Attempting to send UnderwritingSubmitted email to host partner (ID: {$hostPartner->id}) at {$hostPartner->email}.");
+                Log::warning('UnderwritingSubmitted email not sent to host: No host partner found or email is empty.');
+            }
+
+            if ($borrowerPartner && $borrowerPartner->is_host == 0 && !empty($borrowerPartner->email)) {
+                if (!in_array($borrowerPartner->email, $emailsToNotify)) {
+                    $emailsToNotify[] = $borrowerPartner->email;
+                }
+            }
+
+            foreach ($emailsToNotify as $email) {
+                Log::info("Attempting to send UnderwritingSubmitted email to {$email}.");
                 try {
-                    Mail::to($hostPartner->email)
-                        ->send(new UnderwritingSubmitted($fundingRequest));
-                    Log::info('UnderwritingSubmitted email sent successfully.');
+                    Mail::to($email)->send(new UnderwritingSubmitted($fundingRequest));
+                    Log::info("UnderwritingSubmitted email sent successfully to {$email}.");
                 } catch (\Exception $e) {
-                    Log::error('Failed to send UnderwritingSubmitted email.', [
+                    Log::error("Failed to send UnderwritingSubmitted email to {$email}.", [
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
                     ]);
