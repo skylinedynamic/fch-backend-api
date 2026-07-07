@@ -53,6 +53,6 @@
 
     <div class="btn-container" style="margin: 30px 0; text-align: center;">
         <a href="{{ make_url(getBorrowerDomain($fundingRequest->partner_id), 'funding-requests') }}"
-            class="btn" style="display: inline-block; background-color: #1e3a8a; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Review Details</a>
+            class="btn" style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Review Details</a>
     </div>
 @endsection
