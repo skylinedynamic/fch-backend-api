@@ -147,7 +147,7 @@ class FundingRequestService
 
         $review->save();
 
-        if (in_array($data['status'], [FundingRequest::STATUS_APPROVED, FundingRequest::STATUS_REJECTED])) {
+        if ($oldStatus !== $data['status']) {
             $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
             if ($borrowerEmail) {
                 Mail::to($borrowerEmail)

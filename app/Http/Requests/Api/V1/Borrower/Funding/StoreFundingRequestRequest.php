@@ -55,4 +55,50 @@ class StoreFundingRequestRequest extends BaseApiRequest
             'estimated_speed.max' => __('funding_request.estimated_speed_max'),
         ];
     }
+    /**
+     * Configure the validator instance.
+     *
+     * @param  \Illuminate\Validation\Validator  $validator
+     * @return void
+     */
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            $amount = $this->input('requested_amount');
+            $fundingId = $this->input('funding_sequence_id');
+
+            if ($amount === null || !$fundingId) {
+                return;
+            }
+
+            $funding = \App\Models\Funding\FundingSequencing::find($fundingId);
+            if (!$funding || empty($funding->amount_range)) {
+                return;
+            }
+
+            $rangeStr = $funding->amount_range;
+            $parts = explode('-', $rangeStr);
+            if (count($parts) === 2) {
+                $parseVal = function ($val) {
+                    $p = strtoupper(trim(preg_replace('/[^0-9.KMkm]/', '', $val)));
+                    $num = (float) $p;
+                    if (str_contains($p, 'K')) $num *= 1000;
+                    if (str_contains($p, 'M')) $num *= 1000000;
+                    return $num;
+                };
+
+                $val1 = $parseVal($parts[0]);
+                $val2 = $parseVal($parts[1]);
+
+                $min = min($val1, $val2);
+                $max = max($val1, $val2);
+
+                if ($min > 0 || $max > 0) {
+                    if ($amount < $min || $amount > $max) {
+                        $validator->errors()->add('requested_amount', "Requested amount must be between $" . number_format($min) . " and $" . number_format($max) . ".");
+                    }
+                }
+            }
+        });
+    }
 }
