@@ -41,7 +41,7 @@ class PartnerMigrationMail extends Mailable
         $user = $this->mailData['user'];
 
         return new Content(
-            view: 'emails.partner.migration',
+            view: 'emails.trial.partner_migration',
             with: [
                 'user' => $user,
                 'siteName' => $this->dynamicData['siteName'],

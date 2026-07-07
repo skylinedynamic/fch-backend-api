@@ -424,7 +424,8 @@ class BorrowerService
             }
 
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
-            $data['status'] = Borrower::STATUS_ONBOARDING;
+            $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+            $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table or are used for mapping
             $exceptFields = [
@@ -537,6 +538,7 @@ class BorrowerService
         try {
             $user = $borrower->user;
             $wasFreeTrial = (bool) $borrower->is_free_trail;
+            $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
             if (isset($data['business_logo']) && $data['business_logo'] instanceof UploadedFile) {
                 if ($borrower->business_logo) {
@@ -562,6 +564,9 @@ class BorrowerService
             }
             if (isset($data['business_other_city'])) {
                 $borrowerData['business_city'] = $data['business_other_city'];
+            }
+            if ($wasFreeTrial && !$isFreeTrialInput) {
+                $borrowerData['status'] = Borrower::STATUS_ONBOARDING;
             }
             $oldStatus = $borrower->status;
             $borrower->update($borrowerData);

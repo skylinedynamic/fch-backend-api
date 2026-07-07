@@ -290,7 +290,8 @@ class PartnerService
             $isNew = $userResult['is_new'];
 
             $partnerData = $this->mapPartnerData($data);
-            $partnerData['status'] = Partner::STATUS_ONBOARDING;
+            $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+            $partnerData['status'] = $isFreeTrial ? Partner::STATUS_ACTIVE : Partner::STATUS_ONBOARDING;
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
             $partnerData['total_paid_users'] = 0;
 
@@ -499,6 +500,7 @@ class PartnerService
             // Assuming the partner has a linked user via polymorphic relation or we find by email
             $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
             $wasFreeTrial = (bool) $partner->is_free_trail;
+            $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
             if ($user) {
                 $userResult = $this->createOrUpdateUser($data, $user);
@@ -530,6 +532,9 @@ class PartnerService
             // Update partner
             $oldStatus = $partner->status;
             $partnerData = $this->mapPartnerData($data);
+            if ($wasFreeTrial && !$isFreeTrialInput) {
+                $partnerData['status'] = Partner::STATUS_ONBOARDING;
+            }
 
             if ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED && !empty($partnerData['partner_domain'])) {
                 $subdomain = trim($partnerData['partner_domain']);

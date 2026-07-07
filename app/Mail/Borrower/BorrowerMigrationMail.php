@@ -32,7 +32,7 @@ class BorrowerMigrationMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Client Account Migrated from Free Trial",
+            subject: $this->mailData['subject'] ?? "Client Account Migrated from Limited Access Edition",
         );
     }
 
@@ -41,7 +41,7 @@ class BorrowerMigrationMail extends Mailable
         $user = $this->mailData['user'];
 
         return new Content(
-            view: 'emails.borrower.migration',
+            view: 'emails.trial.borrower_migration',
             with: [
                 'user' => $user,
                 'paymentLink' => $this->mailData['payment_link'] ?? null,

@@ -52,7 +52,7 @@ class StoreBorrowerRequest extends BaseApiRequest
         ];
 
         if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
-            $rules['free_trail_end_date'] = ['required'];
+            $rules['free_trail_end_date'] = ['nullable'];
             $rules['plan_id'] = ['nullable', 'exists:subscription_plans,id'];
             $rules['enrollment_payment'] = ['nullable'];
         } else {
