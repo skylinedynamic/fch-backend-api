@@ -89,6 +89,24 @@ class FundingSequencingResource extends JsonResource
         $qualificationService = app(\App\Services\FCH\Common\Funding\FundingQualificationService::class);
         $formattedReadinessFactors = $qualificationService->evaluateReadinessFactors($borrower, $this->id);
 
+        $engineStatus = $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE;
+        if ($engineStatus === FundingSequencing::ENGINE_STATUS_HIDDEN && $borrower) {
+            $hardStopReasons = $this->getEngineStatusReasonsForBorrower($borrower);
+            foreach ($hardStopReasons as $reason) {
+                // Check if already in factors
+                $exists = false;
+                foreach ($formattedReadinessFactors as $factor) {
+                    if ($factor['label'] === $reason['label']) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (!$exists) {
+                    $formattedReadinessFactors[] = $reason;
+                }
+            }
+        }
+
         $latestRequestedAmount = null;
         $latestUseOfFunds = null;
         $latestReviewStatus = null;

@@ -94,6 +94,25 @@ class LenderVisibility extends Model
         });
     }
 
+    private function getStateCode($stateName)
+    {
+        if (!$stateName) return null;
+        
+        $locations = config('locations');
+        if (is_array($locations)) {
+            foreach ($locations as $country) {
+                if (isset($country['states']) && is_array($country['states'])) {
+                    foreach ($country['states'] as $state) {
+                        if (strtolower($state['name']) === strtolower(trim($stateName)) || strtolower($state['code']) === strtolower(trim($stateName))) {
+                            return strtoupper($state['code']);
+                        }
+                    }
+                }
+            }
+        }
+        return strtoupper(trim($stateName));
+    }
+
     public function getEngineStatusForBorrower($borrower)
     {
         if (!$borrower) {
@@ -106,17 +125,31 @@ class LenderVisibility extends Model
         }
         $fundingSequencing = $this->fundingSequencing;
 
-        // Geography & Industry hard stops
-        if (!empty($this->restricted_states) && in_array($borrower->state, $this->restricted_states)) {
+        $borrowerStateCode = $this->getStateCode($borrower->state);
+
+        $restrictedStates = is_array($this->restricted_states) ? array_filter($this->restricted_states) : [];
+        if (!empty($restrictedStates)) {
+            $restrictedStates = array_map('strtoupper', $restrictedStates);
+            if (in_array($borrowerStateCode, $restrictedStates) || in_array(strtoupper(trim((string)$borrower->state)), $restrictedStates)) {
+                return FundingSequencing::ENGINE_STATUS_HIDDEN;
+            }
+        }
+
+        $allowedStates = is_array($this->allowed_states) ? array_filter($this->allowed_states) : [];
+        if (!empty($allowedStates)) {
+            $allowedStates = array_map('strtoupper', $allowedStates);
+            if (!in_array($borrowerStateCode, $allowedStates) && !in_array(strtoupper(trim((string)$borrower->state)), $allowedStates)) {
+                return FundingSequencing::ENGINE_STATUS_HIDDEN;
+            }
+        }
+
+        $restrictedIndustries = is_array($this->restricted_industries) ? array_filter($this->restricted_industries) : [];
+        if (!empty($restrictedIndustries) && in_array($borrower->business_industry_type, $restrictedIndustries)) {
             return FundingSequencing::ENGINE_STATUS_HIDDEN;
         }
-        if (!empty($this->allowed_states) && !in_array($borrower->state, $this->allowed_states)) {
-            return FundingSequencing::ENGINE_STATUS_HIDDEN;
-        }
-        if (!empty($this->restricted_industries) && in_array($borrower->business_industry_type, $this->restricted_industries)) {
-            return FundingSequencing::ENGINE_STATUS_HIDDEN;
-        }
-        if (!empty($this->allowed_industries) && !in_array($borrower->business_industry_type, $this->allowed_industries)) {
+
+        $allowedIndustries = is_array($this->allowed_industries) ? array_filter($this->allowed_industries) : [];
+        if (!empty($allowedIndustries) && !in_array($borrower->business_industry_type, $allowedIndustries)) {
             return FundingSequencing::ENGINE_STATUS_HIDDEN;
         }
 
@@ -201,5 +234,62 @@ class LenderVisibility extends Model
         }
 
         return FundingSequencing::ENGINE_STATUS_ACTIVE;
+    }
+
+    /**
+     * Return reasons why the borrower is hidden.
+     */
+    public function getHiddenReasonsForBorrower($borrower): array
+    {
+        $reasons = [];
+        $borrowerStateCode = $this->getStateCode($borrower->state);
+        
+        $restrictedStates = is_array($this->restricted_states) ? array_filter($this->restricted_states) : [];
+        if (!empty($restrictedStates)) {
+            $restrictedStates = array_map('strtoupper', $restrictedStates);
+            if (in_array($borrowerStateCode, $restrictedStates) || in_array(strtoupper(trim((string)$borrower->state)), $restrictedStates)) {
+                $reasons[] = [
+                    'label' => 'Restricted State',
+                    'status' => 'Missing',
+                    'borrower_value' => $borrower->state,
+                    'required_value' => 'Not Restricted'
+                ];
+            }
+        }
+
+        $allowedStates = is_array($this->allowed_states) ? array_filter($this->allowed_states) : [];
+        if (!empty($allowedStates)) {
+            $allowedStates = array_map('strtoupper', $allowedStates);
+            if (!in_array($borrowerStateCode, $allowedStates) && !in_array(strtoupper(trim((string)$borrower->state)), $allowedStates)) {
+                $reasons[] = [
+                    'label' => 'State Eligibility',
+                    'status' => 'Missing',
+                    'borrower_value' => $borrower->state,
+                    'required_value' => implode(', ', $this->allowed_states)
+                ];
+            }
+        }
+
+        $restrictedIndustries = is_array($this->restricted_industries) ? array_filter($this->restricted_industries) : [];
+        if (!empty($restrictedIndustries) && in_array($borrower->business_industry_type, $restrictedIndustries)) {
+            $reasons[] = [
+                'label' => 'Restricted Industry',
+                'status' => 'Missing',
+                'borrower_value' => $borrower->business_industry_type,
+                'required_value' => 'Not Restricted'
+            ];
+        }
+
+        $allowedIndustries = is_array($this->allowed_industries) ? array_filter($this->allowed_industries) : [];
+        if (!empty($allowedIndustries) && !in_array($borrower->business_industry_type, $allowedIndustries)) {
+            $reasons[] = [
+                'label' => 'Industry Eligibility',
+                'status' => 'Missing',
+                'borrower_value' => $borrower->business_industry_type,
+                'required_value' => implode(', ', $this->allowed_industries)
+            ];
+        }
+
+        return $reasons;
     }
 }

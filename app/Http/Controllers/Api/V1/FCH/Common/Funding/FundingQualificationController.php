@@ -30,6 +30,26 @@ class FundingQualificationController extends Controller
 
             $factors = $this->service->evaluateReadinessFactors($borrower, $fundingId);
 
+            $funding = \App\Models\Funding\FundingSequencing::find($fundingId);
+            if ($funding) {
+                $engineStatus = $funding->engine_status ?? \App\Models\Funding\FundingSequencing::ENGINE_STATUS_ACTIVE;
+                if ($engineStatus === \App\Models\Funding\FundingSequencing::ENGINE_STATUS_HIDDEN) {
+                    $hardStopReasons = $funding->getEngineStatusReasonsForBorrower($borrower);
+                    foreach ($hardStopReasons as $reason) {
+                        $exists = false;
+                        foreach ($factors as $factor) {
+                            if ($factor['label'] === $reason['label']) {
+                                $exists = true;
+                                break;
+                            }
+                        }
+                        if (!$exists) {
+                            $factors[] = $reason;
+                        }
+                    }
+                }
+            }
+
             return response()->json([
                 'status' => true,
                 'data' => $factors

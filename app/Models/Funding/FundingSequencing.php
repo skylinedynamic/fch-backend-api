@@ -181,18 +181,18 @@ class FundingSequencing extends Model
             return self::ENGINE_STATUS_ACTIVE;
         }
 
-        // Evaluate status for each lender and find the "best" status
-        // Priority: ACTIVE (Eligible Now) > WARNING (Conditional) > REVIEW (Manual Review) > GREYED_OUT (Better Fit Later) > HIDDEN (Not Eligible)
+        // Evaluate status for each lender and find the most restrictive status
+        // Priority: HIDDEN (Not Eligible) > GREYED_OUT (Better Fit Later) > REVIEW (Manual Review) > WARNING (Conditional) > ACTIVE (Eligible Now)
         $statusPriority = [
-            self::ENGINE_STATUS_ACTIVE => 5,
-            self::ENGINE_STATUS_WARNING => 4,
+            self::ENGINE_STATUS_HIDDEN => 5,
+            self::ENGINE_STATUS_GREYED_OUT => 4,
             self::ENGINE_STATUS_REVIEW => 3,
-            self::ENGINE_STATUS_GREYED_OUT => 2,
-            self::ENGINE_STATUS_HIDDEN => 1,
+            self::ENGINE_STATUS_WARNING => 2,
+            self::ENGINE_STATUS_ACTIVE => 1,
         ];
 
-        $bestStatus = self::ENGINE_STATUS_HIDDEN;
-        $bestPriority = 0;
+        $worstStatus = self::ENGINE_STATUS_ACTIVE;
+        $highestPriority = 0;
 
         foreach ($this->lenderVisibilities as $lenderSeq) {
             // Prevent lazy loading violation by explicitly setting the parent relation
@@ -201,11 +201,13 @@ class FundingSequencing extends Model
             $status = $lenderSeq->getEngineStatusForBorrower($borrower);
             $priority = $statusPriority[$status] ?? 0;
 
-            if ($priority > $bestPriority) {
-                $bestPriority = $priority;
-                $bestStatus = $status;
+            if ($priority > $highestPriority) {
+                $highestPriority = $priority;
+                $worstStatus = $status;
             }
         }
+
+        $bestStatus = $worstStatus;
 
         // If currently evaluated as ACTIVE, let's also check Readiness Factors
         if ($bestStatus === self::ENGINE_STATUS_ACTIVE) {
@@ -223,6 +225,33 @@ class FundingSequencing extends Model
         }
 
         return $bestStatus;
+    }
+
+    /**
+     * Get the reasons why this funding sequence is restricted (e.g., Hidden).
+     *
+     * @param \App\Models\Borrower\Borrower|null $borrower
+     * @return array
+     */
+    public function getEngineStatusReasonsForBorrower($borrower = null): array
+    {
+        if (!$borrower) {
+            return [];
+        }
+
+        $reasons = [];
+
+        foreach ($this->lenderVisibilities as $lenderSeq) {
+            $lenderSeq->setRelation('fundingSequencing', $this);
+            if ($lenderSeq->getEngineStatusForBorrower($borrower) === self::ENGINE_STATUS_HIDDEN) {
+                $lenderReasons = $lenderSeq->getHiddenReasonsForBorrower($borrower);
+                foreach ($lenderReasons as $reason) {
+                    $reasons[$reason['label']] = $reason;
+                }
+            }
+        }
+
+        return array_values($reasons);
     }
 
     public function getEngineStatusLabelAttribute()
