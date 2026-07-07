@@ -26,6 +26,8 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\SubscriptionService;
+use App\Mail\Borrower\BorrowerMigrationMail;
+
 
 
 class BorrowerService
@@ -392,7 +394,7 @@ class BorrowerService
             if ($amounts['amount'] > 0) {
                 $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
                 $mailData['amount'] = $invoice->payment_amount;
-                $this->sendBorrowerMail($user->email, new \App\Mail\Borrower\BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                $this->sendBorrowerMail($user->email, new BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id);
             }
         } elseif ($isHostCreating) {
             if ($amounts['amount'] > 0) {
