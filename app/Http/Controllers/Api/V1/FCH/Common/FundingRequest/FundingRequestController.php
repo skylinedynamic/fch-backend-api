@@ -55,4 +55,31 @@ class FundingRequestController extends Controller
             return ApiResponse::serverError(__('funding_request.error_updating_status'));
         }
     }
+
+    /**
+     * Get Funding Sequences for Dropdowns (Common Access)
+     */
+    public function getFundingSequencing(\Illuminate\Http\Request $request, \App\Services\FCH\Admin\Funding\FundingSequencingService $sequencingService): JsonResponse
+    {
+        try {
+            return $sequencingService->list($request->all());
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage() . ' - ' . $e->getTraceAsString());
+            return ApiResponse::serverError(__('funding_sequencing.list_failed'));
+        }
+    }
+
+    /**
+     * Get Grouped Funding Sequences (Common Access)
+     */
+    public function getGroupedFundingSequencing(\App\Services\FCH\Admin\Funding\FundingSequencingService $sequencingService): JsonResponse
+    {
+        try {
+            $data = $sequencingService->getGroupedSequencings();
+            return ApiResponse::success($data, __('funding_sequencing.grouped_list_fetched'));
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage() . ' - ' . $e->getTraceAsString());
+            return ApiResponse::serverError(__('funding_sequencing.list_failed'));
+        }
+    }
 }

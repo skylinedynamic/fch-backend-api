@@ -223,6 +223,13 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [ActivityLogController::class, 'store']);
             });
 
+            // Funding Sequencings
+            Route::prefix('funding-sequencings')->group(function () {
+                Route::post('fetch', [FundingRequestController::class, 'getFundingSequencing']);
+                Route::get('grouped', [FundingRequestController::class, 'getGroupedFundingSequencing']);
+            });
+
+
 
             // Common routes
             Route::post('get-all-users', [CommonController::class, 'getAllUsers']);

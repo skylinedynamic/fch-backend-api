@@ -39,12 +39,25 @@ class BorrowerActivityLogService
         }
 
         // 1. Scoping by User (Security)
-        if (isset($user->partner) && (int) ($user->partner->is_host ?? 0) !== 1) {
-            $query->where(function ($q) use ($user) {
-                $q->where('causer_id', $user->id)
-                    ->orWhere('properties->partner_id', $user->partner_id);
-            });
-        }
+
+        $query->where(function ($q) use ($user) {
+            // 1. Borrower sees activities they caused
+            $q->where('causer_id', $user->id)
+                // 2. Or activities explicitly sent/visible to borrower
+                ->orWhere('properties->send_to_borrower', '1')
+                ->orWhere('properties->visible_to_borrower', '1')
+                // 3. Or ANY log that is NOT explicitly meant for the host
+                ->orWhere(function ($subQ) {
+                    $subQ->where(function ($excludeQ) {
+                             $excludeQ->whereNull('properties->send_to_host')
+                                      ->orWhere('properties->send_to_host', '!=', '1');
+                         })
+                         ->where(function ($excludeQ) {
+                             $excludeQ->whereNull('properties->visible_to_host')
+                                      ->orWhere('properties->visible_to_host', '!=', '1');
+                         });
+                });
+        });
 
         // 2. Explicit Filtering
         if (!empty($filters['partner_id'])) {

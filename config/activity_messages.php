@@ -35,6 +35,8 @@ return [
         'invoice' => ':model (:invoice_id) :action for :display_name',
         'borrower_free_trial' => 'Client profile free trial started for :display_name.',
         'partner_free_trial' => 'Partner profile free trial started for :display_name.',
+        'employee_default' => 'Employee profile :action for :display_name.',
+        'user_default' => 'User account :action for :display_name.',
         'default' => ':model profile :action for :display_name',
     ],
 

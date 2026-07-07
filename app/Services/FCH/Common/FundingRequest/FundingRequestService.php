@@ -24,8 +24,10 @@ class FundingRequestService
     {
         $authUser = Auth::user();
 
+        $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
+
         $query = FundingRequest::with(['borrower', 'fundingSequence', 'partner'])
-            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
+            ->when(!$isHost && isset($authUser->partner), function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             });
 
@@ -74,7 +76,22 @@ class FundingRequestService
         
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
-        return $this->respondWithPagination($paginator, __('funding_request.funding_requests_retrieved'));
+        // Fetch unique funding sequences used within the current user's scope to populate the dropdown accurately
+        $fundingTypes = \App\Models\Funding\FundingSequencing::whereIn('id', function($q) use ($authUser, $isHost) {
+            $q->select('funding_sequence_id')
+              ->from('funding_requests')
+              ->when(!$isHost && isset($authUser->partner), function ($query) use ($authUser) {
+                  $query->where('partner_id', $authUser->partner_id);
+              });
+        })->get(['id', 'name']);
+
+        return $this->respondWithPagination(
+            $paginator, 
+            __('funding_request.funding_requests_retrieved'),
+            200,
+            null,
+            ['funding_types' => $fundingTypes]
+        );
     }
 
     /**
@@ -83,9 +100,10 @@ class FundingRequestService
     public function getFundingRequestById($id)
     {
         $authUser = Auth::user();
+        $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
         
         $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner'])
-            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function($query) use($authUser){
+            ->when(!$isHost && isset($authUser->partner), function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             })
             ->where('id', $id)

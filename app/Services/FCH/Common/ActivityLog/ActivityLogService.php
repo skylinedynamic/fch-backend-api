@@ -4,14 +4,18 @@ namespace App\Services\FCH\Common\ActivityLog;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
+use App\Mail\ActivityLog\ActivityLogMail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Common\AppConfiguration;
 use App\Models\Employee\Employee;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
+use App\Models\Partner\PartnerDocument;
 use App\Models\Payment\Payment;
 use App\Models\User\User;
 use App\Traits\PaginatesApi;
@@ -19,9 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\ActivityLog\ActivityLogMail;
 use Throwable;
-use App\Models\Common\AppConfiguration;
 
 class ActivityLogService
 {
@@ -41,10 +43,27 @@ class ActivityLogService
         }
 
         // 1. Scoping by User (Security)
-        if (isset($user->partner) && (int) ($user->partner->is_host ?? 0) !== 1) {
+        $isHost = $user->user_type === User::ADMIN || $user->user_type === User::EMPLOYEE || (isset($user->partner) && (int) ($user->partner->is_host ?? 0) === 1);
+
+    
+        if ($isHost) {
+            // Host Admin sees everything, no scope applied
+        } elseif (isset($user->partner)) {
+            // Partner
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
                     ->orWhere('properties->partner_id', $user->partner_id);
+            });
+        } elseif (isset($user->borrower)) {
+            // Borrower
+            $query->where(function ($q) use ($user) {
+                // Borrower sees activities they caused
+                $q->where('causer_id', $user->id)
+                  // Or activities explicitly sent/visible to borrower
+                  ->orWhere('properties->send_to_borrower', '1')
+                  ->orWhere('properties->visible_to_borrower', '1')
+                  // Or system logs (hide manual custom logs meant only for host/partner)
+                  ->orWhereNotIn('log_name', [ActivityLog::TYPE_EMAIL, ActivityLog::TYPE_ACTIVITY, ActivityLog::LOG_TYPE_ACTIVITY]);
             });
         }
 
@@ -135,16 +154,16 @@ class ActivityLogService
 
             // Resolve Subject ID and Type more comprehensively
             if (!empty($data['lead_id'])) {
-                $subjectType = \App\Models\Lead\Lead::class;
+                $subjectType = Lead::class;
                 $subjectId = $data['lead_id'];
             } elseif (!empty($data['borrower_id'])) {
-                $subjectType = \App\Models\Borrower\Borrower::class;
+                $subjectType = Borrower::class;
                 $subjectId = $data['borrower_id'];
             } elseif (!empty($data['partner_id'])) {
-                $subjectType = \App\Models\Partner\Partner::class;
+                $subjectType = Partner::class;
                 $subjectId = $data['partner_id'];
             } elseif (!empty($data['funding_request_id'])) {
-                $subjectType = \App\Models\FundingRequest\FundingRequest::class;
+                $subjectType = FundingRequest::class;
                 $subjectId = $data['funding_request_id'];
             }
 
@@ -154,12 +173,12 @@ class ActivityLogService
 
             // If logging for a lead/borrower, try to find the partner it belongs to for the timeline
             if (!$targetPartnerId) {
-                if ($subjectType === \App\Models\Lead\Lead::class) {
-                    $lead = \App\Models\Lead\Lead::find($subjectId);
+                if ($subjectType === Lead::class) {
+                    $lead = Lead::find($subjectId);
                     if ($lead && $lead->partner_id)
                         $targetPartnerId = $lead->partner_id;
-                } elseif ($subjectType === \App\Models\Borrower\Borrower::class) {
-                    $borrower = \App\Models\Borrower\Borrower::find($subjectId);
+                } elseif ($subjectType === Borrower::class) {
+                    $borrower = Borrower::find($subjectId);
                     if ($borrower && $borrower->partner_id)
                         $targetPartnerId = $borrower->partner_id;
                 }
@@ -192,6 +211,10 @@ class ActivityLogService
                     'to_emails' => $data['to_emails'] ?? null,
                     'partner_id' => $targetPartnerId,
                     'borrower_id' => $targetBorrowerId,
+                    'send_to_host' => $data['send_to_host'] ?? null,
+                    'send_to_borrower' => $data['send_to_borrower'] ?? null,
+                    'visible_to_host' => $data['visible_to_host'] ?? null,
+                    'visible_to_borrower' => $data['visible_to_borrower'] ?? null,
                 ],
             ];
 
@@ -239,7 +262,7 @@ class ActivityLogService
             'partner_id' => $partnerId,
             'borrower_id' => $borrowerId,
             'causer_id' => Auth::id() ?: 1, // Fallback to system user
-            'causer_type' => Auth::check() ? get_class(Auth::user()) : \App\Models\User\User::class,
+            'causer_type' => Auth::check() ? get_class(Auth::user()) : User::class,
             'status' => 'log',
             'event' => $subject, // Human-readable subject
             'description' => $description, // Detailed description for UI gray box
@@ -545,11 +568,11 @@ class ActivityLogService
 
             // Determine whether this is a Borrower or Partner document
             $isBorrowerDocument =
-                $log->subject_type === \App\Models\Borrower\BorrowerDocument::class ||
+                $log->subject_type === BorrowerDocument::class ||
                 (isset($file['path']) && str_contains((string) $file['path'], '/borrowers/'));
 
             if ($isBorrowerDocument) {
-                $document = \App\Models\Borrower\BorrowerDocument::withTrashed()->find($documentId);
+                $document = BorrowerDocument::withTrashed()->find($documentId);
                 if (!$document) {
                     throw new \Exception("Borrower document record not found", 404);
                 }
@@ -564,7 +587,7 @@ class ActivityLogService
                     storage_path('app/public/borrowers/' . $document->borrower_id . '/documents/' . $rawPath),
                 ];
             } else {
-                $document = \App\Models\Partner\PartnerDocument::withTrashed()->find($documentId);
+                $document = PartnerDocument::withTrashed()->find($documentId);
                 if (!$document) {
                     throw new \Exception("Partner document record not found", 404);
                 }

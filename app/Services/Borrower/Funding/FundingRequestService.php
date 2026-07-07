@@ -140,6 +140,10 @@ class FundingRequestService
             $query->where('funding_requests.status', $filters['status']);
         }
 
+        if (!empty($filters['funding_sequence_id'])) {
+            $query->where('funding_requests.funding_sequence_id', $filters['funding_sequence_id']);
+        }
+
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
@@ -170,10 +174,19 @@ class FundingRequestService
         
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
+        // Fetch unique funding sequences used by this borrower to populate the dropdown
+        $fundingTypes = \App\Models\Funding\FundingSequencing::whereIn('id', function($q) use ($borrower) {
+            $q->select('funding_sequence_id')
+              ->from('funding_requests')
+              ->where('borrower_id', $borrower->id);
+        })->get(['id', 'name']);
+
         return $this->respondWithPaginationResource(
             $paginator,
             FundingRequestResource::class,
-            'funding requests retrieved successfully.'
+            'funding requests retrieved successfully.',
+            200,
+            ['funding_types' => $fundingTypes]
         );
     }
 
