@@ -79,12 +79,12 @@ return [
         ],
         'allowed_states' => [
             'type'           => 'in_array',
-            'borrower_field' => 'borrowers.state',
+            'borrower_field' => 'borrowers.business_state',
             'funding_field'  => 'lender_visibilities.allowed_states',
         ],
         'restricted_states' => [
             'type'           => 'not_in_array',
-            'borrower_field' => 'borrowers.state',
+            'borrower_field' => 'borrowers.business_state',
             'funding_field'  => 'lender_visibilities.restricted_states',
         ],
         'allowed_industries' => [
