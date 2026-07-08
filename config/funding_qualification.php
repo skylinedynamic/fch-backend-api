@@ -9,16 +9,17 @@ return [
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
         'Minimum Monthly Deposits' => 'min_monthly_deposits',
-        // 'Monthly Deposit Count' => 'min_deposit_count',
-        // 'Minimum Average Daily Balance' => 'min_average_balance',
-        // 'Max NSF Count' => 'max_nsf',
-        // 'Max Negative Days' => 'max_negative_days',
+        'Monthly Deposit Count' => 'min_deposit_count',
+        'Minimum Average Daily Balance' => 'min_average_balance',
+        'Max NSF' => 'max_nsf',
+        'Negative Days' => 'max_negative_days',
         
         // Geographical and Industry Restrictions
         'State Eligibility'      => 'allowed_states',
         'Restricted State'       => 'restricted_states',
         'Industry Eligibility'   => 'allowed_industries',
         'Restricted Industry'    => 'restricted_industries',
+
     ],
 
     'rules' => [

@@ -32,20 +32,42 @@ class FundingQualificationService
 
     private function evaluateFactorsForFunding(Borrower $borrower, FundingSequencing $funding): array
     {
-        return collect($funding->readiness_factors ?? [])
+        $explicitFactors = collect($funding->readiness_factors ?? [])
             ->map(fn($factor) => $this->extractLabel($factor))
             ->filter()
-            ->map(function (string $label) use ($borrower, $funding) {
-                $key = config("funding_qualification.factor_keys.{$label}");
-                if (!$key) return null;
-
-                $result = $this->evaluateSingleFactor($key, $borrower, $funding);
-
-                return array_merge(['label' => $label], $result);
-            })
-            ->filter()
-            ->values()
             ->toArray();
+
+        $results = [];
+        $evaluatedKeys = [];
+
+        // 1. Evaluate explicit factors defined in the funding sequence
+        foreach ($explicitFactors as $label) {
+            $key = config("funding_qualification.factor_keys.{$label}");
+            if (!$key) continue;
+
+            $result = $this->evaluateSingleFactor($key, $borrower, $funding);
+            $results[] = array_merge(['label' => $label], $result);
+            $evaluatedKeys[] = $key;
+        }
+
+        // 2. Dynamically evaluate all other configured factors
+        // If a lender requires a factor and the borrower fails it, we must show it as missing.
+        $allFactors = config('funding_qualification.factor_keys', []);
+        foreach ($allFactors as $label => $key) {
+            if (in_array($key, $evaluatedKeys)) {
+                continue;
+            }
+
+            $result = $this->evaluateSingleFactor($key, $borrower, $funding);
+
+            $status = strtolower($result['status'] ?? '');
+            // Only add dynamically if it's explicitly required by a lender OR if it's missing (to show they failed a hard requirement)
+            if ($status === 'missing' || $status === 'restricted' || !empty($result['is_required_by_lender'])) {
+                $results[] = array_merge(['label' => $label], $result);
+            }
+        }
+
+        return $results;
     }
 
 
@@ -106,9 +128,11 @@ class FundingQualificationService
 
         if ($lendersRequiring->isEmpty()) {
             $rule['status'] = $this->status('good');
+            $rule['is_required_by_lender'] = false;
             return $rule;
         }
 
+        $rule['is_required_by_lender'] = true;
         $borrowerVal = $borrower->{$bField};
         $rule['borrower_value'] = $borrowerVal;
 
@@ -170,9 +194,11 @@ class FundingQualificationService
 
         if ($lendersRequiring->isEmpty()) {
             $rule['status'] = $this->status('good');
+            $rule['is_required_by_lender'] = false;
             return $rule;
         }
 
+        $rule['is_required_by_lender'] = true;
         $borrowerVal = $borrower->{$bField};
         $rule['borrower_value'] = $borrowerVal;
 
@@ -231,9 +257,11 @@ class FundingQualificationService
 
         if ($lendersRequiring->isEmpty()) {
             $rule['status'] = $this->status('good');
+            $rule['is_required_by_lender'] = false;
             return $rule;
         }
 
+        $rule['is_required_by_lender'] = true;
         $borrowerVal = $borrower->{$bField};
         $rule['borrower_value'] = $borrowerVal;
 

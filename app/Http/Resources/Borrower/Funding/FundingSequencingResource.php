@@ -29,11 +29,11 @@ class FundingSequencingResource extends JsonResource
         if (!is_null($this->min_average_daily_balance)) {
             $requirements[] = ['label' => 'Min Avg Daily Balance', 'value' => '$' . number_format($this->min_average_daily_balance)];
         }
-        if (!is_null($this->max_nsf_count)) {
-            $requirements[] = ['label' => 'Max NSF Count', 'value' => (string) $this->max_nsf_count];
+        if ($this->max_nsf_count !== null) {
+            $requirements[] = ['label' => 'Max NSF', 'value' => (string) $this->max_nsf_count];
         }
-        if (!is_null($this->max_negative_days)) {
-            $requirements[] = ['label' => 'Max Negative Days', 'value' => (string) $this->max_negative_days];
+        if ($this->max_negative_days !== null) {
+            $requirements[] = ['label' => 'Negative Days', 'value' => (string) $this->max_negative_days];
         }
         if (!is_null($this->min_dscr)) {
             $requirements[] = ['label' => 'Min DSCR', 'value' => (string) $this->min_dscr];

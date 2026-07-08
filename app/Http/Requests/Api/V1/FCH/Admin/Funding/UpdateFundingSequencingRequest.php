@@ -89,8 +89,8 @@ class UpdateFundingSequencingRequest extends BaseApiRequest
             'lender_visibilities.*.min_average_daily_balance' => 'Min Average Daily Balance',
             'lender_visibilities.*.min_avg_deposits'     => 'Min Average Deposits',
             'lender_visibilities.*.min_deposit_count'    => 'Min Deposit Count',
-            'lender_visibilities.*.max_nsf_count'        => 'Max NSF Count',
-            'lender_visibilities.*.max_negative_days'    => 'Max Negative Days',
+            'lender_visibilities.*.max_nsf_count'        => 'Max NSF',
+            'lender_visibilities.*.max_negative_days'    => 'Negative Days',
             'lender_visibilities.*.min_dscr'             => 'Min DSCR',
         ];
     }
