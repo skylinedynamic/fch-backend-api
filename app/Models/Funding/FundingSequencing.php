@@ -175,39 +175,39 @@ class FundingSequencing extends Model
             $this->load('lenderVisibilities');
         }
 
-        // If no lenders are configured, default to HIDDEN (or maybe ACTIVE if we want to fallback)
-        // Let's fallback to ACTIVE if no lenders to not break existing data
+        // If no lenders are configured, default to HIDDEN
         if ($this->lenderVisibilities->isEmpty()) {
-            return self::ENGINE_STATUS_ACTIVE;
-        }
+            $bestStatus = self::ENGINE_STATUS_HIDDEN;
+        } else {
+            // Evaluate status for each lender and find the most restrictive status
+            // Priority: HIDDEN (Not Eligible) > GREYED_OUT (Better Fit Later) > REVIEW (Manual Review) > WARNING (Conditional) > ACTIVE (Eligible Now)
+            $statusPriority = [
+                self::ENGINE_STATUS_HIDDEN => 5,
+                self::ENGINE_STATUS_GREYED_OUT => 4,
+                self::ENGINE_STATUS_REVIEW => 3,
+                self::ENGINE_STATUS_WARNING => 2,
+                self::ENGINE_STATUS_ACTIVE => 1,
+            ];
 
-        // Evaluate status for each lender and find the most restrictive status
-        // Priority: HIDDEN (Not Eligible) > GREYED_OUT (Better Fit Later) > REVIEW (Manual Review) > WARNING (Conditional) > ACTIVE (Eligible Now)
-        $statusPriority = [
-            self::ENGINE_STATUS_HIDDEN => 5,
-            self::ENGINE_STATUS_GREYED_OUT => 4,
-            self::ENGINE_STATUS_REVIEW => 3,
-            self::ENGINE_STATUS_WARNING => 2,
-            self::ENGINE_STATUS_ACTIVE => 1,
-        ];
+            $worstStatus = self::ENGINE_STATUS_ACTIVE;
+            $highestPriority = 0;
 
-        $worstStatus = self::ENGINE_STATUS_ACTIVE;
-        $highestPriority = 0;
+            foreach ($this->lenderVisibilities as $lenderSeq) {
+                // Prevent lazy loading violation by explicitly setting the parent relation
+                $lenderSeq->setRelation('fundingSequencing', $this);
+                
+                $status = $lenderSeq->getEngineStatusForBorrower($borrower);
+                $priority = $statusPriority[$status] ?? 0;
 
-        foreach ($this->lenderVisibilities as $lenderSeq) {
-            // Prevent lazy loading violation by explicitly setting the parent relation
-            $lenderSeq->setRelation('fundingSequencing', $this);
-            
-            $status = $lenderSeq->getEngineStatusForBorrower($borrower);
-            $priority = $statusPriority[$status] ?? 0;
-
-            if ($priority > $highestPriority) {
-                $highestPriority = $priority;
-                $worstStatus = $status;
+                if ($priority > $highestPriority) {
+                    $highestPriority = $priority;
+                    $worstStatus = $status;
+                }
             }
+
+            $bestStatus = $worstStatus;
         }
 
-        $bestStatus = $worstStatus;
 
         // If currently evaluated as ACTIVE, let's also check Readiness Factors
         if ($bestStatus === self::ENGINE_STATUS_ACTIVE) {

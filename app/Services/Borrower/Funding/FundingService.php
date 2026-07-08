@@ -26,8 +26,17 @@ class FundingService
           ->orderBy('sort_order', 'asc')
           ->get();
 
-        // Removed the filter so all funding options are always shown.
+        // Filter out HIDDEN sequences (e.g., ones with no lenders)
+        foreach ($groups as $group) {
+            $group->setRelation('sequencings', $group->sequencings->filter(function ($seq) {
+                return $seq->engine_status !== FundingSequencing::ENGINE_STATUS_HIDDEN;
+            })->values());
+        }
 
+        // Remove groups that are now empty
+        $groups = $groups->filter(function ($group) {
+            return $group->sequencings->isNotEmpty();
+        })->values();
 
         return $groups;
     }
@@ -45,35 +54,33 @@ class FundingService
     }
 
     /**
-     * Get dynamic dashboard stats derived from the FundingSequencing catalog.
+     * Get dynamic dashboard stats derived from the filtered FundingSequencing catalog.
      *
+     * @param \Illuminate\Database\Eloquent\Collection $groups
      * @return array
      */
-    public function getDashboardStats(): array
+    public function getDashboardStats($groups): array
     {
-        // Fetch all active sequencings that have an amount_range value
-        $sequencings = FundingSequencing::where('status', FundingSequencing::STATUS_ACTIVE)
-            ->whereNotNull('amount_range')
-            ->where('amount_range', '!=', '')
-            ->get(['amount_range']);
-
         $totalMin = 0.0;
         $totalMax = 0.0;
+        $totalOptions = 0;
 
-        foreach ($sequencings as $seq) {
-            [$min, $max] = $this->parseAmountRange($seq->amount_range);
-            $totalMin += $min;
-            $totalMax += $max;
+        foreach ($groups as $group) {
+            foreach ($group->sequencings as $seq) {
+                $totalOptions++;
+                if (!empty($seq->amount_range)) {
+                    [$min, $max] = $this->parseAmountRange($seq->amount_range);
+                    $totalMin += $min;
+                    $totalMax += $max;
+                }
+            }
         }
-
-        $totalOptions = FundingSequencing::where('status', FundingSequencing::STATUS_ACTIVE)->count();
-        $totalGroups = FundingGroup::where('status', FundingGroup::STATUS_ACTIVE)->count();
 
         return [
             'total_approved'  => $totalMax,
             'total_funded'    => $totalMin,
             'total_options'   => $totalOptions,
-            'total_groups'    => $totalGroups,
+            'total_groups'    => $groups->count(),
         ];
     }
 

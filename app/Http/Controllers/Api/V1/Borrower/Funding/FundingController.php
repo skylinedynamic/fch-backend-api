@@ -28,7 +28,7 @@ class FundingController extends Controller
         try {
             $groupedSequencings = $this->service->getGroupedSequencings();
             $types = $this->service->getActiveTypes();
-            $stats = $this->service->getDashboardStats();
+            $stats = $this->service->getDashboardStats($groupedSequencings);
 
             return response()->json([
                 'status' => true,
