@@ -37,10 +37,6 @@ class FundingSequencingSeeder extends Seeder
             ['label' => 'Time in Business', 'status' => 'Strong'],
             ['label' => 'Banking Activity', 'status' => 'Good'],
             ['label' => 'Minimum Monthly Deposits', 'status' => 'Good'],
-            ['label' => 'Monthly Deposit Count', 'status' => 'Good'],
-            ['label' => 'Minimum Average Daily Balance', 'status' => 'Good'],
-            ['label' => 'Max NSF', 'status' => 'Good'],
-            ['label' => 'Negative Days', 'status' => 'Good'],
         ];
         $defaultDocs = [
             'Last 3 months business bank statements',
@@ -471,78 +467,53 @@ class FundingSequencingSeeder extends Seeder
         );
 
         // ══════════════════════════════════════════════════════════════════════
-        // GROUP 5 — Seed lender_funding_sequencings Pivot Data
+        // GROUP 5 — Seed LenderVisibility Data Dynamically
         // ══════════════════════════════════════════════════════════════════════
 
         $lenderIds = Lender::pluck('id')->toArray();
-        $lender1 = $lenderIds[0] ?? 1;
-        $lender2 = $lenderIds[1] ?? 2;
-        $lender3 = $lenderIds[2] ?? 3;
-
         $catIds = LenderProductCategory::pluck('id')->toArray();
-
-        $lenderFundingSequencings = [
-            ['lender_id' => $lenderIds[0] ?? 1, 'lender_product_category_id' => $catIds[0] ?? 1, 'funding_sequencing_id' => 17, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:11', 'updated_at' => '2026-06-11 03:29:11'],
-            ['lender_id' => $lenderIds[1] ?? 2, 'lender_product_category_id' => $catIds[1] ?? 2, 'funding_sequencing_id' => 19, 'min_fico' => 37, 'min_tib_months' => 12, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 38.00, 'max_nsf_count' => 20, 'max_negative_days' => 20, 'min_dscr' => 23.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:29:31', 'updated_at' => '2026-06-11 03:29:31'],
-            ['lender_id' => $lenderIds[2] ?? 3, 'lender_product_category_id' => $catIds[2] ?? 3, 'funding_sequencing_id' => 14, 'min_fico' => 16, 'min_tib_months' => 11, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 95.00, 'max_nsf_count' => 68, 'max_negative_days' => 68, 'min_dscr' => 8.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 0, 'exception_allowed' => 1, 'created_at' => '2026-06-11 03:47:22', 'updated_at' => '2026-06-11 03:47:22'],
-            ['lender_id' => $lenderIds[3] ?? 4, 'lender_product_category_id' => $catIds[3] ?? 4, 'funding_sequencing_id' => 20, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:57:29', 'updated_at' => '2026-06-11 03:57:29'],
-            ['lender_id' => $lenderIds[4] ?? 5, 'lender_product_category_id' => $catIds[4] ?? 5, 'funding_sequencing_id' => 21, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 10, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10, 'min_average_daily_balance' => 10, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => null, 'restricted_states' => null, 'allowed_industries' => null, 'restricted_industries' => null, 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => null, 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 03:58:12', 'updated_at' => '2026-06-11 03:58:12'],
-            ['lender_id' => $lenderIds[5] ?? 6, 'lender_product_category_id' => $catIds[0] ?? 1, 'funding_sequencing_id' => 22, 'min_fico' => 666, 'min_tib_months' => 10, 'min_monthly_revenue' => 3.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 12.00, 'min_average_daily_balance' => 82.00, 'max_nsf_count' => 93, 'max_negative_days' => 93, 'min_dscr' => 33.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:08:39', 'updated_at' => '2026-06-11 04:08:39'],
-            ['lender_id' => $lenderIds[6] ?? 7, 'lender_product_category_id' => $catIds[1] ?? 2, 'funding_sequencing_id' => 23, 'min_fico' => 30, 'min_tib_months' => 8, 'min_monthly_revenue' => 2.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 5.00, 'min_average_daily_balance' => 55.00, 'max_nsf_count' => 99, 'max_negative_days' => 99, 'min_dscr' => 72.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:19:15', 'updated_at' => '2026-06-11 04:19:15'],
-            ['lender_id' => $lenderIds[7] ?? 8, 'lender_product_category_id' => $catIds[2] ?? 3, 'funding_sequencing_id' => 24, 'min_fico' => 888, 'min_tib_months' => 1, 'min_monthly_revenue' => 1.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 11.00, 'min_average_daily_balance' => 14.00, 'max_nsf_count' => 25, 'max_negative_days' => 25, 'min_dscr' => 52.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2]', 'manual_review_allowed' => 0, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:21:03', 'updated_at' => '2026-06-11 04:21:03'],
-            ['lender_id' => $lenderIds[8] ?? 9, 'lender_product_category_id' => $catIds[3] ?? 4, 'funding_sequencing_id' => 25, 'min_fico' => 29, 'min_tib_months' => 8, 'min_monthly_revenue' => 5.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 1.00, 'min_average_daily_balance' => 49.00, 'max_nsf_count' => 18, 'max_negative_days' => 18, 'min_dscr' => 92.00, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 1, 'allowed_documents' => '[1, 2, 3]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:24:28', 'updated_at' => '2026-06-11 04:24:28'],
-            ['lender_id' => $lenderIds[9] ?? 10, 'lender_product_category_id' => $catIds[4] ?? 5, 'funding_sequencing_id' => 26, 'min_fico' => 10, 'min_tib_months' => 10, 'min_monthly_revenue' => 87887.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 87886.00, 'min_average_daily_balance' => 87878.00, 'max_nsf_count' => 10, 'max_negative_days' => 10, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 1, 'require_documents_uploaded' => 1, 'allowed_documents' => '[4, 3, 2]', 'manual_review_allowed' => 1, 'exception_allowed' => 1, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[10] ?? 11, 'lender_product_category_id' => $catIds[0] ?? 1, 'funding_sequencing_id' => 27, 'min_fico' => 600, 'min_tib_months' => 6, 'min_monthly_revenue' => 5000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 5000.00, 'min_average_daily_balance' => 2000.00, 'max_nsf_count' => 5, 'max_negative_days' => 5, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[11] ?? 12, 'lender_product_category_id' => $catIds[1] ?? 2, 'funding_sequencing_id' => 28, 'min_fico' => 650, 'min_tib_months' => 12, 'min_monthly_revenue' => 10000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 10000.00, 'min_average_daily_balance' => 3000.00, 'max_nsf_count' => 3, 'max_negative_days' => 3, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[12] ?? 13, 'lender_product_category_id' => $catIds[2] ?? 3, 'funding_sequencing_id' => 29, 'min_fico' => 620, 'min_tib_months' => 6, 'min_monthly_revenue' => 8000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 8000.00, 'min_average_daily_balance' => 2500.00, 'max_nsf_count' => 4, 'max_negative_days' => 4, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[13] ?? 14, 'lender_product_category_id' => $catIds[3] ?? 4, 'funding_sequencing_id' => 30, 'min_fico' => 680, 'min_tib_months' => 24, 'min_monthly_revenue' => 15000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 15000.00, 'min_average_daily_balance' => 5000.00, 'max_nsf_count' => 2, 'max_negative_days' => 2, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[14] ?? 15, 'lender_product_category_id' => $catIds[4] ?? 5, 'funding_sequencing_id' => 31, 'min_fico' => 700, 'min_tib_months' => 36, 'min_monthly_revenue' => 25000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 25000.00, 'min_average_daily_balance' => 10000.00, 'max_nsf_count' => 1, 'max_negative_days' => 1, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51'],
-            ['lender_id' => $lenderIds[15] ?? 16, 'lender_product_category_id' => $catIds[0] ?? 1, 'funding_sequencing_id' => 32, 'min_fico' => 640, 'min_tib_months' => 12, 'min_monthly_revenue' => 12000.00, 'min_avg_deposits' => 100, 'min_deposit_count' => 100, 'min_monthly_deposits' => 12000.00, 'min_average_daily_balance' => 4000.00, 'max_nsf_count' => 4, 'max_negative_days' => 4, 'min_dscr' => null, 'allowed_states' => '[]', 'restricted_states' => '[]', 'allowed_industries' => '[]', 'restricted_industries' => '[]', 'require_completed_application' => 0, 'require_documents_uploaded' => 0, 'allowed_documents' => '[]', 'manual_review_allowed' => 1, 'exception_allowed' => 0, 'created_at' => '2026-06-11 04:33:51', 'updated_at' => '2026-06-11 04:33:51']
-        ];
 
         $sequencingIds = FundingSequencing::orderBy('id')->pluck('id')->toArray();
 
-        foreach ($lenderFundingSequencings as $index => $lfs) {
-            // Map the hardcoded IDs to the actual IDs generated in this run
-            $actualSeqId = $sequencingIds[$index] ?? null;
-            if (!$actualSeqId)
-                continue;
+        foreach ($sequencingIds as $index => $actualSeqId) {
+            $lenderId = !empty($lenderIds) ? $lenderIds[$index % count($lenderIds)] : 1;
+            $catId = !empty($catIds) ? $catIds[$index % count($catIds)] : 1;
 
             $visibilityData = [
-                'lender_product_category_id' => $lfs['lender_product_category_id'] ?? null,
-                'min_fico' => $lfs['min_fico'],
-                'min_tib_months' => $lfs['min_tib_months'],
-                'min_monthly_revenue' => $lfs['min_monthly_revenue'],
-                'min_avg_deposits' => $lfs['min_avg_deposits'],
-                'min_deposit_count' => $lfs['min_deposit_count'],
-                'min_monthly_deposits' => $lfs['min_monthly_deposits'],
-                'min_average_daily_balance' => $lfs['min_average_daily_balance'],
-                'max_nsf_count' => $lfs['max_nsf_count'] ?? null,
-                'max_negative_days' => $lfs['max_negative_days'] ?? null,
-                'min_dscr' => $lfs['min_dscr'],
-                'allowed_states' => json_decode($lfs['allowed_states'] ?? '[]', true) ?: [],
-                'restricted_states' => json_decode($lfs['restricted_states'] ?? '[]', true) ?: [],
-                'allowed_industries' => json_decode($lfs['allowed_industries'] ?? '[]', true) ?: [],
-                'restricted_industries' => json_decode($lfs['restricted_industries'] ?? '[]', true) ?: [],
+                'lender_product_category_id' => $catId,
+                'min_fico' => 600,
+                'min_tib_months' => 6,
+                'min_monthly_revenue' => 5000,
+                'min_avg_deposits' => 100,
+                'min_deposit_count' => 10,
+                'min_monthly_deposits' => 5000,
+                'min_average_daily_balance' => 2000,
+                'max_nsf_count' => 0,
+                'max_negative_days' => 0,
+                'min_dscr' => null,
+                'allowed_states' => [],
+                'restricted_states' => [],
+                'allowed_industries' => [],
+                'restricted_industries' => [],
             ];
 
             LenderVisibility::updateOrCreate(
                 [
-                    'lender_id' => $lfs['lender_id'],
+                    'lender_id' => $lenderId,
                     'funding_sequencing_id' => $actualSeqId
                 ],
                 $visibilityData
             );
 
             FundingSequencing::where('id', $actualSeqId)->update([
-                'require_completed_application' => $lfs['require_completed_application'],
-                'require_documents_uploaded' => $lfs['require_documents_uploaded'],
-                'allowed_documents' => json_decode($lfs['allowed_documents'] ?? '[]', true) ?: [],
-                'manual_review_allowed' => $lfs['manual_review_allowed'],
-                'exception_allowed' => $lfs['exception_allowed'],
+                'require_completed_application' => 1,
+                'require_documents_uploaded' => 1,
+                'allowed_documents' => [1, 4],
+                'manual_review_allowed' => 1,
+                'exception_allowed' => 0,
             ]);
         }
 
-        $this->command->info('✅ FundingSequencingSeeder completed — 16 sequencings across 4 groups seeded with accurate, open visibility rules. Also populated Lenders and lender_visibilities.');
+        $this->command->info('✅ FundingSequencingSeeder completed — dynamically seeded visibility rules and requirements for all sequences.');
     }
 }
