@@ -48,7 +48,7 @@ class ScoreConfigurationService
     public function getAll(): array
     {
         $dbWeights = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_MODEL_WEIGHT)
-            ->where('model_slug', 'funding_readiness')
+            ->where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)
             ->orderBy('sort_order')
             ->get();
 
@@ -70,14 +70,14 @@ class ScoreConfigurationService
         $models = [];
         $models[] = [
             'id' => 1,
-            'slug' => 'funding_readiness',
+            'slug' => ScoreConfiguration::MODEL_FUNDING_READINESS,
             'name' => 'Funding Readiness',
             'description' => 'Overall business funding readiness score',
             'factors' => $mFactors,
         ];
 
         $dbTiers = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
-            ->where('model_slug', 'funding_readiness')
+            ->where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)
             ->orderBy('sort_order')
             ->get();
 
@@ -232,6 +232,39 @@ class ScoreConfigurationService
 
         $nextPlayDelayValue = $nextPlayDelay ? (int) $nextPlayDelay->numeric_value : 0;
 
+        $startupTier = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+            ->where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH)
+            ->first();
+
+        if (!$startupTier) {
+            $startupRevenueStrength = [
+                'factor_slug' => ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH,
+                'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
+                'label' => 'Startup Exception',
+                'min_value' => null,
+                'max_value' => null,
+                'numeric_value' => 55.0,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '<=', 'value' => 0]],
+                    ['business_age' => ['operator' => '<=', 'value' => 24]],
+                ],
+                'sort_order' => 1,
+            ];
+        } else {
+            $startupRevenueStrength = [
+                'id' => $startupTier->id,
+                'factor_slug' => ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH,
+                'category' => $startupTier->category,
+                'label' => $startupTier->label,
+                'min_value' => $startupTier->min_value,
+                'max_value' => $startupTier->max_value,
+                'numeric_value' => $startupTier->numeric_value,
+                'conditions' => $startupTier->conditions,
+                'sort_order' => $startupTier->sort_order,
+            ];
+        }
+
         return [
             'models' => $models,
             'factors' => $factors,
@@ -241,6 +274,7 @@ class ScoreConfigurationService
             'odds_factors' => $oddsFactors,
             'time_settings' => $timeSettings,
             'next_play_delay' => $nextPlayDelayValue,
+            'startup_revenue_strength' => $startupRevenueStrength,
         ];
     }
 
@@ -249,18 +283,16 @@ class ScoreConfigurationService
         DB::transaction(function () use ($data) {
             if (isset($data['funding_readiness'])) {
                 $fr = $data['funding_readiness'];
-                $this->saveCoreCreditStrength($fr);
-                $this->saveFinancialCapacity($fr);
-                $this->saveBusinessMaturityBanking($fr);
-                $this->saveBureauDepth($fr);
-            }
+                $frFactors = $fr['factors'] ?? [];
+                $this->saveCoreCreditStrength($frFactors);
+                $this->saveFinancialCapacity($frFactors);
+                $this->saveBusinessMaturityBanking($frFactors);
+                $this->saveBureauDepth($frFactors);
+                $this->saveStartupRevenueStrength($frFactors);
 
-            if (isset($data['readiness_bands'])) {
-                $this->saveReadinessBands($data['readiness_bands']);
-            }
-
-            if (isset($data['late_payment_modifiers'])) {
-                $this->saveLatePaymentModifiers($data['late_payment_modifiers']);
+                if (isset($fr['readiness_bands'])) {
+                    $this->saveReadinessBands($fr['readiness_bands']);
+                }
             }
 
             if (isset($data['approval_probability'])) {
@@ -269,6 +301,10 @@ class ScoreConfigurationService
                     if (isset($ap[$slug])) {
                         $this->saveFactorWeightAndTiers(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY, $slug, $ap[$slug]);
                     }
+                }
+
+                if (isset($ap['late_payment_modifiers'])) {
+                    $this->saveLatePaymentModifiers($ap['late_payment_modifiers']);
                 }
             }
 
@@ -281,12 +317,14 @@ class ScoreConfigurationService
                 }
             }
 
-            if (isset($data['time_settings'])) {
-                $this->saveTimeSettings($data['time_settings']);
-            }
-
-            if (isset($data['next_play_delay'])) {
-                $this->saveNextPlayDelay((int) $data['next_play_delay']);
+            if (isset($data['general_setting'])) {
+                $gs = $data['general_setting'];
+                if (isset($gs['time_settings'])) {
+                    $this->saveTimeSettings($gs['time_settings']);
+                }
+                if (isset($gs['next_play_delay'])) {
+                    $this->saveNextPlayDelay((int) $gs['next_play_delay']);
+                }
             }
         });
     }
@@ -361,6 +399,36 @@ class ScoreConfigurationService
         }
     }
 
+    private function saveStartupRevenueStrength(array $fundingReadiness): void
+    {
+        if (!isset($fundingReadiness['startup_revenue_strength'])) {
+            return;
+        }
+
+        $srs = $fundingReadiness['startup_revenue_strength'];
+        if (isset($srs['factors']) && is_array($srs['factors'])) {
+            foreach ($srs['factors'] as $tier) {
+                $sortOrder = $tier['sort_order'] ?? 1;
+
+                $updateData = [
+                    'label' => $tier['label'] ?? ScoreConfiguration::STATUS_STARTUP_EXCEPTION,
+                    'numeric_value' => $tier['sub_score'] ?? 55,
+                    'conditions' => isset($tier['condition']) ? $this->convertConditionFormat($tier['condition']) : [],
+                ];
+
+                ScoreConfiguration::updateOrCreate(
+                    [
+                        'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
+                        'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS,
+                        'factor_slug' => ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH,
+                        'sort_order' => $sortOrder,
+                    ],
+                    $updateData
+                );
+            }
+        }
+    }
+
     private function saveReadinessBands(array $bands): void
     {
         foreach ($bands as $band) {
@@ -384,7 +452,7 @@ class ScoreConfigurationService
                 ScoreConfiguration::updateOrCreate(
                     [
                         'category' => ScoreConfiguration::CATEGORY_READINESS_BAND,
-                        'model_slug' => 'funding_readiness',
+                        'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS,
                         'sort_order' => $sortOrder,
                     ],
                     $updateData

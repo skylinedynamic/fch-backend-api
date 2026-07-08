@@ -51,6 +51,7 @@ class ScoreConfiguration extends Model
     public const FACTOR_UTILIZATION = 'utilization';
     public const FACTOR_TIME_IN_BUSINESS = 'time_in_business';
     public const FACTOR_REVENUE_STRENGTH = 'revenue_strength';
+    public const FACTOR_STARTUP_REVENUE_STRENGTH = 'startup_revenue_strength';
     public const FACTOR_TRADELINE_DEPTH = 'tradeline_depth';
     public const FACTOR_BANKING_RELATIONSHIPS = 'banking_relationships';
 
@@ -101,4 +102,21 @@ class ScoreConfiguration extends Model
     public const PROB_STATUS_REVENUE_MODERATE = 'Moderate revenue/income';
     public const PROB_STATUS_REVENUE_LIMITED = 'Limited revenue/income';
     public const PROB_STATUS_REVENUE_STARTUP = 'Startup with no revenue';
+
+    // Startup Exception Label
+    public const STATUS_STARTUP_EXCEPTION = 'Startup Exception';
+
+    // Readiness Bands
+    public const BAND_ELITE_READY = 'Elite Ready';
+    public const BAND_EXECUTIVE_READY = 'Executive Ready';
+    public const BAND_FOUNDATION_READY = 'Foundation Ready';
+    public const BAND_CONDITIONAL = 'Conditional';
+    public const BAND_NOT_READY = 'Not Ready';
+
+    // Time Setting Labels
+    public const TIME_LABEL_MORNING = 'Morning';
+    public const TIME_LABEL_MIDDAY = 'Midday';
+    public const TIME_LABEL_AFTERNOON = 'Afternoon';
+    public const TIME_LABEL_EVENING = 'Evening';
+    public const TIME_LABEL_ANYTIME = 'Anytime';
 }

@@ -189,11 +189,38 @@ class ReadinessScoreCalculationService
             ? Carbon::parse($borrower->business_start_date)->diffInMonths()
             : 0;
 
+        $exceptionRevenue = 0.0;
+        $exceptionMonths = 24;
+        $startupSubscore = 55.0;
+
+        $startupConfig = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_SUBSCORE_TIER)
+            ->where('model_slug', ScoreConfiguration::MODEL_FUNDING_READINESS)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH)
+            ->first();
+
+        if ($startupConfig) {
+            $startupSubscore = (float) $startupConfig->numeric_value;
+            $conditions = $startupConfig->conditions;
+            if (is_string($conditions)) {
+                $conditions = json_decode($conditions, true);
+            }
+            if (is_array($conditions)) {
+                foreach ($conditions as $cond) {
+                    if (isset($cond['business_revenue'])) {
+                        $exceptionRevenue = (float) ($cond['business_revenue']['value'] ?? 0);
+                    }
+                    if (isset($cond['business_age'])) {
+                        $exceptionMonths = (int) ($cond['business_age']['value'] ?? 0);
+                    }
+                }
+            }
+        }
+
         // 1. Calculate Business Revenue Subscore
         $busSubscore = 0;
         $busStatus = null;
-        if ($annualRevenue == 0 && $months <= 24) {
-            $busSubscore = 55;
+        if ($annualRevenue <= $exceptionRevenue && $months <= $exceptionMonths) {
+            $busSubscore = $startupSubscore;
             $busStatus = 'Startup';
         } else {
             foreach ($tiers as $tier) {
@@ -245,8 +272,8 @@ class ReadinessScoreCalculationService
         // 2. Calculate Personal Income Subscore
         $persSubscore = 0;
         $persStatus = null;
-        if ($personalIncome == 0 && $months <= 24) {
-            $persSubscore = 55;
+        if ($personalIncome <= $exceptionRevenue && $months <= $exceptionMonths) {
+            $persSubscore = $startupSubscore;
             $persStatus = 'Startup';
         } else {
             foreach ($tiers as $tier) {
