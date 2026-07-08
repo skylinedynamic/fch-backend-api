@@ -32,11 +32,16 @@ class CapitalAccessStrategyOverviewResource extends JsonResource
             $reasonCode  = $probData['reason_code'];
         }
 
+        $isRecommended = $recommendedId === $this->id;
+        $isCompleted   = (bool) ($this->is_completed ?? false);
+
         return [
             'id'                   => $this->id,
             'name'                 => $this->name,
             'description'          => $this->sub_title,
-            'isRecommended'        => $recommendedId === $this->id,
+            'isRecommended'        => $isRecommended,
+            'isCompleted'          => $isCompleted,
+            'isAccessible'         => $isRecommended || $isCompleted,
             'target_exposure'      => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline'         => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
             'approval_probability' => $probability . '%',

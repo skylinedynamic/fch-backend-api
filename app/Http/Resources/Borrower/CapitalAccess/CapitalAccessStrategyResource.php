@@ -3,7 +3,11 @@
 namespace App\Http\Resources\Borrower\CapitalAccess;
 
 use App\Models\CreditBuilder\CapitalAccessSequence;
+use App\Models\CreditBuilder\CapitalAccessApplication;
+use App\Models\CreditBuilder\BorrowerCapitalAccessPlay;
 use App\Models\Common\ScoreConfiguration;
+use App\Services\Borrower\CapitalAccess\ApprovalOddsService;
+use App\Services\Borrower\CapitalAccess\ApprovalProbabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -56,7 +60,7 @@ class CapitalAccessStrategyResource extends JsonResource
             $probData = $this->resource->approval_probability_data ?? null;
             if (!$probData) {
                 // Fallback: build on the fly (direct instantiation outside service)
-                $probData = app(\App\Services\Borrower\CapitalAccess\ApprovalProbabilityService::class)
+                $probData = app(ApprovalProbabilityService::class)
                     ->calculate($borrower, $this->resource, $ctx);
             }
             $probability = $probData['probability'];
@@ -72,9 +76,23 @@ class CapitalAccessStrategyResource extends JsonResource
 
         $roadmap = [];
         if ($this->relationLoaded('sequences')) {
-            $oddsService = app(\App\Services\Borrower\CapitalAccess\ApprovalOddsService::class);
+            $oddsService = app(ApprovalOddsService::class);
+            $sequences = $this->sequences;
 
-            $roadmap = $this->sequences->map(function (CapitalAccessSequence $seq, int $index) use (
+            if ($borrower) {
+                $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                    ->where('capital_access_id', $this->id)
+                    ->first();
+                if ($playStatus && $playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED) {
+                    $appliedSequenceIds = CapitalAccessApplication::where('borrower_id', $borrower->id)
+                        ->where('capital_access_id', $this->id)
+                        ->pluck('capital_access_sequence_id')
+                        ->all();
+                    $sequences = $sequences->filter(fn($seq) => in_array($seq->id, $appliedSequenceIds));
+                }
+            }
+
+            $roadmap = $sequences->map(function (CapitalAccessSequence $seq, int $index) use (
                 $borrower, $ctx, $oddsTiers, $oddsService, $timeConfigs, $formatConfig
             ) {
                 $seqStatus = $index === 0 ? 'Active' : 'Locked';
@@ -132,6 +150,7 @@ class CapitalAccessStrategyResource extends JsonResource
             'approval_status'    => $status,
             'reason_code'        => $reasonCode,
             'ReasonCode'         => $reasonCode,
+            'unlock_at'          => $probData['unlock_at'] ?? null,
             'benefits'           => is_string($this->what_you_will_get)
                 ? json_decode($this->what_you_will_get, true)
                 : ($this->what_you_will_get ?? []),
