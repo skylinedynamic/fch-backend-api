@@ -16,15 +16,19 @@ use App\Http\Resources\Borrower\CapitalAccess\CapitalAccessStepDetailResource;
 use Illuminate\Http\JsonResponse;
 use App\Helpers\ApiResponse;
 
+use App\Http\Resources\Borrower\CapitalAccess\HasEvaluatedChecklist;
+
 class CapitalAccessStrategyService
 {
+    use HasEvaluatedChecklist;
+
     /**
      * Get a lightweight list of active strategies for selection.
      */
     public function listForSelection(): JsonResponse
     {
         $strategies = CapitalAccess::active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower);
 
@@ -33,8 +37,8 @@ class CapitalAccessStrategyService
         $resourceCollection->collection->each(function ($resource) use ($recommendedId, $ctx, $cache) {
             $resource->additional([
                 'recommended_id' => $recommendedId,
-                'borrower_ctx'   => $ctx,
-                'score_cache'    => $cache,
+                'borrower_ctx' => $ctx,
+                'score_cache' => $cache,
             ]);
         });
 
@@ -53,7 +57,7 @@ class CapitalAccessStrategyService
     public function list(): JsonResponse
     {
         $strategies = CapitalAccess::with('sequences.creditAccount')->active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower);
 
@@ -62,8 +66,8 @@ class CapitalAccessStrategyService
         $resourceCollection->collection->each(function ($resource) use ($recommendedId, $ctx, $cache) {
             $resource->additional([
                 'recommended_id' => $recommendedId,
-                'borrower_ctx'   => $ctx,
-                'score_cache'    => $cache,
+                'borrower_ctx' => $ctx,
+                'score_cache' => $cache,
             ]);
         });
 
@@ -81,17 +85,17 @@ class CapitalAccessStrategyService
      */
     public function show(int $id): JsonResponse
     {
-        $strategy   = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
+        $strategy = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower, $strategy);
 
         $resource = new CapitalAccessStrategyResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
-            'borrower_ctx'   => $ctx,
-            'score_cache'    => $cache,
+            'borrower_ctx' => $ctx,
+            'score_cache' => $cache,
         ]);
 
         return ApiResponse::success(
@@ -105,9 +109,9 @@ class CapitalAccessStrategyService
      */
     public function showOverview(int $id): JsonResponse
     {
-        $strategy   = CapitalAccess::active()->findOrFail($id);
+        $strategy = CapitalAccess::active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower, $strategy);
 
@@ -120,11 +124,11 @@ class CapitalAccessStrategyService
 
             if (isset($probData['status']) && $probData['status'] === false) {
                 return ApiResponse::success([
-                    'id'              => $strategy->id,
-                    'name'            => $strategy->name,
+                    'id' => $strategy->id,
+                    'name' => $strategy->name,
                     'approval_status' => false,
-                    'reason_code'     => $probData['reason_code'] ?? null,
-                    'unlock_at'       => $probData['unlock_at'] ?? null,
+                    'reason_code' => $probData['reason_code'] ?? null,
+                    'unlock_at' => $probData['unlock_at'] ?? null,
                 ], 'Capital Access Strategy is locked');
             }
         }
@@ -132,8 +136,8 @@ class CapitalAccessStrategyService
         $resource = new CapitalAccessStrategyOverviewResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
-            'borrower_ctx'   => $ctx,
-            'score_cache'    => $cache,
+            'borrower_ctx' => $ctx,
+            'score_cache' => $cache,
         ]);
 
         return ApiResponse::success(
@@ -147,9 +151,9 @@ class CapitalAccessStrategyService
      */
     public function showChecklist(int $id): JsonResponse
     {
-        $strategy   = CapitalAccess::active()->findOrFail($id);
+        $strategy = CapitalAccess::active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower, $strategy);
 
@@ -162,11 +166,11 @@ class CapitalAccessStrategyService
 
             if (isset($probData['status']) && $probData['status'] === false) {
                 return ApiResponse::success([
-                    'id'              => $strategy->id,
-                    'name'            => $strategy->name,
+                    'id' => $strategy->id,
+                    'name' => $strategy->name,
                     'approval_status' => false,
-                    'reason_code'     => $probData['reason_code'] ?? null,
-                    'unlock_at'       => $probData['unlock_at'] ?? null,
+                    'reason_code' => $probData['reason_code'] ?? null,
+                    'unlock_at' => $probData['unlock_at'] ?? null,
                 ], 'Capital Access Strategy is locked');
             }
         }
@@ -174,8 +178,8 @@ class CapitalAccessStrategyService
         $resource = new CapitalAccessStrategyChecklistResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
-            'borrower_ctx'   => $ctx,
-            'score_cache'    => $cache,
+            'borrower_ctx' => $ctx,
+            'score_cache' => $cache,
         ]);
 
         return ApiResponse::success(
@@ -189,15 +193,28 @@ class CapitalAccessStrategyService
      */
     public function showRoadmap(int $id): JsonResponse
     {
-        $strategy   = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
+        $strategy = CapitalAccess::with('sequences.creditAccount')->active()->findOrFail($id);
         $strategies = CapitalAccess::active()->get();
-        $borrower   = auth()->user()?->borrower;
+        $borrower = auth()->user()?->borrower;
 
         [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower, $strategy);
 
         // Lock gate — if the overall strategy is not eligible, return locked wrapper
         $isDelayActive = false;
         if ($borrower) {
+            // Check pre-flight checklist completion
+            $evaluatedChecklist = $this->getEvaluatedChecklist($borrower, $strategy->pre_flight_checklist);
+            $allComplete = true;
+            foreach ($evaluatedChecklist as $item) {
+                if ($item['complete'] === false) {
+                    $allComplete = false;
+                    break;
+                }
+            }
+            if (!$allComplete) {
+                return ApiResponse::error('Pre-flight checklist is not completed.', 403);
+            }
+
             $probData = $strategy->approval_probability_data;
             if (!$probData) {
                 $probData = app(ApprovalProbabilityService::class)
@@ -210,10 +227,10 @@ class CapitalAccessStrategyService
 
             if (isset($probData['status']) && $probData['status'] === false) {
                 return ApiResponse::success([
-                    'id'              => $strategy->id,
-                    'name'            => $strategy->name,
+                    'id' => $strategy->id,
+                    'name' => $strategy->name,
                     'approval_status' => false,
-                    'reason_code'     => $probData['reason_code'] ?? null,
+                    'reason_code' => $probData['reason_code'] ?? null,
                 ], 'Capital Access Strategy is locked');
             }
         }
@@ -221,8 +238,8 @@ class CapitalAccessStrategyService
         $resource = new CapitalAccessStrategyRoadmapResource($strategy);
         $resource->additional([
             'recommended_id' => $recommendedId,
-            'borrower_ctx'   => $ctx,
-            'score_cache'    => $cache,
+            'borrower_ctx' => $ctx,
+            'score_cache' => $cache,
         ]);
 
         return ApiResponse::success(
@@ -252,8 +269,14 @@ class CapitalAccessStrategyService
 
             // Pass pre-loaded cache data to avoid redundant DB queries
             $delayDays = $isRecommended ? ($cache ? $cache->getNextPlayDelayDays() : -1) : 0;
-            $probData  = app(ApprovalProbabilityService::class)->calculate(
-                $borrower, $strategy, $ctx, null, null, !$isRecommended, $delayDays
+            $probData = app(ApprovalProbabilityService::class)->calculate(
+                $borrower,
+                $strategy,
+                $ctx,
+                null,
+                null,
+                !$isRecommended,
+                $delayDays
             );
             if (isset($probData['status']) && $probData['status'] === false) {
                 return ApiResponse::error('This strategy is currently locked.', 403);
@@ -278,21 +301,21 @@ class CapitalAccessStrategyService
         }
 
         // Build context for odds calculation
-        $ctx   = null;
+        $ctx = null;
         $cache = null;
         if ($borrower) {
-            $ctx   = BorrowerContext::from($borrower);
+            $ctx = BorrowerContext::from($borrower);
             $cache = app(ScoreConfigurationCache::class);
         }
 
         $resource = new CapitalAccessStepDetailResource($seq);
         $resource->additional([
             'recommended_id' => $recommendedId ?? null,
-            'is_completed'   => $strategy->is_completed ?? false,
-            'reason_code'    => $probData['reason_code'] ?? null,
-            'unlock_at'      => $probData['unlock_at'] ?? null,
-            'borrower_ctx'   => $ctx,
-            'score_cache'    => $cache,
+            'is_completed' => $strategy->is_completed ?? false,
+            'reason_code' => $probData['reason_code'] ?? null,
+            'unlock_at' => $probData['unlock_at'] ?? null,
+            'borrower_ctx' => $ctx,
+            'score_cache' => $cache,
         ]);
 
         return ApiResponse::success(
@@ -318,8 +341,14 @@ class CapitalAccessStrategyService
             $isRecommended = ($strategyId === $recommendedId);
 
             $delayDays = $isRecommended ? ($cache ? $cache->getNextPlayDelayDays() : -1) : 0;
-            $probData  = app(ApprovalProbabilityService::class)->calculate(
-                $borrower, $strategy, $ctx, null, null, !$isRecommended, $delayDays
+            $probData = app(ApprovalProbabilityService::class)->calculate(
+                $borrower,
+                $strategy,
+                $ctx,
+                null,
+                null,
+                !$isRecommended,
+                $delayDays
             );
             if (isset($probData['status']) && $probData['status'] === false) {
                 return ApiResponse::error('This strategy is currently locked.', 403);
@@ -346,14 +375,14 @@ class CapitalAccessStrategyService
         // Save application data
         $application = CapitalAccessApplication::updateOrCreate(
             [
-                'borrower_id'                => $borrower->id,
+                'borrower_id' => $borrower->id,
                 'capital_access_sequence_id' => $seq->id,
             ],
             [
                 'capital_access_id' => $strategy->id,
-                'credit_limit'      => $data['credit_limit'] ?? null,
-                'notes'             => $data['notes'] ?? null,
-                'status'            => $data['status'] ?? CapitalAccessApplication::STATUS_PENDING,
+                'credit_limit' => $data['credit_limit'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'status' => $data['status'] ?? CapitalAccessApplication::STATUS_PENDING,
             ]
         );
 
@@ -370,11 +399,11 @@ class CapitalAccessStrategyService
 
         BorrowerCapitalAccessPlay::updateOrCreate(
             [
-                'borrower_id'       => $borrower->id,
+                'borrower_id' => $borrower->id,
                 'capital_access_id' => $strategy->id,
             ],
             [
-                'status'            => $status,
+                'status' => $status,
             ]
         );
 
@@ -404,12 +433,12 @@ class CapitalAccessStrategyService
         ?CapitalAccess $targetStrategy = null
     ): array {
         $recommendedId = null;
-        $ctx           = null;
-        $cache         = null;
+        $ctx = null;
+        $cache = null;
 
         if ($borrower && $strategies->isNotEmpty()) {
             // Build context once — fires ReadinessScoreCalculationService exactly once
-            $ctx   = BorrowerContext::from($borrower);
+            $ctx = BorrowerContext::from($borrower);
             $cache = app(ScoreConfigurationCache::class);
 
             // Pre-load tiers for probability (zero additional DB queries)
@@ -422,7 +451,7 @@ class CapitalAccessStrategyService
             $completionMap = [];
 
             // Pre-load delay context once — shared across all calculate() calls
-            $delayDays           = $cache->getNextPlayDelayDays();
+            $delayDays = $cache->getNextPlayDelayDays();
             $latestCompletedPlay = $delayDays > 0
                 ? BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
                     ->where('status', BorrowerCapitalAccessPlay::STATUS_COMPLETED)
@@ -449,7 +478,7 @@ class CapitalAccessStrategyService
                             ->where('capital_access_id', $strat->id)
                             ->where('status', CapitalAccessApplication::STATUS_APPROVED)
                             ->count();
-                        
+
                         $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
 
                         // If they have worked on this strategy, create play status row
@@ -459,9 +488,9 @@ class CapitalAccessStrategyService
 
                         if ($hasStarted) {
                             BorrowerCapitalAccessPlay::create([
-                                'borrower_id'       => $borrower->id,
+                                'borrower_id' => $borrower->id,
                                 'capital_access_id' => $strat->id,
-                                'status'            => $isCompleted ? BorrowerCapitalAccessPlay::STATUS_COMPLETED : BorrowerCapitalAccessPlay::STATUS_RUNNING,
+                                'status' => $isCompleted ? BorrowerCapitalAccessPlay::STATUS_COMPLETED : BorrowerCapitalAccessPlay::STATUS_RUNNING,
                             ]);
                         }
                     }
@@ -472,7 +501,7 @@ class CapitalAccessStrategyService
                     if (!$isCompleted) {
                         $prob = $probData['probability'];
                         if ($prob > $bestProb) {
-                            $bestProb      = $prob;
+                            $bestProb = $prob;
                             $candidateRecommendedId = $strat->id;
                         }
                     }
@@ -552,11 +581,11 @@ class CapitalAccessStrategyService
     {
         BorrowerCapitalAccessPlay::firstOrCreate(
             [
-                'borrower_id'       => $borrower->id,
+                'borrower_id' => $borrower->id,
                 'capital_access_id' => $strategyId,
             ],
             [
-                'status'            => BorrowerCapitalAccessPlay::STATUS_RUNNING,
+                'status' => BorrowerCapitalAccessPlay::STATUS_RUNNING,
             ]
         );
     }

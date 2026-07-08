@@ -266,15 +266,23 @@ class ScoreConfigurationService
         }
 
         return [
+            'funding_readiness' => [
+                'factors' => $factors,
+                'readiness_bands' => $readinessBands,
+                'startup_revenue_strength' => $startupRevenueStrength,
+            ],
+            'approval_probability' => [
+                'factors' => $probFactors,
+                'late_payment_modifiers' => $latePaymentModifiers,
+            ],
+            'approval_odds' => [
+                'factors' => $oddsFactors,
+            ],
+            'general_setting' => [
+                'time_settings' => $timeSettings,
+                'next_play_delay' => $nextPlayDelayValue,
+            ],
             'models' => $models,
-            'factors' => $factors,
-            'readiness_bands' => $readinessBands,
-            'late_payment_modifiers' => $latePaymentModifiers,
-            'probability_factors' => $probFactors,
-            'odds_factors' => $oddsFactors,
-            'time_settings' => $timeSettings,
-            'next_play_delay' => $nextPlayDelayValue,
-            'startup_revenue_strength' => $startupRevenueStrength,
         ];
     }
 

@@ -115,7 +115,7 @@ class ScoreConfiguration extends Model
 
     // Time Setting Labels
     public const TIME_LABEL_MORNING = 'Morning';
-    public const TIME_LABEL_MIDDAY = 'Midday';
+    public const TIME_LABEL_MIDDAY = 'Mid Day';
     public const TIME_LABEL_AFTERNOON = 'Afternoon';
     public const TIME_LABEL_EVENING = 'Evening';
     public const TIME_LABEL_ANYTIME = 'Anytime';

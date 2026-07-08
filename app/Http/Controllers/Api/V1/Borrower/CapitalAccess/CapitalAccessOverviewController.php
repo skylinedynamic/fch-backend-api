@@ -60,10 +60,13 @@ class CapitalAccessOverviewController extends Controller
 
                 $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers, true);
                 if (isset($probData['status']) && $probData['status'] === true) {
+                    $exposureMax = (float) ($strat->target_exposure_max ?? 0);
+                    $totalExposureMax += $exposureMax;
+
                     // Only non-completed, eligible strategies populate the chart
                     $exposureBreakdown[] = [
                         'name' => $strat->name,
-                        'max_exposure' => (float) ($strat->target_exposure_max ?? 0),
+                        'max_exposure' => $exposureMax,
                     ];
 
                     // Track the highest-probability non-completed strategy as recommended
@@ -73,16 +76,6 @@ class CapitalAccessOverviewController extends Controller
                         $recommendedStrat = $strat;
                     }
                 }
-            }
-
-            // Estimated Total Access = recommended non-completed strategy only
-            if ($recommendedStrat) {
-                $totalExposureMax = (float) ($recommendedStrat->target_exposure_max ?? 0);
-
-                // Run next play delay calculation on the recommended strategy
-                $probDataDelay = $probabilityService->calculate($borrower, $recommendedStrat, $ctx, $probTiers, $modifiers, false);
-                $reasonCode = $probDataDelay['reason_code'] ?? null;
-                $unlockAt = $probDataDelay['unlock_at'] ?? null;
             }
         }
 
@@ -119,6 +112,55 @@ class CapitalAccessOverviewController extends Controller
             }
         }
 
+        $reasonCode = null;
+        $unlockAt = null;
+
+        if ($currentPlay === null) {
+            $activePlayIds = $strategies->pluck('id')->all();
+            if (empty($activePlayIds)) {
+                $reasonCode = 'NO_ACTIVE_PLAYS';
+            } else {
+                $completedAll = true;
+                foreach ($activePlayIds as $id) {
+                    if (!in_array($id, $completedPlayIds)) {
+                        $completedAll = false;
+                        break;
+                    }
+                }
+
+                if ($completedAll) {
+                    $reasonCode = 'ALL_PLAYS_COMPLETED';
+                } else {
+                    if ($recommendedStrat && $probabilityService) {
+                        $probDataDelay = $probabilityService->calculate($borrower, $recommendedStrat, $ctx, $probTiers, $modifiers, false);
+                        if (isset($probDataDelay['reason_code']) && $probDataDelay['reason_code'] === 'NEXT_PLAY_DELAY_ACTIVE') {
+                            $reasonCode = 'NEXT_PLAY_DELAY_ACTIVE';
+                            $unlockAt = $probDataDelay['unlock_at'] ?? null;
+                        } else {
+                            $reasonCode = 'NO_ACTIVE_PLAY_CHOSEN';
+                        }
+                    } else {
+                        // All remaining active plays are locked/disqualified
+                        foreach ($strategies as $strat) {
+                            if (in_array($strat->id, $completedPlayIds)) {
+                                continue;
+                            }
+                            if ($probabilityService) {
+                                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers, true);
+                                if (isset($probData['reason_code'])) {
+                                    $reasonCode = $probData['reason_code'];
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$reasonCode) {
+                            $reasonCode = 'REQUIREMENTS_NOT_MET';
+                        }
+                    }
+                }
+            }
+        }
+
         $estimatedAccess = currencyFormat($totalExposureMax);
 
         $data = [
@@ -129,8 +171,8 @@ class CapitalAccessOverviewController extends Controller
             'estimated_total_access' => $estimatedAccess,
             'exposure_breakdown'     => $exposureBreakdown,
             'current_play'           => $currentPlay,
-            'reason_code'            => $reasonCode ?? null,
-            'unlock_at'              => $unlockAt ?? null,
+            'reason_code'            => $reasonCode,
+            'unlock_at'              => $unlockAt,
         ];
 
         return ApiResponse::success(
