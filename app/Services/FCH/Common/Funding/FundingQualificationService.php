@@ -85,7 +85,7 @@ class FundingQualificationService
             return $rule;
         }
 
-        return match ($rule['type'] ?? 'compare') {
+        $result = match ($rule['type'] ?? 'compare') {
             'documents'             => $this->evaluateDocuments($rule, $borrower, $funding),
             'specific_document'     => $this->evaluateSpecificDocument($rule, $borrower, $funding),
             'ratio'                 => $this->evaluateRatio($rule, $borrower, $funding),
@@ -94,6 +94,8 @@ class FundingQualificationService
             'not_in_array'          => $this->evaluateNotInArray($rule, $borrower, $funding),
             default                 => $this->evaluateCompare($rule, $borrower, $funding, asMonths: false),
         };
+
+        return $result;
     }
 
     // ─── Type handlers ────────────────────────────────────────────────────────
@@ -463,6 +465,8 @@ class FundingQualificationService
 
         return $rule;
     }
+
+
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
