@@ -5,6 +5,7 @@ return [
     'created_successfully' => 'Lender created successfully',
     'updated_successfully' => 'Lender updated successfully',
     'deleted_successfully' => 'Lender deleted successfully',
+    'cannot_delete_has_visibilities' => 'Cannot delete this Lender because it has active visibility rules in Funding Sequences. Please change its status to Inactive instead.',
 
     'name_required' => 'The name field is required.',
     'name_string' => 'The name field must be a string.',

@@ -61,6 +61,13 @@ class LenderController extends Controller
     public function destroy($id)
     {
         $lender = Lender::findOrFail($id);
+        
+        if ($lender->visibilities()->exists()) {
+            return ApiResponse::error(__('lender.cannot_delete_has_visibilities', [
+                'default' => 'Cannot delete this Lender because it has active visibility rules in Funding Sequences. Please change its status to Inactive instead.'
+            ]), 422);
+        }
+
         $this->lenderService->delete($lender);
 
         return ApiResponse::success(null, __('lender.deleted_successfully'));
