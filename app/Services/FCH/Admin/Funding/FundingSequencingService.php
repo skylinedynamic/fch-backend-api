@@ -82,12 +82,12 @@ class FundingSequencingService
         $query = QueryFilter::apply($query, $sortField ?? 'id', $sortOrder, $rawFilters, ['skip_sorting' => true]);
 
         if ($sortField === 'group.name') {
-            $query->join('funding_groups', 'funding_sequencings.funding_group_id', '=', 'funding_groups.id')
+            $query->leftJoin('funding_groups', 'funding_sequencings.funding_group_id', '=', 'funding_groups.id')
                   ->orderBy('funding_groups.name', $sortOrder)
                   ->select('funding_sequencings.*');
         } elseif ($sortField === 'type.name') {
-            $query->join('funding_types', 'funding_sequencings.funding_type_id', '=', 'funding_types.id')
-                  ->orderBy('funding_types.name', $sortOrder)
+            $query->leftJoin('lender_product_categories', 'funding_sequencings.funding_type_id', '=', 'lender_product_categories.id')
+                  ->orderBy('lender_product_categories.name', $sortOrder)
                   ->select('funding_sequencings.*');
         } elseif ($sortField) {
             $query->orderBy($sortField, $sortOrder);

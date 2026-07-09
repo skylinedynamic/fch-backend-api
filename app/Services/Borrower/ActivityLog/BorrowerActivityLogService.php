@@ -46,7 +46,7 @@ class BorrowerActivityLogService
                 // 2. Or activities explicitly sent/visible to borrower
                 ->orWhere('properties->send_to_borrower', '1')
                 ->orWhere('properties->visible_to_borrower', '1')
-                // 3. Or ANY log that is NOT explicitly meant for the host
+                // 3. Or ANY log that is NOT explicitly meant for the host AND is NOT internal
                 ->orWhere(function ($subQ) {
                     $subQ->where(function ($excludeQ) {
                              $excludeQ->whereNull('properties->send_to_host')
@@ -55,6 +55,11 @@ class BorrowerActivityLogService
                          ->where(function ($excludeQ) {
                              $excludeQ->whereNull('properties->visible_to_host')
                                       ->orWhere('properties->visible_to_host', '!=', '1');
+                         })
+                         ->where(function ($excludeQ) {
+                             $excludeQ->whereNull('properties->is_internal')
+                                      ->orWhere('properties->is_internal', false)
+                                      ->orWhere('properties->is_internal', '0');
                          });
                 });
         });

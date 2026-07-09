@@ -3,6 +3,7 @@
 namespace App\Models\Lender;
 
 use App\Models\Funding\LenderVisibility;
+use App\Models\Lender\LenderProductCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -47,6 +48,15 @@ class Lender extends Model
                   ->orWhere('contact_email', 'like', '%' . $search . '%')
                   ->orWhere('contact_phone', 'like', '%' . $search . '%')
                   ->orWhere('iso_status', 'like', '%' . $search . '%');
+                  
+                // Search by product category name
+                $categoryIds = LenderProductCategory::where('name', 'like', '%' . $search . '%')->pluck('id');
+                if ($categoryIds->isNotEmpty()) {
+                    foreach ($categoryIds as $id) {
+                        $q->orWhereJsonContains('product_categories', (string)$id)
+                          ->orWhereJsonContains('product_categories', (int)$id);
+                    }
+                }
             });
         }
         return $query;

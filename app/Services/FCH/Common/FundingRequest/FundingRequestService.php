@@ -179,4 +179,44 @@ class FundingRequestService
 
         return ApiResponse::success($review, __('funding_request.status_updated_successfully'));
     }
+
+    /**
+     * Assign Lender to Funding Request
+     */
+    public function assignLender(array $data)
+    {
+        $authUser = Auth::user();
+
+        $review = FundingRequest::where('id', $data['id'])
+            ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
+                $q->where('partner_id', $authUser->partner_id);
+            })->first();
+
+        if (!$review) {
+            return ApiResponse::error(__('funding_request.funding_request_not_found'));
+        }
+
+        $review->lender_ids = $data['lender_ids'] ?? [];
+        $review->assign_lender = !empty($data['lender_ids']) ? $data['lender_ids'][0] : null;
+        $review->save();
+
+        $lenderNames = \App\Models\Lender\Lender::whereIn('id', $review->lender_ids)->pluck('name')->toArray();
+        $lendersStr = empty($lenderNames) ? 'None' : implode(', ', $lenderNames);
+
+        app(ActivityLogService::class)->logSystemEvent(
+            FundingRequest::class,
+            $review->id,
+            $review->partner_id,
+            $review->borrower_id,
+            "Lenders Assigned to Request",
+            "Assigned Lender(s): " . $lendersStr,
+            'update',
+            [
+                'lender_ids' => $review->lender_ids,
+                'is_internal' => true
+            ]
+        );
+
+        return ApiResponse::success($review, "Lenders assigned successfully");
+    }
 }

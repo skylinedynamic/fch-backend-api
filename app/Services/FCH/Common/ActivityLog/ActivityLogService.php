@@ -52,7 +52,14 @@ class ActivityLogService
             // Partner
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
-                    ->orWhere('properties->partner_id', $user->partner_id);
+                    ->orWhere(function ($subQ) use ($user) {
+                        $subQ->where('properties->partner_id', $user->partner_id)
+                             ->where(function ($q2) {
+                                 $q2->whereNull('properties->is_internal')
+                                    ->orWhere('properties->is_internal', false)
+                                    ->orWhere('properties->is_internal', '0');
+                             });
+                    });
             });
         } elseif (isset($user->borrower)) {
             // Borrower
@@ -63,7 +70,14 @@ class ActivityLogService
                   ->orWhere('properties->send_to_borrower', '1')
                   ->orWhere('properties->visible_to_borrower', '1')
                   // Or system logs (hide manual custom logs meant only for host/partner)
-                  ->orWhereNotIn('log_name', [ActivityLog::TYPE_EMAIL, ActivityLog::TYPE_ACTIVITY, ActivityLog::LOG_TYPE_ACTIVITY]);
+                  ->orWhere(function ($subQ) {
+                      $subQ->whereNotIn('log_name', ['email', 'activity', 'log'])
+                           ->where(function ($q2) {
+                               $q2->whereNull('properties->is_internal')
+                                  ->orWhere('properties->is_internal', false)
+                                  ->orWhere('properties->is_internal', '0');
+                           });
+                  });
             });
         }
 
@@ -246,7 +260,7 @@ class ActivityLogService
         ?int $borrowerId,
         string $subject,
         string $description,
-        string $logType = ActivityLog::LOG_TYPE_ACTIVITY,
+        string $logType = 'activity',
         array $properties = []
     ): ActivityLog {
         $mergedProperties = array_merge([

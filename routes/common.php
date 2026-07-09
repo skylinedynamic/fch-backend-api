@@ -171,6 +171,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('', [FundingRequestController::class, 'getFundingRequest']);
                 Route::get('{id}', [FundingRequestController::class, 'getFundingRequestById']);
                 Route::post('status-update', [FundingRequestController::class, 'fundingRequestStatusUpdate']);
+                Route::post('assign-lender', [FundingRequestController::class, 'assignLender']);
             });
 
             // Funding Qualification endpoints

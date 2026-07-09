@@ -20,7 +20,7 @@ return [
     'min_amount_gt'              => 'The minimum amount must be greater than 0.',
     'max_amount_required'        => 'The maximum amount is required.',
     'max_amount_numeric'         => 'The maximum amount must be a number.',
-    'max_amount_gt'              => 'The maximum amount must be greater than 0.',
+    'max_amount_gt'              => 'The maximum amount must be greater than the minimum amount.',
     'amount_range_max'           => 'The amount range may not exceed 255 characters.',
     'terms_max'                  => 'The terms may not exceed 255 characters.',
     'icon_required'              => 'Please select an icon.',

@@ -2,9 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use App\Models\Lender\Lender;
 
 class LenderSeeder extends Seeder
 {
@@ -18,7 +19,6 @@ class LenderSeeder extends Seeder
                 'id' => 1,
                 'name' => 'Bluevine Capital',
                 'legal_name' => 'Bluevine Inc.',
-                'product_categories' => ['Business Line of Credit', 'Working Capital'],
                 'contact_name' => 'Sarah Johnson',
                 'contact_title' => 'Partner Success Manager',
                 'contact_email' => 'partners@bluevine.dummy',
@@ -36,7 +36,6 @@ class LenderSeeder extends Seeder
                 'id' => 2,
                 'name' => 'Fundbox Financing',
                 'legal_name' => 'Fundbox LLC',
-                'product_categories' => ['Term Loan', 'Business Line of Credit'],
                 'contact_name' => 'Michael Chen',
                 'contact_title' => 'Account Executive',
                 'contact_email' => 'mchen@fundbox.dummy',
@@ -54,7 +53,6 @@ class LenderSeeder extends Seeder
                 'id' => 3,
                 'name' => 'Credibly',
                 'legal_name' => 'Credibly Financial',
-                'product_categories' => ['Merchant Cash Advance', 'Working Capital'],
                 'contact_name' => 'David Montoya',
                 'contact_title' => 'Senior Underwriter',
                 'contact_email' => 'david.m@credibly.dummy',
@@ -72,7 +70,6 @@ class LenderSeeder extends Seeder
                 'id' => 4,
                 'name' => 'OnDeck',
                 'legal_name' => 'OnDeck Capital',
-                'product_categories' => ['Term Loan', 'Business Line of Credit'],
                 'contact_name' => 'Jessica Roberts',
                 'contact_title' => 'ISO Relations',
                 'contact_email' => 'iso@ondeck.dummy',
@@ -90,7 +87,6 @@ class LenderSeeder extends Seeder
                 'id' => 5,
                 'name' => 'LendingClub',
                 'legal_name' => 'LendingClub Bank',
-                'product_categories' => ['SBA Financing', 'Term Loan'],
                 'contact_name' => 'Kevin Smith',
                 'contact_title' => 'SBA Specialist',
                 'contact_email' => 'ksmith@lendingclub.dummy',
@@ -108,7 +104,6 @@ class LenderSeeder extends Seeder
                 'id' => 6,
                 'name' => 'Balboa Capital',
                 'legal_name' => 'Balboa Capital Corporation',
-                'product_categories' => ['Equipment Financing', 'Equipment Leasing'],
                 'contact_name' => 'Amanda Lewis',
                 'contact_title' => 'Equipment Finance Manager',
                 'contact_email' => 'alewis@balboa.dummy',
@@ -126,7 +121,6 @@ class LenderSeeder extends Seeder
                 'id' => 7,
                 'name' => 'Lendio',
                 'legal_name' => 'Lendio Inc.',
-                'product_categories' => ['Startup Funding', 'Business Credit Cards'],
                 'contact_name' => 'Chris Anderson',
                 'contact_title' => 'Strategic Partnerships',
                 'contact_email' => 'partners@lendio.dummy',
@@ -144,7 +138,6 @@ class LenderSeeder extends Seeder
                 'id' => 8,
                 'name' => 'National Funding',
                 'legal_name' => 'National Funding Inc.',
-                'product_categories' => ['Merchant Cash Advance', 'Equipment Financing'],
                 'contact_name' => 'Samantha Wright',
                 'contact_title' => 'Funding Coordinator',
                 'contact_email' => 'swright@nationalfunding.dummy',
@@ -162,7 +155,6 @@ class LenderSeeder extends Seeder
                 'id' => 9,
                 'name' => 'Kiavi',
                 'legal_name' => 'Kiavi Funding',
-                'product_categories' => ['Fix & Flip Financing', 'Bridge Financing', 'Commercial Real Estate Financing'],
                 'contact_name' => 'Robert Taylor',
                 'contact_title' => 'Real Estate Executive',
                 'contact_email' => 'rtaylor@kiavi.dummy',
@@ -180,7 +172,6 @@ class LenderSeeder extends Seeder
                 'id' => 10,
                 'name' => 'Clearco',
                 'legal_name' => 'Clearbanc',
-                'product_categories' => ['Revenue-Based Financing', 'Startup Funding'],
                 'contact_name' => 'Emily White',
                 'contact_title' => 'Growth Capital Partner',
                 'contact_email' => 'ewhite@clear.co',
@@ -198,7 +189,6 @@ class LenderSeeder extends Seeder
                 'id' => 11,
                 'name' => 'Rapid Finance',
                 'legal_name' => 'Rapid Finance LLC',
-                'product_categories' => ['Working Capital', 'Merchant Cash Advance'],
                 'contact_name' => 'Alex Turner',
                 'contact_title' => 'Funding Advisor',
                 'contact_email' => 'aturner@rapidfinance.dummy',
@@ -216,7 +206,6 @@ class LenderSeeder extends Seeder
                 'id' => 12,
                 'name' => 'Smarter Loans',
                 'legal_name' => 'Smarter Loans Inc.',
-                'product_categories' => ['Term Loan', 'SBA Financing'],
                 'contact_name' => 'Linda Scott',
                 'contact_title' => 'Senior Underwriter',
                 'contact_email' => 'lscott@smarterloans.dummy',
@@ -234,7 +223,6 @@ class LenderSeeder extends Seeder
                 'id' => 13,
                 'name' => 'Kabbage',
                 'legal_name' => 'Kabbage Inc.',
-                'product_categories' => ['Business Line of Credit', 'Working Capital'],
                 'contact_name' => 'Thomas Lee',
                 'contact_title' => 'Partnership Manager',
                 'contact_email' => 'tlee@kabbage.dummy',
@@ -252,7 +240,6 @@ class LenderSeeder extends Seeder
                 'id' => 14,
                 'name' => 'Kapitus',
                 'legal_name' => 'Kapitus Financial',
-                'product_categories' => ['Equipment Financing', 'Term Loan'],
                 'contact_name' => 'Rachel Adams',
                 'contact_title' => 'ISO Manager',
                 'contact_email' => 'radams@kapitus.dummy',
@@ -270,7 +257,6 @@ class LenderSeeder extends Seeder
                 'id' => 15,
                 'name' => 'Forward Financing',
                 'legal_name' => 'Forward Financing LLC',
-                'product_categories' => ['Revenue-Based Financing'],
                 'contact_name' => 'Daniel White',
                 'contact_title' => 'Funding Specialist',
                 'contact_email' => 'dwhite@forwardfinancing.dummy',
@@ -288,7 +274,6 @@ class LenderSeeder extends Seeder
                 'id' => 16,
                 'name' => 'Amex Business',
                 'legal_name' => 'American Express Bank',
-                'product_categories' => ['Business Credit Cards', 'Working Capital'],
                 'contact_name' => 'Laura Perez',
                 'contact_title' => 'Business Card Specialist',
                 'contact_email' => 'lperez@amex.dummy',
@@ -304,10 +289,32 @@ class LenderSeeder extends Seeder
             ],
         ];
 
-        foreach ($lenders as $lender) {
+        $categoryIds = LenderProductCategory::pluck('id')->toArray();
+        
+        $lenderCount = count($lenders);
+        $lenderCategories = array_fill(0, $lenderCount, []);
+        
+        // Ensure every category is assigned to multiple lenders (e.g., 3 to 7 lenders per category)
+        foreach ($categoryIds as $catId) {
+            // Pick a random number of lenders for this category
+            $numLendersForCat = rand(3, min(7, $lenderCount));
+            
+            // Randomly select indices of lenders
+            $randomLenderIndices = (array) array_rand(array_fill(0, $lenderCount, null), $numLendersForCat);
+            
+            foreach ($randomLenderIndices as $lenderIndex) {
+                $lenderCategories[$lenderIndex][] = $catId;
+            }
+        }
+        
+        foreach ($lenders as $index => $lender) {
+            // Get unique categories for this lender
+            $cats = array_unique($lenderCategories[$index] ?? []);
+            $lender['product_categories'] = array_values($cats);
+            
             Lender::updateOrCreate(['id' => $lender['id']], $lender);
         }
 
-        $this->command->info('✅ 16 Lenders seeded accurately with perfect categories.');
+        $this->command->info('✅ 16 Lenders seeded accurately. Each category is assigned to multiple lenders.');
     }
 }

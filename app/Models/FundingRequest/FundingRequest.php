@@ -35,6 +35,7 @@ class FundingRequest extends Model
         'approved_by',
         'reject_reason',
         'lender_ids',
+        'assign_lender',
     ];
 
     protected $casts = [
@@ -125,20 +126,145 @@ class FundingRequest extends Model
 
     public function getMatchedLendersAttribute()
     {
-        if (empty($this->lender_ids)) {
+        $borrower = $this->borrower;
+        if (!$borrower || empty($this->funding_type)) {
             return [];
         }
-        return Lender::whereIn('id', $this->lender_ids)
-            ->select('id', 'name', 'legal_name', 'contact_name', 'contact_email as email', 'contact_phone as phone')
-            ->get();
+
+        $category = \App\Models\Lender\LenderProductCategory::where('name', $this->funding_type)->first();
+        if (!$category) {
+            return [];
+        }
+
+        $visibilities = \App\Models\Funding\LenderVisibility::with('lender')
+            ->where('lender_product_category_id', $category->id)
+            ->get()
+            ->unique('lender_id');
+
+        $matchedLenders = [];
+
+        // calculate TIB
+        $tibMonths = 0;
+        if ($borrower->business_start_date) {
+            try {
+                $tibMonths = \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths(\Carbon\Carbon::now());
+            } catch (\Exception $e) {}
+        } elseif ($borrower->years_in_business) {
+            if (stripos($borrower->years_in_business, 'month') !== false) {
+                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                if (isset($matches[1])) $tibMonths = (int)$matches[1];
+            } elseif (stripos($borrower->years_in_business, 'year') !== false) {
+                preg_match('/(\d+)/', $borrower->years_in_business, $matches);
+                if (isset($matches[1])) $tibMonths = (int)$matches[1] * 12;
+            }
+        }
+
+        $borrowerFico = (int) $borrower->fico_score;
+        $borrowerRevenue = (float) $borrower->monthly_revenue;
+        $borrowerDeposits = (float) $borrower->average_monthly_deposits;
+
+        foreach ($visibilities as $visibility) {
+            if (!$visibility->lender) continue;
+
+            $checks = [
+                'fico' => false,
+                'revenue' => false,
+                'tib' => false,
+                'deposit' => false,
+            ];
+            $totalCriteria = 0;
+            $metCriteria = 0;
+
+            if (!is_null($visibility->min_fico)) {
+                $totalCriteria++;
+                if ($borrowerFico >= $visibility->min_fico) {
+                    $checks['fico'] = true;
+                    $metCriteria++;
+                }
+            } else {
+                $checks['fico'] = true;
+            }
+
+            if (!is_null($visibility->min_monthly_revenue)) {
+                $totalCriteria++;
+                if ($borrowerRevenue >= $visibility->min_monthly_revenue) {
+                    $checks['revenue'] = true;
+                    $metCriteria++;
+                }
+            } else {
+                $checks['revenue'] = true;
+            }
+
+            if (!is_null($visibility->min_tib_months)) {
+                $totalCriteria++;
+                if ($tibMonths >= $visibility->min_tib_months) {
+                    $checks['tib'] = true;
+                    $metCriteria++;
+                }
+            } else {
+                $checks['tib'] = true;
+            }
+
+            if (!is_null($visibility->min_monthly_deposits)) {
+                $totalCriteria++;
+                if ($borrowerDeposits >= $visibility->min_monthly_deposits) {
+                    $checks['deposit'] = true;
+                    $metCriteria++;
+                }
+            } else {
+                $checks['deposit'] = true;
+            }
+
+            $score = $totalCriteria > 0 ? round(($metCriteria / $totalCriteria) * 100) : 100;
+            if ($totalCriteria == 0) {
+                $matchString = "Perfect Match";
+                $matchHex = "#16a34a";
+            } else {
+                if ($score >= 80) {
+                    $matchString = "Excellent Match";
+                    $matchHex = "#16a34a";
+                } elseif ($score >= 50) {
+                    $matchString = "Good Match";
+                    $matchHex = "#d97706";
+                } else {
+                    $matchString = "Low Match";
+                    $matchHex = "#dc2626";
+                }
+            }
+
+            $matchedLenders[] = [
+                'id' => $visibility->lender->id,
+                'name' => $visibility->lender->name,
+                'phone' => $visibility->lender->contact_phone,
+                'email' => $visibility->lender->contact_email,
+                'product_category' => $category->name,
+                'requirements' => [
+                    'min_fico' => $visibility->min_fico,
+                    'min_revenue' => $visibility->min_monthly_revenue,
+                    'min_tib' => $visibility->min_tib_months,
+                    'min_deposit' => $visibility->min_monthly_deposits,
+                ],
+                'checks' => $checks,
+                'score' => $score,
+                'score_text' => $matchString,
+                'score_hex' => $matchHex,
+                'matches_fraction' => "{$metCriteria}/" . ($totalCriteria ?: 4),
+            ];
+        }
+
+        usort($matchedLenders, function($a, $b) {
+            return $b['score'] <=> $a['score'];
+        });
+
+        return $matchedLenders;
     }
 
     public function getLenderNamesAttribute()
     {
-        if (empty($this->lender_ids)) {
+        if (empty($this->assign_lender)) {
             return '';
         }
-        return Lender::whereIn('id', $this->lender_ids)->pluck('name')->implode(', ');
+        return Lender::where('id', $this->assign_lender)->value('name') ?: '';
     }
 
     public function partner()

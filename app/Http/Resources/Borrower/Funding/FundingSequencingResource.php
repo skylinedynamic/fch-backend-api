@@ -140,6 +140,7 @@ class FundingSequencingResource extends JsonResource
             'allowed_documents' => $this->allowed_documents ?? [],
             'action_url' => $this->action_url,
             'funding_type_id' => $this->funding_type_id,
+            'funding_type_name' => $this->type ? $this->type->name : null,
             'funding_group_id' => $this->funding_group_id,
             'require_documents_uploaded' => (bool)$this->require_documents_uploaded,
             'requirements' => $requirements,
