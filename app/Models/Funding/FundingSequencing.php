@@ -3,6 +3,7 @@
 namespace App\Models\Funding;
 
 use App\Models\User\User;
+use App\Models\Lender\LenderProductCategory;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -78,7 +79,7 @@ class FundingSequencing extends Model
 
     public function type(): BelongsTo
     {
-        return $this->belongsTo(FundingType::class, 'funding_type_id');
+        return $this->belongsTo(LenderProductCategory::class, 'funding_type_id');
     }
 
     public function scopeSearch($query, $term)

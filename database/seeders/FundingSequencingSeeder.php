@@ -30,6 +30,25 @@ class FundingSequencingSeeder extends Seeder
         $groupEquipment = FundingGroup::firstOrCreate(['name' => 'Equipment Financing'], ['sort_order' => 3, 'status' => 'Active']);
         $groupRealEstate = FundingGroup::firstOrCreate(['name' => 'Real Estate Financing'], ['sort_order' => 4, 'status' => 'Active']);
 
+        // ── Product Categories (Used as Funding Types) ─────────────────────────
+        $catCreditCards = LenderProductCategory::firstOrCreate(['name' => 'Business Credit Cards']);
+        $catCreditBuilder = LenderProductCategory::firstOrCreate(['name' => 'Business Credit Building']);
+        $catStartup = LenderProductCategory::firstOrCreate(['name' => 'Startup Funding']);
+        
+        $catLOC = LenderProductCategory::firstOrCreate(['name' => 'Business Line of Credit']);
+        $catTerm = LenderProductCategory::firstOrCreate(['name' => 'Term Loan']);
+        $catMCA = LenderProductCategory::firstOrCreate(['name' => 'Merchant Cash Advance']);
+        $catRBF = LenderProductCategory::firstOrCreate(['name' => 'Revenue-Based Financing']);
+        
+        $catEquip = LenderProductCategory::firstOrCreate(['name' => 'Equipment Financing']);
+        $catLease = LenderProductCategory::firstOrCreate(['name' => 'Equipment Leasing']);
+        $catTransport = LenderProductCategory::firstOrCreate(['name' => 'Commercial Vehicle Financing']);
+        
+        $catCRE = LenderProductCategory::firstOrCreate(['name' => 'Commercial Real Estate Financing']);
+        $catBridge = LenderProductCategory::firstOrCreate(['name' => 'Bridge Financing']);
+        $catFixFlip = LenderProductCategory::firstOrCreate(['name' => 'Fix & Flip Financing']);
+        $catConst = LenderProductCategory::firstOrCreate(['name' => 'Construction Financing']);
+
         // ── Shared helper for common readiness factors ─────────────────────────
         $defaultReadiness = [
             ['label' => 'Business Credit', 'status' => 'Good'],
@@ -52,10 +71,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => '0% Intro Business Cards'],
             [
                 'funding_group_id' => $groupCredit->id,
-                'funding_type_id' => $typeCreditCards->id,
+                'funding_type_id' => $catTerm->id,
                 'subtitle' => 'Low/no personal guarantee, 0% APR intro period',
                 'description' => 'Access business credit cards with 0% intro APR for 12–18 months. Ideal for startups and growing businesses looking to manage cash flow without interest.',
-                'amount_range' => '$5K - $250K',
+                'amount_range' => '5000-250000',
                 'terms' => '0% APR (12–18 mo)',
                 'speed_to_funds' => '7-14 Days',
                 'icon' => 'ri-bank-card-line',
@@ -74,10 +93,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Business Credit Builder Cards'],
             [
                 'funding_group_id' => $groupCredit->id,
-                'funding_type_id' => $typeCreditCards->id,
+                'funding_type_id' => $catCreditBuilder->id,
                 'subtitle' => 'Build business credit while accessing revolving capital',
                 'description' => 'Net-30 vendor accounts and secured business credit cards designed to establish and grow your business credit profile.',
-                'amount_range' => '$2K - $100K',
+                'amount_range' => '2000-100000',
                 'terms' => 'Net 30',
                 'speed_to_funds' => '7-14 Days',
                 'icon' => 'ri-bank-card-line',
@@ -96,10 +115,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Premium Rewards Cards'],
             [
                 'funding_group_id' => $groupCredit->id,
-                'funding_type_id' => $typeCreditCards->id,
+                'funding_type_id' => $catCreditCards->id,
                 'subtitle' => 'High-limit cards with cash back, travel & premium perks',
                 'description' => 'Premium business credit cards with high credit limits, bonus rewards programs, and exclusive benefits for established businesses.',
-                'amount_range' => '$10K - $500K',
+                'amount_range' => '10000-500000',
                 'terms' => 'Rewards',
                 'speed_to_funds' => '7-14 Days',
                 'icon' => 'ri-star-line',
@@ -118,10 +137,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Vendor Credit Lines'],
             [
                 'funding_group_id' => $groupCredit->id,
-                'funding_type_id' => $typeCreditCards->id,
+                'funding_type_id' => $catCreditBuilder->id,
                 'subtitle' => 'Net 30/60/90 terms with major vendors & suppliers',
                 'description' => 'Establish trade credit lines with major vendors and suppliers. Purchase inventory and supplies on net terms to preserve cash flow.',
-                'amount_range' => '$1K - $250K',
+                'amount_range' => '1000-250000',
                 'terms' => 'Net 30/60/90',
                 'speed_to_funds' => '3-7 Days',
                 'icon' => 'ri-shopping-cart-2-line',
@@ -144,10 +163,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Business Lines of Credit'],
             [
                 'funding_group_id' => $groupWorking->id,
-                'funding_type_id' => $typeWorkingCapital->id,
+                'funding_type_id' => $catLOC->id,
                 'subtitle' => 'Revolving credit line — draw, repay, repeat',
                 'description' => 'Flexible revolving business line of credit. Draw funds as needed, only pay interest on what you use. Perfect for managing cash flow and seasonal needs.',
-                'amount_range' => '$10K - $250K',
+                'amount_range' => '10000-250000',
                 'terms' => 'Revolving / 6-24 mo',
                 'speed_to_funds' => '1-5 Days',
                 'icon' => 'ri-refresh-line',
@@ -171,10 +190,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Term Loans'],
             [
                 'funding_group_id' => $groupWorking->id,
-                'funding_type_id' => $typeWorkingCapital->id,
+                'funding_type_id' => $catTerm->id,
                 'subtitle' => 'Fixed monthly payments for business expansion & growth',
                 'description' => 'Business term loans with fixed monthly payments and competitive rates. Use funds for expansion, hiring, equipment, or any business need.',
-                'amount_range' => '$25K - $5M',
+                'amount_range' => '25000-5000000',
                 'terms' => '6-60 Months',
                 'speed_to_funds' => '3-7 Days',
                 'icon' => 'ri-bank-line',
@@ -198,10 +217,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Merchant Cash Advance'],
             [
                 'funding_group_id' => $groupWorking->id,
-                'funding_type_id' => $typeWorkingCapital->id,
+                'funding_type_id' => $catMCA->id,
                 'subtitle' => 'Fast funding based on daily credit card & bank receipts',
                 'description' => 'Advance against your future business receipts. Repayment is a fixed percentage of daily sales — easy approval, no fixed monthly payments.',
-                'amount_range' => '$5K - $500K',
+                'amount_range' => '5000-500000',
                 'terms' => '3-18 Months',
                 'speed_to_funds' => '24-72 Hours',
                 'icon' => 'ri-speed-line',
@@ -224,10 +243,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Revenue Based Financing'],
             [
                 'funding_group_id' => $groupWorking->id,
-                'funding_type_id' => $typeWorkingCapital->id,
+                'funding_type_id' => $catRBF->id,
                 'subtitle' => 'Flexible funding — repay as a % of monthly revenue',
                 'description' => 'Revenue-based financing with flexible repayment tied to your monthly sales. Payments scale with your revenue — lower when sales are slow, higher when sales are strong.',
-                'amount_range' => '$10K - $3M',
+                'amount_range' => '10000-3000000',
                 'terms' => 'Flexible / % of Revenue',
                 'speed_to_funds' => '3-7 Days',
                 'icon' => 'ri-line-chart-line',
@@ -254,10 +273,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Equipment Loans'],
             [
                 'funding_group_id' => $groupEquipment->id,
-                'funding_type_id' => $typeEquipment->id,
+                'funding_type_id' => $catEquip->id,
                 'subtitle' => 'Finance new or used equipment with competitive rates',
                 'description' => 'Business equipment loans with fixed monthly payments. The equipment itself serves as collateral — easier approval than unsecured loans.',
-                'amount_range' => '$10K - $2M',
+                'amount_range' => '10000-2000000',
                 'terms' => 'Up to 84 Months',
                 'speed_to_funds' => '3-10 Days',
                 'icon' => 'ri-settings-3-line',
@@ -281,10 +300,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Equipment Leasing'],
             [
                 'funding_group_id' => $groupEquipment->id,
-                'funding_type_id' => $typeEquipment->id,
+                'funding_type_id' => $catLease->id,
                 'subtitle' => 'Preserve cash flow — use equipment without buying it',
                 'description' => 'Lease equipment with low monthly payments. Conserve capital, stay current with technology, and enjoy potential tax advantages.',
-                'amount_range' => '$5K - $1M',
+                'amount_range' => '5000-1000000',
                 'terms' => '$1 Buyout Option',
                 'speed_to_funds' => '3-10 Days',
                 'icon' => 'ri-file-text-line',
@@ -307,10 +326,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Working Capital Equipment'],
             [
                 'funding_group_id' => $groupEquipment->id,
-                'funding_type_id' => $typeEquipment->id,
+                'funding_type_id' => $catEquip->id,
                 'subtitle' => 'Equipment financing bundled with working capital',
                 'description' => 'Finance equipment AND receive additional working capital in a single facility. Ideal for businesses that need to upgrade equipment while maintaining cash flow.',
-                'amount_range' => '$25K - $500K',
+                'amount_range' => '25000-500000',
                 'terms' => '12-60 Months',
                 'speed_to_funds' => '3-7 Days',
                 'icon' => 'ri-briefcase-line',
@@ -329,10 +348,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Transportation Financing'],
             [
                 'funding_group_id' => $groupEquipment->id,
-                'funding_type_id' => $typeEquipment->id,
+                'funding_type_id' => $catTransport->id,
                 'subtitle' => 'Trucks, trailers & fleet financing solutions',
                 'description' => 'Finance commercial vehicles, trucks, trailers, and transportation fleets. Expand your logistics capacity with competitive rates and long terms.',
-                'amount_range' => '$25K - $1M',
+                'amount_range' => '25000-1000000',
                 'terms' => 'Up to 72 Months',
                 'speed_to_funds' => '3-10 Days',
                 'icon' => 'ri-truck-line',
@@ -360,10 +379,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Commercial Real Estate'],
             [
                 'funding_group_id' => $groupRealEstate->id,
-                'funding_type_id' => $typeRealEstate->id,
+                'funding_type_id' => $catCRE->id,
                 'subtitle' => 'Purchase, refinance, or renovate commercial properties',
                 'description' => 'Long-term commercial real estate loans for purchasing or refinancing commercial properties. Competitive rates with up to 25-year amortization.',
-                'amount_range' => '$100K - $10M',
+                'amount_range' => '100000-10000000',
                 'terms' => '10-25 Years',
                 'speed_to_funds' => '30-60 Days',
                 'icon' => 'ri-building-4-line',
@@ -388,10 +407,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Bridge Loans'],
             [
                 'funding_group_id' => $groupRealEstate->id,
-                'funding_type_id' => $typeRealEstate->id,
+                'funding_type_id' => $catBridge->id,
                 'subtitle' => 'Short-term financing for real estate opportunities',
                 'description' => 'Bridge loans provide short-term financing when you need to close quickly on a property before securing long-term financing.',
-                'amount_range' => '$50K - $5M',
+                'amount_range' => '50000-5000000',
                 'terms' => '6-24 Months',
                 'speed_to_funds' => '7-21 Days',
                 'icon' => 'ri-links-line',
@@ -415,10 +434,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Fix & Flip Loans'],
             [
                 'funding_group_id' => $groupRealEstate->id,
-                'funding_type_id' => $typeRealEstate->id,
+                'funding_type_id' => $catFixFlip->id,
                 'subtitle' => 'Finance your real estate investment & renovation projects',
                 'description' => 'Short-term loans designed for real estate investors to purchase, renovate, and sell residential or commercial properties.',
-                'amount_range' => '$50K - $3M',
+                'amount_range' => '50000-3000000',
                 'terms' => '6-18 Months',
                 'speed_to_funds' => '7-14 Days',
                 'icon' => 'ri-tools-line',
@@ -442,10 +461,10 @@ class FundingSequencingSeeder extends Seeder
             ['name' => 'Construction Loans'],
             [
                 'funding_group_id' => $groupRealEstate->id,
-                'funding_type_id' => $typeRealEstate->id,
+                'funding_type_id' => $catConst->id,
                 'subtitle' => 'Ground-up construction financing for new development',
                 'description' => 'Construction loans for ground-up development projects. Funds are disbursed in draws as construction milestones are completed.',
-                'amount_range' => '$100K - $10M',
+                'amount_range' => '100000-10000000',
                 'terms' => '12-24 Months',
                 'speed_to_funds' => '21-45 Days',
                 'icon' => 'ri-user-settings-line',

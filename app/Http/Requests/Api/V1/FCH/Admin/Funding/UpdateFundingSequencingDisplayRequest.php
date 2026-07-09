@@ -26,7 +26,7 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'name'             => 'sometimes|required|string|max:255',
             'subtitle'         => 'sometimes|required|string|max:255',
             'funding_group_id' => 'sometimes|required|exists:funding_groups,id',
-            'funding_type_id'  => 'sometimes|required|exists:funding_types,id',
+            'funding_type_id'  => 'sometimes|required|exists:lender_product_categories,id',
             'description'      => 'nullable|string',
             'min_amount'       => 'required|numeric|gt:0',
             'max_amount'       => 'required|numeric|gt:0',
