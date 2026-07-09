@@ -2,8 +2,9 @@
 
 namespace App\Models\Funding;
 
-use App\Models\User\User;
+use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
+use App\Models\User\User;
 use App\Services\Borrower\Funding\FundingReadinessService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -123,13 +124,18 @@ class FundingSequencing extends Model
         if (!$this->relationLoaded('lenderVisibilities')) {
             $this->load('lenderVisibilities');
         }
-        if ($this->lenderVisibilities->isEmpty()) {
+        $activeVisibilities = $this->lenderVisibilities->filter(function ($v) {
+            if (!$v->relationLoaded('lender')) $v->load('lender');
+            return $v->lender && $v->lender->status !== Lender::STATUS_INACTIVE;
+        });
+
+        if ($activeVisibilities->isEmpty()) {
             return null;
         }
-        if ($this->lenderVisibilities->containsStrict($field, null)) {
+        if ($activeVisibilities->containsStrict($field, null)) {
             return null;
         }
-        return $this->lenderVisibilities->min($field);
+        return $activeVisibilities->min($field);
     }
 
     protected function getMaxLenderRequirement($field)
@@ -137,13 +143,18 @@ class FundingSequencing extends Model
         if (!$this->relationLoaded('lenderVisibilities')) {
             $this->load('lenderVisibilities');
         }
-        if ($this->lenderVisibilities->isEmpty()) {
+        $activeVisibilities = $this->lenderVisibilities->filter(function ($v) {
+            if (!$v->relationLoaded('lender')) $v->load('lender');
+            return $v->lender && $v->lender->status !== Lender::STATUS_INACTIVE;
+        });
+
+        if ($activeVisibilities->isEmpty()) {
             return null;
         }
-        if ($this->lenderVisibilities->containsStrict($field, null)) {
+        if ($activeVisibilities->containsStrict($field, null)) {
             return null;
         }
-        return $this->lenderVisibilities->max($field);
+        return $activeVisibilities->max($field);
     }
 
     /**
@@ -192,8 +203,19 @@ class FundingSequencing extends Model
 
             $worstStatus = self::ENGINE_STATUS_ACTIVE;
             $highestPriority = 0;
+            $hasActiveLender = false;
 
             foreach ($this->lenderVisibilities as $lenderSeq) {
+                if (!$lenderSeq->relationLoaded('lender')) {
+                    $lenderSeq->load('lender');
+                }
+                
+                if ($lenderSeq->lender && $lenderSeq->lender->status === \App\Models\Lender\Lender::STATUS_INACTIVE) {
+                    continue; // Skip inactive lenders
+                }
+
+                $hasActiveLender = true;
+
                 // Prevent lazy loading violation by explicitly setting the parent relation
                 $lenderSeq->setRelation('fundingSequencing', $this);
                 
@@ -206,7 +228,11 @@ class FundingSequencing extends Model
                 }
             }
 
-            $bestStatus = $worstStatus;
+            if (!$hasActiveLender) {
+                $bestStatus = self::ENGINE_STATUS_HIDDEN;
+            } else {
+                $bestStatus = $worstStatus;
+            }
         }
 
 
@@ -243,6 +269,13 @@ class FundingSequencing extends Model
         $reasons = [];
 
         foreach ($this->lenderVisibilities as $lenderSeq) {
+            if (!$lenderSeq->relationLoaded('lender')) {
+                $lenderSeq->load('lender');
+            }
+            if ($lenderSeq->lender && $lenderSeq->lender->status === \App\Models\Lender\Lender::STATUS_INACTIVE) {
+                continue; // Skip inactive lenders
+            }
+
             $lenderSeq->setRelation('fundingSequencing', $this);
             if ($lenderSeq->getEngineStatusForBorrower($borrower) === self::ENGINE_STATUS_HIDDEN) {
                 $lenderReasons = $lenderSeq->getHiddenReasonsForBorrower($borrower);
