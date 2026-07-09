@@ -506,9 +506,9 @@ class FundingSequencingSeeder extends Seeder
         $numCats = count($catIds);
 
         // 2. Define variation arrays for dynamic deterministic data
-        $ficos = [500, 550, 600, 620, 650, 680, 700];
+        $ficos = [400, 420, 450, 480, 500];
         $tibs = [1, 3, 6, 12, 24];
-        $revenues = [8000, 10000, 12000, 15000, 20000]; // Realistic min revenues
+        $revenues = [4000, 4200, 4500, 4800, 5000]; // Realistic min revenues
         $depositRatios = [0.4, 0.5, 0.6, 0.75]; // Deposits as a % of revenue
         $depositCounts = [5, 8, 10, 12, 15];
         $balanceRatios = [0.1, 0.15, 0.2, 0.25]; // Daily balance as a % of monthly deposits
