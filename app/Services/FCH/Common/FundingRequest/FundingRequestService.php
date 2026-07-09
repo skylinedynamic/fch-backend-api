@@ -211,7 +211,10 @@ class FundingRequestService
             "Lenders Assigned to Request",
             "Assigned Lender(s): " . $lendersStr,
             'update',
-            ['lender_ids' => $review->lender_ids]
+            [
+                'lender_ids' => $review->lender_ids,
+                'is_internal' => true
+            ]
         );
 
         return ApiResponse::success($review, "Lenders assigned successfully");

@@ -261,10 +261,10 @@ class FundingRequest extends Model
 
     public function getLenderNamesAttribute()
     {
-        if (empty($this->lender_ids)) {
+        if (empty($this->assign_lender)) {
             return '';
         }
-        return Lender::whereIn('id', $this->lender_ids)->pluck('name')->implode(', ');
+        return Lender::where('id', $this->assign_lender)->value('name') ?: '';
     }
 
     public function partner()
