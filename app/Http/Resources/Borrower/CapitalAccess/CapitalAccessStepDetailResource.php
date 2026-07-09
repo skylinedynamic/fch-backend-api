@@ -71,6 +71,21 @@ class CapitalAccessStepDetailResource extends JsonResource
         $accessTimeDetail = $accessTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessTimeLower) : null;
         $accessDayTimeDetail = $accessDayTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessDayTimeLower) : null;
 
+        $recommendedId = $this->additional['recommended_id'] ?? null;
+        $isCompleted = (bool) ($this->additional['is_completed'] ?? false);
+        $isAccessible = false;
+        if ($borrower) {
+            $runningPlay = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::getRunningPlay($borrower->id);
+            if ($runningPlay) {
+                $isAccessible = ($play?->id === $runningPlay->capital_access_id);
+            } else {
+                $isDelayActive = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::isDelayActive($borrower->id);
+                $isAccessible  = $isDelayActive ? $isCompleted : true;
+            }
+        } else {
+            $isAccessible = ($recommendedId === $play?->id) || $isCompleted;
+        }
+
         return [
             'id'              => $seq->id,
             'application'     => $application ? [
@@ -106,9 +121,9 @@ class CapitalAccessStepDetailResource extends JsonResource
                 'id'              => $play->id,
                 'name'            => $play->name,
                 'target_exposure' => currencyFormat($play->target_exposure_min) . ' - ' . currencyFormat($play->target_exposure_max),
-                'isRecommended'   => ($this->additional['recommended_id'] ?? null) === $play->id,
-                'isCompleted'     => (bool) ($this->additional['is_completed'] ?? false),
-                'isAccessible'    => (($this->additional['recommended_id'] ?? null) === $play->id) || (bool) ($this->additional['is_completed'] ?? false),
+                'isRecommended'   => ($recommendedId ?? null) === $play->id,
+                'isCompleted'     => $isCompleted,
+                'isAccessible'    => $isAccessible,
                 'reason_code'     => $this->additional['reason_code'] ?? null,
                 'unlock_at'       => $this->additional['unlock_at'] ?? null,
             ],

@@ -190,12 +190,25 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
         $isRecommended = $recommendedId === $this->id;
         $isCompleted   = (bool) ($this->is_completed ?? false);
 
+        $isAccessible = false;
+        if ($borrower) {
+            $runningPlay = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::getRunningPlay($borrower->id);
+            if ($runningPlay) {
+                $isAccessible = ($this->id === $runningPlay->capital_access_id);
+            } else {
+                $isDelayActive = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::isDelayActive($borrower->id);
+                $isAccessible  = $isDelayActive ? $isCompleted : true;
+            }
+        } else {
+            $isAccessible = $isRecommended || $isCompleted;
+        }
+
         return [
             'id'              => $this->id,
             'name'            => $this->name,
             'isRecommended'   => $isRecommended,
             'isCompleted'     => $isCompleted,
-            'isAccessible'    => $isRecommended || $isCompleted,
+            'isAccessible'    => $isAccessible,
             'target_exposure' => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline'    => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
             'time_settings'   => $timeSettingsFormatted,

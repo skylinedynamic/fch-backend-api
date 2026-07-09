@@ -13,8 +13,10 @@ use App\Http\Resources\Borrower\CapitalAccess\CapitalAccessStrategyOverviewResou
 use App\Http\Resources\Borrower\CapitalAccess\CapitalAccessStrategyChecklistResource;
 use App\Http\Resources\Borrower\CapitalAccess\CapitalAccessStrategyRoadmapResource;
 use App\Http\Resources\Borrower\CapitalAccess\CapitalAccessStepDetailResource;
+use App\Models\CreditBuilder\CapitalAccessSequence;
 use Illuminate\Http\JsonResponse;
 use App\Helpers\ApiResponse;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 use App\Http\Resources\Borrower\CapitalAccess\HasEvaluatedChecklist;
 
@@ -127,6 +129,7 @@ class CapitalAccessStrategyService
                     'id' => $strategy->id,
                     'name' => $strategy->name,
                     'approval_status' => false,
+                    'isAccessible' => false,
                     'reason_code' => $probData['reason_code'] ?? null,
                     'unlock_at' => $probData['unlock_at'] ?? null,
                 ], 'Capital Access Strategy is locked');
@@ -169,6 +172,7 @@ class CapitalAccessStrategyService
                     'id' => $strategy->id,
                     'name' => $strategy->name,
                     'approval_status' => false,
+                    'isAccessible' => false,
                     'reason_code' => $probData['reason_code'] ?? null,
                     'unlock_at' => $probData['unlock_at'] ?? null,
                 ], 'Capital Access Strategy is locked');
@@ -230,6 +234,7 @@ class CapitalAccessStrategyService
                     'id' => $strategy->id,
                     'name' => $strategy->name,
                     'approval_status' => false,
+                    'isAccessible' => false,
                     'reason_code' => $probData['reason_code'] ?? null,
                 ], 'Capital Access Strategy is locked');
             }
@@ -261,6 +266,10 @@ class CapitalAccessStrategyService
         $borrower = auth()->user()?->borrower;
 
         $probData = null;
+        $recommendedId = null;
+        $ctx = null;
+        $cache = null;
+
         if ($borrower) {
             // Resolve recommended ID once to know if delay applies to this strategy
             $allStrategies = CapitalAccess::active()->get();
@@ -284,9 +293,18 @@ class CapitalAccessStrategyService
         }
 
         // Verify the sequence belongs to this strategy
-        $seq = $strategy->sequences()->with('creditAccount', 'capitalAccess')->findOrFail($sequenceId);
+        try {
+            $seq = $strategy->sequences()->with('creditAccount', 'capitalAccess')->findOrFail($sequenceId);
+        } catch (ModelNotFoundException) {
+            return ApiResponse::error('This step does not exist for the selected strategy.', 403);
+        }
 
         if ($borrower) {
+            $accessError = $this->validateStepAccess($strategy, $seq, $borrower, $ctx, $cache);
+            if ($accessError) {
+                return $accessError;
+            }
+
             $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
                 ->where('capital_access_id', $strategyId)
                 ->first();
@@ -298,14 +316,6 @@ class CapitalAccessStrategyService
                     return ApiResponse::error('This step is not available for this completed play.', 403);
                 }
             }
-        }
-
-        // Build context for odds calculation
-        $ctx = null;
-        $cache = null;
-        if ($borrower) {
-            $ctx = BorrowerContext::from($borrower);
-            $cache = app(ScoreConfigurationCache::class);
         }
 
         $resource = new CapitalAccessStepDetailResource($seq);
@@ -356,12 +366,22 @@ class CapitalAccessStrategyService
         }
 
         // Verify the sequence belongs to this strategy
-        $seq = $strategy->sequences()->findOrFail($sequenceId);
+        try {
+            $seq = $strategy->sequences()->findOrFail($sequenceId);
+        } catch (ModelNotFoundException) {
+            return ApiResponse::error('This step does not exist for the selected strategy.', 403);
+        }
 
         if ($borrower) {
             $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
                 ->where('capital_access_id', $strategyId)
                 ->first();
+
+            $accessError = $this->validateStepAccess($strategy, $seq, $borrower, $ctx, $cache);
+            if ($accessError) {
+                return $accessError;
+            }
+
             if ($playStatus && $playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED) {
                 $hasApplication = CapitalAccessApplication::where('borrower_id', $borrower->id)
                     ->where('capital_access_sequence_id', $sequenceId)
@@ -588,6 +608,78 @@ class CapitalAccessStrategyService
                 'status' => BorrowerCapitalAccessPlay::STATUS_RUNNING,
             ]
         );
+    }
+
+    /**
+     * Validate if the given sequence/step is unlocked and accessible for the borrower.
+     */
+    protected function validateStepAccess(CapitalAccess $strategy, CapitalAccessSequence $seq, Borrower $borrower, $ctx, $cache): ?JsonResponse
+    {
+        // 1. Check pre-flight checklist completion
+        $evaluatedChecklist = $this->getEvaluatedChecklist($borrower, $strategy->pre_flight_checklist);
+        $allComplete = true;
+        foreach ($evaluatedChecklist as $item) {
+            if ($item['complete'] === false) {
+                $allComplete = false;
+                break;
+            }
+        }
+        if (!$allComplete) {
+            return ApiResponse::error('Pre-flight checklist is not completed.', 403);
+        }
+
+        // 2. Check preceding steps completion (all previous steps must be approved)
+        $sequences = $strategy->sequences()->get();
+        $timeOrder = [
+            CapitalAccess::ACCESS_TIME_MORNING => 0,
+            CapitalAccess::ACCESS_TIME_EVENING => 1,
+            CapitalAccess::ACCESS_TIME_ANYTIME => 2,
+            CapitalAccess::ACCESS_TIME_DAY     => 3,
+        ];
+        $dayTimeOrder = [
+            CapitalAccess::ACCESS_TIME_MORNING => 0,
+            CapitalAccess::ACCESS_TIME_EVENING => 1,
+            CapitalAccess::ACCESS_TIME_ANYTIME => 2,
+        ];
+
+        $sequences = $sequences->sortBy(function ($s) use ($timeOrder, $dayTimeOrder) {
+            $group   = $timeOrder[$s->access_time] ?? 99;
+            $day     = $s->access_day ?? 0;
+            $subTime = $dayTimeOrder[$s->access_day_time] ?? 99;
+            return [$group, $day, $subTime];
+        })->values();
+
+        $applications = CapitalAccessApplication::where('borrower_id', $borrower->id)
+            ->where('capital_access_id', $strategy->id)
+            ->get()
+            ->keyBy('capital_access_sequence_id');
+
+        foreach ($sequences as $s) {
+            if ($s->id === $seq->id) {
+                break;
+            }
+            $app = $applications->get($s->id);
+            if (!$app || $app->status !== CapitalAccessApplication::STATUS_APPROVED) {
+                return ApiResponse::error('This step is locked because a previous step is not completed.', 403);
+            }
+        }
+
+        // 3. Check sequence qualifications (e.g. FICO / utilization requirements)
+        $existingApp = CapitalAccessApplication::where('borrower_id', $borrower->id)
+            ->where('capital_access_sequence_id', $seq->id)
+            ->first();
+
+        if (!$existingApp) {
+            $oddsTiers = $cache?->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_ODDS);
+            $oddsData  = app(\App\Services\Borrower\CapitalAccess\ApprovalOddsService::class)
+                ->calculate($borrower, $seq, $strategy, $ctx, $oddsTiers);
+            $oddsStatus = ($oddsData['status'] ?? true) !== false;
+            if (!$oddsStatus) {
+                return ApiResponse::error('This step is locked because you do not meet the qualifications.', 403);
+            }
+        }
+
+        return null;
     }
 }
 

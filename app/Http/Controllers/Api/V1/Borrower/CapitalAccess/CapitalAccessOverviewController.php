@@ -79,36 +79,18 @@ class CapitalAccessOverviewController extends Controller
             }
         }
 
-        $latestApp = CapitalAccessApplication::where('borrower_id', $borrower->id)
-            ->orderBy('updated_at', 'desc')
+        $runningPlay = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+            ->where('status', BorrowerCapitalAccessPlay::STATUS_RUNNING)
             ->first();
 
         $currentPlay = null;
-        if ($latestApp) {
-            $strat = CapitalAccess::find($latestApp->capital_access_id);
+        if ($runningPlay) {
+            $strat = CapitalAccess::find($runningPlay->capital_access_id);
             if ($strat) {
-                $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
-                    ->where('capital_access_id', $strat->id)
-                    ->first();
-
-                if ($playStatus) {
-                    $isCompleted = ($playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED);
-                } else {
-                    $totalSteps = $strat->sequences()->count();
-                    $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
-                        ->where('capital_access_id', $strat->id)
-                        ->where('status', CapitalAccessApplication::STATUS_APPROVED)
-                        ->count();
-
-                    $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
-                }
-
-                if (!$isCompleted) {
-                    $currentPlay = [
-                        'id' => $strat->id,
-                        'name' => $strat->name,
-                    ];
-                }
+                $currentPlay = [
+                    'id'   => $strat->id,
+                    'name' => $strat->name,
+                ];
             }
         }
 
