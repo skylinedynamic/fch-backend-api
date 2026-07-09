@@ -475,32 +475,83 @@ class FundingSequencingSeeder extends Seeder
 
         $sequencingIds = FundingSequencing::orderBy('id')->pluck('id')->toArray();
 
+        // 1. Use the actual real categories assigned to each lender perfectly!
+        $lenderCategories = [];
+        $allLenders = Lender::all();
+        foreach ($allLenders as $l) {
+            $cats = is_string($l->product_categories) ? json_decode($l->product_categories, true) : $l->product_categories;
+            $lenderCategories[$l->id] = !empty($cats) && is_array($cats) ? $cats : [1];
+        }
+
+        $numLenders = count($lenderIds);
+        $numCats = count($catIds);
+
+        // 2. Define variation arrays for dynamic deterministic data
+        $ficos = [500, 550, 600, 620, 650, 680, 700];
+        $tibs = [1, 3, 6, 12, 24];
+        $revenues = [8000, 10000, 12000, 15000, 20000]; // Realistic min revenues
+        $depositRatios = [0.4, 0.5, 0.6, 0.75]; // Deposits as a % of revenue
+        $depositCounts = [5, 8, 10, 12, 15];
+        $balanceRatios = [0.1, 0.15, 0.2, 0.25]; // Daily balance as a % of monthly deposits
+
         foreach ($sequencingIds as $index => $actualSeqId) {
-            $lenderId = !empty($lenderIds) ? $lenderIds[$index % count($lenderIds)] : 1;
-            $catId = !empty($catIds) ? $catIds[$index % count($catIds)] : 1;
+            $selectedLenders = [];
+            
+            if ($numLenders > 0) {
+                $l1 = $lenderIds[($index * 2) % $numLenders];
+                $l2 = $lenderIds[($index * 2 + 1) % $numLenders];
+                
+                if ($l1 == $l2 && $numLenders > 1) {
+                    $l2 = $lenderIds[($index * 2 + 2) % $numLenders];
+                }
+                
+                $selectedLenders = array_unique([$l1, $l2]);
+            } else {
+                $selectedLenders = [1]; // Fallback
+            }
 
-            $visibilityData = [
-                'lender_product_category_id' => $catId,
-                'min_fico' => 600,
-                'min_tib_months' => 6,
-                'min_monthly_revenue' => 5000,
-                'min_avg_deposits' => 100,
-                'min_deposit_count' => 10,
-                'min_monthly_deposits' => 5000,
-                'min_average_daily_balance' => 2000,
-                'allowed_states' => [],
-                'restricted_states' => [],
-                'allowed_industries' => [],
-                'restricted_industries' => [],
-            ];
+            foreach ($selectedLenders as $lenderId) {
+                $catsForLender = $lenderCategories[$lenderId] ?? (!empty($catIds) ? [$catIds[0]] : [1]);
+                
+                foreach ($catsForLender as $catId) {
+                    // Generate a consistent index based on lender and category
+                    $hash = $lenderId * 100 + $catId;
 
-            LenderVisibility::updateOrCreate(
-                [
-                    'lender_id' => $lenderId,
-                    'funding_sequencing_id' => $actualSeqId
-                ],
-                $visibilityData
-            );
+                    $minRevenue = $revenues[$hash % count($revenues)];
+                    $depRatio = $depositRatios[$hash % count($depositRatios)];
+                    $minMonthlyDeposits = intval($minRevenue * $depRatio);
+                    
+                    $minDepositCount = $depositCounts[$hash % count($depositCounts)];
+                    // Ensure realistic average deposit size
+                    $minAvgDeposits = intval($minMonthlyDeposits / ($minDepositCount + 2)); 
+                    
+                    $balRatio = $balanceRatios[$hash % count($balanceRatios)];
+                    $minAvgDailyBalance = intval($minMonthlyDeposits * $balRatio);
+
+                    $visibilityData = [
+                        'min_fico' => $ficos[$hash % count($ficos)],
+                        'min_tib_months' => $tibs[$hash % count($tibs)],
+                        'min_monthly_revenue' => $minRevenue,
+                        'min_avg_deposits' => $minAvgDeposits,
+                        'min_deposit_count' => $minDepositCount,
+                        'min_monthly_deposits' => $minMonthlyDeposits,
+                        'min_average_daily_balance' => $minAvgDailyBalance,
+                        'allowed_states' => [],
+                        'restricted_states' => [],
+                        'allowed_industries' => [],
+                        'restricted_industries' => [],
+                    ];
+
+                    LenderVisibility::updateOrCreate(
+                        [
+                            'lender_id' => $lenderId,
+                            'funding_sequencing_id' => $actualSeqId,
+                            'lender_product_category_id' => $catId
+                        ],
+                        $visibilityData
+                    );
+                }
+            }
 
             FundingSequencing::where('id', $actualSeqId)->update([
                 'require_completed_application' => 1,

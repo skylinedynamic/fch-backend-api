@@ -26,7 +26,7 @@ class StoreLenderRequest extends BaseApiRequest
             'name' => 'required|string|max:255',
             'legal_name' => 'required|string|max:255',
             'product_categories' => 'required|array',
-            'product_categories.*' => 'string',
+            'product_categories.*' => 'integer',
             'contact_name' => 'required|string|max:255',
             'contact_title' => 'required|string|max:255',
             'contact_email' => 'required|email|max:255',
