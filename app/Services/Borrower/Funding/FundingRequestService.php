@@ -61,12 +61,17 @@ class FundingRequestService
             if (empty($lenderIds)) {
                 $lenderIds = $lenders->pluck('lender_id')->toArray();
             }
+            $lenderIds = array_values(array_unique($lenderIds));
         }
 
         $data['borrower_id'] = $borrower->id;
         $data['partner_id'] = $borrower->partner_id;
         $data['status'] = FundingRequest::STATUS_PENDING;
-        $data['lender_ids'] = $data['lender_ids'] ?? $lenderIds;
+        $finalLenderIds = $data['lender_ids'] ?? $lenderIds;
+        if (is_array($finalLenderIds)) {
+            $finalLenderIds = array_values(array_unique($finalLenderIds));
+        }
+        $data['lender_ids'] = $finalLenderIds;
 
         $fundingRequest = FundingRequest::updateOrCreate(
             [
