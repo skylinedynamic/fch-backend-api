@@ -57,6 +57,24 @@ class FundingRequestController extends Controller
     }
 
     /**
+     * Assign Lender to Funding Request
+     */
+    public function assignLender(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $request->validate([
+            'id' => 'required|exists:funding_requests,id',
+            'lender_ids' => 'nullable|array',
+            'lender_ids.*' => 'integer|exists:lenders,id',
+        ]);
+
+        try {
+            return $this->fundingRequestService->assignLender($request->all());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('funding_request.error_assigning_lender'));
+        }
+    }
+
+    /**
      * Get Funding Sequences for Dropdowns (Common Access)
      */
     public function getFundingSequencing(\Illuminate\Http\Request $request, \App\Services\FCH\Admin\Funding\FundingSequencingService $sequencingService): JsonResponse

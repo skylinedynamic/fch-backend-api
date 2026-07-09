@@ -290,31 +290,31 @@ class LenderSeeder extends Seeder
         ];
 
         $categoryIds = LenderProductCategory::pluck('id')->toArray();
-        shuffle($categoryIds);
         
         $lenderCount = count($lenders);
         $lenderCategories = array_fill(0, $lenderCount, []);
         
-        // Distribute all 27 categories round-robin so EVERY category is used at least once
-        foreach ($categoryIds as $index => $catId) {
-            $lenderIndex = $index % $lenderCount;
-            $lenderCategories[$lenderIndex][] = $catId;
+        // Ensure every category is assigned to multiple lenders (e.g., 3 to 7 lenders per category)
+        foreach ($categoryIds as $catId) {
+            // Pick a random number of lenders for this category
+            $numLendersForCat = rand(3, min(7, $lenderCount));
+            
+            // Randomly select indices of lenders
+            $randomLenderIndices = (array) array_rand(array_fill(0, $lenderCount, null), $numLendersForCat);
+            
+            foreach ($randomLenderIndices as $lenderIndex) {
+                $lenderCategories[$lenderIndex][] = $catId;
+            }
         }
         
-        // Randomly add a few more to make it realistic (up to 5 max)
         foreach ($lenders as $index => $lender) {
-            $cats = $lenderCategories[$index];
-            $extraCount = rand(0, 3);
-            if ($extraCount > 0) {
-                $extraCats = array_rand(array_flip($categoryIds), $extraCount);
-                if (!is_array($extraCats)) $extraCats = [$extraCats];
-                $cats = array_unique(array_merge($cats, $extraCats));
-            }
-            
+            // Get unique categories for this lender
+            $cats = array_unique($lenderCategories[$index] ?? []);
             $lender['product_categories'] = array_values($cats);
+            
             Lender::updateOrCreate(['id' => $lender['id']], $lender);
         }
 
-        $this->command->info('✅ 16 Lenders seeded accurately. ALL ' . count($categoryIds) . ' categories were distributed, with 1-5 categories per lender.');
+        $this->command->info('✅ 16 Lenders seeded accurately. Each category is assigned to multiple lenders.');
     }
 }

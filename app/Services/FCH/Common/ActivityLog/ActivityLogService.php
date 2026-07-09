@@ -246,7 +246,7 @@ class ActivityLogService
         ?int $borrowerId,
         string $subject,
         string $description,
-        string $logType = ActivityLog::LOG_TYPE_ACTIVITY,
+        string $logType = 'activity',
         array $properties = []
     ): ActivityLog {
         $mergedProperties = array_merge([
