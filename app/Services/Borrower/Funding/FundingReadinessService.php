@@ -128,6 +128,10 @@ class FundingReadinessService
                     $status = $this->evaluateCriteria($borrower->average_monthly_deposits, $lenders, 'min_monthly_deposits', 'multiplier', 1.5);
                 } elseif (str_contains($lowerLabel, 'balance')) {
                     $status = $this->evaluateCriteria($borrower->avg_bank_balance, $lenders, 'min_average_daily_balance', 'multiplier', 1.5);
+                } elseif (str_contains($lowerLabel, 'nsf')) {
+                    $status = $this->evaluateCriteria($borrower->nsf_count, $lenders, 'max_nsf_count', 'buffer', -1);
+                } elseif (str_contains($lowerLabel, 'negative day')) {
+                    $status = $this->evaluateCriteria($borrower->negative_days, $lenders, 'max_negative_days', 'buffer', -1);
                 } elseif (str_contains($lowerLabel, 'document')) {
                     $status = $statusMissing;
                 }
@@ -151,7 +155,13 @@ class FundingReadinessService
         $statusGood = config('funding.readiness_factors.statuses.good', 'Good');
         $statusStrong = config('funding.readiness_factors.statuses.strong', 'Strong');
 
-        if (is_null($borrowerValue) || (is_numeric($borrowerValue) && $borrowerValue <= 0 && $lenderField !== 'min_tib_months')) {
+        if (is_null($borrowerValue) || ($borrowerValue === '' && $borrowerValue !== 0 && $borrowerValue !== '0')) {
+            return $statusMissing;
+        }
+
+        $isMax = str_starts_with($lenderField, 'max_');
+
+        if (!$isMax && is_numeric($borrowerValue) && $borrowerValue <= 0 && $lenderField !== 'min_tib_months') {
             return $statusMissing;
         }
 
@@ -169,23 +179,37 @@ class FundingReadinessService
                 $passCount++;
                 $strongPassCount++;
             } else {
-                if ($borrowerValue >= $lenderValue) {
-                    $passCount++;
-                }
-                
-                $strongThreshold = $strongType === 'multiplier' 
-                    ? $lenderValue * $strongValue 
-                    : $lenderValue + $strongValue;
+                if ($isMax) {
+                    if ($borrowerValue <= $lenderValue) {
+                        $passCount++;
+                    }
                     
-                if ($borrowerValue >= $strongThreshold) {
-                    $strongPassCount++;
+                    $strongThreshold = $strongType === 'multiplier' 
+                        ? $lenderValue * $strongValue 
+                        : $lenderValue + $strongValue;
+                        
+                    if ($borrowerValue <= $strongThreshold) {
+                        $strongPassCount++;
+                    }
+                } else {
+                    if ($borrowerValue >= $lenderValue) {
+                        $passCount++;
+                    }
+                    
+                    $strongThreshold = $strongType === 'multiplier' 
+                        ? $lenderValue * $strongValue 
+                        : $lenderValue + $strongValue;
+                        
+                    if ($borrowerValue >= $strongThreshold) {
+                        $strongPassCount++;
+                    }
                 }
             }
         }
 
-        if ($passCount < $totalLenders) {
+        if ($passCount === 0) {
             return $statusMissing;
-        } elseif ($strongPassCount === $totalLenders && $totalLenders > 0) {
+        } elseif ($strongPassCount > 0) {
             return $statusStrong;
         }
 
