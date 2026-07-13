@@ -173,9 +173,11 @@ class FundingSequencing extends Model
             return self::ENGINE_STATUS_HIDDEN;
         }
 
-        // 3. Get Authenticated Borrower
+        // 3. Get Authenticated Borrower or Admin Requested Borrower
         $borrower = null;
-        if (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
+        if (request()->has('borrower_id') && auth()->check() && in_array(auth()->user()->user_type, [\App\Models\User\User::ADMIN, \App\Models\User\User::EMPLOYEE, \App\Models\User\User::PARTNER])) {
+            $borrower = \App\Models\Borrower\Borrower::find(request()->get('borrower_id'));
+        } elseif (auth()->check() && auth()->user() && auth()->user()->user_type === \App\Models\User\User::BORROWER && auth()->user()->borrower) {
             $borrower = auth()->user()->borrower;
         }
 

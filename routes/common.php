@@ -173,7 +173,7 @@ Route::prefix('v1')->group(function () {
             // Funding Qualification endpoints
             Route::prefix('funding-qualification')->group(function () {
                 Route::get('{fundingId}/readiness-factors', [FundingQualificationController::class, 'getReadinessFactors']);
-
+                Route::get('client-readiness-factors/{borrowerId}/{fundingId}', [FundingQualificationController::class, 'getClientReadinessFactors']);
             });
 
             // Borrower Documents Checklist routes
@@ -228,6 +228,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('funding-sequencings')->group(function () {
                 Route::post('fetch', [FundingRequestController::class, 'getFundingSequencing']);
                 Route::get('grouped', [FundingRequestController::class, 'getGroupedFundingSequencing']);
+                Route::get('client-funding-options/{borrower_id}', [FundingRequestController::class, 'getClientFundingOptions']);
             });
 
 

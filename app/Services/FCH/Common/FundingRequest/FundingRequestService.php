@@ -40,6 +40,10 @@ class FundingRequestService
             $query->where('funding_sequence_id', $filters['funding_sequence_id']);
         }
 
+        if (!empty($filters['borrower_id'])) {
+            $query->where('borrower_id', $filters['borrower_id']);
+        }
+
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
