@@ -133,11 +133,19 @@ class DomainResolverController extends Controller
         $baseWebsite = config('app.base_website');
         Log::info('[DomainResolver:caddyCheck] Base website config.', [
             'base_website' => $baseWebsite,
-            'check_ends_with' => '.' . $baseWebsite
         ]);
 
-        if (str_ends_with($domain, '.' . $baseWebsite)) {
-            Log::info('[DomainResolver:caddyCheck] Domain matches base website subdomain check, returning OK.', ['domain' => $domain]);
+        // Whitelist main system domains to skip database checks if queried
+        $systemSubdomains = [
+            $baseWebsite,
+            'www.' . $baseWebsite,
+            'api.' . $baseWebsite,
+            'partner.' . $baseWebsite,
+            'app.' . $baseWebsite,
+        ];
+
+        if (in_array($domain, $systemSubdomains)) {
+            Log::info('[DomainResolver:caddyCheck] Domain is a whitelisted system domain, returning OK.', ['domain' => $domain]);
             return response('OK', 200);
         }
 
