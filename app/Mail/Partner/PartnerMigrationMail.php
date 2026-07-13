@@ -44,6 +44,7 @@ class PartnerMigrationMail extends Mailable
             view: 'emails.trial.partner_migration',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailPartnerId,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'paymentLink' => $this->mailData['payment_link'] ?? null,

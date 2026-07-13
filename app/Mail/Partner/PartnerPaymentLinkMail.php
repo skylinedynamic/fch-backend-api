@@ -19,6 +19,7 @@ class PartnerPaymentLinkMail extends Mailable
     {
         $this->mailData = $mailData;
         $this->setMailPartnerId();
+        $this->dynamicData['partner_id'] = $partnerId;
     }
 
     public function envelope(): Envelope
@@ -46,6 +47,7 @@ class PartnerPaymentLinkMail extends Mailable
                 'amount' => $this->mailData['amount'] ?? 0,
                 'enrollmentType' => $this->mailData['enrollment_type'] ?? 'One-Time Payment',
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
+                'partner_id' => $this->dynamicData['partner_id'],
 
                 'business_info' => [
                     'company_name' => $this->mailData['business_info']['company_name'] ?? '',

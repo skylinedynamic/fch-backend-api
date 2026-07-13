@@ -44,6 +44,7 @@ class PartnerTrialMail extends Mailable
             view: 'emails.trial.account_created',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailPartnerId,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'trialEndDate' => $this->mailData['trial_end_date'] ?? null,

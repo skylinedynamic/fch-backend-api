@@ -50,10 +50,6 @@ class PartnerService
     {
         try {
             Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
-            Log::info('Partner payment link email sent', [
-                'partner_id' => $partnerId,
-                'email' => $mailData['user']->email,
-            ]);
         } catch (\Exception $e) {
             Log::error('Partner payment link email failed', [
                 'partner_id' => $partnerId,

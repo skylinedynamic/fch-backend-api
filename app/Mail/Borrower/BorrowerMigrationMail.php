@@ -44,6 +44,7 @@ class BorrowerMigrationMail extends Mailable
             view: 'emails.trial.borrower_migration',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailPartnerId,
                 'paymentLink' => $this->mailData['payment_link'] ?? null,
                 'amount' => $this->mailData['amount'] ?? 0,
                 'siteName' => $this->dynamicData['siteName'],

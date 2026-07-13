@@ -18,7 +18,11 @@ class BorrowerTrialMail extends Mailable
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->setMailPartnerId();
+        if ($partnerId) {
+            $this->mailPartnerId = $partnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     public function envelope(): Envelope
@@ -35,7 +39,7 @@ class BorrowerTrialMail extends Mailable
     public function content(): Content
     {
         $user = $this->mailData['user'];
-        $loginUrl = concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url'));
+        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login', config('app.frontend_borrower_url'));
 
         $rawEndDate = $this->mailData['trial_end_date'] ?? null;
         $trialEndDate = $rawEndDate ? normalizeDate($rawEndDate) : null;
@@ -44,6 +48,7 @@ class BorrowerTrialMail extends Mailable
             view: 'emails.trial.borrower_account_created',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailPartnerId,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
                 'trialEndDate' => $trialEndDate,
