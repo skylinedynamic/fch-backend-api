@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Borrower\Funding;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Services\Borrower\Funding\FundingService;
 use App\Http\Resources\Borrower\Funding\FundingGroupResource;
@@ -30,19 +31,19 @@ class FundingController extends Controller
             $types = $this->service->getActiveTypes();
             $stats = $this->service->getDashboardStats($groupedSequencings);
 
-            return response()->json([
-                'status' => true,
-                'data' => [
+            return ApiResponse::success(
+                [
                     'groups' => FundingGroupResource::collection($groupedSequencings),
                     'types' => FundingTypeResource::collection($types),
                     'stats' => $stats
-                ]
-            ]);
+                ],
+                __('borrower.funding_data_retrieved')
+            );
         } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to load funding data: ' . $e->getMessage()
-            ], 500);
+            return ApiResponse::error(
+                __('borrower.funding_data_failed') . ': ' . $e->getMessage(),
+                500
+            );
         }
     }
 
@@ -54,18 +55,18 @@ class FundingController extends Controller
      */
     public function show($id): JsonResponse
     {
-        // try {
+        try {
             $sequencing = $this->service->getSequencingById($id);
 
-            return response()->json([
-                'status' => true,
-                'data' => new FundingSequencingResource($sequencing)
-            ]);
-        // } catch (\Exception $e) {
-        //     return response()->json([
-        //         'status' => false,
-        //         'message' => 'Funding option not found or failed to load: ' . $e->getMessage()
-        //     ], 404);
-        // }
+            return ApiResponse::success(
+                new FundingSequencingResource($sequencing),
+                __('borrower.funding_option_retrieved')
+            );
+        } catch (\Exception $e) {
+            return ApiResponse::error(
+                __('borrower.funding_option_failed') . ': ' . $e->getMessage(),
+                404
+            );
+        }
     }
 }

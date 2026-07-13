@@ -100,4 +100,31 @@ class FundingRequestController extends Controller
             return ApiResponse::serverError(__('funding_sequencing.list_failed'));
         }
     }
+
+    /**
+     * Get Client Specific Funding Options (mimics borrower's getGroupedSequencings)
+     */
+    public function getClientFundingOptions(\Illuminate\Http\Request $request, $borrower_id, \App\Services\Borrower\Funding\FundingService $service): JsonResponse
+    {
+        // Set borrower_id in request so the FundingSequencing model and resource pick it up
+        $request->merge(['borrower_id' => $borrower_id]);
+
+        try {
+            $groupedSequencings = $service->getGroupedSequencings();
+            $types = $service->getActiveTypes();
+            $stats = $service->getDashboardStats($groupedSequencings);
+
+            return ApiResponse::success(
+                [
+                    'groups' => \App\Http\Resources\Borrower\Funding\FundingGroupResource::collection($groupedSequencings),
+                    'types' => \App\Http\Resources\Borrower\Funding\FundingTypeResource::collection($types),
+                    'stats' => $stats
+                ],
+                __('borrower.funding_data_retrieved')
+            );
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage() . ' - ' . $e->getTraceAsString());
+            return ApiResponse::serverError(__('borrower.funding_data_failed') . ': ' . $e->getMessage());
+        }
+    }
 }

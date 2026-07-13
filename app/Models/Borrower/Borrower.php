@@ -2,20 +2,21 @@
 
 namespace App\Models\Borrower;
 
-use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
-use App\Models\Invoice\Invoice;
-use App\Models\CreditBuilder\Tier;
+use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
-use App\Models\Borrower\BorrowerDocument;
-use Illuminate\Database\Eloquent\Model;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Models\CreditBuilder\Tier;
+use App\Models\Invoice\Invoice;
 use App\Models\Subscription\Subscription;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 
 class Borrower extends Model
@@ -300,4 +301,19 @@ class Borrower extends Model
     {
         return $value ? encodeUrl(asset("storage/{$value}")) : null;
     }
+
+    public function getYearsInBusinessAttribute()
+    {
+        if ($this->business_start_date) {
+            $now = Carbon::now();
+            $start = Carbon::parse($this->business_start_date);
+            
+            // Decimal years, rounded to 1 decimal place
+            $diffInDays = $start->diffInDays($now);
+            return round($diffInDays / 365.25, 1);
+        }
+        
+        return 0;
+    }
 }
+

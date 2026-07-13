@@ -35,13 +35,13 @@
                 </tr>
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Requested Amount:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">${{ number_format($fundingRequest->requested_amount, 2) }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ currencyFormat($fundingRequest->requested_amount, 0) ?? 'N/A' }}</td>
                 </tr>
             </table>
         </div>
     </div>
 
-    @if($fundingRequest->status === 'Rejected' && $fundingRequest->reject_reason)
+    @if($fundingRequest->status === \App\Models\FundingRequest\FundingRequest::STATUS_REJECTED && $fundingRequest->reject_reason)
     <div class="box-light info-card-container" style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 0; border-radius: 8px; margin-bottom: 24px; text-align: left; overflow: hidden;">
         <div class="info-card-content" style="padding: 20px;">
             <p style="margin: 0; font-size: 13px; color: #991b1b;">

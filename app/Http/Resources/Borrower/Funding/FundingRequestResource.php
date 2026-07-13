@@ -62,7 +62,7 @@ class FundingRequestResource extends JsonResource
             'id' => $this->id,
             'borrower_id' => $this->borrower_id,
             'funding_type' => $this->funding_type,
-            'requested_amount' => $this->requested_amount,
+            'requested_amount' => $this->requested_amount ? currencyFormat($this->requested_amount, 0) : null,
             'use_of_funds' => $this->use_of_funds,
             'status' => $this->status,
             'documents_uploaded' => $this->documents_uploaded,
@@ -78,7 +78,15 @@ class FundingRequestResource extends JsonResource
             'funding_sequence' => [
                 'id' => $this->fundingSequence->id ?? null,
                 'name' => $this->fundingSequence->name ?? null,
-                'amount_range' => $this->fundingSequence->amount_range ?? null,
+                'amount_range' => (function () {
+                    $range = $this->fundingSequence->amount_range ?? null;
+                    if (!$range) return null;
+                    $parts = explode('-', $range);
+                    if (count($parts) === 2) {
+                        return currencyFormat(trim($parts[0]), 0) . ' - ' . currencyFormat(trim($parts[1]), 0);
+                    }
+                    return currencyFormat(trim($range), 0);
+                })(),
             ],
             'borrower' => [
                 'id' => $this->borrower->id ?? null,

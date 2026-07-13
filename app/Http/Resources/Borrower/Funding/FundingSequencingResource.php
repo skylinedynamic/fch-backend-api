@@ -79,7 +79,9 @@ class FundingSequencingResource extends JsonResource
         }
 
         $borrower = null;
-        if (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
+        if (request()->has('borrower_id') && auth()->check() && in_array(auth()->user()->user_type, [\App\Models\User\User::ADMIN, \App\Models\User\User::EMPLOYEE, \App\Models\User\User::PARTNER])) {
+            $borrower = \App\Models\Borrower\Borrower::find(request()->get('borrower_id'));
+        } elseif (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
             $borrower = auth()->user()->borrower;
         }
 
@@ -124,6 +126,15 @@ class FundingSequencingResource extends JsonResource
             }
         }
 
+        $formatRange = function ($range) {
+            if (empty($range)) return null;
+            $parts = explode('-', $range);
+            if (count($parts) === 2) {
+                return currencyFormat(trim($parts[0]), 0) . ' - ' . currencyFormat(trim($parts[1]), 0);
+            }
+            return currencyFormat(trim($range), 0);
+        };
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -131,7 +142,7 @@ class FundingSequencingResource extends JsonResource
             'icon' => $this->icon,
             'icon_color' => $this->icon_color,
             'description' => $this->description,
-            'amount_range' => $this->amount_range,
+            'amount_range' => $formatRange($this->amount_range),
             'terms' => $this->terms,
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses,

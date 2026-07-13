@@ -25,6 +25,7 @@ class FundingSequencing extends Model
     const ENGINE_STATUS_REVIEW     = 'Review';
     const ENGINE_STATUS_GREYED_OUT = 'Greyed Out';
     const ENGINE_STATUS_HIDDEN     = 'Hidden';
+    const ENGINE_STATUS_LOCKED     = 'Locked';
 
     const ENGINE_LABEL_ACTIVE      = 'Eligible Now';
     const ENGINE_LABEL_WARNING     = 'Conditional';
@@ -172,9 +173,11 @@ class FundingSequencing extends Model
             return self::ENGINE_STATUS_HIDDEN;
         }
 
-        // 3. Get Authenticated Borrower
+        // 3. Get Authenticated Borrower or Admin Requested Borrower
         $borrower = null;
-        if (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
+        if (request()->has('borrower_id') && auth()->check() && in_array(auth()->user()->user_type, [\App\Models\User\User::ADMIN, \App\Models\User\User::EMPLOYEE, \App\Models\User\User::PARTNER])) {
+            $borrower = \App\Models\Borrower\Borrower::find(request()->get('borrower_id'));
+        } elseif (auth()->check() && auth()->user() && auth()->user()->user_type === \App\Models\User\User::BORROWER && auth()->user()->borrower) {
             $borrower = auth()->user()->borrower;
         }
 
@@ -187,9 +190,9 @@ class FundingSequencing extends Model
             $this->load('lenderVisibilities');
         }
 
-        // If no lenders are configured, default to HIDDEN
+        // If no lenders are configured, default to LOCKED
         if ($this->lenderVisibilities->isEmpty()) {
-            $bestStatus = self::ENGINE_STATUS_HIDDEN;
+            $bestStatus = self::ENGINE_STATUS_LOCKED;
         } else {
             // Evaluate status for each lender and find the most restrictive status
             // Priority: HIDDEN (Not Eligible) > GREYED_OUT (Better Fit Later) > REVIEW (Manual Review) > WARNING (Conditional) > ACTIVE (Eligible Now)
@@ -302,8 +305,10 @@ class FundingSequencing extends Model
                 return self::ENGINE_LABEL_GREYED_OUT;
             case self::ENGINE_STATUS_HIDDEN:
                 return self::ENGINE_LABEL_HIDDEN;
-            default:
+            case self::ENGINE_STATUS_LOCKED:
                 return self::ENGINE_LABEL_LOCKED;
+            default:
+                return 'Unknown';
         }
     }
 }

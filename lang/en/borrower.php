@@ -100,6 +100,8 @@ return [
     'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
     'task_overview_retrieved' => 'Task overview retrieved successfully.',
     'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
+    'funding_data_retrieved' => 'Funding data retrieved successfully.',
+    'funding_option_retrieved' => 'Funding option details retrieved successfully.',
     'upload_success' => 'Document uploaded successfully.',
     'document_uploaded_successfully' => 'Document uploaded successfully.',
     'document_deleted_successfully' => 'Document deleted successfully.',
@@ -108,6 +110,8 @@ return [
 
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
+    'funding_data_failed' => 'Failed to load funding data.',
+    'funding_option_failed' => 'Funding option not found or failed to load.',
     'create_failed' => 'Failed to create borrower.',
     'update_failed' => 'Failed to update borrower.',
     'delete_failed' => 'Failed to delete borrower(s).',

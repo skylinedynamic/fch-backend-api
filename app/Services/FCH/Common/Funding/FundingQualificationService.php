@@ -157,7 +157,7 @@ class FundingQualificationService
             }
         }
 
-        if ($passCount < $lendersRequiring->count()) {
+        if ($passCount === 0) {
             $rule['status'] = $this->status('missing');
         } else {
             $rule['status'] = $this->status('good');
@@ -223,8 +223,8 @@ class FundingQualificationService
             }
         }
 
-        if ($passCount < $lendersRequiring->count()) {
-            $rule['status'] = $this->status('missing'); 
+        if ($passCount === 0) {
+            $rule['status'] = $this->status('missing');
         } else {
             $rule['status'] = $this->status('good');
         }
@@ -274,7 +274,7 @@ class FundingQualificationService
 
         if ($asMonths) {
             try {
-                $borrowerVal = Carbon::parse($borrowerVal)->diffInMonths(Carbon::now());
+                $borrowerVal = \Carbon\Carbon::parse($borrowerVal)->floatDiffInMonths(\Carbon\Carbon::now());
                 $rule['borrower_value'] = $borrowerVal;
             } catch (\Exception $e) {
                 $rule['status'] = $this->status('missing');
@@ -292,15 +292,21 @@ class FundingQualificationService
 
         foreach ($lendersRequiring as $lender) {
             $fundingVal = (float) $lender->{$fField};
-            if (is_null($fundingValSample) || $fundingVal > $fundingValSample) {
-                $fundingValSample = $fundingVal;
+            $isMax = str_starts_with($fField, 'max_');
+            
+            if ($isMax) {
+                if (is_null($fundingValSample) || $fundingVal > $fundingValSample) { // Easiest max limit is the highest
+                    $fundingValSample = $fundingVal;
+                }
+            } else {
+                if (is_null($fundingValSample) || $fundingVal < $fundingValSample) { // Easiest min limit is the lowest
+                    $fundingValSample = $fundingVal;
+                }
             }
             
             $strongThreshold = $strongOffset !== null
                 ? $fundingVal + $strongOffset
                 : $fundingVal * $strongMultiplier;
-
-            $isMax = str_starts_with($fField, 'max_');
 
             if ($isMax) {
                 if ($borrowerVal <= $fundingVal) {
@@ -323,9 +329,9 @@ class FundingQualificationService
 
         $totalRequired = $lendersRequiring->count();
 
-        if ($passCount < $totalRequired) {
+        if ($passCount === 0) {
             $rule['status'] = $this->status('missing');
-        } elseif ($strongPassCount === $totalRequired) {
+        } elseif ($strongPassCount > 0) {
             $rule['status'] = $this->status('strong');
         } else {
             $rule['status'] = $this->status('good');
