@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class DomainResolverController extends Controller
@@ -29,64 +28,61 @@ class DomainResolverController extends Controller
         }
 
         $domain = strtolower(trim($request->header('X-Domain')));
+        $domain = rtrim($domain, '.');                   // Remove trailing DNS dot if present
         $domain = preg_replace('/^www\./', '', $domain);
 
         if (in_array(strtolower($domain), array_map('strtolower', $this->reserved))) {
             return response('', 403);
         }
 
-        $cacheKey = "domain_resolve:{$domain}";
-
         try {
-            $result = Cache::remember($cacheKey, 0, function () use ($domain) {
-                $partner = Partner::where('partner_domain', $domain)
-                    ->orWhere('partner_subdomain', $domain)
-                    ->select('id', 'active_custom_url')
-                    ->first();
+            // Check partner_subdomain (always works regardless of active_custom_url)
+            $partner = Partner::where('partner_subdomain', $domain)->select('id')->first();
 
-                // Only active 
-                // if(!$partner->active_custom_url) {    
-                //     return null;
-                // }
-
-                if ($partner) {
-                    return ['type' => 'partner', 'partner_id' => $partner->id];
-                }
-
-                $borrower = Partner::where('borrower_domain', $domain)
-                    ->select('id')
-                    ->first();
-
-                if ($borrower) {
-                    return ['type' => 'borrower', 'partner_id' => $borrower->id];
-                }
-
-                return null;
-            });
-
-            if (!$result) {
-                return response('', 404);
+            if ($partner) {
+                return response('', 200, [
+                    'X-Tenant-Type' => 'partner',
+                    'X-Partner-Id'  => (string) $partner->id,
+                ]);
             }
 
-            Log::info('[DomainResolver] Tenant resolved successfully.', [
-                'domain'      => $domain,
-                'tenant-type' => $result['type'],
-                'partner-id'  => $result['partner_id'],
-            ]);
+            // Check custom domain — only if active_custom_url is enabled
+            $partner = Partner::where('partner_domain', $domain)
+                ->where('active_custom_url', true)
+                ->select('id')
+                ->first();
 
-            return response('', 200, [
-                'X-Tenant-Type' => $result['type'],
-                'X-Partner-Id' => (string) $result['partner_id'],
-            ]);
+            if ($partner) {
+                Log::info('[DomainResolver] Tenant resolved via custom domain.', [
+                    'domain'     => $domain,
+                    'partner-id' => $partner->id,
+                ]);
+                return response('', 200, [
+                    'X-Tenant-Type' => 'partner',
+                    'X-Partner-Id'  => (string) $partner->id,
+                ]);
+            }
+
+            // Check borrower domain
+            $borrower = Partner::where('borrower_domain', $domain)->select('id')->first();
+
+            if ($borrower) {
+                return response('', 200, [
+                    'X-Tenant-Type' => 'borrower',
+                    'X-Partner-Id'  => (string) $borrower->id,
+                ]);
+            }
+
+            return response('', 404);
         } catch (\Throwable $e) {
             Log::error('[DomainResolver] Exception during tenant resolution.', [
-                'domain'  => $domain,
-                'error'   => $e->getMessage(),
+                'domain' => $domain,
+                'error'  => $e->getMessage(),
             ]);
             // Fail-open: return 200 to let the request proceed (better than a 500 outage)
             return response('', 200, [
                 'X-Tenant-Type' => 'error',
-                'X-Partner-Id' => '0',
+                'X-Partner-Id'  => '0',
             ]);
         }
     }
@@ -100,6 +96,7 @@ class DomainResolverController extends Controller
             return response('Bad Request', 400);
         }
 
+        $domain = rtrim($domain, '.');                   // Remove trailing DNS dot if present
         $domain = preg_replace('/^www\./', '', $domain);
 
         $reserved = array_map('strtolower', (array) config('domains.reserved', []));
@@ -109,7 +106,7 @@ class DomainResolverController extends Controller
 
         $baseWebsite = config('app.base_website');
 
-        // Whitelist main system domains to skip database checks if queried
+        // Whitelist main system domains — skip DB lookup
         $systemSubdomains = [
             $baseWebsite,
             'www.' . $baseWebsite,
@@ -122,23 +119,25 @@ class DomainResolverController extends Controller
             return response('OK', 200);
         }
 
+        // Partner/borrower subdomain of the base website
+        if (str_ends_with($domain, '.' . $baseWebsite)) {
+            $exists = Partner::where('partner_subdomain', $domain)->exists()
+                || Partner::where('borrower_domain', $domain)->exists();
+
+            return $exists ? response('OK', 200) : response('Forbidden', 403);
+        }
+
+        // Custom domain — only allow SSL if active_custom_url is enabled
         $exists = Partner::where('partner_domain', $domain)
-            ->orWhere('partner_subdomain', $domain)
-            ->orWhere('borrower_domain', $domain)
-            ->first();
+            ->where('active_custom_url', true)
+            ->exists();
 
         if (!$exists) {
             return response('Forbidden', 403);
         }
 
-        // Only active custom urls are allowed
-        // if(!$exists->active_custom_url) {
-        //     return response('Forbidden', 403);
-        // }
-
         Log::info('[DomainResolver] SSL approved for custom domain.', [
-            'domain'     => $domain,
-            'partner_id' => $exists->id,
+            'domain' => $domain,
         ]);
 
         return response('OK', 200);
