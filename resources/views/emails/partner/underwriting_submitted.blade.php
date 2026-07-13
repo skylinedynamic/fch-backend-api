@@ -3,7 +3,7 @@
 @section('title', 'New Funding Request Submitted')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
+    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $partnerName }},</h4>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         A new funding request has been submitted and requires your attention. Please review the details below:
@@ -33,13 +33,13 @@
                     <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Estimated Speed:</td>
                     <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $fundingRequest->estimated_speed ?? 'N/A' }}</td>
                 </tr>
-                <tr>
+                {{-- <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Matched Lenders:</td>
                     <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $fundingRequest->lender_names ?: 'None' }}</td>
-                </tr>
+                </tr> --}}
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Requested Amount:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">${{ number_format($fundingRequest->requested_amount, 2) }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ currencyFormat($fundingRequest->requested_amount, 0) ?? 'N/A' }}</td>
                 </tr>
             </table>
         </div>

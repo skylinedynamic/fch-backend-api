@@ -36,8 +36,12 @@ class UnderwritingSubmitted extends Mailable
             return $this->subject('New Funding Request Submitted')
                         ->view('emails.partner.underwriting_submitted')
                         ->with([
-                            'siteName' => $branding['siteName'],
-                            'logoUrl'  => $branding['logoUrl'],
+                            'siteName'    => $branding['siteName'],
+                            'logoUrl'     => $branding['logoUrl'],
+                            'partnerName' => $this->fundingRequest->partner->contact_person
+                                            ?? $this->fundingRequest->partner->full_name
+                                            ?? $this->fundingRequest->partner->company_name
+                                            ?? 'Partner',
                         ]);
         } catch (\Exception $e) {
             Log::error('Error building UnderwritingSubmitted email: ' . $e->getMessage(), [
