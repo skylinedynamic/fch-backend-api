@@ -118,18 +118,15 @@ class DomainResolverController extends Controller
             'app.' . $baseWebsite,
         ];
 
-        if (in_array($domain, $systemSubdomains)) {
+        if (in_array($domain, $systemSubdomains) || str_starts_with($domain, 'api.') || str_starts_with($domain, 'partner.') || str_starts_with($domain, 'app.')) {
             return response('OK', 200);
         }
 
-        // Partner/borrower subdomain of the base website
-        if (str_ends_with($domain, '.' . $baseWebsite)) {
-            $exists = Partner::where('partner_subdomain', $domain)->exists()
-                || Partner::where('borrower_domain', $domain)
-                ->where('active_custom_url', true)
-                ->exists();
+        // Check if it is a valid partner subdomain
+        $isSubdomain = Partner::where('partner_subdomain', $domain)->exists();
 
-            return $exists ? response('OK', 200) : response('Forbidden', 403);
+        if ($isSubdomain) {
+            return response('OK', 200);
         }
 
         // Custom domain — only allow SSL if active_custom_url is enabled
