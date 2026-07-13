@@ -63,8 +63,11 @@ class DomainResolverController extends Controller
                 ]);
             }
 
-            // Check borrower domain
-            $borrower = Partner::where('borrower_domain', $domain)->select('id')->first();
+            // Check borrower domain — only if active_custom_url is enabled
+            $borrower = Partner::where('borrower_domain', $domain)
+                ->where('active_custom_url', true)
+                ->select('id')
+                ->first();
 
             if ($borrower) {
                 return response('', 200, [
@@ -122,13 +125,18 @@ class DomainResolverController extends Controller
         // Partner/borrower subdomain of the base website
         if (str_ends_with($domain, '.' . $baseWebsite)) {
             $exists = Partner::where('partner_subdomain', $domain)->exists()
-                || Partner::where('borrower_domain', $domain)->exists();
+                || Partner::where('borrower_domain', $domain)
+                ->where('active_custom_url', true)
+                ->exists();
 
             return $exists ? response('OK', 200) : response('Forbidden', 403);
         }
 
         // Custom domain — only allow SSL if active_custom_url is enabled
         $exists = Partner::where('partner_domain', $domain)
+            ->where('active_custom_url', true)
+            ->exists()
+            || Partner::where('borrower_domain', $domain)
             ->where('active_custom_url', true)
             ->exists();
 
