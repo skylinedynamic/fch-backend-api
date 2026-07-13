@@ -25,6 +25,7 @@ class FundingSequencing extends Model
     const ENGINE_STATUS_REVIEW     = 'Review';
     const ENGINE_STATUS_GREYED_OUT = 'Greyed Out';
     const ENGINE_STATUS_HIDDEN     = 'Hidden';
+    const ENGINE_STATUS_LOCKED     = 'Locked';
 
     const ENGINE_LABEL_ACTIVE      = 'Eligible Now';
     const ENGINE_LABEL_WARNING     = 'Conditional';
@@ -187,9 +188,9 @@ class FundingSequencing extends Model
             $this->load('lenderVisibilities');
         }
 
-        // If no lenders are configured, default to HIDDEN
+        // If no lenders are configured, default to LOCKED
         if ($this->lenderVisibilities->isEmpty()) {
-            $bestStatus = self::ENGINE_STATUS_HIDDEN;
+            $bestStatus = self::ENGINE_STATUS_LOCKED;
         } else {
             // Evaluate status for each lender and find the most restrictive status
             // Priority: HIDDEN (Not Eligible) > GREYED_OUT (Better Fit Later) > REVIEW (Manual Review) > WARNING (Conditional) > ACTIVE (Eligible Now)
@@ -302,8 +303,10 @@ class FundingSequencing extends Model
                 return self::ENGINE_LABEL_GREYED_OUT;
             case self::ENGINE_STATUS_HIDDEN:
                 return self::ENGINE_LABEL_HIDDEN;
-            default:
+            case self::ENGINE_STATUS_LOCKED:
                 return self::ENGINE_LABEL_LOCKED;
+            default:
+                return 'Unknown';
         }
     }
 }

@@ -124,6 +124,15 @@ class FundingSequencingResource extends JsonResource
             }
         }
 
+        $formatRange = function ($range) {
+            if (empty($range)) return null;
+            $parts = explode('-', $range);
+            if (count($parts) === 2) {
+                return currencyFormat(trim($parts[0]), 0) . ' - ' . currencyFormat(trim($parts[1]), 0);
+            }
+            return currencyFormat(trim($range), 0);
+        };
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -131,7 +140,7 @@ class FundingSequencingResource extends JsonResource
             'icon' => $this->icon,
             'icon_color' => $this->icon_color,
             'description' => $this->description,
-            'amount_range' => $this->amount_range,
+            'amount_range' => $formatRange($this->amount_range),
             'terms' => $this->terms,
             'speed_to_funds' => $this->speed_to_funds,
             'uses' => $this->uses,
