@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthControll
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
@@ -138,6 +139,8 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
+            Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
+            Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
             Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);

@@ -51,6 +51,31 @@ class CapitalAccessStrategyService
     }
 
     /**
+     * Get all active capital access strategies for a specific borrower.
+     */
+    public function listForBorrower(Borrower $borrower): JsonResponse
+    {
+        $strategies = CapitalAccess::with('sequences.creditAccount')->active()->get();
+
+        [$recommendedId, $ctx, $cache, $strategies] = $this->resolveRecommended($strategies, $borrower);
+
+        $resourceCollection = CapitalAccessStrategyResource::collection($strategies);
+
+        $resourceCollection->collection->each(function ($resource) use ($recommendedId, $ctx, $cache) {
+            $resource->additional([
+                'recommended_id' => $recommendedId,
+                'borrower_ctx' => $ctx,
+                'score_cache' => $cache,
+            ]);
+        });
+
+        return ApiResponse::success(
+            $resourceCollection,
+            __('credit_builder.capital_access_list_fetched')
+        );
+    }
+
+    /**
      * Get all active capital access strategies.
      *
      * Optimized: BorrowerContext and ScoreConfigurationCache are built once,

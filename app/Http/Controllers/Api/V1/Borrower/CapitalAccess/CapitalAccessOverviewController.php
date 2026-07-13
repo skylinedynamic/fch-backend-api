@@ -25,6 +25,11 @@ class CapitalAccessOverviewController extends Controller
             return ApiResponse::notFound(__('borrower.not_found'));
         }
 
+        return $this->getOverviewResponse($borrower);
+    }
+
+    private function getOverviewResponse($borrower): JsonResponse
+    {
         // Build BorrowerContext once
         $ctx = BorrowerContext::from($borrower);
         $result = $ctx->readinessData;
