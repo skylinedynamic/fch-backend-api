@@ -15,11 +15,11 @@ class PartnerPaymentLinkMail extends Mailable
     protected array $mailData;
     protected array $dynamicData = [];
 
-    public function __construct(array $mailData, ?int $partnerId = null)
+    public function __construct(array $mailData, ?int $hostPartnerId = null)
     {
         $this->mailData = $mailData;
         $this->setMailPartnerId();
-        $this->dynamicData['partner_id'] = $partnerId;
+        $this->dynamicData['partner_id'] = $hostPartnerId;
     }
 
     public function envelope(): Envelope
@@ -47,7 +47,7 @@ class PartnerPaymentLinkMail extends Mailable
                 'amount' => $this->mailData['amount'] ?? 0,
                 'enrollmentType' => $this->mailData['enrollment_type'] ?? 'One-Time Payment',
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
-                'partner_id' => $this->dynamicData['partner_id'],
+                'partner_id' => $this->mailData['partner_id'],
 
                 'business_info' => [
                     'company_name' => $this->mailData['business_info']['company_name'] ?? '',

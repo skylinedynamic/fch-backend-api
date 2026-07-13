@@ -46,13 +46,13 @@ class PartnerService
     /**
      * Send payment link email using partner's own email config.
      */
-    private function sendPaymentLinkEmail(array $mailData, int $partnerId): void
+    private function sendPaymentLinkEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $partnerId));
+            Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
             Log::error('Partner payment link email failed', [
-                'partner_id' => $partnerId,
+                'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
         }
@@ -61,17 +61,13 @@ class PartnerService
     /**
      * Send migration notification email using partner's own email config.
      */
-    private function sendMigrationEmail(array $mailData, int $partnerId): void
+    private function sendMigrationEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerMigrationMail($mailData, $partnerId));
-            Log::info('Partner migration email sent', [
-                'partner_id' => $partnerId,
-                'email' => $mailData['user']->email,
-            ]);
+            Mail::to($mailData['user']->email)->send(new PartnerMigrationMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
             Log::error('Partner migration email failed', [
-                'partner_id' => $partnerId,
+                'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
         }
@@ -80,17 +76,13 @@ class PartnerService
     /**
      * Send free trial welcome email using partner's own email config.
      */
-    private function sendTrialWelcomeEmail(array $mailData, int $partnerId): void
+    private function sendTrialWelcomeEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $partnerId));
-            Log::info('Partner trial welcome email sent', [
-                'partner_id' => $partnerId,
-                'email' => $mailData['user']->email,
-            ]);
+            Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
             Log::error('Partner trial welcome email failed', [
-                'partner_id' => $partnerId,
+                'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
         }
@@ -99,17 +91,14 @@ class PartnerService
     /**
      * Send account update email using partner's own email config.
      */
-    private function sendAccountUpdateEmail(array $mailData, int $partnerId): void
+    private function sendAccountUpdateEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $partnerId));
-            Log::info('Partner account update email sent', [
-                'partner_id' => $partnerId,
-                'email' => $mailData['user']->email,
-            ]);
+            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
+
         } catch (\Exception $e) {
             Log::error('Partner account update email failed', [
-                'partner_id' => $partnerId,
+                'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
         }
@@ -244,6 +233,7 @@ class PartnerService
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
         $mailData = array_merge([
+            'partner_id' => $partner->id,
             'user' => $user,
             'payment_link' => $paymentLink,
             'amount' => $invoice->payment_amount,
@@ -331,6 +321,7 @@ class PartnerService
             if (isset($data['is_free_trail']) && $data['is_free_trail']) {
                 $hostPartner = Partner::where('is_host', 1)->first();
                 $mailData = [
+                    'partner_id' => $partner->id,
                     'user' => $user,
                     'plain_password' => $plainPassword,
                     'trial_end_date' => $data['free_trail_end_date'] ?? null,
@@ -460,12 +451,6 @@ class PartnerService
                 $user->syncPermissions($allowedPermissions);
             }
 
-            Log::info('Admin role and permissions assigned to user', [
-                'user_id' => $user->id,
-                'role_id' => $adminRole->id,
-            ]);
-
-
             // Clear cached permissions after role creation
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         } catch (\Exception $e) {
@@ -508,6 +493,7 @@ class PartnerService
 
                 if ($plainPassword) {
                     $mailData = [
+                        'partner_id' => $partner->id,
                         'user' => $updatedUser,
                         'plain_password' => $plainPassword,
                         'business_info' => [
@@ -519,8 +505,6 @@ class PartnerService
                         ],
                         'is_update' => true,
                     ];
-
-                    Log::info('Sending account update email to partner with new password', ['email' => $updatedUser->email]);
                     $authUser = Auth::user();
                     $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
                     $this->sendAccountUpdateEmail($mailData, $senderPartnerId);
@@ -634,12 +618,7 @@ class PartnerService
                     'total_subscription_amount' => $finalTotal,
                     'is_custom' => $isCustom,
                 ]);
-                Log::info('Partner subscription reassessed and updated', [
-                    'subscription_id' => $subscription->id,
-                    'is_custom' => $isCustom,
-                    'payable' => $finalEnrollment,
-                    'monthly' => $finalMonthly,
-                ]);
+
             } elseif ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
                 $partnerType = $data['partner_type'] ?? $partner->partner_type;
@@ -677,7 +656,6 @@ class PartnerService
                 }
             }
 
-            Log::info('Partner updated successfully', ['partner_id' => $partner->id]);
             $user->update(['is_refresh' => true]);
             DB::commit();
 
@@ -1215,7 +1193,6 @@ class PartnerService
                 ->where('user_id', $mainUser->id)
                 ->update(['revoked' => true]);
 
-            Log::info("Force logged out main user for Partner ID: {$partner->id} (User ID: {$mainUser->id}) due to partner status being set to {$partner->status}");
         }
     }
 
