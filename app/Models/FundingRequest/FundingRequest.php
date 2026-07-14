@@ -20,6 +20,7 @@ class FundingRequest extends Model
     const STATUS_APPROVED = 'Approved';
     const STATUS_ACCEPTED = 'Accepted';
     const STATUS_REJECTED = 'Rejected';
+    const STATUS_CANCELED = 'Canceled';
 
     protected $fillable = [
         'partner_id',
