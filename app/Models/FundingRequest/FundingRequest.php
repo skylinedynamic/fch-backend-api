@@ -45,7 +45,13 @@ class FundingRequest extends Model
         'lender_ids' => 'array',
     ];
 
-    protected $appends = ['documents_with_urls', 'matched_lenders', 'lender_names'];
+    protected $appends = ['documents_with_urls', 'matched_lenders', 'lender_names', 'host_email'];
+
+    public function getHostEmailAttribute()
+    {
+        $host = Partner::where('is_host', 1)->first();
+        return $host ? $host->email : '';
+    }
 
     public function getDocumentsWithUrlsAttribute()
     {
