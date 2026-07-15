@@ -110,7 +110,7 @@ return [
     'statuses' => [
         'strong'   => 'Strong',
         'good'     => 'Good',
-        'missing'  => 'Missing',
+        'failed'   => 'Failed',
     ],
 
     'qualify_keys' => [
