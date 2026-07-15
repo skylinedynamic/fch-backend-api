@@ -167,6 +167,7 @@ class FundingRequest extends Model
         }
 
         $borrowerFico = (int) $borrower->fico_score;
+        $borrowerBusinessCredit = (int) $borrower->paydex_score;
         $borrowerRevenue = (float) $borrower->monthly_revenue;
         $borrowerDeposits = (float) $borrower->average_monthly_deposits;
 
@@ -175,6 +176,7 @@ class FundingRequest extends Model
 
             $checks = [
                 'fico' => false,
+                'business_credit' => false,
                 'revenue' => false,
                 'tib' => false,
                 'deposit' => false,
@@ -190,6 +192,16 @@ class FundingRequest extends Model
                 }
             } else {
                 $checks['fico'] = true;
+            }
+
+            if (!is_null($visibility->min_business_credit_score)) {
+                $totalCriteria++;
+                if ($borrowerBusinessCredit >= $visibility->min_business_credit_score) {
+                    $checks['business_credit'] = true;
+                    $metCriteria++;
+                }
+            } else {
+                $checks['business_credit'] = true;
             }
 
             if (!is_null($visibility->min_monthly_revenue)) {
@@ -247,6 +259,7 @@ class FundingRequest extends Model
                 'product_category' => $category->name,
                 'requirements' => [
                     'min_fico' => $visibility->min_fico,
+                    'min_business_credit_score' => $visibility->min_business_credit_score,
                     'min_revenue' => $visibility->min_monthly_revenue,
                     'min_tib' => $visibility->min_tib_months,
                     'min_deposit' => $visibility->min_monthly_deposits,

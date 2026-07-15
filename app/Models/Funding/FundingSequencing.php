@@ -112,6 +112,7 @@ class FundingSequencing extends Model
     }
 
     public function getMinFicoAttribute() { return $this->getMinLenderRequirement('min_fico'); }
+    public function getMinBusinessCreditScoreAttribute() { return $this->getMinLenderRequirement('min_business_credit_score'); }
     public function getMinTibMonthsAttribute() { return $this->getMinLenderRequirement('min_tib_months'); }
     public function getMinMonthlyRevenueAttribute() { return $this->getMinLenderRequirement('min_monthly_revenue'); }
     public function getMinMonthlyDepositsAttribute() { return $this->getMinLenderRequirement('min_monthly_deposits'); }
