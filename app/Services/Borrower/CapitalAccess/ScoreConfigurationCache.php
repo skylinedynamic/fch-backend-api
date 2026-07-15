@@ -88,6 +88,21 @@ class ScoreConfigurationCache
         $this->all = null;
     }
 
+    /**
+     * Return the configured Next Play Delay in days (0 if not set).
+     * Served from the in-memory collection — zero additional DB queries.
+     */
+    public function getNextPlayDelayDays(): int
+    {
+        $row = $this->all()
+            ->where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->where('model_slug', ScoreConfiguration::MODEL_GENERAL_SETTING)
+            ->where('factor_slug', ScoreConfiguration::FACTOR_NEXT_PLAY_DELAY)
+            ->first();
+
+        return $row ? (int) $row->numeric_value : 0;
+    }
+
     // -------------------------------------------------------------------------
     // Internal
     // -------------------------------------------------------------------------

@@ -475,7 +475,6 @@ class LeadService
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
                 'country_code' => $lead->country_code ?? '+1',
-                'country' => $lead->country,
                 'state' => $lead->state,
                 'city' => $lead->city,
                 // 'enrollment_type' => $data['enrollment_type'] ?? null,
@@ -483,6 +482,8 @@ class LeadService
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? null,  // frontend sends enrollment_amount → maps to enrollment_payment
+                'is_free_trail' => $data['is_free_trail'] ?? null,
+                'free_trail_end_date' => null,
             ];
 
             $result = $this->borrowerService->store($borrowerData);
@@ -558,6 +559,12 @@ class LeadService
                 'website' => $lead->domain,
                 'assign_to' => $lead->salesperson_id,
                 'plan_id' => $data['plan_id'] ?? null,
+                'is_free_trail' => $data['is_free_trail'] ?? null,
+                'free_trail_end_date' => $data['free_trail_end_date'] ?? (
+                    (($data['is_free_trail'] ?? null) == 1 || ($data['is_free_trail'] ?? null) === true || ($data['is_free_trail'] ?? null) === 'true')
+                    ? now()->addDays(30)->toDateString()
+                    : null
+                ),
             ];
 
             // Trigger robust Partner storage logic

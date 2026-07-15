@@ -33,9 +33,29 @@ class CapitalAccessStrategyChecklistResource extends JsonResource
             $reasonCode  = $probData['reason_code'];
         }
 
+        $recommendedId = $this->additional['recommended_id'] ?? null;
+        $isRecommended = $recommendedId === $this->id;
+        $isCompleted   = (bool) ($this->is_completed ?? false);
+
+        $isAccessible = false;
+        if ($borrower) {
+            $runningPlay = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::getRunningPlay($borrower->id);
+            if ($runningPlay) {
+                $isAccessible = ($this->id === $runningPlay->capital_access_id);
+            } else {
+                $isDelayActive = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::isDelayActive($borrower->id);
+                $isAccessible  = $isDelayActive ? $isCompleted : true;
+            }
+        } else {
+            $isAccessible = $isRecommended || $isCompleted;
+        }
+
         return [
             'id'              => $this->id,
             'name'            => $this->name,
+            'isRecommended'   => $isRecommended,
+            'isCompleted'     => $isCompleted,
+            'isAccessible'    => $isAccessible,
             'approval_status' => $status,
             'reason_code'     => $reasonCode,
             'checklist'       => $this->getEvaluatedChecklist($borrower, $this->pre_flight_checklist),

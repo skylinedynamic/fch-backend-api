@@ -82,9 +82,6 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'paydex_score' => ['nullable', 'numeric'],
             'is_free_trail' => ['nullable', 'boolean'],
             'free_trail_end_date' => [
-                Rule::requiredIf(function () use ($isFreeTrialInput) {
-                    return $isFreeTrialInput;
-                }),
                 'nullable'
             ],
             'plan_id' => [

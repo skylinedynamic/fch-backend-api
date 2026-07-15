@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Borrower\CapitalAccess;
 
 use App\Models\Common\ScoreConfiguration;
+use App\Models\CreditBuilder\CapitalAccessApplication;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -48,7 +49,7 @@ class CapitalAccessStepDetailResource extends JsonResource
 
         $application = null;
         if ($borrower) {
-            $application = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+            $application = CapitalAccessApplication::where('borrower_id', $borrower->id)
                 ->where('capital_access_sequence_id', $seq->id)
                 ->first();
         }
@@ -69,6 +70,21 @@ class CapitalAccessStepDetailResource extends JsonResource
 
         $accessTimeDetail = $accessTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessTimeLower) : null;
         $accessDayTimeDetail = $accessDayTimeLower ? $timeConfigs->first(fn ($c) => strtolower($c->label) === $accessDayTimeLower) : null;
+
+        $recommendedId = $this->additional['recommended_id'] ?? null;
+        $isCompleted = (bool) ($this->additional['is_completed'] ?? false);
+        $isAccessible = false;
+        if ($borrower) {
+            $runningPlay = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::getRunningPlay($borrower->id);
+            if ($runningPlay) {
+                $isAccessible = ($play?->id === $runningPlay->capital_access_id);
+            } else {
+                $isDelayActive = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::isDelayActive($borrower->id);
+                $isAccessible  = $isDelayActive ? $isCompleted : true;
+            }
+        } else {
+            $isAccessible = ($recommendedId === $play?->id) || $isCompleted;
+        }
 
         return [
             'id'              => $seq->id,
@@ -102,9 +118,14 @@ class CapitalAccessStepDetailResource extends JsonResource
             'probability_status' => $oddsStatus,
             // Play context
             'play' => [
-                'id'             => $play->id,
-                'name'           => $play->name,
+                'id'              => $play->id,
+                'name'            => $play->name,
                 'target_exposure' => currencyFormat($play->target_exposure_min) . ' - ' . currencyFormat($play->target_exposure_max),
+                'isRecommended'   => ($recommendedId ?? null) === $play->id,
+                'isCompleted'     => $isCompleted,
+                'isAccessible'    => $isAccessible,
+                'reason_code'     => $this->additional['reason_code'] ?? null,
+                'unlock_at'       => $this->additional['unlock_at'] ?? null,
             ],
         ];
     }

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthControll
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\DomainResolverController;
+use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -70,6 +72,9 @@ Route::prefix('v1')->group(function () {
     Route::get('common/locations', [LocationController::class, 'index']);
 
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
+
+    // 📊 Public Weekly Executive Summary (no auth required)
+    Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);
 
     Route::middleware('auth:api')->group(function () {
 
@@ -134,6 +139,8 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
             Route::post('borrowers/{id}/business-financials', [BorrowerController::class, 'BusinessFinancials']);
             Route::get('borrowers/{id}', [BorrowerController::class, 'show']);
+            Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
+            Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
             Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);

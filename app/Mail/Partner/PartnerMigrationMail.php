@@ -15,11 +15,11 @@ class PartnerMigrationMail extends Mailable
     protected array $mailData;
     protected array $dynamicData = [];
 
-    public function __construct(array $mailData, ?int $partnerId = null)
+    public function __construct(array $mailData, ?int $hostPartnerId = null)
     {
         $this->mailData = $mailData;
-        if ($partnerId) {
-            $this->mailPartnerId = $partnerId;
+        if ($hostPartnerId) {
+            $this->mailPartnerId = $hostPartnerId;
         } else {
             $this->setMailPartnerId();
         }
@@ -41,9 +41,10 @@ class PartnerMigrationMail extends Mailable
         $user = $this->mailData['user'];
 
         return new Content(
-            view: 'emails.partner.migration',
+            view: 'emails.trial.partner_migration',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailData['partner_id'],
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'paymentLink' => $this->mailData['payment_link'] ?? null,

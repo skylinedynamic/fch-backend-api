@@ -372,8 +372,8 @@ class ActivityLogService
             $customSubject = $customSubject ?? ($logType === ActivityLog::LOG_TYPE_PARTNER_PAYMENT ? 'Partner Subscription Payment Successful' : 'Client Subscription Payment Successful');
         } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL) {
             $action = 'Free Trial';
-            $descriptionAction = 'free trial started';
-            $customSubject = $customSubject ?? config('activity_messages.subjects.borrower_free_trial', 'Client Free Trial Started');
+            $descriptionAction = 'limited access edition started';
+            $customSubject = $customSubject ?? config('activity_messages.subjects.borrower_free_trial', 'Client Limited Access Edition Started');
         } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL) {
             $action = 'Free Trial';
             $descriptionAction = 'free trial started';
@@ -417,7 +417,7 @@ class ActivityLogService
         } elseif ($logType === ActivityLog::LOG_TYPE_TASK_VERIFICATION) {
             $description = $customDescription ?? __('verification_center.tasks_processed_desc');
         } elseif ($logType === ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL) {
-            $descPattern = config('activity_messages.descriptions.borrower_free_trial', 'Client profile free trial started for :display_name.');
+            $descPattern = config('activity_messages.descriptions.borrower_free_trial', 'Client profile limited access edition started for :display_name.');
             $description = $customDescription ?? str_replace(':display_name', $displayName, $descPattern);
         } elseif ($logType === ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL) {
             $descPattern = config('activity_messages.descriptions.partner_free_trial', 'Partner profile free trial started for :display_name.');

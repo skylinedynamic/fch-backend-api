@@ -4,6 +4,8 @@ namespace App\Http\Resources\Borrower\CapitalAccess;
 
 use App\Models\CreditBuilder\CapitalAccess;
 use App\Models\CreditBuilder\CapitalAccessSequence;
+use App\Models\CreditBuilder\CapitalAccessApplication;
+use App\Models\CreditBuilder\BorrowerCapitalAccessPlay;
 use App\Models\Common\ScoreConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -56,7 +58,7 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
 
         $applications = collect();
         if ($borrower) {
-            $applications = \App\Models\CreditBuilder\CapitalAccessApplication::where('borrower_id', $borrower->id)
+            $applications = CapitalAccessApplication::where('borrower_id', $borrower->id)
                 ->where('capital_access_id', $this->id)
                 ->get()
                 ->keyBy('capital_access_sequence_id');
@@ -66,6 +68,15 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
         $sequences = $this->relationLoaded('sequences')
             ? $this->sequences
             : collect();
+
+        if ($borrower) {
+            $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+                ->where('capital_access_id', $this->id)
+                ->first();
+            if ($playStatus && $playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED) {
+                $sequences = $sequences->filter(fn($seq) => $applications->has($seq->id));
+            }
+        }
 
         /**
          * Sort order:
@@ -155,7 +166,7 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
 
         $firstSubmittedAt = null;
         if ($borrower) {
-            $playStatus = \App\Models\CreditBuilder\BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+            $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
                 ->where('capital_access_id', $this->id)
                 ->first();
             if ($playStatus) {
@@ -169,14 +180,43 @@ class CapitalAccessStrategyRoadmapResource extends JsonResource
             }
         }
 
+        $probData = $this->approval_probability_data ?? null;
+        if ($borrower && !$probData) {
+            $probData = app(\App\Services\Borrower\CapitalAccess\ApprovalProbabilityService::class)
+                ->calculate($borrower, $this->resource, $ctx);
+        }
+
+        $recommendedId = $this->additional['recommended_id'] ?? null;
+        $isRecommended = $recommendedId === $this->id;
+        $isCompleted   = (bool) ($this->is_completed ?? false);
+
+        $isAccessible = false;
+        if ($borrower) {
+            $runningPlay = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::getRunningPlay($borrower->id);
+            if ($runningPlay) {
+                $isAccessible = ($this->id === $runningPlay->capital_access_id);
+            } else {
+                $isDelayActive = \App\Services\Borrower\CapitalAccess\PlayAccessGuard::isDelayActive($borrower->id);
+                $isAccessible  = $isDelayActive ? $isCompleted : true;
+            }
+        } else {
+            $isAccessible = $isRecommended || $isCompleted;
+        }
+
         return [
             'id'              => $this->id,
             'name'            => $this->name,
+            'isRecommended'   => $isRecommended,
+            'isCompleted'     => $isCompleted,
+            'isAccessible'    => $isAccessible,
             'target_exposure' => currencyFormat($this->target_exposure_min) . ' - ' . currencyFormat($this->target_exposure_max),
             'est_timeline'    => $this->est_timeline_min . ' - ' . $this->est_timeline_max . ' days',
             'time_settings'   => $timeSettingsFormatted,
             'first_submitted_at' => $firstSubmittedAt,
             'roadmap'         => $roadmap,
+            'approval_status' => $probData['status'] ?? true,
+            'reason_code'     => $probData['reason_code'] ?? null,
+            'unlock_at'       => $probData['unlock_at'] ?? null,
         ];
     }
 }

@@ -25,6 +25,11 @@ class CapitalAccessOverviewController extends Controller
             return ApiResponse::notFound(__('borrower.not_found'));
         }
 
+        return $this->getOverviewResponse($borrower);
+    }
+
+    private function getOverviewResponse($borrower): JsonResponse
+    {
         // Build BorrowerContext once
         $ctx = BorrowerContext::from($borrower);
         $result = $ctx->readinessData;
@@ -58,12 +63,15 @@ class CapitalAccessOverviewController extends Controller
                     continue;
                 }
 
-                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers);
+                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers, true);
                 if (isset($probData['status']) && $probData['status'] === true) {
+                    $exposureMax = (float) ($strat->target_exposure_max ?? 0);
+                    $totalExposureMax += $exposureMax;
+
                     // Only non-completed, eligible strategies populate the chart
                     $exposureBreakdown[] = [
                         'name' => $strat->name,
-                        'max_exposure' => (float) ($strat->target_exposure_max ?? 0),
+                        'max_exposure' => $exposureMax,
                     ];
 
                     // Track the highest-probability non-completed strategy as recommended
@@ -74,42 +82,68 @@ class CapitalAccessOverviewController extends Controller
                     }
                 }
             }
-
-            // Estimated Total Access = recommended non-completed strategy only
-            if ($recommendedStrat) {
-                $totalExposureMax = (float) ($recommendedStrat->target_exposure_max ?? 0);
-            }
         }
 
-        $latestApp = CapitalAccessApplication::where('borrower_id', $borrower->id)
-            ->orderBy('updated_at', 'desc')
+        $runningPlay = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+            ->where('status', BorrowerCapitalAccessPlay::STATUS_RUNNING)
             ->first();
 
         $currentPlay = null;
-        if ($latestApp) {
-            $strat = CapitalAccess::find($latestApp->capital_access_id);
+        if ($runningPlay) {
+            $strat = CapitalAccess::find($runningPlay->capital_access_id);
             if ($strat) {
-                $playStatus = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
-                    ->where('capital_access_id', $strat->id)
-                    ->first();
+                $currentPlay = [
+                    'id'   => $strat->id,
+                    'name' => $strat->name,
+                ];
+            }
+        }
 
-                if ($playStatus) {
-                    $isCompleted = ($playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED);
-                } else {
-                    $totalSteps = $strat->sequences()->count();
-                    $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
-                        ->where('capital_access_id', $strat->id)
-                        ->where('status', CapitalAccessApplication::STATUS_APPROVED)
-                        ->count();
+        $reasonCode = null;
+        $unlockAt = null;
 
-                    $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
+        if ($currentPlay === null) {
+            $activePlayIds = $strategies->pluck('id')->all();
+            if (empty($activePlayIds)) {
+                $reasonCode = 'NO_ACTIVE_PLAYS';
+            } else {
+                $completedAll = true;
+                foreach ($activePlayIds as $id) {
+                    if (!in_array($id, $completedPlayIds)) {
+                        $completedAll = false;
+                        break;
+                    }
                 }
 
-                if (!$isCompleted) {
-                    $currentPlay = [
-                        'id' => $strat->id,
-                        'name' => $strat->name,
-                    ];
+                if ($completedAll) {
+                    $reasonCode = 'ALL_PLAYS_COMPLETED';
+                } else {
+                    if ($recommendedStrat && $probabilityService) {
+                        $probDataDelay = $probabilityService->calculate($borrower, $recommendedStrat, $ctx, $probTiers, $modifiers, false);
+                        if (isset($probDataDelay['reason_code']) && $probDataDelay['reason_code'] === 'NEXT_PLAY_DELAY_ACTIVE') {
+                            $reasonCode = 'NEXT_PLAY_DELAY_ACTIVE';
+                            $unlockAt = $probDataDelay['unlock_at'] ?? null;
+                        } else {
+                            $reasonCode = 'NO_ACTIVE_PLAY_CHOSEN';
+                        }
+                    } else {
+                        // All remaining active plays are locked/disqualified
+                        foreach ($strategies as $strat) {
+                            if (in_array($strat->id, $completedPlayIds)) {
+                                continue;
+                            }
+                            if ($probabilityService) {
+                                $probData = $probabilityService->calculate($borrower, $strat, $ctx, $probTiers, $modifiers, true);
+                                if (isset($probData['reason_code'])) {
+                                    $reasonCode = $probData['reason_code'];
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$reasonCode) {
+                            $reasonCode = 'REQUIREMENTS_NOT_MET';
+                        }
+                    }
                 }
             }
         }
@@ -124,6 +158,8 @@ class CapitalAccessOverviewController extends Controller
             'estimated_total_access' => $estimatedAccess,
             'exposure_breakdown'     => $exposureBreakdown,
             'current_play'           => $currentPlay,
+            'reason_code'            => $reasonCode,
+            'unlock_at'              => $unlockAt,
         ];
 
         return ApiResponse::success(

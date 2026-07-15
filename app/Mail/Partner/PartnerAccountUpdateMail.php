@@ -15,10 +15,14 @@ class PartnerAccountUpdateMail extends Mailable
     protected array $mailData;
     protected array $dynamicData = [];
 
-    public function __construct(array $mailData, ?int $partnerId = null)
+    public function __construct(array $mailData, ?int $hostPartnerId = null)
     {
         $this->mailData = $mailData;
-        $this->setMailPartnerId();
+        if ($hostPartnerId) {
+            $this->mailPartnerId = $hostPartnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     public function envelope(): Envelope
@@ -39,6 +43,7 @@ class PartnerAccountUpdateMail extends Mailable
         return new Content(
             view: 'emails.partner.mail_updated',
             with: [
+                'partner_id' => $this->mailData['partner_id'],
                 'user' => $user,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],

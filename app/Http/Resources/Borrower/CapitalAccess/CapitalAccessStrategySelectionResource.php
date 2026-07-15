@@ -44,6 +44,7 @@ class CapitalAccessStrategySelectionResource extends JsonResource
             'approval_status'      => $status,
             'reason_code'          => $reasonCode,
             'ReasonCode'           => $reasonCode,
+            'unlock_at'            => $probData['unlock_at'] ?? null,
         ];
     }
 }

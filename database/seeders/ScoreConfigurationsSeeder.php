@@ -22,12 +22,12 @@ class ScoreConfigurationsSeeder extends Seeder
     private function seedModelWeights(): void
     {
         $rows = [
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'fico', 'numeric_value' => 35, 'sort_order' => 1],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'utilization', 'numeric_value' => 25, 'sort_order' => 2],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'time_in_business', 'numeric_value' => 15, 'sort_order' => 3],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'revenue_strength', 'numeric_value' => 10, 'sort_order' => 4],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'tradeline_depth', 'numeric_value' => 10, 'sort_order' => 5],
-            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => 'funding_readiness', 'factor_slug' => 'banking_relationships', 'numeric_value' => 5, 'sort_order' => 6],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_FICO, 'numeric_value' => 35, 'sort_order' => 1],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_UTILIZATION, 'numeric_value' => 25, 'sort_order' => 2],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_TIME_IN_BUSINESS, 'numeric_value' => 15, 'sort_order' => 3],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_REVENUE_STRENGTH, 'numeric_value' => 10, 'sort_order' => 4],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_TRADELINE_DEPTH, 'numeric_value' => 10, 'sort_order' => 5],
+            ['category' => ScoreConfiguration::CATEGORY_MODEL_WEIGHT, 'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS, 'factor_slug' => ScoreConfiguration::FACTOR_BANKING_RELATIONSHIPS, 'numeric_value' => 5, 'sort_order' => 6],
         ];
 
         foreach ($rows as $row) {
@@ -39,7 +39,7 @@ class ScoreConfigurationsSeeder extends Seeder
     {
         $items = collect();
 
-        $items->push(...$this->tiers('fico', [
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_FICO, [
             ['min' => 780, 'subscore' => 100, 'order' => 1],
             ['min' => 760, 'max' => 779, 'subscore' => 95, 'order' => 2],
             ['min' => 740, 'max' => 759, 'subscore' => 90, 'order' => 3],
@@ -50,7 +50,7 @@ class ScoreConfigurationsSeeder extends Seeder
             ['max' => 659, 'subscore' => 20, 'order' => 8],
         ]));
 
-        $items->push(...$this->tiers('utilization', [
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_UTILIZATION, [
             ['max' => 5, 'subscore' => 100, 'order' => 1],
             ['min' => 5.01, 'max' => 10, 'subscore' => 90, 'order' => 2],
             ['min' => 10.01, 'max' => 20, 'subscore' => 75, 'order' => 3],
@@ -59,18 +59,18 @@ class ScoreConfigurationsSeeder extends Seeder
             ['min' => 40.01, 'subscore' => 10, 'order' => 6],
         ]));
 
-        $items->push(...$this->tiers('time_in_business', [
-            ['label' => 'Established', 'min' => 36, 'subscore' => 100, 'order' => 1],
-            ['label' => 'Mature', 'min' => 24, 'max' => 35, 'subscore' => 85, 'order' => 2],
-            ['label' => 'Young', 'min' => 12, 'max' => 23, 'subscore' => 70, 'order' => 3],
-            ['label' => 'Early Stage', 'min' => 6, 'max' => 11, 'subscore' => 50, 'order' => 4],
-            ['label' => 'Startup', 'max' => 5, 'subscore' => 25, 'order' => 5],
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_TIME_IN_BUSINESS, [
+            ['label' => ScoreConfiguration::STATUS_TIME_ESTABLISHED, 'min' => 36, 'subscore' => 100, 'order' => 1],
+            ['label' => ScoreConfiguration::STATUS_TIME_MATURE, 'min' => 24, 'max' => 35, 'subscore' => 85, 'order' => 2],
+            ['label' => ScoreConfiguration::STATUS_TIME_YOUNG, 'min' => 12, 'max' => 23, 'subscore' => 70, 'order' => 3],
+            ['label' => ScoreConfiguration::STATUS_TIME_EARLY_STAGE, 'min' => 6, 'max' => 11, 'subscore' => 50, 'order' => 4],
+            ['label' => ScoreConfiguration::STATUS_TIME_STARTUP, 'max' => 5, 'subscore' => 25, 'order' => 5],
         ]));
 
         // Financial Capacity
-        $items->push(...$this->tiers('revenue_strength', [
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_REVENUE_STRENGTH, [
             [
-                'label' => 'Strong',
+                'label' => ScoreConfiguration::STATUS_REVENUE_STRONG,
                 'subscore' => 100,
                 'order' => 1,
                 'conditions' => [
@@ -79,7 +79,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Moderate',
+                'label' => ScoreConfiguration::STATUS_REVENUE_MODERATE,
                 'subscore' => 75,
                 'order' => 2,
                 'conditions' => [
@@ -88,7 +88,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Limited',
+                'label' => ScoreConfiguration::STATUS_REVENUE_LIMITED,
                 'subscore' => 55,
                 'order' => 3,
                 'conditions' => [
@@ -97,7 +97,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Weak',
+                'label' => ScoreConfiguration::STATUS_REVENUE_WEAK,
                 'subscore' => 25,
                 'order' => 4,
                 'conditions' => [
@@ -108,9 +108,9 @@ class ScoreConfigurationsSeeder extends Seeder
         ]));
 
         // Bureau Depth
-        $items->push(...$this->tiers('tradeline_depth', [
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_TRADELINE_DEPTH, [
             [
-                'label' => 'Multiple High-Limit & Installment Depth',
+                'label' => ScoreConfiguration::STATUS_TRADE_MULTIPLE_HIGH,
                 'subscore' => 100,
                 'order' => 1,
                 'conditions' => [
@@ -120,7 +120,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Good Depth with High-Limit account',
+                'label' => ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH,
                 'subscore' => 80,
                 'order' => 2,
                 'conditions' => [
@@ -130,7 +130,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Moderate Depth',
+                'label' => ScoreConfiguration::STATUS_TRADE_MODERATE,
                 'subscore' => 60,
                 'order' => 3,
                 'conditions' => [
@@ -138,7 +138,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Thin File',
+                'label' => ScoreConfiguration::STATUS_TRADE_THIN,
                 'subscore' => 35,
                 'order' => 4,
                 'conditions' => [
@@ -147,9 +147,9 @@ class ScoreConfigurationsSeeder extends Seeder
             ],
         ]));
 
-        $items->push(...$this->tiers('banking_relationships', [
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_BANKING_RELATIONSHIPS, [
             [
-                'label' => 'Strong',
+                'label' => ScoreConfiguration::STATUS_BANKING_STRONG,
                 'subscore' => 100,
                 'order' => 1,
                 'conditions' => [
@@ -159,7 +159,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Moderate',
+                'label' => ScoreConfiguration::STATUS_BANKING_MODERATE,
                 'subscore' => 75,
                 'order' => 2,
                 'conditions' => [
@@ -169,7 +169,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'Limited',
+                'label' => ScoreConfiguration::STATUS_BANKING_LIMITED,
                 'subscore' => 50,
                 'order' => 3,
                 'conditions' => [
@@ -178,7 +178,7 @@ class ScoreConfigurationsSeeder extends Seeder
                 ]
             ],
             [
-                'label' => 'None',
+                'label' => ScoreConfiguration::STATUS_BANKING_NONE,
                 'subscore' => 20,
                 'order' => 4,
                 'conditions' => [
@@ -186,6 +186,18 @@ class ScoreConfigurationsSeeder extends Seeder
                     ['each' => false]
                 ]
             ],
+        ]));
+
+        $items->push(...$this->tiers(ScoreConfiguration::FACTOR_STARTUP_REVENUE_STRENGTH, [
+            [
+                'label' => ScoreConfiguration::STATUS_STARTUP_EXCEPTION,
+                'subscore' => 55,
+                'order' => 1,
+                'conditions' => [
+                    ['business_revenue' => ['operator' => '<=', 'value' => 0]],
+                    ['business_age' => ['operator' => '<=', 'value' => 24]],
+                ]
+            ]
         ]));
 
         foreach ($items as $item) {
@@ -198,17 +210,17 @@ class ScoreConfigurationsSeeder extends Seeder
         // Bands form a contiguous score range from 0 to 850
         // Each band's max is computed as (next band's min - 1), last band goes to 0
         $rows = [
-            ['label' => 'Elite Ready', 'min' => 90, 'color' => '#198754', 'order' => 1],
-            ['label' => 'Executive Ready', 'min' => 80, 'color' => '#0d6efd', 'order' => 2],
-            ['label' => 'Foundation Ready', 'min' => 70, 'color' => '#ffc107', 'order' => 3],
-            ['label' => 'Conditional', 'min' => 60, 'color' => '#fd7e14', 'order' => 4],
-            ['label' => 'Not Ready', 'color' => '#dc3545', 'order' => 5],
+            ['label' => ScoreConfiguration::BAND_ELITE_READY, 'min' => 90, 'color' => '#198754', 'order' => 1],
+            ['label' => ScoreConfiguration::BAND_EXECUTIVE_READY, 'min' => 80, 'color' => '#0d6efd', 'order' => 2],
+            ['label' => ScoreConfiguration::BAND_FOUNDATION_READY, 'min' => 70, 'color' => '#ffc107', 'order' => 3],
+            ['label' => ScoreConfiguration::BAND_CONDITIONAL, 'min' => 60, 'color' => '#fd7e14', 'order' => 4],
+            ['label' => ScoreConfiguration::BAND_NOT_READY, 'color' => '#dc3545', 'order' => 5],
         ];
 
         foreach ($rows as $row) {
             ScoreConfiguration::create([
                 'category' => ScoreConfiguration::CATEGORY_READINESS_BAND,
-                'model_slug' => 'funding_readiness',
+                'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS,
                 'label' => $row['label'],
                 'color' => $row['color'] ?? null,
                 'min_value' => $row['min'] ?? null,
@@ -223,7 +235,7 @@ class ScoreConfigurationsSeeder extends Seeder
 
         foreach ($tiers as $tier) {
             $rows[] = [
-                'model_slug' => 'funding_readiness',
+                'model_slug' => ScoreConfiguration::MODEL_FUNDING_READINESS,
                 'factor_slug' => $factorSlug,
                 'category' => ScoreConfiguration::CATEGORY_SUBSCORE_TIER,
                 'label' => $tier['label'] ?? null,
@@ -242,13 +254,13 @@ class ScoreConfigurationsSeeder extends Seeder
     {
         $items = collect();
 
-        $items->push(...$this->probTiers('fico_above_minimum', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_FICO_ABOVE_MINIMUM, [
             ['min' => 40, 'points' => 7, 'label' => '40+ points above minimum', 'order' => 1],
             ['min' => 20, 'max' => 39, 'points' => 4, 'label' => '20–39 points above minimum', 'order' => 2],
             ['min' => 0, 'max' => 19, 'points' => 0, 'label' => '0–19 points above minimum', 'order' => 3],
         ]));
 
-        $items->push(...$this->probTiers('utilization', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_UTILIZATION, [
             ['min' => 0, 'max' => 5, 'points' => 5, 'label' => '0–5%', 'order' => 1],
             ['min' => 5.01, 'max' => 10, 'points' => 3, 'label' => '5.01–10%', 'order' => 2],
             ['min' => 10.01, 'max' => 20, 'points' => 0, 'label' => '10.01–20%', 'order' => 3],
@@ -256,27 +268,27 @@ class ScoreConfigurationsSeeder extends Seeder
             ['min' => 25.01, 'points' => -10, 'label' => '25.01%+', 'order' => 5],
         ]));
 
-        $items->push(...$this->probTiers('recent_inquiries', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_RECENT_INQUIRIES, [
             ['min' => 0, 'max' => 2, 'points' => 3, 'label' => '0–2 inquiries', 'order' => 1],
             ['min' => 3, 'max' => 4, 'points' => 0, 'label' => '3–4 inquiries', 'order' => 2],
             ['min' => 5, 'points' => -8, 'label' => '5+ inquiries', 'order' => 3],
         ]));
 
-        $items->push(...$this->probTiers('banking_relationship', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_BANKING_RELATIONSHIP, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_STRONG, 'order' => 1],
             ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED, 'order' => 3],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 4],
         ]));
 
-        $items->push(...$this->probTiers('tradeline_depth', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_TRADELINE_DEPTH, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH, 'order' => 1],
             ['points' => 3, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 3],
             ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 4],
         ]));
 
-        $items->push(...$this->probTiers('revenue_income', [
+        $items->push(...$this->probTiers(ScoreConfiguration::FACTOR_REVENUE_INCOME, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG, 'order' => 1],
             ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED, 'order' => 3],
@@ -316,13 +328,13 @@ class ScoreConfigurationsSeeder extends Seeder
     {
         $items = collect();
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'fico_above_minimum', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_FICO_ABOVE_MINIMUM, [
             ['min' => 40, 'points' => 7, 'label' => '40+ points above minimum', 'order' => 1],
             ['min' => 20, 'max' => 39, 'points' => 4, 'label' => '20–39 points above minimum', 'order' => 2],
             ['min' => 0, 'max' => 19, 'points' => 0, 'label' => '0–19 points above minimum', 'order' => 3],
         ]));
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'utilization', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_UTILIZATION, [
             ['min' => 0, 'max' => 5, 'points' => 5, 'label' => '0–5%', 'order' => 1],
             ['min' => 5.01, 'max' => 10, 'points' => 3, 'label' => '5.01–10%', 'order' => 2],
             ['min' => 10.01, 'max' => 20, 'points' => 0, 'label' => '10.01–20%', 'order' => 3],
@@ -330,27 +342,27 @@ class ScoreConfigurationsSeeder extends Seeder
             ['min' => 25.01, 'points' => -10, 'label' => '25.01%+', 'order' => 5],
         ]));
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'recent_inquiries', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_RECENT_INQUIRIES, [
             ['min' => 0, 'max' => 2, 'points' => 3, 'label' => '0–2 inquiries', 'order' => 1],
             ['min' => 3, 'max' => 4, 'points' => 0, 'label' => '3–4 inquiries', 'order' => 2],
             ['min' => 5, 'points' => -8, 'label' => '5+ inquiries', 'order' => 3],
         ]));
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'banking_relationship', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_BANKING_RELATIONSHIP, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_STRONG, 'order' => 1],
             ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED, 'order' => 3],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_BANKING_NONE, 'order' => 4],
         ]));
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'tradeline_depth', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_TRADELINE_DEPTH, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH, 'order' => 1],
             ['points' => 3, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE, 'order' => 3],
             ['points' => -10, 'label' => ScoreConfiguration::PROB_STATUS_TRADE_THIN, 'order' => 4],
         ]));
 
-        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, 'revenue_income', [
+        $items->push(...$this->modelTiers(ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::FACTOR_REVENUE_INCOME, [
             ['points' => 5, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG, 'order' => 1],
             ['points' => 2, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE, 'order' => 2],
             ['points' => 0, 'label' => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED, 'order' => 3],
@@ -365,9 +377,11 @@ class ScoreConfigurationsSeeder extends Seeder
     private function seedTimeSettings(): void
     {
         $rows = [
-            ['label' => 'Morning', 'start' => 6.0, 'end' => 12.0, 'order' => 1],
-            ['label' => 'Mid Day', 'start' => 12.0, 'end' => 17.0, 'order' => 2],
-            ['label' => 'Evening', 'start' => 17.0, 'end' => 22.0, 'order' => 3],
+            ['label' => ScoreConfiguration::TIME_LABEL_MORNING, 'start' => 6.0, 'end' => 11.0, 'order' => 1],
+            ['label' => ScoreConfiguration::TIME_LABEL_MIDDAY, 'start' => 11.0, 'end' => 14.0, 'order' => 2],
+            ['label' => ScoreConfiguration::TIME_LABEL_AFTERNOON, 'start' => 14.0, 'end' => 17.0, 'order' => 3],
+            ['label' => ScoreConfiguration::TIME_LABEL_EVENING, 'start' => 17.0, 'end' => 21.0, 'order' => 4],
+            ['label' => ScoreConfiguration::TIME_LABEL_ANYTIME, 'start' => 9.0, 'end' => 17.0, 'order' => 5],
         ];
 
         foreach ($rows as $row) {

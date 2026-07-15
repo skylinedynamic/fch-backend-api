@@ -11,15 +11,11 @@ class ScoreConfigurationResource extends JsonResource
     public function toArray($request): array
     {
         return [
+            'funding_readiness' => $this->resource['funding_readiness'] ?? [],
+            'approval_probability' => $this->resource['approval_probability'] ?? [],
+            'approval_odds' => $this->resource['approval_odds'] ?? [],
+            'general_setting' => $this->resource['general_setting'] ?? [],
             'models' => $this->resource['models'] ?? [],
-            'factors' => $this->resource['factors'] ?? [],
-            'band_mappings' => $this->resource['band_mappings'] ?? [],
-            'readiness_bands' => $this->resource['readiness_bands'] ?? [],
-            'play_eligibility' => $this->resource['play_eligibility'] ?? [],
-            'late_payment_modifiers' => $this->resource['late_payment_modifiers'] ?? [],
-            'probability_factors' => $this->resource['probability_factors'] ?? [],
-            'odds_factors' => $this->resource['odds_factors'] ?? [],
-            'time_settings' => $this->resource['time_settings'] ?? [],
         ];
     }
 }

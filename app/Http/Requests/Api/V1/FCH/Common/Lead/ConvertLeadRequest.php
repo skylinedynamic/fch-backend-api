@@ -28,18 +28,20 @@ class ConvertLeadRequest extends BaseApiRequest
     public function rules(): array
     {
         $leadType = $this->getLeadType();
+        $isFreeTrail = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
         if ($leadType === 'Borrower') {
-            return $this->borrowerRules();
+            return $this->borrowerRules($isFreeTrail);
         }
 
         if ($leadType === 'Partner') {
-            return $this->partnerRules();
+            return $this->partnerRules($isFreeTrail);
         }
 
         // Fallback: only require plan_id
         return [
-            'plan_id' => ['required', 'exists:subscription_plans,id'],
+            'is_free_trail' => ['nullable', 'boolean'],
+            'plan_id' => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
         ];
     }
 
@@ -47,11 +49,13 @@ class ConvertLeadRequest extends BaseApiRequest
      * Validation rules when converting to a Borrower.
      * Frontend sends enrollment_amount — mapped to enrollment_payment internally.
      */
-    private function borrowerRules(): array
+    private function borrowerRules(bool $isFreeTrail): array
     {
         return [
-            'plan_id'           => ['required', 'exists:subscription_plans,id'],
-            'enrollment_amount' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'is_free_trail'     => ['nullable', 'boolean'],
+            'plan_id'           => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
+            'enrollment_amount' => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'free_trail_end_date' => ['nullable'],
         ];
     }
 
@@ -59,14 +63,16 @@ class ConvertLeadRequest extends BaseApiRequest
      * Validation rules when converting to a Partner.
      * Mirrors StorePartnerRequest financial rules.
      */
-    private function partnerRules(): array
+    private function partnerRules(bool $isFreeTrail): array
     {
         return [
-            'plan_id'              => ['required', 'exists:subscription_plans,id'],
+            'is_free_trail'        => ['nullable', 'boolean'],
+            'plan_id'              => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
             'partner_type'         => ['required', 'string', 'max:255'],
-            'enrollment_type'      => ['required', 'string', 'max:255'],
-            'enrollment_amount'    => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
-            'monthly_platform_fee' => ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'enrollment_type'      => [$isFreeTrail ? 'nullable' : 'required', 'string', 'max:255'],
+            'enrollment_amount'    => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'monthly_platform_fee' => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+            'free_trail_end_date'  => ['nullable'],
         ];
     }
 

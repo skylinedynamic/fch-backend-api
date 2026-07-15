@@ -16,6 +16,7 @@ class TenantConfigResource extends JsonResource
             'active_custom_url' => (bool) $this->active_custom_url,
             'partner_domain' => $this->partner_domain,
             'borrower_domain' => $this->borrower_domain,
+            'partner_subdomain' => $this->partner_subdomain,
         ];
     }
 }

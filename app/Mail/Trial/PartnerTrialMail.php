@@ -15,11 +15,11 @@ class PartnerTrialMail extends Mailable
     protected array $mailData;
     protected array $dynamicData = [];
 
-    public function __construct(array $mailData, ?int $partnerId = null)
+    public function __construct(array $mailData, ?int $hostPartnerId = null)
     {
         $this->mailData = $mailData;
-        if ($partnerId) {
-            $this->mailPartnerId = $partnerId;
+        if ($hostPartnerId) {
+            $this->mailPartnerId = $hostPartnerId;
         } else {
             $this->setMailPartnerId();
         }
@@ -44,6 +44,7 @@ class PartnerTrialMail extends Mailable
             view: 'emails.trial.account_created',
             with: [
                 'user' => $user,
+                'partner_id' => $this->mailData['partner_id'],
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'trialEndDate' => $this->mailData['trial_end_date'] ?? null,

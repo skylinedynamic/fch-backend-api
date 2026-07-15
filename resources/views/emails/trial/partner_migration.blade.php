@@ -71,7 +71,7 @@
                 <p class="section-label mb-3"
                     style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
                     Partner Portal Login:</p>
-                <a href="{{ concatUrl(getPartnerDomain(), 'login', config('app.frontend_partner_url')) }}" class="btn"
+                <a href="{{ concatUrl(getPartnerDomain($partner_id), 'login', config('app.frontend_partner_url')) }}" class="btn"
                     style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Go
                     to Partner Dashboard</a>
             </div>

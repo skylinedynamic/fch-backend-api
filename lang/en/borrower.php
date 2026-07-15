@@ -5,7 +5,7 @@ return [
     'update_personal_profile' => 'Update Borrower Profile',
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
     'fetch_profile_completion' => 'Fetch Profile Completion Status',
-    'failed_to_update_profile' => 'Failed to update profile',   
+    'failed_to_update_profile' => 'Failed to update profile',
     'signup_id_not_found' => 'Signup ID not found',
 
     // Funding Application
@@ -50,7 +50,7 @@ return [
     'file_too_large' => 'File size is too large. Maximum allowed size is 2MB.',
     'unauthorized_access' => 'Unauthorized access to business information',
     'fetch_business_info_failed' => 'Failed to fetch business information. Please try again.',
-    
+
     // Financial Info Messages
     'financial_info_fetched_successfully' => 'Financial information fetched successfully',
     'financial_info_updated_successfully' => 'Financial information updated successfully',
@@ -86,7 +86,7 @@ return [
     'get_funding_applications_failed' => 'Failed to fetch funding applications. Please try again.',
 
     // Success Messages
-    
+
     'list' => 'Borrowers retrieved successfully.',
     'retrieved' => 'Borrowers retrieved successfully.',
     'retrieved_details' => 'Borrower details retrieved successfully.',
@@ -107,7 +107,7 @@ return [
     'document_deleted_successfully' => 'Document deleted successfully.',
 
     // Error Messages
-    
+
     'list_failed' => 'Failed to retrieve borrowers.',
     'not_found' => 'Borrower not found.',
     'funding_data_failed' => 'Failed to load funding data.',
@@ -160,5 +160,5 @@ return [
 
 
     'borrower_not_found' => 'Borrower not found.',
-    'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>. No invoice or subscription was created.',
+    'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Limited Access Edition</span> plan. Access time is for lifetime.',
 ];

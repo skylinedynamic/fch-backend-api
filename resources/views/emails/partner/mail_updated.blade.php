@@ -6,7 +6,8 @@
 
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
         <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
-            <strong>{{ $user->name }}</strong>,</h4>
+            <strong>{{ $user->name }}</strong>,
+        </h4>
 
         <p style="line-height: 1.5; margin-bottom: 32px; color: #64748b;">
             Your partner account credentials on <strong>{{ $business_info['company_name'] }}</strong> have been successfully
@@ -38,7 +39,8 @@
                     Updated Email</td>
                 <td class="value"
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">
-                    {{ $user->email }}</td>
+                    {{ $user->email }}
+                </td>
             </tr>
             @if (!empty($plainPassword))
                 <tr>
@@ -60,7 +62,8 @@
             <p style="line-height: 1.5; margin-bottom: 24px;">Please log in to your partner portal using your updated
                 credentials to confirm the changes.
             </p>
-            <a href="{{ concatUrl(getPartnerDomain(), 'login', config('app.frontend_partner_url')) }}" class="btn"
+            <a href="{{ concatUrl(getPartnerDomain($partner_id), 'login', config('app.frontend_partner_url')) }}"
+                class="btn"
                 style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Access
                 Partner Portal</a>
         </div>

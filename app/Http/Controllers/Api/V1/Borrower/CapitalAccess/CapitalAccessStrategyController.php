@@ -68,6 +68,14 @@ class CapitalAccessStrategyController extends Controller
     }
 
     /**
+     * Start/Initialize a capital access play status as running.
+     */
+    public function startPlay(int $id): JsonResponse
+    {
+        return $this->service->startPlay($id);
+    }
+
+    /**
      * Submit/Log application detail for a single roadmap step (sequence).
      */
     public function submitStep(SubmitCapitalAccessStepRequest $request, int $id, int $sequenceId): JsonResponse
