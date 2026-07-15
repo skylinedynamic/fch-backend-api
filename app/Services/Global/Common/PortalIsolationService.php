@@ -89,16 +89,30 @@ class PortalIsolationService
         }
 
 
-        $partner = Partner::where('partner_domain', $domain)
-                                  ->orWhere('borrower_domain', $domain)
-                                  ->first();
+        // --- Check 3: Match by partner_subdomain (always allowed, regardless of active_custom_url) ---
+        $partnerBySubdomain = Partner::where('partner_subdomain', $domain)->first();
+        if ($partnerBySubdomain && $user->partner_id == $partnerBySubdomain->id) {
+            return true;
+        }
 
+        // --- Check 4: Match by partner_domain (only allowed when active_custom_url is enabled) ---
+        $partnerByCustomDomain = Partner::where('partner_domain', $domain)
+                                        ->orWhere('borrower_domain', $domain)
+                                        ->first();
 
-        // --- Check 3: Domain owner found ---
-        if ($partner) {
-            $allowed = $user->partner_id == $partner->id;
+        if ($partnerByCustomDomain && $user->partner_id == $partnerByCustomDomain->id) {
+            // Certified partners do not have custom domains — they are always allowed to log in
+            if ($partnerByCustomDomain->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+                return true;
+            }
 
-            return $allowed;
+            // Custom domain login is gated behind active_custom_url
+            if ($partnerByCustomDomain->active_custom_url) {
+                return true;
+            }
+
+            // Custom domain exists but is not yet activated — deny
+            return false;
         }
 
         return false;

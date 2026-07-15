@@ -55,8 +55,11 @@ class BorrowerDetailsResource extends JsonResource
             'duns_number' => $this->duns_number,
             'state_file_number' => $this->state_file_number,
             'business_start_date' => $this->business_start_date ? Carbon::parse($this->business_start_date)->format('m-d-Y') : null,
-            'enrollment_type' => $this->latestSubscription?->enrollment_type,
-            'payment_amount' => $this->latestSubscription?->payable_amount,
+            'enrollment_type'           => $this->latestSubscription?->enrollment_type,
+            // Cast to int so the frontend can match it against numeric plan IDs in the dropdown.
+            // Returns null for free-trial borrowers (no subscription yet) — dropdown remains enabled.
+            'plan_id'                   => $this->latestSubscription ? (int) $this->latestSubscription->subscription_plan_id : null,
+            'payment_amount'            => $this->latestSubscription?->payable_amount,
             'total_subscription_amount' => $this->latestSubscription?->total_subscription_amount,
 
             // Financial
