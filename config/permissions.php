@@ -206,7 +206,7 @@ return [
             ['name' => 'update credit profile settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update score calculation settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update microbilt settings', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'update domain configuration settings', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'update domain configuration settings', 'is_certified' => 0, 'is_host' => 0],
         ],
     ],
 
