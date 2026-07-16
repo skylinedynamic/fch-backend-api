@@ -216,12 +216,13 @@
             </div>
 
             <!-- Bottom Footer -->
-            <table class="bottom-footer" width="100%" cellpadding="0" cellspacing="0" border="0"
+            <table class="bottom-footer" width="100%" ; cellpadding="0" ;cellspacing="0" ; border="0"
                 style="background-color: #1a2e44; padding: 16px 20px; text-align: center; font-size: 13px; color: #ffffff; line-height: 1.6;">
                 <tr>
                     <td style="padding: 0;">
                         <p style="margin: 0; color: #ffffff; font-size: 13px;">&copy; {{ date('Y') }}
-                            {{ $siteName ?? config('app.name') }}. All rights reserved.</p>
+                            {{ $siteName ?? config('app.name') }}. All rights reserved.
+                        </p>
                     </td>
                 </tr>
             </table>
