@@ -470,9 +470,9 @@ class User extends Authenticatable implements OAuthenticatable
         }
 
         $map = [
-            Partner::class => 'Partner',
-            Borrower::class => 'Borrower',
-            Employee::class => 'Employee',
+            Partner::class => User::PARTNER,
+            Borrower::class => User::BORROWER,
+            Employee::class => User::EMPLOYEE,
         ];
 
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));

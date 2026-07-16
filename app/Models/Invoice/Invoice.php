@@ -2,6 +2,10 @@
 
 namespace App\Models\Invoice;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -136,4 +140,20 @@ class Invoice extends Model
 
 
     const PAYEE_ALL = 'All Payees';
+
+
+
+    /**
+     * Accessor: human-readable entity name (partner/borrower/employee).
+     */
+    public function getEntityNameAttribute(): ?string
+    {
+        $map = [
+            Partner::class => User::PARTNER,
+            Borrower::class => User::BORROWER,
+            Employee::class => User::EMPLOYEE,
+        ];
+
+        return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
+    }
 }
