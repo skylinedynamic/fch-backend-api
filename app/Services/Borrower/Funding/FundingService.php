@@ -15,16 +15,21 @@ class FundingService
      *
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function getGroupedSequencings()
+    public function getGroupedSequencings($search = null)
     {
-        $groups = FundingGroup::with(['sequencings' => function ($query) {
+        $query = FundingGroup::with(['sequencings' => function ($query) use ($search) {
             // Eager-load the type relation so engine_status can check type.status
             $query->with('type')
                   ->where('status', FundingSequencing::STATUS_ACTIVE)
                   ->orderBy('sort_order', 'asc');
+                  
+            if (!empty($search)) {
+                $query->search($search);
+            }
         }])->where('status', FundingGroup::STATUS_ACTIVE)
-          ->orderBy('sort_order', 'asc')
-          ->get();
+          ->orderBy('sort_order', 'asc');
+
+        $groups = $query->get();
 
         // Filter out HIDDEN sequences (e.g., ones with no lenders)
         foreach ($groups as $group) {

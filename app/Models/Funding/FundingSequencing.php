@@ -90,11 +90,12 @@ class FundingSequencing extends Model
             return $query;
         }
 
-        return $query->where(function ($q) use ($term) {
+        $cleanTerm = str_replace(['$', ','], '', $term);
+
+        return $query->where(function ($q) use ($term, $cleanTerm) {
             $q->where('name', 'like', '%' . $term . '%')
               ->orWhere('subtitle', 'like', '%' . $term . '%')
               ->orWhere('description', 'like', '%' . $term . '%')
-              ->orWhere('amount_range', 'like', '%' . $term . '%')
               ->orWhere('terms', 'like', '%' . $term . '%')
               ->orWhere('status', 'like', '%' . $term . '%')
               ->orWhereHas('group', function ($q) use ($term) {
@@ -103,6 +104,12 @@ class FundingSequencing extends Model
               ->orWhereHas('type', function ($q) use ($term) {
                   $q->where('name', 'like', '%' . $term . '%');
               });
+
+            if ($cleanTerm !== '') {
+                $q->orWhereRaw("REPLACE(REPLACE(amount_range, ',', ''), '$', '') LIKE ?", ['%' . $cleanTerm . '%']);
+            } else {
+                $q->orWhere('amount_range', 'like', '%' . $term . '%');
+            }
         });
     }
 

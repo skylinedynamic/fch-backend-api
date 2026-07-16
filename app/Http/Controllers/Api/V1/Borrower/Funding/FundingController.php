@@ -8,6 +8,7 @@ use App\Services\Borrower\Funding\FundingService;
 use App\Http\Resources\Borrower\Funding\FundingGroupResource;
 use App\Http\Resources\Borrower\Funding\FundingTypeResource;
 use App\Http\Resources\Borrower\Funding\FundingSequencingResource;
+use App\Http\Requests\Api\V1\Borrower\Funding\FetchFundingListRequest;
 use Illuminate\Http\JsonResponse;
 
 class FundingController extends Controller
@@ -24,10 +25,12 @@ class FundingController extends Controller
      *
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(FetchFundingListRequest $request): JsonResponse
     {
         try {
-            $groupedSequencings = $this->service->getGroupedSequencings();
+            $search = $request->input('search');
+
+            $groupedSequencings = $this->service->getGroupedSequencings($search);
             $types = $this->service->getActiveTypes();
             $stats = $this->service->getDashboardStats($groupedSequencings);
 
