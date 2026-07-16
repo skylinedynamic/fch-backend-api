@@ -29,9 +29,24 @@ class FundingController extends Controller
     {
         try {
             $search = $request->input('search');
+            $groupId = $request->input('group_id');
 
-            $groupedSequencings = $this->service->getGroupedSequencings($search);
-            $types = $this->service->getActiveTypes();
+            $groupedSequencings = $this->service->getGroupedSequencings($search, $groupId);
+            
+            $availableTypeIds = [];
+            foreach ($groupedSequencings as $group) {
+                foreach ($group->sequencings as $seq) {
+                    if ($seq->funding_type_id) {
+                        $availableTypeIds[] = $seq->funding_type_id;
+                    }
+                }
+            }
+            $availableTypeIds = array_unique($availableTypeIds);
+
+            $types = $this->service->getActiveTypes()->filter(function ($type) use ($availableTypeIds) {
+                return in_array($type->id, $availableTypeIds);
+            })->values();
+            
             $stats = $this->service->getDashboardStats($groupedSequencings);
 
             return ApiResponse::success(

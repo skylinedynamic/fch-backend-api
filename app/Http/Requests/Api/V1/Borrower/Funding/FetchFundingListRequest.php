@@ -23,6 +23,7 @@ class FetchFundingListRequest extends BaseApiRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:255'],
+            'group_id' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

@@ -105,11 +105,7 @@ class FundingSequencing extends Model
                   $q->where('name', 'like', '%' . $term . '%');
               });
 
-            if ($cleanTerm !== '') {
-                $q->orWhereRaw("REPLACE(REPLACE(amount_range, ',', ''), '$', '') LIKE ?", ['%' . $cleanTerm . '%']);
-            } else {
-                $q->orWhere('amount_range', 'like', '%' . $term . '%');
-            }
+            $q->orWhere('amount_range', 'like', '%' . $term . '%');
         });
     }
 
