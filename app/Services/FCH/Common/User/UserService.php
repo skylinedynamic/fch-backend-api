@@ -343,8 +343,8 @@ class UserService
 
             // 📧 Send update notification if password or email changed
             if ($passwordUpdated || $emailChanged) {
-                $subject = $emailChanged 
-                    ? __('common.email_changed_subject') 
+                $subject = $emailChanged
+                    ? __('common.email_changed_subject')
                     : __('common.password_updated_subject');
                 $partner = $user->partner ?: Partner::where('is_host', 1)->first();
                 $this->sendCreatedMail($user, $partner, $plainPassword, $subject);
