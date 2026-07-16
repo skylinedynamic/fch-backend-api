@@ -103,10 +103,8 @@ class AuthService
         $partner = $user->partner;
 
         // 1. Check User Account Status
-        if (in_array($user->status, [User::STATUS['inactive'], User::STATUS['suspended']])) {
-            $message = $user->status === User::STATUS['suspended']
-                ? __('auth.user_suspended')
-                : __('auth.user_inactive');
+        if (in_array($user->status, [User::STATUS['inactive']])) {
+            $message = __('auth.user_inactive');
             return ApiResponse::loginError($message, 'email');
         }
 
