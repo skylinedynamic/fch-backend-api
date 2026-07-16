@@ -9,4 +9,6 @@ return [
     'updated' => 'Invoice updated successfully.',
     'deleted' => 'Invoice deleted successfully.',
     'sent_success' => 'Invoice sent successfully.',
+    'commission_payout' => 'Commission Payout',
+    'downloaded_successfully' => 'Invoice downloaded successfully.',
 ];

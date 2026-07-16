@@ -179,6 +179,8 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/', [InvoiceController::class, 'index']);
                     Route::post('/stats', [InvoiceController::class, 'stats']);
                     Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
+                    Route::get('/{id}', [InvoiceController::class, 'show']);
+                    Route::get('/{id}/download', [InvoiceController::class, 'download']);
                 }
             );
 
