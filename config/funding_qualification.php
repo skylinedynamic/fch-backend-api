@@ -4,7 +4,8 @@ use App\Models\Borrower\BorrowerDocType;
 
 return [
     'factor_keys' => [
-        'Personal Credit'  => 'business_credit',
+        'Personal Credit'  => 'personal_credit',
+        'Business Credit'  => 'business_credit',
         'Revenue'          => 'revenue',
         'Time in Business' => 'time_in_business',
         'Banking Activity' => 'banking_activity',
@@ -24,6 +25,12 @@ return [
 
     'rules' => [
         'business_credit' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.paydex_score',
+            'funding_field'  => 'lender_visibilities.min_business_credit_score',
+            'strong_offset'  => 20,
+        ],
+        'personal_credit' => [
             'type'           => 'compare',
             'borrower_field' => 'borrowers.fico_score',
             'funding_field'  => 'lender_visibilities.min_fico',
@@ -103,7 +110,7 @@ return [
     'statuses' => [
         'strong'   => 'Strong',
         'good'     => 'Good',
-        'missing'  => 'Missing',
+        'failed'   => 'Failed',
     ],
 
     'qualify_keys' => [

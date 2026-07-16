@@ -87,7 +87,7 @@ class FundingReadinessService
                 $lenders = $fundingOption->lenderVisibilities ?? collect();
 
                 if (str_contains($lowerLabel, 'business credit') || $lowerLabel === 'business credit') {
-                    $status = $this->evaluateCriteria($borrower->paydex_score, $lenders, 'min_fico', 'buffer', 20);
+                    $status = $this->evaluateCriteria($borrower->paydex_score, $lenders, 'min_business_credit_score', 'buffer', 20);
                 } elseif (str_contains($lowerLabel, 'credit')) {
                     $status = $this->evaluateCriteria($borrower->fico_score, $lenders, 'min_fico', 'buffer', config('funding.readiness_factors.personal_credit.strong_buffer', 50));
                 } elseif (str_contains($lowerLabel, 'revenue') || str_contains($lowerLabel, 'sales')) {

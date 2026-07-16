@@ -4,6 +4,9 @@ namespace App\Http\Requests\Api\V1\FCH\Common\FundingRequest;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 
+use App\Models\FundingRequest\FundingRequest;
+use Illuminate\Validation\Rule;
+
 class UpdateFundingRequestStatusRequest extends BaseApiRequest
 {
     public function authorize(): bool
@@ -15,8 +18,19 @@ class UpdateFundingRequestStatusRequest extends BaseApiRequest
     {
         return [
             'id' => ['required', 'integer', 'exists:funding_requests,id'],
-            'status' => ['required', 'string', 'in:Pending,In Progress,Approved,Accepted,Rejected'],
-            'reject_reason' => ['nullable', 'string', 'required_if:status,Rejected'],
+            'status' => [
+                'required', 
+                'string', 
+                Rule::in([
+                    FundingRequest::STATUS_PENDING,
+                    FundingRequest::STATUS_IN_PROGRESS,
+                    FundingRequest::STATUS_APPROVED,
+                    FundingRequest::STATUS_ACCEPTED,
+                    FundingRequest::STATUS_REJECTED,
+                    FundingRequest::STATUS_CANCELED,
+                ])
+            ],
+            'reject_reason' => ['nullable', 'string', 'required_if:status,' . FundingRequest::STATUS_REJECTED],
         ];
     }
     

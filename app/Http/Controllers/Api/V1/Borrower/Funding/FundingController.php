@@ -8,6 +8,7 @@ use App\Services\Borrower\Funding\FundingService;
 use App\Http\Resources\Borrower\Funding\FundingGroupResource;
 use App\Http\Resources\Borrower\Funding\FundingTypeResource;
 use App\Http\Resources\Borrower\Funding\FundingSequencingResource;
+use App\Http\Requests\Api\V1\Borrower\Funding\FetchFundingListRequest;
 use Illuminate\Http\JsonResponse;
 
 class FundingController extends Controller
@@ -24,11 +25,28 @@ class FundingController extends Controller
      *
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(FetchFundingListRequest $request): JsonResponse
     {
         try {
-            $groupedSequencings = $this->service->getGroupedSequencings();
-            $types = $this->service->getActiveTypes();
+            $search = $request->input('search');
+            $groupId = $request->input('group_id');
+
+            $groupedSequencings = $this->service->getGroupedSequencings($search, $groupId);
+            
+            $availableTypeIds = [];
+            foreach ($groupedSequencings as $group) {
+                foreach ($group->sequencings as $seq) {
+                    if ($seq->funding_type_id) {
+                        $availableTypeIds[] = $seq->funding_type_id;
+                    }
+                }
+            }
+            $availableTypeIds = array_unique($availableTypeIds);
+
+            $types = $this->service->getActiveTypes()->filter(function ($type) use ($availableTypeIds) {
+                return in_array($type->id, $availableTypeIds);
+            })->values();
+            
             $stats = $this->service->getDashboardStats($groupedSequencings);
 
             return ApiResponse::success(

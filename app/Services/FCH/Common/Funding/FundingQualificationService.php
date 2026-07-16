@@ -139,7 +139,7 @@ class FundingQualificationService
         $rule['borrower_value'] = $borrowerVal;
 
         if (is_null($borrowerVal) || $borrowerVal === '') {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -158,7 +158,7 @@ class FundingQualificationService
         }
 
         if ($passCount === 0) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
         } else {
             $rule['status'] = $this->status('good');
         }
@@ -172,7 +172,7 @@ class FundingQualificationService
         $fField = $this->columnName($rule['funding_field']  ?? '');
 
         if (!$bField || !$fField) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -205,7 +205,7 @@ class FundingQualificationService
         $rule['borrower_value'] = $borrowerVal;
 
         if (is_null($borrowerVal) || $borrowerVal === '') {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -224,7 +224,7 @@ class FundingQualificationService
         }
 
         if ($passCount === 0) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
         } else {
             $rule['status'] = $this->status('good');
         }
@@ -238,7 +238,7 @@ class FundingQualificationService
         $fField = $this->columnName($rule['funding_field']  ?? '');
 
         if (!$bField || !$fField) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -268,7 +268,7 @@ class FundingQualificationService
         $rule['borrower_value'] = $borrowerVal;
 
         if (is_null($borrowerVal) || $borrowerVal === '') {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -277,7 +277,7 @@ class FundingQualificationService
                 $borrowerVal = \Carbon\Carbon::parse($borrowerVal)->floatDiffInMonths(\Carbon\Carbon::now());
                 $rule['borrower_value'] = $borrowerVal;
             } catch (\Exception $e) {
-                $rule['status'] = $this->status('missing');
+                $rule['status'] = $this->status('failed');
                 return $rule;
             }
         }
@@ -330,7 +330,7 @@ class FundingQualificationService
         $totalRequired = $lendersRequiring->count();
 
         if ($passCount === 0) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
         } elseif ($strongPassCount > 0) {
             $rule['status'] = $this->status('strong');
         } else {
@@ -346,7 +346,7 @@ class FundingQualificationService
         $againstField = $this->columnName($rule['ratio_against']  ?? '');
 
         if (!$bField || !$againstField) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -361,7 +361,7 @@ class FundingQualificationService
             return $rule;
         }
         if ($annual <= 0.0) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             return $rule;
         }
 
@@ -428,7 +428,7 @@ class FundingQualificationService
 
         $missingNames = BorrowerDocType::whereIn('id', $missingIds)->pluck('name')->toArray();
 
-        $rule['status'] = $this->status('missing');
+        $rule['status'] = $this->status('failed');
         $rule['borrower_value'] = 'Missing';
         $rule['missing_docs'] = array_values($missingNames);
         return $rule;
@@ -439,7 +439,7 @@ class FundingQualificationService
         $docName = $rule['document_name'] ?? '';
 
         if (!$docName) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             $rule['required_value'] = 'Uploaded';
             $rule['borrower_value'] = 'Missing';
             return $rule;
@@ -447,7 +447,7 @@ class FundingQualificationService
 
         $docType = BorrowerDocType::where('name', $docName)->first();
         if (!$docType) {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             $rule['required_value'] = 'Uploaded';
             $rule['borrower_value'] = 'Missing';
             return $rule;
@@ -464,7 +464,7 @@ class FundingQualificationService
             $rule['status'] = $this->status('good');
             $rule['borrower_value'] = 'Uploaded';
         } else {
-            $rule['status'] = $this->status('missing');
+            $rule['status'] = $this->status('failed');
             $rule['borrower_value'] = 'Missing';
             $rule['missing_docs'] = [$docName];
         }

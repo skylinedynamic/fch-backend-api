@@ -4,7 +4,7 @@ namespace App\Services\Borrower\Funding;
 
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
-use App\Models\Funding\FundingType;
+use App\Models\Lender\LenderProductCategory;
 use Illuminate\Support\Facades\Log;
 
 class FundingService
@@ -15,16 +15,26 @@ class FundingService
      *
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function getGroupedSequencings()
+    public function getGroupedSequencings($search = null, $groupId = null)
     {
-        $groups = FundingGroup::with(['sequencings' => function ($query) {
+        $query = FundingGroup::with(['sequencings' => function ($query) use ($search) {
             // Eager-load the type relation so engine_status can check type.status
             $query->with('type')
                   ->where('status', FundingSequencing::STATUS_ACTIVE)
                   ->orderBy('sort_order', 'asc');
-        }])->where('status', FundingGroup::STATUS_ACTIVE)
-          ->orderBy('sort_order', 'asc')
-          ->get();
+                  
+            if (!empty($search)) {
+                $query->search($search);
+            }
+        }])->where('status', FundingGroup::STATUS_ACTIVE);
+        
+        if (!empty($groupId) && $groupId !== 'all') {
+            $query->where('id', $groupId);
+        }
+
+        $query->orderBy('sort_order', 'asc');
+
+        $groups = $query->get();
 
         // Filter out HIDDEN sequences (e.g., ones with no lenders)
         foreach ($groups as $group) {
@@ -50,7 +60,7 @@ class FundingService
      */
     public function getActiveTypes()
     {
-        return FundingType::where('status', FundingType::STATUS_ACTIVE)->orderBy('sort_order', 'asc')->get();
+        return LenderProductCategory::where('status', LenderProductCategory::STATUS_ACTIVE)->orderBy('sort_order', 'asc')->get();
     }
 
     /**

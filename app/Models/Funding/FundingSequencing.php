@@ -90,11 +90,12 @@ class FundingSequencing extends Model
             return $query;
         }
 
-        return $query->where(function ($q) use ($term) {
+        $cleanTerm = str_replace(['$', ','], '', $term);
+
+        return $query->where(function ($q) use ($term, $cleanTerm) {
             $q->where('name', 'like', '%' . $term . '%')
               ->orWhere('subtitle', 'like', '%' . $term . '%')
               ->orWhere('description', 'like', '%' . $term . '%')
-              ->orWhere('amount_range', 'like', '%' . $term . '%')
               ->orWhere('terms', 'like', '%' . $term . '%')
               ->orWhere('status', 'like', '%' . $term . '%')
               ->orWhereHas('group', function ($q) use ($term) {
@@ -103,6 +104,8 @@ class FundingSequencing extends Model
               ->orWhereHas('type', function ($q) use ($term) {
                   $q->where('name', 'like', '%' . $term . '%');
               });
+
+            $q->orWhere('amount_range', 'like', '%' . $term . '%');
         });
     }
 
@@ -112,6 +115,7 @@ class FundingSequencing extends Model
     }
 
     public function getMinFicoAttribute() { return $this->getMinLenderRequirement('min_fico'); }
+    public function getMinBusinessCreditScoreAttribute() { return $this->getMinLenderRequirement('min_business_credit_score'); }
     public function getMinTibMonthsAttribute() { return $this->getMinLenderRequirement('min_tib_months'); }
     public function getMinMonthlyRevenueAttribute() { return $this->getMinLenderRequirement('min_monthly_revenue'); }
     public function getMinMonthlyDepositsAttribute() { return $this->getMinLenderRequirement('min_monthly_deposits'); }

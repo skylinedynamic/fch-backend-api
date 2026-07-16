@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Api\V1\Borrower\Funding\StoreFundingRequestRequest;
 use App\Http\Requests\Api\V1\Borrower\Funding\FetchFundingRequestRequest;
+use App\Http\Requests\Api\V1\Borrower\Funding\StoreFundingRequestDocumentRequest;
+use App\Http\Requests\Api\V1\Borrower\Funding\DeleteFundingRequestDocumentRequest;
 use App\Services\Borrower\Funding\FundingRequestService;
 use Exception;
+use Illuminate\Http\Request;
 
 class FundingRequestController extends Controller
 {
@@ -70,6 +73,52 @@ class FundingRequestController extends Controller
                 'message' => 'funding request submitted successfully.',
                 'data' => $data
             ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload a document for a funding request.
+     *
+     * @param StoreFundingRequestDocumentRequest $request
+     * @return JsonResponse
+     */
+    public function uploadDocument(StoreFundingRequestDocumentRequest $request): JsonResponse
+    {
+        try {
+            $data = $this->fundingRequestService->uploadDocument($request->validated());
+            return response()->json([
+                'success' => true,
+                'message' => 'Document uploaded successfully.',
+                'data' => $data
+            ], 201);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a document for a funding request.
+     *
+     * @param DeleteFundingRequestDocumentRequest $request
+     * @param int $documentId
+     * @return JsonResponse
+     */
+    public function deleteDocument(DeleteFundingRequestDocumentRequest $request, $documentId): JsonResponse
+    {
+        try {
+            $this->fundingRequestService->deleteDocument($documentId, $request->validated());
+            return response()->json([
+                'success' => true,
+                'message' => 'Document deleted successfully.'
+            ]);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
