@@ -111,18 +111,19 @@ class AuthService
         // 2. Check Associated Entity Status (Partner, Employee, Borrower)
         $checks = [];
 
-        if ($user->user_type !== User::BORROWER) {
+        if ($user->entity_type == User::PARTNER) {
             $checks[] = [$partner?->status, Partner::STATUS_SUSPENDED, 'auth.partner_suspended', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']];
             $checks[] = [$partner?->status, Partner::STATUS_INACTIVE, 'auth.partner_inactive', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']];
+        } elseif ($user->entity_type == User::EMPLOYEE) {
+            $checks[] = [$user->employee?->job_status, Employee::STATUS_INACTIVE, 'auth.employee_inactive', []];
+            $checks[] = [$user->employee?->job_status, Employee::STATUS_SUSPENDED, 'auth.employee_suspended', []];
+        } elseif ($user->entity_type == User::BORROWER) {
+            $checks[] = [$user->borrower?->status, Borrower::STATUS_INACTIVE, 'auth.borrower_inactive', []];
+            $checks[] = [$user->borrower?->status, Borrower::STATUS_SUSPENDED, 'auth.borrower_suspended', []];
         }
 
-        $checks[] = [$user->employee?->job_status, Employee::STATUS_INACTIVE, 'auth.employee_inactive', []];
-        $checks[] = [$user->employee?->job_status, Employee::STATUS_SUSPENDED, 'auth.employee_suspended', []];
-        $checks[] = [$user->borrower?->status, Borrower::STATUS_INACTIVE, 'auth.borrower_inactive', []];
-        $checks[] = [$user->borrower?->status, Borrower::STATUS_SUSPENDED, 'auth.borrower_suspended', []];
-
         foreach ($checks as [$value, $disallowed, $message, $params]) {
-            if ($value === $disallowed) {
+            if ($value == $disallowed) {
                 return ApiResponse::loginError(__($message, $params ?? []), 'email');
             }
         }
