@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Services\Borrower\Invoice\InvoiceService;
 use App\Http\Resources\Borrower\Invoice\InvoiceResource;
+use App\Http\Resources\Borrower\Invoice\InvoiceDetailResource;
 use App\Http\Requests\Api\V1\FCH\Common\Invoice\FetchInvoiceRequest;
 
 class InvoiceController extends Controller
@@ -81,6 +82,48 @@ class InvoiceController extends Controller
             return ApiResponse::success($stats, __('invoice.stats_retrieved'));
         } catch (\Throwable $e) {
             return ApiResponse::error($e->getMessage());
+        }
+    }
+
+    /**
+     * Display the specified invoice detail for the borrower.
+     *
+     * @param int|string $id
+     * @return JsonResponse
+     */
+    public function show($id): JsonResponse
+    {
+        try {
+            $invoice = $this->invoiceService->find($id);
+
+            if (!$invoice) {
+                return ApiResponse::notFound(__('invoice.not_found'));
+            }
+
+            return ApiResponse::success(new InvoiceDetailResource($invoice), __('invoice.details_retrieved'));
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage());
+        }
+    }
+
+    /**
+     * Download Invoice PDF for the borrower.
+     *
+     * @param int|string $id
+     * @return mixed
+     */
+    public function download($id)
+    {
+        try {
+            $pdf = $this->invoiceService->downloadInvoice($id);
+            $base64 = base64_encode($pdf->output());
+            return ApiResponse::success([
+                'file' => $base64,
+                'mime_type' => 'application/pdf',
+                'file_name' => "Invoice-{$id}.pdf"
+            ], __('invoice.downloaded_successfully'));
+        } catch (\Exception $e) {
+            return ApiResponse::notFound($e->getMessage());
         }
     }
 }

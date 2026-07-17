@@ -74,7 +74,12 @@ class InvoiceController extends Controller
     {
         try {
             $pdf = $this->invoiceService->downloadInvoice($id);
-            return $pdf->download("Invoice-{$id}.pdf");
+            $base64 = base64_encode($pdf->output());
+            return ApiResponse::success([
+                'file' => $base64,
+                'mime_type' => 'application/pdf',
+                'file_name' => "Invoice-{$id}.pdf"
+            ], __('invoice.downloaded_successfully'));
         } catch (\Exception $e) {
             return ApiResponse::notFound($e->getMessage());
         }

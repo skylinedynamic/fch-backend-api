@@ -7,6 +7,9 @@ use App\Traits\PaginatesApi;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Borrower\Invoice\InvoiceResource;
 use Illuminate\Database\Eloquent\Collection;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Common\AppConfiguration;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceService
 {
@@ -205,6 +208,71 @@ class InvoiceService
             'paid_invoices'   => $paidAmount,
             'unpaid_invoices' => $unpaidAmount,
             'collection_rate' => round($collectionRate, 2),
+        ];
+    }
+
+    /**
+     * Find single invoice for authorized borrower.
+     * 
+     * @param string|int $id
+     * @return Invoice|null
+     */
+    public function find($id): ?Invoice
+    {
+        $user = auth()->user();
+        $borrowerId = $user->entity_id;
+        $partnerId = $user->partner_id;
+
+        return Invoice::with(['partner', 'borrower', 'subscription'])
+            ->where(function ($q) use ($id) {
+                $q->where('id', $id)
+                  ->orWhere('invoice_id', $id);
+            })
+            ->where('borrower_id', $borrowerId)
+            ->where('partner_id', $partnerId)
+            ->where('is_partner_paying', false)
+            ->first();
+    }
+
+    /**
+     * Download Invoice PDF for borrower.
+     */
+    public function downloadInvoice($id)
+    {
+        $invoice = $this->find($id);
+        if (!$invoice)
+            throw new \Exception(__('invoice.not_found'));
+
+        $business_info = $this->getBusinessInfo();
+
+        Log::info('Invoice business info for borrower', ['invoice_id' => $id, 'business_info' => $business_info]);
+
+        $pdf = Pdf::loadView('invoices.download', compact('invoice', 'business_info'))
+            ->setPaper('a4')
+            ->setWarnings(false);
+
+        return $pdf;
+    }
+
+    /**
+     * Helper to get business info for templates with white-label support.
+     */
+    private function getBusinessInfo(): array
+    {
+        $targetPartner = getConfigPartner();
+        $branding = AppConfiguration::where('partner_id', $targetPartner->id)->where('module', AppConfiguration::MODULE_BRANDING)->pluck('value', 'key')->toArray();
+
+        return [
+            'company_name' => $branding['site_name'] ?? '',
+            'email' => $targetPartner->email ?? '',
+            'phone_number' => $targetPartner->phone_number ?? '',
+            'address_line_1' => $targetPartner->address_line_1 ?? '',
+            'city' => $targetPartner->city ?? '',
+            'state' => $targetPartner->state ?? '',
+            'postal_code' => $targetPartner->postal_code ?? '',
+            'country' => $targetPartner->country ?? '',
+            'website' => $targetPartner->website ?? '',
+            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
         ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -149,7 +150,7 @@ class UpdateUserRolesPermissionSeeder extends Seeder
                     if ($hasPermissionByPartnerLogic($pType, $p)) {
                         $adminUserPerms[] = [
                             'permission_id' => $p->id,
-                            'model_type' => 'App\\Models\\User',
+                            'model_type' => User::class,
                             'model_id' => $u->user_id
                         ];
                     }
