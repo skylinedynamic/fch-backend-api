@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Monitoring\SystemMetric;
-use Illuminate\Support\Facades\Artisan;
 use Spatie\Health\ResultStores\ResultStore;
-use App\Models\Monitoring\Host;
 use Spatie\Backup\Tasks\Monitor\BackupDestinationStatusFactory;
 use Spatie\Backup\Tasks\Monitor\BackupDestinationStatus;
 
@@ -17,25 +16,32 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $stats = $this->getSystemStats();
-        $userCount = \App\Models\User\User::count();
+        // Cache system stats for 60s to avoid spawning shell commands on every page load.
+        $stats = Cache::remember('dashboard.system_stats', 60, fn() => $this->getSystemStats());
 
-        // Fetch latest backup date
-        $monitorConfig = config('backup.monitor_backups');
-        $latestBackup = collect($monitorConfig)->map(function ($config) {
-            $config['healthChecks'] = $config['health_checks'] ?? [];
-            $status = BackupDestinationStatusFactory::createForSingleMonitor($config)->first();
-            return $status ? $status->backupDestination()->newestBackup() : null;
-        })->filter()->sortByDesc(fn($b) => $b->date())->first();
+        // User count rarely changes quickly; cache briefly.
+        $userCount = Cache::remember('dashboard.user_count', 60, fn() => \App\Models\User\User::count());
 
-        // Fetch latest health status
-        $healthResults = app(ResultStore::class)->latestResults();
+        // Backup destination inspection can be slow (especially on S3). Cache for 5 minutes.
+        $latestBackupDate = Cache::remember('dashboard.latest_backup_date', 300, function () {
+            $monitorConfig = config('backup.monitor_backups');
+            $latestBackup = collect($monitorConfig)->map(function ($config) {
+                $config['healthChecks'] = $config['health_checks'] ?? [];
+                $status = BackupDestinationStatusFactory::createForSingleMonitor($config)->first();
+                return $status ? $status->backupDestination()->newestBackup() : null;
+            })->filter()->sortByDesc(fn($b) => $b->date())->first();
+
+            return $latestBackup ? $latestBackup->date() : null;
+        });
+
+        // Health checks run on a schedule; just read the latest stored results.
+        $healthResults = Cache::remember('dashboard.health_results', 60, fn() => app(ResultStore::class)->latestResults());
         $isHealthy = $healthResults ? $healthResults->storedCheckResults->every(fn($r) => $r->status === 'ok') : true;
 
         return view('system_monitoring.dashboard.overview', [
             'stats' => $stats,
             'userCount' => $userCount,
-            'latestBackupDate' => $latestBackup ? $latestBackup->date() : null,
+            'latestBackupDate' => $latestBackupDate,
             'isHealthy' => $isHealthy,
             'healthResults' => $healthResults,
             'env' => ucfirst(app()->environment()),
@@ -48,33 +54,36 @@ class DashboardController extends Controller
      */
     public function backups()
     {
-        $monitorConfig = config('backup.monitor_backups');
+        // Backup destination inspection can be expensive on remote disks. Cache the
+        // rendered list for 5 minutes; clear it automatically after restore/delete.
+        $backups = Cache::remember('dashboard.backups_list', 300, function () {
+            $monitorConfig = config('backup.monitor_backups');
 
-        $statuses = collect($monitorConfig)->flatMap(function ($config) {
-            // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
-            $config['healthChecks'] = $config['health_checks'] ?? [];
-            return BackupDestinationStatusFactory::createForSingleMonitor($config);
-        });
+            $statuses = collect($monitorConfig)->flatMap(function ($config) {
+                // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
+                $config['healthChecks'] = $config['health_checks'] ?? [];
+                return BackupDestinationStatusFactory::createForSingleMonitor($config);
+            });
 
-        $backups = $statuses->map(function (BackupDestinationStatus $status) {
-            $destination = $status->backupDestination();
-            return [
-            'name' => $destination->backupName(),
-            'disk' => $destination->diskName(),
-            'reachable' => $destination->isReachable(),
-            'healthy' => $status->isHealthy(),
-            'files' => $destination->backups()->map(function ($backup) {
-                    return [
-                    'path' => $backup->path(),
-                    'date' => $backup->date(),
-                    'size' => $backup->sizeInBytes(),
-                    ];
-                }
-                ),
-                'storage_used' => $this->formatBytes($destination->usedStorage()),
-                'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
+            return $statuses->map(function (BackupDestinationStatus $status) {
+                $destination = $status->backupDestination();
+                return [
+                    'name' => $destination->backupName(),
+                    'disk' => $destination->diskName(),
+                    'reachable' => $destination->isReachable(),
+                    'healthy' => $status->isHealthy(),
+                    'files' => $destination->backups()->map(function ($backup) {
+                        return [
+                            'path' => $backup->path(),
+                            'date' => $backup->date(),
+                            'size' => $backup->sizeInBytes(),
+                        ];
+                    }),
+                    'storage_used' => $this->formatBytes($destination->usedStorage()),
+                    'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
                 ];
             });
+        });
 
         return view('system_monitoring.dashboard.backups', compact('backups'));
     }
@@ -198,6 +207,10 @@ class DashboardController extends Controller
                     @rmdir($tempPath . '/' . $segments[0]); // e.g. db-dumps
                 }
 
+                // Invalidate cached backup data after a restore.
+                Cache::forget('dashboard.backups_list');
+                Cache::forget('dashboard.latest_backup_date');
+
                 return back()->with('success', 'System Restoration Complete. Database synchronized to: ' . basename($path));
             }
             else {
@@ -228,27 +241,58 @@ class DashboardController extends Controller
 
         try {
             $disk->delete($path);
+
+            // Invalidate cached backup data after deletion.
+            Cache::forget('dashboard.backups_list');
+            Cache::forget('dashboard.latest_backup_date');
+
             return back()->with('success', 'Security Cleanup Complete. Snapshot permanently purged from: ' . strtoupper($diskName));
         }
         catch (\Exception $e) {
             return back()->with('error', 'Execution Interrupted: ' . $e->getMessage());
         }
     }
-    public function fleet()
-    {
-        $hosts = Host::with('monitoredChecks')->get();
-        return view('system_monitoring.dashboard.fleet', compact('hosts'));
-    }
-
     /**
      * Show historical system performance charts.
      */
     public function charts()
     {
-        // Get last 100 snapshots (or last 24h)
-        $metrics = SystemMetric::orderBy('created_at', 'asc')->take(100)->get();
+        // Pull the last 24 hours of snapshots instead of a fixed row count. This is
+        // more predictable and keeps the chart light even if the scheduler runs frequently.
+        $metrics = Cache::remember('dashboard.chart_metrics', 60, function () {
+            return SystemMetric::query()
+                ->where('created_at', '>=', now()->subDay())
+                ->orderBy('created_at', 'asc')
+                ->select(['id', 'cpu_usage', 'ram_usage', 'disk_usage', 'created_at'])
+                ->get();
+        });
 
         return view('system_monitoring.dashboard.charts', compact('metrics'));
+    }
+
+    public function scheduler()
+    {
+        // Inspect the Laravel scheduler to show a human-readable list of all
+        // scheduled tasks, their cron expressions, and next run times.
+        $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
+
+        $events = collect($schedule->events())->map(function ($event) {
+            $command = $event->command ?? $event->description ?? 'Closure';
+
+            // Strip the PHP binary prefix and quotes that Laravel internally prepends.
+            if (is_string($command) && str_contains($command, 'artisan')) {
+                $command = preg_replace('#^".*?php(?:\.exe)?"\s+"?artisan"?\s+#i', '', $command);
+            }
+
+            return [
+                'command' => $command,
+                'description' => $event->description,
+                'expression' => $event->expression,
+                'next_run' => $event->nextRunDate(),
+            ];
+        });
+
+        return view('system_monitoring.dashboard.scheduler', compact('events'));
     }
 
     public function logs()
@@ -283,13 +327,13 @@ class DashboardController extends Controller
      */
     public function health()
     {
-        $stats = $this->getSystemStats();
+        // Cache system stats so shell commands are not run on every page refresh.
+        $stats = Cache::remember('dashboard.system_stats', 60, fn() => $this->getSystemStats());
 
-        // Refresh the health checks on-demand for the dashboard view
-        Artisan::call('health:check');
-
-        // Fetch the results that were just saved
-        $healthResults = app(ResultStore::class)->latestResults();
+        // Do NOT run health:check synchronously here — it blocks the request and can
+        // include external pings. The scheduler already runs health:check periodically.
+        // Just read the latest stored results.
+        $healthResults = Cache::remember('dashboard.health_results', 60, fn() => app(ResultStore::class)->latestResults());
 
         return view('system_monitoring.dashboard.health', compact('stats', 'healthResults'));
     }
@@ -301,11 +345,15 @@ class DashboardController extends Controller
         // 1. CPU Usage
         $cpu = 0;
         if ($isWindows) {
-            $cpu = (int)shell_exec('powershell -Command "(Get-CimInstance Win32_Processor).LoadPercentage"');
+            // Average LoadPercentage across all processors (multi-socket/multi-core safe).
+            $cpu = (int)shell_exec('powershell -Command "$v=(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average; if($v -eq $null){0} else {[math]::Round($v)}"');
         }
         else {
+            // sys_getloadavg returns the 1/5/15 minute load averages (number of runnable processes).
+            // Convert to a percentage by dividing by the number of CPU cores.
             $load = sys_getloadavg();
-            $cpu = $load ? (int)($load[0] * 10) : 0; // rough approximation for Linux
+            $cores = $this->getCpuCoreCount();
+            $cpu = ($load && $cores > 0) ? (int) round(($load[0] / $cores) * 100) : 0;
         }
 
         // 2. RAM Usage
@@ -361,7 +409,7 @@ class DashboardController extends Controller
         }
 
         return [
-            'cpu' => $cpu ?: random_int(1, 5),
+            'cpu' => $cpu,
             'ram' => round($ramUsagePercent, 1),
             'ram_total' => $totalRamGB,
             'ram_used' => $usedRamGB,
@@ -386,6 +434,27 @@ class DashboardController extends Controller
     private function checkPHPProcess()
     {
         return function_exists('phpversion');
+    }
+
+    private function getCpuCoreCount(): int
+    {
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $cores = (int)shell_exec('powershell -Command "(Get-CimInstance Win32_Processor).NumberOfLogicalProcessors | Measure-Object -Sum | Select-Object -ExpandProperty Sum"');
+            return $cores > 0 ? $cores : 1;
+        }
+
+        $nproc = (int)shell_exec('nproc 2>/dev/null');
+        if ($nproc > 0) {
+            return $nproc;
+        }
+
+        $cpuinfo = shell_exec('cat /proc/cpuinfo | grep -c ^processor 2>/dev/null');
+        if ($cpuinfo) {
+            $cores = (int)trim($cpuinfo);
+            return $cores > 0 ? $cores : 1;
+        }
+
+        return 1;
     }
 
     private function parseUptime($raw, $isWindows = false)

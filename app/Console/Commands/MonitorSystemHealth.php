@@ -6,6 +6,7 @@ use App\Models\Monitoring\SystemMetric;
 use App\Models\User\User;
 use App\Services\Monitoring\PrometheusStats;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 
 class MonitorSystemHealth extends Command
@@ -35,6 +36,10 @@ class MonitorSystemHealth extends Command
             'disk_usage' => $metrics['disk_usage_ratio'] * 100,
             'users_count' => $userCount,
         ]);
+
+        // Invalidate cached chart data so the charts dashboard reflects the new snapshot.
+        Cache::forget('dashboard.chart_metrics');
+        Cache::forget('prometheus.system_metrics');
 
         $this->info('System health snapshot saved.');
 

@@ -14,11 +14,12 @@ class PrometheusStats
         // 1. CPU
         $cpu = 0;
         if ($isWindows) {
-            $cpu = (int)shell_exec('powershell -Command "(Get-CimInstance Win32_Processor).LoadPercentage"');
+            $cpu = (int)shell_exec('powershell -Command "$v=(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average; if($v -eq $null){0} else {[math]::Round($v)}"');
         }
         else {
             $load = sys_getloadavg();
-            $cpu = $load ? $load[0] : 0; // Use load average for Linux
+            $cores = max(1, (int)shell_exec('nproc 2>/dev/null') ?: (int)shell_exec('cat /proc/cpuinfo | grep -c ^processor 2>/dev/null') ?: 1);
+            $cpu = ($load && $cores > 0) ? round(($load[0] / $cores) * 100, 2) : 0;
         }
 
         // 2. RAM

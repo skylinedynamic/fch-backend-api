@@ -18,9 +18,9 @@ Route::post("/logout", [AuthController::class, "logout"])->name("logout");
 Route::middleware("auth")->group(function () {
     Route::get("/dashboard", [DashboardController::class, "index"])->name("dashboard");
     Route::get("/dashboard/logs", [DashboardController::class, "logs"])->name("dashboard.logs");
+    Route::get("/dashboard/scheduler", [DashboardController::class, "scheduler"])->name("dashboard.scheduler");
     Route::get("/dashboard/health", [DashboardController::class, "health"])->name("dashboard.health");
     Route::get("/dashboard/charts", [DashboardController::class, "charts"])->name("dashboard.charts");
-    Route::get("/dashboard/fleet", [DashboardController::class, "fleet"])->name("dashboard.fleet");
     Route::get("/dashboard/backups", [DashboardController::class, "backups"])->name("dashboard.backups");
     Route::get("/dashboard/backups/download", [DashboardController::class, "downloadBackup"])->name("dashboard.backups.download");
     Route::post("/dashboard/backups/restore", [DashboardController::class, "restoreBackup"])->name("dashboard.backups.restore");

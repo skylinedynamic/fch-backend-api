@@ -153,7 +153,7 @@ return [
              *
              * Setting of 0 for some algorithms may switch to the strongest compression.
              */
-            'compression_level' => 9,
+            'compression_level' => env('BACKUP_COMPRESSION_LEVEL', 6),
 
             /*
              * The filename prefix used for the backup zip file.

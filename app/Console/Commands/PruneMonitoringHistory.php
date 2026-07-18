@@ -31,7 +31,13 @@ class PruneMonitoringHistory extends Command
 
         $threshold = Carbon::now()->subMonth();
 
-        $count = SystemMetric::where('created_at', '<', $threshold)->delete();
+        // Chunk the deletion to avoid long table locks and memory spikes when the
+        // monitoring history table grows large.
+        $count = 0;
+        do {
+            $deleted = SystemMetric::where('created_at', '<', $threshold)->limit(1000)->delete();
+            $count += $deleted;
+        } while ($deleted > 0);
 
         $this->info("Pruning complete. Removed {$count} old snapshot records.");
     }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "89d73b1e10534dc470ea9b85ec4eba62",
+    "content-hash": "139eca2c8035f80f02606ac2b8326ebc",
     "packages": [
         {
             "name": "anhskohbo/no-captcha",
@@ -5660,68 +5660,6 @@
             "time": "2026-03-03T17:31:43+00:00"
         },
         {
-            "name": "spatie/blink",
-            "version": "1.4.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/spatie/blink.git",
-                "reference": "d2c12b84ba04d4c5b53d701cc09810bf7e5d546f"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/spatie/blink/zipball/d2c12b84ba04d4c5b53d701cc09810bf7e5d546f",
-                "reference": "d2c12b84ba04d4c5b53d701cc09810bf7e5d546f",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.0"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "^9.5"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Spatie\\Blink\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Freek Van der Herten",
-                    "email": "freek@spatie.be",
-                    "homepage": "https://spatie.be",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Cache that expires in the blink of an eye",
-            "homepage": "https://github.com/spatie/blink",
-            "keywords": [
-                "Blink",
-                "cache",
-                "caching",
-                "spatie"
-            ],
-            "support": {
-                "issues": "https://github.com/spatie/blink/issues",
-                "source": "https://github.com/spatie/blink/tree/1.4.0"
-            },
-            "funding": [
-                {
-                    "url": "https://spatie.be/open-source/support-us",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/spatie",
-                    "type": "github"
-                }
-            ],
-            "time": "2023-07-19T18:28:44+00:00"
-        },
-        {
             "name": "spatie/db-dumper",
             "version": "3.8.3",
             "source": {
@@ -6052,82 +5990,6 @@
             "time": "2025-11-05T11:25:01+00:00"
         },
         {
-            "name": "spatie/laravel-blink",
-            "version": "1.7.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/spatie/laravel-blink.git",
-                "reference": "18ab78eaa5d54fcd643c6695233d347fe242f3c2"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/spatie/laravel-blink/zipball/18ab78eaa5d54fcd643c6695233d347fe242f3c2",
-                "reference": "18ab78eaa5d54fcd643c6695233d347fe242f3c2",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/support": "^8.73|^9.0|^10.0|^11.0|^12.0|^13.0",
-                "php": "^7.4|^8.0",
-                "spatie/blink": "^1.1.3"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^6.23|^8.0|^9.0|^10.0|^11.0",
-                "phpunit/phpunit": "^8.5|^9.5|^10.5|^11.5.3|^12.5.12"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "aliases": {
-                        "Blink": "Spatie\\LaravelBlink\\BlinkFacade"
-                    },
-                    "providers": [
-                        "Spatie\\LaravelBlink\\BlinkServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "files": [
-                    "src/helpers.php"
-                ],
-                "psr-4": {
-                    "Spatie\\LaravelBlink\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Freek Van der Herten",
-                    "email": "freek@spatie.be",
-                    "homepage": "https://spatie.be",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Cache that expires in the blink of an eye",
-            "homepage": "https://github.com/spatie/laravel-blink",
-            "keywords": [
-                "laravel-blink",
-                "spatie"
-            ],
-            "support": {
-                "issues": "https://github.com/spatie/laravel-blink/issues",
-                "source": "https://github.com/spatie/laravel-blink/tree/1.7.2"
-            },
-            "funding": [
-                {
-                    "url": "https://spatie.be/open-source/support-us",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/spatie",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-02-21T21:26:52+00:00"
-        },
-        {
             "name": "spatie/laravel-health",
             "version": "1.39.1",
             "source": {
@@ -6363,77 +6225,6 @@
                 }
             ],
             "time": "2026-03-17T22:46:46+00:00"
-        },
-        {
-            "name": "spatie/laravel-server-monitor",
-            "version": "1.10.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/spatie/laravel-server-monitor.git",
-                "reference": "baace6a16b75d7114935b235571ce6e9df0e08d1"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/spatie/laravel-server-monitor/zipball/baace6a16b75d7114935b235571ce6e9df0e08d1",
-                "reference": "baace6a16b75d7114935b235571ce6e9df0e08d1",
-                "shasum": ""
-            },
-            "require": {
-                "ext-json": "*",
-                "guzzlehttp/guzzle": "^7.0",
-                "laravel/framework": "^10.0|^11.0|^12.0|^13.0",
-                "php": "^8.2",
-                "spatie/laravel-blink": "^1.3",
-                "spatie/regex": "^3.1",
-                "symfony/process": "^6.0|^7.0|^8.0"
-            },
-            "require-dev": {
-                "mockery/mockery": "^1.4",
-                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
-                "pestphp/pest": "^2.34|^3.7|^4.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Spatie\\ServerMonitor\\ServerMonitorServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Spatie\\ServerMonitor\\": "src"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Freek Van der Herten",
-                    "email": "freek@spatie.be",
-                    "homepage": "https://spatie.be",
-                    "role": "Developer"
-                }
-            ],
-            "description": "Monitor servers",
-            "homepage": "https://github.com/spatie/laravel-server-monitor",
-            "keywords": [
-                "laravel-server-monitor",
-                "spatie"
-            ],
-            "support": {
-                "issues": "https://github.com/spatie/laravel-server-monitor/issues",
-                "source": "https://github.com/spatie/laravel-server-monitor/tree/1.10.2"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/spatie",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-02-21T22:31:17+00:00"
         },
         {
             "name": "spatie/laravel-signal-aware-command",
@@ -12147,12 +11938,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": [],
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.2"
     },
-    "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "platform-dev": [],
+    "plugin-api-version": "2.2.0"
 }

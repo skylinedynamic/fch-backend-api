@@ -114,17 +114,6 @@
       0 => 'Spatie\\Backup\\BackupServiceProvider',
     ),
   ),
-  'spatie/laravel-blink' => 
-  array (
-    'aliases' => 
-    array (
-      'Blink' => 'Spatie\\LaravelBlink\\BlinkFacade',
-    ),
-    'providers' => 
-    array (
-      0 => 'Spatie\\LaravelBlink\\BlinkServiceProvider',
-    ),
-  ),
   'spatie/laravel-health' => 
   array (
     'aliases' => 
@@ -141,13 +130,6 @@
     'providers' => 
     array (
       0 => 'Spatie\\Permission\\PermissionServiceProvider',
-    ),
-  ),
-  'spatie/laravel-server-monitor' => 
-  array (
-    'providers' => 
-    array (
-      0 => 'Spatie\\ServerMonitor\\ServerMonitorServiceProvider',
     ),
   ),
   'spatie/laravel-signal-aware-command' => 

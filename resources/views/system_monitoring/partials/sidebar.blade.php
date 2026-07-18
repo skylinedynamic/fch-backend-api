@@ -22,8 +22,13 @@
                 </a>
                 
                 <a href="{{ route('dashboard.logs') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.logs' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
-                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.logs' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1-1-1-1 1-1-1-1 1-1-1-1 1zM4 8.885V16a2 2 0 002 2h12a2 2 0 002-2V8.885a2 2 0 00-1.328-1.885L12.672 6.13a2 2 0 00-1.344 0L4.328 7a2 2 0 00-1.328 1.885z"></path></svg>
+                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.logs' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1-1-1-1 1-1-1-1 1-1-1-1 1-1-1-1 1zM4 8.885V16a2 2 0 002 2h12a2 2 0 002-2V8.885a2 2 0 00-1.328-1.885L12.672 6.13a2 2 0 00-1.344 0L4.328 7a2 2 0 00-1.328 1.885z"></path></svg>
                     System Logs
+                </a>
+
+                <a href="{{ route('dashboard.scheduler') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.scheduler' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.scheduler' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Task Scheduler
                 </a>
                 
                 <a href="{{ route('dashboard.health') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.health' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
@@ -34,11 +39,6 @@
                 <a href="{{ route('dashboard.charts') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.charts' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                     <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.charts' ? 'text-white' : 'text-slate-500 group-hover:text-purple-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                     Resource History
-                </a>
-
-                <a href="{{ route('dashboard.fleet') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.fleet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
-                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.fleet' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                    Fleet Monitor
                 </a>
 
                 <a href="{{ route('dashboard.backups') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.backups' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">

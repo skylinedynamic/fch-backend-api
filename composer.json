@@ -27,7 +27,6 @@
         "spatie/laravel-health": "^1.39",
         "spatie/laravel-backup": "*",
         "spatie/laravel-permission": "^6.22",
-        "spatie/laravel-server-monitor": "^1.10",
         "spomky-labs/otphp": "^11.3",
         "stripe/stripe-php": "^19.2",
         "twilio/sdk": "^8.8"

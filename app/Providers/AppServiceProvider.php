@@ -17,6 +17,8 @@ use Spatie\Health\Checks\Checks\UsedDiskSpaceCheck;
 use Spatie\Health\Checks\Checks\DebugModeCheck;
 use Spatie\Health\Checks\Checks\EnvironmentCheck;
 use Spatie\Health\Checks\Checks\PingCheck;
+use Spatie\Health\Checks\Checks\ScheduleCheck;
+use App\HealthChecks\SchedulerRanCheck;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -41,7 +43,13 @@ class AppServiceProvider extends ServiceProvider
             EnvironmentCheck::new ()->expectEnvironment(app()->environment()),
             PingCheck::new ()->name('Local API Gateway')->url(config('app.url'))->unless(app()->isLocal()),
             PingCheck::new ()->name('Network (Google)')->url('https://google.com'),
+            SchedulerRanCheck::new(),
         ];
+
+        // Optional external heartbeat check (requires SCHEDULE_HEARTBEAT_URL env).
+        if (config('health.schedule.heartbeat_url')) {
+            $checks[] = ScheduleCheck::new();
+        }
 
         if (PHP_OS_FAMILY !== 'Windows') {
             $checks[] = UsedDiskSpaceCheck::new ()
