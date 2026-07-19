@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH;
 
+use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use Illuminate\Support\Str;
 use App\Traits\PaginatesApi;
@@ -117,10 +118,19 @@ class InvoiceService
         }
 
 
-        // Filter by Payee (Compatibility)
-        if (!empty($filters['payee_id'])) {
-            $query->where('invoices.entity_id', $filters['payee_id']);
-            unset($rawFilters['payee_id']);
+        // Filter by entity_id (Compatibility)
+        if (!empty($filters['entity_id']) && !empty($filters['entity_type'])) {
+            $query->where('invoices.entity_id', $filters['entity_id']);
+            if ($filters['entity_type'] == User::PARTNER) {
+                $query->where('invoices.entity_type', Partner::class);
+            } elseif ($filters['entity_type'] == User::BORROWER) {
+                $query->where('invoices.entity_type', Borrower::class);
+            } else {
+                $query->where('invoices.entity_type', User::class);
+            }
+
+            unset($rawFilters['entity_id']);
+            unset($rawFilters['entity_type']);
         }
 
         // Sorting
@@ -318,7 +328,7 @@ class InvoiceService
     private function getBusinessInfo(?int $partnerId = null, ?int $borrowerId = null): array
     {
         $targetPartner = getConfigPartner();
-        $branding = AppConfiguration::where('partner_id',$targetPartner->id)->where('module',AppConfiguration::MODULE_BRANDING)->pluck('value','key')->toArray();
+        $branding = AppConfiguration::where('partner_id', $targetPartner->id)->where('module', AppConfiguration::MODULE_BRANDING)->pluck('value', 'key')->toArray();
 
         return [
             'company_name' => $branding['site_name'] ?? '',
@@ -330,7 +340,7 @@ class InvoiceService
             'postal_code' => $targetPartner->postal_code ?? '',
             'country' => $targetPartner->country ?? '',
             'website' => $targetPartner->website ?? '',
-            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/'.$branding['secondary_logo'])) : '',
+            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
         ];
     }
 }

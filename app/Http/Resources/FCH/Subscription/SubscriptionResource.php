@@ -51,8 +51,8 @@ class SubscriptionResource extends JsonResource
             'partner_email' => $partner?->email,
             'borrower_name' => $borrower ? ($borrower->first_name . ' ' . $borrower->last_name) : null,
             'borrower_email' => $borrower?->email,
-            'created_at' => $this->created_at?->format('Y-m-d h:i A'),
-            'updated_at' => $this->updated_at?->format('Y-m-d h:i A'),
+            'created_at' => $this->created_at?->format('Y-m-d'),
+            'updated_at' => $this->updated_at?->format('Y-m-d'),
         ];
     }
 }

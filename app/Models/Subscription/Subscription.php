@@ -183,4 +183,22 @@ class Subscription extends Model
                 // We can resolve full name in concatenation or view
             );
     }
+
+    /**
+     * Accessor: human-readable entity name (partner/borrower/employee).
+     */
+    public function getEntityNameAttribute(): ?string
+    {
+        if (!$this->entity_type) {
+            return null;
+        }
+
+        $map = [
+            Partner::class => User::PARTNER,
+            Borrower::class => User::BORROWER,
+            \App\Models\Employee\Employee::class => User::EMPLOYEE,
+        ];
+
+        return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
+    }
 }

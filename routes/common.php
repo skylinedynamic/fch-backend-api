@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
@@ -278,6 +279,10 @@ Route::prefix('v1')->group(function () {
             // Partner Tenant Config (for authenticated WL partners)
             Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);
             Route::post('partner/tenant-config', [TenantConfigController::class, 'update']);
+
+            // 💳 Billing
+            Route::post('billing/fetch-upcoming', [BillingController::class, 'fetchUpcoming']);
+            Route::get('billing/{id}', [BillingController::class, 'details']);
 
 
             //  Payments
