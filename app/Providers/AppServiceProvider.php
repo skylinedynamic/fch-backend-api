@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use App\Models\User\User;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -35,6 +36,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (app()->isProduction()) {
+            URL::forceScheme('https');
+        }
+
         Model::preventLazyLoading(!app()->isProduction());
 
         $checks = [
@@ -101,12 +106,7 @@ class AppServiceProvider extends ServiceProvider
                 return true;
             }
 
-            if (!$user) {
-                return false;
-            }
-
-            $allowedEmails = array_filter(array_map('trim', explode(',', (string)env('LOG_VIEWER_ALLOWED_EMAILS', ''))));
-            return in_array($user->email, $allowedEmails, true);
+            return $user;
         });
     }
 }
