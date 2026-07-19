@@ -15,10 +15,20 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\Borrower\Document\DocumentService;
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\BorrowerDocType;
 
 class FundingRequestService
 {
     use PaginatesApi;
+
+    protected $documentService;
+
+    public function __construct(DocumentService $documentService)
+    {
+        $this->documentService = $documentService;
+    }
 
     /**
      * Store a new funding request.
@@ -234,5 +244,84 @@ class FundingRequestService
             'data' => new FundingRequestResource($review),
             'message' => 'funding request retrieved successfully.'
         ]);
+    }
+
+    public function uploadDocument(array $data)
+    {
+        $user = Auth::user();
+        $borrower = $user->borrower;
+
+        // 1. Create the BorrowerDocument(s)
+        $docType = BorrowerDocType::find($data['document_type_id']);
+        if (!$docType) {
+            throw new Exception("Document type not found.");
+        }
+        
+        $documentResponse = $this->documentService->createBorrowerDocuments([
+            'files' => $data['files'],
+            'document_type_id' => $data['document_type_id']
+        ]);
+        
+        $documents = $documentResponse->getData(true)['data'] ?? [];
+
+        // 2. Find any pending/rejected FundingRequest for this sequence
+        $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+            ->first();
+
+        // 3. Update the documents_uploaded array if funding request exists
+        if ($fundingRequest && $docType) {
+            $uploaded = $fundingRequest->documents_uploaded ?? [];
+            if (!in_array($docType->name, $uploaded)) {
+                $uploaded[] = $docType->name;
+                $fundingRequest->documents_uploaded = $uploaded;
+                $fundingRequest->save();
+            }
+        }
+
+        return $documents;
+    }
+
+    public function deleteDocument($documentId, array $data)
+    {
+        $user = Auth::user();
+        $borrower = $user->borrower;
+
+        // 1. Delete the BorrowerDocument
+        $document = BorrowerDocument::where('borrower_id', $borrower->id)->find($documentId);
+        if (!$document) {
+            throw new Exception("Document not found.");
+        }
+        
+        $docTypeName = $document->documentType ? $document->documentType->name : null;
+        $document->delete();
+
+        // 2. Check if other documents of the same type still exist
+        if ($docTypeName) {
+            $otherDocsCount = BorrowerDocument::where('borrower_id', $borrower->id)
+                ->whereHas('documentType', function($q) use ($docTypeName) {
+                    $q->where('name', $docTypeName);
+                })
+                ->count();
+
+            // 3. If none exist, remove from FundingRequest
+            if ($otherDocsCount === 0) {
+                $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
+                    ->where('funding_sequence_id', $data['funding_sequence_id'])
+                    ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+                    ->first();
+
+                if ($fundingRequest) {
+                    $uploaded = $fundingRequest->documents_uploaded ?? [];
+                    if (($key = array_search($docTypeName, $uploaded)) !== false) {
+                        unset($uploaded[$key]);
+                        // Re-index array
+                        $fundingRequest->documents_uploaded = array_values($uploaded);
+                        $fundingRequest->save();
+                    }
+                }
+            }
+        }
     }
 }

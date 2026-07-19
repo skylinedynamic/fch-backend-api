@@ -23,6 +23,7 @@ class LenderVisibility extends Model
         'lender_product_category_id',
         'funding_sequencing_id',
         'min_fico',
+        'min_business_credit_score',
         'min_tib_months',
         'min_monthly_revenue',
         'min_avg_deposits',
@@ -79,6 +80,7 @@ class LenderVisibility extends Model
             }
 
             $q->orWhere('min_fico', 'like', '%' . $term . '%')
+            ->orWhere('min_business_credit_score', 'like', '%' . $term . '%')
             ->orWhere('min_tib_months', 'like', '%' . $term . '%')
             ->orWhere('min_monthly_revenue', 'like', '%' . $term . '%')
             ->orWhere('min_monthly_deposits', 'like', '%' . $term . '%')

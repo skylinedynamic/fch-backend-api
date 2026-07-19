@@ -105,6 +105,10 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/requests', [FundingRequestController::class, 'store']);
                     Route::post('/requests/list', [FundingRequestController::class, 'index']);
                     Route::get('/requests/{id}', [FundingRequestController::class, 'show']);
+                    
+                    Route::post('/requests/documents/upload', [FundingRequestController::class, 'uploadDocument']);
+                    Route::delete('/requests/documents/{documentId}', [FundingRequestController::class, 'deleteDocument']);
+
                     Route::get('/', [FundingController::class, 'index']);
                     Route::get('/{id}', [FundingController::class, 'show']);
                 }

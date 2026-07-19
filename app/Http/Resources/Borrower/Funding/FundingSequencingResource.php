@@ -17,6 +17,9 @@ class FundingSequencingResource extends JsonResource
         if (!is_null($this->min_fico)) {
             $requirements[] = ['label' => 'Min FICO', 'value' => (string) $this->min_fico];
         }
+        if (!is_null($this->min_business_credit_score)) {
+            $requirements[] = ['label' => 'Min Business Credit', 'value' => (string) $this->min_business_credit_score];
+        }
         if (!is_null($this->min_tib_months)) {
             $requirements[] = ['label' => 'Min Time in Biz', 'value' => $this->min_tib_months . ' months'];
         }
