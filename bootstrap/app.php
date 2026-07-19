@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -26,9 +27,6 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class
         );
 
-        $middleware->appendToGroup('api', [
-            \App\Http\Middleware\EnsureTenantAccess::class,
-        ]);
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
             'check-2fa-status' => \App\Http\Middleware\CheckTwoFactorStatus::class,
