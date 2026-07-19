@@ -138,6 +138,8 @@ class Invoice extends Model
     const STATUS_OVERDUE = 'Overdue';
     const STATUS_ALL = 'All Status';
 
+    public const CURRENCY_USD = 'USD';
+
 
     const PAYEE_ALL = 'All Payees';
 

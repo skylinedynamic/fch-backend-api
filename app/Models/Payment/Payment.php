@@ -28,6 +28,7 @@ class Payment extends Model
     ];
 
     public const STATUS_SUCCEEDED = 'succeeded';
+    public const STATUS_REQUIRES_CAPTURE = 'requires_capture';
     public const STATUS_FAILED = 'failed';
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';

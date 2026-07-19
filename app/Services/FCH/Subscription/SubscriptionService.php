@@ -224,7 +224,7 @@ class SubscriptionService
     {
         // Handle installment_type logic
         if (isset($data['enrollment_type'])) {
-            $data['installment_type'] = (Str::contains($data['enrollment_type'], ['Payment Plan', 'Monthly'])) ? 1 : 0;
+            $data['installment_type'] = (Str::contains($data['enrollment_type'], [Subscription::ENROLLMENT_TYPE_PAYMENT_PLAN, Subscription::ENROLLMENT_TYPE_MONTHLY])) ? 1 : 0;
         }
 
         return Subscription::updateOrCreate($searchFields, $data);
@@ -238,7 +238,7 @@ class SubscriptionService
      */
     public function getByPartnerId(int $partnerId)
     {
-        return Subscription::where('entity_type', \App\Models\Partner\Partner::class)
+        return Subscription::where('entity_type', Partner::class)
             ->where('entity_id', $partnerId)
             ->orderBy('id', 'desc')
             ->with(['partner'])
@@ -250,7 +250,7 @@ class SubscriptionService
      */
     public function getByBorrowerId(int $borrowerId)
     {
-        return Subscription::where('entity_type', \App\Models\Borrower\Borrower::class)
+        return Subscription::where('entity_type', Borrower::class)
             ->where('entity_id', $borrowerId)
             ->orderBy('id', 'desc')
             ->with(['borrower'])
@@ -483,7 +483,7 @@ class SubscriptionService
                 $subscription = $phase->subscription;
                 $entity = $subscription->entity;
 
-                if (!$entity || $subscription->status !== 'Active') {
+                if (!$entity || $subscription->status !== Subscription::STATUS_ACTIVE) {
                     return; // Ignore if subscription not active or entity missing
                 }
 
@@ -507,7 +507,7 @@ class SubscriptionService
                 }
                 // ----------------------------------------
 
-                $isPlatformFee = $type === 'platform_fee';
+                $isPlatformFee = $type === SubscriptionPhase::PHASE_PLATFORM_FEE;
 
                 $cycleDate = $isPlatformFee
                     ? $phase->next_platform_fee_date
@@ -573,7 +573,9 @@ class SubscriptionService
                     'entity_id' => $subscription->entity_id,
                     'customer_name' => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
                     'email' => $entity->email,
+                    'country' => $entity->country ?? null,
                     'payment_amount' => $amount,
+                    'currency' => Invoice::CURRENCY_USD,
                     'status' => Invoice::STATUS_UNPAID,
                     'is_partner_paying' => $isPartnerPaying,
                     'is_platform_fee' => $isPlatformFee ? 1 : 0,
@@ -644,10 +646,10 @@ class SubscriptionService
             ->where('phase', SubscriptionPhase::PHASE_ENROLLMENT)
             ->whereNotNull('next_installment_date')
             ->whereDate('next_installment_date', '<=', $targetDate)
-            ->whereHas('subscription', fn($q) => $q->where('status', 'Active'))
+            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
             ->chunkById(100, function ($phases) {
                 foreach ($phases as $phase) {
-                    $this->createInvoiceForPhase($phase, 'enrollment');
+                    $this->createInvoiceForPhase($phase, SubscriptionPhase::PHASE_ENROLLMENT);
                 }
             });
     }
@@ -664,10 +666,10 @@ class SubscriptionService
             ->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
             ->whereNotNull('next_platform_fee_date')
             ->whereDate('next_platform_fee_date', '<=', $targetDate)
-            ->whereHas('subscription', fn($q) => $q->where('status', 'Active'))
+            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
             ->chunkById(100, function ($phases) {
                 foreach ($phases as $phase) {
-                    $this->createInvoiceForPhase($phase, 'platform_fee');
+                    $this->createInvoiceForPhase($phase, SubscriptionPhase::PHASE_PLATFORM_FEE);
                 }
             });
     }
