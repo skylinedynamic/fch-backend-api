@@ -4,7 +4,6 @@ namespace App\Http\Resources\FCH\Invoice;
 
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class InvoiceResource extends JsonResource
@@ -16,8 +15,6 @@ class InvoiceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
-
         return [
             'id' => $this->id,
             'invoice_id' => $this->invoice_id,
@@ -30,13 +27,13 @@ class InvoiceResource extends JsonResource
             'country' => $this->country,
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
-            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->setTimezone($timezone)->format('Y-m-d') : null,
+            'payment_date' => toTimezone($this->payment_date),
             'status' => $this->status,
             'type' => $this->type,
             'details' => $this->details,
             // 'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'branding' => $this->resolveBrandingData(),
-            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
+            'created_at' => toTimezone($this->created_at),
             // Add any other fields or relations if needed
         ];
     }
