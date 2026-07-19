@@ -25,6 +25,7 @@ Artisan::command('inspire', function () {
 */
 
 $scheduleTimezone = config('app.scheduler_timezone', config('app.timezone', 'UTC'));
+$schedulerLogPath = storage_path('logs/scheduler.log');
 
 /**
  * Shared failure handler: logs AND notifies (Slack/email/etc via
@@ -37,20 +38,16 @@ $onFailure = function (string $command) {
     };
 };
 
-/*
-|--------------------------------------------------------------------------
-| Scheduler Health Heartbeat
-|--------------------------------------------------------------------------
-|
-| Runs every minute and writes a cache timestamp. The custom
-| SchedulerRanCheck health check uses this to verify the scheduler cron is
-| actually running. If the timestamp goes stale, the health dashboard will
-| report a failure.
-|
-*/
-Schedule::command('scheduler:heartbeat')
-    ->everyMinute()
-    ->timezone($scheduleTimezone);
+/**
+ * Shared success handler: logs the success of scheduled commands.
+ */
+$onSuccess = function (string $command) {
+    return function () use ($command) {
+        Log::info("Scheduled command succeeded: {$command}");
+    };
+};
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -69,6 +66,27 @@ Schedule::command('users:check-expired')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('users:check-expired'));
 
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Scheduler Health Heartbeat
+|--------------------------------------------------------------------------
+|
+| Runs every minute and writes a cache timestamp. The custom
+| SchedulerRanCheck health check uses this to verify the scheduler cron is
+| actually running. If the timestamp goes stale, the health dashboard will
+| report a failure.
+|
+*/
+Schedule::command('scheduler:heartbeat')
+    ->everyMinute()
+    ->timezone($scheduleTimezone)
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('scheduler:heartbeat'));
+
 /*
 |--------------------------------------------------------------------------
 | Monitoring / Maintenance Commands
@@ -78,14 +96,18 @@ Schedule::command('logs:prune-months')
     ->dailyAt('03:00')
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(30)
-    ->onFailure($onFailure('logs:prune-months'));
+    ->onFailure($onFailure('logs:prune-months'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('logs:prune-months'));
 
 // Snap system resource metrics (CPU/RAM/Disk) for the charts dashboard.
 Schedule::command('app:monitor-health')
     ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('app:monitor-health'));
+    ->onFailure($onFailure('app:monitor-health'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('app:monitor-health'));
 
 // Run Spatie health checks. Frequency is env-driven so you can lower it
 // on small instances to reduce load. Default every 5 minutes.
@@ -93,14 +115,18 @@ Schedule::command('health:check')
     ->cron(config('monitoring.health_check_cron', '*/5 * * * *'))
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('health:check'));
+    ->onFailure($onFailure('health:check'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('health:check'));
 
 // Purge monitoring history older than 1 month
 Schedule::command('monitoring:prune')
     ->dailyAt('03:30')
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(30)
-    ->onFailure($onFailure('monitoring:prune'));
+    ->onFailure($onFailure('monitoring:prune'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('monitoring:prune'));
 
 /*
 |--------------------------------------------------------------------------
@@ -111,10 +137,14 @@ Schedule::command('backup:run --only-db')
     ->dailyAt('04:00')
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(180)
-    ->onFailure($onFailure('backup:run --only-db'));
+    ->onFailure($onFailure('backup:run --only-db'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('backup:run --only-db'));
 
 Schedule::command('backup:clean')
     ->dailyAt('05:00')
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(60)
-    ->onFailure($onFailure('backup:clean'));
+    ->onFailure($onFailure('backup:clean'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('backup:clean'));
