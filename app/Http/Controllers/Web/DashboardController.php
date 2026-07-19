@@ -300,7 +300,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Log Viewer',
             'subtitle' => 'System Monitoring',
-            'url' => request()->getSchemeAndHttpHost().'/log-viewer',
+            'url' => '/log-viewer',
         ]);
     }
 
@@ -309,7 +309,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Admin API Docs',
             'subtitle' => 'API Reference (Admin)',
-            'url' => request()->getSchemeAndHttpHost().'/docs/admin',
+            'url' => '/docs/admin',
         ]);
     }
 
@@ -318,7 +318,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Borrower API Docs',
             'subtitle' => 'API Reference (Borrower)',
-            'url' => request()->getSchemeAndHttpHost().'/docs/borrower',
+            'url' => '/docs/borrower',
         ]);
     }
 
