@@ -274,6 +274,13 @@ class DashboardController extends Controller
     {
         // Inspect the Laravel scheduler to show a human-readable list of all
         // scheduled tasks, their cron expressions, and next run times.
+        // Console routes (where schedules are defined) are not loaded on web
+        // requests, so we need to load them manually to populate the Schedule.
+        $consoleRoutes = base_path('routes/console.php');
+        if (file_exists($consoleRoutes)) {
+            require $consoleRoutes;
+        }
+
         $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
 
         $events = collect($schedule->events())->map(function ($event) {
