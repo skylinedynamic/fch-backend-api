@@ -13,8 +13,8 @@ class SchedulerRanCheck extends Check
      * Verify that the Laravel scheduler has run recently.
      *
      * A separate command (`scheduler:heartbeat`) writes a cache timestamp
-     * every minute. If that timestamp is missing or stale, the scheduler
-     * cron is probably not running.
+     * every hour. If that timestamp is missing or more than 2 hours old,
+     * the scheduler cron is probably not running.
      */
     public function run(): Result
     {
@@ -26,9 +26,9 @@ class SchedulerRanCheck extends Check
         }
 
         $lastRunAt = Carbon::parse($lastRun);
-        $thresholdMinutes = 2;
+        $thresholdHours = 2;
 
-        if ($lastRunAt->lt(now()->subMinutes($thresholdMinutes))) {
+        if ($lastRunAt->lt(now()->subHours($thresholdHours))) {
             return Result::make()
                 ->failed("Scheduler last ran {$lastRunAt->diffForHumans()}. The scheduler cron may be stuck.");
         }
