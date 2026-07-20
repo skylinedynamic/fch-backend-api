@@ -5,7 +5,7 @@ use Dedoc\Scramble\Scramble;
 
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\DashboardController;
-use App\Http\Controllers\Web\PrometheusController;
+use App\Http\Controllers\Web\SchedulerCheckController;
 
 Route::get("/", function () {
     abort(404);
@@ -29,12 +29,12 @@ Route::middleware("auth")->group(function () {
     Route::get("/dashboard/docs/borrower", [DashboardController::class, "docsBorrower"])->name("dashboard.docs.borrower");
 });
 
-// Prometheus exporter endpoint
-Route::get("/prometheus", PrometheusController::class);
+// Scheduler health check endpoint — call via external cron (e.g. AWS crontab)
+Route::get("/scheduler/check", SchedulerCheckController::class);
 
-Route::get("/testing", function () {
-    return view("recaptcha");
-});
+// Route::get("/testing", function () {
+//     return view("recaptcha");
+// });
 
 // Register borrower API documentation routes
 Scramble::registerUiRoute("docs/borrower", api: "borrower");
