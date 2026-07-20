@@ -146,5 +146,11 @@ return [
 
     'mail_to_doc' => env('MAIL_TO_DOC', 'docs@fourcornerfunding.com'),
     'per_user_price' => env('PER_USER_PRICE', 49.97),
-    'cron_notify_emails' => env('CRON_ERROR_NOTIFY_EMAILS', 'arafat@invento.com.bd,awlad@invento.com.bd,munim@invento.com.bd'),
+    'cron_notify_emails' => env('CRON_ERROR_NOTIFY_EMAILS', 'arafat@invento.com.bd,awladdeleo@gmail.com'),
+
+    /*
+     * Optional external heartbeat URL (e.g. Dead Man's Snitch, healthchecks.io).
+     * The scheduler:heartbeat command will ping this URL every minute when set.
+     */
+    'schedule_heartbeat_url' => env('SCHEDULE_HEARTBEAT_URL',''),
 ];
