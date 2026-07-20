@@ -297,7 +297,7 @@ return [
     'monitor_backups' => [
         [
             'name' => env('APP_NAME', 'laravel-backup'),
-            'disks' => [env('BACKUP_DISK', 'local')],
+            'disks' => [env('BACKUP_DISK','local')],
             'health_checks' => [
                 MaximumAgeInDays::class => 1,
                 MaximumStorageInMegabytes::class => 5000,
