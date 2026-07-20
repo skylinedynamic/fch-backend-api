@@ -81,10 +81,6 @@ Schedule::command('users:check-expired')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('users:check-expired'));
 
-
-
-
-
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat
@@ -97,7 +93,7 @@ Schedule::command('users:check-expired')
 |
 */
 Schedule::command('scheduler:heartbeat')
-    ->everyMinute()
+    ->hourly()
     ->timezone($scheduleTimezone)
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('scheduler:heartbeat'));
