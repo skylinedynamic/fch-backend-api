@@ -52,36 +52,75 @@ class DashboardController extends Controller
     /**
      * Show database backups.
      */
-    public function backups()
+    public function backups(Request $request)
     {
+        $cacheKey = 'dashboard.backups_list';
+
+        // Allow operators to force a fresh read when debugging remote disk issues.
+        if ($request->boolean('refresh')) {
+            Cache::forget($cacheKey);
+        }
+
         // Backup destination inspection can be expensive on remote disks. Cache the
         // rendered list for 5 minutes; clear it automatically after restore/delete.
-        $backups = Cache::remember('dashboard.backups_list', 300, function () {
+        $backups = Cache::remember($cacheKey, 300, function () {
             $monitorConfig = config('backup.monitor_backups');
 
             $statuses = collect($monitorConfig)->flatMap(function ($config) {
                 // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
                 $config['healthChecks'] = $config['health_checks'] ?? [];
-                return BackupDestinationStatusFactory::createForSingleMonitor($config);
+
+                try {
+                    return BackupDestinationStatusFactory::createForSingleMonitor($config);
+                } catch (\Throwable $e) {
+                    Log::error('Backup monitor factory failed.', [
+                        'config' => $config,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    return collect();
+                }
             });
 
             return $statuses->map(function (BackupDestinationStatus $status) {
                 $destination = $status->backupDestination();
-                return [
-                    'name' => $destination->backupName(),
-                    'disk' => $destination->diskName(),
-                    'reachable' => $destination->isReachable(),
-                    'healthy' => $status->isHealthy(),
-                    'files' => $destination->backups()->map(function ($backup) {
-                        return [
-                            'path' => $backup->path(),
-                            'date' => $backup->date(),
-                            'size' => $backup->sizeInBytes(),
-                        ];
-                    }),
-                    'storage_used' => $this->formatBytes($destination->usedStorage()),
-                    'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
-                ];
+
+                try {
+                    $files = $destination->backups();
+
+                    return [
+                        'name' => $destination->backupName(),
+                        'disk' => $destination->diskName(),
+                        'reachable' => $destination->isReachable(),
+                        'connection_error' => $destination->connectionError?->getMessage(),
+                        'healthy' => $status->isHealthy(),
+                        'files' => $files->map(function ($backup) {
+                            return [
+                                'path' => $backup->path(),
+                                'date' => $backup->date(),
+                                'size' => $backup->sizeInBytes(),
+                            ];
+                        }),
+                        'storage_used' => $this->formatBytes($destination->usedStorage()),
+                        'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
+                    ];
+                } catch (\Throwable $e) {
+                    Log::error('Failed to read backup destination.', [
+                        'disk' => $destination->diskName(),
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    return [
+                        'name' => $destination->backupName(),
+                        'disk' => $destination->diskName(),
+                        'reachable' => false,
+                        'connection_error' => $e->getMessage(),
+                        'healthy' => false,
+                        'files' => collect(),
+                        'storage_used' => '0 B',
+                        'newest_backup' => null,
+                    ];
+                }
             });
         });
 
