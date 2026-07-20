@@ -8,7 +8,7 @@ use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\PrometheusController;
 
 Route::get("/", function () {
-    return redirect()->route("login");
+    abort(404);
 });
 
 Route::get("/login", [AuthController::class, "showLoginForm"])->name("login");
