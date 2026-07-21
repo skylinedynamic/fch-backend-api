@@ -1,0 +1,183 @@
+/*
+ * FCH Core — Monitoring Theme (Strict Color Match)
+ * 
+ * Dashboard Primary Colors:
+ * - Body Background: #020617 (Deep Black-Navy)
+ * - Sidebar/Panels:  #0f172a (Navy Slate)
+ * - Surface/Cards:   #1e293b (Slate 800)
+ * - Accent:          #818cf8 (Indigo 400)
+ */
+
+/* 1. BASE - Force Root Backgrounds */
+html.dark,
+html.dark body,
+html.dark #log-viewer {
+    background-color: #020617 !important;
+    color: #94a3b8 !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+/* 2. TAILWIND V3 DARK MODE SELECTORS (Strict Overrides) */
+
+/* Body Backgrounds (gray-900 / gray-950) */
+.dark\:bg-gray-900:is(.dark *),
+.dark\:bg-gray-950:is(.dark *),
+.dark .bg-gray-900,
+.dark .bg-gray-950 {
+    background-color: #020617 !important;
+}
+
+
+
+/* Surfaces / Active States (gray-700) */
+.dark\:bg-gray-700:is(.dark *),
+.dark .bg-gray-700 {
+    background-color: #1e293b !important;
+}
+
+/* 3. COMPONENT SPECIFIC OVERRIDES */
+
+/* File List & Folders */
+.file-list .file-item-container:is(.dark *),
+.file-list .folder-item-container:is(.dark *),
+.dark .file-item-container,
+.dark .folder-item-container {
+    background-color: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+
+/* Tables */
+.dark table,
+.dark thead,
+.dark tbody,
+.dark tr,
+.dark th,
+.dark td {
+    background-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark th {
+    background-color: #0f172a !important;
+    color: #64748b !important;
+}
+
+/* Inputs & Search */
+.dark input,
+.dark select,
+.dark [type="search"],
+.dark .select {
+    background-color: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #f8fafc !important;
+}
+
+/* 4. BRAND COLORS (Indigo Mapping) */
+.dark\:text-brand-600:is(.dark *),
+.dark .text-brand-600,
+.dark h1 {
+    color: #818cf8 !important;
+}
+
+/* Active sidebar item indicator */
+.dark\:bg-brand-500\/10:is(.dark *),
+.dark .bg-brand-500\/10 {
+    background-color: rgba(129, 140, 248, 0.1) !important;
+    border-left: 2px solid #818cf8 !important;
+}
+
+/* 5. SCROLLBARS */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* 6. LOADING OVERLAY FIX */
+.dark .rounded-md.opacity-90,
+.dark [class*="rounded"][class*="opacity-90"] {
+    background-color: #020617 !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+.file-list .file-item-container.active .file-item:is(.dark *),
+.file-list .folder-item-container.active .file-item:is(.dark *) {
+    --tw-border-opacity: 1;
+    --tw-bg-opacity: 0.4;
+    background-color: rgb(79 70 229 / var(--tw-bg-opacity, 1)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.file-list .file-item-container .file-item .file-item-info:hover:is(.dark *),
+.file-list .folder-item-container .file-item .file-item-info:hover:is(.dark *) {
+    --tw-bg-opacity: 1;
+    background-color: rgb(79 70 229);
+}
+
+.file-list .file-item-container .file-item .file-item-info:is(.dark *),
+.file-list .folder-item-container .file-item .file-item-info:is(.dark *) {
+    border-color: #222735 !important;
+}
+
+.file-list .file-item-container:hover .file-item:is(.dark *),
+.file-list .folder-item-container:hover .file-item:is(.dark *) {
+    --tw-border-opacity: 1;
+    border-color: #222735 !important;
+}
+
+.search input:focus:is(.dark *) {
+    --tw-ring-opacity: 1;
+    --tw-ring-color: none !important;
+}
+
+.search:is(.dark *) {
+    --tw-border-opacity: 1;
+    --tw-bg-opacity: 1;
+    --tw-text-opacity: 1;
+    background-color: rgb(2 6 23) !important;
+    border-color: #222735 !important;
+    color: rgb(244 244 245 / var(--tw-text-opacity));
+}
+
+.search .submit-search button:is(.dark *) {
+    --tw-bg-opacity: 1;
+    --tw-text-opacity: 1;
+    background-color: rgb(2 6 23) !important;
+    color: rgb(212 212 216 / var(--tw-text-opacity));
+}
+
+.badge.none.active:is(.dark *) {
+    --tw-border-opacity: 1;
+    --tw-bg-opacity: 1;
+    --tw-text-opacity: 1;
+    background-color: rgb(2 6 23);
+    border-color: #222735 !important;
+    color: rgb(244 244 245 / var(--tw-text-opacity));
+}
+
+.sl-bg-canvas-100 {
+    background-color: #0f172a !important;
+}
+
+.token.string {
+    color: #fff !important;
+}
+
+.space-y-12> :not([hidden])~ :not([hidden]) {
+    --tw-space-y-reverse: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
