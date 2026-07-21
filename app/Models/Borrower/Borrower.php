@@ -68,6 +68,14 @@ class Borrower extends Model
     }
 
     /**
+     * Get the saved payment methods for the borrower.
+     */
+    public function savedPaymentMethods(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(\App\Models\Payment\SavedPaymentMethod::class, 'entity');
+    }
+
+    /**
      * Get the partner that owns the borrower.
      */
     public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo

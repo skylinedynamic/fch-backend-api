@@ -61,7 +61,7 @@ class PaymentMethodService
         // }
 
         $query = PaymentMethod::query();
-        
+
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
         } else {
@@ -74,7 +74,7 @@ class PaymentMethodService
         $flat = new \stdClass();
         $flat->id = 1; // Dummy ID for backwards compatibility
         $flat->partner_id = $partnerId;
-        
+
         // Define default fallback values to prevent "Undefined property" errors
         $flat->payment_mode = Payment::MODE_SANDBOX;
         $flat->stripe_key_sandbox = null;
@@ -89,7 +89,7 @@ class PaymentMethodService
         foreach ($methods as $method) {
             $flat->{$method->key} = $method->value;
         }
-        
+
         $flat->partner_auto_charge_host_fee = (bool) filter_var($flat->partner_auto_charge_host_fee, FILTER_VALIDATE_BOOLEAN);
 
         return $flat;
@@ -109,7 +109,7 @@ class PaymentMethodService
         $flat = new \stdClass();
         $flat->id = 1; // Dummy ID for backwards compatibility
         $flat->partner_id = $partnerId;
-        
+
         // Define default fallback values to prevent "Undefined property" errors
         $flat->payment_mode = Payment::MODE_SANDBOX;
         $flat->stripe_key_sandbox = null;
@@ -124,13 +124,13 @@ class PaymentMethodService
         foreach ($methods as $method) {
             $flat->{$method->key} = $method->value;
         }
-        
+
         $flat->partner_auto_charge_host_fee = (bool) filter_var($flat->partner_auto_charge_host_fee, FILTER_VALIDATE_BOOLEAN);
 
         return $flat;
     }
 
-        /**
+    /**
      * Update or Create Settings for a partner.
      *
      * @param array $data

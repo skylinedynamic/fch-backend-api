@@ -211,6 +211,14 @@ class Partner extends Model
     }
 
     /**
+     * Get the saved payment methods for the partner.
+     */
+    public function savedPaymentMethods(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(\App\Models\Payment\SavedPaymentMethod::class, 'entity');
+    }
+
+    /**
      * Get all subscriptions for the partner.
      */
     public function subscriptions(): MorphMany

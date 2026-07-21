@@ -17,6 +17,8 @@ class PaymentMethod extends Model
         'value'
     ];
 
+    public const STRIPE = 'stripe';
+
     /**
      * Keys that contain sensitive information and should be encrypted.
      */
