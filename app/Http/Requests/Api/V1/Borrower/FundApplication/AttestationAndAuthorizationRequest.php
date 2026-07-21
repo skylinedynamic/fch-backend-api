@@ -23,7 +23,13 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
     {
         return [
             'id' => 'required|exists:funding_applications,id',
-            'attestation_authorization' => 'required|accepted',
+            'signature_name' => 'required|string|min:3|max:255|regex:/^(?!\s*$).+/',
+            'esign_consent' => 'required|accepted',
+            'terms_consent' => 'required|accepted',
+            'credit_consent' => 'required|accepted',
+            'legal_binding_consent' => 'required|accepted',
+            'timezone' => 'required|string',
+            'consents_data' => 'nullable|string',
         ];
     }
 
@@ -36,7 +42,14 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
     {
         return [
             'id.exists' => __('borrower_validation.funding_application_id_exists'),
-            'attestation_authorization.accepted' => __('borrower_validation.attestation_authorization_accepted'),
+            'signature_name.required' => __('borrower_validation.signature_name_required'),
+            'signature_name.min' => __('borrower_validation.signature_name_min'),
+            'signature_name.max' => __('borrower_validation.signature_name_max'),
+            'signature_name.regex' => __('borrower_validation.signature_name_invalid'),
+            'esign_consent.accepted' => __('borrower_validation.esign_consent_accepted'),
+            'terms_consent.accepted' => __('borrower_validation.terms_consent_accepted'),
+            'credit_consent.accepted' => __('borrower_validation.credit_consent_accepted'),
+            'legal_binding_consent.accepted' => __('borrower_validation.legal_binding_consent_accepted'),
         ];
     }
 }

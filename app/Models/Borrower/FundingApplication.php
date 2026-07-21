@@ -90,6 +90,7 @@ class FundingApplication extends Model
         'any_outstanding_judgments_owner',
         'federal_compliance_disclosures_explanation',
         'attestation_authorization',
+        'signature_data',
         'currency',
         'currency_symbol',
         'conversion_rate',
@@ -98,6 +99,8 @@ class FundingApplication extends Model
     protected $casts = [
         'date_of_birth' => 'date',
         'funded_date' => 'date',
+        'signature_data' => 'array',
+
         'business_checking_start_date' => 'date',
         'number_of_employees' => 'integer',
         'ownership' => 'decimal:2',

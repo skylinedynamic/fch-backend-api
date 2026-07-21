@@ -17,6 +17,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Commission\Commission;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class RequestApplicationService
 {
@@ -309,4 +311,129 @@ class RequestApplicationService
         ]);
     }
 
+    public function downloadApplicationPdf($id, $password = null)
+    {
+        $authUser = Auth::user();
+
+        $application = FundingApplication::with('commission', 'borrower:id,partner_id', 'coborrowers', 'fundingDocuments', 'fundingDocuments.docType')
+           ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                $query->where('partner_id', $authUser->partner_id);
+           })
+        ->where('id', $id)->first();
+
+        if ($application == null) {
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        $pdf = Pdf::loadView('pdf.funding-application', compact('application'));
+        if (!empty($password)) {
+            $pdf->setEncryption($password);
+        }
+        
+        $filename = 'Funding_Application_' . ($application->application_number ?? $application->id) . '.pdf';
+        
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    public function downloadSignaturePdf($id, $password = null)
+    {
+        $authUser = Auth::user();
+
+        $application = FundingApplication::when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                $query->where('partner_id', $authUser->partner_id);
+           })
+        ->where('id', $id)->first();
+
+        if ($application == null) {
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        $signatureData = $application->signature_data;
+        if (empty($signatureData)) {
+            return ApiResponse::error('Signature data not found.');
+        }
+
+        $pdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
+        if (!empty($password)) {
+            $pdf->setEncryption($password);
+        }
+        
+        $filename = 'Signature_Certificate_' . ($application->application_number ?? $application->id) . '.pdf';
+
+        return response($pdf->output(), 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    public function downloadZip($id, $password = null)
+    {
+        $authUser = Auth::user();
+
+        $application = FundingApplication::with('commission', 'borrower:id,partner_id', 'coborrowers', 'fundingDocuments', 'fundingDocuments.docType')
+            ->when($authUser->user_type == User::PARTNER, function ($query) use ($authUser) {
+                $query->where('partner_id', $authUser->partner_id);
+            })
+            ->where('id', $id)->first();
+
+        if ($application == null) {
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        $signatureData = $application->signature_data;
+        if (empty($signatureData)) {
+            return ApiResponse::error('Signature data not found. Cannot generate ZIP.');
+        }
+
+        // Always enforce a password — auto-generate if not provided
+        if (empty($password)) {
+            $password = bin2hex(random_bytes(8)); // 16-char secure random password
+        }
+
+        // Generate plain PDFs
+        $appPdf = Pdf::loadView('pdf.funding-application', compact('application'));
+        $appContent = $appPdf->output();
+
+        $sigPdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
+        $sigContent = $sigPdf->output();
+
+        $appNumber = $application->application_number ?? $application->id;
+        $appFilename = 'Funding_Application_' . $appNumber . '.pdf';
+        $sigFilename  = 'Signature_Certificate_' . $appNumber . '.pdf';
+        $zipFilename  = 'Funding_Documents_' . $appNumber . '.zip';
+
+        // Write PDFs to temp files (ZipArchive requires file paths for encryption)
+        $appTempFile = tempnam(sys_get_temp_dir(), 'app_pdf_') . '.pdf';
+        $sigTempFile = tempnam(sys_get_temp_dir(), 'sig_pdf_') . '.pdf';
+        file_put_contents($appTempFile, $appContent);
+        file_put_contents($sigTempFile, $sigContent);
+
+        $zipTempFile = tempnam(sys_get_temp_dir(), 'fch_zip_') . '.zip';
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipTempFile, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            @unlink($appTempFile);
+            @unlink($sigTempFile);
+            return ApiResponse::error('Could not create ZIP archive.');
+        }
+
+        // Set ZIP password — uses ZipCrypto (supported natively by Windows Explorer, 7-Zip, macOS)
+        // PDFs inside are plain and open freely once extracted with the correct ZIP password
+        $zip->setPassword($password);
+        $zip->addFile($appTempFile, $appFilename);
+        $zip->setEncryptionName($appFilename, \ZipArchive::EM_TRAD_PKWARE);
+        $zip->addFile($sigTempFile, $sigFilename);
+        $zip->setEncryptionName($sigFilename, \ZipArchive::EM_TRAD_PKWARE);
+        $zip->close();
+
+        // Clean up temp PDF files
+        @unlink($appTempFile);
+        @unlink($sigTempFile);
+
+        return response()->download($zipTempFile, $zipFilename, [
+            'Content-Type'        => 'application/zip',
+            'X-Zip-Password'      => $password,
+        ])->deleteFileAfterSend(true);
+    }
 }

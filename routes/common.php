@@ -166,6 +166,9 @@ Route::prefix('v1')->group(function () {
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
+                Route::get('funding-application/{id}/download-application', [RequestApplicationController::class, 'downloadApplication']);
+                Route::get('funding-application/{id}/download-signature', [RequestApplicationController::class, 'downloadSignature']);
+                Route::get('funding-application/{id}/download-zip', [RequestApplicationController::class, 'downloadZip']);
                 Route::post('funding-application/status-update', [RequestApplicationController::class, 'fundingApplicationStatusUpdate']);
             });
 

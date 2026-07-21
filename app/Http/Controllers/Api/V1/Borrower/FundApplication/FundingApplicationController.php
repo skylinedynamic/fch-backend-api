@@ -275,14 +275,62 @@ class FundingApplicationController extends Controller
 
     public function saveAttestationAndAuthorization(AttestationAndAuthorizationRequest $request){
         try {
-            $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($request->validated(),FundingApplication::PENDING);
+            $validated = $request->validated();
+            
+            // Extract agent info
+            $agent = $request->userAgent();
+            $os = 'Unknown';
+            if (preg_match('/windows|win32|macintosh|mac os x|linux|android|iphone|ipad/i', $agent, $matches)) {
+                $os = $matches[0];
+            }
+            $browser = 'Unknown';
+            if (preg_match('/chrome|firefox|safari|edge|opera|msie|trident/i', $agent, $matches)) {
+                $browser = $matches[0];
+            }
+
+            $validated['signature_data'] = [
+                'signature_name' => $validated['signature_name'] ?? null,
+                'ip_address' => $request->ip(),
+                'user_agent' => $agent,
+                'browser_name' => $browser,
+                'operating_system' => $os,
+                'timezone' => $validated['timezone'] ?? null,
+                'esign_consent' => $validated['esign_consent'] ?? false,
+                'terms_consent' => $validated['terms_consent'] ?? false,
+                'credit_consent' => $validated['credit_consent'] ?? false,
+                'legal_binding_consent' => $validated['legal_binding_consent'] ?? false,
+                'consents_data' => isset($validated['consents_data']) ? json_decode($validated['consents_data'], true) : null,
+                'signed_at' => now()->toDateTimeString(),
+            ];
+
+            // Set old attestation_authorization to true for backward compatibility
+            $validated['attestation_authorization'] = true;
+
+            $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
+
+            // Generate Certificate
+            try {
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.signature-certificate', [
+                    'application' => $attestationAndAuthorization,
+                    'signatureData' => $validated['signature_data']
+                ]);
+                $pdfPath = 'funding-applications/' . $attestationAndAuthorization->id . '/signature-certificate-' . $attestationAndAuthorization->application_number . '.pdf';
+                \Illuminate\Support\Facades\Storage::disk('public')->put($pdfPath, $pdf->output());
+                
+                // Update application with certificate path in signature_data
+                $signatureData = $validated['signature_data'];
+                $signatureData['certificate_path'] = $pdfPath;
+                $attestationAndAuthorization->update(['signature_data' => $signatureData]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('PDF Generation failed: ' . $e->getMessage());
+            }
 
             return ApiResponse::success(
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),
                 __('borrower.attestation_and_authorization_updated_successfully')
             );
         } catch (\Exception $e) {
-            return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed'), 500);
+            return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed') . ': ' . $e->getMessage(), 500);
         }
     }
 

@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Application\UpdatePreQualificationStatus
 use App\Http\Requests\Api\V1\FCH\Common\Application\UpdateFundingApplicationStatusRequest;
 use App\Services\FCH\Common\Application\RequestApplicationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RequestApplicationController extends Controller
 {
@@ -95,6 +96,45 @@ class RequestApplicationController extends Controller
         } catch (\Exception $e) {
             
             return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
+        }
+    }
+
+    /**
+     * Download Funding Application PDF
+     */
+    public function downloadApplication(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->requestApplicationService->downloadApplicationPdf($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_downloading_funding_application'));
+        }
+    }
+
+    /**
+     * Download Signature PDF
+     */
+    public function downloadSignature(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->requestApplicationService->downloadSignaturePdf($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_downloading_signature'));
+        }
+    }
+
+    /**
+     * Download Both PDFs as ZIP
+     */
+    public function downloadZip(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->requestApplicationService->downloadZip($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError('An error occurred while generating the ZIP file.');
         }
     }
 
