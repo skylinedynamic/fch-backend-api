@@ -18,6 +18,11 @@ class PaymentMethod extends Model
     ];
 
     public const STRIPE = 'stripe';
+    public const ENVIRONMENT_SANDBOX = 0;
+    public const ENVIRONMENT_PRODUCTION = 1;
+
+    public const MODE_SANDBOX = 'sandbox';
+    public const MODE_PRODUCTION = 'production';
 
     /**
      * Keys that contain sensitive information and should be encrypted.

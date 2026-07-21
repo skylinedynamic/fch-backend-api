@@ -4,71 +4,79 @@ namespace App\Services\GlobalPayment;
 
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentMethod;
 use App\Models\User\User;
-use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
-use Illuminate\Support\Facades\Auth;
+use RuntimeException;
 use Stripe\Stripe;
 
 class PaymentService
 {
-    /**
-     * Resolve the target partner ID dynamically from inputs and context.
-     *
-     * @param array $data
-     * @return int|null
-     */
     public function resolvePartnerId(array $data): ?int
     {
-        $partnerId = null;
-
         if (!empty($data['invoice_id'])) {
             $invoice = Invoice::where('id', $data['invoice_id'])->first();
+
             if ($invoice) {
-                // If it is a partner invoice (partner paying the host platform fee/enrollment fee),
-                // configure Stripe for the Host because the host receives the payment.
                 if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
-                    $partnerId = Partner::where('is_host', true)->first()?->id;
-                } else {
-                    $partnerId = $invoice->partner_id;
+                    return Partner::host()?->id;
                 }
+
+                return $invoice->partner_id;
             }
         }
 
-        if (!$partnerId && Auth::check()) {
-            if (in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN])) {
-                $partnerId = Partner::where('is_host', true)->first()?->id;
-            } else {
-                $partnerId = Auth::user()->partner_id;
+        if (auth()->check()) {
+            if (in_array(auth()->user()->user_type, [User::PARTNER, User::ADMIN], true)) {
+                return Partner::host()?->id;
             }
+
+            return auth()->user()->partner_id;
         }
 
-        if (!$partnerId) {
-            $partnerId = Partner::where('is_host', true)->first()?->id;
-        }
-
-        return $partnerId;
+        return Partner::host()?->id;
     }
 
-    public function configureStripeForPartner(?int $partnerId): object
+    public function configurePaymentMethod(?int $partnerId): object
     {
-        $paymentMethodService = new PaymentMethodService();
-        $setting = $paymentMethodService->getSettings($partnerId);
+        $query = PaymentMethod::query();
 
-        if (!$setting) {
-            throw new \Exception('Payment settings not found or inactive.');
+        if ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        } else {
+            $query->whereNull('partner_id');
         }
 
-        $secretKey = ($setting->payment_mode === Payment::MODE_PRODUCTION)
-            ? $setting->stripe_secret_production
-            : $setting->stripe_secret_sandbox;
+        $methods = $query->get();
+
+        $flat = new \stdClass();
+        $flat->id = 1;
+        $flat->partner_id = $partnerId;
+        $flat->payment_mode = PaymentMethod::MODE_SANDBOX;
+        $flat->stripe_key_sandbox = null;
+        $flat->stripe_secret_sandbox = null;
+        $flat->stripe_key_production = null;
+        $flat->stripe_secret_production = null;
+        $flat->payment_method = PaymentMethod::STRIPE;
+        $flat->status = true;
+        $flat->configuration = null;
+        $flat->partner_auto_charge_host_fee = 1;
+
+        foreach ($methods as $method) {
+            $flat->{$method->key} = $method->value;
+        }
+
+        $flat->partner_auto_charge_host_fee = (bool) filter_var($flat->partner_auto_charge_host_fee, FILTER_VALIDATE_BOOLEAN);
+
+        $secretKey = $flat->payment_mode === PaymentMethod::MODE_PRODUCTION
+            ? $flat->stripe_secret_production
+            : $flat->stripe_secret_sandbox;
 
         if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
+            throw new RuntimeException('Stripe secret key not configured for ' . $flat->payment_mode . ' mode.');
         }
 
         Stripe::setApiKey($secretKey);
 
-        return $setting;
+        return $flat;
     }
 }
