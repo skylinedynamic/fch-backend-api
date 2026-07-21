@@ -386,12 +386,7 @@ class RequestApplicationService
             return ApiResponse::error('Signature data not found. Cannot generate ZIP.');
         }
 
-        // Always enforce a password — auto-generate if not provided
-        if (empty($password)) {
-            $password = bin2hex(random_bytes(8)); // 16-char secure random password
-        }
-
-        // Generate plain PDFs
+        // Generate plain PDFs (no individual PDF encryption)
         $appPdf = Pdf::loadView('pdf.funding-application', compact('application'));
         $appContent = $appPdf->output();
 
@@ -418,13 +413,19 @@ class RequestApplicationService
             return ApiResponse::error('Could not create ZIP archive.');
         }
 
-        // Set ZIP password — uses ZipCrypto (supported natively by Windows Explorer, 7-Zip, macOS)
-        // PDFs inside are plain and open freely once extracted with the correct ZIP password
-        $zip->setPassword($password);
-        $zip->addFile($appTempFile, $appFilename);
-        $zip->setEncryptionName($appFilename, \ZipArchive::EM_TRAD_PKWARE);
-        $zip->addFile($sigTempFile, $sigFilename);
-        $zip->setEncryptionName($sigFilename, \ZipArchive::EM_TRAD_PKWARE);
+        if (!empty($password)) {
+            // Password protected — encrypt with ZipCrypto (natively supported by Windows/macOS/7-Zip)
+            $zip->setPassword($password);
+            $zip->addFile($appTempFile, $appFilename);
+            $zip->setEncryptionName($appFilename, \ZipArchive::EM_TRAD_PKWARE);
+            $zip->addFile($sigTempFile, $sigFilename);
+            $zip->setEncryptionName($sigFilename, \ZipArchive::EM_TRAD_PKWARE);
+        } else {
+            // Without password — plain ZIP, anyone can open
+            $zip->addFile($appTempFile, $appFilename);
+            $zip->addFile($sigTempFile, $sigFilename);
+        }
+
         $zip->close();
 
         // Clean up temp PDF files
@@ -432,8 +433,7 @@ class RequestApplicationService
         @unlink($sigTempFile);
 
         return response()->download($zipTempFile, $zipFilename, [
-            'Content-Type'        => 'application/zip',
-            'X-Zip-Password'      => $password,
+            'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
     }
 }
