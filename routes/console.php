@@ -41,7 +41,7 @@ $onFailure = function (string $command) {
             array_map('trim', explode(',', config('app.cron_notify_emails', '')))
         );
 
-        if (! empty($emails) && config('mail.default')) {
+        if (!empty($emails) && config('mail.default')) {
             try {
                 Mail::raw($message, function ($mail) use ($emails, $command) {
                     $mail->to($emails)->subject("Scheduler failure: {$command}");
@@ -93,7 +93,7 @@ Schedule::command('users:check-expired')
 |
 */
 Schedule::command('scheduler:heartbeat')
-    ->hourly()
+    ->everyMinute()
     ->timezone($scheduleTimezone)
     ->appendOutputTo($schedulerLogPath)
     ->onSuccess($onSuccess('scheduler:heartbeat'));
