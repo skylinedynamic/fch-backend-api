@@ -386,12 +386,9 @@ class RequestApplicationService
             return ApiResponse::error('Signature data not found. Cannot generate ZIP.');
         }
 
-        // Generate plain PDFs (no individual PDF encryption)
-        $appPdf = Pdf::loadView('pdf.funding-application', compact('application'));
-        $appContent = $appPdf->output();
-
-        $sigPdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
-        $sigContent = $sigPdf->output();
+        // Generate PDFs using separate functions to ensure they are individually password protected
+        $appContent = $this->generateApplicationPdfContent($application, $password);
+        $sigContent = $this->generateSignaturePdfContent($application, $signatureData, $password);
 
         $appNumber = $application->application_number ?? $application->id;
         $appFilename = 'Funding_Application_' . $appNumber . '.pdf';
@@ -435,5 +432,23 @@ class RequestApplicationService
         return response()->download($zipTempFile, $zipFilename, [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
+    }
+
+    private function generateApplicationPdfContent($application, $password = null)
+    {
+        $pdf = Pdf::loadView('pdf.funding-application', compact('application'));
+        if (!empty($password)) {
+            $pdf->setEncryption($password);
+        }
+        return $pdf->output();
+    }
+
+    private function generateSignaturePdfContent($application, $signatureData, $password = null)
+    {
+        $pdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
+        if (!empty($password)) {
+            $pdf->setEncryption($password);
+        }
+        return $pdf->output();
     }
 }
