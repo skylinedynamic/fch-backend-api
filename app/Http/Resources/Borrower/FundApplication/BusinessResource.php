@@ -30,6 +30,8 @@ class BusinessResource extends JsonResource
             'entity_type' => $this->entity_type ?? $this->business_entity_type ?? null,
             'years_in_business' => $this->years_in_business ?? null,
             'number_of_employees' => $this->number_of_employees ?? null,
+            'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+            'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
         ];
     }
 }

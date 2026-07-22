@@ -22,7 +22,7 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|exists:funding_applications,id',
+            'id' => 'nullable|exists:funding_applications,id',
             'signature_name' => 'required|string|min:3|max:255|regex:/^(?!\s*$).+/',
             'esign_consent' => 'required|accepted',
             'terms_consent' => 'required|accepted',

@@ -363,15 +363,15 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <span class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Document Reference:</span><br>
-                                <span class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</span>
+                                <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Document Reference:</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: {{ $secondaryColor }};">{{ $appId }}</div>
                             </td>
                         </tr>
                     </table>
                 </td>
                 
                 <td style="width: 2%; border-left: 1px solid rgba(255,255,255,0.3); height: 30px;"></td>
-
+ 
                 <td style="width: 45%; padding: 10px 0 10px 15px; vertical-align: middle;">
                     <table style="width: 100%;">
                         <tr>
@@ -381,8 +381,8 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <span class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Certificate Generated:</span><br>
-                                <span class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</span>
+                                <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Certificate Generated:</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</div>
                             </td>
                         </tr>
                     </table>

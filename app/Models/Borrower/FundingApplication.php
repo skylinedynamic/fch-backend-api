@@ -3,10 +3,12 @@
 namespace App\Models\Borrower;
 
 use App\Models\Commission\Commission;
+use App\Models\Funding\FundingSequencing;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Builder;
 
 class FundingApplication extends Model
 {
@@ -94,6 +96,8 @@ class FundingApplication extends Model
         'currency',
         'currency_symbol',
         'conversion_rate',
+        'funding_sequence_id',
+        'funding_request_id',
     ];
 
     protected $casts = [
@@ -283,5 +287,15 @@ class FundingApplication extends Model
     public function partner()
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    public function fundingSequence()
+    {
+        return $this->belongsTo(FundingSequencing::class, 'funding_sequence_id');
+    }
+
+    public function fundingRequest()
+    {
+        return $this->belongsTo(FundingRequest::class, 'funding_request_id');
     }
 }

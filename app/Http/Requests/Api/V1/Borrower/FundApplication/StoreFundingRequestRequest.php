@@ -22,7 +22,7 @@ class StoreFundingRequestRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|exists:funding_applications,id',
+            'id' => 'nullable|exists:funding_applications,id',
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',
             'approved_funding' => 'required|string|max:255',

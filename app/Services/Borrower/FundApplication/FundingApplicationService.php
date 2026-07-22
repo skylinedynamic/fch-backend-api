@@ -61,6 +61,13 @@ class FundingApplicationService
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
 
+            if (!isset($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
+                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
+            }
+            if (!isset($data['funding_request_id']) && request()->has('funding_request_id')) {
+                $data['funding_request_id'] = request()->input('funding_request_id');
+            }
+
             $matchId = $data['id'] ?? null;
             if (empty($matchId)) {
                 $existing = FundingApplication::where('borrower_id', $borrowerId)

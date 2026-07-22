@@ -161,6 +161,7 @@ class FundingSequencingResource extends JsonResource
             'latest_requested_amount' => $latestRequestedAmount,
             'latest_use_of_funds' => $latestUseOfFunds,
             'latest_review_status' => $latestReviewStatus,
+            'latest_review_id' => $latestReview ? $latestReview->id : null,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE,
             'engine_status_label' => $this->engine_status_label ?? FundingSequencing::ENGINE_LABEL_ACTIVE,
