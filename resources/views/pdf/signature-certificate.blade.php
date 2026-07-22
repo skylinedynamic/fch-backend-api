@@ -13,6 +13,11 @@
     $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
     $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
     $logoBase64 = $logoBase64 ?? '';
+
+    // Timezone configuration from request
+    $tz = request()->header('X-Timezone') ?? config('app.timezone');
+    $currentTime = now()->timezone($tz);
+    $timezoneAbbr = $currentTime->format('T');
 @endphp
 <style>
     @page { margin: 30px; }
@@ -230,10 +235,10 @@
     $sigName = $sigData['signature_name'] ?? $borrowerName;
     if(empty($sigName)) $sigName = 'N/A';
     
-    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at']) : now();
+    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
     $sigDateStr = $sigTime->format('M j, Y');
     $sigTimeStr = $sigTime->format('h:i:s A');
-    $timezone = $sigData['timezone'] ?? 'Asia/Dhaka (UTC+06:00)';
+    $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';
     
     $termsVer = $sigData['terms_version'] ?? '1.0';
     $privacyVer = $sigData['privacy_version'] ?? '1.0';
@@ -364,7 +369,7 @@
                             </td>
                             <td style="vertical-align: middle;">
                                 <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Document Reference:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: {{ $secondaryColor }};">{{ $appId }}</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</div>
                             </td>
                         </tr>
                     </table>
@@ -382,7 +387,7 @@
                             </td>
                             <td style="vertical-align: middle;">
                                 <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Certificate Generated:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('H:i:s') }} {{ $timezoneAbbr }}</div>
                             </td>
                         </tr>
                     </table>
@@ -521,7 +526,7 @@
                         <tr><td class="t-label">ESIGN Consent Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
                         <tr><td class="t-label">Credit Auth Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
                         <tr><td class="t-label">SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr>
-                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ now()->format('M j, Y H:i:s') }} UTC</td></tr>
+                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y H:i:s') }} {{ $timezoneAbbr }}</td></tr>
                     </table>
                 </td>
             </tr>

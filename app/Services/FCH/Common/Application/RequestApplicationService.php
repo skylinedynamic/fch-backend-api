@@ -523,6 +523,10 @@ class RequestApplicationService
             ?? $branding['header_logo'] 
             ?? null;
 
+        if (!$logoKey && $partner && !empty($partner->company_logo)) {
+            $logoKey = $partner->company_logo;
+        }
+
         $logoBase64 = '';
         
         if ($logoKey && $logoKey !== 'null') {

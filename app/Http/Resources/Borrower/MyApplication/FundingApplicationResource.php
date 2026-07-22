@@ -14,6 +14,8 @@ class FundingApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+
         return [
             'id'                                         => $this->id,
             'application_number'                         => $this->application_number,
@@ -72,7 +74,7 @@ class FundingApplicationResource extends JsonResource
             'any_outstanding_judgments_owner'            => isset($this->any_outstanding_judgments_owner) ? (bool) $this->any_outstanding_judgments_owner : null,
             'federal_compliance_disclosures_explanation' => $this->federal_compliance_disclosures_explanation,
             'attestation_authorization'                  => (bool) $this->attestation_authorization,
-            'date'                                       => $this->created_at?->format('d M Y'),
+            'date'                                       => $this->created_at?->timezone($timezone)->format('d M Y'),
         ];
     }
 }

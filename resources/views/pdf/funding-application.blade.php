@@ -14,6 +14,11 @@
     $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
     $logoBase64 = $logoBase64 ?? '';
 
+    // Timezone configuration from request
+    $tz = request()->header('X-Timezone') ?? config('app.timezone');
+    $currentTime = now()->timezone($tz);
+    $timezoneAbbr = $currentTime->format('T');
+
     // Mapped borrower columns
     $businessName = $businessName ?? 'N/A';
     $businessPhone = $businessPhone ?? 'N/A';
@@ -272,10 +277,10 @@
     $sigName = $sigData['signature_name'] ?? $borrowerName;
     if(empty($sigName)) $sigName = 'N/A';
     
-    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at']) : now();
+    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
     $sigDateStr = $sigTime->format('M j, Y');
     $sigTimeStr = $sigTime->format('h:i:s A');
-    $timezone = $sigData['timezone'] ?? 'Asia/Dhaka (UTC+06:00)';
+    $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';
     
     $termsVer = $sigData['terms_version'] ?? '1.0';
     $privacyVer = $sigData['privacy_version'] ?? '1.0';
@@ -371,7 +376,7 @@
                             </td>
                             <td style="vertical-align: middle;">
                                 <div class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Reference:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: {{ $secondaryColor }};">{{ $appId }}</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</div>
                             </td>
                         </tr>
                     </table>
@@ -389,7 +394,7 @@
                             </td>
                             <td style="vertical-align: middle;">
                                 <div class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Generated:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('H:i:s') }} {{ $timezoneAbbr }}</div>
                             </td>
                         </tr>
                     </table>
@@ -500,10 +505,10 @@
                     <table class="data-table">
                         <tr><td class="t-label">Currency</td><td class="t-colon">:</td><td class="t-value">{{ $application->currency ?: 'USD' }}</td></tr>
                         <tr><td class="t-label">Monthly Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->monthly_revenue) ? '$'.number_format((float)$application->monthly_revenue, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Annual Personal Income</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_personal_income) ? '$'.number_format((float)$application->annual_personal_income, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Number of Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ $application->number_of_monthly_deposits ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Current Business Debt</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->current_business_debt) ? '$'.number_format((float)$application->current_business_debt, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Negative Days</td><td class="t-colon">:</td><td class="t-value">{{ $application->negative_days ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Annual Personal Income</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->annual_personal_income) ? '$'.number_format((float)optional($application->borrower)->annual_personal_income, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Number of Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->monthly_deposit_count ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Current Business Debt</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->debt_balance) ? '$'.number_format((float)$application->debt_balance, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Negative Days</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->negative_days ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
@@ -511,9 +516,9 @@
                     <table class="data-table">
                         <tr><td class="t-label">Years in Business</td><td class="t-colon">:</td><td class="t-value">{{ $application->years_in_business ?: 'N/A' }}</td></tr>
                         <tr><td class="t-label">Annual Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_revenue) ? '$'.number_format((float)$application->annual_revenue, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Average Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->average_monthly_deposits) ? '$'.number_format((float)$application->average_monthly_deposits, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Average Daily Balance (ADB)</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->average_daily_balance) ? '$'.number_format((float)$application->average_daily_balance, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">NSF Count</td><td class="t-colon">:</td><td class="t-value">{{ $application->nsf_count ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Average Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->average_monthly_deposits) ? '$'.number_format((float)optional($application->borrower)->average_monthly_deposits, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Average Daily Balance (ADB)</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->avg_bank_balance) ? '$'.number_format((float)optional($application->borrower)->avg_bank_balance, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">NSF Count</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->nsf_count ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -546,18 +551,26 @@
                 <td style="width: 48%; padding-right: 2%;">
                     <table class="data-table">
                         <tr><td class="t-label">Funding Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->funding_type ?: ($application->preferred_funding_type ?: 'N/A') }}</td></tr>
-                        <tr><td class="t-label">Funding Sequence Name</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->name ?: (optional($application->fundingSequence)->name ?: 'N/A') }}</td></tr>
-                        <tr><td class="t-label">Terms</td><td class="t-colon">:</td><td class="t-value">{{ $application->terms ?: (optional($application->funding_sequencing)->terms ?: 'N/A') }}</td></tr>
-                        <tr><td class="t-label">Estimated Speed</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->speed_to_funds ?: ($application->estimated_speed ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Funding Sequence Name</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->fundingSequence)->name ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Terms</td><td class="t-colon">:</td><td class="t-value">{{ $application->terms ?: (optional($application->fundingSequence)->terms ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Estimated Speed</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->fundingSequence)->speed_to_funds ?: ($application->estimated_speed ?: 'N/A') }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
                 <td style="width: 48%; padding-left: 2%;">
                     <table class="data-table">
-                        <tr><td class="t-label">Uses</td><td class="t-colon">:</td><td class="t-value">{{ $application->uses ?: (optional($application->funding_sequencing)->uses ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Uses</td><td class="t-colon">:</td><td class="t-value">
+                            @php
+                                $usesVal = $application->uses ?: (optional($application->fundingSequence)->uses ?: 'N/A');
+                                if (is_array($usesVal)) {
+                                    $usesVal = implode(', ', $usesVal);
+                                }
+                            @endphp
+                            {{ $usesVal }}
+                        </td></tr>
                         <tr><td class="t-label">Use of Funds</td><td class="t-colon">:</td><td class="t-value">{{ $application->use_of_funds ?: ($application->purpose_of_funds ?: 'N/A') }}</td></tr>
-                        <tr><td class="t-label">Estimated Amount</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->amount_range ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Funding Request Status</td><td class="t-colon">:</td><td class="t-value"><strong>{{ $application->status ?: 'N/A' }}</strong></td></tr>
+                        <tr><td class="t-label">Estimated Amount</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->fundingSequence)->amount_range ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Funding Request Status</td><td class="t-colon">:</td><td class="t-value"><strong>{{ optional($application->fundingRequest)->status ?: ($application->status ?: 'N/A') }}</strong></td></tr>
                     </table>
                 </td>
             </tr>
@@ -592,7 +605,7 @@
         <table>
             <tr>
                 <td style="text-align: left;">&copy; {{ date('Y') }} {{ $companyName }}. All Rights Reserved.</td>
-                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ now()->format('M j, Y') }}</td>
+                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ $currentTime->format('M j, Y') }}</td>
             </tr>
         </table>
     </div>
