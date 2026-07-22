@@ -104,4 +104,5 @@ class DatabaseSeeder extends Seeder
 
 
 // need to run for new billing 
-// PaymentProviderSeeder
+// php artisan db:seed --class=PaymentProviderSeeder
+// php artisan db:seed --class=PartnerPaymentProviderSeeder

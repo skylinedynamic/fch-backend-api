@@ -15,22 +15,22 @@ class PaymentProviderSeeder extends Seeder
         $providers = [
             [
                 'name' => PaymentProvider::STRIPE,
-                'logo' => 'assets/payment_providers/stripe.svg',
+                'logo' => '',
                 'status' => true,
             ],
             [
                 'name' => PaymentProvider::ECRYPT,
-                'logo' => 'assets/payment_providers/ecrypt.svg',
+                'logo' => '',
                 'status' => true,
             ],
             [
                 'name' => PaymentProvider::SQUARE,
-                'logo' => 'assets/payment_providers/square.svg',
+                'logo' => '',
                 'status' => true,
             ],
             [
                 'name' => PaymentProvider::AUTHORIZE_NET,
-                'logo' => 'assets/payment_providers/authorize_net.svg',
+                'logo' => '',
                 'status' => true,
             ],
         ];
