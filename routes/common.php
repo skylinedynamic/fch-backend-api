@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignControll
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -44,6 +45,7 @@ use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use Illuminate\Support\Facades\Route;
@@ -276,6 +278,11 @@ Route::prefix('v1')->group(function () {
             Route::get('payment-methods-fetch', [PaymentMethodController::class, 'fetchPaymentMethod']);
             Route::get('payment-methods', [PaymentMethodController::class, 'show']);
 
+            // Partner Payment Providers Config
+            Route::get('partner-payment-providers', [PartnerPaymentProviderController::class, 'index']);
+            Route::get('partner-payment-providers/{id}', [PartnerPaymentProviderController::class, 'show']);
+            Route::post('partner-payment-providers', [PartnerPaymentProviderController::class, 'store']);
+
             // Partner Tenant Config (for authenticated WL partners)
             Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);
             Route::post('partner/tenant-config', [TenantConfigController::class, 'update']);
@@ -350,6 +357,12 @@ Route::prefix('v1')->group(function () {
 
         Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
         Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
+
+        // Unified Multi-Gateway Payment Routes
+        Route::prefix('payment')->group(function () {
+            Route::post('process', [UnifiedPaymentController::class, 'processPayment']);
+            Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
+        });
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {

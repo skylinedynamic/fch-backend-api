@@ -17,7 +17,18 @@ class PaymentMethod extends Model
         'value'
     ];
 
-    public const STRIPE = 'stripe';
+    public const STRIPE = 'Stripe';
+    public const ECRYPT = 'Ecrypt';
+    public const SQUARE = 'Square';
+    public const AUTHORIZE_NET = 'Authorize.Net';
+
+    public const PAYMENT_METHOD_PROVIDERS = [
+        self::STRIPE => self::STRIPE,
+        self::ECRYPT => self::ECRYPT,
+        self::SQUARE => self::SQUARE,
+        self::AUTHORIZE_NET => self::AUTHORIZE_NET
+    ];
+
     public const ENVIRONMENT_SANDBOX = 0;
     public const ENVIRONMENT_PRODUCTION = 1;
 

@@ -354,4 +354,23 @@ class Partner extends Model
     {
         return $this->partner_image ?? asset('avatar/avatar-default.jpg');
     }
+
+    public function partnerPaymentProviders()
+    {
+        return $this->hasMany(\App\Models\PaymentMethod\PartnerPaymentProvider::class, 'partner_id');
+    }
+
+    public function paymentProviders()
+    {
+        return $this->belongsToMany(\App\Models\PaymentMethod\PaymentProvider::class, 'partner_payment_providers', 'partner_id', 'payment_provider_id')
+            ->withPivot(['id', 'status', 'is_default', 'configuration'])
+            ->withTimestamps();
+    }
+
+    public function defaultPaymentProvider()
+    {
+        return $this->hasOne(\App\Models\PaymentMethod\PartnerPaymentProvider::class, 'partner_id')
+            ->where('is_default', true)
+            ->where('status', true);
+    }
 }

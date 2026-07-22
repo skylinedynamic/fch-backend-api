@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderProductCategoryController;
+use App\Http\Controllers\Api\V1\FCH\Admin\PaymentMethod\PaymentMethodController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -230,6 +231,12 @@ Route::prefix('v1/admin')
         Route::prefix('credit-profile-requests')->group(function () {
             Route::post('/', [CreditProfileRequestAdminController::class, 'index']);
             Route::get('/{id}', [CreditProfileRequestAdminController::class, 'show']);
+        });
+
+        // Payment Provider Management Routes
+        Route::prefix('payment-methods')->group(function () {
+            Route::get('/', [PaymentMethodController::class, 'index']);
+            Route::post('{id}', [PaymentMethodController::class, 'update']);
         });
 
     });

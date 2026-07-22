@@ -91,7 +91,7 @@ class DatabaseSeeder extends Seeder
             SeoSettingSeeder::class,
             CmsPermissionUpdateSeeder::class,
             UpdateSettingsPermissionSeeder::class,
-            PaymentMethodSeeder::class,
+            PaymentProviderSeeder::class,
             LenderProductCategorySeeder::class,
             LenderSeeder::class,
             FundingSequencingSeeder::class,
@@ -101,3 +101,7 @@ class DatabaseSeeder extends Seeder
         ]);
     }
 }
+
+
+// need to run for new billing 
+// PaymentProviderSeeder
