@@ -104,13 +104,22 @@
     /* Data Tables */
     .data-table { margin-bottom: 15px; }
     .data-table td {
-        padding: 6px 0;
-        border-bottom: 1px solid #f0f0f0;
+        padding: 7px 0;
+        border-bottom: 1px solid #eeeeee;
         font-size: 9px;
+        color: #333333;
     }
-    .t-label { color: #555555; width: 40%; }
-    .t-colon { width: 5%; color: #777; text-align: center; }
-    .t-value { color: #111111; width: 55%; }
+    .t-label {
+        color: #777777;
+        width: 40%;
+        font-weight: normal;
+    }
+    .t-colon { width: 5%; color: #aaaaaa; text-align: center; }
+    .t-value {
+        color: #1a1a1a;
+        width: 55%;
+        font-weight: 500;
+    }
 
     /* Signature Box */
     .signature-box {
