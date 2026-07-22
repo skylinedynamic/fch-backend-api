@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Electronic Signature Certificate</title>
+<title>Funding Application</title>
 <style>
     @page { margin: 30px; }
     body {
@@ -181,10 +181,18 @@
     /* Watermark */
     .watermark {
         position: fixed;
-        top: 250px;
-        left: 10%;
+        top: 350px;
+        left: 0;
+        width: 100%;
+        text-align: center;
         opacity: 0.05;
         z-index: -100;
+        font-size: 65px;
+        font-weight: bold;
+        font-family: 'Helvetica', 'Arial', sans-serif;
+        color: #0d2f5c;
+        white-space: nowrap;
+        letter-spacing: 2px;
     }
 
     .page-break { page-break-after: always; }
@@ -219,29 +227,38 @@
     $privacyVer = $sigData['privacy_version'] ?? '1.0';
     $creditVer = $sigData['credit_auth_version'] ?? '1.0';
     $sha = $sigData['sha256'] ?? 'N/A';
-    // Read horizontal logo if available, fallback to default
-    $logoPath = base_path('public/logo-mail.png');
+    
+    // Read horizontal logo for header and watermark
+    $logoPath = public_path('logo-mail.png');
     if (!file_exists($logoPath)) {
-        $logoPath = base_path('public/logo.png');
+        $logoPath = public_path('logo.png');
     }
     $logoBase64 = '';
     if (file_exists($logoPath)) {
         $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
     }
     
-    // Read Generated SVG-Style Icons
-    $iconsPath = base_path('icons_v2.json');
-    $icons = [];
-    if (file_exists($iconsPath)) {
-        $icons = json_decode(file_get_contents($iconsPath), true);
-    }
+    // FontAwesome SVGs Base64 encoded for guaranteed rendering in DOMPDF
+    $fa_doc = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="#ffffff" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm160 14.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z"/></svg>');
+    $fa_users = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#ffffff" d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>');
+    $fa_cal = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#ffffff" d="M400 64h-48V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H160V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM48 160h352v288H48V160z"/></svg>');
+    $fa_shield = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ffffff" d="M466.5 83.7l-192-80a48.1 48.1 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C381.5 463.7 496 326.5 496 128c0-19.4-11.7-36.9-29.5-44.3zM256 464C161 423.5 64 304.7 64 128l192-80 192 80c0 176.7-97 295.5-192 336z"/></svg>');
+    
+    // Fallback to full_name if available
+    $borrowerName = $application->full_name ?? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
 @endphp
 
-@if($logoBase64)
     <div class="watermark">
-        <img src="{{ $logoBase64 }}" width="550" alt="Watermark">
+        <table style="width: 100%; text-align: center; border-collapse: collapse;">
+            <tr>
+                <td style="text-align: center; vertical-align: middle;">
+                    @if($logoBase64)
+                        <img src="{{ $logoBase64 }}" width="500" style="vertical-align: middle;">
+                    @endif
+                </td>
+            </tr>
+        </table>
     </div>
-@endif
 
 <!-- ================== PAGE 1 ================== -->
 <div style="padding-top:10px;"></div>
@@ -258,8 +275,7 @@
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
-                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: #0d2f5c; font-weight: bold;">ELECTRONIC SIGNATURE CERTIFICATE</div>
-                <div class="doc-subtitle" style="color: #00a0d1; font-size: 9.5px; font-weight: normal;">ESIGN &amp; UETA Compliant Electronic Signature Record</div>
+                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: #0d2f5c; font-weight: bold;">FUNDING APPLICATION</div>
             </td>
         </tr>
     </table>
@@ -273,9 +289,7 @@
                         <tr>
                             <td style="width: 35px; vertical-align: middle;">
                                 <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
-                                    @if(!empty($icons['doc_w']))
-                                        <img src="{{ $icons['doc_w'] }}" width="14" height="14" style="margin-top: 5px;">
-                                    @endif
+                                    <img src="{{ $fa_doc }}" width="11" height="11" style="margin-top: 6px;">
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
@@ -293,13 +307,11 @@
                         <tr>
                             <td style="width: 35px; vertical-align: middle;">
                                 <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
-                                    @if(!empty($icons['cal_w']))
-                                        <img src="{{ $icons['cal_w'] }}" width="14" height="14" style="margin-top: 5px;">
-                                    @endif
+                                    <img src="{{ $fa_cal }}" width="12" height="12" style="margin-top: 5px;">
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <span class="info-label" style="color: #8da4c4; font-size: 7.5px;">Certificate Generated:</span><br>
+                                <span class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Generated:</span><br>
                                 <span class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</span>
                             </td>
                         </tr>
@@ -316,296 +328,157 @@
 
     <!-- Content Area -->
     <div class="content-area">
-        <table style="table-layout: fixed;">
-            <tr>
-                <td style="width: 48%; padding-right: 2%;">
-                    <!-- Cert Info -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon">
-                                    @if(!empty($icons['doc_w']))
-                                        <img src="{{ $icons['doc_w'] }}" width="10" height="10" style="margin-top: 4px;">
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="section-title">CERTIFICATE INFORMATION</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <table class="data-table">
-                        <tr><td class="t-label">Application ID</td><td class="t-colon">:</td><td class="t-value">{{ $appId }}</td></tr>
-                        <tr><td class="t-label">Borrower Name</td><td class="t-colon">:</td><td class="t-value">{{ $borrowerName }}</td></tr>
-                        <tr><td class="t-label">Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $businessName }}</td></tr>
-                        <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value">{{ $status }}</td></tr>
-                    </table>
-
-                    <!-- Sig Info -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon">
-                                    @if(!empty($icons['pen_w']))
-                                        <img src="{{ $icons['pen_w'] }}" width="10" height="10" style="margin-top: 4px;">
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="section-title">SIGNATURE INFORMATION</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <div class="signature-box">
-                        <table>
-                            <tr>
-                                <td style="width: 70%;">
-                                    <div class="sig-signed-by">SIGNED BY</div>
-                                    <div class="sig-name">{{ $sigName }}</div>
-                                    <div class="sig-type">Typed Electronic Signature</div>
-                                </td>
-                                <td style="width: 30%;">
-                                    <div class="status-badge">
-                                        <div class="status-icon">
-                                            @if(!empty($icons['check_w']))
-                                                <img src="{{ $icons['check_w'] }}" width="12" height="12" style="margin-top: 4px;">
-                                            @else
-                                                &#10003;
-                                            @endif
-                                        </div>
-                                        <div class="status-text">STATUS</div>
-                                        <div class="status-text" style="font-size: 7px; color: #00a65a; font-weight:normal;">Successfully Signed</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <table class="data-table">
-                        <tr><td class="t-label">Signature Type</td><td class="t-colon">:</td><td class="t-value">Typed Electronic Signature</td></tr>
-                        <tr><td class="t-label">Signature Date</td><td class="t-colon">:</td><td class="t-value">{{ $sigDateStr }}</td></tr>
-                        <tr><td class="t-label">Signature Time</td><td class="t-colon">:</td><td class="t-value">{{ $sigTimeStr }}</td></tr>
-                        <tr><td class="t-label">Time Zone</td><td class="t-colon">:</td><td class="t-value">{{ $timezone }}</td></tr>
-                        <tr><td class="t-label">Auth Method</td><td class="t-colon">:</td><td class="t-value">User Account Login</td></tr>
-                    </table>
-                </td>
-                
-                <!-- Spacer -->
-                <td style="width: 4%;"></td>
-
-                <td style="width: 48%; padding-left: 2%;">
-                    <!-- Device Info -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon">
-                                    @if(!empty($icons['dev_w']))
-                                        <img src="{{ $icons['dev_w'] }}" width="10" height="10" style="margin-top: 5px;">
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="section-title">DEVICE INFORMATION</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <table class="data-table">
-                        <tr><td class="t-label">Public IP</td><td class="t-colon">:</td><td class="t-value">{{ $ip }}</td></tr>
-                        <tr><td class="t-label">Browser</td><td class="t-colon">:</td><td class="t-value">{{ $browser }}</td></tr>
-                        <tr><td class="t-label">OS</td><td class="t-colon">:</td><td class="t-value">{{ $os }}</td></tr>
-                        <tr><td class="t-label">Device Type</td><td class="t-colon">:</td><td class="t-value">{{ $device }}</td></tr>
-                    </table>
-
-                    <!-- Doc Versions -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon">
-                                    @if(!empty($icons['shield_w']))
-                                        <img src="{{ $icons['shield_w'] }}" width="10" height="10" style="margin-top: 5px;">
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="section-title">DOCUMENT &amp; POLICY VERSIONS</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <table class="data-table">
-                        <tr><td class="t-label">Terms Version</td><td class="t-colon">:</td><td class="t-value">{{ $termsVer }}</td></tr>
-                        <tr><td class="t-label">Privacy Policy Version</td><td class="t-colon">:</td><td class="t-value">{{ $privacyVer }}</td></tr>
-                        <tr><td class="t-label">Credit Auth Version</td><td class="t-colon">:</td><td class="t-value">{{ $creditVer }}</td></tr>
-                    </table>
-
-                    <!-- Additional Info -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon">
-                                    @if(!empty($icons['info_w']))
-                                        <img src="{{ $icons['info_w'] }}" width="10" height="10" style="margin-top: 5px;">
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="section-title">ADDITIONAL INFORMATION</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <table class="data-table">
-                        <tr><td class="t-label">ESIGN Consent Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
-                        <tr><td class="t-label">Credit Auth Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
-                        <tr><td class="t-label">SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr>
-                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ now()->format('M j, Y H:i:s') }} UTC</td></tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </div>
-</div>
-
-<div class="page-break"></div>
-
-<!-- ================== PAGE 2 ================== -->
-<div style="padding-top:10px;"></div>
-
-<div class="page-container" style="min-height: 800px;">
-    
-    @if($logoBase64)
-    <div class="watermark">
-        <img src="{{ $logoBase64 }}" width="300">
-    </div>
-    @endif
-
-    <div class="content-area">
-        <!-- Consents -->
+        
+        <!-- Business Information -->
         <table class="section-header">
             <tr>
                 <td style="width: 25px;">
                     <div class="section-icon">
-                        @if(!empty($icons['users_w']))
-                            <img src="{{ $icons['users_w'] }}" width="10" height="10" style="margin-top: 5px;">
-                        @endif
+                        <img src="{{ $fa_doc }}" width="10" height="10" style="margin-top: 5px;">
                     </div>
                 </td>
-                <td class="section-title">DETAILED CONSENTS &amp; AGREEMENTS</td>
+                <td class="section-title">BUSINESS INFORMATION</td>
             </tr>
         </table>
         <div class="section-line"></div>
         
-        <table class="consents-table">
+        <table style="table-layout: fixed; width: 100%;">
             <tr>
-                <td style="width: 5%; text-align: center;">
-                    <div class="check-icon">
-                        @if(!empty($icons['check_w']))
-                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
-                        @endif
-                    </div>
+                <td style="width: 48%; padding-right: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Application ID</td><td class="t-colon">:</td><td class="t-value">{{ $appId }}</td></tr>
+                        <tr><td class="t-label">Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_name ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Federal Tax ID / EIN</td><td class="t-colon">:</td><td class="t-value">{{ $application->federal_tax_id_ein ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Industry Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->industry_type ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Address</td><td class="t-colon">:</td><td class="t-value">
+                            {{ trim(($application->street_address ?? '') . ' ' . ($application->city ?? '') . ', ' . ($application->state ?? '') . ' ' . ($application->zip_code ?? '') . ' ' . ($application->country ?? '')) ?: 'N/A' }}
+                        </td></tr>
+                    </table>
                 </td>
-                <td style="width: 80%;">I certify that typing my name above constitutes my legally binding electronic signature under the ESIGN Act and applicable state laws.</td>
-                <td style="width: 15%; text-align: right;" class="text-success"><strong>Accepted</strong></td>
-            </tr>
-            <tr>
-                <td style="text-align: center;">
-                    <div class="check-icon">
-                        @if(!empty($icons['check_w']))
-                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
-                        @endif
-                    </div>
+                <td style="width: 4%;"></td>
+                <td style="width: 48%; padding-left: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Years in Business</td><td class="t-colon">:</td><td class="t-value">{{ $application->years_in_business ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Checking Start Date</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->business_checking_start_date) ? \Carbon\Carbon::parse($application->business_checking_start_date)->format('M j, Y') : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value"><strong>{{ $status }}</strong></td></tr>
+                    </table>
                 </td>
-                <td>I have read and agree to the Terms &amp; Conditions.</td>
-                <td style="text-align: right;" class="text-success"><strong>Accepted</strong></td>
-            </tr>
-            <tr>
-                <td style="text-align: center;">
-                    <div class="check-icon">
-                        @if(!empty($icons['check_w']))
-                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
-                        @endif
-                    </div>
-                </td>
-                <td>I authorize Four Corner Funding to obtain and review my business and/or personal credit information as described.</td>
-                <td style="text-align: right;" class="text-success"><strong>Accepted</strong></td>
             </tr>
         </table>
 
-        <!-- Final Certification -->
-        <table class="section-header" style="margin-top: 25px;">
+        <!-- Owner Information -->
+        <table class="section-header" style="margin-top: 10px;">
             <tr>
                 <td style="width: 25px;">
                     <div class="section-icon">
-                        @if(!empty($icons['badge_w']))
-                            <img src="{{ $icons['badge_w'] }}" width="10" height="10" style="margin-top: 5px;">
-                        @endif
+                        <img src="{{ $fa_users }}" width="10" height="10" style="margin-top: 5px;">
                     </div>
                 </td>
-                <td class="section-title">FINAL CERTIFICATION</td>
+                <td class="section-title">PRIMARY OWNER INFORMATION</td>
             </tr>
         </table>
         <div class="section-line"></div>
         
-        <table>
+        <table style="table-layout: fixed; width: 100%;">
             <tr>
-                <td style="width: 60%; padding-right: 20px;">
-                    <div class="final-cert-text">
-                        By typing my full legal name above and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>Four Corner Funding and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
-                    </div>
+                <td style="width: 48%; padding-right: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Full Name</td><td class="t-colon">:</td><td class="t-value">{{ $borrowerName ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Date of Birth</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->date_of_birth) ? \Carbon\Carbon::parse($application->date_of_birth)->format('M j, Y') : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">SSN</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->ssn) ? '***-**-'.substr($application->ssn, -4) : 'N/A' }}</td></tr>
+                    </table>
                 </td>
-                <td style="width: 40%;">
-                    <!-- Highly accurate signature card -->
-                    <div class="final-sig-box">
-                        <div class="final-sig-name-italic">{{ $sigName }}</div><br>
-                        <div class="final-sig-bold">{{ $sigName }}</div>
-                        <div class="final-sig-type">Typed Electronic Signature</div>
-                        
-                        <div class="final-sig-detail">
-                            @if(!empty($icons['cal_b']))<img src="{{ $icons['cal_b'] }}" width="8" height="8">@endif 
-                            {{ $sigDateStr }}
-                        </div>
-                        <div class="final-sig-detail">
-                            @if(!empty($icons['clock_b']))<img src="{{ $icons['clock_b'] }}" width="8" height="8">@endif 
-                            {{ $sigTimeStr }}
-                        </div>
-                        <div class="final-sig-detail">
-                            @if(!empty($icons['globe_b']))<img src="{{ $icons['globe_b'] }}" width="8" height="8">@endif 
-                            {{ $timezone }}
-                        </div>
-                    </div>
+                <td style="width: 4%;"></td>
+                <td style="width: 48%; padding-left: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->phone_number ?: 'N/A' }}</td></tr>
+                    </table>
                 </td>
             </tr>
         </table>
+
+        <!-- Financial & Funding Details -->
+        <table class="section-header" style="margin-top: 10px;">
+            <tr>
+                <td style="width: 25px;">
+                    <div class="section-icon">
+                        <img src="{{ $fa_cal }}" width="10" height="10" style="margin-top: 5px;">
+                    </div>
+                </td>
+                <td class="section-title">FINANCIAL &amp; FUNDING DETAILS</td>
+            </tr>
+        </table>
+        <div class="section-line"></div>
         
+        <table style="table-layout: fixed; width: 100%;">
+            <tr>
+                <td style="width: 48%; padding-right: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Monthly Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->monthly_revenue) ? '$'.number_format((float)$application->monthly_revenue, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Annual Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_revenue) ? '$'.number_format((float)$application->annual_revenue, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Bank Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_bank_name ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Collateral Available</td><td class="t-colon">:</td><td class="t-value">{{ $application->collateral_available ?: 'N/A' }}</td></tr>
+                    </table>
+                </td>
+                <td style="width: 4%;"></td>
+                <td style="width: 48%; padding-left: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Requested Amount</td><td class="t-colon">:</td><td class="t-value" style="font-weight: bold; color: #0d2f5c;">{{ !empty($application->requested_amount) ? '$'.number_format((float)$application->requested_amount, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Purpose of Funds</td><td class="t-colon">:</td><td class="t-value">{{ $application->purpose_of_funds ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Preferred Funding Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->preferred_funding_type ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Timeframe Needed</td><td class="t-colon">:</td><td class="t-value">{{ $application->timeframe_needed ?: 'N/A' }}</td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Funding Program Details -->
+        <table class="section-header" style="margin-top: 10px;">
+            <tr>
+                <td style="width: 25px;">
+                    <div class="section-icon">
+                        <img src="{{ $fa_shield }}" width="10" height="10" style="margin-top: 5px;">
+                    </div>
+                </td>
+                <td class="section-title">FUNDING PROGRAM DETAILS</td>
+            </tr>
+        </table>
+        <div class="section-line"></div>
+        
+        <table style="table-layout: fixed; width: 100%;">
+            <tr>
+                <td style="width: 48%; padding-right: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Funding Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->funding_type ?: ($application->preferred_funding_type ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Funding Sequence Name</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->name ?: (optional($application->fundingSequence)->name ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Terms</td><td class="t-colon">:</td><td class="t-value">{{ $application->terms ?: (optional($application->funding_sequencing)->terms ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Estimated Speed</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->speed_to_funds ?: ($application->estimated_speed ?: 'N/A') }}</td></tr>
+                    </table>
+                </td>
+                <td style="width: 4%;"></td>
+                <td style="width: 48%; padding-left: 2%;">
+                    <table class="data-table">
+                        <tr><td class="t-label">Uses</td><td class="t-colon">:</td><td class="t-value">{{ $application->uses ?: (optional($application->funding_sequencing)->uses ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Use of Funds</td><td class="t-colon">:</td><td class="t-value">{{ $application->use_of_funds ?: ($application->purpose_of_funds ?: 'N/A') }}</td></tr>
+                        <tr><td class="t-label">Estimated Amount</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->funding_sequencing)->amount_range ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Funding Request Status</td><td class="t-colon">:</td><td class="t-value"><strong>{{ $application->status ?: 'N/A' }}</strong></td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
     </div>
 
     <!-- Footer -->
     <div class="footer-section">
         <table>
             <tr>
-                <td style="width: 15%;">
-                    @if(!empty($icons['custom_seal']))
-                        <img src="{{ $icons['custom_seal'] }}" width="65" height="65" style="margin-left:-5px;">
-                    @else
-                        <div class="footer-seal">
-                            <div class="footer-seal-inner">
-                                <div class="seal-text">ESIGN &amp; UETA</div>
-                                <div style="margin:2px 0;">
-                                    @if(!empty($icons['lock_w']))
-                                        <img src="{{ $icons['lock_w'] }}" width="10" height="10">
-                                    @else
-                                        <span style="font-size:10px;color:#0d2f5c">&#128274;</span>
-                                    @endif
-                                </div>
-                                <div class="seal-text">COMPLIANT</div>
-                            </div>
-                        </div>
-                    @endif
-                </td>
-                <td style="width: 50%;">
+                <td style="width: 60%;">
                     <div class="footer-disclaimer">
-                        This document serves as proof of electronic signature under the ESIGN Act, UETA, and applicable federal and state laws. It is a tamper-evident record of the signer's intent to sign this Funding Application electronically.
+                        This document is a record of the Funding Application submitted to Four Corner Funding. The information contained herein is considered confidential and is strictly for underwriting and evaluation purposes.
                     </div>
                 </td>
-                <td style="width: 35%; text-align: right;">
+                <td style="width: 40%; text-align: right;">
                     <div class="footer-company">
                         <strong>Four Corner Funding</strong><br>
                         400 Spectrum Center Drive, Suite 300<br>
@@ -623,7 +496,7 @@
         <table>
             <tr>
                 <td style="text-align: left;">&copy; {{ date('Y') }} Four Corner Funding. All Rights Reserved.</td>
-                <td style="text-align: right;">Page 2 of 2</td>
+                <td style="text-align: right;">Funding Application Record</td>
             </tr>
         </table>
     </div>
