@@ -13,6 +13,34 @@
     $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
     $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
     $logoBase64 = $logoBase64 ?? '';
+
+    // Mapped borrower columns
+    $businessName = $businessName ?? 'N/A';
+    $businessPhone = $businessPhone ?? 'N/A';
+    $businessAddress = $businessAddress ?? 'N/A';
+    $businessCity = $businessCity ?? 'N/A';
+    $personalCreditScore = $personalCreditScore ?? 'N/A';
+    $businessEin = $businessEin ?? 'N/A';
+    $businessEmail = $businessEmail ?? 'N/A';
+    $businessCountry = $businessCountry ?? 'N/A';
+    $businessState = $businessState ?? 'N/A';
+    $businessZipCode = $businessZipCode ?? 'N/A';
+    $businessStartDate = $businessStartDate ?? 'N/A';
+    $businessCreditScore = $businessCreditScore ?? 'N/A';
+    $businessIndustryType = $businessIndustryType ?? 'N/A';
+
+    $firstName = $firstName ?? 'N/A';
+    $lastName = $lastName ?? 'N/A';
+    $email = $email ?? 'N/A';
+    $phoneNumber = $phoneNumber ?? 'N/A';
+    $homeAddress = $homeAddress ?? 'N/A';
+    $homeState = $homeState ?? 'N/A';
+    $homeCity = $homeCity ?? 'N/A';
+    $homeZipCode = $homeZipCode ?? 'N/A';
+    $homeCountry = $homeCountry ?? 'N/A';
+    $homePhone = $homePhone ?? 'N/A';
+    $dateOfBirth = $dateOfBirth ?? 'N/A';
+    $last4SSN = $last4SSN ?? 'N/A';
 @endphp
 <style>
     @page { margin: 30px; }
@@ -221,13 +249,19 @@
 <body>
 
 @php
+    $borrower = $application->borrower ?? null;
     $rawSigData = $application->signature_data ?? [];
     $sigData = is_string($rawSigData) ? json_decode($rawSigData, true) : $rawSigData;
     if(!is_array($sigData)) $sigData = [];
     
     $appId = $application->application_number ?? ('FUND-'.str_pad($application->id, 6, '0', STR_PAD_LEFT));
-    $borrowerName = trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
-    $businessName = $application->business_name ?? 'N/A';
+    
+    $borrowerName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
+    if (empty($borrowerName)) {
+        $borrowerName = $application->full_name ?? '';
+    }
+    
+    $businessName = $borrower->business_name ?? ($application->business_name ?? 'N/A');
     $status = ucfirst(str_replace('_', ' ', $application->status ?? 'Pending'));
     
     $ip = $sigData['ip_address'] ?? '127.0.0.1';
@@ -386,27 +420,23 @@
             <tr>
                 <td style="width: 48%; padding-right: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Legal Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_name ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_phone ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">DUNS Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->duns_number ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Address</td><td class="t-colon">:</td><td class="t-value">{{ $application->street_address ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $application->city ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Entity Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->entity_type ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Personal Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ $application->self_reported_personal_credit_score ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Website</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_website ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Legal Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $businessName }}</td></tr>
+                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $businessPhone }}</td></tr>
+                        <tr><td class="t-label">Business Address</td><td class="t-colon">:</td><td class="t-value">{{ $businessAddress }}</td></tr>
+                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $businessCity }}</td></tr>
+                        <tr><td class="t-label">Personal Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ $personalCreditScore }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
                 <td style="width: 48%; padding-left: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Business EIN</td><td class="t-colon">:</td><td class="t-value">{{ $application->federal_tax_id_ein ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Email</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_email ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $application->country ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $application->state ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $application->zip_code ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Start Date</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->business_start_date) ? \Carbon\Carbon::parse($application->business_start_date)->format('M j, Y') : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ $application->self_reported_business_credit_score ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Industry Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->industry_type ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business EIN</td><td class="t-colon">:</td><td class="t-value">{{ $businessEin }}</td></tr>
+                        <tr><td class="t-label">Business Email</td><td class="t-colon">:</td><td class="t-value">{{ $businessEmail }}</td></tr>
+                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $businessCountry }}</td></tr>
+                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $businessState }}</td></tr>
+                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $businessZipCode }}</td></tr>
+                        <tr><td class="t-label">Business Start Date</td><td class="t-colon">:</td><td class="t-value">{{ $businessStartDate }}</td></tr>
+                        <tr><td class="t-label">Industry Type</td><td class="t-colon">:</td><td class="t-value">{{ $businessIndustryType }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -420,7 +450,7 @@
                         <img src="{{ $fa_users }}" width="14" height="14" style="margin-top: 6px;">
                     </div>
                 </td>
-                <td class="section-title">PRIMARY OWNER INFORMATION</td>
+                <td class="section-title">PRIMARY INFORMATION</td>
             </tr>
         </table>
         <div class="section-line"></div>
@@ -429,23 +459,23 @@
             <tr>
                 <td style="width: 48%; padding-right: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">First Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->first_name ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Email</td><td class="t-colon">:</td><td class="t-value">{{ $application->email ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Home Address</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_street_address ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_state ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_zip_code ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Date of Birth</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->date_of_birth) ? \Carbon\Carbon::parse($application->date_of_birth)->format('M j, Y') : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">First Name</td><td class="t-colon">:</td><td class="t-value">{{ $firstName }}</td></tr>
+                        <tr><td class="t-label">Email</td><td class="t-colon">:</td><td class="t-value">{{ $email }}</td></tr>
+                        <tr><td class="t-label">Home Address</td><td class="t-colon">:</td><td class="t-value">{{ $homeAddress }}</td></tr>
+                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $homeState }}</td></tr>
+                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $homeZipCode }}</td></tr>
+                        <tr><td class="t-label">Date of Birth</td><td class="t-colon">:</td><td class="t-value">{{ $dateOfBirth }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
                 <td style="width: 48%; padding-left: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Last Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->last_name ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->phone_number ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_country ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_city ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Home Phone</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_phone ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Last 4 SSN</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->ssn) ? substr($application->ssn, -4) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Last Name</td><td class="t-colon">:</td><td class="t-value">{{ $lastName }}</td></tr>
+                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $phoneNumber }}</td></tr>
+                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $homeCountry }}</td></tr>
+                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $homeCity }}</td></tr>
+                        <tr><td class="t-label">Home Phone</td><td class="t-colon">:</td><td class="t-value">{{ $homePhone }}</td></tr>
+                        <tr><td class="t-label">Last 4 SSN</td><td class="t-colon">:</td><td class="t-value">{{ $last4SSN }}</td></tr>
                     </table>
                 </td>
             </tr>

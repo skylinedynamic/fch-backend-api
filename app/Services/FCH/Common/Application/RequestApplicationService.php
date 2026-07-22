@@ -467,6 +467,10 @@ class RequestApplicationService
      */
     public static function getBrandingData($application)
     {
+        if ($application && ($application->relationLoaded('borrower') === false || !$application->borrower || !$application->borrower->first_name)) {
+            $application->load('borrower');
+        }
+
         $partner = $application->partner ?? null;
         $partnerId = $application->partner_id ?? null;
 
@@ -559,6 +563,43 @@ class RequestApplicationService
             }
         }
 
+        $borrower = $application->borrower ?? null;
+
+        // Resolve Business Info
+        $businessName = ($borrower ? $borrower->business_name : null) ?: ($application->business_name ?: 'N/A');
+        $businessPhone = ($borrower ? $borrower->business_phone : null) ?: ($application->business_phone ?: 'N/A');
+        $businessAddress = ($borrower ? $borrower->business_address : null) ?: ($application->street_address ?: 'N/A');
+        $businessCity = ($borrower ? $borrower->business_city : null) ?: ($application->city ?: 'N/A');
+        $personalCreditScore = ($borrower ? $borrower->personal_credit_score : null) ?: ($application->self_reported_personal_credit_score ?: 'N/A');
+        $businessEin = ($borrower ? $borrower->business_ein : null) ?: ($application->federal_tax_id_ein ?: 'N/A');
+        $businessEmail = ($borrower ? $borrower->business_email : null) ?: ($application->business_email ?: 'N/A');
+        $businessCountry = ($borrower ? $borrower->business_country : null) ?: ($application->country ?: 'N/A');
+        $businessState = ($borrower ? $borrower->business_state : null) ?: ($application->state ?: 'N/A');
+        $businessZipCode = ($borrower ? $borrower->business_postal_code : null) ?: ($application->zip_code ?: 'N/A');
+        
+        $rawStartDate = ($borrower ? $borrower->business_start_date : null) ?: ($application->business_start_date ?? null);
+        $businessStartDate = !empty($rawStartDate) ? \Carbon\Carbon::parse($rawStartDate)->format('M j, Y') : 'N/A';
+        
+        $businessCreditScore = $application->self_reported_business_credit_score ?: 'N/A';
+        $businessIndustryType = ($borrower ? $borrower->business_industry_type : null) ?: ($application->industry_type ?: 'N/A');
+
+        // Resolve Owner Info
+        $firstName = ($borrower ? $borrower->first_name : null) ?: ($application->first_name ?: 'N/A');
+        $lastName = ($borrower ? $borrower->last_name : null) ?: ($application->last_name ?: 'N/A');
+        $email = ($borrower ? $borrower->email : null) ?: ($application->email ?: 'N/A');
+        $phoneNumber = ($borrower ? $borrower->phone_number : null) ?: ($application->phone_number ?: 'N/A');
+        $homeAddress = ($borrower ? $borrower->home_address : null) ?: ($application->home_street_address ?: 'N/A');
+        $homeState = ($borrower ? $borrower->state : null) ?: ($application->home_state ?: 'N/A');
+        $homeCity = ($borrower ? $borrower->city : null) ?: ($application->home_city ?: 'N/A');
+        $homeZipCode = ($borrower ? $borrower->postal_code : null) ?: ($application->home_zip_code ?: 'N/A');
+        $homeCountry = ($borrower ? $borrower->country : null) ?: ($application->home_country ?: 'N/A');
+        $homePhone = ($borrower ? $borrower->home_phone : null) ?: ($application->home_phone ?: 'N/A');
+        
+        $rawDob = ($borrower ? $borrower->date_of_birth : null) ?: ($application->date_of_birth ?? null);
+        $dateOfBirth = !empty($rawDob) ? \Carbon\Carbon::parse($rawDob)->format('M j, Y') : 'N/A';
+        
+        $last4SSN = ($borrower ? $borrower->last_4_ssn : null) ?: (!empty($application->ssn) ? substr($application->ssn, -4) : 'N/A');
+
         return [
             'primaryColor' => $primaryColor,
             'secondaryColor' => $secondaryColor,
@@ -568,6 +609,34 @@ class RequestApplicationService
             'companyContact' => $companyContact,
             'companyWebsite' => $companyWebsite,
             'logoBase64' => $logoBase64,
+
+            // Resolved borrower & business details
+            'businessName' => $businessName,
+            'businessPhone' => $businessPhone,
+            'businessAddress' => $businessAddress,
+            'businessCity' => $businessCity,
+            'personalCreditScore' => $personalCreditScore,
+            'businessEin' => $businessEin,
+            'businessEmail' => $businessEmail,
+            'businessCountry' => $businessCountry,
+            'businessState' => $businessState,
+            'businessZipCode' => $businessZipCode,
+            'businessStartDate' => $businessStartDate,
+            'businessCreditScore' => $businessCreditScore,
+            'businessIndustryType' => $businessIndustryType,
+
+            'firstName' => $firstName,
+            'lastName' => $lastName,
+            'email' => $email,
+            'phoneNumber' => $phoneNumber,
+            'homeAddress' => $homeAddress,
+            'homeState' => $homeState,
+            'homeCity' => $homeCity,
+            'homeZipCode' => $homeZipCode,
+            'homeCountry' => $homeCountry,
+            'homePhone' => $homePhone,
+            'dateOfBirth' => $dateOfBirth,
+            'last4SSN' => $last4SSN,
         ];
     }
 }
