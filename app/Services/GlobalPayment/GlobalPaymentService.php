@@ -185,7 +185,7 @@ class GlobalPaymentService
                     'transaction_id' => $paymentIntent->id,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
-                    'is_partner_paying' => $data['is_partner_paying'] ?? false,
+                    'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] === \App\Models\Partner\Partner::class),
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                 ]);
@@ -339,6 +339,7 @@ class GlobalPaymentService
                 'transaction_id' => 'FAILED_' . uniqid(),
                 'amount' => ($data['amount'] ?? 0) / 100,
                 'currency' => $data['currency'] ?? Payment::CURRENCY_USD,
+                'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] === Partner::class),
                 'details' => [
                     'error' => $errorMessage,
                     'type' => $errorType,

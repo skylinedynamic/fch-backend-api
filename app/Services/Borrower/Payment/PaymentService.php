@@ -2,14 +2,15 @@
 
 namespace App\Services\Borrower\Payment;
 
-use App\Traits\PaginatesApi;
+use App\Http\Resources\Borrower\Payment\PaymentResource;
+use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\Borrower\Payment\PaymentResource;
 
 class PaymentService
 {
@@ -23,7 +24,7 @@ class PaymentService
         $authUser = Auth::user();
         $borrowerId = $authUser->entity_id;
 
-        $query = Payment::where('is_partner_paying', false)
+        $query = Payment::where('entity_type', Borrower::class)
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
