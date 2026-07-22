@@ -325,7 +325,8 @@ class RequestApplicationService
             return ApiResponse::error(__('application.funding_application_not_found'));
         }
 
-        $pdf = Pdf::loadView('pdf.funding-application', compact('application'));
+        $brandingData = self::getBrandingData($application);
+        $pdf = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
@@ -355,7 +356,11 @@ class RequestApplicationService
             return ApiResponse::error('Signature data not found.');
         }
 
-        $pdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
+        $brandingData = self::getBrandingData($application);
+        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge([
+            'application' => $application,
+            'signatureData' => $signatureData
+        ], $brandingData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
@@ -436,7 +441,8 @@ class RequestApplicationService
 
     private function generateApplicationPdfContent($application, $password = null)
     {
-        $pdf = Pdf::loadView('pdf.funding-application', compact('application'));
+        $brandingData = self::getBrandingData($application);
+        $pdf = Pdf::loadView('pdf.funding-application', array_merge(['application' => $application], $brandingData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
@@ -445,10 +451,123 @@ class RequestApplicationService
 
     private function generateSignaturePdfContent($application, $signatureData, $password = null)
     {
-        $pdf = Pdf::loadView('pdf.signature-certificate', compact('application', 'signatureData'));
+        $brandingData = self::getBrandingData($application);
+        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge([
+            'application' => $application,
+            'signatureData' => $signatureData
+        ], $brandingData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
         return $pdf->output();
+    }
+
+    /**
+     * Get branding data (colors, company details, logo base64) for PDFs
+     */
+    public static function getBrandingData($application)
+    {
+        $partner = $application->partner ?? null;
+        $partnerId = $application->partner_id ?? null;
+
+        $branding = [];
+        if ($partnerId) {
+            $branding = \App\Models\Common\AppConfiguration::where('partner_id', $partnerId)
+                ->where('module', \App\Models\Common\AppConfiguration::MODULE_BRANDING)
+                ->pluck('value', 'key')
+                ->toArray();
+        }
+        if (empty($branding)) {
+            $branding = \App\Models\Common\AppConfiguration::whereNull('partner_id')
+                ->where('module', \App\Models\Common\AppConfiguration::MODULE_BRANDING)
+                ->pluck('value', 'key')
+                ->toArray();
+        }
+
+        $primaryColor = $branding['primary_color'] ?? '#2563a2';
+        $secondaryColor = $branding['secondary_color'] ?? '#D4AF37';
+
+        if ($partner) {
+            $companyName = $partner->company_name ?? 'Four Corner Funding';
+            
+            $addrParts = array_filter([$partner->address_line_1, $partner->address_line_2]);
+            $companyAddress = !empty($addrParts) ? implode(', ', $addrParts) : '400 Spectrum Center Drive, Suite 300';
+            
+            $companyCityState = implode(', ', array_filter([$partner->city, $partner->state])) . ' ' . ($partner->postal_code ?? '');
+            if (trim($companyCityState) === '') {
+                $companyCityState = 'Irvine, CA 92618, USA';
+            } else {
+                $companyCityState .= ', ' . ($partner->country ?? 'USA');
+            }
+            
+            $contactParts = [];
+            if ($partner->phone_number) $contactParts[] = $partner->phone_number;
+            if ($partner->email) $contactParts[] = $partner->email;
+            $companyContact = !empty($contactParts) ? implode('  |  ', $contactParts) : '(949) 555-0123  |  support@fourcornerfunding.com';
+            
+            $companyWebsite = $partner->website ?? 'www.fourcornerfunding.com';
+        } else {
+            $companyName = 'Four Corner Funding';
+            $companyAddress = '400 Spectrum Center Drive, Suite 300';
+            $companyCityState = 'Irvine, CA 92618, USA';
+            $companyContact = '(949) 555-0123  |  support@fourcornerfunding.com';
+            $companyWebsite = 'www.fourcornerfunding.com';
+        }
+
+        $logoKey = $branding['primary_logo'] 
+            ?? $branding['secondary_logo'] 
+            ?? $branding['header_logo'] 
+            ?? null;
+
+        $logoBase64 = '';
+        
+        if ($logoKey && $logoKey !== 'null') {
+            $cleanPath = ltrim((string) $logoKey, '/');
+            
+            if (!str_starts_with($cleanPath, 'site-settings/') && !str_starts_with($cleanPath, 'partners/')) {
+                if ($partnerId) {
+                    $cleanPath = "partners/{$partnerId}/" . $cleanPath;
+                } else {
+                    $cleanPath = "site-settings/" . $cleanPath;
+                }
+            }
+            
+            $possiblePaths = [
+                storage_path('app/public/' . $cleanPath),
+                public_path('storage/' . $cleanPath),
+                public_path($cleanPath),
+            ];
+            
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path)) {
+                    $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
+                    break;
+                }
+            }
+        }
+        
+        if (empty($logoBase64)) {
+            $fallbackPaths = [
+                public_path('logo-mail.png'),
+                public_path('logo.png'),
+            ];
+            foreach ($fallbackPaths as $path) {
+                if (file_exists($path)) {
+                    $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
+                    break;
+                }
+            }
+        }
+
+        return [
+            'primaryColor' => $primaryColor,
+            'secondaryColor' => $secondaryColor,
+            'companyName' => $companyName,
+            'companyAddress' => $companyAddress,
+            'companyCityState' => $companyCityState,
+            'companyContact' => $companyContact,
+            'companyWebsite' => $companyWebsite,
+            'logoBase64' => $logoBase64,
+        ];
     }
 }

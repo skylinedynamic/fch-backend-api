@@ -310,10 +310,11 @@ class FundingApplicationController extends Controller
 
             // Generate Certificate
             try {
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.signature-certificate', [
+                $brandingData = \App\Services\FCH\Common\Application\RequestApplicationService::getBrandingData($attestationAndAuthorization);
+                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.signature-certificate', array_merge([
                     'application' => $attestationAndAuthorization,
                     'signatureData' => $validated['signature_data']
-                ]);
+                ], $brandingData));
                 $pdfPath = 'funding-applications/' . $attestationAndAuthorization->id . '/signature-certificate-' . $attestationAndAuthorization->application_number . '.pdf';
                 \Illuminate\Support\Facades\Storage::disk('public')->put($pdfPath, $pdf->output());
                 

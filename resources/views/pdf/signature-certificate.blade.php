@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <title>Electronic Signature Certificate</title>
 @php
-    $primaryColor = App\Models\Common\AppConfiguration::where('key', 'primary_color')->where('module', 'branding')->value('value') ?: '#2563a2';
-    $secondaryColor = App\Models\Common\AppConfiguration::where('key', 'secondary_color')->where('module', 'branding')->value('value') ?: '#D4AF37';
+    // Branding and company details passed dynamically from controller/service
+    $primaryColor = $primaryColor ?? '#2563a2';
+    $secondaryColor = $secondaryColor ?? '#D4AF37';
+    $companyName = $companyName ?? 'Four Corner Funding';
+    $companyAddress = $companyAddress ?? '400 Spectrum Center Drive, Suite 300';
+    $companyCityState = $companyCityState ?? 'Irvine, CA 92618, USA';
+    $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
+    $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
+    $logoBase64 = $logoBase64 ?? '';
 @endphp
 <style>
     @page { margin: 30px; }
@@ -232,15 +239,7 @@
     $privacyVer = $sigData['privacy_version'] ?? '1.0';
     $creditVer = $sigData['credit_auth_version'] ?? '1.0';
     $sha = $sigData['sha256'] ?? 'N/A';
-    // Read horizontal logo for header and watermark
-    $logoPath = public_path('logo-mail.png');
-    if (!file_exists($logoPath)) {
-        $logoPath = public_path('logo.png');
-    }
-    $logoBase64 = '';
-    if (file_exists($logoPath)) {
-        $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
-    }
+    // Dynamic logo resolved at top of document
     
     // Read Generated SVG-Style Icons
     // Helper: create inline SVG icon base64 with dynamic fill color
@@ -342,7 +341,7 @@
                 @if($logoBase64)
                     <img src="{{ $logoBase64 }}" width="150" alt="Logo">
                 @else
-                    <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">FOUR CORNER FUNDING</div>
+                    <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">{{ $companyName }}</div>
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
@@ -598,7 +597,7 @@
             <tr>
                 <td style="width: 60%; padding-right: 20px;">
                     <div class="final-cert-text">
-                        By typing my full legal name above and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>Four Corner Funding and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
+                        By typing my full legal name above and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>{{ $companyName }} and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
                     </div>
                 </td>
                 <td style="width: 40%;">
@@ -641,11 +640,11 @@
                 </td>
                 <td style="width: 35%; text-align: right; vertical-align: middle; padding: 10px 0;">
                     <div class="footer-company">
-                        <strong>Four Corner Funding</strong><br>
-                        400 Spectrum Center Drive, Suite 300<br>
-                        Irvine, CA 92618, USA<br>
-                        (949) 555-0123 &nbsp;|&nbsp; support@fourcornerfunding.com<br>
-                        www.fourcornerfunding.com
+                        <strong>{{ $companyName }}</strong><br>
+                        {{ $companyAddress }}<br>
+                        {{ $companyCityState }}<br>
+                        {{ $companyContact }}<br>
+                        {{ $companyWebsite }}
                     </div>
                 </td>
             </tr>
@@ -657,7 +656,7 @@
     <div class="bottom-bar">
         <table>
             <tr>
-                <td style="text-align: left;">&copy; {{ date('Y') }} Four Corner Funding. All Rights Reserved.</td>
+                <td style="text-align: left;">&copy; {{ date('Y') }} {{ $companyName }}. All Rights Reserved.</td>
                 <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ now()->format('M j, Y') }}</td>
             </tr>
         </table>

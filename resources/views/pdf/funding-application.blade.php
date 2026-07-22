@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <title>Funding Application</title>
 @php
-    $primaryColor = App\Models\Common\AppConfiguration::where('key', 'primary_color')->where('module', 'branding')->value('value') ?: '#2563a2';
-    $secondaryColor = App\Models\Common\AppConfiguration::where('key', 'secondary_color')->where('module', 'branding')->value('value') ?: '#D4AF37';
+    // Branding and company details passed dynamically from controller/service
+    $primaryColor = $primaryColor ?? '#2563a2';
+    $secondaryColor = $secondaryColor ?? '#D4AF37';
+    $companyName = $companyName ?? 'Four Corner Funding';
+    $companyAddress = $companyAddress ?? '400 Spectrum Center Drive, Suite 300';
+    $companyCityState = $companyCityState ?? 'Irvine, CA 92618, USA';
+    $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
+    $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
+    $logoBase64 = $logoBase64 ?? '';
 @endphp
 <style>
     @page { margin: 30px; }
@@ -241,15 +248,7 @@
     $creditVer = $sigData['credit_auth_version'] ?? '1.0';
     $sha = $sigData['sha256'] ?? 'N/A';
     
-    // Read horizontal logo for header and watermark
-    $logoPath = public_path('logo-mail.png');
-    if (!file_exists($logoPath)) {
-        $logoPath = public_path('logo.png');
-    }
-    $logoBase64 = '';
-    if (file_exists($logoPath)) {
-        $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
-    }
+    // Dynamic logo resolved at top of document
 
     // Helper: create inline SVG icon base64 with dynamic fill color
     // WHITE icons  — for use on primary-colored banner background
@@ -315,7 +314,7 @@
                 @if($logoBase64)
                     <img src="{{ $logoBase64 }}" width="150" alt="Logo">
                 @else
-                    <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">FOUR CORNER FUNDING</div>
+                    <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">{{ $companyName }}</div>
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
@@ -542,16 +541,16 @@
             <tr>
                 <td style="width: 60%;">
                     <div class="footer-disclaimer">
-                        This document is a record of the Funding Application submitted to Four Corner Funding. The information contained herein is considered confidential and is strictly for underwriting and evaluation purposes.
+                        This document is a record of the Funding Application submitted to {{ $companyName }}. The information contained herein is considered confidential and is strictly for underwriting and evaluation purposes.
                     </div>
                 </td>
                 <td style="width: 40%; text-align: right;">
                     <div class="footer-company">
-                        <strong>Four Corner Funding</strong><br>
-                        400 Spectrum Center Drive, Suite 300<br>
-                        Irvine, CA 92618, USA<br>
-                        (949) 555-0123 &nbsp;|&nbsp; support@fourcornerfunding.com<br>
-                        www.fourcornerfunding.com
+                        <strong>{{ $companyName }}</strong><br>
+                        {{ $companyAddress }}<br>
+                        {{ $companyCityState }}<br>
+                        {{ $companyContact }}<br>
+                        {{ $companyWebsite }}
                     </div>
                 </td>
             </tr>
@@ -562,7 +561,7 @@
     <div class="bottom-bar">
         <table>
             <tr>
-                <td style="text-align: left;">&copy; {{ date('Y') }} Four Corner Funding. All Rights Reserved.</td>
+                <td style="text-align: left;">&copy; {{ date('Y') }} {{ $companyName }}. All Rights Reserved.</td>
                 <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ now()->format('M j, Y') }}</td>
             </tr>
         </table>
