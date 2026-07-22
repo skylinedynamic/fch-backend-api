@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>Funding Application</title>
+@php
+    $primaryColor = App\Models\Common\AppConfiguration::where('key', 'primary_color')->where('module', 'branding')->value('value') ?: '#2563a2';
+    $secondaryColor = App\Models\Common\AppConfiguration::where('key', 'secondary_color')->where('module', 'branding')->value('value') ?: '#D4AF37';
+@endphp
 <style>
     @page { margin: 30px; }
     body {
@@ -12,7 +16,7 @@
         padding: 0;
         font-size: 10px;
     }
-    .text-primary { color: #0d2f5c; }
+    .text-primary { color: {{ $primaryColor }}; }
     .text-success { color: #00a65a; }
     
     table { width: 100%; border-collapse: collapse; }
@@ -20,7 +24,7 @@
 
     /* Page Container */
     .page-container {
-        border: 2px solid #0d2f5c;
+        border: 2px solid {{ $primaryColor }};
         position: relative;
     }
     
@@ -39,7 +43,7 @@
     .doc-title {
         font-size: 20px;
         font-weight: bold;
-        color: #0d2f5c;
+        color: {{ $primaryColor }};
         text-align: right;
         text-transform: uppercase;
         margin-bottom: 4px;
@@ -47,7 +51,7 @@
     }
     .doc-subtitle {
         font-size: 9px;
-        color: #2ba0c9;
+        color: {{ $secondaryColor }};
         font-weight: bold;
         text-align: right;
         text-transform: uppercase;
@@ -55,7 +59,7 @@
 
     /* Blue Banner */
     .info-banner {
-        background-color: #0d2f5c;
+        background-color: {{ $primaryColor }};
         color: #ffffff;
         padding: 10px 25px;
     }
@@ -79,21 +83,21 @@
     .section-header td { vertical-align: middle; }
     
     .section-icon {
-        background-color: #0d2f5c;
+        background-color: {{ $primaryColor }};
         width: 20px;
         height: 20px;
         border-radius: 50%;
         text-align: center;
     }
     .section-title {
-        color: #0d2f5c;
+        color: {{ $primaryColor }};
         font-size: 10px;
         font-weight: bold;
         text-transform: uppercase;
         padding-left: 8px;
     }
     .section-line {
-        border-bottom: 2px solid #0d2f5c;
+        border-bottom: 2px solid {{ $primaryColor }};
         margin-bottom: 10px;
     }
 
@@ -115,13 +119,13 @@
         padding: 10px;
         margin-bottom: 15px;
     }
-    .sig-signed-by { font-size: 7px; color: #0d2f5c; font-weight: bold; text-transform: uppercase; }
+    .sig-signed-by { font-size: 7px; color: {{ $primaryColor }}; font-weight: bold; text-transform: uppercase; }
     .sig-name {
         font-family: 'Times New Roman', serif;
         font-style: italic;
         font-size: 22px;
-        color: #0d2f5c;
-        border-bottom: 1px solid #0d2f5c;
+        color: {{ $primaryColor }};
+        border-bottom: 1px solid {{ $primaryColor }};
         padding-bottom: 3px;
         margin: 3px 0;
     }
@@ -151,31 +155,31 @@
 
     /* Final Certification */
     .final-cert-text { font-size: 8.5px; line-height: 1.6; color: #333; padding-right: 20px; text-align: justify; }
-    .final-sig-box { border: 1px dashed #0d2f5c; padding: 12px; text-align: center; border-radius: 6px; }
+    .final-sig-box { border: 1px dashed {{ $primaryColor }}; padding: 12px; text-align: center; border-radius: 6px; }
     .final-sig-name-italic {
-        font-family: 'Times New Roman', serif; font-style: italic; font-size: 20px; color: #0d2f5c;
-        border-bottom: 1px solid #0d2f5c; padding-bottom: 2px; margin-bottom: 5px; display: inline-block; width: 80%;
+        font-family: 'Times New Roman', serif; font-style: italic; font-size: 20px; color: {{ $primaryColor }};
+        border-bottom: 1px solid {{ $primaryColor }}; padding-bottom: 2px; margin-bottom: 5px; display: inline-block; width: 80%;
     }
     .final-sig-bold { font-weight: bold; font-size: 10px; color: #111; margin-bottom: 3px; }
     .final-sig-detail { font-size: 8px; color: #333; margin-bottom: 2px; text-align: left; padding-left: 20px; }
     .final-sig-type { font-size: 8px; color: #555; margin-bottom: 5px; }
 
     /* Footer */
-    .footer-section { border-top: 2px solid #0d2f5c; padding: 15px 25px; }
+    .footer-section { border-top: 2px solid {{ $primaryColor }}; padding: 15px 25px; }
     .footer-seal {
-        width: 60px; height: 60px; border: 2px dashed #0d2f5c; border-radius: 50%; text-align: center; margin: 0 auto;
+        width: 60px; height: 60px; border: 2px dashed {{ $primaryColor }}; border-radius: 50%; text-align: center; margin: 0 auto;
     }
     .footer-seal-inner {
-        width: 50px; height: 50px; border: 2px solid #0d2f5c; border-radius: 50%; margin: 3px auto 0 auto;
+        width: 50px; height: 50px; border: 2px solid {{ $primaryColor }}; border-radius: 50%; margin: 3px auto 0 auto;
         padding-top: 10px; box-sizing: border-box;
     }
-    .seal-text { font-size: 4px; font-weight: bold; color: #0d2f5c; }
+    .seal-text { font-size: 4px; font-weight: bold; color: {{ $primaryColor }}; }
     
     .footer-disclaimer { font-size: 8px; color: #555; line-height: 1.4; padding: 0 15px; text-align: justify; }
     .footer-company { font-size: 8px; color: #333; line-height: 1.5; }
     
     /* Bottom Bar */
-    .bottom-bar { background-color: #0d2f5c; color: #ffffff; padding: 8px 25px; }
+    .bottom-bar { background-color: {{ $primaryColor }}; color: #ffffff; padding: 8px 25px; }
     .bottom-bar td { font-size: 8px; color: #ffffff; }
 
     /* Watermark */
@@ -190,7 +194,7 @@
         font-size: 65px;
         font-weight: bold;
         font-family: 'Helvetica', 'Arial', sans-serif;
-        color: #0d2f5c;
+        color: {{ $primaryColor }};
         white-space: nowrap;
         letter-spacing: 2px;
     }
@@ -237,13 +241,44 @@
     if (file_exists($logoPath)) {
         $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
     }
-    
-    // FontAwesome SVGs Base64 encoded for guaranteed rendering in DOMPDF
-    $fa_doc = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="#ffffff" d="M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm160 14.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z"/></svg>');
-    $fa_users = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#ffffff" d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"/></svg>');
-    $fa_cal = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="#ffffff" d="M400 64h-48V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H160V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM48 160h352v288H48V160z"/></svg>');
-    $fa_shield = 'data:image/svg+xml;base64,' . base64_encode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#ffffff" d="M466.5 83.7l-192-80a48.1 48.1 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C381.5 463.7 496 326.5 496 128c0-19.4-11.7-36.9-29.5-44.3zM256 464C161 423.5 64 304.7 64 128l192-80 192 80c0 176.7-97 295.5-192 336z"/></svg>');
-    
+
+    // Helper: create inline SVG icon base64 with dynamic fill color
+    // WHITE icons  — for use on primary-colored banner background
+    $icon_white = function(string $path, string $viewBox = '0 0 512 512') {
+        return 'data:image/svg+xml;base64,' . base64_encode(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="#ffffff" d="' . $path . '"/></svg>'
+        );
+    };
+    // PRIMARY COLOR icons — for use on white section-header backgrounds
+    $icon_primary = function(string $path, string $viewBox = '0 0 512 512') use ($primaryColor) {
+        return 'data:image/svg+xml;base64,' . base64_encode(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="' . $primaryColor . '" d="' . $path . '"/></svg>'
+        );
+    };
+
+    // --- ICON PATHS (Font Awesome 5 Free paths) ---
+    // fa-building  (Business Information)
+    $p_building = 'M436 480h-20V24c0-13.3-10.7-24-24-24H56C42.7 0 32 10.7 32 24v456H12c-6.6 0-12 5.4-12 12v20h448v-20c0-6.6-5.4-12-12-12zM128 76c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12V76zm0 96c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm52 148h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm76 160h-64v-84c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v84zm64-172c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12V76c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40z';
+    // fa-user  (Owner Information)
+    $p_user = 'M256 288c79.5 0 144-64.5 144-144S335.5 0 256 0 112 64.5 112 144s64.5 144 144 144zm128 32h-55.1c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16H128C57.3 320 0 377.3 0 448v16c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48v-16c0-70.7-57.3-128-128-128z';
+    // fa-dollar-sign  (Financial)
+    $p_dollar = 'M272 128c0-14.2-3.2-27.8-8.9-40h17.7c8.8 0 16-7.2 16-16V16c0-8.8-7.2-16-16-16h-48.1c-43 0-80.3 28-93.7 66.7C126.5 62.2 113.8 56 99.9 56c-41.2 0-67.2 44.9-46.4 80.3L120 248c8.1 13.6 22.6 22.2 38.5 23.7V320H128c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h30.5v32.4c-17.4 7.3-28.5 26.5-24.1 47.4 3.6 17 18.3 30.7 35.7 32.1C191.7 497.4 208 481.9 208 464v-80h30.5c26.3 0 47.5-21.3 47.5-47.5V320h.5c44.2 0 80-35.8 80-80 0-61.9-50.1-112-94-112zm-48 208h-32v-48h32v48z';
+    // fa-shield-alt  (Funding Program)
+    $p_shield = 'M466.5 83.7l-192-80a48.15 48.15 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C381.5 463.7 496 326.5 496 128c0-19.4-11.7-36.9-29.5-44.3zm-47.2 114.2l-184 184c-6.2 6.2-16.4 6.2-22.6 0l-104-104c-6.2-6.2-6.2-16.4 0-22.6l22.6-22.6c6.2-6.2 16.4-6.2 22.6 0l70.1 70.1 150.1-150.1c6.2-6.2 16.4-6.2 22.6 0l22.6 22.6c6.3 6.2 6.3 16.4 0 22.6z';
+    // fa-file-alt  (Document Reference - banner)
+    $p_file = 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm64 236c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-64c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-72v8c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12zm96-114.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z';
+    // fa-calendar-alt  (Document Generated - banner)
+    $p_cal = 'M0 464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V192H0v272zm320-196c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zM400 64h-48V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H160V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H48C21.5 64 0 85.5 0 112v48h448v-48c0-26.5-21.5-48-48-48z';
+
+    // Build the four icon variable pairs (white for banner, primary-colored for sections)
+    $fa_doc_white    = $icon_white($p_file, '0 0 384 512');
+    $fa_cal_white    = $icon_white($p_cal);
+    $fa_doc          = $icon_primary($p_building);      // Building  → Business Info
+    $fa_users        = $icon_primary($p_user, '0 0 448 512');  // User → Owner Info
+    $fa_dollar       = $icon_primary($p_dollar);        // Dollar   → Financial
+    $fa_shield       = $icon_primary($p_shield);        // Shield   → Funding Program
+
+
     // Fallback to full_name if available
     $borrowerName = $application->full_name ?? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
 @endphp
@@ -271,25 +306,25 @@
                 @if($logoBase64)
                     <img src="{{ $logoBase64 }}" width="150" alt="Logo">
                 @else
-                    <div style="font-size: 16px; font-weight: bold; color: #0d2f5c;">FOUR CORNER FUNDING</div>
+                    <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">FOUR CORNER FUNDING</div>
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
-                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: #0d2f5c; font-weight: bold;">FUNDING APPLICATION</div>
+                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: {{ $primaryColor }}; font-weight: bold;">FUNDING APPLICATION</div>
             </td>
         </tr>
     </table>
 
     <!-- Blue Banner -->
-    <div style="position: relative; background-color: #0d2f5c; color: #ffffff;">
+    <div style="position: relative; background-color: {{ $primaryColor }}; color: #ffffff;">
         <table style="width: 100%; border-collapse: collapse;">
             <tr>
                 <td style="width: 48%; padding: 10px 0 10px 25px; vertical-align: middle;">
                     <table style="width: 100%;">
                         <tr>
                             <td style="width: 35px; vertical-align: middle;">
-                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
-                                    <img src="{{ $fa_doc }}" width="11" height="11" style="margin-top: 6px;">
+                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 28px; height: 28px; line-height: 28px; text-align: center;">
+                                    <img src="{{ $fa_doc_white }}" width="14" height="14" style="margin-top: 7px;">
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
@@ -300,14 +335,14 @@
                     </table>
                 </td>
                 
-                <td style="width: 2%; border-left: 1px solid #1a4276; height: 30px;"></td>
+                <td style="width: 2%; border-left: 1px solid rgba(255,255,255,0.3); height: 30px;"></td>
 
                 <td style="width: 45%; padding: 10px 0 10px 15px; vertical-align: middle;">
                     <table style="width: 100%;">
                         <tr>
                             <td style="width: 35px; vertical-align: middle;">
-                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
-                                    <img src="{{ $fa_cal }}" width="12" height="12" style="margin-top: 5px;">
+                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 28px; height: 28px; line-height: 28px; text-align: center;">
+                                    <img src="{{ $fa_cal_white }}" width="14" height="14" style="margin-top: 7px;">
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
@@ -318,10 +353,7 @@
                     </table>
                 </td>
 
-                <td style="width: 5%; vertical-align: bottom; padding: 0; text-align: right;">
-                    <!-- Cyan Triangle Wedge -->
-                    <div style="width: 0; height: 0; border-bottom: 44px solid #00a0d1; border-left: 20px solid transparent; float: right;"></div>
-                </td>
+                <td style="width: 5%; vertical-align: bottom; padding: 0; text-align: right;"></td>
             </tr>
         </table>
     </div>
@@ -333,8 +365,8 @@
         <table class="section-header">
             <tr>
                 <td style="width: 25px;">
-                    <div class="section-icon">
-                        <img src="{{ $fa_doc }}" width="10" height="10" style="margin-top: 5px;">
+                    <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
+                        <img src="{{ $fa_doc }}" width="14" height="14" style="margin-top: 6px;">
                     </div>
                 </td>
                 <td class="section-title">BUSINESS INFORMATION</td>
@@ -344,23 +376,29 @@
         
         <table style="table-layout: fixed; width: 100%;">
             <tr>
-                <td style="width: 48%; padding-right: 2%;">
+                <td style="width: 48%; padding-right: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Application ID</td><td class="t-colon">:</td><td class="t-value">{{ $appId }}</td></tr>
-                        <tr><td class="t-label">Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_name ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Federal Tax ID / EIN</td><td class="t-colon">:</td><td class="t-value">{{ $application->federal_tax_id_ein ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Industry Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->industry_type ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Address</td><td class="t-colon">:</td><td class="t-value">
-                            {{ trim(($application->street_address ?? '') . ' ' . ($application->city ?? '') . ', ' . ($application->state ?? '') . ' ' . ($application->zip_code ?? '') . ' ' . ($application->country ?? '')) ?: 'N/A' }}
-                        </td></tr>
+                        <tr><td class="t-label">Legal Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_name ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_phone ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">DUNS Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->duns_number ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Address</td><td class="t-colon">:</td><td class="t-value">{{ $application->street_address ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $application->city ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Entity Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->entity_type ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Personal Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ $application->self_reported_personal_credit_score ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Website</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_website ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
-                <td style="width: 48%; padding-left: 2%;">
+                <td style="width: 48%; padding-left: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Years in Business</td><td class="t-colon">:</td><td class="t-value">{{ $application->years_in_business ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Checking Start Date</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->business_checking_start_date) ? \Carbon\Carbon::parse($application->business_checking_start_date)->format('M j, Y') : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value"><strong>{{ $status }}</strong></td></tr>
+                        <tr><td class="t-label">Business EIN</td><td class="t-colon">:</td><td class="t-value">{{ $application->federal_tax_id_ein ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Email</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_email ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $application->country ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $application->state ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $application->zip_code ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Start Date</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->business_start_date) ? \Carbon\Carbon::parse($application->business_start_date)->format('M j, Y') : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Business Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ $application->self_reported_business_credit_score ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Industry Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->industry_type ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -370,8 +408,8 @@
         <table class="section-header" style="margin-top: 10px;">
             <tr>
                 <td style="width: 25px;">
-                    <div class="section-icon">
-                        <img src="{{ $fa_users }}" width="10" height="10" style="margin-top: 5px;">
+                    <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
+                        <img src="{{ $fa_users }}" width="14" height="14" style="margin-top: 6px;">
                     </div>
                 </td>
                 <td class="section-title">PRIMARY OWNER INFORMATION</td>
@@ -381,17 +419,25 @@
         
         <table style="table-layout: fixed; width: 100%;">
             <tr>
-                <td style="width: 48%; padding-right: 2%;">
+                <td style="width: 48%; padding-right: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Full Name</td><td class="t-colon">:</td><td class="t-value">{{ $borrowerName ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">First Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->first_name ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Email</td><td class="t-colon">:</td><td class="t-value">{{ $application->email ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Home Address</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_street_address ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">State</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_state ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Zip Code</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_zip_code ?: 'N/A' }}</td></tr>
                         <tr><td class="t-label">Date of Birth</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->date_of_birth) ? \Carbon\Carbon::parse($application->date_of_birth)->format('M j, Y') : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">SSN</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->ssn) ? '***-**-'.substr($application->ssn, -4) : 'N/A' }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
-                <td style="width: 48%; padding-left: 2%;">
+                <td style="width: 48%; padding-left: 2%; vertical-align: top;">
                     <table class="data-table">
+                        <tr><td class="t-label">Last Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->last_name ?: 'N/A' }}</td></tr>
                         <tr><td class="t-label">Phone Number</td><td class="t-colon">:</td><td class="t-value">{{ $application->phone_number ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Country</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_country ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">City</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_city ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Home Phone</td><td class="t-colon">:</td><td class="t-value">{{ $application->home_phone ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Last 4 SSN</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->ssn) ? substr($application->ssn, -4) : 'N/A' }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -401,8 +447,8 @@
         <table class="section-header" style="margin-top: 10px;">
             <tr>
                 <td style="width: 25px;">
-                    <div class="section-icon">
-                        <img src="{{ $fa_cal }}" width="10" height="10" style="margin-top: 5px;">
+                    <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
+                        <img src="{{ $fa_dollar }}" width="14" height="14" style="margin-top: 6px;">
                     </div>
                 </td>
                 <td class="section-title">FINANCIAL &amp; FUNDING DETAILS</td>
@@ -412,32 +458,44 @@
         
         <table style="table-layout: fixed; width: 100%;">
             <tr>
-                <td style="width: 48%; padding-right: 2%;">
+                <td style="width: 48%; padding-right: 2%; vertical-align: top;">
                     <table class="data-table">
+                        <tr><td class="t-label">Currency</td><td class="t-colon">:</td><td class="t-value">{{ $application->currency ?: 'USD' }}</td></tr>
                         <tr><td class="t-label">Monthly Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->monthly_revenue) ? '$'.number_format((float)$application->monthly_revenue, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Annual Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_revenue) ? '$'.number_format((float)$application->annual_revenue, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Business Bank Name</td><td class="t-colon">:</td><td class="t-value">{{ $application->business_bank_name ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Collateral Available</td><td class="t-colon">:</td><td class="t-value">{{ $application->collateral_available ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Annual Personal Income</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_personal_income) ? '$'.number_format((float)$application->annual_personal_income, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Number of Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ $application->number_of_monthly_deposits ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Current Business Debt</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->current_business_debt) ? '$'.number_format((float)$application->current_business_debt, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Negative Days</td><td class="t-colon">:</td><td class="t-value">{{ $application->negative_days ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
-                <td style="width: 48%; padding-left: 2%;">
+                <td style="width: 48%; padding-left: 2%; vertical-align: top;">
                     <table class="data-table">
-                        <tr><td class="t-label">Requested Amount</td><td class="t-colon">:</td><td class="t-value" style="font-weight: bold; color: #0d2f5c;">{{ !empty($application->requested_amount) ? '$'.number_format((float)$application->requested_amount, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Purpose of Funds</td><td class="t-colon">:</td><td class="t-value">{{ $application->purpose_of_funds ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Preferred Funding Type</td><td class="t-colon">:</td><td class="t-value">{{ $application->preferred_funding_type ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Timeframe Needed</td><td class="t-colon">:</td><td class="t-value">{{ $application->timeframe_needed ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Years in Business</td><td class="t-colon">:</td><td class="t-value">{{ $application->years_in_business ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Annual Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_revenue) ? '$'.number_format((float)$application->annual_revenue, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Average Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->average_monthly_deposits) ? '$'.number_format((float)$application->average_monthly_deposits, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Average Daily Balance (ADB)</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->average_daily_balance) ? '$'.number_format((float)$application->average_daily_balance, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">NSF Count</td><td class="t-colon">:</td><td class="t-value">{{ $application->nsf_count ?: 'N/A' }}</td></tr>
                     </table>
                 </td>
             </tr>
         </table>
 
-        <!-- Funding Program Details -->
+    </div><!-- close content-area page 1 -->
+</div><!-- close page-container page 1 -->
+
+<!-- Page Break -->
+<div class="page-break"></div>
+
+<!-- PAGE 2 - Funding Program Details -->
+<div class="page-container">
+    <div class="content-area">
+
         <table class="section-header" style="margin-top: 10px;">
             <tr>
                 <td style="width: 25px;">
-                    <div class="section-icon">
-                        <img src="{{ $fa_shield }}" width="10" height="10" style="margin-top: 5px;">
+                    <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
+                        <img src="{{ $fa_shield }}" width="14" height="14" style="margin-top: 6px;">
                     </div>
                 </td>
                 <td class="section-title">FUNDING PROGRAM DETAILS</td>
@@ -496,7 +554,7 @@
         <table>
             <tr>
                 <td style="text-align: left;">&copy; {{ date('Y') }} Four Corner Funding. All Rights Reserved.</td>
-                <td style="text-align: right;">Funding Application Record</td>
+                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ now()->format('M j, Y') }}</td>
             </tr>
         </table>
     </div>
