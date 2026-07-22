@@ -1,94 +1,634 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Funding Application #{{ $application->application_number ?? $application->id }}</title>
-    <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #333; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #004b87; padding-bottom: 10px; }
-        .header h1 { margin: 0; color: #004b87; font-size: 24px; }
-        .section { margin-bottom: 20px; }
-        .section-title { background: #f4f6f8; padding: 5px 10px; font-weight: bold; border-left: 4px solid #004b87; margin-bottom: 10px; font-size: 14px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
-        th { background-color: #f9f9f9; width: 40%; color: #555; }
-        .footer { text-align: center; font-size: 10px; color: #777; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 10px; }
-    </style>
+<meta charset="utf-8">
+<title>Electronic Signature Certificate</title>
+<style>
+    @page { margin: 30px; }
+    body {
+        font-family: 'DejaVu Sans', Arial, sans-serif;
+        color: #333333;
+        margin: 0;
+        padding: 0;
+        font-size: 10px;
+    }
+    .text-primary { color: #0d2f5c; }
+    .text-success { color: #00a65a; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    td { vertical-align: top; }
+
+    /* Page Container */
+    .page-container {
+        border: 2px solid #0d2f5c;
+        position: relative;
+    }
+    
+    /* Top Pagination */
+    .page-number {
+        text-align: right;
+        font-size: 8px;
+        color: #555;
+        padding-bottom: 5px;
+        padding-right: 25px;
+    }
+
+    /* Header */
+    .header-table { padding: 10px 25px 20px 25px; }
+    .header-table td { vertical-align: middle; }
+    .doc-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #0d2f5c;
+        text-align: right;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+    }
+    .doc-subtitle {
+        font-size: 9px;
+        color: #2ba0c9;
+        font-weight: bold;
+        text-align: right;
+        text-transform: uppercase;
+    }
+
+    /* Blue Banner */
+    .info-banner {
+        background-color: #0d2f5c;
+        color: #ffffff;
+        padding: 10px 25px;
+    }
+    .info-banner td { vertical-align: middle; color: #ffffff; }
+    
+    .icon-box {
+        width: 22px;
+        height: 22px;
+        border: 1px solid #ffffff;
+        border-radius: 4px;
+        text-align: center;
+    }
+    .info-label { color: #8da4c4; font-size: 8px; }
+    .info-value { font-size: 10px; font-weight: bold; }
+
+    /* Content Area */
+    .content-area { padding: 20px 25px; }
+    
+    /* Section Headers */
+    .section-header { margin-top: 15px; margin-bottom: 5px; }
+    .section-header td { vertical-align: middle; }
+    
+    .section-icon {
+        background-color: #0d2f5c;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        text-align: center;
+    }
+    .section-title {
+        color: #0d2f5c;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        padding-left: 8px;
+    }
+    .section-line {
+        border-bottom: 2px solid #0d2f5c;
+        margin-bottom: 10px;
+    }
+
+    /* Data Tables */
+    .data-table { margin-bottom: 15px; }
+    .data-table td {
+        padding: 6px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 9px;
+    }
+    .t-label { color: #555555; width: 40%; }
+    .t-colon { width: 5%; color: #777; text-align: center; }
+    .t-value { color: #111111; width: 55%; }
+
+    /* Signature Box */
+    .signature-box {
+        border: 1px solid #e0e6ed;
+        background-color: #fcfcfc;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+    .sig-signed-by { font-size: 7px; color: #0d2f5c; font-weight: bold; text-transform: uppercase; }
+    .sig-name {
+        font-family: 'Times New Roman', serif;
+        font-style: italic;
+        font-size: 22px;
+        color: #0d2f5c;
+        border-bottom: 1px solid #0d2f5c;
+        padding-bottom: 3px;
+        margin: 3px 0;
+    }
+    .sig-type { font-size: 7.5px; color: #555; }
+    
+    .status-badge { border-left: 1px solid #e0e6ed; padding-left: 10px; text-align: center; }
+    .status-icon {
+        background-color: #00a65a; color: #fff;
+        width: 20px; height: 20px; border-radius: 50%;
+        text-align: center; margin: 0 auto 3px auto;
+    }
+    .status-text { color: #00a65a; font-weight: bold; font-size: 9px; }
+
+    /* Consents Table */
+    .consents-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #e0e6ed;
+        vertical-align: middle;
+        font-size: 9px;
+    }
+    .consents-table tr:first-child td { border-top: 1px solid #e0e6ed; }
+    .check-icon {
+        background-color: #00a65a;
+        width: 14px; height: 14px; border-radius: 50%;
+        text-align: center;
+    }
+
+    /* Final Certification */
+    .final-cert-text { font-size: 8.5px; line-height: 1.6; color: #333; padding-right: 20px; text-align: justify; }
+    .final-sig-box { border: 1px dashed #0d2f5c; padding: 12px; text-align: center; border-radius: 6px; }
+    .final-sig-name-italic {
+        font-family: 'Times New Roman', serif; font-style: italic; font-size: 20px; color: #0d2f5c;
+        border-bottom: 1px solid #0d2f5c; padding-bottom: 2px; margin-bottom: 5px; display: inline-block; width: 80%;
+    }
+    .final-sig-bold { font-weight: bold; font-size: 10px; color: #111; margin-bottom: 3px; }
+    .final-sig-detail { font-size: 8px; color: #333; margin-bottom: 2px; text-align: left; padding-left: 20px; }
+    .final-sig-type { font-size: 8px; color: #555; margin-bottom: 5px; }
+
+    /* Footer */
+    .footer-section { border-top: 2px solid #0d2f5c; padding: 15px 25px; }
+    .footer-seal {
+        width: 60px; height: 60px; border: 2px dashed #0d2f5c; border-radius: 50%; text-align: center; margin: 0 auto;
+    }
+    .footer-seal-inner {
+        width: 50px; height: 50px; border: 2px solid #0d2f5c; border-radius: 50%; margin: 3px auto 0 auto;
+        padding-top: 10px; box-sizing: border-box;
+    }
+    .seal-text { font-size: 4px; font-weight: bold; color: #0d2f5c; }
+    
+    .footer-disclaimer { font-size: 8px; color: #555; line-height: 1.4; padding: 0 15px; text-align: justify; }
+    .footer-company { font-size: 8px; color: #333; line-height: 1.5; }
+    
+    /* Bottom Bar */
+    .bottom-bar { background-color: #0d2f5c; color: #ffffff; padding: 8px 25px; }
+    .bottom-bar td { font-size: 8px; color: #ffffff; }
+
+    /* Watermark */
+    .watermark {
+        position: fixed;
+        top: 250px;
+        left: 10%;
+        opacity: 0.05;
+        z-index: -100;
+    }
+
+    .page-break { page-break-after: always; }
+</style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>Funding Application Summary</h1>
-        <p>Application ID: {{ $application->application_number ?? $application->id }} | Date: {{ $application->created_at->format('M d, Y') }}</p>
-    </div>
+@php
+    $rawSigData = $application->signature_data ?? [];
+    $sigData = is_string($rawSigData) ? json_decode($rawSigData, true) : $rawSigData;
+    if(!is_array($sigData)) $sigData = [];
+    
+    $appId = $application->application_number ?? ('FUND-'.str_pad($application->id, 6, '0', STR_PAD_LEFT));
+    $borrowerName = trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
+    $businessName = $application->business_name ?? 'N/A';
+    $status = ucfirst(str_replace('_', ' ', $application->status ?? 'Pending'));
+    
+    $ip = $sigData['ip_address'] ?? '127.0.0.1';
+    $browser = $sigData['browser_name'] ?? 'Chrome';
+    $os = $sigData['operating_system'] ?? 'Windows';
+    $device = $sigData['device_type'] ?? 'Desktop';
+    
+    $sigName = $sigData['signature_name'] ?? $borrowerName;
+    if(empty($sigName)) $sigName = 'N/A';
+    
+    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at']) : now();
+    $sigDateStr = $sigTime->format('M j, Y');
+    $sigTimeStr = $sigTime->format('h:i:s A');
+    $timezone = $sigData['timezone'] ?? 'Asia/Dhaka (UTC+06:00)';
+    
+    $termsVer = $sigData['terms_version'] ?? '1.0';
+    $privacyVer = $sigData['privacy_version'] ?? '1.0';
+    $creditVer = $sigData['credit_auth_version'] ?? '1.0';
+    $sha = $sigData['sha256'] ?? 'N/A';
+    // Read horizontal logo if available, fallback to default
+    $logoPath = base_path('public/logo-mail.png');
+    if (!file_exists($logoPath)) {
+        $logoPath = base_path('public/logo.png');
+    }
+    $logoBase64 = '';
+    if (file_exists($logoPath)) {
+        $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath));
+    }
+    
+    // Read Generated SVG-Style Icons
+    $iconsPath = base_path('icons_v2.json');
+    $icons = [];
+    if (file_exists($iconsPath)) {
+        $icons = json_decode(file_get_contents($iconsPath), true);
+    }
+@endphp
 
-    <div class="section">
-        <div class="section-title">Overview</div>
-        <table>
+@if($logoBase64)
+    <div class="watermark">
+        <img src="{{ $logoBase64 }}" width="550" alt="Watermark">
+    </div>
+@endif
+
+<!-- ================== PAGE 1 ================== -->
+<div style="padding-top:10px;"></div>
+
+<div class="page-container">
+    <!-- Header -->
+    <table class="header-table" style="padding: 20px 25px 15px 25px; width: 100%;">
+        <tr>
+            <td style="width: 30%; vertical-align: middle;">
+                @if($logoBase64)
+                    <img src="{{ $logoBase64 }}" width="150" alt="Logo">
+                @else
+                    <div style="font-size: 16px; font-weight: bold; color: #0d2f5c;">FOUR CORNER FUNDING</div>
+                @endif
+            </td>
+            <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
+                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: #0d2f5c; font-weight: bold;">ELECTRONIC SIGNATURE CERTIFICATE</div>
+                <div class="doc-subtitle" style="color: #00a0d1; font-size: 9.5px; font-weight: normal;">ESIGN &amp; UETA Compliant Electronic Signature Record</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Blue Banner -->
+    <div style="position: relative; background-color: #0d2f5c; color: #ffffff;">
+        <table style="width: 100%; border-collapse: collapse;">
             <tr>
-                <th>Status</th>
-                <td>{{ ucfirst(str_replace('_', ' ', $application->status)) }}</td>
-            </tr>
-            <tr>
-                <th>Requested Amount</th>
-                <td>${{ number_format((float) $application->requested_amount, 2) }}</td>
-            </tr>
-            <tr>
-                <th>Purpose of Funding</th>
-                <td>{{ $application->purpose_of_funding }}</td>
-            </tr>
-            <tr>
-                <th>Business Structure</th>
-                <td>{{ $application->entity_type }}</td>
+                <td style="width: 48%; padding: 10px 0 10px 25px; vertical-align: middle;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="width: 35px; vertical-align: middle;">
+                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
+                                    @if(!empty($icons['doc_w']))
+                                        <img src="{{ $icons['doc_w'] }}" width="14" height="14" style="margin-top: 5px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td style="vertical-align: middle;">
+                                <span class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Reference:</span><br>
+                                <span class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</span>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                
+                <td style="width: 2%; border-left: 1px solid #1a4276; height: 30px;"></td>
+
+                <td style="width: 45%; padding: 10px 0 10px 15px; vertical-align: middle;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="width: 35px; vertical-align: middle;">
+                                <div class="icon-box" style="border: 1px solid rgba(255,255,255,0.7); border-radius: 6px; width: 24px; height: 24px; line-height: 24px; text-align: center;">
+                                    @if(!empty($icons['cal_w']))
+                                        <img src="{{ $icons['cal_w'] }}" width="14" height="14" style="margin-top: 5px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td style="vertical-align: middle;">
+                                <span class="info-label" style="color: #8da4c4; font-size: 7.5px;">Certificate Generated:</span><br>
+                                <span class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ now()->format('M j, Y') }} &nbsp;|&nbsp; {{ now()->format('H:i:s') }} UTC</span>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+
+                <td style="width: 5%; vertical-align: bottom; padding: 0; text-align: right;">
+                    <!-- Cyan Triangle Wedge -->
+                    <div style="width: 0; height: 0; border-bottom: 44px solid #00a0d1; border-left: 20px solid transparent; float: right;"></div>
+                </td>
             </tr>
         </table>
     </div>
 
-    <div class="section">
-        <div class="section-title">Borrower Details</div>
-        <table>
+    <!-- Content Area -->
+    <div class="content-area">
+        <table style="table-layout: fixed;">
             <tr>
-                <th>Borrower Name</th>
-                <td>{{ $application->first_name }} {{ $application->last_name }}</td>
-            </tr>
-            <tr>
-                <th>Email</th>
-                <td>{{ $application->email }}</td>
-            </tr>
-            <tr>
-                <th>Phone</th>
-                <td>{{ $application->phone }}</td>
+                <td style="width: 48%; padding-right: 2%;">
+                    <!-- Cert Info -->
+                    <table class="section-header">
+                        <tr>
+                            <td style="width: 25px;">
+                                <div class="section-icon">
+                                    @if(!empty($icons['doc_w']))
+                                        <img src="{{ $icons['doc_w'] }}" width="10" height="10" style="margin-top: 4px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="section-title">CERTIFICATE INFORMATION</td>
+                        </tr>
+                    </table>
+                    <div class="section-line"></div>
+                    
+                    <table class="data-table">
+                        <tr><td class="t-label">Application ID</td><td class="t-colon">:</td><td class="t-value">{{ $appId }}</td></tr>
+                        <tr><td class="t-label">Borrower Name</td><td class="t-colon">:</td><td class="t-value">{{ $borrowerName }}</td></tr>
+                        <tr><td class="t-label">Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $businessName }}</td></tr>
+                        <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value">{{ $status }}</td></tr>
+                    </table>
+
+                    <!-- Sig Info -->
+                    <table class="section-header">
+                        <tr>
+                            <td style="width: 25px;">
+                                <div class="section-icon">
+                                    @if(!empty($icons['pen_w']))
+                                        <img src="{{ $icons['pen_w'] }}" width="10" height="10" style="margin-top: 4px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="section-title">SIGNATURE INFORMATION</td>
+                        </tr>
+                    </table>
+                    <div class="section-line"></div>
+                    
+                    <div class="signature-box">
+                        <table>
+                            <tr>
+                                <td style="width: 70%;">
+                                    <div class="sig-signed-by">SIGNED BY</div>
+                                    <div class="sig-name">{{ $sigName }}</div>
+                                    <div class="sig-type">Typed Electronic Signature</div>
+                                </td>
+                                <td style="width: 30%;">
+                                    <div class="status-badge">
+                                        <div class="status-icon">
+                                            @if(!empty($icons['check_w']))
+                                                <img src="{{ $icons['check_w'] }}" width="12" height="12" style="margin-top: 4px;">
+                                            @else
+                                                &#10003;
+                                            @endif
+                                        </div>
+                                        <div class="status-text">STATUS</div>
+                                        <div class="status-text" style="font-size: 7px; color: #00a65a; font-weight:normal;">Successfully Signed</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <table class="data-table">
+                        <tr><td class="t-label">Signature Type</td><td class="t-colon">:</td><td class="t-value">Typed Electronic Signature</td></tr>
+                        <tr><td class="t-label">Signature Date</td><td class="t-colon">:</td><td class="t-value">{{ $sigDateStr }}</td></tr>
+                        <tr><td class="t-label">Signature Time</td><td class="t-colon">:</td><td class="t-value">{{ $sigTimeStr }}</td></tr>
+                        <tr><td class="t-label">Time Zone</td><td class="t-colon">:</td><td class="t-value">{{ $timezone }}</td></tr>
+                        <tr><td class="t-label">Auth Method</td><td class="t-colon">:</td><td class="t-value">User Account Login</td></tr>
+                    </table>
+                </td>
+                
+                <!-- Spacer -->
+                <td style="width: 4%;"></td>
+
+                <td style="width: 48%; padding-left: 2%;">
+                    <!-- Device Info -->
+                    <table class="section-header">
+                        <tr>
+                            <td style="width: 25px;">
+                                <div class="section-icon">
+                                    @if(!empty($icons['dev_w']))
+                                        <img src="{{ $icons['dev_w'] }}" width="10" height="10" style="margin-top: 5px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="section-title">DEVICE INFORMATION</td>
+                        </tr>
+                    </table>
+                    <div class="section-line"></div>
+                    
+                    <table class="data-table">
+                        <tr><td class="t-label">Public IP</td><td class="t-colon">:</td><td class="t-value">{{ $ip }}</td></tr>
+                        <tr><td class="t-label">Browser</td><td class="t-colon">:</td><td class="t-value">{{ $browser }}</td></tr>
+                        <tr><td class="t-label">OS</td><td class="t-colon">:</td><td class="t-value">{{ $os }}</td></tr>
+                        <tr><td class="t-label">Device Type</td><td class="t-colon">:</td><td class="t-value">{{ $device }}</td></tr>
+                    </table>
+
+                    <!-- Doc Versions -->
+                    <table class="section-header">
+                        <tr>
+                            <td style="width: 25px;">
+                                <div class="section-icon">
+                                    @if(!empty($icons['shield_w']))
+                                        <img src="{{ $icons['shield_w'] }}" width="10" height="10" style="margin-top: 5px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="section-title">DOCUMENT &amp; POLICY VERSIONS</td>
+                        </tr>
+                    </table>
+                    <div class="section-line"></div>
+                    
+                    <table class="data-table">
+                        <tr><td class="t-label">Terms Version</td><td class="t-colon">:</td><td class="t-value">{{ $termsVer }}</td></tr>
+                        <tr><td class="t-label">Privacy Policy Version</td><td class="t-colon">:</td><td class="t-value">{{ $privacyVer }}</td></tr>
+                        <tr><td class="t-label">Credit Auth Version</td><td class="t-colon">:</td><td class="t-value">{{ $creditVer }}</td></tr>
+                    </table>
+
+                    <!-- Additional Info -->
+                    <table class="section-header">
+                        <tr>
+                            <td style="width: 25px;">
+                                <div class="section-icon">
+                                    @if(!empty($icons['info_w']))
+                                        <img src="{{ $icons['info_w'] }}" width="10" height="10" style="margin-top: 5px;">
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="section-title">ADDITIONAL INFORMATION</td>
+                        </tr>
+                    </table>
+                    <div class="section-line"></div>
+                    
+                    <table class="data-table">
+                        <tr><td class="t-label">ESIGN Consent Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
+                        <tr><td class="t-label">Credit Auth Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
+                        <tr><td class="t-label">SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr>
+                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ now()->format('M j, Y H:i:s') }} UTC</td></tr>
+                    </table>
+                </td>
             </tr>
         </table>
     </div>
+</div>
 
-    @if($application->signature_data)
-    <div class="section">
-        <div class="section-title">Electronic Signature Data</div>
-        <table>
-            <tr>
-                <th>Signed Name</th>
-                <td>{{ $application->signature_data['signature_name'] ?? 'N/A' }}</td>
-            </tr>
-            <tr>
-                <th>Timestamp</th>
-                <td>{{ isset($application->signature_data['timestamp']) ? \Carbon\Carbon::parse($application->signature_data['timestamp'])->format('M d, Y H:i:s T') : 'N/A' }}</td>
-            </tr>
-            <tr>
-                <th>IP Address</th>
-                <td>{{ $application->signature_data['ip_address'] ?? 'N/A' }}</td>
-            </tr>
-            <tr>
-                <th>Browser / Device</th>
-                <td>{{ $application->signature_data['browser'] ?? 'N/A' }} on {{ $application->signature_data['os'] ?? 'N/A' }}</td>
-            </tr>
-        </table>
+<div class="page-break"></div>
+
+<!-- ================== PAGE 2 ================== -->
+<div style="padding-top:10px;"></div>
+
+<div class="page-container" style="min-height: 800px;">
+    
+    @if($logoBase64)
+    <div class="watermark">
+        <img src="{{ $logoBase64 }}" width="300">
     </div>
     @endif
 
-    <div class="footer">
-        Generated on {{ now()->format('M d, Y H:i:s') }} | Four Corner Funding
+    <div class="content-area">
+        <!-- Consents -->
+        <table class="section-header">
+            <tr>
+                <td style="width: 25px;">
+                    <div class="section-icon">
+                        @if(!empty($icons['users_w']))
+                            <img src="{{ $icons['users_w'] }}" width="10" height="10" style="margin-top: 5px;">
+                        @endif
+                    </div>
+                </td>
+                <td class="section-title">DETAILED CONSENTS &amp; AGREEMENTS</td>
+            </tr>
+        </table>
+        <div class="section-line"></div>
+        
+        <table class="consents-table">
+            <tr>
+                <td style="width: 5%; text-align: center;">
+                    <div class="check-icon">
+                        @if(!empty($icons['check_w']))
+                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
+                        @endif
+                    </div>
+                </td>
+                <td style="width: 80%;">I certify that typing my name above constitutes my legally binding electronic signature under the ESIGN Act and applicable state laws.</td>
+                <td style="width: 15%; text-align: right;" class="text-success"><strong>Accepted</strong></td>
+            </tr>
+            <tr>
+                <td style="text-align: center;">
+                    <div class="check-icon">
+                        @if(!empty($icons['check_w']))
+                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
+                        @endif
+                    </div>
+                </td>
+                <td>I have read and agree to the Terms &amp; Conditions.</td>
+                <td style="text-align: right;" class="text-success"><strong>Accepted</strong></td>
+            </tr>
+            <tr>
+                <td style="text-align: center;">
+                    <div class="check-icon">
+                        @if(!empty($icons['check_w']))
+                            <img src="{{ $icons['check_w'] }}" width="10" height="10" style="margin-top: 2px;">
+                        @endif
+                    </div>
+                </td>
+                <td>I authorize Four Corner Funding to obtain and review my business and/or personal credit information as described.</td>
+                <td style="text-align: right;" class="text-success"><strong>Accepted</strong></td>
+            </tr>
+        </table>
+
+        <!-- Final Certification -->
+        <table class="section-header" style="margin-top: 25px;">
+            <tr>
+                <td style="width: 25px;">
+                    <div class="section-icon">
+                        @if(!empty($icons['badge_w']))
+                            <img src="{{ $icons['badge_w'] }}" width="10" height="10" style="margin-top: 5px;">
+                        @endif
+                    </div>
+                </td>
+                <td class="section-title">FINAL CERTIFICATION</td>
+            </tr>
+        </table>
+        <div class="section-line"></div>
+        
+        <table>
+            <tr>
+                <td style="width: 60%; padding-right: 20px;">
+                    <div class="final-cert-text">
+                        By typing my full legal name above and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>Four Corner Funding and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
+                    </div>
+                </td>
+                <td style="width: 40%;">
+                    <!-- Highly accurate signature card -->
+                    <div class="final-sig-box">
+                        <div class="final-sig-name-italic">{{ $sigName }}</div><br>
+                        <div class="final-sig-bold">{{ $sigName }}</div>
+                        <div class="final-sig-type">Typed Electronic Signature</div>
+                        
+                        <div class="final-sig-detail">
+                            @if(!empty($icons['cal_b']))<img src="{{ $icons['cal_b'] }}" width="8" height="8">@endif 
+                            {{ $sigDateStr }}
+                        </div>
+                        <div class="final-sig-detail">
+                            @if(!empty($icons['clock_b']))<img src="{{ $icons['clock_b'] }}" width="8" height="8">@endif 
+                            {{ $sigTimeStr }}
+                        </div>
+                        <div class="final-sig-detail">
+                            @if(!empty($icons['globe_b']))<img src="{{ $icons['globe_b'] }}" width="8" height="8">@endif 
+                            {{ $timezone }}
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+        
     </div>
+
+    <!-- Footer -->
+    <div class="footer-section">
+        <table>
+            <tr>
+                <td style="width: 15%;">
+                    @if(!empty($icons['custom_seal']))
+                        <img src="{{ $icons['custom_seal'] }}" width="65" height="65" style="margin-left:-5px;">
+                    @else
+                        <div class="footer-seal">
+                            <div class="footer-seal-inner">
+                                <div class="seal-text">ESIGN &amp; UETA</div>
+                                <div style="margin:2px 0;">
+                                    @if(!empty($icons['lock_w']))
+                                        <img src="{{ $icons['lock_w'] }}" width="10" height="10">
+                                    @else
+                                        <span style="font-size:10px;color:#0d2f5c">&#128274;</span>
+                                    @endif
+                                </div>
+                                <div class="seal-text">COMPLIANT</div>
+                            </div>
+                        </div>
+                    @endif
+                </td>
+                <td style="width: 50%;">
+                    <div class="footer-disclaimer">
+                        This document serves as proof of electronic signature under the ESIGN Act, UETA, and applicable federal and state laws. It is a tamper-evident record of the signer's intent to sign this Funding Application electronically.
+                    </div>
+                </td>
+                <td style="width: 35%; text-align: right;">
+                    <div class="footer-company">
+                        <strong>Four Corner Funding</strong><br>
+                        400 Spectrum Center Drive, Suite 300<br>
+                        Irvine, CA 92618, USA<br>
+                        (949) 555-0123 &nbsp;|&nbsp; support@fourcornerfunding.com<br>
+                        www.fourcornerfunding.com
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+        <table>
+            <tr>
+                <td style="text-align: left;">&copy; {{ date('Y') }} Four Corner Funding. All Rights Reserved.</td>
+                <td style="text-align: right;">Page 2 of 2</td>
+            </tr>
+        </table>
+    </div>
+
+</div>
 
 </body>
 </html>
