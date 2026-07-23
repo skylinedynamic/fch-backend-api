@@ -390,9 +390,9 @@ class RequestApplicationService
             return ApiResponse::error('Signature data not found. Cannot generate ZIP.');
         }
 
-        // Generate PDFs using separate functions to ensure they are individually password protected
-        $appContent = $this->generateApplicationPdfContent($application, $password);
-        $sigContent = $this->generateSignaturePdfContent($application, $signatureData, $password);
+        // Generate standard PDFs (the ZIP archive itself will handle the password protection)
+        $appContent = $this->generateApplicationPdfContent($application, null);
+        $sigContent = $this->generateSignaturePdfContent($application, $signatureData, null);
 
         $appNumber = $application->application_number ?? $application->id;
         $appFilename = 'Funding_Application_' . $appNumber . '.pdf';
