@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Http\Resources\FCH\PaymentMethod\PartnerPaymentProviderResource;
+use App\Http\Resources\FCH\PaymentMethod\PartnerPaymentProviderListResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,29 +26,22 @@ class PartnerPaymentProviderController extends Controller
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
         }
 
-        // Fetch system-wide active providers
-        $providers = PaymentProvider::where('status', true)->get();
+        // Fetch system-wide active providers with their partner-specific linkage
+        // eager-loaded in a single query to avoid N+1 lookups.
+        $providers = PaymentProvider::where('status', true)
+            ->with(['partnerPaymentProviders' => function ($query) use ($partnerId) {
+                $query->where('partner_id', $partnerId);
+            }])
+            ->get();
 
-        // Fetch partner linkages
-        $partnerProviders = PartnerPaymentProvider::where('partner_id', $partnerId)
-            ->get()
-            ->keyBy('payment_provider_id');
-
-        $data = $providers->map(function ($provider) use ($partnerProviders) {
-            $linkage = $partnerProviders->get($provider->id);
-
-            return [
-                'id' => $provider->id,
-                'name' => $provider->name,
-                'slug' => $provider->slug ?? strtolower(str_replace([' ', '.'], '', $provider->name)),
-                'logo' => $provider->logo,
-                'status' => $linkage ? (bool) $linkage->status : false,
-                'is_default' => $linkage ? (bool) $linkage->is_default : false,
-                'is_configured' => $linkage ? (!empty($linkage->configuration)) : false,
-            ];
+        $providers->each(function ($provider) {
+            $provider->linkage = $provider->partnerPaymentProviders->first();
         });
 
-        return ApiResponse::success($data, __('payment_method.retrieved'));
+        return ApiResponse::success(
+            PartnerPaymentProviderListResource::collection($providers),
+            __('payment_method.retrieved')
+        );
     }
 
     /**
