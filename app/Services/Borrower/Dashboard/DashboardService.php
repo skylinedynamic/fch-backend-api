@@ -96,7 +96,7 @@ class DashboardService
             'tasks_under_review' => $borrower->taskUnderReview()->count(),
         ] : null;
 
-        $data['fico_score'] = $borrower->fico_score;
+        $data['fico_score'] = $borrower->credit_profile_updated ? $borrower->fico_score : null;
 
         return $data;
     }

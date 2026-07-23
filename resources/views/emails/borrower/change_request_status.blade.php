@@ -3,14 +3,14 @@
 @section('title', $siteName . ' - Change Request Update')
 
 @section('content')
-    <p style="line-height: 1.5; margin-bottom: 16px;">Dear {{ $borrowerName }},</p>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $borrowerName }},</h4>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         The request to update your profile information has been reviewed.
     </p>
 
     <div class="box-light info-card-container mt-3"
-        style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 8px; margin-bottom: 24px; text-align: left; overflow: hidden; margin-top: 16px;">
+        style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 0; margin-bottom: 24px; text-align: left; overflow: hidden; margin-top: 16px;">
         <div class="info-card-header"
             style="background-color: #f0f7ff; padding: 20px; text-align: center; border-bottom: 1px solid #e2e8f0; font-size: 16px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">
             Change Request Details</div>
@@ -34,7 +34,8 @@
                     <tr>
                         <td class="col-task"
                             style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #495057; font-weight: 500;">
-                            {{ ucwords(str_replace('_', ' ', $fieldName)) }}</td>
+                            {{ ucwords(str_replace('_', ' ', $fieldName)) }}
+                        </td>
                         <td class="col-status"
                             style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #495057;">
                             @php
@@ -50,7 +51,8 @@
                         </td>
                         <td class="col-remark"
                             style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #495057;">
-                            {{ $newValue }}</td>
+                            {{ $newValue }}
+                        </td>
                     </tr>
                 </tbody>
             </table>
