@@ -6,8 +6,6 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\Borrower\Borrower;
-use App\Models\User\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -17,77 +15,64 @@ class UnifiedPaymentService
     public function __construct(
         protected PaymentGatewayManager $gatewayManager,
         protected Payment $paymentRecord
-    ) {}
+    ) {
+    }
 
     /**
-     * Process multi-gateway payment (one-time or recurring).
+     * Process a one-time payment against an invoice via the unified gateway driver architecture.
+     * Amount, currency, description, and payee details are all derived from the invoice itself.
      *
-     * @param array $data
+     * @param array $data ['provider_id' => ?int, 'invoice_id' => int, 'payment_method_id' => string]
      * @return array
      * @throws Exception
      */
     public function processPayment(array $data): array
     {
-        $partnerId = $this->resolvePartnerId($data);
-        $providerName = $data['provider'] ?? null;
+        $invoice = Invoice::findOrFail($data['invoice_id']);
+        $user = auth()->user();
+        if ($invoice->entity_type !== $user->entity_type || (int) $invoice->entity_id !== (int) $user->entity_id) {
+            throw new Exception("Unauthorized invoice payment attempt.");
+        }
 
-        // Resolve driver from PaymentGatewayManager
-        $driver = $this->gatewayManager->resolveForPartner($partnerId, $providerName);
+        $partnerId = $this->resolvePartnerId($invoice);
+        $partnerProvider = $this->gatewayManager->resolvePartnerProvider($partnerId, $data['provider_id'] ?? null);
+        $driver = $this->gatewayManager->driverFor($partnerProvider);
+        $providerName = $partnerProvider->provider?->name;
 
-        $invoice = !empty($data['invoice_id']) ? Invoice::where('id', $data['invoice_id'])->first() : null;
-        $paymentType = $data['payment_type'] ?? 'one_time';
+        $borrowerId = $invoice->entity_type === Borrower::class ? $invoice->entity_id : $invoice->borrower_id;
 
         DB::beginTransaction();
         try {
-            if ($paymentType === 'recurring') {
-                $gatewayResult = $driver->createSubscription([
-                    'customer_id' => $data['customer_id'] ?? null,
-                    'plan_id' => $data['plan_id'] ?? null,
-                    'email' => $data['email'] ?? null,
-                    'name' => $data['name'] ?? null,
-                ]);
-            } else {
-                $gatewayResult = $driver->charge([
-                    'amount' => $data['amount'],
-                    'currency' => $data['currency'] ?? 'USD',
-                    'payment_method_id' => $data['payment_method_id'],
-                    'description' => $data['description'] ?? 'Payment',
-                ]);
-            }
+            $gatewayResult = $driver->charge([
+                'amount' => $invoice->payment_amount,
+                'currency' => $invoice->currency ?? 'USD',
+                'payment_method_id' => $data['payment_method_id'],
+                'description' => "Payment for invoice #{$invoice->invoice_id}",
+            ]);
 
             if (empty($gatewayResult['success'])) {
                 throw new Exception("Payment charge failed via " . ($providerName ?? 'gateway'));
             }
 
             // Create local payment ledger entry
-            $borrowerId = null;
-            if ($invoice && $invoice->entity_type === Borrower::class) {
-                $borrowerId = $invoice->entity_id;
-            } elseif (!empty($data['borrower_id'])) {
-                $borrowerId = $data['borrower_id'];
-            }
-
             $payment = $this->paymentRecord->createRecord([
                 'partner_id' => $partnerId,
                 'borrower_id' => $borrowerId,
-                'invoice_id' => $invoice?->id,
-                'entity_type' => $invoice?->entity_type ?? ($data['entity_type'] ?? null),
-                'entity_id' => $invoice?->entity_id ?? ($data['entity_id'] ?? null),
-                'transaction_id' => $gatewayResult['transaction_id'] ?? ($gatewayResult['subscription_id'] ?? ('TX_' . uniqid())),
-                'amount' => $data['amount'],
-                'currency' => strtoupper($data['currency'] ?? 'USD'),
+                'invoice_id' => $invoice->id,
+                'entity_type' => $invoice->entity_type,
+                'entity_id' => $invoice->entity_id,
+                'transaction_id' => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
+                'amount' => $invoice->payment_amount,
+                'currency' => strtoupper($invoice->currency ?? 'USD'),
                 'payment_from' => $providerName ?? 'Default',
                 'status' => Payment::STATUS_SUCCEEDED,
                 'details' => $gatewayResult['raw'] ?? [],
             ]);
 
-            // Update invoice status if applicable
-            if ($invoice) {
-                $invoice->update([
-                    'status' => Invoice::STATUS_PAID,
-                    'payment_date' => now(),
-                ]);
-            }
+            $invoice->update([
+                'status' => Invoice::STATUS_PAID,
+                'payment_date' => now(),
+            ]);
 
             DB::commit();
 
@@ -106,31 +91,14 @@ class UnifiedPaymentService
     }
 
     /**
-     * Resolve target partner ID from input data or authentication context.
+     * Resolve target partner ID from the invoice's payer.
      */
-    protected function resolvePartnerId(array $data): ?int
+    protected function resolvePartnerId(Invoice $invoice): ?int
     {
-        if (!empty($data['partner_id'])) {
-            return (int) $data['partner_id'];
+        if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
+            return Partner::where('is_host', true)->first()?->id;
         }
 
-        if (!empty($data['invoice_id'])) {
-            $invoice = Invoice::find($data['invoice_id']);
-            if ($invoice) {
-                if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
-                    return Partner::where('is_host', true)->first()?->id;
-                }
-                return $invoice->partner_id;
-            }
-        }
-
-        if (Auth::check()) {
-            if (in_array(Auth::user()->user_type, [User::PARTNER, User::ADMIN], true)) {
-                return Partner::where('is_host', true)->first()?->id;
-            }
-            return Auth::user()->partner_id;
-        }
-
-        return Partner::where('is_host', true)->first()?->id;
+        return $invoice->partner_id;
     }
 }

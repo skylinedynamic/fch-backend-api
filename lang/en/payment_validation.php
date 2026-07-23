@@ -15,4 +15,10 @@ return [
     'borrower_id_exists' => 'The selected borrower ID is invalid.',
     'entity_type_string' => 'The entity type must be a string.',
     'entity_id_integer' => 'The entity ID must be an integer.',
+    'provider_id_integer' => 'The provider ID must be an integer.',
+    'provider_id_exists' => 'The selected provider ID is invalid.',
+    'invoice_id_required' => 'The invoice ID is required.',
+    'invoice_id_integer' => 'The invoice ID must be an integer.',
+    'invoice_id_exists' => 'The selected invoice ID is invalid.',
+    'payment_method_id_required' => 'The payment method ID is required.',
 ];
