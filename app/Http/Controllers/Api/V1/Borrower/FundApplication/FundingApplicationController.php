@@ -4,27 +4,32 @@ namespace App\Http\Controllers\Api\V1\Borrower\FundApplication;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingApplicationDocumentRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
+use App\Http\Resources\Borrower\FundApplication\AttestationAndAuthorizationResource;
 use App\Http\Resources\Borrower\FundApplication\BusinessResource;
 use App\Http\Resources\Borrower\FundApplication\DisclosuresAndConsentResource;
 use App\Http\Resources\Borrower\FundApplication\FederalComplianceResource;
-use App\Http\Resources\Borrower\FundApplication\AttestationAndAuthorizationResource;
 use App\Http\Resources\Borrower\FundApplication\FinancialResource;
+use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
-use App\Services\Borrower\FundApplication\FundingApplicationService;
-use Illuminate\Http\Request;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingApplicationDocumentRequest;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
-use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
+use App\Services\Borrower\FundApplication\FundingApplicationService;
+use App\Services\FCH\Common\Application\RequestApplicationService;
+use App\Services\FCH\Common\Application\SignatureCertificateService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class FundingApplicationController extends Controller   
 {
@@ -310,20 +315,18 @@ class FundingApplicationController extends Controller
 
             // Generate Certificate
             try {
-                $brandingData = \App\Services\FCH\Common\Application\RequestApplicationService::getBrandingData($attestationAndAuthorization);
-                $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.signature-certificate', array_merge([
-                    'application' => $attestationAndAuthorization,
-                    'signatureData' => $validated['signature_data']
-                ], $brandingData));
+                $brandingData = RequestApplicationService::getBrandingData($attestationAndAuthorization);
+                $templateData = SignatureCertificateService::getTemplateData($attestationAndAuthorization, $brandingData, $validated['signature_data']);
+                $pdf = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData));
                 $pdfPath = 'funding-applications/' . $attestationAndAuthorization->id . '/signature-certificate-' . $attestationAndAuthorization->application_number . '.pdf';
-                \Illuminate\Support\Facades\Storage::disk('public')->put($pdfPath, $pdf->output());
+                Storage::disk('public')->put($pdfPath, $pdf->output());
                 
                 // Update application with certificate path in signature_data
                 $signatureData = $validated['signature_data'];
                 $signatureData['certificate_path'] = $pdfPath;
                 $attestationAndAuthorization->update(['signature_data' => $signatureData]);
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('PDF Generation failed: ' . $e->getMessage());
+                Log::error('PDF Generation failed: ' . $e->getMessage());
             }
 
             return ApiResponse::success(

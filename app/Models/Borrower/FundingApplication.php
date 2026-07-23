@@ -136,7 +136,7 @@ class FundingApplication extends Model
 
     // Status Constants
     public const ON_HOLD = 'On Hold';
-    public const PENDING = 'Pending';
+    public const PENDING = 'Submitted – Pending Review';
     public const SUBMITTED = 'Submitted (Received)';
     public const UNDERWRITING_REVIEW = 'Underwriting Review';
     public const MISSING_DOCUMENTS = 'Missing Documents (Action Required)';

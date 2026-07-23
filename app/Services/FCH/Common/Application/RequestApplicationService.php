@@ -3,22 +3,23 @@
 namespace App\Services\FCH\Common\Application;
 
 use App\Helpers\ApiResponse;
-use App\Models\Borrower\FundingApplication;
-use App\Models\Borrower\PreQualificationRequest;
-use App\Models\FundingRequest\FundingRequest;
-use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
+use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Commission\Commission;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
+use App\Services\FCH\Common\Application\SignatureCertificateService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Commission\Commission;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class RequestApplicationService
 {
@@ -357,10 +358,8 @@ class RequestApplicationService
         }
 
         $brandingData = self::getBrandingData($application);
-        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge([
-            'application' => $application,
-            'signatureData' => $signatureData
-        ], $brandingData));
+        $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
+        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
@@ -452,10 +451,8 @@ class RequestApplicationService
     private function generateSignaturePdfContent($application, $signatureData, $password = null)
     {
         $brandingData = self::getBrandingData($application);
-        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge([
-            'application' => $application,
-            'signatureData' => $signatureData
-        ], $brandingData));
+        $templateData = SignatureCertificateService::getTemplateData($application, $brandingData, $signatureData);
+        $pdf = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData));
         if (!empty($password)) {
             $pdf->setEncryption($password);
         }
