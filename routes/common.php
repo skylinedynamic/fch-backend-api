@@ -282,6 +282,7 @@ Route::prefix('v1')->group(function () {
             Route::get('partner-payment-providers', [PartnerPaymentProviderController::class, 'index']);
             Route::get('partner-payment-providers/{id}', [PartnerPaymentProviderController::class, 'show']);
             Route::post('partner-payment-providers', [PartnerPaymentProviderController::class, 'store']);
+            Route::post('partner-payment-providers/status', [PartnerPaymentProviderController::class, 'updateStatus']);
 
             // Partner Tenant Config (for authenticated WL partners)
             Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);

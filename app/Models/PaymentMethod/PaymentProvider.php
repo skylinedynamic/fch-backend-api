@@ -26,6 +26,10 @@ class PaymentProvider extends Model
     public const SQUARE = 'Square';
     public const AUTHORIZE_NET = 'Authorize.Net';
 
+
+    public const MODE_SANDBOX = 'sandbox';
+    public const MODE_PRODUCTION = 'production';
+
     public function partnerPaymentProviders()
     {
         return $this->hasMany(PartnerPaymentProvider::class, 'payment_provider_id');
