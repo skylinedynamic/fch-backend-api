@@ -28,13 +28,13 @@ class PaymentGatewayManager
     ];
 
     /**
-     * Resolve and initialize a payment driver for a partner and provider.
+     * Resolve the active partner-payment-provider configuration for a partner and provider ID.
      *
      * @param int|null $partnerId
-     * @param string|null $providerName Optional provider name (defaults to active default)
-     * @return PaymentGatewayInterface
+     * @param int|null $providerId Optional payment_providers.id (defaults to the partner's default provider)
+     * @return PartnerPaymentProvider
      */
-    public function resolveForPartner(?int $partnerId, ?string $providerName = null): PaymentGatewayInterface
+    public function resolvePartnerProvider(?int $partnerId, ?int $providerId = null): PartnerPaymentProvider
     {
         $query = PartnerPaymentProvider::query()
             ->with('provider')
@@ -49,10 +49,8 @@ class PaymentGatewayManager
             }
         }
 
-        if ($providerName) {
-            $query->whereHas('provider', function ($q) use ($providerName) {
-                $q->where('name', $providerName);
-            });
+        if ($providerId) {
+            $query->where('payment_provider_id', $providerId);
         } else {
             $query->where('is_default', true);
         }
@@ -60,7 +58,7 @@ class PaymentGatewayManager
         $partnerProvider = $query->first();
 
         // Fallback to first active provider if default is not explicitly marked
-        if (!$partnerProvider && !$providerName) {
+        if (!$partnerProvider && !$providerId) {
             $partnerProvider = PartnerPaymentProvider::query()
                 ->with('provider')
                 ->where('status', true)
@@ -76,11 +74,34 @@ class PaymentGatewayManager
             throw new RuntimeException("No active payment provider configured for partner ID: " . ($partnerId ?? 'Host'));
         }
 
+        return $partnerProvider;
+    }
+
+    /**
+     * Initialize a payment driver from a resolved partner-payment-provider configuration.
+     *
+     * @param PartnerPaymentProvider $partnerProvider
+     * @return PaymentGatewayInterface
+     */
+    public function driverFor(PartnerPaymentProvider $partnerProvider): PaymentGatewayInterface
+    {
         $providerName = $partnerProvider->provider?->name ?? PaymentProvider::STRIPE;
         $configuration = $partnerProvider->configuration ?? [];
         $environment = $configuration['payment_mode'] ?? 'sandbox';
 
         return $this->driver($providerName)->initialize($configuration, $environment);
+    }
+
+    /**
+     * Resolve and initialize a payment driver for a partner and provider.
+     *
+     * @param int|null $partnerId
+     * @param int|null $providerId Optional payment_providers.id (defaults to active default)
+     * @return PaymentGatewayInterface
+     */
+    public function resolveForPartner(?int $partnerId, ?int $providerId = null): PaymentGatewayInterface
+    {
+        return $this->driverFor($this->resolvePartnerProvider($partnerId, $providerId));
     }
 
     /**

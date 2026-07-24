@@ -48,4 +48,6 @@ class SubscriptionPlan extends Model
     const BORROWER_ENROLMENT_TYPE_INSTALLMENT = '6-month-payment';
     const BORROWER_FIXED_ENROLLMENT = 'fixed-enrollment';
 
+    const INSTALLMENT_PLAN = 'installment';
+
 }

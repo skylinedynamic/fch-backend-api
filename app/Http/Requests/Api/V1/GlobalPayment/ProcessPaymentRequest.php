@@ -22,21 +22,9 @@ class ProcessPaymentRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'provider' => 'nullable|string', // Optional: 'Stripe', 'Square', 'Ecrypt', 'Authorize.Net'
-            'payment_type' => 'nullable|string|in:one_time,recurring',
-            'amount' => 'required|numeric|min:0.01',
-            'currency' => 'nullable|string|size:3',
+            'provider_id' => 'required|integer|exists:payment_providers,id',
+            'invoice_id' => 'required|integer|exists:invoices,id',
             'payment_method_id' => 'required|string',
-            'invoice_id' => 'nullable|integer|exists:invoices,id',
-            'description' => 'nullable|string|max:255',
-            'is_partner_paying' => 'nullable|boolean',
-            'partner_id' => 'nullable|integer|exists:partners,id',
-            'borrower_id' => 'nullable|integer|exists:borrowers,id',
-            'entity_type' => 'nullable|string',
-            'entity_id' => 'nullable|integer',
-            'plan_id' => 'nullable|string',
-            'email' => 'nullable|email',
-            'name' => 'nullable|string',
         ];
     }
 
@@ -48,19 +36,13 @@ class ProcessPaymentRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'amount.numeric' => __('payment_validation.amount_numeric'),
-            'amount.min' => __('payment_validation.amount_min'),
-            'currency.string' => __('payment_validation.currency_string'),
-            'currency.size' => __('payment_validation.currency_size'),
+            'provider_id.integer' => __('payment_validation.provider_id_integer'),
+            'provider_id.exists' => __('payment_validation.provider_id_exists'),
+            'invoice_id.required' => __('payment_validation.invoice_id_required'),
+            'invoice_id.integer' => __('payment_validation.invoice_id_integer'),
+            'invoice_id.exists' => __('payment_validation.invoice_id_exists'),
+            'payment_method_id.required' => __('payment_validation.payment_method_id_required'),
             'payment_method_id.string' => __('payment_validation.payment_method_id_string'),
-            'description.string' => __('payment_validation.description_string'),
-            'description.max' => __('payment_validation.description_max'),
-            'partner_id.integer' => __('payment_validation.partner_id_integer'),
-            'partner_id.exists' => __('payment_validation.partner_id_exists'),
-            'borrower_id.integer' => __('payment_validation.borrower_id_integer'),
-            'borrower_id.exists' => __('payment_validation.borrower_id_exists'),
-            'entity_type.string' => __('payment_validation.entity_type_string'),
-            'entity_id.integer' => __('payment_validation.entity_id_integer'),
         ];
     }
 }
