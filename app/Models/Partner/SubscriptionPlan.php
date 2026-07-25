@@ -50,4 +50,18 @@ class SubscriptionPlan extends Model
 
     const INSTALLMENT_PLAN = 'installment';
 
+    /**
+     * Determine whether this plan is an installment plan.
+     */
+    public function isInstallmentPlan(): bool
+    {
+        $slug = strtolower((string) $this->enrollment_type_slug);
+
+        return $slug === self::INSTALLMENT_PLAN
+            || $slug === self::CERTIFIED_ENROLMENT_TYPE_INSTALLMENT
+            || $slug === self::WL_ENROLMENT_TYPE_INSTALLMENT
+            || $slug === self::BORROWER_ENROLMENT_TYPE_INSTALLMENT
+            || strtolower((string) $this->enrollment_type) === self::INSTALLMENT_PLAN;
+    }
+
 }

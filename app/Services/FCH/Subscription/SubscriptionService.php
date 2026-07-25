@@ -19,6 +19,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
 
 use App\Models\ActivityLog\ActivityLog;
+use App\Models\Partner\SubscriptionPlan;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class SubscriptionService
@@ -262,21 +263,17 @@ class SubscriptionService
      *
      * @param $entity
      * @param $plan
-     * @param string $enrollmentType
      * @param array $additionalData
      * @return Subscription
      */
     public function startSubscription($entity, $plan, array $additionalData = []): Subscription
     {
-        $subscription = Subscription::where('entity_type', get_class($entity))
-            ->where('entity_id', $entity->id)
-            ->first();
 
         $data = array_merge([
             'subscription_plan_id' => $plan->id ?? null,
             'partner_type' => $plan->partner_type ?? null,
             'enrollment_type' => $plan->enrollment_type ?? null,
-            'installment_type' => ($plan && $plan->total_installments_count > 1) ? 1 : 0,
+            'installment_type' => $plan->enrollment_type_slug == SubscriptionPlan::INSTALLMENT_PLAN ? 1 : 0,
             'monthly_platform_fee' => $plan->platform_fee ?? 0,
             'payable_amount' => $plan->payment_amount ?? 0,
             'total_subscription_amount' => $plan->total_amount ?? 0,
