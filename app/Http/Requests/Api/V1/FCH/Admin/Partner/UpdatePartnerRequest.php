@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
@@ -32,7 +33,7 @@ class UpdatePartnerRequest extends BaseApiRequest
         $wasFreeTrial = $partner ? (bool) $partner->is_free_trail : false;
         $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
-        return [
+        $rules = [
             'full_name' => ['sometimes', 'required', 'string', 'max:255'],
             'company_name' => [
                 'sometimes',
@@ -92,41 +93,35 @@ class UpdatePartnerRequest extends BaseApiRequest
                 },
             ],
             'is_free_trail' => ['nullable', 'boolean'],
-            'free_trail_end_date' => [
-                Rule::requiredIf(function () use ($isFreeTrialInput) {
-                    return $isFreeTrialInput;
-                }),
-                'nullable',
-                'date_format:Y-m-d',
-                'after_or_equal:today'
-            ],
-            'enrollment_type' => [
-                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
-                    return $wasFreeTrial && !$isFreeTrialInput;
-                }),
-                'nullable',
-                'string',
-                'max:255'
-            ],
-            'enrollment_amount' => [
-                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
-                    return $wasFreeTrial && !$isFreeTrialInput;
-                }),
-                'nullable',
-                'numeric',
-                'gt:0',
-                'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
-            ],
-            'monthly_platform_fee' => [
-                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
-                    return $wasFreeTrial && !$isFreeTrialInput;
-                }),
-                'nullable',
-                'numeric',
-                'gt:0',
-                'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
-            ],
         ];
+
+        if ($isFreeTrialInput) {
+            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+            $rules['enrollment_type'] = ['nullable', 'string', 'max:255'];
+            $rules['enrollment_amount'] = ['nullable'];
+            $rules['monthly_platform_fee'] = ['nullable'];
+        } else {
+            $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
+            if ($wasFreeTrial) {
+                $rules['enrollment_type'] = ['required', 'string', 'max:255'];
+                $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+                $rules['monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            } else {
+                $rules['enrollment_type'] = ['nullable', 'string', 'max:255'];
+                $rules['enrollment_amount'] = ['nullable', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+                $rules['monthly_platform_fee'] = ['nullable', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            }
+
+            $enrollmentType = strtolower(trim((string) ($this->input('enrollment_type') ?? $partner?->subscription?->enrollment_type)));
+            if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
+                $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+                $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+            }
+        }
+
+        return $rules;
     }
 
     /**

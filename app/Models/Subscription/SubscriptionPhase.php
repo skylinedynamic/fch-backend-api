@@ -18,14 +18,12 @@ class SubscriptionPhase extends Model
         'subscription_id',
         'phase',
         'installments_paid',
-        'down_payment',
         'enrollment_completed_at',
         'next_installment_date',
         'next_platform_fee_date',
     ];
 
     protected $casts = [
-        'down_payment' => 'decimal:2',
         'enrollment_completed_at' => 'datetime',
         'next_installment_date' => 'date',
         'next_platform_fee_date' => 'date',

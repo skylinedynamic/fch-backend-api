@@ -33,10 +33,12 @@ class Subscription extends Model
         'monthly_platform_fee',
         'total_subscription_amount',
         'payable_amount',
+        'down_payment',
         'first_payment_date',
         'platform_fee_start_date',
         // 'next_installment_date',
         'installment_type',
+        'installment_count',
         'subscription_start_date',
         'subscription_end_date',
         'status',
@@ -52,7 +54,9 @@ class Subscription extends Model
         'monthly_platform_fee' => 'decimal:2',
         'total_subscription_amount' => 'decimal:2',
         'payable_amount' => 'decimal:2',
+        'down_payment' => 'decimal:2',
         'installment_type' => 'integer',
+        'installment_count' => 'integer',
         'is_custom' => 'boolean',
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Partner;
 
+use App\Models\Subscription\SubscriptionPhase;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use Illuminate\Support\Str;
@@ -161,13 +162,28 @@ class PartnerService
             return null;
         }
 
+        $isInstallment = strtolower(trim((string) $enrollmentType)) === 'installment'
+            || Str::slug($enrollmentType) === 'installment'
+            || Str::contains(strtolower((string) $enrollmentType), 'installment')
+            || Str::contains(strtolower((string) $enrollmentType), 'payment-plan');
+
+        $targetSlug = $isInstallment ? SubscriptionPlan::INSTALLMENT_PLAN : SubscriptionPlan::CERTIFIED_ENROLMENT_TYPE_ONE_TIME;
+
         $plan = SubscriptionPlan::where('partner_type', $partnerType)
-            ->where('enrollment_type', $enrollmentType)
+            ->where(function ($q) use ($enrollmentType, $targetSlug) {
+                $q->where('enrollment_type', $enrollmentType)
+                    ->orWhere('enrollment_type_slug', Str::slug($enrollmentType))
+                    ->orWhere('enrollment_type_slug', $targetSlug);
+            })
             ->first();
 
         if (!$plan) {
             $plan = SubscriptionPlan::where('partner_type_slug', Str::slug($partnerType))
-                ->where('enrollment_type_slug', Str::slug($enrollmentType))
+                ->where(function ($q) use ($enrollmentType, $targetSlug) {
+                    $q->where('enrollment_type', $enrollmentType)
+                        ->orWhere('enrollment_type_slug', Str::slug($enrollmentType))
+                        ->orWhere('enrollment_type_slug', $targetSlug);
+                })
                 ->first();
         }
 
@@ -176,32 +192,89 @@ class PartnerService
 
     /**
      * Calculate partner subscription amounts, applying custom overrides where supplied.
-     * Returns ['enrollment', 'monthly', 'total', 'installments', 'is_custom'].
+     * Handles One Time Payment and Installment enrollment data formats.
+     * Returns ['enrollment', 'monthly', 'total', 'payable_amount', 'initial_invoice_amount', 'down_payment', 'installment_months', 'installment_monthly_amount', 'installment_remaining_balance', 'installment_type', 'isCustom'].
      */
-    private function calculatePartnerSubscriptionAmounts(?SubscriptionPlan $plan, array $data): array
+    private function calculatePartnerSubscriptionAmounts(?SubscriptionPlan $plan, array $data, ?Subscription $existingSubscription = null): array
     {
-        $enrollment = (float) ($plan->payment_amount ?? 0);
-        $monthly = (float) ($plan->platform_fee ?? 0);
-        $installments = (int) ($plan->total_installments_count ?? 1);
-        $total = (float) ($plan->total_amount ?? 0);
+        $enrollmentType = $data['enrollment_type'] ?? $existingSubscription?->enrollment_type ?? $plan?->enrollment_type ?? '';
 
+        $isInstallment = strtolower((string) $enrollmentType) == SubscriptionPlan::INSTALLMENT_PLAN;
+
+        // 1. Total Enrollment Amount
+        $enrollment = null;
         if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
             $enrollment = (float) $data['enrollment_amount'];
-            $total = $enrollment * $installments;
+        } elseif ($existingSubscription) {
+            $enrollment = (float) $existingSubscription->total_subscription_amount;
+        } else {
+            $enrollment = (float) ($plan->total_amount ?? $plan->payment_amount ?? 0);
         }
 
+        // 2. Monthly Platform Fee
+        $monthly = null;
         if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
             $monthly = (float) $data['monthly_platform_fee'];
+        } elseif ($existingSubscription) {
+            $monthly = (float) $existingSubscription->monthly_platform_fee;
+        } else {
+            $monthly = (float) ($plan->platform_fee ?? 0);
+        }
+
+        // 3. Installment-specific or One Time Payment calculations
+        $downPayment = 0.0;
+        $installmentMonths = (int) ($data['installment_months'] ?? $plan->total_installments_count ?? 1);
+        $monthlyInstallmentAmount = 0.0;
+        $remainingBalance = 0.0;
+
+        if ($isInstallment) {
+            if (isset($data['installment_down_payment']) && $data['installment_down_payment'] !== '') {
+                $downPayment = (float) $data['installment_down_payment'];
+            }
+            if (isset($data['installment_monthly_amount']) && $data['installment_monthly_amount'] !== '') {
+                $monthlyInstallmentAmount = (float) $data['installment_monthly_amount'];
+            }
+            if (isset($data['installment_remaining_balance']) && $data['installment_remaining_balance'] !== '') {
+                $remainingBalance = (float) $data['installment_remaining_balance'];
+            } else {
+                $remainingBalance = max(0, $enrollment - $downPayment);
+            }
+
+            if ($monthlyInstallmentAmount <= 0 && $installmentMonths > 0) {
+                $monthlyInstallmentAmount = $remainingBalance > 0 ? ($remainingBalance / $installmentMonths) : 0;
+            }
+
+            $payableAmount = $enrollment;
+            $total = $remainingBalance;
+            $initialInvoiceAmount = $downPayment > 0 ? $downPayment : $payableAmount;
+            $installmentType = 1;
+        } else {
+            $downPayment = 0.0;
+            $payableAmount = $enrollment;
+            $total = $enrollment;
+            $initialInvoiceAmount = $enrollment;
+            $installmentType = 0;
         }
 
         $isCustom = false;
         if ($plan) {
-            $isCustom = (abs($enrollment - (float) ($plan->payment_amount ?? 0)) > 0.01)
-                || (abs($monthly - (float) ($plan->platform_fee ?? 0)) > 0.01)
-                || (abs($total - (float) ($plan->total_amount ?? 0)) > 0.01);
+            $isCustom = (abs($enrollment - (float) ($plan->total_amount ?? $plan->payment_amount ?? 0)) > 0.01)
+                || (abs($monthly - (float) ($plan->platform_fee ?? 0)) > 0.01);
         }
 
-        return compact('enrollment', 'monthly', 'installments', 'total', 'isCustom');
+        return [
+            'enrollment' => $enrollment,
+            'monthly' => $monthly,
+            'total' => $total,
+            'payable_amount' => $payableAmount,
+            'initial_invoice_amount' => $initialInvoiceAmount,
+            'down_payment' => $downPayment,
+            'installment_months' => $installmentMonths,
+            'installment_monthly_amount' => $monthlyInstallmentAmount,
+            'installment_remaining_balance' => $remainingBalance,
+            'installment_type' => $installmentType,
+            'isCustom' => $isCustom,
+        ];
     }
 
     /**
@@ -218,6 +291,8 @@ class PartnerService
         int $senderPartnerId,
         bool $isMigration = false
     ): void {
+        $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
+
         $invoice = $this->invoiceService->create([
             'partner_id' => $partner->id,
             'entity_type' => Partner::class,
@@ -228,6 +303,7 @@ class PartnerService
             'payment_amount' => $enrollmentAmount,
             'is_partner_paying' => false,
             'status' => Invoice::STATUS_UNPAID,
+            'type' => $invoiceType,
         ]);
 
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
@@ -348,10 +424,15 @@ class PartnerService
 
                 if ($enrollmentType) {
                     $this->subscriptionService->startSubscription($partner, $plan, [
-                        'partner_type' => $plan->partner_type ?? $partnerType,
+                        'subscription_plan_id' => $plan->id ?? null,
+                        'partner_type' => $partnerType,
+                        'enrollment_type' => $enrollmentType,
+                        'installment_type' => $amounts['installment_type'],
+                        'installment_count' => $amounts['installment_months'],
                         'monthly_platform_fee' => $amounts['monthly'],
-                        'payable_amount' => $amounts['enrollment'],
+                        'payable_amount' => $amounts['payable_amount'],
                         'total_subscription_amount' => $amounts['total'],
+                        'down_payment' => $amounts['down_payment'],
                         'is_custom' => $amounts['isCustom'],
                     ]);
                 }
@@ -359,12 +440,12 @@ class PartnerService
                 $authUser = Auth::user();
                 $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
 
-                if ($enrollmentType || $amounts['enrollment'] > 0) {
+                if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
                     $paymentLink = concatUrl(getPartnerDomain($partner->id), 'invoices', config('app.frontend_partner_url'));
                     $this->createPartnerInvoiceAndSendEmail(
                         $partner,
                         $user,
-                        $amounts['enrollment'],
+                        $amounts['initial_invoice_amount'],
                         $enrollmentType,
                         $paymentLink,
                         [
@@ -589,35 +670,41 @@ class PartnerService
                 );
             }
 
-            // Update subscription if custom amounts are provided
+            // Update subscription if custom amounts or enrollment details are provided
             $subscription = $partner->subscription;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
             if ($subscription) {
-                $plan = $subscription->subscriptionPlan;
-                $finalEnrollment = (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '')
-                    ? (float) $data['enrollment_amount']
-                    : (float) $subscription->payable_amount;
-
-                $finalMonthly = (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '')
-                    ? (float) $data['monthly_platform_fee']
-                    : (float) $subscription->monthly_platform_fee;
-
-                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-                $finalTotal = $finalEnrollment * $totalInstallments;
-
-                $isCustom = $plan && (
-                    (abs($finalEnrollment - (float) ($plan->payment_amount ?? 0)) > 0.01)
-                    || (abs($finalMonthly - (float) ($plan->platform_fee ?? 0)) > 0.01)
-                    || (abs($finalTotal - (float) ($plan->total_amount ?? 0)) > 0.01)
-                );
+                $partnerType = $data['partner_type'] ?? $partner->partner_type;
+                $enrollmentType = $data['enrollment_type'] ?? $subscription->enrollment_type;
+                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType) ?? $subscription->subscriptionPlan;
+                $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data, $subscription);
 
                 $subscription->update([
-                    'payable_amount' => $finalEnrollment,
-                    'monthly_platform_fee' => $finalMonthly,
-                    'total_subscription_amount' => $finalTotal,
-                    'is_custom' => $isCustom,
+                    'subscription_plan_id' => $plan->id ?? $subscription->subscription_plan_id,
+                    'partner_type' => $partnerType,
+                    'enrollment_type' => $enrollmentType,
+                    'installment_type' => $amounts['installment_type'],
+                    'installment_count' => $amounts['installment_months'],
+                    'payable_amount' => $amounts['payable_amount'],
+                    'down_payment' => $amounts['down_payment'],
+                    'monthly_platform_fee' => $amounts['monthly'],
+                    'total_subscription_amount' => $amounts['total'],
+                    'is_custom' => $amounts['isCustom'],
                 ]);
+
+                // Sync initial unpaid invoice amount if exists
+                $invoice = Invoice::where('entity_type', Partner::class)
+                    ->where('entity_id', $partner->id)
+                    ->where('is_platform_fee', false)
+                    ->where('status', Invoice::STATUS_UNPAID)
+                    ->first();
+
+                if ($invoice) {
+                    $invoice->update([
+                        'payment_amount' => $amounts['initial_invoice_amount'],
+                    ]);
+                }
 
             } elseif ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
@@ -628,10 +715,15 @@ class PartnerService
 
                 if ($enrollmentType) {
                     $this->subscriptionService->startSubscription($partner, $plan, [
+                        'subscription_plan_id' => $plan->id ?? null,
                         'partner_type' => $plan->partner_type ?? $partnerType,
+                        'enrollment_type' => $enrollmentType,
+                        'installment_type' => $amounts['installment_type'],
+                        'installment_count' => $amounts['installment_months'],
                         'monthly_platform_fee' => $amounts['monthly'],
-                        'payable_amount' => $amounts['enrollment'],
+                        'payable_amount' => $amounts['payable_amount'],
                         'total_subscription_amount' => $amounts['total'],
+                        'down_payment' => $amounts['down_payment'],
                         'is_custom' => $amounts['isCustom'],
                     ]);
                 }
@@ -639,13 +731,13 @@ class PartnerService
                 $authUser = Auth::user();
                 $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
 
-                if ($enrollmentType || $amounts['enrollment'] > 0) {
+                if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
                     $hostPartner = Partner::where('is_host', 1)->first();
                     $paymentLink = concatUrl(getPartnerDomain($partner->id), 'invoices', config('app.frontend_partner_url'));
                     $this->createPartnerInvoiceAndSendEmail(
                         $partner,
                         $user,
-                        $amounts['enrollment'],
+                        $amounts['initial_invoice_amount'],
                         $enrollmentType,
                         $paymentLink,
                         $this->getHostPartnerBusinessInfo($hostPartner),

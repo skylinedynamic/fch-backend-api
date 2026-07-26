@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 
 use App\Helpers\ApiResponse;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
@@ -92,6 +93,14 @@ class StorePartnerRequest extends BaseApiRequest
             $rules['enrollment_type'] = ['required', 'string', 'max:255'];
             $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
             $rules['monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
+                $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+                $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+            }
         }
 
         return $rules;

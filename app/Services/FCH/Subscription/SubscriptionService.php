@@ -29,7 +29,8 @@ class SubscriptionService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService
-    ) {}
+    ) {
+    }
 
 
     /**
@@ -263,34 +264,28 @@ class SubscriptionService
      *
      * @param $entity
      * @param $plan
-     * @param array $additionalData
      * @return Subscription
      */
-    public function startSubscription($entity, $plan, array $additionalData = []): Subscription
+    public function startSubscription($entity, $plan, array $data = []): Subscription
     {
+        $data['subscription_plan_id'] = $data['subscription_plan_id'] ?? $plan?->id;
+        $data['partner_type'] = $data['partner_type'] ?? $plan?->partner_type;
+        $data['enrollment_type'] = $data['enrollment_type'] ?? $plan?->enrollment_type;
+        $data['installment_type'] = $data['installment_type'] ?? (($plan && $plan->isInstallmentPlan()) ? 1 : 0);
+        $data['installment_count'] = $data['installment_count'] ?? $plan?->total_installments_count ?? 0;
+        $data['monthly_platform_fee'] = $data['monthly_platform_fee'] ?? $plan?->platform_fee ?? 0;
+        $data['payable_amount'] = $data['payable_amount'] ?? $plan?->payment_amount ?? 0;
+        $data['down_payment'] = $data['down_payment'] ?? 0;
+        $data['total_subscription_amount'] = $data['total_subscription_amount'] ?? $plan?->total_amount ?? 0;
+        $data['status'] = $data['status'] ?? Subscription::STATUS_PENDING;
 
-        $data = array_merge([
-            'subscription_plan_id' => $plan->id ?? null,
-            'partner_type' => $plan->partner_type ?? null,
-            'enrollment_type' => $plan->enrollment_type ?? null,
-            'installment_type' => $plan->enrollment_type_slug == SubscriptionPlan::INSTALLMENT_PLAN ? 1 : 0,
-            'monthly_platform_fee' => $plan->platform_fee ?? 0,
-            'payable_amount' => $plan->payment_amount ?? 0,
-            'total_subscription_amount' => $plan->total_amount ?? 0,
-            'status' => Subscription::STATUS_PENDING,
-        ], $additionalData);
+        $subscriptionFillable = (new Subscription())->getFillable();
+        $subscriptionData = array_intersect_key($data, array_flip($subscriptionFillable));
 
         $subscription = Subscription::updateOrCreate(
             ['entity_type' => get_class($entity), 'entity_id' => $entity->id],
-            $data
+            $subscriptionData
         );
-
-        $subscription->phases()->create([
-            'phase' => SubscriptionPhase::PHASE_ENROLLMENT,
-            'installments_paid' => 0,
-            'next_installment_date' => null,
-            'next_platform_fee_date' => null,
-        ]);
 
         return $subscription->fresh();
     }
@@ -363,18 +358,18 @@ class SubscriptionService
         $next_installment_date = null;
         $next_platform_fee_date = null;
         $enrollment_completed_at = null;
-        $phaseFee  = SubscriptionPhase::PHASE_PLATFORM_FEE;
+        $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
 
         if ($plan->entity_type == Borrower::class) {
             if ($subscription->installment_type == 1 && $phase->installments_paid < $plan->total_installments_count) {
                 $next_installment_date = $phase->next_installment_date ? $phase->next_installment_date->addMonth() : $subscription->subscription_start_date->addMonth();
                 $next_platform_fee_date = null;
-                $phaseFee  = SubscriptionPhase::PHASE_ENROLLMENT;
+                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
                 $enrollment_completed_at = null;
             } else {
                 $next_installment_date = null;
                 $next_platform_fee_date = null;
-                $phaseFee  = SubscriptionPhase::PHASE_ENROLLMENT;
+                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
                 $enrollment_completed_at = now();
             }
         } else {
@@ -560,6 +555,12 @@ class SubscriptionService
                     ? $subscription->monthly_platform_fee
                     : $subscription->payable_amount;
 
+                $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
+
+                if (!$isPlatformFee && ($type === 'installment' || $subscription->installment_type == 1)) {
+                    $invoiceType = Invoice::INVOICE_TYPE_INSTALLMENT;
+                }
+
                 // Create invoice
                 $invoice = $this->invoiceService->create([
                     'partner_id' => $partnerId,
@@ -574,6 +575,7 @@ class SubscriptionService
                     'payment_amount' => $amount,
                     'currency' => Invoice::CURRENCY_USD,
                     'status' => Invoice::STATUS_UNPAID,
+                    'type' => $invoiceType,
                     'is_partner_paying' => $isPartnerPaying,
                     'is_platform_fee' => $isPlatformFee ? 1 : 0,
                 ]);
@@ -630,7 +632,7 @@ class SubscriptionService
             }
         }
     }
-    
+
     // Cron Job Start
     /**
      * Generate invoices for installment phase.
