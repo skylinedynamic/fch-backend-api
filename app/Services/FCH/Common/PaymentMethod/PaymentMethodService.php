@@ -4,6 +4,9 @@ namespace App\Services\FCH\Common\PaymentMethod;
 
 use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PaymentProvider;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
+use Illuminate\Support\Facades\Log;
 
 class PaymentMethodService
 {
@@ -163,5 +166,61 @@ class PaymentMethodService
 
         // Return the reconstructed flat object
         return $this->getSettings($partnerId) ?: new \stdClass();
+    }
+
+    /**
+     * Get active payment providers configured for a partner.
+     *
+     * @param int|null $partnerId
+     * @return array
+     */
+    public function getActiveProvidersForPartner(?int $partnerId = null): array
+    {
+        if (!$partnerId && auth()->check()) {
+            $partnerId = auth()->user()?->partner_id;
+        }
+
+        Log::info('Partner ID: ' . $partnerId);
+        if (!$partnerId) {
+            return [];
+        }
+        Log::info('After Partner ID: ' . $partnerId);
+
+        $providers = PaymentProvider::query()
+            ->where('status', true)
+            ->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
+                $q->where('partner_id', $partnerId)
+                    ->where('status', true);
+            })
+            ->with(['partnerPaymentProviders' => function ($q) use ($partnerId) {
+                $q->where('partner_id', $partnerId)
+                    ->where('status', true)
+                    ->select([
+                        'id',
+                        'partner_id',
+                        'payment_provider_id',
+                        'status',
+                        'is_default',
+                    ]);
+            }])
+            ->get();
+
+        return $providers
+            ->map(function (PaymentProvider $provider) {
+                $partnerProvider = $provider->partnerPaymentProviders->first();
+
+                return [
+                    'id' => $provider->id,
+                    'name' => $provider->name,
+                    'logo' => $provider->logo,
+                    'status' => $provider->status,
+                    'is_default' => $partnerProvider?->is_default ?? false,
+                    'partner_payment_provider_id' => $partnerProvider?->id,
+                    'configuration' => null,
+                ];
+            })
+            ->sortByDesc('is_default')
+            ->values()
+            ->all();
     }
 }

@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\GlobalPayment\ProcessPaymentRequest;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\GlobalPayment\UnifiedPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Exception;
 class UnifiedPaymentController extends Controller
 {
     public function __construct(
-        protected UnifiedPaymentService $paymentService
+        protected UnifiedPaymentService $paymentService,
+        protected PaymentMethodService $paymentMethodService,
     ) {}
 
     /**
@@ -53,6 +55,32 @@ class UnifiedPaymentController extends Controller
                     }
                 })
                 ->get();
+
+            return ApiResponse::success($providers, __('payment_method.retrieved'));
+        } catch (Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Get active partner payment methods for the authenticated user's partner.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getPartnerPaymentMethods(Request $request): JsonResponse
+    {
+        try {
+            $partnerId = auth()->user()?->partner_id;
+
+            if (!$partnerId) {
+                return ApiResponse::validationError(
+                    ['partner_id' => [__('payment_method.partner_id_required')]],
+                    __('payment_method.partner_id_required')
+                );
+            }
+
+            $providers = $this->paymentMethodService->getActiveProvidersForPartner($partnerId);
 
             return ApiResponse::success($providers, __('payment_method.retrieved'));
         } catch (Exception $e) {
