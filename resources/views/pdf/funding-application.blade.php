@@ -257,7 +257,7 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <div class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Reference:</div>
+                                <div class="info-label" style="font-size: 11px; font-weight: bold;color: #ffffff;">Document Reference:</div>
                                 <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</div>
                             </td>
                         </tr>
@@ -275,8 +275,8 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <div class="info-label" style="color: #8da4c4; font-size: 7.5px;">Document Generated:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('H:i:s') }} {{ $timezoneAbbr }}</div>
+                                <div class="info-label" style="font-size: 11px; font-weight: bold; color: #ffffff;">Document Generated:</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('h:i:s A') }}</div>
                             </td>
                         </tr>
                     </table>
@@ -487,7 +487,7 @@
         <table>
             <tr>
                 <td style="text-align: left;">&copy; {{ date('Y') }} {{ $companyName }}. All Rights Reserved.</td>
-                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ $currentTime->format('M j, Y') }}</td>
+                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('h:i:s A') }}</td>
             </tr>
         </table>
     </div>
