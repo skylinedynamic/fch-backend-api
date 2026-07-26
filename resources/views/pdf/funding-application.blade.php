@@ -3,50 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Funding Application</title>
-@php
-    // Branding and company details passed dynamically from controller/service
-    $primaryColor = $primaryColor ?? '#2563a2';
-    $secondaryColor = $secondaryColor ?? '#D4AF37';
-    $companyName = $companyName ?? 'Four Corner Funding';
-    $companyAddress = $companyAddress ?? '400 Spectrum Center Drive, Suite 300';
-    $companyCityState = $companyCityState ?? 'Irvine, CA 92618, USA';
-    $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
-    $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
-    $logoBase64 = $logoBase64 ?? '';
 
-    // Timezone configuration from request
-    $tz = request()->header('X-Timezone') ?? config('app.timezone');
-    $currentTime = now()->timezone($tz);
-    $timezoneAbbr = $currentTime->format('T');
-
-    // Mapped borrower columns
-    $businessName = $businessName ?? 'N/A';
-    $businessPhone = $businessPhone ?? 'N/A';
-    $businessAddress = $businessAddress ?? 'N/A';
-    $businessCity = $businessCity ?? 'N/A';
-    $personalCreditScore = $personalCreditScore ?? 'N/A';
-    $businessEin = $businessEin ?? 'N/A';
-    $businessEmail = $businessEmail ?? 'N/A';
-    $businessCountry = $businessCountry ?? 'N/A';
-    $businessState = $businessState ?? 'N/A';
-    $businessZipCode = $businessZipCode ?? 'N/A';
-    $businessStartDate = $businessStartDate ?? 'N/A';
-    $businessCreditScore = $businessCreditScore ?? 'N/A';
-    $businessIndustryType = $businessIndustryType ?? 'N/A';
-
-    $firstName = $firstName ?? 'N/A';
-    $lastName = $lastName ?? 'N/A';
-    $email = $email ?? 'N/A';
-    $phoneNumber = $phoneNumber ?? 'N/A';
-    $homeAddress = $homeAddress ?? 'N/A';
-    $homeState = $homeState ?? 'N/A';
-    $homeCity = $homeCity ?? 'N/A';
-    $homeZipCode = $homeZipCode ?? 'N/A';
-    $homeCountry = $homeCountry ?? 'N/A';
-    $homePhone = $homePhone ?? 'N/A';
-    $dateOfBirth = $dateOfBirth ?? 'N/A';
-    $last4SSN = $last4SSN ?? 'N/A';
-@endphp
 <style>
     @page { margin: 30px; }
     body {
@@ -253,82 +210,7 @@
 </head>
 <body>
 
-@php
-    $borrower = $application->borrower ?? null;
-    $rawSigData = $application->signature_data ?? [];
-    $sigData = is_string($rawSigData) ? json_decode($rawSigData, true) : $rawSigData;
-    if(!is_array($sigData)) $sigData = [];
-    
-    $appId = $application->application_number ?? ('FUND-'.str_pad($application->id, 6, '0', STR_PAD_LEFT));
-    
-    $borrowerName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
-    if (empty($borrowerName)) {
-        $borrowerName = $application->full_name ?? '';
-    }
-    
-    $businessName = $borrower->business_name ?? ($application->business_name ?? 'N/A');
-    $status = ucfirst(str_replace('_', ' ', $application->status ?? 'Pending'));
-    
-    $ip = $sigData['ip_address'] ?? '127.0.0.1';
-    $browser = $sigData['browser_name'] ?? 'Chrome';
-    $os = $sigData['operating_system'] ?? 'Windows';
-    $device = $sigData['device_type'] ?? 'Desktop';
-    
-    $sigName = $sigData['signature_name'] ?? $borrowerName;
-    if(empty($sigName)) $sigName = 'N/A';
-    
-    $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
-    $sigDateStr = $sigTime->format('M j, Y');
-    $sigTimeStr = $sigTime->format('h:i:s A');
-    $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';
-    
-    $termsVer = $sigData['terms_version'] ?? '1.0';
-    $privacyVer = $sigData['privacy_version'] ?? '1.0';
-    $creditVer = $sigData['credit_auth_version'] ?? '1.0';
-    $sha = $sigData['sha256'] ?? 'N/A';
-    
-    // Dynamic logo resolved at top of document
 
-    // Helper: create inline SVG icon base64 with dynamic fill color
-    // WHITE icons  — for use on primary-colored banner background
-    $icon_white = function(string $path, string $viewBox = '0 0 512 512') {
-        return 'data:image/svg+xml;base64,' . base64_encode(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="#ffffff" d="' . $path . '"/></svg>'
-        );
-    };
-    // PRIMARY COLOR icons — for use on white section-header backgrounds
-    $icon_primary = function(string $path, string $viewBox = '0 0 512 512') use ($primaryColor) {
-        return 'data:image/svg+xml;base64,' . base64_encode(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . $viewBox . '"><path fill="' . $primaryColor . '" d="' . $path . '"/></svg>'
-        );
-    };
-
-    // --- ICON PATHS (Font Awesome 5 Free paths) ---
-    // fa-building  (Business Information)
-    $p_building = 'M436 480h-20V24c0-13.3-10.7-24-24-24H56C42.7 0 32 10.7 32 24v456H12c-6.6 0-12 5.4-12 12v20h448v-20c0-6.6-5.4-12-12-12zM128 76c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12V76zm0 96c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm52 148h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12zm76 160h-64v-84c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v84zm64-172c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40zm0-96c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12V76c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40z';
-    // fa-user  (Owner Information)
-    $p_user = 'M256 288c79.5 0 144-64.5 144-144S335.5 0 256 0 112 64.5 112 144s64.5 144 144 144zm128 32h-55.1c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16H128C57.3 320 0 377.3 0 448v16c0 26.5 21.5 48 48 48h416c26.5 0 48-21.5 48-48v-16c0-70.7-57.3-128-128-128z';
-    // fa-dollar-sign  (Financial)
-    $p_dollar = 'M272 128c0-14.2-3.2-27.8-8.9-40h17.7c8.8 0 16-7.2 16-16V16c0-8.8-7.2-16-16-16h-48.1c-43 0-80.3 28-93.7 66.7C126.5 62.2 113.8 56 99.9 56c-41.2 0-67.2 44.9-46.4 80.3L120 248c8.1 13.6 22.6 22.2 38.5 23.7V320H128c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h30.5v32.4c-17.4 7.3-28.5 26.5-24.1 47.4 3.6 17 18.3 30.7 35.7 32.1C191.7 497.4 208 481.9 208 464v-80h30.5c26.3 0 47.5-21.3 47.5-47.5V320h.5c44.2 0 80-35.8 80-80 0-61.9-50.1-112-94-112zm-48 208h-32v-48h32v48z';
-    // fa-shield-alt  (Funding Program)
-    $p_shield = 'M466.5 83.7l-192-80a48.15 48.15 0 0 0-36.9 0l-192 80C27.7 91.1 16 108.6 16 128c0 198.5 114.5 335.7 221.5 380.3 11.8 4.9 25.1 4.9 36.9 0C381.5 463.7 496 326.5 496 128c0-19.4-11.7-36.9-29.5-44.3zm-47.2 114.2l-184 184c-6.2 6.2-16.4 6.2-22.6 0l-104-104c-6.2-6.2-6.2-16.4 0-22.6l22.6-22.6c6.2-6.2 16.4-6.2 22.6 0l70.1 70.1 150.1-150.1c6.2-6.2 16.4-6.2 22.6 0l22.6 22.6c6.3 6.2 6.3 16.4 0 22.6z';
-    // fa-file-alt  (Document Reference - banner)
-    $p_file = 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm64 236c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-64c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12v8zm0-72v8c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-8c0-6.6 5.4-12 12-12h200c6.6 0 12 5.4 12 12zm96-114.1v6.1H256V0h6.1c6.4 0 12.5 2.5 17 7l97.9 98c4.5 4.5 7 10.6 7 16.9z';
-    // fa-calendar-alt  (Document Generated - banner)
-    $p_cal = 'M0 464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V192H0v272zm320-196c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12h-40c-6.6 0-12-5.4-12-12v-40zm-128-128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zm0 128c0-6.6 5.4-12 12-12h40c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H76c-6.6 0-12-5.4-12-12v-40zM400 64h-48V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H160V16c0-8.8-7.2-16-16-16h-32c-8.8 0-16 7.2-16 16v48H48C21.5 64 0 85.5 0 112v48h448v-48c0-26.5-21.5-48-48-48z';
-
-    // Build the four icon variable pairs (white for banner, primary-colored for sections)
-    $fa_doc_white    = $icon_white($p_file, '0 0 384 512');
-    $fa_cal_white    = $icon_white($p_cal);
-    $fa_doc          = $icon_primary($p_building);      // Building  → Business Info
-    $fa_users        = $icon_primary($p_user, '0 0 448 512');  // User → Owner Info
-    $fa_dollar       = $icon_primary($p_dollar);        // Dollar   → Financial
-    $fa_shield       = $icon_primary($p_shield);        // Shield   → Funding Program
-
-
-    // Fallback to full_name if available
-    $borrowerName = $application->full_name ?? trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
-@endphp
 
     <div class="watermark">
         <table style="width: 100%; text-align: center; border-collapse: collapse;">
