@@ -3,22 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Electronic Signature Certificate</title>
-@php
-    // Branding and company details passed dynamically from controller/service
-    $primaryColor = $primaryColor ?? '#2563a2';
-    $secondaryColor = $secondaryColor ?? '#D4AF37';
-    $companyName = $companyName ?? 'Four Corner Funding';
-    $companyAddress = $companyAddress ?? '400 Spectrum Center Drive, Suite 300';
-    $companyCityState = $companyCityState ?? 'Irvine, CA 92618, USA';
-    $companyContact = $companyContact ?? '(949) 555-0123  |  support@fourcornerfunding.com';
-    $companyWebsite = $companyWebsite ?? 'www.fourcornerfunding.com';
-    $logoBase64 = $logoBase64 ?? '';
 
-    // Timezone configuration from request
-    $tz = request()->header('X-Timezone') ?? config('app.timezone');
-    $currentTime = now()->timezone($tz);
-    $timezoneAbbr = $currentTime->format('T');
-@endphp
 <style>
     @page { margin: 30px; }
     body {
@@ -480,24 +465,15 @@
     </div>
 
     <!-- Footer -->
-    <div class="footer-section">
-        <table style="width: 100%;">
+    <div class="footer-section" style="text-align: center; padding-top: 2px; padding-bottom: -10px;">
+        <table style="margin: 0 auto; width: 85%;">
             <tr>
-                <td style="width: 15%; text-align: center; vertical-align: middle; padding: 10px 0;">
+                <td style="width: 80px; text-align: center; vertical-align: middle;">
                     <img src="{{ $custom_seal }}" width="60" height="60" style="vertical-align: middle; display: inline-block;">
                 </td>
-                <td style="width: 50%; vertical-align: middle; padding: 10px 0;">
-                    <div class="footer-disclaimer">
+                <td style="text-align: left; vertical-align: middle; padding-left: 15px;">
+                    <div class="footer-disclaimer" style="margin: 0; line-height: 1.4;">
                         This document serves as proof of electronic signature under the ESIGN Act, UETA, and applicable federal and state laws. It is a tamper-evident record of the signer's intent to sign this Funding Application electronically.
-                    </div>
-                </td>
-                <td style="width: 35%; text-align: right; vertical-align: middle; padding: 10px 0;">
-                    <div class="footer-company">
-                        <strong>{{ $companyName }}</strong><br>
-                        {{ $companyAddress }}<br>
-                        {{ $companyCityState }}<br>
-                        {{ $companyContact }}<br>
-                        {{ $companyWebsite }}
                     </div>
                 </td>
             </tr>
