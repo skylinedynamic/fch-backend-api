@@ -526,6 +526,7 @@ class RequestApplicationService
             'companyContact' => implode('  |  ', $contactParts),
             'companyWebsite' => '',
             'logoBase64' => $logoBase64,
+            'tz' => request()->header('X-Timezone') ?? config('app.timezone'),
         ];
     }
 

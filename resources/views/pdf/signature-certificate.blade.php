@@ -258,7 +258,7 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Document Reference:</div>
+                                <div class="info-label" style="font-size: 11px; font-weight: bold; color: #ffffff;">Document Reference:</div>
                                 <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $appId }}</div>
                             </td>
                         </tr>
@@ -276,8 +276,8 @@
                                 </div>
                             </td>
                             <td style="vertical-align: middle;">
-                                <div class="info-label" style="color: #ffffff; font-weight: bold; font-size: 7.5px; opacity: 0.85;">Certificate Generated:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('H:i:s') }} {{ $timezoneAbbr }}</div>
+                                <div class="info-label" style="font-size: 11px; font-weight: bold; color: #ffffff;">Certificate Generated:</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }}</div>
                             </td>
                         </tr>
                     </table>
@@ -313,46 +313,23 @@
                         <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value">{{ $status }}</td></tr>
                     </table>
 
-                    <!-- Sig Info -->
+                    <!-- Doc Versions -->
                     <table class="section-header">
                         <tr>
                             <td style="width: 25px;">
                                 <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
-                                    <img src="{{ $fa_users }}" width="14" height="14" style="margin-top: 6px;">
+                                    <img src="{{ $fa_shield }}" width="14" height="14" style="margin-top: 6px;">
                                 </div>
                             </td>
-                            <td class="section-title">SIGNATURE INFORMATION</td>
+                            <td class="section-title">DOCUMENT &amp; POLICY VERSIONS</td>
                         </tr>
                     </table>
                     <div class="section-line"></div>
                     
-                    <div class="signature-box">
-                        <table>
-                            <tr>
-                                <td style="width: 70%;">
-                                    <div class="sig-signed-by">SIGNED BY</div>
-                                    <div class="sig-name">{{ $sigName }}</div>
-                                    <div class="sig-type">Typed Electronic Signature</div>
-                                </td>
-                                <td style="width: 30%;">
-                                    <div class="status-badge">
-                                        <div class="status-icon" style="background-color: transparent;">
-                                            <img src="{{ $fa_check_green }}" width="20" height="20" style="margin-top: 0;">
-                                        </div>
-                                        <div class="status-text">STATUS</div>
-                                        <div class="status-text" style="font-size: 7px; color: #00a65a; font-weight:normal;">Successfully Signed</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-
                     <table class="data-table">
-                        <tr><td class="t-label">Signature Type</td><td class="t-colon">:</td><td class="t-value">Typed Electronic Signature</td></tr>
-                        <tr><td class="t-label">Signature Date</td><td class="t-colon">:</td><td class="t-value">{{ $sigDateStr }}</td></tr>
-                        <tr><td class="t-label">Signature Time</td><td class="t-colon">:</td><td class="t-value">{{ $sigTimeStr }}</td></tr>
-                        <tr><td class="t-label">Time Zone</td><td class="t-colon">:</td><td class="t-value">{{ $timezone }}</td></tr>
-                        <tr><td class="t-label">Auth Method</td><td class="t-colon">:</td><td class="t-value">User Account Login</td></tr>
+                        <tr><td class="t-label">Terms Version</td><td class="t-colon">:</td><td class="t-value">{{ $termsVer }}</td></tr>
+                        <tr><td class="t-label">Privacy Policy Version</td><td class="t-colon">:</td><td class="t-value">{{ $privacyVer }}</td></tr>
+                        <tr><td class="t-label">Credit Auth Version</td><td class="t-colon">:</td><td class="t-value">{{ $creditVer }}</td></tr>
                     </table>
                 </td>
                 
@@ -380,25 +357,6 @@
                         <tr><td class="t-label">Device Type</td><td class="t-colon">:</td><td class="t-value">{{ $device }}</td></tr>
                     </table>
 
-                    <!-- Doc Versions -->
-                    <table class="section-header">
-                        <tr>
-                            <td style="width: 25px;">
-                                <div class="section-icon" style="background-color: #f0f5ff; width: 28px; height: 28px; border-radius: 6px; text-align: center;">
-                                    <img src="{{ $fa_shield }}" width="14" height="14" style="margin-top: 6px;">
-                                </div>
-                            </td>
-                            <td class="section-title">DOCUMENT &amp; POLICY VERSIONS</td>
-                        </tr>
-                    </table>
-                    <div class="section-line"></div>
-                    
-                    <table class="data-table">
-                        <tr><td class="t-label">Terms Version</td><td class="t-colon">:</td><td class="t-value">{{ $termsVer }}</td></tr>
-                        <tr><td class="t-label">Privacy Policy Version</td><td class="t-colon">:</td><td class="t-value">{{ $privacyVer }}</td></tr>
-                        <tr><td class="t-label">Credit Auth Version</td><td class="t-colon">:</td><td class="t-value">{{ $creditVer }}</td></tr>
-                    </table>
-
                     <!-- Additional Info -->
                     <table class="section-header">
                         <tr>
@@ -416,7 +374,7 @@
                         <tr><td class="t-label">ESIGN Consent Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
                         <tr><td class="t-label">Credit Auth Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
                         <tr><td class="t-label">Executed Application SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr>
-                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y H:i:s') }} {{ $timezoneAbbr }}</td></tr>
+                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y h:i:s A') }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -498,9 +456,9 @@
                 <td style="width: 40%;">
                     <!-- Highly accurate signature card -->
                     <div class="final-sig-box">
-                        <div class="final-sig-name-italic">{{ $sigName }}</div><br>
                         <div class="final-sig-bold">{{ $sigName }}</div>
-                        <div class="final-sig-type">Typed Electronic Signature</div>
+                        <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;">Signature Type: Typed Electronic Signature</div>
+                        <div class="final-sig-detail" style="margin-bottom: 8px; color: #555;">Auth Method: User Account Login</div>
                         
                         <div class="final-sig-detail">
                             <img src="{{ $fa_cal_dark }}" width="8" height="8" style="vertical-align: middle; margin-right: 3px;">
