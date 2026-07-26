@@ -368,6 +368,16 @@
             </tr>
         </table>
 
+    </div><!-- close content-area page 1 -->
+</div><!-- close page-container page 1 -->
+
+<!-- Page Break -->
+<div class="page-break"></div>
+
+<!-- PAGE 2 - Financial & Funding Details -->
+<div class="page-container">
+    <div class="content-area">
+
         <!-- Financial & Funding Details -->
         <table class="section-header" style="margin-top: 10px;">
             <tr>
@@ -389,8 +399,11 @@
                         <tr><td class="t-label">Monthly Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->monthly_revenue) ? '$'.number_format((float)$application->monthly_revenue, 2) : 'N/A' }}</td></tr>
                         <tr><td class="t-label">Annual Personal Income</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->annual_personal_income) ? '$'.number_format((float)optional($application->borrower)->annual_personal_income, 2) : 'N/A' }}</td></tr>
                         <tr><td class="t-label">Number of Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->monthly_deposit_count ?: 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Current Business Debt</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->debt_balance) ? '$'.number_format((float)$application->debt_balance, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">Negative Days</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->negative_days ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Personal Credit Score</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->fico_score ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Minimum Business Credit</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->paydex_score ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Minimum Time In Business</td><td class="t-colon">:</td><td class="t-value">
+                            {{ $timeInBusinessCount }}
+                        </td></tr>
                     </table>
                 </td>
                 <td style="width: 4%;"></td>
@@ -400,21 +413,15 @@
                         <tr><td class="t-label">Annual Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->annual_revenue) ? '$'.number_format((float)$application->annual_revenue, 2) : 'N/A' }}</td></tr>
                         <tr><td class="t-label">Average Monthly Deposits</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->average_monthly_deposits) ? '$'.number_format((float)optional($application->borrower)->average_monthly_deposits, 2) : 'N/A' }}</td></tr>
                         <tr><td class="t-label">Average Daily Balance (ADB)</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->avg_bank_balance) ? '$'.number_format((float)optional($application->borrower)->avg_bank_balance, 2) : 'N/A' }}</td></tr>
-                        <tr><td class="t-label">NSF Count</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->borrower)->nsf_count ?: 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Minimum Revenue</td><td class="t-colon">:</td><td class="t-value">{{ !empty($application->monthly_revenue) ? '$'.number_format((float)$application->monthly_revenue, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Minimum Deposit</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->average_monthly_deposits) ? '$'.number_format((float)optional($application->borrower)->average_monthly_deposits, 2) : 'N/A' }}</td></tr>
+                        <tr><td class="t-label">Minimum Average Daily Balance</td><td class="t-colon">:</td><td class="t-value">{{ !empty(optional($application->borrower)->avg_bank_balance) ? '$'.number_format((float)optional($application->borrower)->avg_bank_balance, 2) : 'N/A' }}</td></tr>
                     </table>
                 </td>
             </tr>
         </table>
 
-    </div><!-- close content-area page 1 -->
-</div><!-- close page-container page 1 -->
 
-<!-- Page Break -->
-<div class="page-break"></div>
-
-<!-- PAGE 2 - Funding Program Details -->
-<div class="page-container">
-    <div class="content-area">
 
         <table class="section-header" style="margin-top: 10px;">
             <tr>
@@ -442,13 +449,7 @@
                 <td style="width: 48%; padding-left: 2%;">
                     <table class="data-table">
                         <tr><td class="t-label">Uses</td><td class="t-colon">:</td><td class="t-value">
-                            @php
-                                $usesVal = $application->uses ?: (optional($application->fundingSequence)->uses ?: 'N/A');
-                                if (is_array($usesVal)) {
-                                    $usesVal = implode(', ', $usesVal);
-                                }
-                            @endphp
-                            {{ $usesVal }}
+                            {{ $fundingUses }}
                         </td></tr>
                         <tr><td class="t-label">Use of Funds</td><td class="t-colon">:</td><td class="t-value">{{ $application->use_of_funds ?: ($application->purpose_of_funds ?: 'N/A') }}</td></tr>
                         <tr><td class="t-label">Estimated Amount</td><td class="t-colon">:</td><td class="t-value">{{ optional($application->fundingSequence)->amount_range ?: 'N/A' }}</td></tr>

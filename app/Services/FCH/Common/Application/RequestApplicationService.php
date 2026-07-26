@@ -10,9 +10,12 @@ use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\Commission\Commission;
+use App\Models\Common\AppConfiguration;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Application\SignatureCertificateService;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -477,110 +480,51 @@ class RequestApplicationService
 
     private static function getCompanyBrandingInfo($application)
     {
-        $partner = $application->partner ?? null;
-        $partnerId = $application->partner_id ?? null;
+        $appConfigService = new AppConfigurationService();
+        $module = AppConfiguration::MODULE_BRANDING;
+        $partnerId = $application->partner_id;
 
-        $branding = [];
-        if ($partnerId) {
-            $branding = \App\Models\Common\AppConfiguration::where('partner_id', $partnerId)
-                ->where('module', \App\Models\Common\AppConfiguration::MODULE_BRANDING)
-                ->pluck('value', 'key')
-                ->toArray();
-        }
+        // Try application partner branding
+        $branding = $appConfigService->getByModule($module, $partnerId);
+
+        $hostPartner = Partner::where('is_host', true)->first();
+        
+        // Fallback to host partner branding
         if (empty($branding)) {
-            $branding = \App\Models\Common\AppConfiguration::whereNull('partner_id')
-                ->where('module', \App\Models\Common\AppConfiguration::MODULE_BRANDING)
-                ->pluck('value', 'key')
-                ->toArray();
+            $branding = $appConfigService->getByModule($module, $hostPartner ? $hostPartner->id : null);
         }
 
-        $primaryColor = $branding['primary_color'] ?? '#2563a2';
-        $secondaryColor = $branding['secondary_color'] ?? '#D4AF37';
+        $address = $appConfigService->get('address', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('address', null, null, $hostPartner->id) : null);
+        $phone = $appConfigService->get('phone_number', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('phone_number', null, null, $hostPartner->id) : null);
+        $email = $appConfigService->get('email', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('email', null, null, $hostPartner->id) : null);
 
-        if ($partner) {
-            $companyName = $partner->company_name ?? 'Four Corner Funding';
-            
-            $addrParts = array_filter([$partner->address_line_1, $partner->address_line_2]);
-            $companyAddress = !empty($addrParts) ? implode(', ', $addrParts) : '400 Spectrum Center Drive, Suite 300';
-            
-            $companyCityState = implode(', ', array_filter([$partner->city, $partner->state])) . ' ' . ($partner->postal_code ?? '');
-            if (trim($companyCityState) === '') {
-                $companyCityState = 'Irvine, CA 92618, USA';
-            } else {
-                $companyCityState .= ', ' . ($partner->country ?? 'USA');
-            }
-            
-            $contactParts = [];
-            if ($partner->phone_number) $contactParts[] = $partner->phone_number;
-            if ($partner->email) $contactParts[] = $partner->email;
-            $companyContact = !empty($contactParts) ? implode('  |  ', $contactParts) : '(949) 555-0123  |  support@fourcornerfunding.com';
-            
-            $companyWebsite = $partner->website ?? 'www.fourcornerfunding.com';
-        } else {
-            $companyName = 'Four Corner Funding';
-            $companyAddress = '400 Spectrum Center Drive, Suite 300';
-            $companyCityState = 'Irvine, CA 92618, USA';
-            $companyContact = '(949) 555-0123  |  support@fourcornerfunding.com';
-            $companyWebsite = 'www.fourcornerfunding.com';
-        }
-
-        $logoKey = $branding['primary_logo'] 
-            ?? $branding['secondary_logo'] 
-            ?? $branding['header_logo'] 
-            ?? null;
-
-        if (!$logoKey && $partner && !empty($partner->company_logo)) {
-            $logoKey = $partner->company_logo;
-        }
-
+        $contactParts = array_filter([$phone, $email]);
+        
+        $logoKey = $branding['primary_logo'] ?? $branding['secondary_logo'] ?? $branding['header_logo'] ?? null;
         $logoBase64 = '';
+        $paths = $logoKey && $logoKey !== 'null' ? [
+            storage_path('app/public/' . ltrim((string) $logoKey, '/')),
+            public_path('storage/' . ltrim((string) $logoKey, '/')),
+            public_path(ltrim((string) $logoKey, '/'))
+        ] : [];
         
-        if ($logoKey && $logoKey !== 'null') {
-            $cleanPath = ltrim((string) $logoKey, '/');
-            
-            if (!str_starts_with($cleanPath, 'site-settings/') && !str_starts_with($cleanPath, 'partners/')) {
-                if ($partnerId) {
-                    $cleanPath = "partners/{$partnerId}/" . $cleanPath;
-                } else {
-                    $cleanPath = "site-settings/" . $cleanPath;
-                }
-            }
-            
-            $possiblePaths = [
-                storage_path('app/public/' . $cleanPath),
-                public_path('storage/' . $cleanPath),
-                public_path($cleanPath),
-            ];
-            
-            foreach ($possiblePaths as $path) {
-                if (file_exists($path)) {
-                    $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
-                    break;
-                }
-            }
-        }
-        
-        if (empty($logoBase64)) {
-            $fallbackPaths = [
-                public_path('logo-mail.png'),
-                public_path('logo.png'),
-            ];
-            foreach ($fallbackPaths as $path) {
-                if (file_exists($path)) {
-                    $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
-                    break;
-                }
+        $paths = array_merge($paths, [public_path('logo-mail.png'), public_path('logo.png')]);
+
+        foreach ($paths as $path) {
+            if (file_exists($path)) {
+                $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
+                break;
             }
         }
 
         return [
-            'primaryColor' => $primaryColor,
-            'secondaryColor' => $secondaryColor,
-            'companyName' => $companyName,
-            'companyAddress' => $companyAddress,
-            'companyCityState' => $companyCityState,
-            'companyContact' => $companyContact,
-            'companyWebsite' => $companyWebsite,
+            'primaryColor' => $branding['primary_color'] ?? '#2563a2',
+            'secondaryColor' => $branding['secondary_color'] ?? '#D4AF37',
+            'companyName' => $branding['site_name'] ?? config('app.name'),
+            'companyAddress' => $address ?? '',
+            'companyCityState' => '',
+            'companyContact' => implode('  |  ', $contactParts),
+            'companyWebsite' => '',
             'logoBase64' => $logoBase64,
         ];
     }
@@ -601,7 +545,8 @@ class RequestApplicationService
         $businessZipCode = ($borrower ? $borrower->business_postal_code : null) ?: ($application->zip_code ?: 'N/A');
         
         $rawStartDate = ($borrower ? $borrower->business_start_date : null) ?: ($application->business_start_date ?? null);
-        $businessStartDate = !empty($rawStartDate) ? \Carbon\Carbon::parse($rawStartDate)->format('M j, Y') : 'N/A';
+        $businessStartDate = !empty($rawStartDate) ? Carbon::parse($rawStartDate)->format('M j, Y') : 'N/A';
+        $timeInBusinessCount = calculateTimeInBusiness($rawStartDate);
         
         $businessCreditScore = $application->self_reported_business_credit_score ?: 'N/A';
         $businessIndustryType = ($borrower ? $borrower->business_industry_type : null) ?: ($application->industry_type ?: 'N/A');
@@ -618,9 +563,14 @@ class RequestApplicationService
         $homePhone = ($borrower ? $borrower->home_phone : null) ?: ($application->home_phone ?: 'N/A');
         
         $rawDob = ($borrower ? $borrower->date_of_birth : null) ?: ($application->date_of_birth ?? null);
-        $dateOfBirth = !empty($rawDob) ? \Carbon\Carbon::parse($rawDob)->format('M j, Y') : 'N/A';
+        $dateOfBirth = !empty($rawDob) ? Carbon::parse($rawDob)->format('M j, Y') : 'N/A';
         
         $last4SSN = ($borrower ? $borrower->last_4_ssn : null) ?: (!empty($application->ssn) ? substr($application->ssn, -4) : 'N/A');
+
+        $fundingUses = $application->uses ?: (optional($application->fundingSequence)->uses ?: 'N/A');
+        if (is_array($fundingUses)) {
+            $fundingUses = implode(', ', $fundingUses);
+        }
 
         return [
             'businessName' => $businessName,
@@ -648,6 +598,8 @@ class RequestApplicationService
             'homePhone' => $homePhone,
             'dateOfBirth' => $dateOfBirth,
             'last4SSN' => $last4SSN,
+            'fundingUses' => $fundingUses,
+            'timeInBusinessCount' => $timeInBusinessCount,
         ];
     }
 
@@ -676,7 +628,7 @@ class RequestApplicationService
         $sigName = $sigData['signature_name'] ?? $borrowerName;
         if(empty($sigName)) $sigName = 'N/A';
         
-        $sigTime = !empty($sigData['signed_at']) ? \Carbon\Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
+        $sigTime = !empty($sigData['signed_at']) ? Carbon::parse($sigData['signed_at'])->timezone($tz) : now()->timezone($tz);
         $sigDateStr = $sigTime->format('M j, Y');
         $sigTimeStr = $sigTime->format('h:i:s A');
         $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Partner\Partner;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 if (!function_exists('encodeUrl')) {
@@ -205,5 +206,36 @@ if (!function_exists('make_url')) {
         $path = ltrim($path, '/');
 
         return $path ? "{$domain}/{$path}" : $domain;
+    }
+}
+
+if (!function_exists('calculateTimeInBusiness')) {
+    function calculateTimeInBusiness($startDate)
+    {
+        if (empty($startDate)) {
+            return 'N/A';
+        }
+        
+        $start = Carbon::parse($startDate);
+        $now = now();
+        
+        if ($start->isFuture()) {
+            return '0 Days';
+        }
+        
+        $diff = $start->diff($now);
+        
+        $parts = [];
+        if ($diff->y > 0) {
+            $parts[] = $diff->y . ' Year' . ($diff->y > 1 ? 's' : '');
+        }
+        if ($diff->m > 0) {
+            $parts[] = $diff->m . ' Month' . ($diff->m > 1 ? 's' : '');
+        }
+        if ($diff->d > 0 || empty($parts)) {
+            $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
+        }
+        
+        return implode(', ', $parts);
     }
 }
