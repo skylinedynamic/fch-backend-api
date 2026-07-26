@@ -236,6 +236,6 @@ if (!function_exists('calculateTimeInBusiness')) {
             $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
         }
         
-        return implode(', ', $parts);
+        return implode(' ', $parts);
     }
 }
