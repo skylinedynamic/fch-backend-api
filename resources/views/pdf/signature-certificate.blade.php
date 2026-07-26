@@ -456,9 +456,9 @@
                 <td style="width: 40%;">
                     <!-- Highly accurate signature card -->
                     <div class="final-sig-box">
-                        <div class="final-sig-bold">{{ $sigName }}</div>
-                        <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;">Signature Type: Typed Electronic Signature</div>
-                        <div class="final-sig-detail" style="margin-bottom: 8px; color: #555;">Auth Method: User Account Login</div>
+                        <div class="final-sig-bold" style="border-bottom: 1px solid {{ $primaryColor }}; padding-bottom: 4px; margin-bottom: 8px; display: inline-block; width: 80%;">{{ $sigName }}</div>
+                        <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;"><strong>Signature Type:</strong> Typed Electronic Signature</div>
+                        <div class="final-sig-detail" style="margin-bottom: 8px; color: #555;"><strong>Auth Method:</strong> User Account Login</div>
                         
                         <div class="final-sig-detail">
                             <img src="{{ $fa_cal_dark }}" width="8" height="8" style="vertical-align: middle; margin-right: 3px;">
