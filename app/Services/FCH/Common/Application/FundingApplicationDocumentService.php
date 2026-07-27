@@ -21,6 +21,7 @@ use App\Helpers\ApiResponse;
 
 class FundingApplicationDocumentService
 {
+
     protected $activityLogService;
 
     public function __construct(ActivityLogService $activityLogService)
@@ -190,10 +191,10 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
-            'details' => array_filter([
+            'details' => array_filter(array_merge([
                 'password' => $password,
                 'file_path' => $savedPath
-            ]),
+            ], $this->getDeviceInfo())),
         ]);
         
         return response($pdfBinary, 200)
@@ -267,10 +268,10 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
-            'details' => array_filter([
+            'details' => array_filter(array_merge([
                 'password' => $password,
                 'file_path' => $savedPath
-            ]),
+            ], $this->getDeviceInfo())),
         ]);
 
         return response($pdfBinary, 200)
@@ -381,10 +382,10 @@ class FundingApplicationDocumentService
             'sha256_hash' => $sha256,
             'ip_address' => request()->ip(),
             'downloaded_at' => now(),
-            'details' => array_filter([
+            'details' => array_filter(array_merge([
                 'password' => $password,
                 'file_path' => $savedPath
-            ]),
+            ], $this->getDeviceInfo())),
         ]);
 
         return response()->download($zipTempFile, $zipFilename, [
@@ -625,7 +626,7 @@ class FundingApplicationDocumentService
         // Certificate identifier — reuse the persisted certificate record if one already exists
         $certId = 'CERT-' . $currentTime->format('Ymd') . '-' . str_pad($application->id, 4, '0', STR_PAD_LEFT);
 
-        $appVersion = $application->application_version ?? '1.0';
+        $appVersion = $sigData['application_version'] ?? '1.0';
 
         $appPurpose = $application->purpose_of_funding
             ?? optional($application->fundingSequence)->uses
@@ -711,5 +712,45 @@ class FundingApplicationDocumentService
         ];
     }
 
-}
+    /**
+     * Get device information from user agent
+     */
+    private function getDeviceInfo(): array
+    {
+        $agent = request()->header('User-Agent') ?? '';
+        
+        $os = 'Unknown';
+        if (preg_match('/windows|win32|macintosh|mac os x|linux|android|iphone|ipad/i', $agent, $matches)) {
+            $os = $matches[0];
+        }
 
+        $browser = 'Unknown';
+        if (preg_match('/chrome|firefox|safari|edge|opera|msie|trident/i', $agent, $matches)) {
+            $browser = $matches[0];
+        }
+
+        $browserVersion = 'Unknown';
+        if ($browser !== 'Unknown') {
+            if (preg_match('/version[\/ ]([\d.]+)/i', $agent, $matches)) {
+                $browserVersion = $matches[1];
+            } else if (preg_match('/' . preg_quote($browser, '/') . '[\/ ]([\d.]+)/i', $agent, $matches)) {
+                $browserVersion = $matches[1];
+            }
+        }
+
+        $deviceType = 'Desktop';
+        if (preg_match('/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $agent)) {
+            $deviceType = 'Tablet';
+        } else if (preg_match('/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $agent)) {
+            $deviceType = 'Mobile';
+        }
+
+        return [
+            'user_agent' => $agent,
+            'operating_system' => $os,
+            'browser_name' => $browser,
+            'browser_version' => $browserVersion,
+            'device_type' => $deviceType,
+        ];
+    }
+}

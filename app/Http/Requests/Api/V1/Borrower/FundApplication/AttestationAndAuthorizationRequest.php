@@ -29,6 +29,7 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
             'credit_consent' => 'required|accepted',
             'legal_binding_consent' => 'required|accepted',
             'timezone' => 'required|string',
+            'application_version' => 'nullable|string',
             'consents_data' => 'nullable|string',
         ];
     }

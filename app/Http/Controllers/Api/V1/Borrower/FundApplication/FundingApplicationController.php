@@ -328,6 +328,7 @@ class FundingApplicationController extends Controller
                 'terms_version' => $validated['terms_version'] ?? '1.0',
                 'privacy_version' => $validated['privacy_version'] ?? '1.0',
                 'credit_auth_version' => $validated['credit_auth_version'] ?? '1.0',
+                'application_version' => $validated['application_version'] ?? '1.0',
                 'consents_data' => isset($validated['consents_data']) ? json_decode($validated['consents_data'], true) : null,
                 'signed_at' => now()->toDateTimeString(),
             ];
