@@ -64,9 +64,6 @@ class PaymentMethodController extends Controller
         if (! $setting) {
             return ApiResponse::notFound(__('payment_method.not_found'));
         }
-
-        \Log::info('PaymentMethods API Partner ID: ' . $partnerId);
-        \Log::info('PaymentMethods API Response: ' . json_encode($setting));
         return ApiResponse::success(new PaymentMethodResource($setting), __('payment_method.retrieved'));
     }
 

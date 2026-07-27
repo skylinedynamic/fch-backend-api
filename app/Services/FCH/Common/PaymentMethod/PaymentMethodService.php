@@ -180,12 +180,6 @@ class PaymentMethodService
             $partnerId = auth()->user()?->partner_id;
         }
 
-        Log::info('Partner ID: ' . $partnerId);
-        if (!$partnerId) {
-            return [];
-        }
-        Log::info('After Partner ID: ' . $partnerId);
-
         $providers = PaymentProvider::query()
             ->where('status', true)
             ->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
@@ -212,7 +206,7 @@ class PaymentMethodService
                 return [
                     'id' => $provider->id,
                     'name' => $provider->name,
-                    'logo' => $provider->logo,
+                    'logo' => encodeUrl(asset($provider->logo)),
                     'status' => $provider->status,
                     'is_default' => $partnerProvider?->is_default ?? false,
                     'partner_payment_provider_id' => $partnerProvider?->id,

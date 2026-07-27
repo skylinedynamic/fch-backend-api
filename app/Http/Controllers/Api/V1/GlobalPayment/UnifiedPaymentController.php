@@ -11,6 +11,7 @@ use App\Services\GlobalPayment\UnifiedPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class UnifiedPaymentController extends Controller
 {
@@ -27,6 +28,8 @@ class UnifiedPaymentController extends Controller
      */
     public function processPayment(ProcessPaymentRequest $request): JsonResponse
     {
+        Log::info($request->all());
+        return ApiResponse::success($request->all(), __('payment.processed'));
         try {
             $result = $this->paymentService->processPayment($request->validated());
 
