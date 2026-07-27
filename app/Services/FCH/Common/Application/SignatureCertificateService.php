@@ -43,10 +43,24 @@ class SignatureCertificateService
         $sigTimeStr = $sigTime->format('h:i:s A');
         $timezone = $sigTime->format('e') . ' (UTC' . $sigTime->format('P') . ')';
         
-        $termsVer = $sigData['terms_version'] ?? '1.0';
-        $privacyVer = $sigData['privacy_version'] ?? '1.0';
-        $creditVer = $sigData['credit_auth_version'] ?? '1.0';
+        $formatConsent = function($versionKey, $consentKey) use ($sigData) {
+            // Check for explicit boolean consent first
+            if (isset($sigData[$consentKey])) {
+                return $sigData[$consentKey] ? 'Agreed' : 'Not Agreed';
+            }
+            // Fallback to older versioning logic if passed as 1 or 0
+            if (isset($sigData[$versionKey])) {
+                return (in_array($sigData[$versionKey], ['1', 1, '1.0', true], true)) ? 'Checked' : 'Unchecked';
+            }
+            return 'Agreed';
+        };
+
+        $termsVer = $formatConsent('terms_version', 'terms_consent');
+        $privacyVer = $formatConsent('privacy_version', 'terms_consent'); // Assuming privacy is bundled with terms
+        $creditVer = $formatConsent('credit_auth_version', 'credit_consent');
         $sha = $sigData['sha256'] ?? 'N/A';
+        $certId = $sigData['certificate_id'] ?? ($brandingData['certId'] ?? 'N/A');
+        $appVersion = $sigData['application_version'] ?? 'N/A';
         
         // Helper: create inline SVG icon base64 with dynamic fill color
         $icon_white = function(string $path, string $viewBox = '0 0 512 512') {
@@ -127,7 +141,7 @@ class SignatureCertificateService
         return compact(
             'application', 'sigData', 'appId', 'borrowerName', 'businessName', 'rawStatus', 'status',
             'ip', 'browser', 'os', 'device', 'sigName', 'sigDateStr', 'sigTimeStr', 'timezone',
-            'termsVer', 'privacyVer', 'creditVer', 'sha',
+            'termsVer', 'privacyVer', 'creditVer', 'sha', 'certId', 'appVersion',
             'fa_doc_white', 'fa_cal_white', 'fa_doc', 'fa_users', 'fa_check', 'fa_check_green',
             'fa_monitor', 'fa_shield', 'fa_info', 'fa_badge', 'fa_lock', 'fa_lock_primary',
             'fa_cal_dark', 'fa_clock_dark', 'fa_globe_dark', 'custom_seal'

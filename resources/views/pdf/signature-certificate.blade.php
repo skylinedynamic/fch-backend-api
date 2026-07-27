@@ -292,7 +292,12 @@
                     <div class="section-line"></div>
                     
                     <table class="data-table">
+                        <tr><td class="t-label">Certificate ID</td><td class="t-colon">:</td><td class="t-value">{{ $certId ?? 'N/A' }}</td></tr>
                         <tr><td class="t-label">Application ID</td><td class="t-colon">:</td><td class="t-value">{{ $appId }}</td></tr>
+                        <tr><td class="t-label">Application Version</td><td class="t-colon">:</td><td class="t-value">{{ $appVersion ?? 'N/A' }}</td></tr>
+                        {{-- <tr><td class="t-label">Executed Application SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value" style="word-break: break-all;">{{ $sha ?? 'N/A' }}</td></tr> --}}
+                        <tr><td class="t-label">Signature Timestamp</td><td class="t-colon">:</td><td class="t-value">{{ $sigDateStr }} {{ $sigTimeStr }}</td></tr>
+                        <tr><td class="t-label">PDF Generation Timestamp</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y h:i:s A') }}</td></tr>
                         <tr><td class="t-label">Borrower Name</td><td class="t-colon">:</td><td class="t-value">{{ $borrowerName }}</td></tr>
                         <tr><td class="t-label">Business Name</td><td class="t-colon">:</td><td class="t-value">{{ $businessName }}</td></tr>
                         <tr><td class="t-label">Status</td><td class="t-colon">:</td><td class="t-value">{{ $status }}</td></tr>
@@ -358,8 +363,8 @@
                     <table class="data-table">
                         <tr><td class="t-label">ESIGN Consent Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
                         <tr><td class="t-label">Credit Auth Status</td><td class="t-colon">:</td><td class="t-value text-success"><strong>Accepted</strong></td></tr>
-                        <tr><td class="t-label">Executed Application SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr>
-                        <tr><td class="t-label">Cert Generation</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y h:i:s A') }}</td></tr>
+                        {{-- <tr><td class="t-label">Executed Application SHA-256 Hash</td><td class="t-colon">:</td><td class="t-value">{{ $sha }}</td></tr> --}}
+                        <tr><td class="t-label">Certificate Generation</td><td class="t-colon">:</td><td class="t-value">{{ $currentTime->format('M j, Y h:i:s A') }}</td></tr>
                     </table>
                 </td>
             </tr>
@@ -453,10 +458,6 @@
                             <img src="{{ $fa_clock_dark }}" width="8" height="8" style="vertical-align: middle; margin-right: 3px;">
                             {{ $sigTimeStr }}
                         </div>
-                        <div class="final-sig-detail">
-                            <img src="{{ $fa_globe_dark }}" width="8" height="8" style="vertical-align: middle; margin-right: 3px;">
-                            {{ $timezone }}
-                        </div>
                     </div>
                 </td>
             </tr>
@@ -465,14 +466,14 @@
     </div>
 
     <!-- Footer -->
-    <div class="footer-section" style="text-align: center; padding-top: 2px; padding-bottom: -10px;">
-        <table style="margin: 0 auto; width: 85%;">
+    <div class="footer-section" style="text-align: center; padding-top: 2px; padding-bottom: 40px;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td style="width: 80px; text-align: center; vertical-align: middle;">
-                    <img src="{{ $custom_seal }}" width="60" height="60" style="vertical-align: middle; display: inline-block;">
+                <td style="width:22%;">
+                    <img src="{{ $custom_seal }}" width="60" height="60" style=" margin-top:10px; display: inline-block;">
                 </td>
-                <td style="text-align: left; vertical-align: middle; padding-left: 15px;">
-                    <div class="footer-disclaimer" style="margin: 0; line-height: 1.4;">
+                 <td style="vertical-align:middle;">
+                    <div style="font-size:9px; line-height:1.6; color:#555;margin-top:40px">
                         This document serves as proof of electronic signature under the ESIGN Act, UETA, and applicable federal and state laws. It is a tamper-evident record of the signer's intent to sign this Funding Application electronically.
                     </div>
                 </td>

@@ -17,6 +17,7 @@ class FundingApplicationResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'application_number' => $this->application_number,
             'partner_id' => $this->partner_id,
             'borrower_id' => $this->borrower_id,
             'full_name' => $this->full_name,
@@ -100,7 +101,12 @@ class FundingApplicationResource extends JsonResource
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,
             'conversion_rate' => $this->conversion_rate,
-    
+
+
+            'download_histories' => $this->whenLoaded('downloadHistories'),
+            'signature_data' => is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data,
+            'partner' => $this->whenLoaded('partner'),
+            'borrower' => $this->whenLoaded('borrower'),
         ];
     }
 }

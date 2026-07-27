@@ -2,6 +2,7 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Borrower\DownloadHistory;
 use App\Models\Commission\Commission;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
@@ -297,5 +298,12 @@ class FundingApplication extends Model
     public function fundingRequest()
     {
         return $this->belongsTo(FundingRequest::class, 'funding_request_id');
+    }
+
+
+
+    public function downloadHistories()
+    {
+        return $this->hasMany(DownloadHistory::class, 'funding_application_id')->orderBy('created_at', 'desc');
     }
 }

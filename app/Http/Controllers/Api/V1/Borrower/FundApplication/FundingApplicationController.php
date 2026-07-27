@@ -20,12 +20,13 @@ use App\Http\Resources\Borrower\FundApplication\FinancialResource;
 use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Services\Borrower\FundApplication\FundingApplicationService;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\RequestApplicationService;
-use App\Services\FCH\Common\Application\SignatureCertificateService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -292,18 +293,41 @@ class FundingApplicationController extends Controller
             if (preg_match('/chrome|firefox|safari|edge|opera|msie|trident/i', $agent, $matches)) {
                 $browser = $matches[0];
             }
+            
+            // Extract Browser Version
+            $browserVersion = 'Unknown';
+            if ($browser !== 'Unknown') {
+                if (preg_match('/version[\/ ]([\d.]+)/i', $agent, $matches)) {
+                    $browserVersion = $matches[1];
+                } else if (preg_match('/' . preg_quote($browser, '/') . '[\/ ]([\d.]+)/i', $agent, $matches)) {
+                    $browserVersion = $matches[1];
+                }
+            }
+            
+            // Extract Device Type
+            $deviceType = 'Desktop';
+            if (preg_match('/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i', $agent)) {
+                $deviceType = 'Tablet';
+            } else if (preg_match('/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|NetFront|Silk-Accelerated|(hpw|web)OS|Fennec|Minimo|Opera M(obi|ini)|Blazer|Dolfin|Dolphin|Skyfire|Zune/i', $agent)) {
+                $deviceType = 'Mobile';
+            }
 
             $validated['signature_data'] = [
                 'signature_name' => $validated['signature_name'] ?? null,
                 'ip_address' => $request->ip(),
                 'user_agent' => $agent,
                 'browser_name' => $browser,
+                'browser_version' => $browserVersion,
                 'operating_system' => $os,
+                'device_type' => $deviceType,
                 'timezone' => $validated['timezone'] ?? null,
                 'esign_consent' => $validated['esign_consent'] ?? false,
                 'terms_consent' => $validated['terms_consent'] ?? false,
                 'credit_consent' => $validated['credit_consent'] ?? false,
                 'legal_binding_consent' => $validated['legal_binding_consent'] ?? false,
+                'terms_version' => $validated['terms_version'] ?? '1.0',
+                'privacy_version' => $validated['privacy_version'] ?? '1.0',
+                'credit_auth_version' => $validated['credit_auth_version'] ?? '1.0',
                 'consents_data' => isset($validated['consents_data']) ? json_decode($validated['consents_data'], true) : null,
                 'signed_at' => now()->toDateTimeString(),
             ];
@@ -313,21 +337,20 @@ class FundingApplicationController extends Controller
 
             $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
 
-            // Generate Certificate
-            try {
-                $brandingData = RequestApplicationService::getBrandingData($attestationAndAuthorization);
-                $templateData = SignatureCertificateService::getTemplateData($attestationAndAuthorization, $brandingData, $validated['signature_data']);
-                $pdf = Pdf::loadView('pdf.signature-certificate', array_merge($brandingData, $templateData));
-                $pdfPath = 'funding-applications/' . $attestationAndAuthorization->id . '/signature-certificate-' . $attestationAndAuthorization->application_number . '.pdf';
-                Storage::disk('public')->put($pdfPath, $pdf->output());
-                
-                // Update application with certificate path in signature_data
-                $signatureData = $validated['signature_data'];
-                $signatureData['certificate_path'] = $pdfPath;
-                $attestationAndAuthorization->update(['signature_data' => $signatureData]);
-            } catch (\Exception $e) {
-                Log::error('PDF Generation failed: ' . $e->getMessage());
-            }
+            // Log that the borrower submitted the application
+            $activityLogService = app(ActivityLogService::class);
+            $borrowerName = !empty($validated['signature_name']) ? $validated['signature_name'] : (Auth::user() ? trim(Auth::user()->first_name . ' ' . Auth::user()->last_name) : 'Borrower');
+            $activityLogService->logModelEvent(
+                $attestationAndAuthorization,
+                ActivityLog::TYPE_ACTIVITY,
+                ['visible_to_borrower' => '1'],
+                'Funding Application Submitted',
+                "Funding Application submitted by {$borrowerName}."
+            );
+
+            // Generate Certificate and Final PDF via new Document Service
+            $documentService = app(FundingApplicationDocumentService::class);
+            $documentService->generateAndLockFinalDocuments($attestationAndAuthorization, $validated['signature_data']);
 
             return ApiResponse::success(
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),

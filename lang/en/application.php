@@ -18,11 +18,13 @@ return [
     'pre_qualification_not_found' => 'Pre-qualification application not found.',
     'funding_application_not_found' => 'Funding application not found.',
     'status_updated' => 'Status updated successfully.',
+    'audit_history_retrieved' => 'Audit history retrieved successfully.',
     
     // Controller Messages
     'error_retrieving_pre_qualification' => 'Failed to retrieve pre-qualification application.',
     'error_retrieving_funding_application' => 'Failed to retrieve funding application.',
     'error_updating_status' => 'Failed to update application status.',
+    'error_retrieving_audit_history' => 'Failed to retrieve audit history.',
     
     // Commission Validation Messages
     'funding_application_id_required' => 'The funding application ID is required.',
