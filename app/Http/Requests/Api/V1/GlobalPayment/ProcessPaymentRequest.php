@@ -22,9 +22,9 @@ class ProcessPaymentRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'provider_id' => 'required|integer|exists:payment_providers,id',
+            'payment_method_id' => 'required|integer|exists:partner_payment_providers,payment_provider_id',
             'invoice_id' => 'required|integer|exists:invoices,id',
-            'payment_method_id' => 'required|string',
+            'payment_token' => 'required|string',
         ];
     }
 
@@ -36,13 +36,14 @@ class ProcessPaymentRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'provider_id.integer' => __('payment_validation.provider_id_integer'),
-            'provider_id.exists' => __('payment_validation.provider_id_exists'),
+            'payment_method_id.required' => __('payment_validation.payment_method_id_required'),
+            'payment_method_id.integer' => __('payment_validation.payment_method_id_integer'),
+            'payment_method_id.exists' => __('payment_validation.payment_method_id_exists'),
             'invoice_id.required' => __('payment_validation.invoice_id_required'),
             'invoice_id.integer' => __('payment_validation.invoice_id_integer'),
             'invoice_id.exists' => __('payment_validation.invoice_id_exists'),
-            'payment_method_id.required' => __('payment_validation.payment_method_id_required'),
-            'payment_method_id.string' => __('payment_validation.payment_method_id_string'),
+            'payment_token.required' => __('payment_validation.payment_token_required'),
+            'payment_token.string' => __('payment_validation.payment_token_string'),
         ];
     }
 }

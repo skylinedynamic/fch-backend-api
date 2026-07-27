@@ -28,8 +28,7 @@ class UnifiedPaymentController extends Controller
      */
     public function processPayment(ProcessPaymentRequest $request): JsonResponse
     {
-        Log::info($request->all());
-        return ApiResponse::success($request->all(), __('payment.processed'));
+
         try {
             $result = $this->paymentService->processPayment($request->validated());
 
@@ -74,17 +73,7 @@ class UnifiedPaymentController extends Controller
     public function getPartnerPaymentMethods(Request $request): JsonResponse
     {
         try {
-            $partnerId = auth()->user()?->partner_id;
-
-            if (!$partnerId) {
-                return ApiResponse::validationError(
-                    ['partner_id' => [__('payment_method.partner_id_required')]],
-                    __('payment_method.partner_id_required')
-                );
-            }
-
-            $providers = $this->paymentMethodService->getActiveProvidersForPartner($partnerId);
-
+            $providers = $this->paymentMethodService->getActiveProvidersForPartner();
             return ApiResponse::success($providers, __('payment_method.retrieved'));
         } catch (Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);

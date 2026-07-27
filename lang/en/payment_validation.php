@@ -21,4 +21,8 @@ return [
     'invoice_id_integer' => 'The invoice ID must be an integer.',
     'invoice_id_exists' => 'The selected invoice ID is invalid.',
     'payment_method_id_required' => 'The payment method ID is required.',
+    'payment_method_id_integer' => 'The payment method ID must be an integer.',
+    'payment_method_id_exists' => 'The selected payment method ID is invalid.',
+    'payment_token_required' => 'The payment token is required.',
+    'payment_token_string' => 'The payment token must be a string.',
 ];

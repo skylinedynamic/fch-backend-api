@@ -10,6 +10,7 @@ use App\Services\GlobalPayment\Drivers\StripePaymentDriver;
 use App\Services\GlobalPayment\Drivers\EcryptPaymentDriver;
 use App\Services\GlobalPayment\Drivers\SquarePaymentDriver;
 use App\Services\GlobalPayment\Drivers\AuthorizeNetPaymentDriver;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -36,39 +37,13 @@ class PaymentGatewayManager
      */
     public function resolvePartnerProvider(?int $partnerId, ?int $providerId = null): PartnerPaymentProvider
     {
-        $query = PartnerPaymentProvider::query()
+        $partnerProvider = PartnerPaymentProvider::query()
             ->with('provider')
-            ->where('status', true);
+            ->where('partner_id', $partnerId)
+            ->where('payment_provider_id', $providerId)
+            ->where('status', true)
+            ->first();
 
-        if ($partnerId) {
-            $query->where('partner_id', $partnerId);
-        } else {
-            $host = Partner::where('is_host', true)->first();
-            if ($host) {
-                $query->where('partner_id', $host->id);
-            }
-        }
-
-        if ($providerId) {
-            $query->where('payment_provider_id', $providerId);
-        } else {
-            $query->where('is_default', true);
-        }
-
-        $partnerProvider = $query->first();
-
-        // Fallback to first active provider if default is not explicitly marked
-        if (!$partnerProvider && !$providerId) {
-            $partnerProvider = PartnerPaymentProvider::query()
-                ->with('provider')
-                ->where('status', true)
-                ->where(function ($q) use ($partnerId) {
-                    if ($partnerId) {
-                        $q->where('partner_id', $partnerId);
-                    }
-                })
-                ->first();
-        }
 
         if (!$partnerProvider) {
             throw new RuntimeException("No active payment provider configured for partner ID: " . ($partnerId ?? 'Host'));
@@ -87,7 +62,14 @@ class PaymentGatewayManager
     {
         $providerName = $partnerProvider->provider?->name ?? PaymentProvider::STRIPE;
         $configuration = $partnerProvider->configuration ?? [];
-        $environment = $configuration['payment_mode'] ?? 'sandbox';
+        $environment = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+
+        Log::debug("[PaymentGatewayManager] Initializing payment driver", [
+            'partner_id' => $partnerProvider->partner_id,
+            'payment_provider_id' => $partnerProvider->payment_provider_id,
+            'provider_name' => $providerName,
+            'environment' => $environment,
+        ]);
 
         return $this->driver($providerName)->initialize($configuration, $environment);
     }

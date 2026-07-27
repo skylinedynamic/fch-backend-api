@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\PaymentMethod;
 
+use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentMethod;
 use App\Models\PaymentMethod\PaymentProvider;
@@ -171,23 +172,26 @@ class PaymentMethodService
     /**
      * Get active payment providers configured for a partner.
      *
-     * @param int|null $partnerId
      * @return array
      */
-    public function getActiveProvidersForPartner(?int $partnerId = null): array
+    public function getActiveProvidersForPartner(): array
     {
-        if (!$partnerId && auth()->check()) {
-            $partnerId = auth()->user()?->partner_id;
+        $recipientPartnerId = null ;
+
+        if(auth()->user()?->entity_type == Partner::class) {
+            $recipientPartnerId = Partner::host()->id;
+        }else{
+            $recipientPartnerId = auth()->user()?->partner_id;
         }
 
         $providers = PaymentProvider::query()
-            ->where('status', true)
-            ->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
-                $q->where('partner_id', $partnerId)
+            ->where('status', true) 
+            ->whereHas('partnerPaymentProviders', function ($q) use ($recipientPartnerId) {
+                $q->where('partner_id', $recipientPartnerId)
                     ->where('status', true);
             })
-            ->with(['partnerPaymentProviders' => function ($q) use ($partnerId) {
-                $q->where('partner_id', $partnerId)
+            ->with(['partnerPaymentProviders' => function ($q) use ($recipientPartnerId) {
+                $q->where('partner_id', $recipientPartnerId)
                     ->where('status', true)
                     ->select([
                         'id',
