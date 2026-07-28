@@ -2,9 +2,12 @@
 
 namespace App\Http\Resources\FCH\Common\Application;
 
+use App\Http\Resources\Borrower\FundApplication\CoBorrowerResource;
+use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
 use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 class FundingApplicationResource extends JsonResource
 {
@@ -15,6 +18,8 @@ class FundingApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+        
         return [
             'id' => $this->id,
             'application_number' => $this->application_number,
@@ -76,14 +81,14 @@ class FundingApplicationResource extends JsonResource
             'status_note' => $this->status_note,
             'status_class' => $this->status_class,
             'attestation_authorization' => $this->attestation_authorization,
-            'co_borrowers' => \App\Http\Resources\Borrower\FundApplication\CoBorrowerResource::collection($this->whenLoaded('coborrowers') ?? collect()),
+            'co_borrowers' => CoBorrowerResource::collection($this->whenLoaded('coborrowers') ?? collect()),
             'documents' => $this->whenLoaded('fundingDocuments', function () {
                 return $this->fundingDocuments->groupBy(function ($document) {
                     return $document->docType->name ?? 'Other';
                 })->map(function ($documents, $type) {
                     return [
                         'type' => $type,
-                        'files' => \App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource::collection($documents),
+                        'files' => FundingApplicationDocumentResource::collection($documents),
                     ];
                 })->values();
             }),
@@ -104,11 +109,17 @@ class FundingApplicationResource extends JsonResource
 
 
             'download_histories' => $this->whenLoaded('downloadHistories'),
-            'signature_data' => is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data,
+            'signature_data' => (function() use ($timezone) {
+                $data = is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data;
+                if (is_array($data) && isset($data['signed_at'])) {
+                    $data['signed_at'] = Carbon::parse($data['signed_at'])->timezone($timezone)->format('Y-m-d h:i A');
+                }
+                return $data;
+            })(),
             'partner' => $this->whenLoaded('partner'),
             'borrower' => $this->whenLoaded('borrower'),
-            'created_at' => $this->created_at ? $this->created_at->timezone($request->header('X-Timezone') ?? config('app.timezone'))->format('Y-m-d H:i:s') : null,
-            'updated_at' => $this->updated_at ? $this->updated_at->timezone($request->header('X-Timezone') ?? config('app.timezone'))->format('Y-m-d H:i:s') : null,
+            'created_at' => $this->created_at ? $this->created_at->timezone($timezone)->format('Y-m-d H:i:s') : null,
+            'updated_at' => $this->updated_at ? $this->updated_at->timezone($timezone)->format('Y-m-d H:i:s') : null,
         ];
     }
 }

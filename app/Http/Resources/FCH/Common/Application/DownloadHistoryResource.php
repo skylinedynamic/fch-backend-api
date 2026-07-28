@@ -23,6 +23,7 @@ class DownloadHistoryResource extends JsonResource
             'action' => $this->action,
             'file_type' => $this->file_type,
             'downloaded_at' => $this->downloaded_at?->timezone($timezone)->format('Y-m-d h:i A'),
+            'details' => is_string($this->details) ? json_decode($this->details, true) : $this->details,
         ];
     }
 }
