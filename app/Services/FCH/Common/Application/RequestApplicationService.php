@@ -222,8 +222,19 @@ class RequestApplicationService
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $query = DownloadHistory::with('user:id,name,email,user_type')
-            ->where('funding_application_id', $id)
-            ->orderBy('downloaded_at', 'desc');
+            ->where('funding_application_id', $id);
+
+        if (!empty($filters['search'])) {
+            $query->search($filters['search']);
+        }
+
+        if (!empty($filters['sort_by'])) {
+            $sortField = $filters['sort_by'];
+            $sortDir = (!empty($filters['sort_dir']) && strtolower($filters['sort_dir']) === 'asc') ? 'asc' : 'desc';
+            $query->orderBy($sortField, $sortDir);
+        } else {
+            $query->orderBy('downloaded_at', 'desc');
+        }
 
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 

@@ -113,6 +113,9 @@ class RequestApplicationController extends Controller
             $filters = [
                 'per_page'      => $request->input('per_page', 10),
                 'page'          => $request->input('page', 1),
+                'search'        => $request->input('search'),
+                'sort_by'       => $request->input('sort_by'),
+                'sort_dir'      => $request->input('sort_dir'),
             ];
             return $this->requestApplicationService->getAuditHistory($id, $filters);
         } catch (\Exception $e) {
