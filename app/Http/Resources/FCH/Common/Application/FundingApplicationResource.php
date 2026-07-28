@@ -107,6 +107,8 @@ class FundingApplicationResource extends JsonResource
             'signature_data' => is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data,
             'partner' => $this->whenLoaded('partner'),
             'borrower' => $this->whenLoaded('borrower'),
+            'created_at' => $this->created_at ? $this->created_at->timezone($request->header('X-Timezone') ?? config('app.timezone'))->format('Y-m-d H:i:s') : null,
+            'updated_at' => $this->updated_at ? $this->updated_at->timezone($request->header('X-Timezone') ?? config('app.timezone'))->format('Y-m-d H:i:s') : null,
         ];
     }
 }
