@@ -35,7 +35,8 @@ class UnifiedPaymentService
         }
 
         $partnerId = $this->resolvePartnerId($invoice);
-        $partnerProvider = $this->gatewayManager->resolvePartnerProvider($partnerId, $data['provider_id'] ?? null);
+        $recieverId = $invoice->entity_type == Partner::class ? Partner::host()->id : $invoice->partner_id;
+        $partnerProvider = $this->gatewayManager->resolvePartnerProvider($recieverId, $data['payment_method_id'] ?? null);
         $driver = $this->gatewayManager->driverFor($partnerProvider);
         $providerName = $partnerProvider->provider?->name;
 
@@ -47,6 +48,8 @@ class UnifiedPaymentService
                 'amount' => $invoice->payment_amount,
                 'currency' => $invoice->currency ?? 'USD',
                 'payment_method_id' => $data['payment_method_id'],
+                'payment_token' => $data['payment_token'] ?? null,
+                'invoice_id' => $invoice->id,
                 'description' => "Payment for invoice #{$invoice->invoice_id}",
             ]);
 

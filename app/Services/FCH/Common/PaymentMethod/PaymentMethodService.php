@@ -176,36 +176,47 @@ class PaymentMethodService
      */
     public function getActiveProvidersForPartner(): array
     {
-        $recipientPartnerId = null ;
+        $recipientPartnerId = null;
 
-        if(auth()->user()?->entity_type == Partner::class) {
+        if (auth()->user()?->entity_type == Partner::class) {
             $recipientPartnerId = Partner::host()->id;
-        }else{
+        } else {
             $recipientPartnerId = auth()->user()?->partner_id;
         }
 
         $providers = PaymentProvider::query()
-            ->where('status', true) 
+            ->where('status', true)
             ->whereHas('partnerPaymentProviders', function ($q) use ($recipientPartnerId) {
                 $q->where('partner_id', $recipientPartnerId)
                     ->where('status', true);
             })
-            ->with(['partnerPaymentProviders' => function ($q) use ($recipientPartnerId) {
-                $q->where('partner_id', $recipientPartnerId)
-                    ->where('status', true)
-                    ->select([
-                        'id',
-                        'partner_id',
-                        'payment_provider_id',
-                        'status',
-                        'is_default',
-                    ]);
-            }])
+            ->with([
+                'partnerPaymentProviders' => function ($q) use ($recipientPartnerId) {
+                    $q->where('partner_id', $recipientPartnerId)
+                        ->where('status', true)
+                        ->select([
+                            'id',
+                            'partner_id',
+                            'payment_provider_id',
+                            'status',
+                            'is_default',
+                            'configuration',
+                        ]);
+                }
+            ])
             ->get();
 
         return $providers
             ->map(function (PaymentProvider $provider) {
                 $partnerProvider = $provider->partnerPaymentProviders->first();
+                $publishableKey = null;
+
+                if ($provider->name === PaymentProvider::STRIPE && $partnerProvider) {
+                    $config = $partnerProvider->configuration ?? [];
+                    $environment = $config['payment_mode'] ?? 'sandbox';
+                    $envConfig = $config[$environment] ?? $config;
+                    $publishableKey = $envConfig['publishable_key'] ?? ($config['stripe_key_' . $environment] ?? null);
+                }
 
                 return [
                     'id' => $provider->id,
@@ -214,6 +225,7 @@ class PaymentMethodService
                     'status' => $provider->status,
                     'is_default' => $partnerProvider?->is_default ?? false,
                     'partner_payment_provider_id' => $partnerProvider?->id,
+                    'publishable_key' => $publishableKey,
                     'configuration' => null,
                 ];
             })

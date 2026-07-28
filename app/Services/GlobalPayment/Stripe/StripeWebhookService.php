@@ -4,7 +4,14 @@ namespace App\Services\GlobalPayment\Stripe;
 
 use Exception;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 use Stripe\Subscription as StripeSubscription;
+use App\Models\Subscription\Subscription;
+use App\Models\Subscription\SubscriptionPhase;
+use App\Models\Invoice\Invoice;
+use App\Models\Payment\Payment;
+use App\Models\Partner\Partner;
 
 class StripeWebhookService
 {
@@ -67,27 +74,104 @@ class StripeWebhookService
         ]);
 
         if ($stripeSubscriptionId) {
-            // Log local transaction record
-            $this->recordLocalPayment([
-                'stripe_invoice_id' => $stripeInvoiceId,
-                'stripe_subscription_id' => $stripeSubscriptionId,
-                'amount' => $amountPaid,
-                'status' => 'success',
-                'pdf_url' => $invoicePdf
-            ]);
+            $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
 
-            try {
-                // Fetch actual Stripe subscription dates
-                $sub = StripeSubscription::retrieve($stripeSubscriptionId);
+            if ($subscription) {
+                // Determine if this invoice is a platform fee
+                $isPlatformFee = false;
+                $lineItems = $stripeInvoice['lines']['data'] ?? [];
+                foreach ($lineItems as $item) {
+                    $desc = strtolower($item['description'] ?? '');
+                    if (str_contains($desc, 'platform fee') || str_contains($desc, '399')) {
+                        $isPlatformFee = true;
+                        break;
+                    }
+                }
 
-                $this->subscriptionService->syncLocalSubscription($stripeCustomerId, [
-                    'stripe_subscription_id' => $stripeSubscriptionId,
-                    'status' => 'Active',
-                    'start_date' => date('Y-m-d H:i:s', $sub->current_period_start),
-                    'end_date' => date('Y-m-d H:i:s', $sub->current_period_end)
-                ]);
-            } catch (Exception $e) {
-                Log::error('[Stripe Webhook Service] Failed to retrieve subscription detail', ['error' => $e->getMessage()]);
+                DB::transaction(function () use ($subscription, $stripeInvoice, $stripeInvoiceId, $amountPaid, $invoicePdf, $isPlatformFee) {
+                    // 1. Create local Invoice record
+                    $invoice = Invoice::updateOrCreate(
+                        ['invoice_id' => $stripeInvoiceId],
+                        [
+                            'partner_id' => $subscription->entity_type === Partner::class ? $subscription->entity_id : null,
+                            'borrower_id' => $subscription->entity_type === \App\Models\Borrower\Borrower::class ? $subscription->entity_id : null,
+                            'entity_type' => $subscription->entity_type,
+                            'entity_id' => $subscription->entity_id,
+                            'customer_name' => $subscription->entity?->full_name ?? $subscription->entity?->company_name ?? 'FCH Client',
+                            'email' => $subscription->entity?->email ?? '',
+                            'payment_amount' => $amountPaid,
+                            'payment_date' => now(),
+                            'status' => Invoice::STATUS_PAID,
+                            'type' => $isPlatformFee ? 'platform_fee' : Invoice::INVOICE_TYPE_INSTALLMENT,
+                            'is_partner_paying' => $subscription->entity_type === Partner::class,
+                            'currency' => 'USD',
+                            'is_platform_fee' => $isPlatformFee,
+                            'details' => $stripeInvoice,
+                        ]
+                    );
+
+                    // 2. Create local Payment record
+                    $paymentModel = new Payment();
+                    $paymentModel->createRecord([
+                        'partner_id' => $invoice->partner_id,
+                        'borrower_id' => $invoice->borrower_id,
+                        'invoice_id' => $invoice->id,
+                        'entity_type' => $invoice->entity_type,
+                        'entity_id' => $invoice->entity_id,
+                        'transaction_id' => $stripeInvoice['payment_intent'] ?? ('TX_' . uniqid()),
+                        'amount' => $amountPaid,
+                        'currency' => 'USD',
+                        'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                        'status' => Payment::STATUS_SUCCEEDED,
+                        'details' => $stripeInvoice,
+                    ]);
+
+                    // 3. Update local Subscription status & dates
+                    $subscription->update([
+                        'status' => Subscription::STATUS_ACTIVE,
+                        'subscription_start_date' => $subscription->subscription_start_date ?? now(),
+                    ]);
+
+                    // 4. Manage local SubscriptionPhase
+                    $phaseType = $isPlatformFee ? SubscriptionPhase::PHASE_PLATFORM_FEE : SubscriptionPhase::PHASE_ENROLLMENT;
+                    $phase = $subscription->allPhases()->where('phase', $phaseType)->first();
+
+                    if (!$phase) {
+                        $phase = $subscription->allPhases()->create([
+                            'phase' => $phaseType,
+                            'installments_paid' => 0,
+                        ]);
+                    }
+
+                    if (!$isPlatformFee) {
+                        $phase->increment('installments_paid');
+                        $phase->update([
+                            'next_installment_date' => Carbon::now()->addMonth(),
+                        ]);
+
+                        // Check if enrollment is complete
+                        $totalInstallments = $subscription->installment_count ?? 1;
+                        if ($phase->installments_paid >= $totalInstallments) {
+                            $phase->update([
+                                'enrollment_completed_at' => now(),
+                                'next_installment_date' => null,
+                            ]);
+                            // Create platform fee phase
+                            $subscription->allPhases()->create([
+                                'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
+                                'installments_paid' => 0,
+                                'next_platform_fee_date' => Carbon::now()->addMonth(),
+                            ]);
+                        }
+                    } else {
+                        $phase->increment('installments_paid');
+                        $phase->update([
+                            'next_platform_fee_date' => Carbon::now()->addMonth(),
+                        ]);
+                    }
+                });
+            } else {
+                Log::warning('[Stripe Webhook Service] Subscription not found locally', ['stripe_subscription_id' => $stripeSubscriptionId]);
             }
         } else {
             // One-time payment handling
@@ -105,26 +189,40 @@ class StripeWebhookService
     {
         $stripeSubscriptionId = $stripeInvoice['subscription'] ?? null;
         $stripeInvoiceId = $stripeInvoice['id'];
-        $stripeCustomerId = $stripeInvoice['customer'] ?? null;
+        $amountDue = $stripeInvoice['amount_due'] / 100;
 
         Log::warning('[Stripe Webhook Service] Invoice payment failed', [
             'invoice_id' => $stripeInvoiceId,
             'subscription_id' => $stripeSubscriptionId
         ]);
 
-        $this->recordLocalPayment([
-            'stripe_invoice_id' => $stripeInvoiceId,
-            'stripe_subscription_id' => $stripeSubscriptionId,
-            'amount' => $stripeInvoice['amount_due'] / 100,
-            'status' => 'failed',
-            'failure_reason' => $stripeInvoice['billing_reason'] ?? 'Payment Decline'
-        ]);
-
         if ($stripeSubscriptionId) {
-            $this->subscriptionService->syncLocalSubscription($stripeCustomerId, [
-                'stripe_subscription_id' => $stripeSubscriptionId,
-                'status' => 'Past Due'
-            ]);
+            $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+            if ($subscription) {
+                DB::transaction(function () use ($subscription, $stripeInvoice, $stripeInvoiceId, $amountDue) {
+                    $invoice = Invoice::updateOrCreate(
+                        ['invoice_id' => $stripeInvoiceId],
+                        [
+                            'partner_id' => $subscription->entity_type === Partner::class ? $subscription->entity_id : null,
+                            'borrower_id' => $subscription->entity_type === \App\Models\Borrower\Borrower::class ? $subscription->entity_id : null,
+                            'entity_type' => $subscription->entity_type,
+                            'entity_id' => $subscription->entity_id,
+                            'customer_name' => $subscription->entity?->full_name ?? $subscription->entity?->company_name ?? 'FCH Client',
+                            'email' => $subscription->entity?->email ?? '',
+                            'payment_amount' => $amountDue,
+                            'status' => Invoice::STATUS_FAILED,
+                            'type' => Invoice::INVOICE_TYPE_INSTALLMENT,
+                            'is_partner_paying' => $subscription->entity_type === Partner::class,
+                            'currency' => 'USD',
+                            'details' => $stripeInvoice,
+                        ]
+                    );
+
+                    $subscription->update([
+                        'status' => 'Past Due',
+                    ]);
+                });
+            }
         }
     }
 
@@ -134,14 +232,13 @@ class StripeWebhookService
     protected function handleSubscriptionUpdated(array $stripeSubscription): void
     {
         $stripeSubscriptionId = $stripeSubscription['id'];
-        $stripeCustomerId = $stripeSubscription['customer'];
         $stripeStatus = $stripeSubscription['status'];
 
         $statusMap = [
-            'active' => 'Active',
+            'active' => Subscription::STATUS_ACTIVE,
             'trialing' => 'Trialing',
-            'incomplete' => 'PendingPayment',
-            'incomplete_expired' => 'Expired',
+            'incomplete' => Subscription::STATUS_PENDING,
+            'incomplete_expired' => Subscription::STATUS_EXPIRED,
             'past_due' => 'Past Due',
             'unpaid' => 'Unpaid',
             'canceled' => 'Cancelled',
@@ -149,13 +246,13 @@ class StripeWebhookService
 
         $localStatus = $statusMap[$stripeStatus] ?? 'Inactive';
 
-        $this->subscriptionService->syncLocalSubscription($stripeCustomerId, [
-            'stripe_subscription_id' => $stripeSubscriptionId,
-            'status' => $localStatus,
-            'start_date' => date('Y-m-d H:i:s', $stripeSubscription['current_period_start']),
-            'end_date' => date('Y-m-d H:i:s', $stripeSubscription['current_period_end']),
-            'cancel_at_period_end' => $stripeSubscription['cancel_at_period_end'] ?? false
-        ]);
+        $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+        if ($subscription) {
+            $subscription->update([
+                'status' => $localStatus,
+                'subscription_end_date' => $stripeSubscription['current_period_end'] ? Carbon::createFromTimestamp($stripeSubscription['current_period_end']) : null,
+            ]);
+        }
     }
 
     /**
@@ -164,13 +261,14 @@ class StripeWebhookService
     protected function handleSubscriptionDeleted(array $stripeSubscription): void
     {
         $stripeSubscriptionId = $stripeSubscription['id'];
-        $stripeCustomerId = $stripeSubscription['customer'];
 
-        $this->subscriptionService->syncLocalSubscription($stripeCustomerId, [
-            'stripe_subscription_id' => $stripeSubscriptionId,
-            'status' => 'Cancelled',
-            'ended_at' => now()
-        ]);
+        $subscription = Subscription::where('stripe_subscription_id', $stripeSubscriptionId)->first();
+        if ($subscription) {
+            $subscription->update([
+                'status' => 'Cancelled',
+                'subscription_end_date' => now(),
+            ]);
+        }
     }
 
     protected function recordLocalPayment(array $data): void

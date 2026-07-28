@@ -43,6 +43,7 @@ class Subscription extends Model
         'subscription_end_date',
         'status',
         'is_custom',
+        'stripe_subscription_id',
     ];
 
     protected $casts = [

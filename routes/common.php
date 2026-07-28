@@ -79,6 +79,9 @@ Route::prefix('v1')->group(function () {
     // 📊 Public Weekly Executive Summary (no auth required)
     Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);
 
+    // 💳 Public Stripe Webhook (no auth required)
+    Route::post('payment/stripe-webhook', [\App\Http\Controllers\Api\V1\GlobalPayment\StripeWebhookController::class, 'handle']);
+
     Route::middleware('auth:api')->group(function () {
 
         // V1 2FA routes

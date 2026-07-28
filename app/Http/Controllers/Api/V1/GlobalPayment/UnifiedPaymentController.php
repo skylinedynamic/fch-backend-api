@@ -18,7 +18,8 @@ class UnifiedPaymentController extends Controller
     public function __construct(
         protected UnifiedPaymentService $paymentService,
         protected PaymentMethodService $paymentMethodService,
-    ) {}
+    ) {
+    }
 
     /**
      * Process dynamic payment via unified driver architecture.
@@ -37,6 +38,8 @@ class UnifiedPaymentController extends Controller
             return ApiResponse::error($e->getMessage(), 400);
         }
     }
+
+
 
     /**
      * List active payment providers configured for a partner.
@@ -78,5 +81,53 @@ class UnifiedPaymentController extends Controller
         } catch (Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }
+    }
+
+    /**
+     * Resolve the Stripe Secret Key based on the invoice receiver entity.
+     *
+     * @param \App\Models\Invoice\Invoice $invoice
+     * @return string
+     * @throws Exception
+     */
+    protected function resolveStripeSecretKey(\App\Models\Invoice\Invoice $invoice): string
+    {
+        $receiverPartnerId = null;
+        if ($invoice->is_partner_paying || $invoice->entity_type === \App\Models\Partner\Partner::class) {
+            $receiverPartnerId = \App\Models\Partner\Partner::where('is_host', true)->first()?->id;
+        } else {
+            $receiverPartnerId = $invoice->partner_id;
+        }
+
+        if (!$receiverPartnerId) {
+            throw new Exception("Receiver partner ID could not be resolved.");
+        }
+
+        $stripeProvider = \App\Models\PaymentMethod\PaymentProvider::where('name', \App\Models\PaymentMethod\PaymentProvider::STRIPE)->first();
+        if (!$stripeProvider) {
+            throw new Exception("Stripe payment provider not found in system.");
+        }
+
+        $partnerProvider = \App\Models\PaymentMethod\PartnerPaymentProvider::query()
+            ->where('partner_id', $receiverPartnerId)
+            ->where('payment_provider_id', $stripeProvider->id)
+            ->where('status', true)
+            ->first();
+
+        if (!$partnerProvider) {
+            throw new Exception("Stripe provider is not configured or active for this partner.");
+        }
+
+        $config = $partnerProvider->configuration ?? [];
+        $environment = $config['payment_mode'] ?? \App\Models\PaymentMethod\PaymentProvider::MODE_SANDBOX;
+        $envConfig = $config[$environment] ?? $config;
+
+        $secretKey = $envConfig['secret_key'] ?? ($config['stripe_secret_' . $environment] ?? null);
+
+        if (!$secretKey) {
+            throw new Exception("Stripe secret key not configured for " . $environment . " mode.");
+        }
+
+        return $secretKey;
     }
 }

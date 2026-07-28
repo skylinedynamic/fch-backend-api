@@ -28,6 +28,27 @@ class StripePaymentService
     }
 
     /**
+     * Initiate Stripe Subscription Schedule.
+     */
+    public function initiateSubscriptionSchedule(array $params): array
+    {
+        $secretKey = $params['secret_key'] ?? config('stripe.secret_key') ?? config('services.stripe.secret') ?? env('STRIPE_SECRET_KEY') ?? env('STRIPE_SECRET');
+        if (!$secretKey) {
+            throw new Exception("Stripe API key is not configured.");
+        }
+
+        Stripe::setApiKey($secretKey);
+
+        $customerId = $this->customerService->resolveCustomer(
+            $params['email'],
+            $params['name'],
+            $params['stripe_customer_id'] ?? null
+        );
+
+        return $this->subscriptionService->createSubscriptionSchedule($customerId, $params, $secretKey);
+    }
+
+    /**
      * Coordinates the checkout payment workflow for subscriptions or one-time transactions.
      *
      * @param array $params [

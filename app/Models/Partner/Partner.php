@@ -76,6 +76,7 @@ class Partner extends Model
         'total_paid_users',
         'is_free_trail',
         'free_trail_end_date',
+        'stripe_customer_id',
     ];
 
     /**
