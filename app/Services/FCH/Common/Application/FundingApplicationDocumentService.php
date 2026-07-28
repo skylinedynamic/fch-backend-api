@@ -53,9 +53,9 @@ class FundingApplicationDocumentService
             Storage::disk('public')->put($appPdfPath, $appPdfBinary);
 
             $user = Auth::user();
-            $userName = $user ? trim($user->first_name . ' ' . $user->last_name) : 'System';
-            if (!$userName) $userName = 'System';
-            $userType = $user->user_type ?? 'system';
+            $userName = $user ? trim($user->name) : '';
+            if (!$userName) $userName = '';
+            $userType = $user->user_type ?? '';
 
             // 4. Set Certificate ID
             $certId = (string) Str::uuid();
@@ -174,7 +174,7 @@ class FundingApplicationDocumentService
         $savedPath = 'funding-applications/' . $application->id . '/downloads/' . $filename;
         Storage::disk('public')->put($savedPath, $pdfBinary);
 
-        $userName = $authUser ? trim($authUser->first_name . ' ' . $authUser->last_name) : 'System';
+        $userName = $authUser ? trim($authUser->name) : 'System';
         if (!$userName) $userName = 'System';
         $userType = $authUser->user_type ?? 'system';
 
@@ -365,7 +365,7 @@ class FundingApplicationDocumentService
         Storage::disk('public')->put($savedPath, $zipBinary);
 
         $brandingData = self::getBrandingData($application);
-        $userName = $authUser ? trim($authUser->first_name . ' ' . $authUser->last_name) : 'System';
+        $userName = $authUser ? trim($authUser->name) : 'System';
         if (!$userName) $userName = 'System';
         $userType = $authUser->user_type ?? 'system';
 
