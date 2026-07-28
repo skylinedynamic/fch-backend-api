@@ -14,6 +14,8 @@ class FundingApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+
         return [
             'id'                                         => $this->id,
             'application_number'                         => $this->application_number,
@@ -59,6 +61,13 @@ class FundingApplicationResource extends JsonResource
             'preferred_funding_type'                     => $this->preferred_funding_type,
             'timeframe_needed'                           => $this->timeframe_needed,
             'collateral_available'                       => $this->collateral_available,
+            'average_monthly_deposits'                   => $this->borrower ? currencyFormat($this->borrower->average_monthly_deposits) : null,
+            'avg_bank_balance'                           => $this->borrower ? currencyFormat($this->borrower->avg_bank_balance) : null,
+            'time_in_business'                           => $this->borrower && $this->borrower->business_start_date ? calculateTimeInBusiness($this->borrower->business_start_date) : null,
+            'funding_sequence_name'                      => $this->fundingSequence ? $this->fundingSequence->name : null,
+            'funding_sequence_subtitle'                  => $this->fundingSequence ? $this->fundingSequence->subtitle : null,
+            'funding_sequence_speed_to_funds'            => $this->fundingSequence ? $this->fundingSequence->speed_to_funds : null,
+            'funding_sequence_uses'                      => $this->fundingSequence ? $this->fundingSequence->uses : null,
             'credit_pull_authorization'                  => (bool) $this->credit_pull_authorization,
             'terms_conditions_acceptance'                => (bool) $this->terms_conditions_acceptance,
             'filed_for_bankruptcy'                       => isset($this->filed_for_bankruptcy) ? (bool) $this->filed_for_bankruptcy : null,
@@ -72,7 +81,7 @@ class FundingApplicationResource extends JsonResource
             'any_outstanding_judgments_owner'            => isset($this->any_outstanding_judgments_owner) ? (bool) $this->any_outstanding_judgments_owner : null,
             'federal_compliance_disclosures_explanation' => $this->federal_compliance_disclosures_explanation,
             'attestation_authorization'                  => (bool) $this->attestation_authorization,
-            'date'                                       => $this->created_at?->format('d M Y'),
+            'date'                                       => $this->created_at?->timezone($timezone)->format('d M Y'),
         ];
     }
 }

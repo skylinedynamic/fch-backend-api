@@ -22,7 +22,7 @@ class StoreFinancialInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|exists:funding_applications,id',
+            'id' => 'nullable|exists:funding_applications,id',
             'annual_revenue' => 'nullable|numeric|min:0',
             'monthly_revenue' => 'required|numeric|min:0',
             'business_bank_name' => 'nullable|string|max:255',

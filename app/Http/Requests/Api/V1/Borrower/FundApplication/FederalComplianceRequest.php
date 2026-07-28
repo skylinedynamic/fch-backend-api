@@ -23,7 +23,7 @@ class FederalComplianceRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'bail|required|exists:funding_applications,id',
+            'id' => 'bail|nullable|exists:funding_applications,id',
             'filed_for_bankruptcy' => 'bail|required|boolean',
             'any_pending_lawsuits' => 'bail|required|boolean',
             'has_federal_loan' => 'bail|required|boolean',

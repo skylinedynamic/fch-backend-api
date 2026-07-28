@@ -3,24 +3,38 @@
 namespace App\Services\FCH\Common\Application;
 
 use App\Helpers\ApiResponse;
-use App\Models\Borrower\FundingApplication;
-use App\Models\Borrower\PreQualificationRequest;
-use App\Models\FundingRequest\FundingRequest;
-use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
+use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
 use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
 use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\DownloadHistory;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Commission\Commission;
+use App\Models\Common\AppConfiguration;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Application\SignatureCertificateService;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Commission\Commission;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class RequestApplicationService
 {
     use PaginatesApi;
+
+    public function __construct(
+        protected ActivityLogService $activityLogService
+    ) {}
 
     /**
      * Get the authenticated user's partner ID
@@ -181,7 +195,7 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $application = FundingApplication::with('commission','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType')
+        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
             $query->where('partner_id', $authUser->partner_id);
            })
@@ -192,6 +206,43 @@ class RequestApplicationService
         }
         //return ApiResponse::success($application);
         return ApiResponse::success(new ApplicationFundingApplicationResource($application));
+    }
+
+    /**
+     * Get Funding Application Audit History
+     */
+    public function getAuditHistory($id, array $filters)
+    {
+        $perPage = $filters['per_page'] ?? 10;
+        if ($perPage == -1 || $perPage == 'All') {
+            $items = DownloadHistory::where('funding_application_id', $id)->get();
+            $perPage = $items->count() > 0 ? $items->count() : 10;
+        }
+        $perPage = isset($filters['per_page']) && is_numeric($filters['per_page']) ? max(1, (int) $filters['per_page']) : (is_numeric($perPage) ? max(1, (int) $perPage) : 1000000);
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $query = DownloadHistory::with('user:id,name,email,user_type')
+            ->where('funding_application_id', $id);
+
+        if (!empty($filters['search'])) {
+            $query->search($filters['search'], $filters['timezone'] ?? null);
+        }
+
+        if (!empty($filters['sort_by'])) {
+            $sortField = $filters['sort_by'];
+            $sortDir = (!empty($filters['sort_dir']) && strtolower($filters['sort_dir']) === 'asc') ? 'asc' : 'desc';
+            $query->orderBy($sortField, $sortDir);
+        } else {
+            $query->orderBy('downloaded_at', 'desc');
+        }
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            \App\Http\Resources\FCH\Common\Application\DownloadHistoryResource::class,
+            __('application.audit_history_retrieved')
+        );
     }
 
     /**
@@ -231,6 +282,8 @@ class RequestApplicationService
             return ApiResponse::error(__('application.funding_application_not_found'));
         }
 
+        $oldStatus = $application->status;
+
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];
             $application->funded_date = Carbon::now();
@@ -241,6 +294,34 @@ class RequestApplicationService
             $application->status_note = $data['status_note'];
         }
         $application->save();
+
+        if ($oldStatus !== $data['status'] || isset($data['status_note'])) {
+            $oldStatusFormatted = ucwords(str_replace('_', ' ', $oldStatus));
+            $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
+            
+            if ($oldStatus === $data['status']) {
+                $title = "Funding Application Note Updated";
+                $description = "Status note was updated.";
+            } else {
+                $title = "Funding Application Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+                $description = "Status updated to: " . $newStatusFormatted;
+            }
+
+            if (isset($data['status_note'])) {
+                $description .= "\nNote: " . $data['status_note'];
+            }
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                $title,
+                $description,
+                'funding_application_status_update',
+                ['visible_to_borrower' => true, 'visible_to_partner' => true]
+            );
+        }
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
             $commission = Commission::where('funding_application_id', $application->id)->first();
