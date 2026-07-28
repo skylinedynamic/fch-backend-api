@@ -282,6 +282,8 @@ class RequestApplicationService
             return ApiResponse::error(__('application.funding_application_not_found'));
         }
 
+        $oldStatus = $application->status;
+
         if($data['status'] == FundingApplication::CLOSED_COMPLETED){
             $application->total_funded_amount = $data['funded_amount'];
             $application->funded_date = Carbon::now();
@@ -292,6 +294,33 @@ class RequestApplicationService
             $application->status_note = $data['status_note'];
         }
         $application->save();
+
+        if ($oldStatus !== $data['status'] || isset($data['status_note'])) {
+            $oldStatusFormatted = ucwords(str_replace('_', ' ', $oldStatus));
+            $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
+            
+            if ($oldStatus === $data['status']) {
+                $title = "Funding Application Note Updated";
+                $description = "Status note was updated.";
+            } else {
+                $title = "Funding Application Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+                $description = "Status updated to: " . $newStatusFormatted;
+            }
+
+            if (isset($data['status_note'])) {
+                $description .= "\nNote: " . $data['status_note'];
+            }
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                $title,
+                $description,
+                'funding_application_status_update'
+            );
+        }
 
         if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
             $commission = Commission::where('funding_application_id', $application->id)->first();
