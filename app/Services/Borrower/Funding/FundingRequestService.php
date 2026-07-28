@@ -83,14 +83,21 @@ class FundingRequestService
         }
         $data['lender_ids'] = $finalLenderIds;
 
-        $fundingRequest = FundingRequest::updateOrCreate(
-            [
-                'borrower_id' => $borrower->id,
-                'funding_sequence_id' => $data['funding_sequence_id']
-            ],
-            $data
-        );
+        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->orderBy('id', 'desc')
+            ->first();
 
+        if ($latestRequest && in_array($latestRequest->status, [FundingRequest::STATUS_REJECTED, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_ACCEPTED])) {
+            $data['reject_reason'] = null;
+            $data['approved_by'] = null;
+            $data['approved_at'] = null;
+            $latestRequest->update($data);
+            $fundingRequest = $latestRequest;
+            $fundingRequest->wasRecentlyCreated = false;
+        } else {
+            $fundingRequest = FundingRequest::create($data);
+        }
         if ($fundingRequest->wasRecentlyCreated || $fundingRequest->status === FundingRequest::STATUS_PENDING) {
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
@@ -264,10 +271,15 @@ class FundingRequestService
         
         $documents = $documentResponse->getData(true)['data'] ?? [];
 
-        // 2. Find any pending/rejected FundingRequest for this sequence
+        // 2. Find any pending/rejected/in_progress/accepted FundingRequest for this sequence
         $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
             ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+            ->whereIn('status', [
+                FundingRequest::STATUS_PENDING, 
+                FundingRequest::STATUS_REJECTED, 
+                FundingRequest::STATUS_IN_PROGRESS, 
+                FundingRequest::STATUS_ACCEPTED
+            ])
             ->first();
 
         // 3. Update the documents_uploaded array if funding request exists
@@ -309,7 +321,12 @@ class FundingRequestService
             if ($otherDocsCount === 0) {
                 $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
                     ->where('funding_sequence_id', $data['funding_sequence_id'])
-                    ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+                    ->whereIn('status', [
+                        FundingRequest::STATUS_PENDING, 
+                        FundingRequest::STATUS_REJECTED, 
+                        FundingRequest::STATUS_IN_PROGRESS, 
+                        FundingRequest::STATUS_ACCEPTED
+                    ])
                     ->first();
 
                 if ($fundingRequest) {
