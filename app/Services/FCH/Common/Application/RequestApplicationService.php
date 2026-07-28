@@ -225,7 +225,7 @@ class RequestApplicationService
             ->where('funding_application_id', $id);
 
         if (!empty($filters['search'])) {
-            $query->search($filters['search']);
+            $query->search($filters['search'], $filters['timezone'] ?? null);
         }
 
         if (!empty($filters['sort_by'])) {
@@ -240,7 +240,7 @@ class RequestApplicationService
 
         return $this->respondWithPaginationResource(
             $paginator,
-            JsonResource::class,
+            \App\Http\Resources\FCH\Common\Application\DownloadHistoryResource::class,
             __('application.audit_history_retrieved')
         );
     }

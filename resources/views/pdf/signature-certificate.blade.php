@@ -262,7 +262,7 @@
                             </td>
                             <td style="vertical-align: middle;">
                                 <div class="info-label" style="font-size: 11px; font-weight: bold; color: #ffffff;">Certificate Generated:</div>
-                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }}</div>
+                                <div class="info-value" style="font-size: 11px; font-weight: bold; color: #ffffff;">{{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('h:i:s A') }}</div>
                             </td>
                         </tr>
                     </table>
@@ -487,7 +487,7 @@
         <table>
             <tr>
                 <td style="text-align: left;">&copy; {{ date('Y') }} {{ $companyName }}. All Rights Reserved.</td>
-                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ now()->format('M j, Y') }}</td>
+                <td style="text-align: right;">Ref: {{ $appId }} &nbsp;|&nbsp; {{ $currentTime->format('M j, Y') }} &nbsp;|&nbsp; {{ $currentTime->format('h:i:s A') }}</td>
             </tr>
         </table>
     </div>

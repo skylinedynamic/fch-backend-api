@@ -25,7 +25,7 @@ class DownloadHistory extends Model
 
     protected $casts = [
         'details' => 'array',
-        'downloaded_at' => 'datetime:Y-m-d h:i A'
+        'downloaded_at' => 'datetime'
     ];
 
     public function user()
@@ -38,13 +38,17 @@ class DownloadHistory extends Model
         return $this->belongsTo(FundingApplication::class);
     }
 
-    public function scopeSearch($query, $search)
+    public function scopeSearch($query, $search, $timezone = null)
     {
         if (empty($search)) {
             return $query;
         }
 
-        return $query->where(function ($q) use ($search) {
+        $timezone = $timezone ?? config('app.timezone');
+        $appOffset = \Carbon\Carbon::now(config('app.timezone'))->format('P');
+        $userOffset = \Carbon\Carbon::now($timezone)->format('P');
+
+        return $query->where(function ($q) use ($search, $appOffset, $userOffset) {
             $q->where('user_name', 'like', '%' . $search . '%')
               ->orWhere('application_number', 'like', '%' . $search . '%')
               ->orWhere('certificate_id', 'like', '%' . $search . '%')
@@ -53,7 +57,7 @@ class DownloadHistory extends Model
               ->orWhere('application_version', 'like', '%' . $search . '%')
               ->orWhere('action', 'like', '%' . $search . '%')
               ->orWhere('downloaded_at', 'like', '%' . $search . '%')
-              ->orWhereRaw("DATE_FORMAT(downloaded_at, '%Y-%m-%d %h:%i %p') LIKE ?", ['%' . $search . '%']);
+              ->orWhereRaw("DATE_FORMAT(CONVERT_TZ(downloaded_at, ?, ?), '%Y-%m-%d %h:%i %p') LIKE ?", [$appOffset, $userOffset, '%' . $search . '%']);
         });
     }
 }

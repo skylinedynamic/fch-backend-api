@@ -116,6 +116,7 @@ class RequestApplicationController extends Controller
                 'search'        => $request->input('search'),
                 'sort_by'       => $request->input('sort_by'),
                 'sort_dir'      => $request->input('sort_dir'),
+                'timezone'      => $request->header('X-Timezone') ?? config('app.timezone'),
             ];
             return $this->requestApplicationService->getAuditHistory($id, $filters);
         } catch (\Exception $e) {
