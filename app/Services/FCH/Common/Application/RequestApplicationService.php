@@ -195,7 +195,7 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $application = FundingApplication::with('commission','partner','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
+        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
             $query->where('partner_id', $authUser->partner_id);
            })
