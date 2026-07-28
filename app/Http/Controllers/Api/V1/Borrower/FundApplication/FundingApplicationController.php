@@ -407,4 +407,45 @@ class FundingApplicationController extends Controller
             return ApiResponse::error(__('borrower.document_delete_failed'), 500);
         }
     }
+
+    public function downloadDocument($id)
+    {
+        try {
+            $document = FundingApplicationDocument::findOrFail($id);
+            
+            // Check if borrower owns this document
+            if ($document->borrower_id != Auth::user()->entity_id) {
+                return ApiResponse::error('Unauthorized access to this document.', 403);
+            }
+
+            $urlPath = $document->path ?: $document->url;
+
+            if (!$urlPath) {
+                return ApiResponse::notFound('File path not found.');
+            }
+
+            $relativePath = $urlPath;
+            if (str_contains($relativePath, '/storage/')) {
+                $relativePath = substr($relativePath, strpos($relativePath, '/storage/') + strlen('/storage/'));
+            }
+
+            $filePath = storage_path('app/public/' . $relativePath);
+
+            if (!file_exists($filePath)) {
+                return ApiResponse::notFound('File not found on server.');
+            }
+
+            $mimeType = mime_content_type($filePath);
+            $fileName = $document->original_name ?: basename($filePath);
+
+            return response()->download($filePath, $fileName, [
+                'Content-Type' => $mimeType ?: 'application/octet-stream',
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound('Document not found.');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Failed to download document: ' . $e->getMessage(), 500);
+        }
+    }
 }

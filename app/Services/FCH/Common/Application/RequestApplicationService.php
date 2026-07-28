@@ -195,7 +195,7 @@ class RequestApplicationService
     {
         $authUser = Auth::user();
 
-        $application = FundingApplication::with('commission','partner','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user')
+        $application = FundingApplication::with('commission','partner','borrower:id,partner_id','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
             $query->where('partner_id', $authUser->partner_id);
            })
@@ -318,7 +318,8 @@ class RequestApplicationService
                 $application->borrower_id,
                 $title,
                 $description,
-                'funding_application_status_update'
+                'funding_application_status_update',
+                ['visible_to_borrower' => true, 'visible_to_partner' => true]
             );
         }
 
