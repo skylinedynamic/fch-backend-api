@@ -229,17 +229,26 @@
 
 <div class="page-container">
     <!-- Header -->
-    <table class="header-table" style="padding: 20px 25px 15px 25px; width: 100%;">
+    <table class="header-table" style="padding: 10px 25px 15px 25px; width: 100%;">
         <tr>
             <td style="width: 30%; vertical-align: middle;">
                 @if($logoBase64)
-                    <img src="{{ $logoBase64 }}" width="150" alt="Logo">
+                     <img
+            src="{{ $logoBase64 }}"
+            alt="Four Corner Funding"
+            style="
+                width:220px;
+                height:auto;
+                display:block;
+                filter: brightness(0);
+            "
+        >
                 @else
                     <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">{{ $companyName }}</div>
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
-                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: {{ $primaryColor }}; font-weight: bold;">FUNDING APPLICATION</div>
+                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 20px; letter-spacing: -0.5px; margin-bottom: 2px; color: {{ $primaryColor }}; font-weight: bold; text-align: right;">FUNDING APPLICATION</div>
             </td>
         </tr>
     </table>

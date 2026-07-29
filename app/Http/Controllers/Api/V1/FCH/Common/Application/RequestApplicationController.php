@@ -215,6 +215,7 @@ class RequestApplicationController extends Controller
         try {
             return $this->requestApplicationService->getFundingApplicationCardSummary();
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Funding Application List Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
         }
     }

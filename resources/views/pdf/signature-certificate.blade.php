@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Electronic Signature Certificate</title>
+<title>Signature Certificate</title>
 
 <style>
     @page { margin: 30px; }
@@ -219,13 +219,21 @@
         <tr>
             <td style="width: 30%; vertical-align: middle;">
                 @if($logoBase64)
-                    <img src="{{ $logoBase64 }}" width="150" alt="Logo">
+                     <img
+            src="{{ $logoBase64 }}"
+            alt="Four Corner Funding"
+            style="
+                width:220px;
+                height:auto;
+                display:block;
+            "
+        >
                 @else
                     <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">{{ $companyName }}</div>
                 @endif
             </td>
             <td style="width: 70%; text-align: right; vertical-align: middle; white-space: nowrap;">
-                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 25px; letter-spacing: -0.5px; margin-bottom: 2px; color: {{ $primaryColor }}; font-weight: bold;">ELECTRONIC SIGNATURE CERTIFICATE</div>
+                <div class="doc-title" style="font-family: 'Helvetica', 'Arial', sans-serif; font-size: 18px; letter-spacing: -0.5px; margin-bottom: 2px; color: {{ $primaryColor }}; font-weight: bold; text-align: right;">ELECTRONIC SIGNATURE CERTIFICATE</div>
             </td>
         </tr>
     </table>

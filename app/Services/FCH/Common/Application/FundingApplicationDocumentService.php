@@ -493,7 +493,40 @@ class FundingApplicationDocumentService
 
         foreach ($paths as $path) {
             if (file_exists($path)) {
-                $logoBase64 = 'data:image/' . pathinfo($path, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($path));
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                if ($ext === 'png') {
+                    $img = @imagecreatefrompng($path);
+                    if ($img) {
+                        imagealphablending($img, false);
+                        imagesavealpha($img, true);
+
+                        $width = imagesx($img);
+                        $height = imagesy($img);
+
+                        for ($x = 0; $x < $width; $x++) {
+                            for ($y = 0; $y < $height; $y++) {
+                                $color = imagecolorat($img, $x, $y);
+                                $rgba = imagecolorsforindex($img, $color);
+                                
+                                if ($rgba['alpha'] < 127) {
+                                    // If pixel is white-ish (R,G,B > 150), turn it black
+                                    if ($rgba['red'] > 150 && $rgba['green'] > 150 && $rgba['blue'] > 150) {
+                                        $black = imagecolorallocatealpha($img, 0, 0, 0, $rgba['alpha']);
+                                        imagesetpixel($img, $x, $y, $black);
+                                    }
+                                }
+                            }
+                        }
+
+                        ob_start();
+                        imagepng($img);
+                        $imgData = ob_get_clean();
+                        imagedestroy($img);
+                        $logoBase64 = 'data:image/png;base64,' . base64_encode($imgData);
+                        break;
+                    }
+                }
+                $logoBase64 = 'data:image/' . $ext . ';base64,' . base64_encode(file_get_contents($path));
                 break;
             }
         }
