@@ -3,6 +3,7 @@
 namespace App\Services\GlobalPayment\Stripe;
 
 use App\Models\Partner\SubscriptionPlan;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
@@ -47,7 +48,7 @@ class StripeSubscriptionService
                         'quantity' => 1,
                     ]
                 ],
-                'end_date' => \Carbon\Carbon::now()->addMonth()->timestamp,
+                'end_date' => Carbon::now()->addMonth()->timestamp,
             ];
             // Phase 2: Platform fee for 1 month, then release to recurring
             $phases[] = [
@@ -57,7 +58,7 @@ class StripeSubscriptionService
                         'quantity' => 1,
                     ]
                 ],
-                'end_date' => \Carbon\Carbon::now()->addMonths(2)->timestamp,
+                'end_date' => Carbon::now()->addMonths(2)->timestamp,
             ];
         } else {
             // Installment-based plans
@@ -71,7 +72,7 @@ class StripeSubscriptionService
                             'quantity' => 1,
                         ]
                     ],
-                    'end_date' => \Carbon\Carbon::now()->addMonth()->timestamp,
+                    'end_date' => Carbon::now()->addMonth()->timestamp,
                 ];
 
                 // Phase 2: Monthly installments
@@ -85,7 +86,7 @@ class StripeSubscriptionService
                             'quantity' => 1,
                         ]
                     ],
-                    'end_date' => \Carbon\Carbon::now()->addMonths(1 + $installmentMonths)->timestamp,
+                    'end_date' => Carbon::now()->addMonths(1 + $installmentMonths)->timestamp,
                 ];
 
                 // Phase 3: Platform fee (1 month, then release to recurring)
@@ -96,7 +97,7 @@ class StripeSubscriptionService
                             'quantity' => 1,
                         ]
                     ],
-                    'end_date' => \Carbon\Carbon::now()->addMonths(2 + $installmentMonths)->timestamp,
+                    'end_date' => Carbon::now()->addMonths(2 + $installmentMonths)->timestamp,
                 ];
             } else {
                 // SCENARIO C: Installment without Down Payment (N months of installments starting now)
@@ -110,7 +111,7 @@ class StripeSubscriptionService
                             'quantity' => 1,
                         ]
                     ],
-                    'end_date' => \Carbon\Carbon::now()->addMonths($installmentMonths)->timestamp,
+                    'end_date' => Carbon::now()->addMonths($installmentMonths)->timestamp,
                 ];
 
                 // Phase 2: Platform fee (1 month, then release to recurring)
