@@ -75,6 +75,15 @@ Schedule::command('subscriptions:process')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('subscriptions:process'));
 
+// Auto-charge due subscription invoices via saved payment methods (runs after subscriptions:process)
+Schedule::command('subscriptions:auto-charge')
+    ->twiceDailyAt(1, 13, 15)
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('subscriptions:auto-charge'))
+    ->appendOutputTo($schedulerLogPath)
+    ->onSuccess($onSuccess('subscriptions:auto-charge'));
+
 Schedule::command('users:check-expired')
     ->twiceDailyAt(1, 13, 15)
     ->timezone($scheduleTimezone)

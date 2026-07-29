@@ -17,7 +17,7 @@ class PaymentProviderResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'logo' => $this->logo,
+            'logo' => $this->logo ? encodeUrl(asset($this->logo)) : null,
             'status' => (bool) $this->status,
             'slug' => $this->slug
         ];

@@ -25,6 +25,8 @@ class PaymentProvider extends Model
     public const ECRYPT = 'Ecrypt';
     public const SQUARE = 'Square';
     public const AUTHORIZE_NET = 'Authorize.Net';
+    public const CASH = 'Cash Payment';
+    public const BANK_TRANSFER = 'Bank Transfer';
 
 
     public const MODE_SANDBOX = 'sandbox';

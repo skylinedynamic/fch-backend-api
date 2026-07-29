@@ -5,9 +5,7 @@ namespace App\Services\GlobalPayment\Drivers;
 use App\Contracts\Payment\PaymentGatewayInterface;
 use App\Models\Invoice\Invoice;
 use App\Models\PaymentMethod\PaymentProvider;
-use App\Models\Subscription\Subscription;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
-use App\Services\GlobalPayment\StripePaymentService;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Stripe\Customer as StripeCustomer;
@@ -15,6 +13,17 @@ use Stripe\Subscription as StripeSubscription;
 use Stripe\PaymentMethod as StripePaymentMethod;
 use RuntimeException;
 
+/**
+ * Application-Led Stripe Payment Driver
+ *
+ * This driver is responsible for:
+ * 1. Resolving/creating a Stripe Customer and attaching the payment method.
+ * 2. Charging the customer a one-time PaymentIntent for the given invoice amount.
+ *
+ * Stripe Subscription Schedules are NOT used in this architecture.
+ * The application (Laravel) manages billing cycles, installments, and platform fees entirely.
+ * Due payments are automatically charged off-session by the `subscriptions:auto-charge` cron job.
+ */
 class StripePaymentDriver implements PaymentGatewayInterface
 {
     protected array $config = [];
@@ -38,20 +47,32 @@ class StripePaymentDriver implements PaymentGatewayInterface
         return $this;
     }
 
+    /**
+     * Charge a one-time PaymentIntent for the given invoice amount.
+     *
+     * Steps:
+     *  1. Resolve or create the Stripe Customer using the payer's email.
+     *  2. Attach and set the provided payment method (pm_xxx) as the default on the customer.
+     *  3. Create and confirm a PaymentIntent for the invoice amount.
+     *
+     * @param array $params
+     * @return array
+     */
     public function charge(array $params): array
     {
         $amountInCents = (int) round(($params['amount'] ?? 0) * 100);
-        $currency = strtolower($params['currency'] ?? 'USD');
+        $currency = strtolower($params['currency'] ?? 'usd');
 
-        // 1. Resolve Stripe Customer ID
+        // 1. Resolve invoice and payer
         $invoice = Invoice::find($params['invoice_id']);
         if (!$invoice) {
             throw new RuntimeException("Invoice not found.");
         }
 
         $payer = $invoice->entity;
-        $stripeCustomerId = $payer ? $payer->stripe_customer_id : null;
+        $stripeCustomerId = $payer?->stripe_customer_id;
 
+        // 2. Resolve or create Stripe Customer
         $customerService = app(StripeCustomerService::class);
         $customerId = $customerService->resolveCustomer(
             $invoice->email,
@@ -59,158 +80,104 @@ class StripePaymentDriver implements PaymentGatewayInterface
             $stripeCustomerId
         );
 
+        // Persist Stripe Customer ID locally if newly created
         if ($payer && $stripeCustomerId !== $customerId) {
             $payer->update(['stripe_customer_id' => $customerId]);
         }
 
-        // 2. Resolve Stripe PaymentMethod ID
+        // 3. Attach payment method and set as default (if a token is provided)
         $paymentMethodId = null;
         if (!empty($params['payment_token']) && str_starts_with($params['payment_token'], 'pm_')) {
             $paymentMethodId = $params['payment_token'];
-        }
-
-        if ($paymentMethodId) {
-            // Attach payment method and set as default for the customer
             $customerService->setDefaultPaymentMethod($customerId, $paymentMethodId);
         }
 
-        // 3. Find if there is an associated subscription
-        $subscription = Subscription::where('entity_type', $invoice->entity_type)
-            ->where('entity_id', $invoice->entity_id)
-            ->first();
+        // 4. Build PaymentIntent parameters
+        $intentParams = [
+            'amount'      => $amountInCents,
+            'currency'    => $currency,
+            'customer'    => $customerId,
+            'description' => $params['description'] ?? "Payment for Invoice #{$invoice->invoice_id}",
+            'confirm'     => true,
+            'automatic_payment_methods' => [
+                'enabled'        => true,
+                'allow_redirects' => 'never',
+            ],
+        ];
 
-        if ($subscription) {
-            // Subscription schedule flow
-            $stripePaymentService = app(StripePaymentService::class);
-
-            // Check if subscription schedule already exists
-            if ($subscription->stripe_subscription_id) {
-                $existingSub = StripeSubscription::retrieve([
-                    'id' => $subscription->stripe_subscription_id,
-                    'expand' => ['latest_invoice.payment_intent']
-                ]);
-
-                if ($existingSub->status === 'incomplete' && isset($existingSub->latest_invoice->payment_intent)) {
-                    $intent = $existingSub->latest_invoice->payment_intent->confirm();
-                } else {
-                    $intent = $existingSub->latest_invoice->payment_intent;
-                }
-
-                // Sync local subscription status
-                $subscription->update([
-                    'status' => Subscription::STATUS_ACTIVE,
-                    'subscription_start_date' => $subscription->subscription_start_date ?? now(),
-                ]);
-
-                return [
-                    'success' => in_array($existingSub->status, ['active', 'trialing']) || ($intent && $intent->status === 'succeeded'),
-                    'transaction_id' => $intent->id ?? $existingSub->id,
-                    'status' => $existingSub->status,
-                    'raw' => $existingSub->toArray(),
-                ];
-            }
-
-            // Create new subscription schedule
-            $paramsSchedule = [
-                'email' => $invoice->email,
-                'name' => $invoice->customer_name ?? 'FCH Client',
-                'stripe_customer_id' => $customerId,
-                'enrollment_type' => $subscription->enrollment_type,
-                'payable_amount' => (float) $subscription->payable_amount,
-                'down_payment' => (float) $subscription->down_payment,
-                'installment_months' => (int) $subscription->installment_count,
-                'monthly_platform_fee' => (float) $subscription->monthly_platform_fee,
-                'secret_key' => $this->apiKey,
-            ];
-
-            $result = $stripePaymentService->initiateSubscriptionSchedule($paramsSchedule);
-
-            // Update subscription stripe_subscription_id
-            if (!empty($result['stripe_subscription_id'])) {
-                $subscription->update([
-                    'stripe_subscription_id' => $result['stripe_subscription_id'],
-                    'status' => Subscription::STATUS_ACTIVE,
-                    'subscription_start_date' => $subscription->subscription_start_date ?? now(),
-                ]);
-            }
-
-            // Retrieve subscription and verify its invoice status
-            $existingSub = StripeSubscription::retrieve([
-                'id' => $result['stripe_subscription_id'],
-                'expand' => ['latest_invoice.payment_intent']
-            ]);
-
-            return [
-                'success' => in_array($existingSub->status, ['active', 'trialing']) || ($existingSub->latest_invoice->payment_intent->status ?? '') === 'succeeded',
-                'transaction_id' => $existingSub->latest_invoice->payment_intent->id ?? $existingSub->id,
-                'status' => $existingSub->status,
-                'raw' => $existingSub->toArray(),
-            ];
-
-        } else {
-            // One-time payment intent flow
-            $intentParams = [
-                'amount' => $amountInCents,
-                'currency' => $currency,
-                'description' => $params['description'] ?? 'Payment Charge',
-                'confirm' => true,
-                'customer' => $customerId,
-                'automatic_payment_methods' => [
-                    'enabled' => true,
-                    'allow_redirects' => 'never',
-                ],
-            ];
-
-            if ($paymentMethodId) {
-                $intentParams['payment_method'] = $paymentMethodId;
-            }
-
-            $intent = PaymentIntent::create($intentParams);
-
-            return [
-                'success' => in_array($intent->status, ['succeeded', 'requires_capture']),
-                'transaction_id' => $intent->id,
-                'status' => $intent->status,
-                'raw' => $intent->toArray(),
-            ];
+        if ($paymentMethodId) {
+            $intentParams['payment_method'] = $paymentMethodId;
         }
+
+        // 5. Create & confirm the PaymentIntent
+        $intent = PaymentIntent::create($intentParams);
+
+        return [
+            'success'        => in_array($intent->status, ['succeeded', 'requires_capture']),
+            'transaction_id' => $intent->id,
+            'status'         => $intent->status,
+            'client_secret'  => $intent->client_secret,
+            'raw'            => $intent->toArray(),
+        ];
+    }
+
+    /**
+     * Charge a saved card off-session (used by the auto-charge cron job).
+     * The customer must already have a default payment method attached on Stripe.
+     *
+     * @param string $customerId   Stripe Customer ID (cus_xxx)
+     * @param int    $amountCents  Amount in cents
+     * @param string $currency
+     * @param string $description
+     * @return array
+     */
+    public function chargeOffSession(string $customerId, int $amountCents, string $currency = 'usd', string $description = 'Subscription Auto-Charge'): array
+    {
+        $intent = PaymentIntent::create([
+            'amount'               => $amountCents,
+            'currency'             => strtolower($currency),
+            'customer'             => $customerId,
+            'description'          => $description,
+            'confirm'              => true,
+            'off_session'          => true,
+            'automatic_payment_methods' => [
+                'enabled'         => true,
+                'allow_redirects' => 'never',
+            ],
+        ]);
+
+        return [
+            'success'        => $intent->status === 'succeeded',
+            'transaction_id' => $intent->id,
+            'status'         => $intent->status,
+            'raw'            => $intent->toArray(),
+        ];
     }
 
     public function createCustomer(array $params): array
     {
         $customer = StripeCustomer::create([
             'email' => $params['email'] ?? null,
-            'name' => $params['name'] ?? null,
+            'name'  => $params['name'] ?? null,
         ]);
 
         return [
-            'success' => true,
+            'success'     => true,
             'customer_id' => $customer->id,
-            'raw' => $customer->toArray(),
+            'raw'         => $customer->toArray(),
         ];
     }
 
     public function createSubscription(array $params): array
     {
-        $subscription = StripeSubscription::create([
-            'customer' => $params['customer_id'],
-            'items' => [
-                ['price' => $params['plan_id'] ?? $params['price_id']],
-            ],
-        ]);
-
-        return [
-            'success' => in_array($subscription->status, ['active', 'trialing']),
-            'subscription_id' => $subscription->id,
-            'raw' => $subscription->toArray(),
-        ];
+        // Not used in the application-led model.
+        // Billing cycles are managed locally and charged via chargeOffSession().
+        throw new RuntimeException("Stripe Subscriptions are not used in this system. Use the application-led billing model instead.");
     }
 
     public function cancelSubscription(string $subscriptionId): bool
     {
-        $subscription = StripeSubscription::retrieve($subscriptionId);
-        $canceled = $subscription->cancel();
-
-        return $canceled->status === 'canceled';
+        // Not used in the application-led model.
+        throw new RuntimeException("Stripe Subscriptions are not used in this system. Subscription cancellation is managed locally.");
     }
 }

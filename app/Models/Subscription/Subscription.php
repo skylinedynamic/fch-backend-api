@@ -22,6 +22,9 @@ class Subscription extends Model
     const ENROLLMENT_TYPE_PAYMENT_PLAN = 'Payment Plan';
     const ENROLLMENT_TYPE_MONTHLY = 'Monthly';
 
+    const PHASE_ENROLLMENT = 'enrollment';
+    const PHASE_PLATFORM_FEE = 'platform_fee';
+
     protected $table = 'subscriptions';
 
     protected $fillable = [
@@ -36,20 +39,24 @@ class Subscription extends Model
         'down_payment',
         'first_payment_date',
         'platform_fee_start_date',
-        // 'next_installment_date',
         'installment_type',
         'installment_count',
         'subscription_start_date',
         'subscription_end_date',
         'status',
         'is_custom',
-        'stripe_subscription_id',
+        // stripe_subscription_id is kept in the database for historical data
+        // but is no longer used in the application-led billing model.
+        'current_phase',
+        'installments_paid',
+        'next_installment_date',
+        'next_platform_fee_date',
+        'enrollment_completed_at',
     ];
 
     protected $casts = [
         'first_payment_date' => 'date',
         'platform_fee_start_date' => 'date',
-        // 'next_installment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
         'monthly_platform_fee' => 'decimal:2',
@@ -59,6 +66,11 @@ class Subscription extends Model
         'installment_type' => 'integer',
         'installment_count' => 'integer',
         'is_custom' => 'boolean',
+        'current_phase' => 'string',
+        'installments_paid' => 'integer',
+        'next_installment_date' => 'date',
+        'next_platform_fee_date' => 'date',
+        'enrollment_completed_at' => 'datetime',
     ];
 
     public function partner()

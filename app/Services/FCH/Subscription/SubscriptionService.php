@@ -307,100 +307,91 @@ class SubscriptionService
             return;
         }
 
-        $phase = $subscription->phases()->first();
-        if (!$phase) {
-            $phase = $subscription->phases()->create([
-                'phase' => SubscriptionPhase::PHASE_ENROLLMENT,
-                'installments_paid' => 0,
-            ]);
-        }
-
         $plan = $subscription->partnerPlan;
-        $totalInstallments = $plan->total_installments_count ?? 1;
-        $periodMonths = $plan->subscription_period_month ?? $totalInstallments;
-        // ENROLLMENT PAYMENT
+        $periodMonths = $plan->subscription_period_month ?? ($plan->total_installments_count ?? 1);
+
+        // Count paid enrollment invoices (this includes down payment + installments)
         $invoiceCount = Invoice::where('entity_type', $invoice->entity_type)
             ->where('entity_id', $invoice->entity_id)
             ->where('is_platform_fee', false)
             ->where('status', Invoice::STATUS_PAID)
-            ->get()->count();
-        $phase->installments_paid = $invoiceCount;
+            ->count();
 
-        $phase->save();
+        // If there is a down payment, the first paid invoice is the down payment (not an installment)
+        $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
+        $installmentsPaid = $hasDownPayment ? max(0, $invoiceCount - 1) : $invoiceCount;
 
-        // Set subscription start / end / platform fee start dates if first payment
+        $subscription->update(['installments_paid' => $installmentsPaid]);
+
+        // Set subscription start / end / platform fee start dates on first payment
         if (!$subscription->subscription_start_date) {
             $subscription->update([
                 'subscription_start_date' => now(),
-                'first_payment_date' => now(),
-                'subscription_end_date' => $plan->subscription_period_month ? now()->addMonths($periodMonths) : null,
+                'first_payment_date'      => now(),
+                'subscription_end_date'   => $plan->subscription_period_month ? now()->addMonths($periodMonths) : null,
                 'platform_fee_start_date' => $plan->subscription_period_month ? now()->addMonths($periodMonths)->addDay() : null,
-                'status' => Subscription::STATUS_ACTIVE,
+                'status'                  => Subscription::STATUS_ACTIVE,
             ]);
         } else {
             $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
         }
 
-        // if ($phase->installments_paid >= $totalInstallments) {
-        $this->completeEnrollment($subscription, $phase, $plan);
-        // }
+        $this->completeEnrollment($subscription, $plan);
     }
 
     /**
-     * Complete enrollment and schedule first platform fee invoice.
+     * Complete enrollment and schedule the next billing date on the subscription.
+     *
+     * All phase state is stored directly on the subscriptions table.
+     * The subscription_phases table is kept in the database but is no longer
+     * written to by this service.
      *
      * @param Subscription $subscription
-     * @param SubscriptionPhase $phase
+     * @param mixed        $plan
      * @return void
      */
-    private function completeEnrollment(Subscription $subscription, SubscriptionPhase $phase, $plan)
+    private function completeEnrollment(Subscription $subscription, $plan): void
     {
-        $next_installment_date = null;
-        $next_platform_fee_date = null;
+        $next_installment_date   = null;
+        $next_platform_fee_date  = null;
         $enrollment_completed_at = null;
-        $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
+        $currentPhase            = Subscription::PHASE_PLATFORM_FEE;
 
         if ($plan->entity_type == Borrower::class) {
-            if ($subscription->installment_type == 1 && $phase->installments_paid < $plan->total_installments_count) {
-                $next_installment_date = $phase->next_installment_date ? $phase->next_installment_date->addMonth() : $subscription->subscription_start_date->addMonth();
-                $next_platform_fee_date = null;
-                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
-                $enrollment_completed_at = null;
+            if ($subscription->installment_type == 1 && $subscription->installments_paid < $plan->total_installments_count) {
+                $next_installment_date  = $subscription->next_installment_date
+                    ? $subscription->next_installment_date->addMonth()
+                    : $subscription->subscription_start_date->addMonth();
+                $currentPhase           = Subscription::PHASE_ENROLLMENT;
             } else {
-                $next_installment_date = null;
-                $next_platform_fee_date = null;
-                $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
+                $currentPhase           = Subscription::PHASE_ENROLLMENT;
                 $enrollment_completed_at = now();
             }
         } else {
             if ($subscription->installment_type == 0 && $subscription->entity_type == Partner::class) {
-                $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
-                $next_platform_fee_date = is_null($phase->next_platform_fee_date) ? now()->addMonth($plan->subscription_period_month)->addDay() : $phase->next_platform_fee_date->addMonth();
+                $currentPhase          = Subscription::PHASE_PLATFORM_FEE;
+                $next_platform_fee_date = is_null($subscription->next_platform_fee_date)
+                    ? now()->addMonth($plan->subscription_period_month)->addDay()
+                    : $subscription->next_platform_fee_date->addMonth();
                 $enrollment_completed_at = now();
-                $next_installment_date = null;
-            } else if ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
-                $invoiceCount = Invoice::where('entity_type', $subscription->entity_type)
-                    ->where('entity_id', $subscription->entity_id)
-                    ->where('is_platform_fee', false)
-                    ->where('status', Invoice::STATUS_PAID)
-                    ->get()->count();
-                if ($invoiceCount < $plan->total_installments_count) {
-                    $next_installment_date = is_null($phase->next_installment_date) ? now()->addMonth() : $phase->next_installment_date->addMonth();
-                    $phaseFee = SubscriptionPhase::PHASE_ENROLLMENT;
-                    $next_platform_fee_date = null;
-                    $enrollment_completed_at = null;
+            } elseif ($subscription->installment_type == 1 && $subscription->entity_type == Partner::class) {
+                if ($subscription->installments_paid < $plan->total_installments_count) {
+                    $next_installment_date = is_null($subscription->next_installment_date)
+                        ? now()->addMonth()
+                        : $subscription->next_installment_date->addMonth();
+                    $currentPhase = Subscription::PHASE_ENROLLMENT;
                 } else {
-                    $next_platform_fee_date = now()->addMonth()->addDay();
+                    $next_platform_fee_date  = now()->addMonth()->addDay();
                     $enrollment_completed_at = now();
-                    $phaseFee = SubscriptionPhase::PHASE_PLATFORM_FEE;
-                    $next_installment_date = null;
+                    $currentPhase            = Subscription::PHASE_PLATFORM_FEE;
                 }
             }
         }
-        $phase->update([
-            'phase' => $phaseFee,
+
+        $subscription->update([
+            'current_phase'          => $currentPhase,
             'enrollment_completed_at' => $enrollment_completed_at,
-            'next_installment_date' => $next_installment_date,
+            'next_installment_date'  => $next_installment_date,
             'next_platform_fee_date' => $next_platform_fee_date,
         ]);
     }
@@ -413,14 +404,13 @@ class SubscriptionService
      * @return bool
      */
 
-    protected function createInvoiceIfDue(SubscriptionPhase $phase, bool $isPlatformFee = false): bool
+    protected function createInvoiceIfDue(Subscription $subscription, bool $isPlatformFee = false): bool
     {
         $today = Carbon::today();
-        $subscription = $phase->subscription;
 
         $nextDue = $isPlatformFee
-            ? $phase->next_platform_fee_date
-            : $phase->next_installment_date;
+            ? $subscription->next_platform_fee_date
+            : $subscription->next_installment_date;
 
         if (!$nextDue) {
             return false;
@@ -428,9 +418,8 @@ class SubscriptionService
 
         $nextDue = Carbon::parse($nextDue);
 
-        $generateBeforeDays = config('subscription.generate_before_days', 5);
+        $generateBeforeDays   = config('subscription.generate_before_days', 5);
         $earliestGenerateDate = $nextDue->copy()->subDays($generateBeforeDays);
-
 
         if ($today < $earliestGenerateDate) {
             return false;
@@ -456,170 +445,163 @@ class SubscriptionService
             ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$billingCycleMonth])
             ->exists();
 
-        return !$paidInvoiceExists; // true = should create, false = already paid for this cycle
+        return !$paidInvoiceExists;
     }
 
     /**
-     * Create invoice for a phase (enrollment / platform fee)
+     * Create invoice for a subscription billing cycle (enrollment / platform fee).
      *
-     * @param SubscriptionPhase $phase
-     * @param string $type
+     * Phase data is read directly from the subscription model.
+     * The subscription_phases table is kept in the database for historical records
+     * but is no longer read from or written to by this method.
+     *
+     * @param Subscription $subscription
+     * @param string       $type  'enrollment' | 'platform_fee'
      * @return void
      */
-
-    protected function createInvoiceForPhase(SubscriptionPhase $phase, string $type): void
+    protected function createInvoiceForSubscription(Subscription $subscription, string $type): void
     {
         try {
-            DB::transaction(function () use ($phase, $type) {
+            DB::transaction(function () use ($subscription, $type) {
 
-                $subscription = $phase->subscription;
                 $entity = $subscription->entity;
 
                 if (!$entity || $subscription->status !== Subscription::STATUS_ACTIVE) {
-                    return; // Ignore if subscription not active or entity missing
+                    return;
                 }
 
-                // --------- ADDED STATUS CHECKS ---------
                 if ($subscription->entity_type === Borrower::class) {
-                    // It's a borrower. Check if Borrower is Active AND Partner is Active
                     if ($entity->status !== Borrower::STATUS_ACTIVE) {
                         return;
                     }
-
                     $entity->loadMissing('partner');
                     $partner = $entity->partner;
                     if (!$partner || $partner->status !== Partner::STATUS_ACTIVE) {
                         return;
                     }
                 } elseif ($subscription->entity_type === Partner::class) {
-                    // It's a partner. Check if Partner is Active
                     if ($entity->status !== Partner::STATUS_ACTIVE) {
                         return;
                     }
                 }
-                // ----------------------------------------
 
-                $isPlatformFee = $type === SubscriptionPhase::PHASE_PLATFORM_FEE;
+                $isPlatformFee = $type === Subscription::PHASE_PLATFORM_FEE;
 
                 $cycleDate = $isPlatformFee
-                    ? $phase->next_platform_fee_date
-                    : $phase->next_installment_date;
-
+                    ? $subscription->next_platform_fee_date
+                    : $subscription->next_installment_date;
 
                 if (!$cycleDate) {
                     return;
                 }
 
-                $entityType = $subscription->entity_type;
-                $entityId = $subscription->entity_id;
-
-                $invoiceCount = Invoice::where('entity_type', $entityType)
-                    ->where('entity_id', $entityId)
+                $invoiceCount = Invoice::where('entity_type', $subscription->entity_type)
+                    ->where('entity_id', $subscription->entity_id)
                     ->where('is_platform_fee', 0)
                     ->count();
 
                 $totalCount = $subscription->partnerPlan?->total_installments_count;
+                $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
+                $allowedInvoices = $hasDownPayment ? ($totalCount + 1) : $totalCount;
 
-                if ($totalCount && $invoiceCount >= $totalCount) {
+                if ($totalCount && $invoiceCount >= $allowedInvoices) {
                     return;
                 }
 
-                if (!$this->createInvoiceIfDue($phase, $isPlatformFee)) {
+                if (!$this->createInvoiceIfDue($subscription, $isPlatformFee)) {
                     return;
                 }
 
-                // Installment limit check (Secondary check using phase state)
+                // Installment limit check: switch phase if all installments are done
                 if (!$isPlatformFee) {
-                    if (!$totalCount || $phase->installments_paid >= $totalCount) {
-                        // Switch to platform fee phase
-                        $phase->update([
-                            'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE,
+                    if (!$totalCount || $subscription->installments_paid >= $totalCount) {
+                        $subscription->update([
+                            'current_phase'         => Subscription::PHASE_PLATFORM_FEE,
                             'next_platform_fee_date' => now()->addMonth()->startOfMonth(),
                         ]);
                         return;
                     }
                 }
 
-                // Determine who pays
                 $isPartnerPaying = false;
 
                 if ($subscription->entity_type === Borrower::class) {
-                    // $isPartnerPaying = $entity->partner?->is_host != 1;
                     $partnerId = $entity->partner_id;
                 } else {
-                    // $isPartnerPaying = $entity->is_host != 1;
                     $partnerId = $entity->id;
                 }
 
-                $amount = $isPlatformFee
-                    ? $subscription->monthly_platform_fee
-                    : $subscription->payable_amount;
+                $amount = $subscription->payable_amount;
+                if ($isPlatformFee) {
+                    $amount = $subscription->monthly_platform_fee;
+                } else {
+                    if ($subscription->installment_type == 1 && $subscription->installment_count > 0) {
+                        if ($invoiceCount == 0 && $hasDownPayment) {
+                            $amount = $subscription->down_payment;
+                        } else {
+                            $amount = ($subscription->total_subscription_amount - $subscription->down_payment) / $subscription->installment_count;
+                        }
+                    }
+                }
 
                 $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
 
-                if (!$isPlatformFee && ($type === 'installment' || $subscription->installment_type == 1)) {
-                    $invoiceType = Invoice::INVOICE_TYPE_INSTALLMENT;
+                if (!$isPlatformFee && $subscription->installment_type == 1) {
+                    if ($invoiceCount == 0 && $hasDownPayment) {
+                        $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
+                    } else {
+                        $invoiceType = Invoice::INVOICE_TYPE_INSTALLMENT;
+                    }
                 }
 
-                // Create invoice
                 $invoice = $this->invoiceService->create([
-                    'partner_id' => $partnerId,
-                    'borrower_id' => $subscription->entity_type === Borrower::class
-                        ? $subscription->entity_id
-                        : null,
-                    'entity_type' => $subscription->entity_type,
-                    'entity_id' => $subscription->entity_id,
-                    'customer_name' => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
-                    'email' => $entity->email,
-                    'country' => $entity->country ?? null,
-                    'payment_amount' => $amount,
-                    'currency' => Invoice::CURRENCY_USD,
-                    'status' => Invoice::STATUS_UNPAID,
-                    'type' => $invoiceType,
+                    'partner_id'       => $partnerId,
+                    'borrower_id'      => $subscription->entity_type === Borrower::class ? $subscription->entity_id : null,
+                    'entity_type'      => $subscription->entity_type,
+                    'entity_id'        => $subscription->entity_id,
+                    'customer_name'    => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
+                    'email'            => $entity->email,
+                    'country'          => $entity->country ?? null,
+                    'payment_amount'   => $amount,
+                    'currency'         => Invoice::CURRENCY_USD,
+                    'status'           => Invoice::STATUS_UNPAID,
+                    'type'             => $invoiceType,
                     'is_partner_paying' => $isPartnerPaying,
-                    'is_platform_fee' => $isPlatformFee ? 1 : 0,
+                    'is_platform_fee'  => $isPlatformFee ? 1 : 0,
                 ]);
 
-                Log::info('Invoice created successfully', [
-                    'invoice_id' => $invoice->id ?? null,
-                ]);
+                Log::info('Invoice created successfully', ['invoice_id' => $invoice->id ?? null]);
 
-                // Accurate Code: Automatically send the invoice email after creation
                 try {
                     $this->invoiceService->sendInvoice($invoice->id);
                     Log::info('Invoice email sent successfully via batch process', ['invoice_id' => $invoice->id]);
                 } catch (\Exception $e) {
                     Log::error('Failed to send invoice email in batch process', [
                         'invoice_id' => $invoice->id,
-                        'error' => $e->getMessage()
+                        'error'      => $e->getMessage(),
                     ]);
                 }
             });
         } catch (\Exception $e) {
-            // Log the error but don't throw - this allows the cron to continue processing other invoices
-            Log::error('Failed to create invoice for subscription phase', [
-                'phase_id' => $phase->id,
-                'subscription_id' => $phase->subscription_id,
-                'type' => $type,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+            Log::error('Failed to create invoice for subscription', [
+                'subscription_id' => $subscription->id,
+                'type'            => $type,
+                'error'           => $e->getMessage(),
+                'trace'           => $e->getTraceAsString(),
             ]);
 
-            // Send granular failure email
             $emails = explode(',', config('app.cron_notify_emails', ''));
             $emails = array_filter(array_map('trim', $emails));
 
             if (!empty($emails)) {
-                $subscription = $phase->subscription;
                 $entity = $subscription->entity;
-
                 $data = [
-                    'job_name' => 'ProcessSubscriptions (subscriptions:process) - Phase Failure',
+                    'job_name'      => 'ProcessSubscriptions (subscriptions:process) - Failure',
                     'error_message' => $e->getMessage(),
-                    'timestamp' => now()->toDateTimeString(),
-                    'stack_trace' => $e->getTraceAsString(),
-                    'user_email' => $entity->email ?? 'N/A',
-                    'user_id' => $entity->id ?? 'N/A',
+                    'timestamp'     => now()->toDateTimeString(),
+                    'stack_trace'   => $e->getTraceAsString(),
+                    'user_email'    => $entity->email ?? 'N/A',
+                    'user_id'       => $entity->id ?? 'N/A',
                 ];
 
                 if ($subscription->entity_type === Borrower::class) {
@@ -633,42 +615,46 @@ class SubscriptionService
         }
     }
 
-    // Cron Job Start
+    // Cron Job
     /**
-     * Generate invoices for installment phase.
+     * Generate invoices for enrollment installment phase.
+     *
+     * Queries subscriptions table directly using current_phase + next_installment_date.
      */
     public function generateInstallmentInvoices(): void
     {
         $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
 
-        SubscriptionPhase::with(['subscription.entity', 'subscription.partnerPlan'])
-            ->where('phase', SubscriptionPhase::PHASE_ENROLLMENT)
+        Subscription::with(['entity', 'partnerPlan'])
+            ->where('status', Subscription::STATUS_ACTIVE)
+            ->where('current_phase', Subscription::PHASE_ENROLLMENT)
             ->whereNotNull('next_installment_date')
             ->whereDate('next_installment_date', '<=', $targetDate)
-            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
-            ->chunkById(100, function ($phases) {
-                foreach ($phases as $phase) {
-                    $this->createInvoiceForPhase($phase, SubscriptionPhase::PHASE_ENROLLMENT);
+            ->chunkById(100, function ($subscriptions) {
+                foreach ($subscriptions as $subscription) {
+                    $this->createInvoiceForSubscription($subscription, Subscription::PHASE_ENROLLMENT);
                 }
             });
     }
 
-    // Cron Job Start
+    // Cron Job
     /**
      * Generate invoices for platform fee phase.
+     *
+     * Queries subscriptions table directly using current_phase + next_platform_fee_date.
      */
     public function generatePlatformFeeInvoices(): void
     {
         $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
 
-        SubscriptionPhase::with(['subscription.entity', 'subscription.partnerPlan'])
-            ->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
+        Subscription::with(['entity', 'partnerPlan'])
+            ->where('status', Subscription::STATUS_ACTIVE)
+            ->where('current_phase', Subscription::PHASE_PLATFORM_FEE)
             ->whereNotNull('next_platform_fee_date')
             ->whereDate('next_platform_fee_date', '<=', $targetDate)
-            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
-            ->chunkById(100, function ($phases) {
-                foreach ($phases as $phase) {
-                    $this->createInvoiceForPhase($phase, SubscriptionPhase::PHASE_PLATFORM_FEE);
+            ->chunkById(100, function ($subscriptions) {
+                foreach ($subscriptions as $subscription) {
+                    $this->createInvoiceForSubscription($subscription, Subscription::PHASE_PLATFORM_FEE);
                 }
             });
     }

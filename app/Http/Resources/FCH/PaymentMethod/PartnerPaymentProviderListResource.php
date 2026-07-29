@@ -24,7 +24,7 @@ class PartnerPaymentProviderListResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'slug' => $this->slug ?? strtolower(str_replace([' ', '.'], '', $this->name)),
-            'logo' => $this->logo,
+            'logo' => $this->logo ? encodeUrl(asset($this->logo)) : null,
             'status' => $linkage ? (bool) $linkage->status : false,
             'is_default' => $linkage ? (bool) $linkage->is_default : false,
             'is_configured' => $linkage ? (!empty($linkage->configuration)) : false,
