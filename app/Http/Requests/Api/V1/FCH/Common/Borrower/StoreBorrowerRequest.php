@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
 
 class StoreBorrowerRequest extends BaseApiRequest
@@ -54,11 +55,19 @@ class StoreBorrowerRequest extends BaseApiRequest
         if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
             $rules['free_trail_end_date'] = ['nullable'];
             $rules['plan_id'] = ['nullable', 'exists:subscription_plans,id'];
-            $rules['enrollment_payment'] = ['nullable'];
+            $rules['enrollment_amount'] = ['nullable'];
         } else {
             $rules['free_trail_end_date'] = ['nullable'];
             $rules['plan_id'] = ['required', 'exists:subscription_plans,id'];
-            $rules['enrollment_payment'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
+                $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+                $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+            }
         }
 
         return $rules;
@@ -127,11 +136,11 @@ class StoreBorrowerRequest extends BaseApiRequest
             'country_code.max' => __('borrower_validation.country_code_max'),
             'plan_id.required' => __('borrower_validation.plan_id_required'),
             'plan_id.exists' => __('borrower_validation.plan_id_exists'),
-            'enrollment_payment.required' => __('borrower_validation.enrollment_payment_required'),
-            'enrollment_payment.numeric' => __('borrower_validation.enrollment_payment_numeric'),
+            'enrollment_amount.required' => __('borrower_validation.enrollment_payment_required'),
+            'enrollment_amount.numeric' => __('borrower_validation.enrollment_payment_numeric'),
             'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
-            'enrollment_payment.gt' => __('borrower_validation.enrollment_payment_gt'),
-            'enrollment_payment.regex' => __('borrower_validation.enrollment_payment_regex'),
+            'enrollment_amount.gt' => __('borrower_validation.enrollment_payment_gt'),
+            'enrollment_amount.regex' => __('borrower_validation.enrollment_payment_regex'),
             'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric' => __('borrower_validation.paydex_score_numeric'),
         ];

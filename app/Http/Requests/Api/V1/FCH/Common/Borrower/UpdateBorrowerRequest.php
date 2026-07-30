@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\Borrower;
+use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
 
@@ -91,7 +92,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
                 'nullable',
                 'exists:subscription_plans,id'
             ],
-            'enrollment_payment' => [
+            'enrollment_amount' => [
                 Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
                     return $wasFreeTrial && !$isFreeTrialInput;
                 }),
@@ -101,6 +102,19 @@ class UpdateBorrowerRequest extends BaseApiRequest
                 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'
             ],
         ];
+
+        $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
+        if (!$isFreeTrialInput) {
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
+                $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+                $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+                $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+            }
+        }
+
+        return $rules;
     }
 
     public function messages(): array

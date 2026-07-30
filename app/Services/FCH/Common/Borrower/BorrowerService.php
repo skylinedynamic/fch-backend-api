@@ -275,15 +275,53 @@ class BorrowerService
     private function calculateBorrowerSubscriptionAmounts(?SubscriptionPlan $plan, array $data, float $fallbackAmount = 2497.00): array
     {
         $default = $plan ? (float) ($plan->payment_amount ?? $fallbackAmount) : $fallbackAmount;
-        $amount = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
-            ? (float) $data['enrollment_payment']
-            : $default;
+        $amount = (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '')
+            ? (float) $data['enrollment_amount']
+            : ((isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
+                ? (float) $data['enrollment_payment']
+                : $default);
 
-        $totalInstallments = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
-        $total = $plan ? (float) ($plan->total_amount ?? $amount) : $amount;
+        $isInstallment = $plan && $plan->isInstallmentPlan();
 
-        if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
-            $total = $amount * $totalInstallments;
+        $downPayment = 0.0;
+        $installmentMonths = $plan ? (int) ($plan->total_installments_count ?? 12) : 12;
+        $monthlyInstallmentAmount = 0.0;
+        $remainingBalance = 0.0;
+
+        if ($isInstallment) {
+            if (isset($data['installment_down_payment']) && $data['installment_down_payment'] !== '') {
+                $downPayment = (float) $data['installment_down_payment'];
+            }
+            if (isset($data['installment_months']) && $data['installment_months'] !== '') {
+                $installmentMonths = (int) $data['installment_months'];
+            }
+            if (isset($data['installment_monthly_amount']) && $data['installment_monthly_amount'] !== '') {
+                $monthlyInstallmentAmount = (float) $data['installment_monthly_amount'];
+            }
+            if (isset($data['installment_remaining_balance']) && $data['installment_remaining_balance'] !== '') {
+                $remainingBalance = (float) $data['installment_remaining_balance'];
+            } else {
+                $remainingBalance = max(0.0, $amount - $downPayment);
+            }
+
+            if ($monthlyInstallmentAmount <= 0 && $installmentMonths > 0) {
+                $monthlyInstallmentAmount = $remainingBalance > 0 ? ($remainingBalance / $installmentMonths) : 0.0;
+            }
+
+            $payableAmount = $amount;
+            $total = $remainingBalance;
+            $initialInvoiceAmount = $downPayment > 0 ? $downPayment : $payableAmount;
+            $installmentType = 1;
+        } else {
+            $downPayment = 0.0;
+            $payableAmount = $amount;
+            $total = $plan ? (float) ($plan->total_amount ?? $amount) : $amount;
+            if ((isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') || (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')) {
+                $total = $amount * $installmentMonths;
+            }
+            $initialInvoiceAmount = $amount;
+            $installmentType = 0;
+            $installmentMonths = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
         }
 
         $isCustom = false;
@@ -292,7 +330,15 @@ class BorrowerService
                 || (abs($total - (float) ($plan->total_amount ?? 0)) > 0.01);
         }
 
-        return compact('amount', 'totalInstallments', 'total', 'isCustom');
+        return [
+            'amount' => $initialInvoiceAmount,
+            'totalInstallments' => $installmentMonths,
+            'total' => $total,
+            'payable_amount' => $payableAmount,
+            'down_payment' => $downPayment,
+            'installment_type' => $installmentType,
+            'isCustom' => $isCustom,
+        ];
     }
 
     /**
@@ -382,12 +428,22 @@ class BorrowerService
             $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
         }
 
-        $this->subscriptionService->startSubscription($borrower, $plan, [
+        $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [
             'monthly_platform_fee' => 0,
             'total_subscription_amount' => $amounts['total'],
-            'payable_amount' => $amounts['amount'],
+            'payable_amount' => $amounts['payable_amount'] ?? $amounts['amount'],
+            'down_payment' => $amounts['down_payment'] ?? 0,
+            'installment_count' => $amounts['totalInstallments'] ?? 0,
+            'installment_type' => $amounts['installment_type'] ?? 0,
             'is_custom' => $amounts['isCustom'],
         ]);
+
+        if (isset($invoice)) {
+            $invoice->update(['subscription_id' => $subscription->id]);
+        }
+        if (isset($partnerInvoice)) {
+            $partnerInvoice->update(['subscription_id' => $subscription->id]);
+        }
 
         if ($isMigration) {
             // Free-trial → paid migration: only notify if there's an amount due
@@ -433,10 +489,17 @@ class BorrowerService
             $exceptFields = [
                 'plan_id',
                 'enrollment_payment',
+                'enrollment_amount',
+                'enrollment_type',
                 'payment_amount',
                 'is_partner_paying',
                 'amount',
                 'business_other_city',
+                'installment_applied',
+                'installment_down_payment',
+                'installment_months',
+                'installment_monthly_amount',
+                'installment_remaining_balance',
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
@@ -551,9 +614,18 @@ class BorrowerService
             }
             $exceptFields = [
                 'enrollment_payment',
+                'enrollment_amount',
+                'enrollment_type',
                 'plan_id',
                 'is_partner_paying',
+                'amount',
+                'payment_amount',
                 'business_other_city',
+                'installment_applied',
+                'installment_down_payment',
+                'installment_months',
+                'installment_monthly_amount',
+                'installment_remaining_balance',
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
@@ -630,35 +702,23 @@ class BorrowerService
 
             if ($subscription) {
                 $plan = $subscription->subscriptionPlan;
-                $updateSubData = [];
-
-                // Determine final values to reassess is_custom status
-                $finalEnrollment = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
-                    ? (float) $data['enrollment_payment']
-                    : (float) $subscription->payable_amount;
-
-                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-                $finalTotal = $finalEnrollment * $totalInstallments;
-
-                // Mark as custom if enrollment payment or total differs from the original plan
-                $isCustom = false;
-                if ($plan) {
-                    $isCustom = (abs($finalEnrollment - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($finalTotal - (float) ($plan->total_amount ?? 0)) > 0.01);
-                }
+                $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data);
 
                 $updateSubData = [
-                    'payable_amount' => $finalEnrollment,
-                    'total_subscription_amount' => $finalTotal,
-                    'is_custom' => $isCustom,
+                    'payable_amount' => $amounts['payable_amount'] ?? $amounts['amount'],
+                    'total_subscription_amount' => $amounts['total'],
+                    'down_payment' => $amounts['down_payment'] ?? 0,
+                    'installment_count' => $amounts['totalInstallments'] ?? 0,
+                    'installment_type' => $amounts['installment_type'] ?? 0,
+                    'is_custom' => $amounts['isCustom'],
                 ];
 
                 $subscription->update($updateSubData);
                 Log::info('Borrower subscription reassessed and updated', [
                     'subscription_id' => $subscription->id,
-                    'is_custom' => $isCustom,
-                    'payable' => $finalEnrollment,
-                    'total' => $finalTotal
+                    'is_custom' => $amounts['isCustom'],
+                    'payable' => $updateSubData['payable_amount'],
+                    'total' => $updateSubData['total_subscription_amount']
                 ]);
             } elseif ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial

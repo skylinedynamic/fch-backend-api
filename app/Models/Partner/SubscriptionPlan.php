@@ -64,4 +64,8 @@ class SubscriptionPlan extends Model
             || strtolower((string) $this->enrollment_type) === self::INSTALLMENT_PLAN;
     }
 
+    public function scopeActive($query)
+    {
+        return $query->where('status', true);
+    }
 }

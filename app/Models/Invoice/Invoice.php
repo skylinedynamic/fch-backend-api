@@ -20,6 +20,7 @@ class Invoice extends Model
         'invoice_id',
         'partner_id',
         'borrower_id',
+        'subscription_id',
         'entity_type', // Client, Borrower, etc.
         'entity_id',
         'customer_name',
@@ -60,6 +61,11 @@ class Invoice extends Model
     public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
+    }
+
+    public function entity()
+    {
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 
     public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne

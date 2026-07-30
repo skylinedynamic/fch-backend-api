@@ -7,7 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
-use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Setting\EmailConfiguration;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
@@ -91,23 +92,21 @@ class CommonController extends Controller
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
         $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
-        
-        $actualPartner = auth()->user()?->partner ?? \App\Models\Partner\Partner::find(getPartnerIdFromOrigin());
-        $paymentPartner = $actualPartner ?? $partner;
 
-        $isPaymentFresh = true;
-        if ($paymentPartner) {
-            $paymentMode = PaymentMethod::where('partner_id', $paymentPartner->id)->where('key', 'payment_mode')->value('value');
-            if ($paymentMode) {
-                $keyToCheck = $paymentMode === 'sandbox' ? 'stripe_secret_sandbox' : 'stripe_secret_production';
-                $hasSecretKey = PaymentMethod::where('partner_id', $paymentPartner->id)
-                                             ->where('key', $keyToCheck)
-                                             ->whereNotNull('value')
-                                             ->where('value', '!=', '')
-                                             ->exists();
-                $isPaymentFresh = $hasSecretKey;
-            } else {
-                $isPaymentFresh = false;
+        $isPaymentFresh = false;
+        if ($partner) {
+            // Find default active provider, or first active provider
+            $partnerProvider = PartnerPaymentProvider::where('partner_id', $partner->id)
+                ->where('status', true)
+                ->first();
+
+            if ($partnerProvider) {
+                $config = $partnerProvider->configuration ?? [];
+                $paymentMode = $config['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+
+                if ($paymentMode) {
+                    $isPaymentFresh = true;
+                }
             }
         }
 

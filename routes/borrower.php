@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
 use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
 use App\Http\Controllers\Api\V1\Borrower\Profile\ChangeRequestController;
@@ -200,7 +201,7 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::get('/payment-methods', [PaymentMethodController::class, 'show']);
 
-            Route::post('/process-payment', [GlobalPaymentController::class, 'processPayment']);
+            Route::post('/process-payment', [UnifiedPaymentController::class, 'processPayment']);
 
             // auth profile
             Route::prefix('auth-profile')->group(

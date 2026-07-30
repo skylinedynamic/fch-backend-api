@@ -557,6 +557,7 @@ class SubscriptionService
                 $invoice = $this->invoiceService->create([
                     'partner_id'       => $partnerId,
                     'borrower_id'      => $subscription->entity_type === Borrower::class ? $subscription->entity_id : null,
+                    'subscription_id'  => $subscription->id,
                     'entity_type'      => $subscription->entity_type,
                     'entity_id'        => $subscription->entity_id,
                     'customer_name'    => $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? '')),
