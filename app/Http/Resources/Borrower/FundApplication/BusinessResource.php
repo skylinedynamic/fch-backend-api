@@ -28,7 +28,7 @@ class BusinessResource extends JsonResource
             'business_postal_code' => $this->business_postal_code ?? null,
             'industry_type' => $this->industry_type ?? $this->business_industry_type ?? null,
             'entity_type' => $this->entity_type ?? $this->business_entity_type ?? null,
-            'years_in_business' => $this->years_in_business ?? null,
+            'years_in_business' => !empty($this->business_start_date) ? calculateTimeInBusiness($this->business_start_date) : ($this->years_in_business ?? null),
             'number_of_employees' => $this->number_of_employees ?? null,
             'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
             'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,

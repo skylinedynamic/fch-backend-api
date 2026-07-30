@@ -26,7 +26,7 @@ class BorrowerBusinessFinancialsResource extends JsonResource
             'current_business_debt'     => formatComma($this->current_business_debt),
             'fico_score'                => $this->fico_score,
             'paydex_score'              => $this->paydex_score,
-            'years_in_business'         => $this->years_in_business,
+            'years_in_business'         => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'number_of_employees'       => $this->number_of_employees,
             'nsf_count'                 => $this->nsf_count,
             'negative_days'             => $this->negative_days,
