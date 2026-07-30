@@ -67,6 +67,7 @@ class BorrowerDetailsResource extends JsonResource
             'years_in_business' => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue' => formatComma($this->monthly_revenue),
             'annual_revenue' => formatComma($this->annual_revenue),
+            'annual_personal_income' => formatComma($this->annual_personal_income),
             'avg_bank_balance' => formatComma($this->avg_bank_balance),
             'average_monthly_deposits' => formatComma($this->average_monthly_deposits),
             'monthly_deposit_count' => $this->monthly_deposit_count,
