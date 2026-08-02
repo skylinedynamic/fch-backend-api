@@ -77,6 +77,7 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/credit-profile-request', [CreditProfileRequestController::class, 'show']);
                     Route::post('/credit-profile-request', [CreditProfileRequestController::class, 'store']);
                     Route::get('/credit-profile', [BorrowerCreditProfileController::class, 'show']);
+                    Route::post('/credit-profile/update-request/{id}', [BorrowerCreditProfileController::class, 'requestUpdate']);
                 }
             );
 

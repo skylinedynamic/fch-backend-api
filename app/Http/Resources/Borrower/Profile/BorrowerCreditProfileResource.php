@@ -13,6 +13,7 @@ class BorrowerCreditProfileResource extends JsonResource
         $timezone = $request->header('X-Timezone') ?? config('app.timezone');
         
         return [
+            'id' => $this->id,
             'personal_info' => $this->personal_info ?? [
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
                 'dob' => $this->borrower?->date_of_birth ? Carbon::parse($this->borrower?->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,

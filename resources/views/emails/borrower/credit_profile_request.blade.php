@@ -10,12 +10,17 @@
     </p>
 
     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 24px;">
-        <p style="margin: 0 0 8px 0;"><strong>Borrower Name:</strong> {{ $request->first_name }} {{ $request->last_name }}</p>
-        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> {{ $request->email }}</p>
-        <p style="margin: 0;"><strong>Phone:</strong> {{ $request->phone }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Borrower Name:</strong> {{ $creditRequest->first_name }} {{ $creditRequest->last_name }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> {{ $creditRequest->email }}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Phone:</strong> {{ $creditRequest->phone }}</p>
     </div>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         They have already submitted their credit profile authorization. Please upload the iSoftPull data to their profile.
     </p>
+
+    <div class="btn-container" style="margin: 30px 0; text-align: center;">
+        <a href="{{ env('BASE_PARTNER_PORTAL', 'http://localhost:5174') }}/intake-review/credit-profile-requests/{{ $creditRequest->id }}" class="btn"
+            style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Credit Profile Request</a>
+    </div>
 @endsection

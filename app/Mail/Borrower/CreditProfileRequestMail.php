@@ -40,7 +40,7 @@ class CreditProfileRequestMail extends Mailable
         return new Content(
             view: 'emails.borrower.credit_profile_request',
             with: [
-                'request' => $this->creditProfileRequest,
+                'creditRequest' => $this->creditProfileRequest,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],
