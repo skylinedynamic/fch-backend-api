@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lead\Lead;
+use App\Models\Partner\SubscriptionPlan;
+use Str;
 
 class ConvertLeadRequest extends BaseApiRequest
 {
@@ -30,11 +32,11 @@ class ConvertLeadRequest extends BaseApiRequest
         $leadType = $this->getLeadType();
         $isFreeTrail = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
-        if ($leadType === 'Borrower') {
+        if ($leadType === Lead::BORROWER_TYPE_LEAD) {
             return $this->borrowerRules($isFreeTrail);
         }
 
-        if ($leadType === 'Partner') {
+        if ($leadType === Lead::PARTNER_TYPE_LEAD) {
             return $this->partnerRules($isFreeTrail);
         }
 
@@ -51,12 +53,33 @@ class ConvertLeadRequest extends BaseApiRequest
      */
     private function borrowerRules(bool $isFreeTrail): array
     {
-        return [
-            'is_free_trail'     => ['nullable', 'boolean'],
-            'plan_id'           => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
+        $rules = [
+            'is_free_trail' => ['nullable', 'boolean'],
+            'plan_id' => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
+            'enrollment_type' => [$isFreeTrail ? 'nullable' : 'required', 'string', 'max:255'],
             'enrollment_amount' => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'free_trail_end_date' => ['nullable'],
         ];
+
+        $planId = $this->input('plan_id');
+        $plan = $planId ? SubscriptionPlan::find($planId) : null;
+        $isInstallment = false;
+        if ($plan) {
+            $isInstallment = ($plan->total_installments_count > 1)
+                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
+        } else {
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            $isInstallment = ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN);
+        }
+
+        if ($isInstallment) {
+            $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+            $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+            $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+            $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -65,15 +88,35 @@ class ConvertLeadRequest extends BaseApiRequest
      */
     private function partnerRules(bool $isFreeTrail): array
     {
-        return [
-            'is_free_trail'        => ['nullable', 'boolean'],
-            'plan_id'              => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
-            'partner_type'         => ['required', 'string', 'max:255'],
-            'enrollment_type'      => [$isFreeTrail ? 'nullable' : 'required', 'string', 'max:255'],
-            'enrollment_amount'    => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
+        $rules = [
+            'is_free_trail' => ['nullable', 'boolean'],
+            'plan_id' => [$isFreeTrail ? 'nullable' : 'required', 'exists:subscription_plans,id'],
+            'partner_type' => ['required', 'string', 'max:255'],
+            'enrollment_type' => [$isFreeTrail ? 'nullable' : 'required', 'string', 'max:255'],
+            'enrollment_amount' => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
             'monthly_platform_fee' => [$isFreeTrail ? 'nullable' : 'required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'],
-            'free_trail_end_date'  => ['nullable'],
+            'free_trail_end_date' => ['nullable'],
         ];
+
+        $planId = $this->input('plan_id');
+        $plan = $planId ? SubscriptionPlan::find($planId) : null;
+        $isInstallment = false;
+        if ($plan) {
+            $isInstallment = ($plan->total_installments_count > 1)
+                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
+        } else {
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            $isInstallment = ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN);
+        }
+
+        if ($isInstallment) {
+            $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
+            $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+            $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+            $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -83,21 +126,21 @@ class ConvertLeadRequest extends BaseApiRequest
     {
         return [
             // Shared
-            'plan_id.required'              => __('borrower_validation.plan_id_required'),
-            'plan_id.exists'                => __('borrower_validation.plan_id_exists'),
+            'plan_id.required' => __('borrower_validation.plan_id_required'),
+            'plan_id.exists' => __('borrower_validation.plan_id_exists'),
 
             // Borrower — field name is enrollment_amount (mapped internally to enrollment_payment)
-            'enrollment_amount.required'    => __('partner.validation.enrollment_amount.required'),
-            'enrollment_amount.gt'          => __('partner.validation.enrollment_amount.gt'),
-            'enrollment_amount.regex'       => 'Enrollment amount must be a number greater than 0 and cannot be -0.',
+            'enrollment_amount.required' => __('partner.validation.enrollment_amount.required'),
+            'enrollment_amount.gt' => __('partner.validation.enrollment_amount.gt'),
+            'enrollment_amount.regex' => 'Enrollment amount must be a number greater than 0 and cannot be -0.',
 
             // Partner
-            'partner_type.required'         => __('lead.partner_type_required'),
-            'enrollment_type.required'      => __('lead.enrollment_type_required'),
+            'partner_type.required' => __('lead.partner_type_required'),
+            'enrollment_type.required' => __('lead.enrollment_type_required'),
             'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee.required'),
-            'monthly_platform_fee.numeric'  => __('partner.validation.monthly_platform_fee.numeric'),
-            'monthly_platform_fee.gt'       => __('partner.validation.monthly_platform_fee.gt'),
-            'monthly_platform_fee.regex'    => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
+            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee.numeric'),
+            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee.gt'),
+            'monthly_platform_fee.regex' => 'Monthly platform fee must be a number greater than 0 and cannot be -0.',
         ];
     }
 }

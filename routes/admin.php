@@ -59,6 +59,7 @@ Route::prefix('v1/admin')
         Route::post('partners/fetch-subscriptions/{partnerId}', [SubscriptionController::class, 'index']);
 
         Route::post('partners/subscription', [SubscriptionController::class, 'store']);
+        Route::get('partners/subscription/{id}', [SubscriptionController::class, 'show']);
         Route::post('partner-subscriptions/{partnerId}', [SubscriptionController::class, 'details']);
 
         Route::post('partners/subscriptions-stats', [SubscriptionController::class, 'stats']);

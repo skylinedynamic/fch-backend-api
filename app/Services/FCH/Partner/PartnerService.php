@@ -156,15 +156,22 @@ class PartnerService
     /**
      * Resolve a partner subscription plan by partner_type and enrollment_type.
      */
-    private function resolvePartnerPlan(?string $partnerType, ?string $enrollmentType): ?SubscriptionPlan
+    private function resolvePartnerPlan(?string $partnerType, ?string $enrollmentType, ?int $planId = null): ?SubscriptionPlan
     {
+        if ($planId) {
+            $plan = SubscriptionPlan::find($planId);
+            if ($plan) {
+                return $plan;
+            }
+        }
+
         if (!$partnerType || !$enrollmentType) {
             return null;
         }
 
-        $isInstallment = strtolower(trim((string) $enrollmentType)) === 'installment'
-            || Str::slug($enrollmentType) === 'installment'
-            || Str::contains(strtolower((string) $enrollmentType), 'installment')
+        $isInstallment = strtolower(trim((string) $enrollmentType)) === SubscriptionPlan::INSTALLMENT_PLAN
+            || Str::slug($enrollmentType) === SubscriptionPlan::INSTALLMENT_PLAN
+            || Str::contains(strtolower((string) $enrollmentType), SubscriptionPlan::INSTALLMENT_PLAN)
             || Str::contains(strtolower((string) $enrollmentType), 'payment-plan');
 
         $targetSlug = $isInstallment ? SubscriptionPlan::INSTALLMENT_PLAN : SubscriptionPlan::CERTIFIED_ENROLMENT_TYPE_ONE_TIME;
@@ -289,7 +296,8 @@ class PartnerService
         array $businessInfo,
         ?array $extraMailData,
         int $senderPartnerId,
-        bool $isMigration = false
+        bool $isMigration = false,
+        ?int $subscriptionId = null
     ): void {
         $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
 
@@ -297,6 +305,7 @@ class PartnerService
             'partner_id' => $partner->id,
             'entity_type' => Partner::class,
             'entity_id' => $partner->id,
+            'subscription_id' => $subscriptionId,
             'customer_name' => $partner->full_name,
             'email' => $partner->email,
             'country' => $partner->country,
@@ -417,13 +426,14 @@ class PartnerService
                     __('partner.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                 );
             } else {
+                $subscription = null;
                 $partnerType = $data['partner_type'] ?? null;
                 $enrollmentType = $data['enrollment_type'] ?? null;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType);
+                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null);
                 $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
 
                 if ($enrollmentType) {
-                    $this->subscriptionService->startSubscription($partner, $plan, [
+                    $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
                         'subscription_plan_id' => $plan->id ?? null,
                         'partner_type' => $partnerType,
                         'enrollment_type' => $enrollmentType,
@@ -456,7 +466,9 @@ class PartnerService
                             'company_logo' => 'logo.png',
                         ],
                         ['plain_password' => $plainPassword],
-                        $senderPartnerId
+                        $senderPartnerId,
+                        false,
+                        $subscription->id ?? null
                     );
                 }
             }
@@ -677,7 +689,7 @@ class PartnerService
             if ($subscription) {
                 $partnerType = $data['partner_type'] ?? $partner->partner_type;
                 $enrollmentType = $data['enrollment_type'] ?? $subscription->enrollment_type;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType) ?? $subscription->subscriptionPlan;
+                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null) ?? $subscription->subscriptionPlan;
                 $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data, $subscription);
 
                 $subscription->update([
@@ -703,18 +715,20 @@ class PartnerService
                 if ($invoice) {
                     $invoice->update([
                         'payment_amount' => $amounts['initial_invoice_amount'],
+                        'subscription_id' => $subscription->id,
                     ]);
                 }
 
             } elseif ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
+                $subscription = null;
                 $partnerType = $data['partner_type'] ?? $partner->partner_type;
                 $enrollmentType = $data['enrollment_type'] ?? null;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType);
+                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null);
                 $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
 
                 if ($enrollmentType) {
-                    $this->subscriptionService->startSubscription($partner, $plan, [
+                    $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
                         'subscription_plan_id' => $plan->id ?? null,
                         'partner_type' => $plan->partner_type ?? $partnerType,
                         'enrollment_type' => $enrollmentType,
@@ -743,7 +757,8 @@ class PartnerService
                         $this->getHostPartnerBusinessInfo($hostPartner),
                         null,
                         $senderPartnerId,
-                        isMigration: true
+                        isMigration: true,
+                        subscriptionId: $subscription->id ?? null
                     );
                 }
             }

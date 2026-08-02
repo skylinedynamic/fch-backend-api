@@ -118,6 +118,10 @@ class InvoiceService
         }
 
 
+        if (!empty($filters['subscription_id'])) {
+            $query->where('invoices.subscription_id', $filters['subscription_id']);
+        }
+
         // Filter by entity_id (Compatibility)
         if (!empty($filters['entity_id']) && !empty($filters['entity_type'])) {
             $query->where('invoices.entity_id', $filters['entity_id']);

@@ -19,6 +19,7 @@ return [
     'converted_to_borrower' => 'Lead successfully converted to Borrower.',
     'converted_to_partner' => 'Lead successfully converted to Partner.',
     'conversion_failed' => 'Failed to convert lead.',
+    'lead_not_belongs_to_partner' => 'This lead does not belong to your partner account.',
     'cannot_delete_converted_paid_lead' => 'This record cannot be deleted. Please mark it as Suspended or Inactive instead.',
 
     // Validations

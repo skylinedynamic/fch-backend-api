@@ -233,6 +233,24 @@ class SubscriptionService
     }
 
     /**
+     * Get Subscription by ID
+     *
+     * @param int $id
+     * @return Subscription|null
+     */
+    public function getById(int $id)
+    {
+        return Subscription::with([
+            'partner',
+            'borrower',
+            'borrower.partner',
+            'partnerPlan',
+            'enrollmentPhase',
+            'platformFeePhase'
+        ])->find($id);
+    }
+
+    /**
      * Get Subscription by Partner ID
      *
      * @param int $partnerId

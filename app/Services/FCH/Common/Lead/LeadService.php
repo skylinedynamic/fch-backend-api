@@ -426,9 +426,9 @@ class LeadService
      */
     public function convert(Lead $lead, array $data = []): Borrower|Partner
     {
-        if ($lead->lead_type === 'Borrower') {
+        if ($lead->lead_type === Lead::BORROWER_TYPE_LEAD) {
             return $this->convertToBorrower($lead, $data);
-        } elseif ($lead->lead_type === 'Partner') {
+        } elseif ($lead->lead_type === Lead::PARTNER_TYPE_LEAD) {
             return $this->convertToPartner($lead, $data);
         }
 
@@ -475,22 +475,25 @@ class LeadService
                 'notes' => $lead->requirement_details,
                 'status' => Borrower::STATUS_ONBOARDING,
                 'country_code' => $lead->country_code ?? '+1',
-                'state' => $lead->state,
                 'city' => $lead->city,
-                // 'enrollment_type' => $data['enrollment_type'] ?? null,
+                'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
                 'plan_id' => $data['plan_id'] ?? null,
                 'enrollment_payment' => $data['enrollment_amount'] ?? null,  // frontend sends enrollment_amount → maps to enrollment_payment
                 'is_free_trail' => $data['is_free_trail'] ?? null,
                 'free_trail_end_date' => null,
+                'installment_down_payment' => $data['installment_down_payment'] ?? null,
+                'installment_months' => $data['installment_months'] ?? null,
+                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? null,
+                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? null,
             ];
 
             $result = $this->borrowerService->store($borrowerData);
             $borrower = $result['borrower'];
 
             $lead->update([
-                'convert_to' => 'Borrower',
+                'convert_to' => Lead::BORROWER_TYPE_LEAD,
                 'status' => Lead::STATUS_LEAD_COMPLETED,
             ]);
 
@@ -565,6 +568,10 @@ class LeadService
                     ? now()->addDays(30)->toDateString()
                     : null
                 ),
+                'installment_down_payment' => $data['installment_down_payment'] ?? null,
+                'installment_months' => $data['installment_months'] ?? null,
+                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? null,
+                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? null,
             ];
 
             // Trigger robust Partner storage logic
@@ -572,7 +579,7 @@ class LeadService
             $partner = $result['partner'];
 
             $lead->update([
-                'convert_to' => 'Partner',
+                'convert_to' => Lead::PARTNER_TYPE_LEAD,
                 'status' => Lead::STATUS_LEAD_COMPLETED,
             ]);
 

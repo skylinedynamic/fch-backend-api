@@ -28,6 +28,7 @@ class FetchInvoiceRequest extends FormRequest
             'sort_field' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'in:asc,desc'],
             'filters' => ['nullable', 'array'],
+            'subscription_id' => ['nullable', 'integer'],
         ];
     }
 }

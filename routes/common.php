@@ -26,7 +26,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
-use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
@@ -277,11 +276,6 @@ Route::prefix('v1')->group(function () {
             Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
 
-            Route::post('payment-methods', [PaymentMethodController::class, 'store']);
-            Route::post('payment-methods-update', [PaymentMethodController::class, 'updatePaymentMethods']);
-            Route::get('payment-methods-fetch', [PaymentMethodController::class, 'fetchPaymentMethod']);
-            Route::get('payment-methods', [PaymentMethodController::class, 'show']);
-
             // Partner Payment Providers Config
             Route::get('partner-payment-providers', [PartnerPaymentProviderController::class, 'index']);
             Route::get('partner-payment-providers/{id}', [PartnerPaymentProviderController::class, 'show']);
@@ -305,7 +299,6 @@ Route::prefix('v1')->group(function () {
             // Partner Plans
             Route::get('partner-plans', [SubscriptionPlanController::class, 'index']);
             Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
-            Route::get('non-host-borrower-plans', [SubscriptionPlanController::class, 'nonHostBorrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
 
             // Commissions

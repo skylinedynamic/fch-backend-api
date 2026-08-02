@@ -86,4 +86,22 @@ class SubscriptionController extends Controller
             return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
         }
     }
+
+    /**
+     * Get single subscription details by ID.
+     */
+    public function show(int $id)
+    {
+        try {
+            $subscription = $this->subscriptionService->getById($id);
+
+            if (!$subscription) {
+                return ApiResponse::error(__('partner.subscription_not_found'), 404);
+            }
+
+            return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_details'));
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
+        }
+    }
 }
