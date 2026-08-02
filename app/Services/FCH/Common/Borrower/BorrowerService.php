@@ -101,6 +101,16 @@ class BorrowerService
             $query->where('borrowers.assign_id', $assignId);
         }
 
+        // Filter by status
+        $status = $filters['status']['value'] ?? ($filters['status'] ?? null);
+        if ($status !== null && $status !== '') {
+            if (is_array($status)) {
+                $query->whereIn('borrowers.status', $status);
+            } else {
+                $query->where('borrowers.status', $status);
+            }
+        }
+
         // Apply Search
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -155,6 +165,35 @@ class BorrowerService
                 }
             }
             unset($rawFilters['current_tier_name']);
+        }
+
+        // 4. Filter by Status
+        if (isset($rawFilters['status'])) {
+            $constraints = $rawFilters['status']['constraints'] ?? [];
+            if (!empty($constraints)) {
+                $query->where(function ($q) use ($constraints) {
+                    foreach ($constraints as $constraint) {
+                        $value = $constraint['value'] ?? null;
+                        if ($value !== null && $value !== '') {
+                            if (is_array($value)) {
+                                $q->orWhereIn('borrowers.status', $value);
+                            } else {
+                                $q->orWhere('borrowers.status', $value);
+                            }
+                        }
+                    }
+                });
+            } else {
+                $value = $rawFilters['status']['value'] ?? null;
+                if ($value !== null && $value !== '') {
+                    if (is_array($value)) {
+                        $query->whereIn('borrowers.status', $value);
+                    } else {
+                        $query->where('borrowers.status', $value);
+                    }
+                }
+            }
+            unset($rawFilters['status']);
         }
 
         // Handle Relation Sorting

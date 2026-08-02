@@ -24,6 +24,7 @@ class FetchBorrowerRequest extends FormRequest
             'per_page'          => ['nullable', 'integer', 'min:1'],
             'sort_field'        => ['nullable', 'string'],
             'sort_order'        => ['nullable', 'in:asc,desc'],
+            'status'            => ['nullable'],
         ];
     }
 }
