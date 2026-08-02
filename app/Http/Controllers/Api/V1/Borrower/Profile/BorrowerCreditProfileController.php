@@ -24,8 +24,10 @@ class BorrowerCreditProfileController extends Controller
             }
 
             $creditProfile = $borrower->creditProfile;
+          
             if (!$creditProfile) {
-                return ApiResponse::success(null, 'No credit profile found');
+                $creditProfileRequest = $borrower->creditProfileRequests;
+                return ApiResponse::success($creditProfileRequest, 'No credit profile found');
             }
 
             return ApiResponse::success(

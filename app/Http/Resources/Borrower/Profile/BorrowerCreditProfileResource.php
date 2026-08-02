@@ -4,15 +4,18 @@ namespace App\Http\Resources\Borrower\Profile;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 class BorrowerCreditProfileResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+        
         return [
             'personal_info' => $this->personal_info ?? [
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
-                'dob' => $this->borrower?->date_of_birth,
+                'dob' => $this->borrower?->date_of_birth ? Carbon::parse($this->borrower?->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,
                 'ssn' => $this->borrower?->last_4_ssn,
                 'email' => $this->borrower?->email,
                 'phone' => $this->borrower?->phone_number,
