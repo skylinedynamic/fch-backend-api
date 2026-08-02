@@ -20,7 +20,7 @@
     </p>
 
     <div class="btn-container" style="margin: 30px 0; text-align: center;">
-        <a href="{{ env('BASE_PARTNER_PORTAL', 'http://localhost:5174') }}/intake-review/credit-profile-requests/{{ $creditRequest->id }}" class="btn"
+        <a href="{{ env('APP_FRONTEND_PARTNER_URL', 'http://localhost:5174') }}/intake-review/credit-profile-requests/{{ $creditRequest->id }}" class="btn"
             style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Credit Profile Request</a>
     </div>
 @endsection
