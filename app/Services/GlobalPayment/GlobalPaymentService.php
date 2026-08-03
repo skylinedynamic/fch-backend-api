@@ -814,63 +814,8 @@ class GlobalPaymentService
                     'total_paid_users' => $partner->total_paid_users + 1,
                 ]);
 
-                // 5. Update User Status and Password
-                $user = User::where('id', $data['user_id'])->where('partner_id', $partner->id)->first();
-
-                // If not found by ID, try finding by entity reference (Employee/Borrower)
-                if (!$user && !empty($data['entity_id']) && !empty($data['entity_type'])) {
-                    $user = User::where('entity_id', $data['entity_id'])
-                        ->where('entity_type', $data['entity_type'])
-                        ->where('partner_id', $partner->id)
-                        ->first();
-                }
-
-                $plainPassword = null;
-                if ($user) {
-                    if ($user->payment_status == User::PAYMENT_STATUS_PAID && $user->start_date && $user->end_date) {
-                        $duration = $user->start_date->diffInDays($user->end_date);
-                        $newStart = $user->end_date->copy()->addDay();
-                        $newEnd = $newStart->copy()->addDays($duration);
-                        $user->start_date = $newStart;
-                        $user->end_date = $newEnd;
-                    }
-
-                    $plainPassword = bin2hex(random_bytes(4)); // 8 chars
-                    $user->update([
-                        'status' => User::STATUS['active'],
-                        'payment_status' => User::PAYMENT_STATUS_PAID,
-                        'password' => Hash::make($plainPassword),
-                        'start_date' => $user->start_date,
-                        'end_date' => $user->end_date,
-                    ]);
-                    Log::info('User activated and password set', ['user_id' => $user->id]);
-                } else {
-                    Log::warning('User not found for seat purchase activation', [
-                        'user_id' => $data['user_id'] ?? null,
-                        'entity_id' => $data['entity_id'] ?? null,
-                        'partner_id' => $partner->id
-                    ]);
-                }
-
-                // 6. Send Email
-                if ($user) {
-                    $paymentData = [
-                        'amount' => $payment->amount,
-                        'currency' => $payment->currency,
-                        'transaction_id' => $payment->transaction_id,
-                        'description' => $paymentIntent->description,
-                        'date' => $payment->transaction_date,
-                        'user_name' => $user->name,
-                        'user_email' => $user->email,
-                        'plainPassword' => $plainPassword,
-                        'user' => $user,
-                    ];
-                    try {
-                        Mail::to($user->email)->send(new PaymentSuccessUserMail($paymentData, $partner->id));
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
-                    }
-                }
+                // 5. Update Subscription status and activate/extend user dates
+                $this->subscriptionService->handleSuccessfulPayment($invoice);
 
                 DB::commit();
                 return $payment;

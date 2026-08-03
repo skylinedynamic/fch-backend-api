@@ -69,20 +69,43 @@ class CheckUserExpired extends Command
             $targetDate = Carbon::today()->addDays($generateBeforeDays)->toDateString();
             $currentMonth = Carbon::today()->format('Y-m');
 
-            // Logic: Filter active users with is_paid = 1 and end_date <= today + generate_before_days
-            // User must be Active AND Partner must be Active
-            $users = User::where('is_paid', 1)
-                ->where('status', User::STATUS['active'])
-                ->where('end_date', '<=', $targetDate)
-                ->where(function ($query) {
-                    $query->where('entity_type', Employee::class)
-                        ->orWhereNull('entity_type');
-                })
-                ->whereHas('partner', function ($query) {
-                    $query->where('is_host', 0)
-                        ->where('status', Partner::STATUS_ACTIVE);
-                })
+            // Query expiring User/Employee subscriptions from the subscriptions table
+            $subscriptions = \App\Models\Subscription\Subscription::with('entity')
+                ->whereIn('entity_type', [User::class, Employee::class])
+                ->where('status', \App\Models\Subscription\Subscription::STATUS_ACTIVE)
+                ->where('subscription_end_date', '<=', $targetDate)
                 ->get();
+
+            $users = collect();
+
+            foreach ($subscriptions as $subscription) {
+                $entity = $subscription->entity;
+                if (!$entity) {
+                    continue;
+                }
+
+                $userRecord = null;
+                if ($subscription->entity_type === User::class) {
+                    $userRecord = $entity;
+                } elseif ($subscription->entity_type === Employee::class) {
+                    $userRecord = User::where('entity_type', Employee::class)->where('entity_id', $entity->id)->first();
+                }
+
+                if (!$userRecord || $userRecord->status !== User::STATUS['active']) {
+                    continue;
+                }
+
+                $partner = $userRecord->partner;
+                if (!$partner || $partner->is_host == 1 || $partner->status !== Partner::STATUS_ACTIVE) {
+                    continue;
+                }
+
+                // Bind subscription metadata to the user object to keep loop compatibility
+                $userRecord->subscription_id = $subscription->id;
+                $userRecord->monthly_platform_fee = $subscription->monthly_platform_fee;
+
+                $users->push($userRecord);
+            }
 
             $this->info("Found " . $users->count() . " eligible users for subscription check.");
 
@@ -107,39 +130,19 @@ class CheckUserExpired extends Command
                     continue;
                 }
 
-                // Find last paid invoice to get the amount (Accurate Code Pattern)
-                $lastInvoice = Invoice::where(function ($query) use ($user) {
-                    $query->where(function ($q) use ($user) {
-                        // Case 1: Invoice stored as User
-                        $q->where('entity_type', User::class)
-                            ->where('entity_id', $user->id);
-                    })
-                        ->orWhere(function ($q) use ($user) {
-                            // Case 2: Invoice stored as Employee
-                            $q->where('entity_type', Employee::class)
-                                ->where('entity_id', $user->entity_id);
-                        });
-                })
-                    ->where('status', Invoice::STATUS_PAID)
-                    ->orderByDesc('id')
-                    ->first();
-
-                $amount = $lastInvoice ? $lastInvoice->payment_amount : 0;
-
-                if ($amount <= 0) {
-                    $this->warn("Could not determine invoice amount for user: " . $user->email . ". Skipping.");
-                    continue;
-                }
+                $amount = $user->monthly_platform_fee ?: 49.97;
 
                 try {
+                    $partner = Partner::find($user->partner_id);
                     $invoiceId = $this->invoiceService->generateInvoiceId();
                     $newInvoice = Invoice::create([
                         'invoice_id' => $invoiceId,
                         'partner_id' => $user->partner_id,
-                        'entity_type' => $user->entity_type ?? User::class,
-                        'entity_id' => $user->entity_id ?? $user->id,
-                        'customer_name' => $user->name,
-                        'email' => $user->email,
+                        'subscription_id' => $user->subscription_id,
+                        'entity_type' => Partner::class,
+                        'entity_id' => $user->partner_id,
+                        'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $user->name,
+                        'email' => $partner ? $partner->email : $user->email,
                         'payment_amount' => $amount,
                         'payment_date' => null,
                         'status' => Invoice::STATUS_UNPAID,

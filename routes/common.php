@@ -43,7 +43,6 @@ use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
@@ -353,8 +352,8 @@ Route::prefix('v1')->group(function () {
             });
         });
 
-        Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
-        Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
+        Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
+        Route::post('process-payment-for-users', [UnifiedPaymentController::class, 'processPayment']);
 
         // Unified Multi-Gateway Payment Routes
         Route::prefix('payment')->group(function () {

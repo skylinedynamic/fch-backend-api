@@ -8,6 +8,7 @@ use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\Permission;
@@ -24,6 +25,7 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Global\Auth\UserResource;
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Subscription\SubscriptionCreationService;
 
 class UserService
 {
@@ -36,6 +38,7 @@ class UserService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
+        protected SubscriptionCreationService $subscriptionCreationService,
     ) {
     }
 
@@ -72,14 +75,23 @@ class UserService
                 $this->assignRoleAndPermissions($user, $roleId);
             }
             if (isset($data['is_paid']) && $data['is_paid']) {
+                $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
+                    User::class,
+                    $user->id,
+                    $data['amount'],
+                    $data['months']
+                );
+
+                $partner = Partner::find($authUser->partner_id);
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
                     'partner_id' => $authUser->partner_id,
-                    'entity_type' => User::class,
-                    'entity_id' => $user->id,
-                    'customer_name' => $user->name,
-                    'email' => $user->email,
+                    'subscription_id' => $subscription->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $authUser->partner_id,
+                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $user->name,
+                    'email' => $partner ? $partner->email : $user->email,
                     'payment_amount' => $data['amount'],
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,

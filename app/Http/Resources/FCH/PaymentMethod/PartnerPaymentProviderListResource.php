@@ -19,6 +19,11 @@ class PartnerPaymentProviderListResource extends JsonResource
     public function toArray(Request $request): array
     {
         $linkage = $this->linkage ?? null;
+        $configuration = $linkage ? ($linkage->configuration ?? []) : [];
+        if (is_object($configuration)) {
+            $configuration = (array) $configuration;
+        }
+        $paymentMode = $configuration['payment_mode'] ?? \App\Models\PaymentMethod\PaymentProvider::MODE_SANDBOX;
 
         return [
             'id' => $this->id,
@@ -28,6 +33,7 @@ class PartnerPaymentProviderListResource extends JsonResource
             'status' => $linkage ? (bool) $linkage->status : false,
             'is_default' => $linkage ? (bool) $linkage->is_default : false,
             'is_configured' => $linkage ? (!empty($linkage->configuration)) : false,
+            'payment_mode' => $paymentMode,
         ];
     }
 }

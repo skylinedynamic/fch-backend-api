@@ -42,10 +42,15 @@ class Invoice extends Model
     ];
 
 
-    const INVOICE_TYPE_ENROLLMENT = 'enrollment';
-    const INVOICE_TYPE_INSTALLMENT = 'installment';
+    // Invoice types mirror Subscription::PHASE_* constants for full sync
+    const INVOICE_TYPE_ENROLLMENT   = 'enrollment';    // Subscription::PHASE_ENROLLMENT  — down payment
+    const INVOICE_TYPE_INSTALLMENT  = 'installment';   // Subscription::PHASE_INSTALLMENT — recurring installment
+    const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';  // Subscription::PHASE_PLATFORM_FEE — monthly platform fee
+    const INVOICE_TYPE_USER_SEAT    = 'user_seat';     // Subscription::PHASE_USER_SEAT   — monthly seat renewal
+
+    // Non-subscription invoice types
     const INVOICE_TYPE_ADDITIONAL_USER_PAYMENT = 'additional_user_payment';
-    const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
+    const INVOICE_TYPE_COMMISSION_PAYOUT       = 'commission_payout';
 
 
     protected $casts = [
@@ -68,10 +73,9 @@ class Invoice extends Model
         return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 
-    public function subscription(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->hasOne(\App\Models\Subscription\Subscription::class, 'entity_id', 'entity_id')
-            ->whereColumn('entity_type', 'entity_type');
+        return $this->belongsTo(\App\Models\Subscription\Subscription::class, 'subscription_id');
     }
 
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany

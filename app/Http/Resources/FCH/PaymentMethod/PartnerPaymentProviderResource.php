@@ -16,6 +16,9 @@ class PartnerPaymentProviderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $configuration = $this->configuration ?? [];
+        if (is_object($configuration)) {
+            $configuration = (array) $configuration;
+        }
         $paymentMode = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
 
         if (is_array($configuration)) {

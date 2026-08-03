@@ -23,7 +23,9 @@ class Subscription extends Model
     const ENROLLMENT_TYPE_MONTHLY = 'Monthly';
 
     const PHASE_ENROLLMENT = 'enrollment';
+    const PHASE_INSTALLMENT = 'installment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
+    const PHASE_USER_SEAT = 'user_seat';
 
     protected $table = 'subscriptions';
 

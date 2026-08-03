@@ -6,6 +6,8 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\Borrower\Borrower;
+use App\Models\User\User;
+use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use Stripe\PaymentIntent;
@@ -48,12 +50,19 @@ class UnifiedPaymentService
         $invoice = Invoice::findOrFail($data['invoice_id']);
         $user = auth()->user();
 
-        if ($invoice->entity_type !== $user->entity_type || (int) $invoice->entity_id !== (int) $user->entity_id) {
+        $isAuthorized = false;
+        if ($invoice->entity_type === $user->entity_type && (int) $invoice->entity_id === (int) $user->entity_id) {
+            $isAuthorized = true;
+        } elseif (in_array($invoice->entity_type, [User::class, Employee::class]) && (int) $invoice->partner_id === (int) $user->partner_id) {
+            $isAuthorized = true;
+        }
+
+        if (!$isAuthorized) {
             throw new Exception("Unauthorized invoice payment attempt.");
         }
 
         $partnerId      = $this->resolvePartnerId($invoice);
-        $receiverId     = $invoice->entity_type == Partner::class ? Partner::host()->id : $invoice->partner_id;
+        $receiverId     = in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) ? Partner::host()->id : $invoice->partner_id;
         $partnerProvider = $this->gatewayManager->resolvePartnerProvider($receiverId, $data['payment_method_id'] ?? null);
         $driver         = $this->gatewayManager->driverFor($partnerProvider);
         $providerName   = $partnerProvider->provider?->name;
@@ -102,6 +111,19 @@ class UnifiedPaymentService
                 'status'       => Invoice::STATUS_PAID,
                 'payment_date' => now(),
             ]);
+
+            // If it is a User or Employee seat invoice, update the partner's total_paid_users count on first payment
+            $subscription = $invoice->subscription_id ? \App\Models\Subscription\Subscription::find($invoice->subscription_id) : null;
+            if ($subscription && in_array($subscription->entity_type, [User::class, Employee::class])) {
+                if (!$subscription->subscription_start_date) {
+                    $partner = Partner::find($invoice->partner_id);
+                    if ($partner) {
+                        $partner->update([
+                            'total_paid_users' => $partner->total_paid_users + 1,
+                        ]);
+                    }
+                }
+            }
 
             // 4. Advance the local subscription phase and schedule next billing date
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)

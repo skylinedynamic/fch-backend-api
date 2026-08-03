@@ -5,11 +5,13 @@ namespace App\Services\FCH\Common\Employee;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
+use App\Models\Partner\Partner;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
 use App\Models\Business\Business;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Services\FCH\Subscription\SubscriptionCreationService;
 use Illuminate\Support\Facades\Mail;
 
 class EmployeeService
@@ -36,6 +39,7 @@ class EmployeeService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
+        protected SubscriptionCreationService $subscriptionCreationService,
     ) {
     }
 
@@ -158,14 +162,23 @@ class EmployeeService
             }
 
             if (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid']) {
+                $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
+                    Employee::class,
+                    $employee->id,
+                    $employeeData['amount'],
+                    (int) $employeeData['months']
+                );
+
+                $partner = Partner::find(auth()->user()->partner_id);
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
                     'partner_id' => auth()->user()->partner_id,
-                    'entity_type' => Employee::class,
-                    'entity_id' => $employee->id,
-                    'customer_name' => $employee->first_name . ' ' . $employee->last_name,
-                    'email' => $employee->email,
+                    'subscription_id' => $subscription->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => auth()->user()->partner_id,
+                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : ($employee->first_name . ' ' . $employee->last_name),
+                    'email' => $partner ? $partner->email : $employee->email,
                     'payment_amount' => $employeeData['amount'],
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,

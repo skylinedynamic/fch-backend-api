@@ -69,26 +69,14 @@ $onSuccess = function (string $command) {
 | Business Commands  —  01:00 / 13:00 window, staggered 15 min apart
 |--------------------------------------------------------------------------
 */
-Schedule::command('subscriptions:process')
+// Unified subscription lifecycle: generate invoices for all types + auto-charge due invoices
+Schedule::command('subscriptions:process-all')
     ->twiceDailyAt(1, 13, 0)
     ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('subscriptions:process'));
-
-// Auto-charge due subscription invoices via saved payment methods (runs after subscriptions:process)
-Schedule::command('subscriptions:auto-charge')
-    ->twiceDailyAt(1, 13, 15)
-    ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('subscriptions:auto-charge'))
+    ->withoutOverlapping(60)
     ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('subscriptions:auto-charge'));
-
-Schedule::command('users:check-expired')
-    ->twiceDailyAt(1, 13, 15)
-    ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('users:check-expired'));
+    ->onFailure($onFailure('subscriptions:process-all'))
+    ->onSuccess($onSuccess('subscriptions:process-all'));
 
 /*
 |--------------------------------------------------------------------------
