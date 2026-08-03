@@ -38,7 +38,6 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
             'business_start_date' => 'required|date',
-            'personal_credit_score' => 'required|integer',
         ];
     }
 
@@ -86,10 +85,6 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_industry_type.required' => __('borrower_validation.business_industry_type_required'),
             'business_industry_type.string' => __('borrower_validation.business_industry_type_string'),
             'business_industry_type.max' => __('borrower_validation.business_industry_type_max'),
-            'personal_credit_score.required' => __('borrower_validation.personal_credit_score_required'),
-            'personal_credit_score.integer' => __('borrower_validation.personal_credit_score_integer'),
-            'personal_credit_score.min' => __('borrower_validation.personal_credit_score_min'),
-            'personal_credit_score.max' => __('borrower_validation.personal_credit_score_max'),
         ];
     }
 }
