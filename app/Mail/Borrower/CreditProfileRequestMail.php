@@ -37,10 +37,13 @@ class CreditProfileRequestMail extends Mailable
 
     public function content(): Content
     {
+        $baseUrl = rtrim(config('app.frontend_partner_url'), '/');
+
         return new Content(
             view: 'emails.borrower.credit_profile_request',
             with: [
                 'creditRequest' => $this->creditProfileRequest,
+                'baseUrl' => $baseUrl,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],

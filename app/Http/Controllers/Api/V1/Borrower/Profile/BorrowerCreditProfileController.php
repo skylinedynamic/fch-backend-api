@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Borrower\Profile\BorrowerCreditProfileResource;
 use App\Mail\Borrower\UpdateCreditProfileRequestMail;
+use App\Models\Borrower\BorrowerCreditProfile;
 use App\Models\Borrower\CreditProfileRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Http\JsonResponse;
@@ -50,7 +51,7 @@ class BorrowerCreditProfileController extends Controller
                 return ApiResponse::error('Unauthorized', 401);
             }
 
-            $creditProfile = \App\Models\Borrower\BorrowerCreditProfile::where('id', $id)
+            $creditProfile = BorrowerCreditProfile::where('id', $id)
                 ->where('borrower_id', $user->entity_id)
                 ->first();
 
@@ -62,7 +63,7 @@ class BorrowerCreditProfileController extends Controller
             $host = Partner::where('is_host', 1)->first();
             if ($host && $host->email) {
                 $creditProfileRequest = CreditProfileRequest::where('borrower_id', $user->entity_id)->first();
-                Mail::to($host->email)->send(new UpdateCreditProfileRequestMail($user, $creditProfileRequest));
+                Mail::to($host->email)->send(new UpdateCreditProfileRequestMail($creditProfileRequest));
             }
 
             return ApiResponse::success(null, 'Request to update iSoftPull data has been sent successfully.');
