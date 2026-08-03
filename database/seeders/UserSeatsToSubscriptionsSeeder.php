@@ -1,18 +1,18 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
 
-return new class extends Migration
+class UserSeatsToSubscriptionsSeeder extends Seeder
 {
     /**
-     * Run the migrations.
+     * Run the database seeds.
      */
-    public function up(): void
+    public function run(): void
     {
         // 1. Fetch all users who have is_paid = 1 and end_date is set
         $paidUsers = DB::table('users')
@@ -71,16 +71,4 @@ return new class extends Migration
             }
         }
     }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        // Remove only user/employee subscriptions that don't have standard plan IDs
-        DB::table('subscriptions')
-            ->whereIn('entity_type', [User::class, Employee::class])
-            ->whereNull('subscription_plan_id')
-            ->delete();
-    }
-};
+}

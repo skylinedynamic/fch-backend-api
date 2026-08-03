@@ -107,3 +107,4 @@ class DatabaseSeeder extends Seeder
 // php artisan db:seed --class=PaymentProviderSeeder
 // php artisan db:seed --class=PartnerPaymentProviderSeeder
 // php artisan db:seed --class=NewSubscriptionPlanSeeder
+// php artisan db:seed --class=UserSeatsToSubscriptionsSeeder
