@@ -45,7 +45,7 @@ class BusinessInfoService
             "business_industry_type" => $data["business_industry_type"] ?? null,
             "business_start_date" => $data["business_start_date"] ?? null,
             "paydex_score" => $data["business_credit_score"] ?? null,
-            "fico_score" => $data["personal_credit_score"] ?? null,
+            // "fico_score" => $data["personal_credit_score"] ?? null,
         ]);
 
         return $borrower;

@@ -5,7 +5,6 @@ namespace App\Mail\Borrower;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\Borrower\CreditProfileRequest;
-use App\Models\User\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -16,13 +15,11 @@ class UpdateCreditProfileRequestMail extends Mailable
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
-    public $user;
     public $creditRequest;
     protected array $dynamicData = [];
 
-    public function __construct(User $user, ?CreditProfileRequest $creditRequest = null, ?int $partnerId = null)
+    public function __construct(CreditProfileRequest $creditRequest, ?int $partnerId = null)
     {
-        $this->user = $user;
         $this->creditRequest = $creditRequest;
         $this->setMailPartnerId($partnerId);
     }
@@ -40,11 +37,13 @@ class UpdateCreditProfileRequestMail extends Mailable
 
     public function content(): Content
     {
+        $baseUrl = rtrim(config('app.frontend_partner_url'), '/');
+
         return new Content(
             view: 'emails.borrower.update_credit_profile_request',
             with: [
-                'user' => $this->user,
                 'creditRequest' => $this->creditRequest,
+                'baseUrl' => $baseUrl,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],
