@@ -80,6 +80,7 @@ class DashboardService
             $data['invoices'] = DashboardInvoiceResource::collection(
                 $borrower->invoices()
                     ->where('is_partner_paying', false)
+                    ->where('entity_type','=',Borrower::class)
                     ->latest()
                     ->limit(5)
                     ->get()
