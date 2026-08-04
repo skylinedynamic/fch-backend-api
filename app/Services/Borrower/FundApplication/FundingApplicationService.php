@@ -31,18 +31,22 @@ class FundingApplicationService
 
     public function getFundingInfo()
     {
-        $fundingInfo = FundingApplication::where('borrower_id', auth()->user()->entity_id)
+        $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
+        $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
             ->with('borrower', 'coborrowers')
-            ->where('status', FundingApplication::ON_HOLD)
-            ->latest()
-            ->first();
+            ->where('status', FundingApplication::ON_HOLD);
+
+        if ($fundingRequestId) {
+            $query->where('funding_request_id', $fundingRequestId);
+        }
+
+        $fundingInfo = $query->latest()->first();
 
         if ($fundingInfo) {
             return $fundingInfo;
         } else {
             return Borrower::where('id', auth()->user()->entity_id)->first();
         }
-
     }
 
 
@@ -70,10 +74,15 @@ class FundingApplicationService
 
             $matchId = $data['id'] ?? null;
             if (empty($matchId)) {
-                $existing = FundingApplication::where('borrower_id', $borrowerId)
-                    ->where('status', FundingApplication::ON_HOLD)
-                    ->latest()
-                    ->first();
+                $fundingReqId = $data['funding_request_id'] ?? null;
+                $query = FundingApplication::where('borrower_id', $borrowerId)
+                    ->where('status', FundingApplication::ON_HOLD);
+
+                if ($fundingReqId) {
+                    $query->where('funding_request_id', $fundingReqId);
+                }
+
+                $existing = $query->latest()->first();
                 if ($existing) {
                     $matchId = $existing->id;
                 }

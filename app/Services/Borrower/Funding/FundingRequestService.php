@@ -165,7 +165,7 @@ class FundingRequestService
         $query = FundingRequest::query()
             ->select('funding_requests.*')
             ->leftJoin('funding_sequencings', 'funding_requests.funding_sequence_id', '=', 'funding_sequencings.id')
-            ->with(['borrower', 'fundingSequence', 'reviewer'])
+            ->with(['borrower', 'fundingSequence', 'reviewer', 'fundingApplication'])
             ->where('funding_requests.borrower_id', $borrower->id);
 
         if (!empty($filters['status'])) {
@@ -207,18 +207,34 @@ class FundingRequestService
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         // Fetch unique funding sequences used by this borrower to populate the dropdown
-        $fundingTypes = \App\Models\Funding\FundingSequencing::whereIn('id', function($q) use ($borrower) {
+        $fundingTypes = FundingSequencing::whereIn('id', function($q) use ($borrower) {
             $q->select('funding_sequence_id')
               ->from('funding_requests')
               ->where('borrower_id', $borrower->id);
         })->get(['id', 'name']);
+
+        $stats = [
+            'total_reviews' => FundingRequest::where('borrower_id', $borrower->id)->count(),
+            'approved' => FundingRequest::where('borrower_id', $borrower->id)
+                ->whereIn('status', [FundingRequest::STATUS_APPROVED, FundingRequest::STATUS_ACCEPTED])
+                ->count(),
+            'pending' => FundingRequest::where('borrower_id', $borrower->id)
+                ->whereIn('status', [FundingRequest::STATUS_PENDING, 'Pending'])
+                ->count(),
+            'rejected' => FundingRequest::where('borrower_id', $borrower->id)
+                ->where('status', FundingRequest::STATUS_REJECTED)
+                ->count(),
+        ];
 
         return $this->respondWithPaginationResource(
             $paginator,
             FundingRequestResource::class,
             'funding requests retrieved successfully.',
             200,
-            ['funding_types' => $fundingTypes]
+            [
+                'funding_types' => $fundingTypes,
+                'stats' => $stats,
+            ]
         );
     }
 
@@ -237,7 +253,7 @@ class FundingRequestService
             throw new Exception("Borrower profile not found for this user.");
         }
 
-        $review = FundingRequest::with(['borrower', 'fundingSequence', 'reviewer'])
+        $review = FundingRequest::with(['borrower', 'fundingSequence', 'reviewer', 'fundingApplication'])
             ->where('borrower_id', $borrower->id)
             ->where('id', $id)
             ->first();

@@ -3,15 +3,21 @@
 namespace App\Services\FCH\Common\FundingRequest;
 
 use App\Helpers\ApiResponse;
+use App\Mail\FundingRequest\BorrowerFundingRequestApproved;
+// use App\Mail\FundingRequest\PartnerFundingRequestApproved;
 use App\Mail\FundingRequest\UnderwritingStatusUpdated;
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\Borrower;
+use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lender\Lender;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use App\Models\ActivityLog\ActivityLog;
-use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
 class FundingRequestService
 {
@@ -56,14 +62,14 @@ class FundingRequestService
         if (in_array($sortField, $allowedSortFields)) {
             if ($sortField === 'borrower_name') {
                 $query->orderBy(
-                    \App\Models\Borrower\Borrower::select('first_name')
+                    Borrower::select('first_name')
                         ->whereColumn('borrowers.id', 'funding_requests.borrower_id')
                         ->limit(1),
                     $sortOrder
                 );
             } elseif ($sortField === 'partner_name') {
                 $query->orderBy(
-                    \App\Models\Partner\Partner::select('full_name')
+                    Partner::select('full_name')
                         ->whereColumn('partners.id', 'funding_requests.partner_id')
                         ->limit(1),
                     $sortOrder
@@ -81,7 +87,7 @@ class FundingRequestService
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         // Fetch unique funding sequences used within the current user's scope to populate the dropdown accurately
-        $fundingTypes = \App\Models\Funding\FundingSequencing::whereIn('id', function($q) use ($authUser, $isHost) {
+        $fundingTypes = FundingSequencing::whereIn('id', function($q) use ($authUser, $isHost) {
             $q->select('funding_sequence_id')
               ->from('funding_requests')
               ->when(!$isHost && isset($authUser->partner), function ($query) use ($authUser) {
@@ -152,10 +158,45 @@ class FundingRequestService
         $review->save();
 
         if ($oldStatus !== $data['status']) {
-            $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
-            if ($borrowerEmail) {
-                Mail::to($borrowerEmail)
-                    ->send(new UnderwritingStatusUpdated($review));
+            if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
+                if ($borrowerEmail) {
+                    Mail::to($borrowerEmail)->send(new BorrowerFundingRequestApproved($review));
+                }
+
+                // $partnerEmail = $review->partner->email ?? null;
+                // $host = Partner::host();
+                // $recipients = [];
+                // if ($partnerEmail) $recipients[] = $partnerEmail;
+                // if ($host && $host->email && $host->id != $review->partner_id) $recipients[] = $host->email;
+                
+                // if (!empty($recipients)) {
+                //     Mail::to(array_unique($recipients))->send(new PartnerFundingRequestApproved($review));
+                // }
+                
+                // Add in-platform notification for borrower
+                app(ActivityLogService::class)->logSystemEvent(
+                    FundingRequest::class,
+                    $review->id,
+                    $review->partner_id,
+                    $review->borrower_id,
+                    "Funding Request Approved",
+                    "Your funding request has been approved. Please proceed to complete your funding application.",
+                    'notification',
+                    [
+                        'is_internal' => false, 
+                        'visible_to_borrower' => true,
+                        'email_sent' => true,
+                        'approval_time' => Carbon::now()->toDateTimeString(),
+                        'email_delivery_status' => 'Dispatched'
+                    ]
+                );
+            } else {
+                $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
+                if ($borrowerEmail) {
+                    Mail::to($borrowerEmail)
+                        ->send(new UnderwritingStatusUpdated($review));
+                }
             }
         }
 
@@ -204,7 +245,7 @@ class FundingRequestService
         $review->assign_lender = !empty($data['lender_ids']) ? $data['lender_ids'][0] : null;
         $review->save();
 
-        $lenderNames = \App\Models\Lender\Lender::whereIn('id', $review->lender_ids)->pluck('name')->toArray();
+        $lenderNames = Lender::whereIn('id', $review->lender_ids)->pluck('name')->toArray();
         $lendersStr = empty($lenderNames) ? 'None' : implode(', ', $lenderNames);
 
         app(ActivityLogService::class)->logSystemEvent(

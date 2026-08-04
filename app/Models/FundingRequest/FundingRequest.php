@@ -3,6 +3,7 @@
 namespace App\Models\FundingRequest;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
@@ -15,12 +16,15 @@ class FundingRequest extends Model
 {
     use HasFactory, SoftDeletes;
 
-    const STATUS_PENDING = 'Funding Request Pending';
-    const STATUS_IN_PROGRESS = 'Request In Progress';
-    const STATUS_APPROVED = 'Application Request Approved';
-    const STATUS_ACCEPTED = 'Funding Request Accepted';
-    const STATUS_REJECTED = 'Request Rejected';
-    const STATUS_CANCELED = 'Request Canceled';
+    const STATUS_PENDING = 'Pending';
+    const STATUS_IN_PROGRESS = 'In Progress';
+    const STATUS_APPROVED = 'Approved';
+    const STATUS_ACCEPTED = 'Accepted';
+    const STATUS_REJECTED = 'Rejected';
+    const STATUS_CANCELED = 'Cancelled';
+    // const STATUS_APPLICATION_STARTED = 'Funding Application Started';
+    // const STATUS_APPLICATION_IN_PROGRESS = 'Funding Application In Progress';
+    // const STATUS_APPLICATION_SUBMITTED = 'Funding Application Submitted';
 
     protected $fillable = [
         'partner_id',
@@ -305,6 +309,11 @@ class FundingRequest extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function fundingApplication()
+    {
+        return $this->hasOne(FundingApplication::class, 'funding_request_id');
     }
 
     public function scopeSearch($query, $search)
