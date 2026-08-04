@@ -101,7 +101,8 @@ class DashboardService
         $data['fico_score'] = $borrower->credit_profile_updated ? $borrower->fico_score : null;
 
         // Fetch the latest active approved funding request (Not Started Funding Application)
-        $activeApprovedRequestsQuery = FundingRequest::where('borrower_id', $borrower->id)
+        $activeApprovedRequestsQuery = FundingRequest::with('fundingSequence')
+            ->where('borrower_id', $borrower->id)
             ->where('status', FundingRequest::STATUS_APPROVED)
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
@@ -115,10 +116,13 @@ class DashboardService
 
         if ($activeApprovedRequests->isNotEmpty()) {
             $data['active_approved_funding_requests'] = $activeApprovedRequests->map(function ($req) {
+                $estimatedRange = $req->fundingSequence->amount_range 
+                    ?? ($req->requested_amount ? '$' . number_format($req->requested_amount) : null);
+
                 return [
                     'id' => $req->id,
                     'requested_amount' => $req->requested_amount,
-                    'estimated_funding_range' => $req->requested_amount, // Default to requested amount
+                    'estimated_funding_range' => $estimatedRange,
                     'funding_type' => $req->funding_type,
                 ];
             })->toArray();

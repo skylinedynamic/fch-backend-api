@@ -20,11 +20,7 @@ class UnderwritingStatusUpdated extends Mailable
     public function __construct(FundingRequest $fundingRequest)
     {
         $this->fundingRequest = $fundingRequest;
-        
-        $hostPartner = Partner::where('is_host', true)->first();
-        if ($hostPartner) {
-            $this->mailPartnerId = $hostPartner->id;
-        }
+        $this->setMailPartnerId();
     }
 
     public function build()

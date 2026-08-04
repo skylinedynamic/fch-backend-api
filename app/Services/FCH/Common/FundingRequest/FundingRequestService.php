@@ -4,7 +4,7 @@ namespace App\Services\FCH\Common\FundingRequest;
 
 use App\Helpers\ApiResponse;
 use App\Mail\FundingRequest\BorrowerFundingRequestApproved;
-// use App\Mail\FundingRequest\PartnerFundingRequestApproved;
+use App\Mail\FundingRequest\PartnerFundingRequestApproved;
 use App\Mail\FundingRequest\UnderwritingStatusUpdated;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\Borrower;
@@ -158,22 +158,25 @@ class FundingRequestService
         $review->save();
 
         if ($oldStatus !== $data['status']) {
-            if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-                $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
-                if ($borrowerEmail) {
+            $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
+            if ($borrowerEmail) {
+                if ($data['status'] === FundingRequest::STATUS_APPROVED) {
                     Mail::to($borrowerEmail)->send(new BorrowerFundingRequestApproved($review));
+                } else {
+                    Mail::to($borrowerEmail)->send(new UnderwritingStatusUpdated($review));
+                }
+            }
+
+            if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                // If borrower belongs to a White-Label partner (non-host), notify the partner
+                $partner = $review->partner;
+                if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+                    $partnerEmail = $partner->email ?? $partner->contact_person_email;
+                    if ($partnerEmail) {
+                        Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review));
+                    }
                 }
 
-                // $partnerEmail = $review->partner->email ?? null;
-                // $host = Partner::host();
-                // $recipients = [];
-                // if ($partnerEmail) $recipients[] = $partnerEmail;
-                // if ($host && $host->email && $host->id != $review->partner_id) $recipients[] = $host->email;
-                
-                // if (!empty($recipients)) {
-                //     Mail::to(array_unique($recipients))->send(new PartnerFundingRequestApproved($review));
-                // }
-                
                 // Add in-platform notification for borrower
                 app(ActivityLogService::class)->logSystemEvent(
                     FundingRequest::class,
@@ -191,12 +194,6 @@ class FundingRequestService
                         'email_delivery_status' => 'Dispatched'
                     ]
                 );
-            } else {
-                $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
-                if ($borrowerEmail) {
-                    Mail::to($borrowerEmail)
-                        ->send(new UnderwritingStatusUpdated($review));
-                }
             }
         }
 
