@@ -284,7 +284,7 @@ class BorrowerService
         $isInstallment = $plan && $plan->isInstallmentPlan();
 
         $downPayment = 0.0;
-        $installmentMonths = $plan ? (int) ($plan->total_installments_count ?? 12) : 12;
+        $installmentMonths = $plan ? (int) ($plan->total_installment_count_upto ?? 12) : 12;
         $monthlyInstallmentAmount = 0.0;
         $remainingBalance = 0.0;
 
@@ -321,7 +321,7 @@ class BorrowerService
             }
             $initialInvoiceAmount = $amount;
             $installmentType = 0;
-            $installmentMonths = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
+            $installmentMonths = $plan ? (int) ($plan->total_installment_count_upto ?? 1) : 1;
         }
 
         $isCustom = false;

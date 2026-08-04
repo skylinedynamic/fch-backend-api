@@ -65,7 +65,7 @@ class ConvertLeadRequest extends BaseApiRequest
         $plan = $planId ? SubscriptionPlan::find($planId) : null;
         $isInstallment = false;
         if ($plan) {
-            $isInstallment = ($plan->total_installments_count > 1)
+            $isInstallment = ($plan->total_installment_count_upto > 1)
                 || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
         } else {
             $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
@@ -102,7 +102,7 @@ class ConvertLeadRequest extends BaseApiRequest
         $plan = $planId ? SubscriptionPlan::find($planId) : null;
         $isInstallment = false;
         if ($plan) {
-            $isInstallment = ($plan->total_installments_count > 1)
+            $isInstallment = ($plan->total_installment_count_upto > 1)
                 || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
         } else {
             $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));

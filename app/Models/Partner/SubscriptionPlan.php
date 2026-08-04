@@ -19,9 +19,9 @@ class SubscriptionPlan extends Model
         'enrollment_type_slug',
         'entity_type',
         'is_partner_paying',
-        'payment_amount',
-        'total_installments_count',
-        'subscription_period_month',
+        'total_installment_count_upto',
+        'total_seat_count',
+        'group',
         'total_amount',
         'platform_fee',
         'currency',
@@ -31,9 +31,8 @@ class SubscriptionPlan extends Model
     ];
 
     protected $casts = [
-        'total_installments_count' => 'integer',
-        'subscription_period_month' => 'integer',
-        'payment_amount' => 'decimal:2',
+        'total_installment_count_upto' => 'integer',
+        'total_seat_count' => 'integer',
         'total_amount' => 'decimal:2',
         'platform_fee' => 'decimal:2',
         'conversion_rate' => 'decimal:4',

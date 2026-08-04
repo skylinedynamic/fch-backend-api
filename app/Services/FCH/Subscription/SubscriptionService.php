@@ -442,7 +442,7 @@ class SubscriptionService
         }
 
         if ($phase === Subscription::PHASE_INSTALLMENT) {
-            $installmentCount = $subscription->installment_count ?? ($plan?->total_installments_count ?? 0);
+            $installmentCount = $subscription->installment_count ?? ($plan?->total_installment_count_upto ?? 0);
 
             if ($subscription->installments_paid < $installmentCount) {
                 // More installments remain
@@ -561,7 +561,7 @@ class SubscriptionService
                     $invoiceCount  = Invoice::where('subscription_id', $subscription->id)
                         ->whereNotIn('type', [Invoice::INVOICE_TYPE_PLATFORM_FEE])
                         ->count();
-                    $totalCount    = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installments_count ?? 0);
+                    $totalCount    = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
                     $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
                     $allowedInvoices = $hasDownPayment ? ($totalCount + 1) : $totalCount;
 

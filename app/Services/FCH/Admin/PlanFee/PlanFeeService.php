@@ -28,12 +28,18 @@ class PlanFeeService
     {
         $plan = SubscriptionPlan::findOrFail($id);
 
-        $plan->update(array_filter([
-            'total_amount' => $data['total_amount'] ?? null,
-            'platform_fee' => $data['platform_fee'] ?? null,
-        ], function ($value) {
-            return $value !== null;
-        }));
+        $updates = [];
+        if (array_key_exists('total_amount', $data)) {
+            $updates['total_amount'] = $data['total_amount'];
+        }
+        if (array_key_exists('platform_fee', $data)) {
+            $updates['platform_fee'] = $data['platform_fee'];
+        }
+        if (array_key_exists('total_installment_count_upto', $data)) {
+            $updates['total_installment_count_upto'] = $data['total_installment_count_upto'];
+        }
+
+        $plan->update($updates);
 
         return $plan;
     }

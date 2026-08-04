@@ -27,8 +27,9 @@ class SubscriptionPlanResource extends JsonResource
             'partner_type_slug' => $this->partner_type_slug,
             'enrollment_type' => $this->enrollment_type,
             'enrollment_type_slug' => $this->enrollment_type_slug,
-            'payment_amount' => (float) $this->payment_amount,
-            'total_installments_count' => $this->total_installments_count,
+            'group' => $this->group,
+            'total_seat_count' => $this->total_seat_count,
+            'total_installment_count_upto' => $this->total_installment_count_upto,
             'total_amount' => (float) $this->total_amount,
             'platform_fee' => (float) $this->platform_fee,
             'currency' => $this->currency,
@@ -40,7 +41,7 @@ class SubscriptionPlanResource extends JsonResource
             'is_installment' => $isInstallment,
             'installment_min_months' => self::INSTALLMENT_MIN_MONTHS,
             'installment_max_months' => self::INSTALLMENT_MAX_MONTHS,
-            'installment_default_months' => $this->total_installments_count ?: 12,
+            'installment_default_months' => $this->total_installment_count_upto ?: 12,
             'installment_default_down_payment' => self::INSTALLMENT_DEFAULT_DOWN_PAYMENT,
         ];
     }

@@ -230,7 +230,7 @@ class PartnerService
 
         // 3. Installment-specific or One Time Payment calculations
         $downPayment = 0.0;
-        $installmentMonths = (int) ($data['installment_months'] ?? $plan->total_installments_count ?? 1);
+        $installmentMonths = (int) ($data['installment_months'] ?? $plan->total_installment_count_upto ?? 1);
         $monthlyInstallmentAmount = 0.0;
         $remainingBalance = 0.0;
 

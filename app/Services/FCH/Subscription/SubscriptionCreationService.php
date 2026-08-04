@@ -57,9 +57,9 @@ class SubscriptionCreationService
         $data['partner_type']             = $data['partner_type'] ?? $plan?->partner_type;
         $data['enrollment_type']          = $data['enrollment_type'] ?? $plan?->enrollment_type;
         $data['installment_type']         = $data['installment_type'] ?? (($plan && $plan->isInstallmentPlan()) ? 1 : 0);
-        $data['installment_count']        = $data['installment_count'] ?? $plan?->total_installments_count ?? 0;
+        $data['installment_count']        = $data['installment_count'] ?? $plan?->total_installment_count_upto ?? 0;
         $data['monthly_platform_fee']     = $data['monthly_platform_fee'] ?? $plan?->platform_fee ?? 0;
-        $data['payable_amount']           = $data['payable_amount'] ?? $plan?->payment_amount ?? 0;
+        $data['payable_amount']           = $data['payable_amount'] ?? $plan?->total_amount ?? 0;
         $data['down_payment']             = $data['down_payment'] ?? 0;
         $data['total_subscription_amount'] = $data['total_subscription_amount'] ?? $plan?->total_amount ?? 0;
         $data['status']                   = $data['status'] ?? Subscription::STATUS_PENDING;

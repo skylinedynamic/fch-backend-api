@@ -41,7 +41,10 @@ class PlanFeeController extends Controller
 
         try {
             $plans = $this->planFeeService->getSubscriptionPlans();
-            return ApiResponse::success($plans, 'Subscription plans retrieved successfully.');
+            $groupedPlans = $plans->groupBy(function ($plan) {
+                return $plan->group ?? 'unassigned';
+            });
+            return ApiResponse::success($groupedPlans, 'Subscription plans retrieved successfully.');
         } catch (\Exception $e) {
             return ApiResponse::serverError('Failed to retrieve subscription plans: ' . $e->getMessage());
         }
@@ -72,8 +75,9 @@ class PlanFeeController extends Controller
         }
 
         $validated = $request->validate([
-            'total_amount'   => ['nullable', 'numeric', 'min:0'],
-            'platform_fee'   => ['nullable', 'numeric', 'min:0'],
+            'total_amount'                 => ['nullable', 'numeric', 'min:0'],
+            'platform_fee'                 => ['nullable', 'numeric', 'min:0'],
+            'total_installment_count_upto' => ['nullable', 'integer', 'min:1'],
         ]);
 
         try {
