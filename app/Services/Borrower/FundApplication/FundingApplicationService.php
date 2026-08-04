@@ -11,6 +11,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -65,11 +66,36 @@ class FundingApplicationService
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
 
-            if (!isset($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
-                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
+            if (empty($data['funding_request_id'])) {
+                $data['funding_request_id'] = request()->input('funding_request_id') 
+                    ?? request()->input('fundingRequestId') 
+                    ?? request()->input('id')
+                    ?? request()->route('id')
+                    ?? request()->route('fundingRequestId');
             }
-            if (!isset($data['funding_request_id']) && request()->has('funding_request_id')) {
-                $data['funding_request_id'] = request()->input('funding_request_id');
+
+            if (empty($data['funding_request_id'])) {
+                $latestReq = FundingRequest::where('borrower_id', $borrowerId)
+                    ->where('status', FundingRequest::STATUS_APPROVED)
+                    ->latest()
+                    ->first();
+                if ($latestReq) {
+                    $data['funding_request_id'] = $latestReq->id;
+                    if (empty($data['funding_sequence_id'])) {
+                        $data['funding_sequence_id'] = $latestReq->funding_sequence_id;
+                    }
+                }
+            }
+
+            if (!empty($data['funding_request_id']) && empty($data['funding_sequence_id'])) {
+                $req = FundingRequest::find($data['funding_request_id']);
+                if ($req) {
+                    $data['funding_sequence_id'] = $req->funding_sequence_id;
+                }
+            }
+
+            if (empty($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
+                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
             }
 
             $matchId = $data['id'] ?? null;

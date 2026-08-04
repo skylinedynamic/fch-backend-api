@@ -23,6 +23,8 @@ class StoreBusinessInfoRequest extends BaseApiRequest
     {
         return [
             'id' => 'nullable|exists:funding_applications,id',
+            'funding_request_id' => 'nullable',
+            'funding_sequence_id' => 'nullable',
             'full_name' => 'required|string|max:255',
             'business_name' => 'required|string|max:255',
             'business_email' => 'required|email|max:255',

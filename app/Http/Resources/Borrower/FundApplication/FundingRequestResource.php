@@ -16,6 +16,8 @@ class FundingRequestResource extends JsonResource
     {
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
+            'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
+            'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
             'requested_amount' => $this->requested_amount ?? null,
             'purpose_of_funds' => $this->purpose_of_funds ?? null,
             'approved_funding' => $this->approved_funding ?? null,
