@@ -11,7 +11,6 @@ class SubscriptionPlanResource extends JsonResource
      * Installment calculator constraints surfaced to the frontend.
      */
     private const INSTALLMENT_MIN_MONTHS = 2;
-    private const INSTALLMENT_MAX_MONTHS = 24;
     private const INSTALLMENT_DEFAULT_DOWN_PAYMENT = 0.0;
 
     /**
@@ -40,8 +39,8 @@ class SubscriptionPlanResource extends JsonResource
             'supports_installment' => $isInstallment,
             'is_installment' => $isInstallment,
             'installment_min_months' => self::INSTALLMENT_MIN_MONTHS,
-            'installment_max_months' => self::INSTALLMENT_MAX_MONTHS,
-            'installment_default_months' => $this->total_installment_count_upto ?: 12,
+            'installment_max_months' => $this->total_installment_count_upto,
+            'installment_default_months' => $this->total_installment_count_upto > 12 ? 12 : $this->total_installment_count_upto,
             'installment_default_down_payment' => self::INSTALLMENT_DEFAULT_DOWN_PAYMENT,
         ];
     }

@@ -363,7 +363,9 @@ class PartnerService
             $partnerData = $this->mapPartnerData($data);
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
             $partnerData['status'] = $isFreeTrial ? Partner::STATUS_ACTIVE : Partner::STATUS_ONBOARDING;
+
             $partnerData['total_free_users'] = isset($data['partner_type']) && $data['partner_type'] == Partner::PARTNER_TYPE_CERTIFIED ? config('app.for_free_certified_user_count') : config('app.for_free_white_level_count');
+            
             $partnerData['total_paid_users'] = 0;
 
             $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));

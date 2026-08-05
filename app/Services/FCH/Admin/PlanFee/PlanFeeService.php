@@ -38,6 +38,9 @@ class PlanFeeService
         if (array_key_exists('total_installment_count_upto', $data)) {
             $updates['total_installment_count_upto'] = $data['total_installment_count_upto'];
         }
+        if (array_key_exists('total_seat_count', $data)) {
+            $updates['total_seat_count'] = $data['total_seat_count'];
+        }
 
         $plan->update($updates);
 
