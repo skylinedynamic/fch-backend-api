@@ -372,8 +372,24 @@ class FundingApplicationController extends Controller
                 return ApiResponse::error(__('borrower.funding_application_id_required'), 400);
             }
 
+            $app = FundingApplication::where('id', $funding_application_id)
+                ->where('borrower_id', $borrowerId)
+                ->first();
+
+            if (!$app) {
+                $app = FundingApplication::where('funding_request_id', $funding_application_id)
+                    ->where('borrower_id', $borrowerId)
+                    ->latest()
+                    ->first();
+            }
+
+            $appId = $app ? $app->id : $funding_application_id;
+
+            // Ensure borrower uploaded documents are synced to the application
+            $this->fundingApplicationService->createFundingApplicationDocumentDir($appId);
+
             $documents = FundingApplicationDocument::query()
-                ->where('funding_application_id', $funding_application_id)
+                ->where('funding_application_id', $appId)
                 ->where('borrower_id', $borrowerId)
                 ->orderByDesc('created_at')
                 ->get();
