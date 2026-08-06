@@ -137,6 +137,106 @@ class FundingApplicationService
                 }
             }
 
+            // Inherit default values from Borrower if creating or field is empty
+            $borrower = Borrower::find($borrowerId);
+            if ($borrower) {
+                // Personal Info
+                if (empty($data['full_name']) && empty($existing?->full_name)) {
+                    $data['full_name'] = trim($borrower->first_name . ' ' . $borrower->last_name);
+                }
+                if (empty($data['first_name']) && empty($existing?->first_name)) {
+                    $data['first_name'] = $borrower->first_name;
+                }
+                if (empty($data['last_name']) && empty($existing?->last_name)) {
+                    $data['last_name'] = $borrower->last_name;
+                }
+                if (empty($data['phone_number']) && empty($existing?->phone_number)) {
+                    $data['phone_number'] = $borrower->phone_number;
+                }
+                if (empty($data['date_of_birth']) && empty($existing?->date_of_birth)) {
+                    $data['date_of_birth'] = $borrower->date_of_birth;
+                }
+                if (empty($data['ssn']) && empty($existing?->ssn)) {
+                    $data['ssn'] = $borrower->last_4_ssn;
+                }
+                if (empty($data['street_address']) && empty($existing?->street_address)) {
+                    $data['street_address'] = $borrower->home_address;
+                }
+                if (empty($data['country']) && empty($existing?->country)) {
+                    $data['country'] = $borrower->country;
+                }
+                if (empty($data['city']) && empty($existing?->city)) {
+                    $data['city'] = $borrower->city;
+                }
+                if (empty($data['state']) && empty($existing?->state)) {
+                    $data['state'] = $borrower->state;
+                }
+                if (empty($data['zip_code']) && empty($existing?->zip_code)) {
+                    $data['zip_code'] = $borrower->postal_code;
+                }
+                
+                // Business Info
+                if (empty($data['business_name']) && empty($existing?->business_name)) {
+                    $data['business_name'] = $borrower->business_name;
+                }
+                if (empty($data['business_email']) && empty($existing?->business_email)) {
+                    $data['business_email'] = $borrower->business_email ?? $borrower->email;
+                }
+                if (empty($data['business_phone_no']) && empty($existing?->business_phone_no)) {
+                    $data['business_phone_no'] = $borrower->business_phone ?? $borrower->phone_number;
+                }
+                if (empty($data['business_country']) && empty($existing?->business_country)) {
+                    $data['business_country'] = $borrower->business_country ?? $borrower->country;
+                }
+                if (empty($data['business_country_code']) && empty($existing?->business_country_code)) {
+                    $data['business_country_code'] = $borrower->business_country_code ?? $borrower->country_code;
+                }
+                if (empty($data['business_address']) && empty($existing?->business_address)) {
+                    $data['business_address'] = $borrower->business_address;
+                }
+                if (empty($data['business_city']) && empty($existing?->business_city)) {
+                    $data['business_city'] = $borrower->business_city;
+                }
+                if (empty($data['business_state']) && empty($existing?->business_state)) {
+                    $data['business_state'] = $borrower->business_state;
+                }
+                if (empty($data['business_postal_code']) && empty($existing?->business_postal_code)) {
+                    $data['business_postal_code'] = $borrower->business_postal_code;
+                }
+                if (empty($data['industry_type']) && empty($existing?->industry_type)) {
+                    $data['industry_type'] = $borrower->business_industry_type;
+                }
+                if (empty($data['entity_type']) && empty($existing?->entity_type)) {
+                    $data['entity_type'] = $borrower->business_entity_type;
+                }
+                if (empty($data['years_in_business']) && empty($existing?->years_in_business)) {
+                    $data['years_in_business'] = $borrower->years_in_business;
+                }
+                if (empty($data['number_of_employees']) && empty($existing?->number_of_employees)) {
+                    $data['number_of_employees'] = $borrower->number_of_employees;
+                }
+                
+                // Financial Info
+                if (empty($data['monthly_revenue']) && empty($existing?->monthly_revenue)) {
+                    $data['monthly_revenue'] = $borrower->monthly_revenue;
+                }
+                if (empty($data['annual_revenue']) && empty($existing?->annual_revenue)) {
+                    $data['annual_revenue'] = $borrower->annual_revenue;
+                }
+                if (empty($data['business_checking_start_date']) && empty($existing?->business_checking_start_date)) {
+                    $data['business_checking_start_date'] = $borrower->business_start_date;
+                }
+                if (empty($data['self_reported_personal_credit_score']) && empty($existing?->self_reported_personal_credit_score)) {
+                    $data['self_reported_personal_credit_score'] = $borrower->fico_score;
+                }
+                if (empty($data['self_reported_business_credit_score']) && empty($existing?->self_reported_business_credit_score)) {
+                    $data['self_reported_business_credit_score'] = $borrower->paydex_score;
+                }
+                if (!isset($data['has_business_debt']) && !isset($existing?->has_business_debt)) {
+                    $data['has_business_debt'] = $borrower->current_business_debt ? true : false;
+                }
+            }
+
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
                 $data
@@ -185,32 +285,32 @@ class FundingApplicationService
             // Send email if submitted
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
-                    $recipients = [];
-
-                    // Add Partner Email
+                    // Send to Partner
                     if ($fundingApplication->partner && $fundingApplication->partner->email) {
-                        $recipients[] = $fundingApplication->partner->email;
-                    }
-
-                    // Add Configured Email
-                    $host = Partner::host();
-
-                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
-                        $recipients[] = $host->email;
-                    }
-
-                    if (!empty($recipients)) {
                         try {
-                            Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
+                            Mail::to($fundingApplication->partner->email)->send(new FundingApplicationSubmittedMail($fundingApplication, $fundingApplication->partner->id));
                         } catch (\Throwable $e) {
-                            Log::error('Failed to send funding application submission email', [
+                            Log::error('Failed to send funding application submission email to partner', [
+                                'application_id' => $fundingApplication->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+
+                    // Send to Host
+                    $host = Partner::host();
+                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                        try {
+                            Mail::to($host->email)->send(new FundingApplicationSubmittedMail($fundingApplication, $host->id));
+                        } catch (\Throwable $e) {
+                            Log::error('Failed to send funding application submission email to host', [
                                 'application_id' => $fundingApplication->id,
                                 'error' => $e->getMessage()
                             ]);
                         }
                     }
                 } catch (\Throwable $e) {
-                    Log::error('Failed to send funding application submission email', [
+                    Log::error('Failed to process funding application emails', [
                         'application_id' => $fundingApplication->id,
                         'error' => $e->getMessage()
                     ]);
