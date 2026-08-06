@@ -22,8 +22,9 @@ class BorrowerFundingRequestApproved extends Mailable
     public function __construct(FundingRequest $fundingRequest)
     {
         $this->fundingRequest = $fundingRequest;
+        $this->fundingRequest->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
         $partner = $fundingRequest->partner ?? $fundingRequest->borrower?->partner;
-        if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+        if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
             $this->mailPartnerId = $partner->id;
         } else {
             $this->setMailPartnerId();

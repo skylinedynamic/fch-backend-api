@@ -52,6 +52,10 @@ class FundingRequestController extends Controller
         try {
             return $this->fundingRequestService->fundingRequestStatusUpdate($request->validated());
         } catch (\Exception $e) {
+            \Log::error('fundingRequestStatusUpdate failed: ' . $e->getMessage(), [
+                'trace'   => $e->getTraceAsString(),
+                'request' => $request->all(),
+            ]);
             return ApiResponse::serverError(__('funding_request.error_updating_status'));
         }
     }

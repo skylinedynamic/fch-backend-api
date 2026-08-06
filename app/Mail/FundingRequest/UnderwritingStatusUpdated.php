@@ -22,8 +22,9 @@ class UnderwritingStatusUpdated extends Mailable
     public function __construct(FundingRequest $fundingRequest)
     {
         $this->fundingRequest = $fundingRequest;
+        $this->fundingRequest->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
         $partner = $fundingRequest->partner ?? $fundingRequest->borrower?->partner;
-        if ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+        if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
             $this->mailPartnerId = $partner->id;
         } else {
             $this->setMailPartnerId();
@@ -35,7 +36,7 @@ class UnderwritingStatusUpdated extends Mailable
         try {
             $status = $this->fundingRequest->status;
             $partner = $this->fundingRequest->partner ?? $this->fundingRequest->borrower?->partner;
-            $partnerId = ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
+            $partnerId = ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
                 ? $partner->id
                 : getConfigPartner()->id;
 

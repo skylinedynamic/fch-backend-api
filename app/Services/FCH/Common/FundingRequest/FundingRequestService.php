@@ -17,6 +17,7 @@ use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class FundingRequestService
@@ -116,19 +117,19 @@ class FundingRequestService
     }
 
     /**
-     * Get Funding Request By ID
+     * Get Funding Request by ID
      */
-    public function getFundingRequestById($id)
+    public function getFundingRequestById(int $id)
     {
         $authUser = Auth::user();
+
         $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
-        
-        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner', 'fundingApplication'])
-            ->when(!$isHost && isset($authUser->partner), function($query) use($authUser){
-                $query->where('partner_id', $authUser->partner_id);
-            })
+
+        $review = FundingRequest::with(['borrower', 'fundingSequence', 'partner', 'fundingApplication'])
             ->where('id', $id)
-            ->first();
+            ->when(!$isHost && isset($authUser->partner), function ($q) use ($authUser) {
+                $q->where('partner_id', $authUser->partner_id);
+            })->first();
 
         if (!$review) {
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
@@ -144,12 +145,18 @@ class FundingRequestService
     {
         $authUser = Auth::user();
 
-        $review = FundingRequest::where('id', $data['id'])
+        $review = FundingRequest::with(['borrower.user', 'partner', 'fundingSequence'])
+            ->where('id', $data['id'])
             ->when(isset($authUser->partner) && $authUser->partner->is_host == 0, function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             })->first();
 
         if (!$review) {
+            Log::warning("fundingRequestStatusUpdate: Funding request not found or unauthorized.", [
+                'funding_request_id' => $data['id'] ?? null,
+                'user_id'            => $authUser?->id,
+                'partner_id'         => $authUser?->partner_id,
+            ]);
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
@@ -158,37 +165,118 @@ class FundingRequestService
         
         if ($data['status'] === FundingRequest::STATUS_APPROVED) {
             $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser->id;
+            $review->approved_by = $authUser?->id;
             $review->reject_reason = null; 
         } elseif ($data['status'] === FundingRequest::STATUS_REJECTED) {
             $review->reject_reason = $data['reject_reason'] ?? null;
             $review->approved_at = Carbon::now();
-            $review->approved_by = $authUser->id;
+            $review->approved_by = $authUser?->id;
         }
 
         $review->save();
+        $review->loadMissing(['borrower.user', 'partner', 'fundingSequence']);
+
+        $borrower = $review->borrower;
+        $partner = $review->partner ?? $borrower?->partner;
+        $hostPartner = Partner::host() ?? Partner::where('is_host', true)->first();
+
+        $borrowerEmail = $borrower?->user?->email 
+            ?? $borrower?->email 
+            ?? $borrower?->business_email;
+
+        $partnerEmail = null;
+        $isNonHostPartner = $partner && !$partner->is_host;
+        if ($isNonHostPartner) {
+            $partnerEmail = $partner->email 
+                ?? $partner->contact_person_email 
+                ?? $partner->partnerUser?->email;
+        }
+
+        $hostEmail = $hostPartner?->email ?? config('mail.from.address');
 
         if ($oldStatus !== $data['status']) {
-            $borrowerEmail = $review->borrower->user->email ?? $review->borrower->business_email;
+            Log::info("FundingRequest #{$review->id} Status Updated: '{$oldStatus}' -> '{$data['status']}'. Processing email notifications.", [
+                'funding_request_id' => $review->id,
+                'old_status'         => $oldStatus,
+                'new_status'         => $data['status'],
+                'updated_by_user_id' => $authUser?->id,
+                'borrower_id'        => $review->borrower_id,
+                'borrower_email'     => $borrowerEmail,
+                'partner_id'         => $partner?->id,
+                'partner_name'       => $partner?->company_name,
+                'partner_type'       => $partner?->partner_type,
+                'partner_email'      => $partnerEmail,
+                'is_non_host_partner'=> $isNonHostPartner,
+                'host_partner_id'    => $hostPartner?->id,
+                'host_email'         => $hostEmail,
+            ]);
+
+            // --- 1. SEND BORROWER EMAIL ---
             if ($borrowerEmail) {
-                if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-                    Mail::to($borrowerEmail)->send(new BorrowerFundingRequestApproved($review));
+                try {
+                    if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                        Log::info("FundingRequest #{$review->id}: Dispatching BorrowerFundingRequestApproved to borrower ({$borrowerEmail})");
+                        Mail::to($borrowerEmail)->send(new BorrowerFundingRequestApproved($review));
+                    } else {
+                        Log::info("FundingRequest #{$review->id}: Dispatching UnderwritingStatusUpdated ({$data['status']}) to borrower ({$borrowerEmail})");
+                        Mail::to($borrowerEmail)->send(new UnderwritingStatusUpdated($review));
+                    }
+                    Log::info("FundingRequest #{$review->id}: Successfully dispatched email to borrower ({$borrowerEmail})");
+                } catch (\Throwable $e) {
+                    Log::error("FundingRequest #{$review->id}: Failed to send email to borrower ({$borrowerEmail}). Error: {$e->getMessage()}", [
+                        'exception' => $e->getMessage(),
+                        'trace'     => $e->getTraceAsString(),
+                    ]);
+                }
+            } else {
+                Log::warning("FundingRequest #{$review->id}: Skipped borrower email - No valid email address found for borrower ID {$review->borrower_id}");
+            }
+
+            // --- 2. SEND PARTNER EMAIL (if non-host partner) ---
+            if ($isNonHostPartner) {
+                if ($partnerEmail) {
+                    try {
+                        if ($data['status'] === FundingRequest::STATUS_APPROVED) {
+                            Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved to partner ({$partnerEmail}, Partner ID: {$partner->id})");
+                            Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review));
+                            Log::info("FundingRequest #{$review->id}: Successfully dispatched PartnerFundingRequestApproved to partner ({$partnerEmail})");
+                        } else {
+                            Log::info("FundingRequest #{$review->id}: Dispatching UnderwritingStatusUpdated to partner ({$partnerEmail}, Partner ID: {$partner->id})");
+                            Mail::to($partnerEmail)->send(new UnderwritingStatusUpdated($review));
+                            Log::info("FundingRequest #{$review->id}: Successfully dispatched UnderwritingStatusUpdated to partner ({$partnerEmail})");
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error("FundingRequest #{$review->id}: Failed to send email to partner ({$partnerEmail}). Error: {$e->getMessage()}", [
+                            'partner_id' => $partner->id,
+                            'exception'  => $e->getMessage(),
+                            'trace'      => $e->getTraceAsString(),
+                        ]);
+                    }
                 } else {
-                    Mail::to($borrowerEmail)->send(new UnderwritingStatusUpdated($review));
+                    Log::warning("FundingRequest #{$review->id}: Skipped partner email - Non-host partner ID {$partner->id} ({$partner->company_name}) has no email or contact_person_email configured.");
+                }
+            } else {
+                Log::info("FundingRequest #{$review->id}: Skipped separate partner email because borrower belongs directly to Host (Partner ID: " . ($partner?->id ?? 'Host') . ", is_host: 1).");
+            }
+
+            // --- 3. SEND HOST NOTIFICATION EMAIL (for non-host partner requests or status updates) ---
+            if ($hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail) {
+                try {
+                    if ($isNonHostPartner && $data['status'] === FundingRequest::STATUS_APPROVED) {
+                        Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved notification copy to Host ({$hostEmail})");
+                        Mail::to($hostEmail)->send(new PartnerFundingRequestApproved($review));
+                        Log::info("FundingRequest #{$review->id}: Successfully dispatched notification to Host ({$hostEmail})");
+                    }
+                } catch (\Throwable $e) {
+                    Log::error("FundingRequest #{$review->id}: Failed to send notification to Host ({$hostEmail}). Error: {$e->getMessage()}", [
+                        'exception' => $e->getMessage(),
+                        'trace'     => $e->getTraceAsString(),
+                    ]);
                 }
             }
 
+            // In-platform activity notification for borrower
             if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-                // If borrower belongs to a White-Label partner (non-host), notify the partner
-                $partner = $review->partner;
-                if ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-                    $partnerEmail = $partner->email ?? $partner->contact_person_email;
-                    if ($partnerEmail) {
-                        Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review));
-                    }
-                }
-
-                // Add in-platform notification for borrower
                 app(ActivityLogService::class)->logSystemEvent(
                     FundingRequest::class,
                     $review->id,
@@ -200,7 +288,7 @@ class FundingRequestService
                     [
                         'is_internal' => false, 
                         'visible_to_borrower' => true,
-                        'email_sent' => true,
+                        'email_sent' => !empty($borrowerEmail),
                         'approval_time' => Carbon::now()->toDateTimeString(),
                         'email_delivery_status' => 'Dispatched'
                     ]
