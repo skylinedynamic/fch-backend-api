@@ -137,6 +137,7 @@ class FundingApplication extends Model
 
     // Status Constants
     public const ON_HOLD = 'On Hold';
+    public const DRAFT = 'Draft';
     public const PENDING = 'Submitted – Pending Review';
     public const SUBMITTED = 'Submitted (Received)';
     public const UNDERWRITING_REVIEW = 'Underwriting Review';
@@ -174,6 +175,7 @@ class FundingApplication extends Model
     public const FUNDED_CLASS = 'success';
     public const CLOSED_COMPLETED_CLASS = 'secondary';
     public const ON_HOLD_CLASS = 'warning';
+    public const DRAFT_CLASS = 'secondary';
     public const DENIED_CLASS = 'danger';
 
     public const STATUS_CLASS = [
@@ -194,6 +196,7 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED_CLASS,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED_CLASS,
         self::ON_HOLD => self::ON_HOLD_CLASS,
+        self::DRAFT => self::DRAFT_CLASS,
         self::DENIED => self::DENIED_CLASS,
     ];
 
@@ -215,6 +218,7 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::ON_HOLD => self::ON_HOLD,
+        self::DRAFT => self::DRAFT,
         self::DENIED => self::DENIED,
     ];
 

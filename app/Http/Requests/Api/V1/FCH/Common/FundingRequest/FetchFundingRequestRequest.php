@@ -21,6 +21,7 @@ class FetchFundingRequestRequest extends BaseApiRequest
             'sort_field'            => ['nullable', 'string'],
             'sort_order'            => ['nullable', 'in:asc,desc'],
             'status'                => ['nullable', 'string'],
+            'application_status'    => ['nullable', 'string'],
             'funding_sequence_id'   => ['nullable', 'integer'],
             'borrower_id'           => ['nullable', 'integer'],
         ];

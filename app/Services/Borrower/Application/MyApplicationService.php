@@ -35,7 +35,8 @@ class MyApplicationService
     public function fundingApplicationList(array $filters)
     {
         $user = Auth::user();
-        $query = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
+        $query = FundingApplication::with(['borrower', 'fundingSequence'])
+                ->where('status', '!=', FundingApplication::ON_HOLD)
                 ->where('borrower_id', $user->entity_id)
                 ->latest();
 

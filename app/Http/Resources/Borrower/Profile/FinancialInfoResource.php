@@ -16,7 +16,7 @@ class FinancialInfoResource extends JsonResource
     {
         return [
             'currency' => $this->currency ?? null,
-            'years_in_business' => $this->years_in_business ?? null,
+            'years_in_business' => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue' => $this->monthly_revenue ?? null,
             'annual_revenue' => $this->annual_revenue ?? null,
             'annual_personal_income' => $this->annual_personal_income ?? null,

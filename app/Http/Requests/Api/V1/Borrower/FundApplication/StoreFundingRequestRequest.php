@@ -23,6 +23,8 @@ class StoreFundingRequestRequest extends BaseApiRequest
     {
         return [
             'id' => 'nullable|exists:funding_applications,id',
+            'funding_request_id' => 'nullable',
+            'funding_sequence_id' => 'nullable',
             'requested_amount' => 'required|numeric|min:0',
             'purpose_of_funds' => 'required|string|max:500',
             'approved_funding' => 'required|string|max:255',

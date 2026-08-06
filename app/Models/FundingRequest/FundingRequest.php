@@ -3,6 +3,7 @@
 namespace App\Models\FundingRequest;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Lender\Lender;
 use App\Models\Partner\Partner;
@@ -15,12 +16,16 @@ class FundingRequest extends Model
 {
     use HasFactory, SoftDeletes;
 
-    const STATUS_PENDING = 'Funding Request Pending';
-    const STATUS_IN_PROGRESS = 'Request In Progress';
-    const STATUS_APPROVED = 'Application Request Approved';
-    const STATUS_ACCEPTED = 'Funding Request Accepted';
-    const STATUS_REJECTED = 'Request Rejected';
-    const STATUS_CANCELED = 'Request Canceled';
+    const STATUS_PENDING = 'Pending';
+    const STATUS_IN_PROGRESS = 'In Progress';
+    const STATUS_APPROVED = 'Approved';
+    const STATUS_ACCEPTED = 'Accepted';
+    const STATUS_REJECTED = 'Rejected';
+    const STATUS_CANCELED = 'Cancelled';
+    const APPLICATION_STATUS_NOT_STARTED = 'Not Started';
+    // const STATUS_APPLICATION_STARTED = 'Funding Application Started';
+    // const STATUS_APPLICATION_IN_PROGRESS = 'Funding Application In Progress';
+    // const STATUS_APPLICATION_SUBMITTED = 'Funding Application Submitted';
 
     protected $fillable = [
         'partner_id',
@@ -307,6 +312,11 @@ class FundingRequest extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function fundingApplication()
+    {
+        return $this->hasOne(FundingApplication::class, 'funding_request_id')->latestOfMany();
+    }
+
     public function scopeSearch($query, $search)
     {
         if (!empty($search)) {
@@ -331,7 +341,20 @@ class FundingRequest extends Model
                 ->orWhere('funding_type', 'like', "%{$search}%")
                 ->orWhere('use_of_funds', 'like', "%{$search}%")
                 ->orWhere('requested_amount', 'like', "%{$search}%")
-                ->orWhere('status', 'like', "%{$search}%");
+                ->orWhere('status', 'like', "{$search}%")
+                
+                // Search funding application status
+                ->orWhereHas('fundingApplication', function ($qApp) use ($search) {
+                    $qApp->where('status', 'like', "{$search}%");
+                });
+
+                // If search string matches "Not Started", include approved requests without application
+                if (stripos(self::APPLICATION_STATUS_NOT_STARTED, $search) !== false) {
+                    $q->orWhere(function ($sq) {
+                        $sq->where('status', self::STATUS_APPROVED)
+                           ->doesntHave('fundingApplication');
+                    });
+                }
 
                 // Search matching lenders
                 $lenderIds = \App\Models\Lender\Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();

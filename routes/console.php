@@ -81,6 +81,14 @@ Schedule::command('users:check-expired')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('users:check-expired'));
 
+
+#SCRUM-67
+// Schedule::command('funding:application-reminders')
+//     ->dailyAt('09:00')
+//     ->timezone($scheduleTimezone)
+//     ->withoutOverlapping(30)
+//     ->onFailure($onFailure('funding:application-reminders'));
+
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat

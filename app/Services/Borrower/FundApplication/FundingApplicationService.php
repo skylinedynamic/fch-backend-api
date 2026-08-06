@@ -11,6 +11,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -31,18 +32,22 @@ class FundingApplicationService
 
     public function getFundingInfo()
     {
-        $fundingInfo = FundingApplication::where('borrower_id', auth()->user()->entity_id)
-            ->with('borrower', 'coborrowers')
-            ->where('status', FundingApplication::ON_HOLD)
-            ->latest()
-            ->first();
+        $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
+        $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
+            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
+            ->where('status', FundingApplication::ON_HOLD);
+
+        if ($fundingRequestId) {
+            $query->where('funding_request_id', $fundingRequestId);
+        }
+
+        $fundingInfo = $query->latest()->first();
 
         if ($fundingInfo) {
             return $fundingInfo;
         } else {
             return Borrower::where('id', auth()->user()->entity_id)->first();
         }
-
     }
 
 
@@ -61,21 +66,74 @@ class FundingApplicationService
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
 
-            if (!isset($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
-                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
+            if (empty($data['funding_request_id'])) {
+                $data['funding_request_id'] = request()->input('funding_request_id') 
+                    ?? request()->input('fundingRequestId') 
+                    ?? request()->input('id')
+                    ?? request()->route('id')
+                    ?? request()->route('fundingRequestId');
             }
-            if (!isset($data['funding_request_id']) && request()->has('funding_request_id')) {
-                $data['funding_request_id'] = request()->input('funding_request_id');
+
+            if (empty($data['funding_request_id'])) {
+                $latestReq = FundingRequest::where('borrower_id', $borrowerId)
+                    ->where('status', FundingRequest::STATUS_APPROVED)
+                    ->latest()
+                    ->first();
+                if ($latestReq) {
+                    $data['funding_request_id'] = $latestReq->id;
+                    if (empty($data['funding_sequence_id'])) {
+                        $data['funding_sequence_id'] = $latestReq->funding_sequence_id;
+                    }
+                }
+            }
+
+            $req = null;
+            if (!empty($data['funding_request_id'])) {
+                $req = FundingRequest::with('fundingSequence')->find($data['funding_request_id']);
+                if ($req && empty($data['funding_sequence_id'])) {
+                    $data['funding_sequence_id'] = $req->funding_sequence_id;
+                }
+            }
+
+            if (empty($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
+                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
             }
 
             $matchId = $data['id'] ?? null;
+            $existing = null;
             if (empty($matchId)) {
-                $existing = FundingApplication::where('borrower_id', $borrowerId)
-                    ->where('status', FundingApplication::ON_HOLD)
-                    ->latest()
-                    ->first();
+                $fundingReqId = $data['funding_request_id'] ?? null;
+                $query = FundingApplication::where('borrower_id', $borrowerId)
+                    ->where('status', FundingApplication::ON_HOLD);
+
+                if ($fundingReqId) {
+                    $query->where('funding_request_id', $fundingReqId);
+                }
+
+                $existing = $query->latest()->first();
                 if ($existing) {
                     $matchId = $existing->id;
+                }
+            } else {
+                $existing = FundingApplication::find($matchId);
+            }
+
+            // Inherit default values from FundingRequest if creating or field is empty
+            if ($req) {
+                if (!isset($data['requested_amount']) && empty($existing?->requested_amount)) {
+                    $data['requested_amount'] = $req->requested_amount;
+                }
+                if (!isset($data['purpose_of_funds']) && empty($existing?->purpose_of_funds)) {
+                    $data['purpose_of_funds'] = $req->use_of_funds;
+                }
+                if (!isset($data['approved_funding']) && empty($existing?->approved_funding) && $req->fundingSequence) {
+                    $data['approved_funding'] = $req->fundingSequence->name;
+                }
+                if (!isset($data['preferred_funding_type']) && empty($existing?->preferred_funding_type)) {
+                    $data['preferred_funding_type'] = $req->funding_type;
+                }
+                if (!isset($data['timeframe_needed']) && empty($existing?->timeframe_needed)) {
+                    $data['timeframe_needed'] = $req->estimated_speed;
                 }
             }
 
