@@ -118,9 +118,10 @@ class UnifiedPaymentService
                 if (!$subscription->subscription_start_date) {
                     $partner = Partner::find($invoice->partner_id);
                     if ($partner) {
-                        $partner->update([
-                            'total_paid_users' => $partner->total_paid_users + 1,
-                        ]);
+                        $partnerSubscription = $partner->subscription;
+                        if ($partnerSubscription) {
+                            $partnerSubscription->increment('user_seats');
+                        }
                     }
                 }
             }

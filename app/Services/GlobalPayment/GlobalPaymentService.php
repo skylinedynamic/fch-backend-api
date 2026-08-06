@@ -809,10 +809,11 @@ class GlobalPaymentService
                     'User Purchase Successful'
                 );
 
-                // 4. Update Partner Paid User Count
-                $partner->update([
-                    'total_paid_users' => $partner->total_paid_users + 1,
-                ]);
+                // 4. Update Partner Subscription Seats Count
+                $partnerSubscription = $partner->subscription;
+                if ($partnerSubscription) {
+                    $partnerSubscription->increment('user_seats');
+                }
 
                 // 5. Update Subscription status and activate/extend user dates
                 $this->subscriptionService->handleSuccessfulPayment($invoice);

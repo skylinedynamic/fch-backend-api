@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Invoice;
 
+use App\Models\Invoice\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -32,16 +33,16 @@ class InvoiceDetailResource extends JsonResource
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->setTimezone($timezone)->format('Y-m-d') : null,
             'status' => $this->status,
-            'type' => $this->type,
+            'type' => ($this->type === Invoice::INVOICE_TYPE_ENROLLMENT && $this->relationLoaded('subscription') && $this->subscription && (int) $this->subscription->installment_type === 1) ? ucwords(Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')' : ucwords(str_replace('_', ' ', $this->type)),
             'note' => $this->note,
             'details' => $this->details,
-            'enrollment_type' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
-                ? 'Commission Payout'
+            'enrollment_type' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+                ? ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT))
                 : $this->subscription?->enrollment_type,
-            'monthly_platform_fee' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+            'monthly_platform_fee' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
                 ? null
                 : $this->subscription?->monthly_platform_fee,
-            'payable_amount_sub' => $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+            'payable_amount_sub' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
                 ? $this->payment_amount
                 : $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
 
@@ -49,7 +50,6 @@ class InvoiceDetailResource extends JsonResource
             'name' => $this->borrower
                 ? $this->borrower->full_name
                 : ($this->partner?->full_name ?? $this->partner?->company_name),
-            'email' => $this->borrower?->email ?? $this->partner?->email,
             'phone' => $this->borrower?->phone_number ?? $this->partner?->phone_number,
             'address' => $this->borrower
                 ? ($this->borrower->business_address_line_1 ?: $this->borrower->business_postal_code)

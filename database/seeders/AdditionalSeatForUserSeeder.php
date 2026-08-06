@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Partner\Partner;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,7 +19,7 @@ class AdditionalSeatForUserSeeder extends Seeder
             [
                 'partner_type' => 'White-Label Partner (WL)',
                 'partner_type_slug' => 'white-label-partner-wl',
-                'group' => 'user_seat',
+                'group' => SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT,
                 'entity_type' => null,
                 'enrollment_type' => 'Monthly',
                 'enrollment_type_slug' => Str::slug('Monthly'),
@@ -34,7 +35,7 @@ class AdditionalSeatForUserSeeder extends Seeder
             [
                 'partner_type' => 'Certified Partner',
                 'partner_type_slug' => 'certified-partner',
-                'group' => 'user_seat',
+                'group' => SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT,
                 'entity_type' => null,
                 'enrollment_type' => 'Monthly',
                 'enrollment_type_slug' => Str::slug('Monthly'),

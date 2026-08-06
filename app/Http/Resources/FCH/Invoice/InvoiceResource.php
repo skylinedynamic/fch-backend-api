@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Invoice;
 
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -29,7 +30,7 @@ class InvoiceResource extends JsonResource
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'payment_date' => toTimezone($this->payment_date),
             'status' => $this->status,
-            'type' => $this->type,
+            'type' => ($this->type === Invoice::INVOICE_TYPE_ENROLLMENT && $this->relationLoaded('subscription') && $this->subscription && (int) $this->subscription->installment_type === 1) ? ucwords(Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')' : ucwords(str_replace('_', ' ', $this->type)),
             'details' => $this->details,
             // 'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'branding' => $this->resolveBrandingData(),

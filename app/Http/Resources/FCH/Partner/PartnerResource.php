@@ -45,8 +45,8 @@ class PartnerResource extends JsonResource
             'tax_id' => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website' => $this->website ?? null, // Assuming model accessor or field exists
             'is_host' => $this->is_host,
-            'total_paid_users' => $this->total_paid_users,
-            'total_free_users' => $this->total_free_users,
+            'user_seats' => $this->relationLoaded('subscription') ? ($this->subscription?->user_seats ?? 3) : 3,
+            'per_seat_amount' => $this->relationLoaded('subscription') ? ($this->subscription?->per_seat_amount ?? 49.00) : 49.00,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
             'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->toDateString() : null,
             'created_at' => $this->created_at

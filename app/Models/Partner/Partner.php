@@ -72,8 +72,6 @@ class Partner extends Model
         'partner_domain',
         'borrower_domain',
         'partner_subdomain',
-        'total_free_users',
-        'total_paid_users',
         'is_free_trail',
         'free_trail_end_date',
         'stripe_customer_id',

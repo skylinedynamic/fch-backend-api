@@ -5,6 +5,8 @@ namespace App\Models\Invoice;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
+use App\Models\Payment\Payment;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,14 +45,13 @@ class Invoice extends Model
 
 
     // Invoice types mirror Subscription::PHASE_* constants for full sync
-    const INVOICE_TYPE_ENROLLMENT   = 'enrollment';    // Subscription::PHASE_ENROLLMENT  — down payment
-    const INVOICE_TYPE_INSTALLMENT  = 'installment';   // Subscription::PHASE_INSTALLMENT — recurring installment
-    const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';  // Subscription::PHASE_PLATFORM_FEE — monthly platform fee
-    const INVOICE_TYPE_USER_SEAT    = 'user_seat';     // Subscription::PHASE_USER_SEAT   — monthly seat renewal
+    const INVOICE_TYPE_ENROLLMENT = 'enrollment';
+    const INVOICE_TYPE_DOWN_PAYMENT = 'down_payment';
+    const INVOICE_TYPE_INSTALLMENT = 'installment';
+    const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';
+    const INVOICE_TYPE_USER_SEAT = 'user_seat';
+    const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
 
-    // Non-subscription invoice types
-    const INVOICE_TYPE_ADDITIONAL_USER_PAYMENT = 'additional_user_payment';
-    const INVOICE_TYPE_COMMISSION_PAYOUT       = 'commission_payout';
 
 
     protected $casts = [
@@ -60,12 +61,12 @@ class Invoice extends Model
 
     public function borrower(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\Borrower\Borrower::class, 'borrower_id');
+        return $this->belongsTo(Borrower::class, 'borrower_id');
     }
 
     public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     public function entity()
@@ -75,12 +76,12 @@ class Invoice extends Model
 
     public function subscription(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\Subscription\Subscription::class, 'subscription_id');
+        return $this->belongsTo(Subscription::class, 'subscription_id');
     }
 
     public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(\App\Models\Payment\Payment::class, 'invoice_id');
+        return $this->hasMany(Payment::class, 'invoice_id');
     }
 
     /**

@@ -63,8 +63,6 @@ class StorePartnerRequest extends BaseApiRequest
             'company_logo' => ['nullable'], // 2MB max
             'partner_image' => ['nullable'], // 2MB max
             'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
-            'total_free_users' => ['nullable', 'integer', 'min:0'],
-            'total_paid_users' => ['nullable', 'integer', 'min:0'],
             'partner_domain' => [
                 'required',
                 'string',

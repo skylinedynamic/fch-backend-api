@@ -98,7 +98,8 @@ class DatabaseSeeder extends Seeder
             LenderFundingPermissionSeeder::class,
             FundingRequestPermissionSeeder::class,
             UpdateDomainConfigurationPermissionSeeder::class,
-            AdditionalSeatForUserSeeder::class
+            AdditionalSeatForUserSeeder::class,
+            SubscriptionSeatsSeeder::class
         ]);
     }
 }
@@ -111,3 +112,4 @@ class DatabaseSeeder extends Seeder
 // php artisan db:seed --class=UserSeatsToSubscriptionsSeeder
 // php artisan db:seed --class = ModifySubscriptionPlansSeeder
 // php artisan db:seed --class = AdditionalSeatForUserSeeder
+// php artisan db:seed --class = SubscriptionSeatsSeeder

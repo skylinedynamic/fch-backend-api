@@ -49,6 +49,14 @@ class SubscriptionPlan extends Model
 
     const INSTALLMENT_PLAN = 'installment';
 
+
+
+    //subscription plan group
+    const SUBSCRIPTION_PLAN_PARTNER_ENROLLMENT = 'partner_enrollment';
+    const SUBSCRIPTION_PLAN_BORROWER_ENROLLMENT = 'borrower_enrollment';
+    const SUBSCRIPTION_PLAN_BORROWER_FEE = 'borrower_fee';
+    const SUBSCRIPTION_PLAN_USER_SEAT = 'user_seat';
+
     /**
      * Determine whether this plan is an installment plan.
      */

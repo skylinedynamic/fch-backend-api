@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +19,7 @@ class ModifySubscriptionPlansSeeder extends Seeder
         // 1. Update borrower_fee plans
         DB::table('subscription_plans')
             ->where('enrollment_type_slug', 'fixed-enrollment')
-            ->update(['entity_type' => null, 'group' => 'borrower_fee']);
+            ->update(['entity_type' => null, 'group' => SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE]);
 
         // 2. Update Partner enrollment plans
         DB::table('subscription_plans')
@@ -27,7 +28,7 @@ class ModifySubscriptionPlansSeeder extends Seeder
             ->chunkById(100, function ($plans) {
                 foreach ($plans as $plan) {
                     $updates = [
-                        'group' => 'partner_enrollment',
+                        'group' => SubscriptionPlan::SUBSCRIPTION_PLAN_PARTNER_ENROLLMENT,
                     ];
 
                     if ($plan->enrollment_type_slug === 'one-time-payment') {
@@ -50,7 +51,7 @@ class ModifySubscriptionPlansSeeder extends Seeder
                 foreach ($plans as $plan) {
                     $updates = [];
 
-                    $updates['group'] = 'borrower_enrollment';
+                    $updates['group'] = SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_ENROLLMENT;
                     if ($plan->enrollment_type_slug === 'one-time-payment') {
                         $updates['total_installment_count_upto'] = 1;
                     } elseif ($plan->enrollment_type_slug === 'installment') {

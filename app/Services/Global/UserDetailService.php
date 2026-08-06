@@ -28,7 +28,7 @@ class UserDetailService
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases'
+            'partner.subscription'
         ]);
 
         return ApiResponse::success([

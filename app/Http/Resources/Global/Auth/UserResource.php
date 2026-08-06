@@ -45,10 +45,13 @@ class UserResource extends JsonResource
         // Determine subscription based on user type
         $subscription = null;
         if ($this->entity_type === Borrower::class) {
-            $subscription = $this->entity?->subscription;
+            if ($this->relationLoaded('entity') && $this->entity) {
+                $subscription = $this->entity->relationLoaded('subscription') ? $this->entity->subscription : null;
+            }
         } else {
-            // For Partners, Employees, or users with null entity_type but valid partner_id
-            $subscription = $this->partner?->subscription;
+            if ($this->relationLoaded('partner') && $this->partner) {
+                $subscription = $this->partner->relationLoaded('subscription') ? $this->partner->subscription : null;
+            }
         }
 
         $partnerInvoiceStatus = null;
@@ -79,18 +82,18 @@ class UserResource extends JsonResource
             'subscription_status' => $subscription?->status,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
             'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $subscription?->phases?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $subscription?->phases?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $subscription?->phases?->enrollment_completed_at?->toDateString(),
+            'next_installment_date' => $subscription?->next_installment_date?->toDateString(),
+            'next_platform_fee_date' => $subscription?->next_platform_fee_date?->toDateString(),
+            'enrollment_completed_at' => $subscription?->enrollment_completed_at?->toDateString(),
             'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
             'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
-            'total_paid_users' => $this->partner?->total_paid_users,
-            'total_free_users' => $this->partner?->total_free_users,
+            'user_seats' => $subscription?->user_seats ?? 3,
+            'per_seat_amount' => $subscription?->per_seat_amount ?? 49,
             'credit_profile_updated' => $this->borrower?->credit_profile_updated,
             'is_paid' => $this->is_paid,
             'start_date' => $this->start_date ? $this->start_date->format('Y-m-d') : null,
             'end_date' => $this->end_date ? $this->end_date->format('Y-m-d') : null,
-            'phase' => $subscription?->phases?->phase,
+            'phase' => $subscription?->current_phase,
             'status' => $this->status,
             'image' => $this->getEntityImage(),
             'role_id' => $roleId,

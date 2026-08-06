@@ -39,7 +39,8 @@ class InvoiceService
         $query = Invoice::query()
             ->with([
                 'partner:id,full_name',
-                'borrower:id,first_name,last_name'
+                'borrower:id,first_name,last_name',
+                'subscription'
             ])
             ->select('invoices.*');
 

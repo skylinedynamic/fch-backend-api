@@ -40,7 +40,7 @@ class UserSeatsToSubscriptionsSeeder extends Seeder
                     ->orderBy('id', 'desc')
                     ->first();
 
-                $amount = $lastInvoice ? $lastInvoice->payment_amount : (double) config('app.per_user_price', 49.97);
+                $amount = $lastInvoice ? $lastInvoice->payment_amount : 49.00;
 
                 DB::table('subscriptions')->insert([
                     'entity_type' => $entityType,

@@ -48,6 +48,29 @@ class UserService
     public function create(array $data, ?int $roleId = null): User
     {
         $authUser = auth()->user();
+        $partnerId = $authUser->partner_id;
+
+        // Check user limit if not host and not purchasing a paid seat
+        $partner = Partner::find($partnerId);
+        if ($partner && !$partner->is_host) {
+            $isPaid = isset($data['is_paid']) && $data['is_paid'];
+            if (!$isPaid) {
+                $currentCount = User::where('partner_id', $partnerId)
+                    ->where(function ($query) {
+                        $query->whereIn('entity_type', [Partner::class, Employee::class])
+                            ->orWhereNull('entity_type');
+                    })
+                    ->count();
+
+                $partnerSub = $partner->subscription;
+                $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
+
+                if ($currentCount >= $allowedSeats) {
+                    throw new \Exception('User limit reached. Please purchase additional seats.');
+                }
+            }
+        }
+
         $plainPassword = $data['password'] ?? bin2hex(random_bytes(4));
 
         DB::beginTransaction();
@@ -75,14 +98,19 @@ class UserService
                 $this->assignRoleAndPermissions($user, $roleId);
             }
             if (isset($data['is_paid']) && $data['is_paid']) {
+                $partner = Partner::find($authUser->partner_id);
+                $partnerSub = $partner ? $partner->subscription : null;
+                $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;
+                $months = (int) ($data['months'] ?? 1);
+                $amount = $perSeatAmount * $months;
+
                 $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
                     User::class,
                     $user->id,
-                    $data['amount'],
-                    $data['months']
+                    $amount,
+                    $months
                 );
 
-                $partner = Partner::find($authUser->partner_id);
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
@@ -92,7 +120,7 @@ class UserService
                     'entity_id' => $authUser->partner_id,
                     'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $user->name,
                     'email' => $partner ? $partner->email : $user->email,
-                    'payment_amount' => $data['amount'],
+                    'payment_amount' => $amount,
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,
                     'created_by' => Auth::id(),

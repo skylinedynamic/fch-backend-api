@@ -109,6 +109,29 @@ class EmployeeService
      */
     public function create(array $employeeData, ?array $userData = null, ?int $roleId = null): array
     {
+        $partnerId = auth()->user()->partner_id;
+
+        // Check user limit if not host and creating a user account and not purchasing a paid seat
+        $partner = Partner::find($partnerId);
+        if ($partner && !$partner->is_host && $userData) {
+            $isPaid = isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'];
+            if (!$isPaid) {
+                $currentCount = User::where('partner_id', $partnerId)
+                    ->where(function ($query) {
+                        $query->whereIn('entity_type', [Partner::class, Employee::class])
+                            ->orWhereNull('entity_type');
+                    })
+                    ->count();
+
+                $partnerSub = $partner->subscription;
+                $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
+
+                if ($currentCount >= $allowedSeats) {
+                    throw new \Exception('User limit reached. Please purchase additional seats.');
+                }
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -162,14 +185,19 @@ class EmployeeService
             }
 
             if (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid']) {
+                $partner = Partner::find(auth()->user()->partner_id);
+                $partnerSub = $partner ? $partner->subscription : null;
+                $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;
+                $months = (int) ($employeeData['months'] ?? 1);
+                $amount = $perSeatAmount * $months;
+
                 $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
                     Employee::class,
                     $employee->id,
-                    $employeeData['amount'],
-                    (int) $employeeData['months']
+                    $amount,
+                    $months
                 );
 
-                $partner = Partner::find(auth()->user()->partner_id);
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
@@ -179,7 +207,7 @@ class EmployeeService
                     'entity_id' => auth()->user()->partner_id,
                     'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : ($employee->first_name . ' ' . $employee->last_name),
                     'email' => $partner ? $partner->email : $employee->email,
-                    'payment_amount' => $employeeData['amount'],
+                    'payment_amount' => $amount,
                     'payment_date' => null,
                     'status' => Invoice::STATUS_UNPAID,
                     'created_by' => Auth::id(),

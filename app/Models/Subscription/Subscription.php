@@ -22,6 +22,7 @@ class Subscription extends Model
     const ENROLLMENT_TYPE_PAYMENT_PLAN = 'Payment Plan';
     const ENROLLMENT_TYPE_MONTHLY = 'Monthly';
 
+
     const PHASE_ENROLLMENT = 'enrollment';
     const PHASE_INSTALLMENT = 'installment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
@@ -54,6 +55,8 @@ class Subscription extends Model
         'next_installment_date',
         'next_platform_fee_date',
         'enrollment_completed_at',
+        'user_seats',
+        'per_seat_amount',
     ];
 
     protected $casts = [
@@ -73,6 +76,8 @@ class Subscription extends Model
         'next_installment_date' => 'date',
         'next_platform_fee_date' => 'date',
         'enrollment_completed_at' => 'datetime',
+        'user_seats' => 'integer',
+        'per_seat_amount' => 'decimal:2',
     ];
 
     public function partner()

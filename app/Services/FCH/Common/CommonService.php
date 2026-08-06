@@ -48,9 +48,12 @@ class CommonService
                 })
                 ->count();
 
+            $partnerSubscription = $user->partner->subscription;
+            $perSeatPrice = $partnerSubscription ? $partnerSubscription->per_seat_amount : 49.00;
+
             return [
                 'count' => $count,
-                'per_user_price' => config('app.per_user_price'),
+                'per_user_price' => $perSeatPrice,
             ];
         }
 
