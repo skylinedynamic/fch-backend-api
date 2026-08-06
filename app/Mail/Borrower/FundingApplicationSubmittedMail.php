@@ -37,8 +37,10 @@ class FundingApplicationSubmittedMail extends Mailable
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        $this->dynamicData['applicationUrl'] = concatUrl(getPartnerDomain(), 'intake-review/funding-request/' . $this->application->id, config('app.frontend_partner_url'));
+
         return new Envelope(
-            subject: 'New Funding Application Submitted - ' . ($this->application->business_name ?? 'Client'),
+            subject: 'New Funding Application Submitted - ' . ($this->application->business_name ?? $this->application->borrower?->business_name ?? 'Client'),
         );
     }
 
@@ -52,6 +54,7 @@ class FundingApplicationSubmittedMail extends Mailable
             with: [
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
+                'applicationUrl' => $this->dynamicData['applicationUrl'],
                 'application' => $this->application,
             ],
         );

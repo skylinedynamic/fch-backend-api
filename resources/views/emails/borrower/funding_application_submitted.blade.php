@@ -17,22 +17,22 @@
                     <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
                         {{ $application->full_name ?? $application->first_name . ' ' . $application->last_name }}</td>
                 </tr>
-                @if ($application->business_name)
+                @if ($application->business_name ?? $application->borrower?->business_name)
                     <tr>
                         <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_name }}</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_name ?? $application->borrower?->business_name }}</td>
                     </tr>
                 @endif
-                @if ($application->business_email)
+                @if ($application->business_email ?? $application->borrower?->business_email)
                     <tr>
                         <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Email:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->business_email }}</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->business_email ?? $application->borrower?->business_email }}</td>
                     </tr>
                 @endif
-                @if ($application->business_phone_no)
+                @if ($application->business_phone_no ?? $application->borrower?->business_phone_no)
                     <tr>
                         <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Phone:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_phone_no }}</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_phone_no ?? $application->borrower?->business_phone_no }}</td>
                     </tr>
                 @endif
                 <tr>
@@ -44,7 +44,7 @@
     </div>
 
     <div class="btn-container" style="margin: 30px 0; text-align: center;">
-        <a href="{{ config('app.frontend_partner_url') }}/intake-review/funding-request/{{ $application->id }}"
+        <a href="{{ $applicationUrl }}"
             class="btn" style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Review Application</a>
     </div>
 @endsection
