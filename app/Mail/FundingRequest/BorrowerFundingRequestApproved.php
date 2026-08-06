@@ -33,28 +33,14 @@ class BorrowerFundingRequestApproved extends Mailable
     public function build()
     {
         try {
-            $partner = $this->fundingRequest->partner ?? $this->fundingRequest->borrower?->partner;
-            $partnerId = ($partner && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
-                ? $partner->id
-                : getConfigPartner()->id;
-
-            $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
-                ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
-                ->pluck('value', 'key')
-                ->toArray();
-
-            $siteName = $brandingConfig['site_name'] ?? ($partner?->company_name ?? config('app.name'));
-            $logoUrl = (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null)
-                ? asset('storage/' . $brandingConfig['secondary_logo'])
-                : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null);
+            $branding = $this->getBrandingData();
 
             return $this->subject('Your Funding Request Has Been Approved – Complete Your Funding Application')
                         ->view('emails.borrower.funding_request_approved')
                         ->with([
                             'fundingRequest' => $this->fundingRequest,
-                            'siteName'       => $siteName,
-                            'logoUrl'        => $logoUrl,
+                            'siteName'       => $branding['siteName'],
+                            'logoUrl'        => $branding['logoUrl'],
                         ]);
         } catch (\Exception $e) {
             Log::error('Error building BorrowerFundingRequestApproved email: ' . $e->getMessage(), [
