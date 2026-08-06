@@ -141,98 +141,98 @@ class FundingApplicationService
             $borrower = Borrower::find($borrowerId);
             if ($borrower) {
                 // Personal Info
-                if (empty($data['full_name']) && empty($existing?->full_name)) {
+                if (array_key_exists('full_name', $data) && empty($data['full_name']) && empty($existing?->full_name)) {
                     $data['full_name'] = trim($borrower->first_name . ' ' . $borrower->last_name);
                 }
-                if (empty($data['first_name']) && empty($existing?->first_name)) {
+                if (array_key_exists('first_name', $data) && empty($data['first_name']) && empty($existing?->first_name)) {
                     $data['first_name'] = $borrower->first_name;
                 }
-                if (empty($data['last_name']) && empty($existing?->last_name)) {
+                if (array_key_exists('last_name', $data) && empty($data['last_name']) && empty($existing?->last_name)) {
                     $data['last_name'] = $borrower->last_name;
                 }
-                if (empty($data['phone_number']) && empty($existing?->phone_number)) {
+                if (array_key_exists('phone_number', $data) && empty($data['phone_number']) && empty($existing?->phone_number)) {
                     $data['phone_number'] = $borrower->phone_number;
                 }
-                if (empty($data['date_of_birth']) && empty($existing?->date_of_birth)) {
+                if (array_key_exists('date_of_birth', $data) && empty($data['date_of_birth']) && empty($existing?->date_of_birth)) {
                     $data['date_of_birth'] = $borrower->date_of_birth;
                 }
-                if (empty($data['ssn']) && empty($existing?->ssn)) {
+                if (array_key_exists('ssn', $data) && empty($data['ssn']) && empty($existing?->ssn)) {
                     $data['ssn'] = $borrower->last_4_ssn;
                 }
-                if (empty($data['street_address']) && empty($existing?->street_address)) {
+                if (array_key_exists('street_address', $data) && empty($data['street_address']) && empty($existing?->street_address)) {
                     $data['street_address'] = $borrower->home_address;
                 }
-                if (empty($data['country']) && empty($existing?->country)) {
+                if (array_key_exists('country', $data) && empty($data['country']) && empty($existing?->country)) {
                     $data['country'] = $borrower->country;
                 }
-                if (empty($data['city']) && empty($existing?->city)) {
+                if (array_key_exists('city', $data) && empty($data['city']) && empty($existing?->city)) {
                     $data['city'] = $borrower->city;
                 }
-                if (empty($data['state']) && empty($existing?->state)) {
+                if (array_key_exists('state', $data) && empty($data['state']) && empty($existing?->state)) {
                     $data['state'] = $borrower->state;
                 }
-                if (empty($data['zip_code']) && empty($existing?->zip_code)) {
+                if (array_key_exists('zip_code', $data) && empty($data['zip_code']) && empty($existing?->zip_code)) {
                     $data['zip_code'] = $borrower->postal_code;
                 }
                 
                 // Business Info
-                if (empty($data['business_name']) && empty($existing?->business_name)) {
+                if (array_key_exists('business_name', $data) && empty($data['business_name']) && empty($existing?->business_name)) {
                     $data['business_name'] = $borrower->business_name;
                 }
-                if (empty($data['business_email']) && empty($existing?->business_email)) {
+                if (array_key_exists('business_email', $data) && empty($data['business_email']) && empty($existing?->business_email)) {
                     $data['business_email'] = $borrower->business_email ?? $borrower->email;
                 }
-                if (empty($data['business_phone_no']) && empty($existing?->business_phone_no)) {
+                if (array_key_exists('business_phone_no', $data) && empty($data['business_phone_no']) && empty($existing?->business_phone_no)) {
                     $data['business_phone_no'] = $borrower->business_phone ?? $borrower->phone_number;
                 }
-                if (empty($data['business_country']) && empty($existing?->business_country)) {
+                if (array_key_exists('business_country', $data) && empty($data['business_country']) && empty($existing?->business_country)) {
                     $data['business_country'] = $borrower->business_country ?? $borrower->country;
                 }
-                if (empty($data['business_country_code']) && empty($existing?->business_country_code)) {
+                if (array_key_exists('business_country_code', $data) && empty($data['business_country_code']) && empty($existing?->business_country_code)) {
                     $data['business_country_code'] = $borrower->business_country_code ?? $borrower->country_code;
                 }
-                if (empty($data['business_address']) && empty($existing?->business_address)) {
+                if (array_key_exists('business_address', $data) && empty($data['business_address']) && empty($existing?->business_address)) {
                     $data['business_address'] = $borrower->business_address;
                 }
-                if (empty($data['business_city']) && empty($existing?->business_city)) {
+                if (array_key_exists('business_city', $data) && empty($data['business_city']) && empty($existing?->business_city)) {
                     $data['business_city'] = $borrower->business_city;
                 }
-                if (empty($data['business_state']) && empty($existing?->business_state)) {
+                if (array_key_exists('business_state', $data) && empty($data['business_state']) && empty($existing?->business_state)) {
                     $data['business_state'] = $borrower->business_state;
                 }
-                if (empty($data['business_postal_code']) && empty($existing?->business_postal_code)) {
+                if (array_key_exists('business_postal_code', $data) && empty($data['business_postal_code']) && empty($existing?->business_postal_code)) {
                     $data['business_postal_code'] = $borrower->business_postal_code;
                 }
-                if (empty($data['industry_type']) && empty($existing?->industry_type)) {
+                if (array_key_exists('industry_type', $data) && empty($data['industry_type']) && empty($existing?->industry_type)) {
                     $data['industry_type'] = $borrower->business_industry_type;
                 }
-                if (empty($data['entity_type']) && empty($existing?->entity_type)) {
+                if (array_key_exists('entity_type', $data) && empty($data['entity_type']) && empty($existing?->entity_type)) {
                     $data['entity_type'] = $borrower->business_entity_type;
                 }
-                if (empty($data['years_in_business']) && empty($existing?->years_in_business)) {
+                if (array_key_exists('years_in_business', $data) && empty($data['years_in_business']) && empty($existing?->years_in_business)) {
                     $data['years_in_business'] = $borrower->years_in_business;
                 }
-                if (empty($data['number_of_employees']) && empty($existing?->number_of_employees)) {
+                if (array_key_exists('number_of_employees', $data) && empty($data['number_of_employees']) && empty($existing?->number_of_employees)) {
                     $data['number_of_employees'] = $borrower->number_of_employees;
                 }
                 
                 // Financial Info
-                if (empty($data['monthly_revenue']) && empty($existing?->monthly_revenue)) {
+                if (array_key_exists('monthly_revenue', $data) && empty($data['monthly_revenue']) && empty($existing?->monthly_revenue)) {
                     $data['monthly_revenue'] = $borrower->monthly_revenue;
                 }
-                if (empty($data['annual_revenue']) && empty($existing?->annual_revenue)) {
+                if (array_key_exists('annual_revenue', $data) && empty($data['annual_revenue']) && empty($existing?->annual_revenue)) {
                     $data['annual_revenue'] = $borrower->annual_revenue;
                 }
-                if (empty($data['business_checking_start_date']) && empty($existing?->business_checking_start_date)) {
+                if (array_key_exists('business_checking_start_date', $data) && empty($data['business_checking_start_date']) && empty($existing?->business_checking_start_date)) {
                     $data['business_checking_start_date'] = $borrower->business_start_date;
                 }
-                if (empty($data['self_reported_personal_credit_score']) && empty($existing?->self_reported_personal_credit_score)) {
+                if (array_key_exists('self_reported_personal_credit_score', $data) && empty($data['self_reported_personal_credit_score']) && empty($existing?->self_reported_personal_credit_score)) {
                     $data['self_reported_personal_credit_score'] = $borrower->fico_score;
                 }
-                if (empty($data['self_reported_business_credit_score']) && empty($existing?->self_reported_business_credit_score)) {
+                if (array_key_exists('self_reported_business_credit_score', $data) && empty($data['self_reported_business_credit_score']) && empty($existing?->self_reported_business_credit_score)) {
                     $data['self_reported_business_credit_score'] = $borrower->paydex_score;
                 }
-                if (!isset($data['has_business_debt']) && !isset($existing?->has_business_debt)) {
+                if (array_key_exists('has_business_debt', $data) && !isset($data['has_business_debt']) && !isset($existing?->has_business_debt)) {
                     $data['has_business_debt'] = $borrower->current_business_debt ? true : false;
                 }
             }
