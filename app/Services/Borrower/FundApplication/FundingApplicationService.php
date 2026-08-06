@@ -120,19 +120,19 @@ class FundingApplicationService
 
             // Inherit default values from FundingRequest if creating or field is empty
             if ($req) {
-                if (!isset($data['requested_amount']) && empty($existing?->requested_amount)) {
+                if (array_key_exists('requested_amount', $data) && empty($data['requested_amount']) && empty($existing?->requested_amount)) {
                     $data['requested_amount'] = $req->requested_amount;
                 }
-                if (!isset($data['purpose_of_funds']) && empty($existing?->purpose_of_funds)) {
+                if (array_key_exists('purpose_of_funds', $data) && empty($data['purpose_of_funds']) && empty($existing?->purpose_of_funds)) {
                     $data['purpose_of_funds'] = $req->use_of_funds;
                 }
-                if (!isset($data['approved_funding']) && empty($existing?->approved_funding) && $req->fundingSequence) {
+                if (array_key_exists('approved_funding', $data) && empty($data['approved_funding']) && empty($existing?->approved_funding) && $req->fundingSequence) {
                     $data['approved_funding'] = $req->fundingSequence->name;
                 }
-                if (!isset($data['preferred_funding_type']) && empty($existing?->preferred_funding_type)) {
+                if (array_key_exists('preferred_funding_type', $data) && empty($data['preferred_funding_type']) && empty($existing?->preferred_funding_type)) {
                     $data['preferred_funding_type'] = $req->funding_type;
                 }
-                if (!isset($data['timeframe_needed']) && empty($existing?->timeframe_needed)) {
+                if (array_key_exists('timeframe_needed', $data) && empty($data['timeframe_needed']) && empty($existing?->timeframe_needed)) {
                     $data['timeframe_needed'] = $req->estimated_speed;
                 }
             }
