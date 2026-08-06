@@ -14,11 +14,11 @@
             <table class="info-table compact" style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Requested Amount:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ currencyFormat($fundingRequest->requested_amount, 0) ?? 'N/A' }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">${{ number_format($fundingRequest->requested_amount, 2) }}</td>
                 </tr>
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Estimated Funding:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $fundingRequest->fundingSequence?->amount_range ?? (currencyFormat($fundingRequest->requested_amount, 0) ?? 'N/A') }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ formatAmountRange($fundingRequest->fundingSequence?->amount_range) ?? ($fundingRequest->requested_amount ? '$' . number_format($fundingRequest->requested_amount, 2) : 'N/A') }}</td>
                 </tr>
             </table>
         </div>

@@ -58,6 +58,41 @@ if (!function_exists('currencyFormat')) {
     }
 }
 
+if (!function_exists('formatAmountRange')) {
+    /**
+     * Format a numerical range string (e.g. "5000-250000") into currency format ("$5,000 - $250,000").
+     *
+     * @param string|null $range
+     * @param int $decimal
+     * @param string $symbol
+     * @return string|null
+     */
+    function formatAmountRange(?string $range, int $decimal = 0, string $symbol = '$'): ?string
+    {
+        if (empty($range)) {
+            return null;
+        }
+
+        $parts = explode('-', $range);
+        if (count($parts) === 2) {
+            $min = trim(str_replace(['$', ','], '', $parts[0]));
+            $max = trim(str_replace(['$', ','], '', $parts[1]));
+
+            if (is_numeric($min) && is_numeric($max)) {
+                return currencyFormat((float) $min, $decimal, $symbol) . ' - ' . currencyFormat((float) $max, $decimal, $symbol);
+            }
+            return trim($parts[0]) . ' - ' . trim($parts[1]);
+        }
+
+        $clean = trim(str_replace(['$', ','], '', $range));
+        if (is_numeric($clean)) {
+            return currencyFormat((float) $clean, $decimal, $symbol);
+        }
+
+        return $range;
+    }
+}
+
 if (!function_exists('normalizeDate')) {
     /**
      * Normalize date string to Y-m-d format.

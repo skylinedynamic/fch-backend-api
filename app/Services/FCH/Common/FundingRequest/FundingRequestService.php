@@ -238,7 +238,7 @@ class FundingRequestService
                     try {
                         if ($data['status'] === FundingRequest::STATUS_APPROVED) {
                             Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved to partner ({$partnerEmail}, Partner ID: {$partner->id})");
-                            Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review));
+                            Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review, $partner, false));
                             Log::info("FundingRequest #{$review->id}: Successfully dispatched PartnerFundingRequestApproved to partner ({$partnerEmail})");
                         } else {
                             Log::info("FundingRequest #{$review->id}: Dispatching UnderwritingStatusUpdated to partner ({$partnerEmail}, Partner ID: {$partner->id})");
@@ -264,7 +264,7 @@ class FundingRequestService
                 try {
                     if ($isNonHostPartner && $data['status'] === FundingRequest::STATUS_APPROVED) {
                         Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved notification copy to Host ({$hostEmail})");
-                        Mail::to($hostEmail)->send(new PartnerFundingRequestApproved($review));
+                        Mail::to($hostEmail)->send(new PartnerFundingRequestApproved($review, $hostPartner, true));
                         Log::info("FundingRequest #{$review->id}: Successfully dispatched notification to Host ({$hostEmail})");
                     }
                 } catch (\Throwable $e) {
