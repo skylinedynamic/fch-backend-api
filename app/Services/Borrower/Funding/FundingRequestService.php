@@ -176,17 +176,38 @@ class FundingRequestService
             $query->where('funding_requests.funding_sequence_id', $filters['funding_sequence_id']);
         }
 
+        if (!empty($filters['application_status'])) {
+            if ($filters['application_status'] === FundingRequest::APPLICATION_STATUS_NOT_STARTED) {
+                $query->where('funding_requests.status', FundingRequest::STATUS_APPROVED)
+                      ->doesntHave('fundingApplication');
+            } else {
+                $query->whereHas('fundingApplication', function ($q) use ($filters) {
+                    $q->where('status', $filters['application_status']);
+                });
+            }
+        }
+
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('funding_requests.funding_type', 'like', "%{$search}%")
                   ->orWhere('funding_requests.use_of_funds', 'like', "%{$search}%")
                   ->orWhere('funding_requests.requested_amount', 'like', "%{$search}%")
-                  ->orWhere('funding_requests.status', 'like', "%{$search}%")
+                  ->orWhere('funding_requests.status', 'like', "{$search}%")
                   ->orWhereRaw("DATE_FORMAT(funding_requests.created_at, '%b %d, %Y') LIKE ?", ["%{$search}%"])
                   ->orWhereRaw("DATE_FORMAT(funding_requests.created_at, '%M %d, %Y') LIKE ?", ["%{$search}%"])
                   ->orWhere('funding_sequencings.amount_range', 'like', "%{$search}%")
-                  ->orWhere('funding_sequencings.name', 'like', "%{$search}%");
+                  ->orWhere('funding_sequencings.name', 'like', "%{$search}%")
+                  ->orWhereHas('fundingApplication', function($qApp) use ($search) {
+                      $qApp->where('status', 'like', "{$search}%");
+                  });
+
+                if (stripos(FundingRequest::APPLICATION_STATUS_NOT_STARTED, $search) !== false) {
+                    $q->orWhere(function($sq) {
+                        $sq->where('funding_requests.status', FundingRequest::STATUS_APPROVED)
+                           ->doesntHave('fundingApplication');
+                    });
+                }
             });
         }
 

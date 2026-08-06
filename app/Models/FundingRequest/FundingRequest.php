@@ -22,6 +22,7 @@ class FundingRequest extends Model
     const STATUS_ACCEPTED = 'Accepted';
     const STATUS_REJECTED = 'Rejected';
     const STATUS_CANCELED = 'Cancelled';
+    const APPLICATION_STATUS_NOT_STARTED = 'Not Started';
     // const STATUS_APPLICATION_STARTED = 'Funding Application Started';
     // const STATUS_APPLICATION_IN_PROGRESS = 'Funding Application In Progress';
     // const STATUS_APPLICATION_SUBMITTED = 'Funding Application Submitted';
@@ -313,7 +314,7 @@ class FundingRequest extends Model
 
     public function fundingApplication()
     {
-        return $this->hasOne(FundingApplication::class, 'funding_request_id');
+        return $this->hasOne(FundingApplication::class, 'funding_request_id')->latestOfMany();
     }
 
     public function scopeSearch($query, $search)
@@ -340,7 +341,20 @@ class FundingRequest extends Model
                 ->orWhere('funding_type', 'like', "%{$search}%")
                 ->orWhere('use_of_funds', 'like', "%{$search}%")
                 ->orWhere('requested_amount', 'like', "%{$search}%")
-                ->orWhere('status', 'like', "%{$search}%");
+                ->orWhere('status', 'like', "{$search}%")
+                
+                // Search funding application status
+                ->orWhereHas('fundingApplication', function ($qApp) use ($search) {
+                    $qApp->where('status', 'like', "{$search}%");
+                });
+
+                // If search string matches "Not Started", include approved requests without application
+                if (stripos(self::APPLICATION_STATUS_NOT_STARTED, $search) !== false) {
+                    $q->orWhere(function ($sq) {
+                        $sq->where('status', self::STATUS_APPROVED)
+                           ->doesntHave('fundingApplication');
+                    });
+                }
 
                 // Search matching lenders
                 $lenderIds = \App\Models\Lender\Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();

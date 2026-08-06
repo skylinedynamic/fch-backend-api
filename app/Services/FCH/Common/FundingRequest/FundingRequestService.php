@@ -32,7 +32,7 @@ class FundingRequestService
 
         $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
 
-        $query = FundingRequest::with(['borrower', 'fundingSequence', 'partner'])
+        $query = FundingRequest::with(['borrower', 'fundingSequence', 'partner', 'fundingApplication'])
             ->when(!$isHost && isset($authUser->partner), function ($q) use ($authUser) {
                 $q->where('partner_id', $authUser->partner_id);
             });
@@ -44,6 +44,17 @@ class FundingRequestService
 
         if (!empty($filters['funding_sequence_id'])) {
             $query->where('funding_sequence_id', $filters['funding_sequence_id']);
+        }
+
+        if (!empty($filters['application_status'])) {
+            if ($filters['application_status'] === FundingRequest::APPLICATION_STATUS_NOT_STARTED) {
+                $query->where('status', FundingRequest::STATUS_APPROVED)
+                      ->doesntHave('fundingApplication');
+            } else {
+                $query->whereHas('fundingApplication', function ($q) use ($filters) {
+                    $q->where('status', $filters['application_status']);
+                });
+            }
         }
 
         if (!empty($filters['borrower_id'])) {
@@ -112,7 +123,7 @@ class FundingRequestService
         $authUser = Auth::user();
         $isHost = $authUser->user_type === User::ADMIN || $authUser->user_type === User::EMPLOYEE || (isset($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 1);
         
-        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner'])
+        $review = FundingRequest::with(['borrower.borrowerDocuments.documentType', 'fundingSequence', 'partner', 'fundingApplication'])
             ->when(!$isHost && isset($authUser->partner), function($query) use($authUser){
                 $query->where('partner_id', $authUser->partner_id);
             })
