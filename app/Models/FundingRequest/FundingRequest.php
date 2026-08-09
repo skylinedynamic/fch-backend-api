@@ -42,6 +42,7 @@ class FundingRequest extends Model
         'reject_reason',
         'lender_ids',
         'assign_lender',
+        'reminder_step',
     ];
 
     protected $casts = [
@@ -357,7 +358,7 @@ class FundingRequest extends Model
                 }
 
                 // Search matching lenders
-                $lenderIds = \App\Models\Lender\Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();
+                $lenderIds = Lender::where('name', 'like', "%{$search}%")->pluck('id')->toArray();
                 if (!empty($lenderIds)) {
                     foreach ($lenderIds as $lId) {
                         $q->orWhereJsonContains('lender_ids', $lId);

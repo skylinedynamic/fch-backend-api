@@ -29,4 +29,5 @@ return [
             'missing' => 'Missing',
         ],
     ],
+    'application_reminder_days' => [1, 3, 7],
 ];
