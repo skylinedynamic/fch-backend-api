@@ -29,6 +29,7 @@ class StoreUpdateSubscriptionRequest extends BaseApiRequest
             'enrollment_type' => 'nullable|string|max:255',
             'monthly_platform_fee' => 'nullable|numeric|min:0',
             'total_subscription_amount' => 'nullable|numeric|min:0',
+            'subscription_amount_per_month' => 'nullable|numeric|min:0',
             'payable_amount' => 'nullable|numeric|min:0',
             'installment_type' => 'nullable|in:0,1',
             'first_payment_date' => 'nullable|date',

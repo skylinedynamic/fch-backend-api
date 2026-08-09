@@ -31,6 +31,7 @@ class SubscriptionCreationService
             'enrollment_type' => Subscription::ENROLLMENT_TYPE_MONTHLY,
             'monthly_platform_fee' => $monthlyFee,
             'total_subscription_amount' => $amount,
+            'subscription_amount_per_month' => $monthlyFee,
             'payable_amount' => $monthlyFee,  // per-cycle amount = monthly fee
             'down_payment' => 0.00,
             'first_payment_date' => null,
@@ -73,6 +74,21 @@ class SubscriptionCreationService
         $data['payable_amount'] = $data['payable_amount'] ?? $plan?->total_amount ?? 0;
         $data['down_payment'] = $data['down_payment'] ?? 0;
         $data['total_subscription_amount'] = $data['total_subscription_amount'] ?? $plan?->total_amount ?? 0;
+
+        // Calculate subscription_amount_per_month
+        if (!isset($data['subscription_amount_per_month'])) {
+            $totalSubAmount = $data['total_subscription_amount'] ?? 0;
+            $downPayment = $data['down_payment'] ?? 0;
+            $installmentCount = $data['installment_count'] ?? 0;
+            $installmentType = $data['installment_type'] ?? 0;
+
+            if ($installmentType == 1 && $installmentCount > 0) {
+                $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
+            } else {
+                $data['subscription_amount_per_month'] = $data['monthly_platform_fee'] ?? 0;
+            }
+        }
+
         $data['status'] = $data['status'] ?? Subscription::STATUS_PENDING;
 
         //only for partners
@@ -87,15 +103,12 @@ class SubscriptionCreationService
             if ($hasDownPayment) {
                 // Waiting for down payment before installments start
                 $data['current_phase'] = Subscription::PHASE_ENROLLMENT;
-                $data['subscription_end_date'] = null; // invoice created at signup, not by cron
             } elseif ($hasInstallments) {
                 // No down payment, installments start immediately
                 $data['current_phase'] = Subscription::PHASE_INSTALLMENT;
-                $data['subscription_end_date'] = now()->addMonth()->toDateString();
             } else {
                 // Monthly-only plan (no installments)
                 $data['current_phase'] = Subscription::PHASE_PLATFORM_FEE;
-                $data['subscription_end_date'] = now()->addMonth()->toDateString();
             }
         }
 

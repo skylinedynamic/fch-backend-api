@@ -4,11 +4,8 @@ namespace App\Http\Resources\FCH\Invoice;
 
 use App\Models\Invoice\Invoice;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Http\Resources\Json\JsonResource;
-use App\Models\Common\AppConfiguration;
 
-class InvoiceDetailResource extends JsonResource
+class InvoiceDetailResource extends InvoiceResource
 {
     /**
      * Transform the resource into an array.
@@ -17,64 +14,49 @@ class InvoiceDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
+        $data = parent::toArray($request);
 
-        return [
-            'id' => $this->id,
-            'invoice_id' => $this->invoice_id,
-            'borrower_id' => $this->borrower_id,
-            'partner_id' => $this->partner_id,
-            'entity_type' => $this->entity_name,
-            'entity_id' => $this->entity_id,
-            'customer_name' => $this->customer_name,
-            'email' => $this->email,
-            'country' => $this->country,
-            'payment_amount' => (float) $this->payment_amount,
-            'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
-            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->setTimezone($timezone)->format('Y-m-d') : null,
-            'status' => $this->status,
-            'type' => ($this->type === Invoice::INVOICE_TYPE_ENROLLMENT && $this->relationLoaded('subscription') && $this->subscription && (int) $this->subscription->installment_type === 1) ? ucwords(Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')' : ucwords(str_replace('_', ' ', $this->type)),
+        $subscription = $this->relationLoaded('subscription') ? $this->subscription : null;
+        $borrower = $this->relationLoaded('borrower') ? $this->borrower : null;
+        $partner = $this->relationLoaded('partner') ? $this->partner : null;
+
+        $isCommissionPayout = $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT;
+
+        $detailFields = [
             'note' => $this->note,
             'details' => $this->details,
-            'enrollment_type' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+            'enrollment_type' => $isCommissionPayout
                 ? ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT))
-                : $this->subscription?->enrollment_type,
-            'monthly_platform_fee' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+                : $subscription?->enrollment_type,
+            'monthly_platform_fee' => $isCommissionPayout
                 ? null
-                : $this->subscription?->monthly_platform_fee,
-            'payable_amount_sub' => $this->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT
+                : $subscription?->monthly_platform_fee,
+            'payable_amount_sub' => $isCommissionPayout
                 ? $this->payment_amount
-                : $this->subscription?->payable_amount, // Renamed to avoid collision with invoice amount
+                : $subscription?->payable_amount,
 
             // Consolidated Billing Info (Borrower priority for Preview)
-            'name' => $this->borrower
-                ? $this->borrower->full_name
-                : ($this->partner?->full_name ?? $this->partner?->company_name),
-            'phone' => $this->borrower?->phone_number ?? $this->partner?->phone_number,
-            'address' => $this->borrower
-                ? ($this->borrower->business_address_line_1 ?: $this->borrower->business_postal_code)
-                : ($this->partner ? ($this->partner->address_line_1 ?: $this->partner->postal_code) : null),
-
-            'branding' => $this->resolveBrandingData(),
-            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
-            // Add any other fields or relations if needed
+            'name' => $borrower
+                ? $borrower->full_name
+                : ($partner?->full_name ?? $partner?->company_name),
+            'phone' => $borrower?->phone_number ?? $partner?->phone_number,
+            'address' => $borrower
+                ? ($borrower->business_address_line_1 ?: $borrower->business_postal_code)
+                : ($partner ? ($partner->address_line_1 ?: $partner->postal_code) : null),
         ];
-    }
 
-    private function resolveBrandingData()
-    {
-        $partner = getConfigPartner();
-        $branding = AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->pluck('value', 'key')->toArray();
+        $typePos = array_search('type', array_keys($data), true);
 
-        return [
-            'site_name' => $branding['site_name'] ?? '',
-            'primary_logo' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
-            'logo' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
-            'address' => $partner->address_line_1 ?? '',
-            'city' => $partner->city ?? '',
-            'state' => $partner->state ?? '',
-            'postal_code' => $partner->postal_code ?? '',
-            'country' => $partner->country ?? '',
-        ];
+        if ($typePos !== false) {
+            $before = array_slice($data, 0, $typePos + 1, true);
+            $after = array_slice($data, $typePos + 1, null, true);
+
+            // Remove parent 'details' from $after since $detailFields provides it in exact order
+            unset($after['details']);
+
+            return $before + $detailFields + $after;
+        }
+
+        return array_merge($data, $detailFields);
     }
 }

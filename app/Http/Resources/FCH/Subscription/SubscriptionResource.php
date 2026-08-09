@@ -33,6 +33,7 @@ class SubscriptionResource extends JsonResource
             'enrollment_type' => $this->enrollment_type,
             'monthly_platform_fee' => currencyFormat($this->monthly_platform_fee),
             'total_subscription_amount' => currencyFormat($this->total_subscription_amount),
+            'subscription_amount_per_month' => currencyFormat($this->subscription_amount_per_month),
             'payable_amount' => currencyFormat($this->payable_amount),
             'total_paid_amount' => currencyFormat($this->total_paid_amount),
             'down_payment' => currencyFormat($this->down_payment),

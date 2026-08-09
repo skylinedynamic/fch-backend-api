@@ -49,6 +49,7 @@ class Invoice extends Model
     const INVOICE_TYPE_DOWN_PAYMENT = 'down_payment';
     const INVOICE_TYPE_INSTALLMENT = 'installment';
     const INVOICE_TYPE_PLATFORM_FEE = 'platform_fee';
+    const INVOICE_TYPE_BORROWER_FEE = 'borrower_fee';
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
 

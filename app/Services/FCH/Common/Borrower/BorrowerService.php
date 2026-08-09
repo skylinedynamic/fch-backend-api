@@ -367,13 +367,15 @@ class BorrowerService
         $partnerTypeChecking = in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
 
         if ($partnerTypeChecking && !$isHostCreating) {
+
             // WL / Certified partner path: partner pays a fixed fee, borrower pays enrollment
             $borrower->update(['partner_payment_for_me' => false]);
 
             $wlPartnerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
+                ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
                 ->where('entity_type', Borrower::class)
                 ->first();
-            $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->payment_amount ?? 800.00) : 800.00;
+            $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->total_amount ?? 0) : 0.00;
 
             $partnerInvoice = $this->invoiceService->create([
                 'partner_id' => $borrower->partner_id,
@@ -387,6 +389,7 @@ class BorrowerService
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => true,
                 'is_platform_fee' => false,
+                'type' => Invoice::INVOICE_TYPE_BORROWER_FEE
             ]);
             $this->activityLogService->logModelEvent($partnerInvoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
@@ -405,6 +408,7 @@ class BorrowerService
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => false,
                 'is_platform_fee' => false,
+                'type' => Invoice::INVOICE_TYPE_ENROLLMENT
             ]);
             $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
         } else {
@@ -424,6 +428,7 @@ class BorrowerService
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => $isHostCreating ? false : true,
                 'is_platform_fee' => false,
+                'type' => Invoice::INVOICE_TYPE_ENROLLMENT
             ]);
             $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
         }
@@ -482,7 +487,9 @@ class BorrowerService
             }
 
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
+
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+            
             $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table or are used for mapping
@@ -700,27 +707,7 @@ class BorrowerService
             $subscription = $borrower->latestSubscription;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
-            if ($subscription) {
-                $plan = $subscription->subscriptionPlan;
-                $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data);
-
-                $updateSubData = [
-                    'payable_amount' => $amounts['payable_amount'] ?? $amounts['amount'],
-                    'total_subscription_amount' => $amounts['total'],
-                    'down_payment' => $amounts['down_payment'] ?? 0,
-                    'installment_count' => $amounts['totalInstallments'] ?? 0,
-                    'installment_type' => $amounts['installment_type'] ?? 0,
-                    'is_custom' => $amounts['isCustom'],
-                ];
-
-                $subscription->update($updateSubData);
-                Log::info('Borrower subscription reassessed and updated', [
-                    'subscription_id' => $subscription->id,
-                    'is_custom' => $amounts['isCustom'],
-                    'payable' => $updateSubData['payable_amount'],
-                    'total' => $updateSubData['total_subscription_amount']
-                ]);
-            } elseif ($wasFreeTrial && !$isFreeTrialInput) {
+            if ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
                 $clientPartner = Partner::where('id', $borrower->partner_id)->first();
                 $authUser = Auth::user();

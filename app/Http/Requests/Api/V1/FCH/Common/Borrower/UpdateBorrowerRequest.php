@@ -20,6 +20,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
         $borrower = Borrower::find((int) $this->route('id'));
         $user = $borrower ? $borrower->user : null;
         $wasFreeTrial = $borrower ? (bool) $borrower->is_free_trail : false;
+        $hasFreeTrialInput = $this->has('is_free_trail');
         $isFreeTrialInput = $this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true';
 
         return [
@@ -86,15 +87,15 @@ class UpdateBorrowerRequest extends BaseApiRequest
                 'nullable'
             ],
             'plan_id' => [
-                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
-                    return $wasFreeTrial && !$isFreeTrialInput;
+                Rule::requiredIf(function () use ($wasFreeTrial, $hasFreeTrialInput, $isFreeTrialInput) {
+                    return $wasFreeTrial && $hasFreeTrialInput && !$isFreeTrialInput;
                 }),
                 'nullable',
                 'exists:subscription_plans,id'
             ],
             'enrollment_amount' => [
-                Rule::requiredIf(function () use ($wasFreeTrial, $isFreeTrialInput) {
-                    return $wasFreeTrial && !$isFreeTrialInput;
+                Rule::requiredIf(function () use ($wasFreeTrial, $hasFreeTrialInput, $isFreeTrialInput) {
+                    return $wasFreeTrial && $hasFreeTrialInput && !$isFreeTrialInput;
                 }),
                 'nullable',
                 'numeric',

@@ -213,7 +213,7 @@ class PartnerService
         if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
             $enrollment = (float) $data['enrollment_amount'];
         } elseif ($existingSubscription) {
-            $enrollment = (float) $existingSubscription->total_subscription_amount;
+            $enrollment = (float) $existingSubscription->payable_amount;
         } else {
             $enrollment = (float) ($plan->total_amount ?? $plan->payment_amount ?? 0);
         }
@@ -440,6 +440,7 @@ class PartnerService
                         'monthly_platform_fee' => $amounts['monthly'],
                         'payable_amount' => $amounts['payable_amount'],
                         'total_subscription_amount' => $amounts['total'],
+                        'subscription_amount_per_month' => $amounts['installment_type'] == 1 ? $amounts['installment_monthly_amount'] : $amounts['monthly'],
                         'down_payment' => $amounts['down_payment'],
                         'is_custom' => $amounts['isCustom'],
                     ]);
@@ -684,40 +685,7 @@ class PartnerService
             $subscription = $partner->subscription;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
-            if ($subscription) {
-                $partnerType = $data['partner_type'] ?? $partner->partner_type;
-                $enrollmentType = $data['enrollment_type'] ?? $subscription->enrollment_type;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null) ?? $subscription->subscriptionPlan;
-                $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data, $subscription);
-
-                $subscription->update([
-                    'subscription_plan_id' => $plan->id ?? $subscription->subscription_plan_id,
-                    'partner_type' => $partnerType,
-                    'enrollment_type' => $enrollmentType,
-                    'installment_type' => $amounts['installment_type'],
-                    'installment_count' => $amounts['installment_months'],
-                    'payable_amount' => $amounts['payable_amount'],
-                    'down_payment' => $amounts['down_payment'],
-                    'monthly_platform_fee' => $amounts['monthly'],
-                    'total_subscription_amount' => $amounts['total'],
-                    'is_custom' => $amounts['isCustom'],
-                ]);
-
-                // Sync initial unpaid invoice amount if exists
-                $invoice = Invoice::where('entity_type', Partner::class)
-                    ->where('entity_id', $partner->id)
-                    ->where('is_platform_fee', false)
-                    ->where('status', Invoice::STATUS_UNPAID)
-                    ->first();
-
-                if ($invoice) {
-                    $invoice->update([
-                        'payment_amount' => $amounts['initial_invoice_amount'],
-                        'subscription_id' => $subscription->id,
-                    ]);
-                }
-
-            } elseif ($wasFreeTrial && !$isFreeTrialInput) {
+            if ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
                 $subscription = null;
                 $partnerType = $data['partner_type'] ?? $partner->partner_type;
@@ -735,6 +703,7 @@ class PartnerService
                         'monthly_platform_fee' => $amounts['monthly'],
                         'payable_amount' => $amounts['payable_amount'],
                         'total_subscription_amount' => $amounts['total'],
+                        'subscription_amount_per_month' => $amounts['installment_type'] == 1 ? $amounts['installment_monthly_amount'] : $amounts['monthly'],
                         'down_payment' => $amounts['down_payment'],
                         'is_custom' => $amounts['isCustom'],
                     ]);

@@ -231,6 +231,20 @@ class SubscriptionService
             $data['installment_type'] = (Str::contains($data['enrollment_type'], [Subscription::ENROLLMENT_TYPE_PAYMENT_PLAN, Subscription::ENROLLMENT_TYPE_MONTHLY])) ? 1 : 0;
         }
 
+        // Calculate subscription_amount_per_month
+        if (!isset($data['subscription_amount_per_month'])) {
+            $totalSubAmount = $data['total_subscription_amount'] ?? 0;
+            $downPayment = $data['down_payment'] ?? 0;
+            $installmentCount = $data['installment_count'] ?? 0;
+            $installmentType = $data['installment_type'] ?? 0;
+
+            if ($installmentType == 1 && $installmentCount > 0) {
+                $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
+            } else {
+                $data['subscription_amount_per_month'] = $data['monthly_platform_fee'] ?? 0;
+            }
+        }
+
         return Subscription::updateOrCreate($searchFields, $data);
     }
 
