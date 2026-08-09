@@ -83,23 +83,7 @@ class BorrowerDetailsResource extends JsonResource
                 'status'                                 => $latestSub->status,
             ] : null,
 
-            // Financial
-            'currency' => $this->currency,
-            'years_in_business' => $this->years_in_business,
-            'monthly_revenue' => formatComma($this->monthly_revenue),
-            'annual_revenue' => formatComma($this->annual_revenue),
-            'avg_bank_balance' => formatComma($this->avg_bank_balance),
-            'average_monthly_deposits' => formatComma($this->average_monthly_deposits),
-            'monthly_deposit_count' => $this->monthly_deposit_count,
-            'profit_margin' => $this->profit_margin,
-            'current_business_debt' => formatComma($this->current_business_debt),
-            'fico_score' => $this->fico_score,
-            'paydex_score' => $this->paydex_score,
-            'number_of_employees' => $this->number_of_employees,
-            'nsf_count' => $this->nsf_count,
-            'negative_days' => $this->negative_days,
-            'funding_urgency' => $this->funding_urgency,
-
+            // Status & Assignment
             'status' => $this->status,
             'notes' => $this->notes,
             'assign_id' => $this->assign_id,

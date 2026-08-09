@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\PaymentMethod;
 
+use App\Models\PaymentMethod\PaymentMethodBankDetail;
 use App\Models\PaymentMethod\PaymentProvider;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -19,11 +20,14 @@ class PartnerPaymentProviderResource extends JsonResource
         if (is_object($configuration)) {
             $configuration = (array) $configuration;
         }
-        $paymentMode = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+        $paymentMode = $this->payment_mode ?? ($configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
 
         if (is_array($configuration)) {
             unset($configuration['payment_mode']);
         }
+
+        $provider = PaymentProvider::find($this->payment_provider_id);
+        $isBank = $provider && $provider->name === PaymentProvider::BANK_TRANSFER;
 
         return [
             'id' => $this->id ?? null,
@@ -33,6 +37,7 @@ class PartnerPaymentProviderResource extends JsonResource
             'status' => (bool) ($this->status ?? false),
             'is_default' => (bool) ($this->is_default ?? false),
             'configuration' => empty($configuration) ? new \stdClass() : $configuration,
+            'bank_details' => $isBank && $this->partner_id ? PaymentMethodBankDetail::where('partner_id', $this->partner_id)->get() : [],
         ];
     }
 }

@@ -61,43 +61,74 @@ class UnifiedPaymentService
             throw new Exception("Unauthorized invoice payment attempt.");
         }
 
-        $partnerId      = $this->resolvePartnerId($invoice);
-        $receiverId     = in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) ? Partner::host()->id : $invoice->partner_id;
+        $partnerId       = $this->resolvePartnerId($invoice);
+        $receiverId      = in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) ? Partner::host()->id : $invoice->partner_id;
         $partnerProvider = $this->gatewayManager->resolvePartnerProvider($receiverId, $data['payment_method_id'] ?? null);
-        $driver         = $this->gatewayManager->driverFor($partnerProvider);
-        $providerName   = $partnerProvider->provider?->name;
+        $providerName    = $partnerProvider->provider?->name;
 
         $borrowerId = $invoice->entity_type === Borrower::class ? $invoice->entity_id : $invoice->borrower_id;
 
+        $tokenPayload = is_string($data['payment_token'] ?? null) ? json_decode($data['payment_token'], true) : [];
+        $isStripe = $providerName && strtolower(trim($providerName)) === 'stripe';
+        $isManual = !$isStripe;
+
+        if (is_array($tokenPayload) && isset($tokenPayload['mode']) && $tokenPayload['mode'] === 'manual') {
+            $isManual = true;
+        }
+
         DB::beginTransaction();
         try {
-            // 1. Charge the payment gateway
-            $gatewayResult = $driver->charge([
-                'amount'           => $invoice->payment_amount,
-                'currency'         => $invoice->currency ?? 'USD',
-                'payment_method_id' => $data['payment_method_id'],
-                'payment_token'    => $data['payment_token'] ?? null,
-                'invoice_id'       => $invoice->id,
-                'description'      => "Payment for invoice #{$invoice->invoice_id}",
-            ]);
+            // 1. Charge the payment gateway (or handle manual processing)
+            if ($isManual) {
+                $manualTx = !empty($tokenPayload['transaction_number'])
+                    ? trim($tokenPayload['transaction_number'])
+                    : ('MANUAL_TX_' . time() . '_' . rand(1000, 9999));
+
+                $gatewayResult = [
+                    'success'        => true,
+                    'transaction_id' => $manualTx,
+                    'raw'            => [
+                        'mode'               => 'manual',
+                        'provider'           => $providerName,
+                        'transaction_number' => $tokenPayload['transaction_number'] ?? null,
+                    ],
+                ];
+            } else {
+                $driver        = $this->gatewayManager->driverFor($partnerProvider);
+                $gatewayResult = $driver->charge([
+                    'amount'            => $invoice->payment_amount,
+                    'currency'          => $invoice->currency ?? 'USD',
+                    'payment_method_id' => $data['payment_method_id'],
+                    'payment_token'     => $data['payment_token'] ?? null,
+                    'invoice_id'        => $invoice->id,
+                    'description'       => "Payment for invoice #{$invoice->invoice_id}",
+                ]);
+            }
 
             if (empty($gatewayResult['success'])) {
                 throw new Exception("Payment charge failed via " . ($providerName ?? 'gateway'));
             }
 
+            $paymentStatus   = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
+            $invoiceStatus   = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
+            $paymentType     = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? 'Bank Transfer'));
+            $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
+
             // 2. Create local payment ledger entry
             $payment = $this->paymentRecord->createRecord([
-                'partner_id'     => $partnerId,
-                'borrower_id'    => $borrowerId,
-                'invoice_id'     => $invoice->id,
-                'entity_type'    => $invoice->entity_type,
-                'entity_id'      => $invoice->entity_id,
-                'transaction_id' => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
-                'amount'         => $invoice->payment_amount,
-                'currency'       => strtoupper($invoice->currency ?? 'USD'),
-                'payment_from'   => $providerName ?? 'Default',
-                'status'         => Payment::STATUS_SUCCEEDED,
-                'details'        => $gatewayResult['raw'] ?? [],
+                'partner_id'        => $partnerId,
+                'borrower_id'       => $borrowerId,
+                'invoice_id'        => $invoice->id,
+                'entity_type'       => $invoice->entity_type,
+                'entity_id'         => $invoice->entity_id,
+                'transaction_id'    => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
+                'amount'            => $invoice->payment_amount,
+                'currency'          => strtoupper($invoice->currency ?? 'USD'),
+                'payment_from'      => $providerName ?? 'Default',
+                'payment_type'      => $paymentType,
+                'is_partner_paying' => $isPartnerPaying,
+                'status'            => $paymentStatus,
+                'details'           => $gatewayResult['raw'] ?? [],
             ]);
 
             // Save stripe_customer_id to payer model if returned in gateway response details
@@ -106,10 +137,10 @@ class UnifiedPaymentService
                 $invoice->entity->update(['stripe_customer_id' => $stripeCustId]);
             }
 
-            // 3. Mark the invoice as Paid
+            // 3. Update the invoice status
             $invoice->update([
-                'status'       => Invoice::STATUS_PAID,
-                'payment_date' => now(),
+                'status'       => $invoiceStatus,
+                'payment_date' => $isManual ? null : now(),
             ]);
 
             // If it is a User or Employee seat invoice, update the partner's total_paid_users count on first payment
@@ -373,10 +404,14 @@ class UnifiedPaymentService
      */
     protected function resolvePartnerId(Invoice $invoice): ?int
     {
-        if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
-            return Partner::where('is_host', true)->first()?->id;
+        if ($invoice->partner_id) {
+            return (int) $invoice->partner_id;
         }
 
-        return $invoice->partner_id;
+        if ($invoice->entity_type === Partner::class && $invoice->entity_id) {
+            return (int) $invoice->entity_id;
+        }
+
+        return Partner::where('is_host', true)->first()?->id;
     }
 }

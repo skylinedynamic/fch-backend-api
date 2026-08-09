@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Payment;
 
+use App\Models\Partner\Partner;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
@@ -33,7 +34,14 @@ class PaymentService
 
         // RBAC: Partner Wise (Accurate Code following Borrowers)
         if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $query->where('partner_id', $authUser->partner_id);
+            $partnerId = $authUser->partner_id;
+            $query->where(function ($q) use ($partnerId) {
+                $q->where('payments.partner_id', $partnerId)
+                    ->orWhere(function ($q2) use ($partnerId) {
+                        $q2->where('payments.entity_type', Partner::class)
+                            ->where('payments.entity_id', (string) $partnerId);
+                    });
+            });
         }
 
         // Accurate Date Range: transaction_date (Consistent with InvoiceService)
@@ -63,26 +71,62 @@ class PaymentService
         }
 
         // Status (Compatibility)
-        // Status (Compatibility)
-        $statusFilter = $filters['status'] ?? null;
-        if (is_array($statusFilter)) {
-            $statusFilter = $statusFilter['value'] ?? null;
+        $statusFilter = $this->extractFilterValue($filters['status'] ?? null);
+        if (!empty($statusFilter)) {
+            $query->where('payments.status', strtolower((string) $statusFilter));
         }
 
-        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
-            $query->where('payments.status', strtolower($statusFilter));
-        }
-
-        // Ensure we don't double filter in QueryFilter
-        if (isset($rawFilters['status'])) {
-            unset($rawFilters['status']);
-        }
         if (!empty($filters['invoice_id'])) {
             $query->where('payments.invoice_id', $filters['invoice_id']);
         }
 
-        if (isset($filters['is_environment']) && $filters['is_environment'] !== '' && $filters['is_environment'] !== null) {
-            $query->where('payments.is_environment', $filters['is_environment']);
+        $envFilter = $this->extractFilterValue($filters['is_environment'] ?? null);
+        if (isset($envFilter) && $envFilter !== '' && $envFilter !== null) {
+            $query->where('payments.is_environment', $envFilter);
+        }
+
+        $methodFilter = $this->extractFilterValue($filters['payment_from'] ?? null);
+        if (!empty($methodFilter)) {
+            $query->where('payments.payment_from', (string) $methodFilter);
+        }
+
+        $typeFilter = $this->extractFilterValue($filters['transaction_type'] ?? null);
+        if (!empty($typeFilter)) {
+            $targetType = strtolower((string) $typeFilter);
+            $isNonHostPartner = !empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0;
+
+            if ($isNonHostPartner) {
+                if ($targetType === 'debit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.is_partner_paying', 1)
+                            ->orWhere('payments.entity_type', Partner::class)
+                            ->orWhere('payments.status', 'refunded')
+                            ->orWhere('payments.payment_type', 'payout');
+                    });
+                } else if ($targetType === 'credit') {
+                    $query->where(function ($q) {
+                        $q->where(function ($q2) {
+                            $q2->where('payments.is_partner_paying', 0)
+                                ->orWhereNull('payments.is_partner_paying');
+                        })
+                            ->where('payments.entity_type', '!=', Partner::class)
+                            ->where('payments.status', '!=', 'refunded')
+                            ->where('payments.payment_type', '!=', 'payout');
+                    });
+                }
+            } else {
+                if ($targetType === 'debit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.status', 'refunded')
+                            ->orWhere('payments.payment_type', 'payout');
+                    });
+                } else if ($targetType === 'credit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.status', '!=', 'refunded')
+                            ->where('payments.payment_type', '!=', 'payout');
+                    });
+                }
+            }
         }
 
         // Efficiently extract global search term
@@ -95,7 +139,7 @@ class PaymentService
 
         // PrimeReact Structured Filters
         $rawFilters = $filters['filters'] ?? [];
-        unset($rawFilters['global']); // Prevent QueryFilter from trying to search a 'global' column
+        unset($rawFilters['global'], $rawFilters['status'], $rawFilters['is_environment'], $rawFilters['payment_from'], $rawFilters['transaction_type']);
 
         // Manual Date Handling for structured filters
         if (isset($rawFilters['date'])) {
@@ -201,25 +245,23 @@ class PaymentService
             unset($rawFilters['payee_id']);
         }
 
-        // Status (Compatibility)
-
-
         // Sorting
         $sortField = $filters['sort_field'] ?? 'transaction_date';
         $sortOrder = $filters['sort_order'] ?? 'desc';
 
         $sortFieldMap = [
             'date' => 'payments.transaction_date',
+            'transaction_date' => 'payments.transaction_date',
+            'amount' => 'payments.amount',
+            'status' => 'payments.status',
             'from' => 'payments.payment_from',
+            'payment_type' => 'payments.payment_type',
+            'invoice_id' => 'payments.invoice_id',
         ];
 
-        $actualSortField = $sortFieldMap[$sortField] ?? $sortField;
-        if (!str_contains($actualSortField, '.')) {
-            $actualSortField = 'payments.' . $actualSortField;
-        }
-        $skipSorting = false;
+        $actualSortField = $sortFieldMap[$sortField] ?? 'payments.transaction_date';
 
-        // Sorting for Custom Fields
+        $skipSorting = false;
         if ($sortField === 'company') {
             $query->leftJoin('partners', 'payments.partner_id', '=', 'partners.id')
                 ->leftJoin('borrowers', 'payments.borrower_id', '=', 'borrowers.id')
@@ -270,6 +312,23 @@ class PaymentService
     }
 
     /**
+     * Helper to extract scalar value from simple values or PrimeReact structured filter arrays.
+     */
+    protected function extractFilterValue(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            if (array_key_exists('value', $value)) {
+                return $value['value'];
+            }
+            if (isset($value['constraints']) && is_array($value['constraints']) && isset($value['constraints'][0])) {
+                return $value['constraints'][0]['value'] ?? null;
+            }
+            return null;
+        }
+        return $value;
+    }
+
+    /**
      * Get payment statistics.
      */
     public function getStats(array $filters): array
@@ -278,21 +337,70 @@ class PaymentService
         $query = Payment::query();
 
         if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $query->where('partner_id', $authUser->partner_id);
+            $partnerId = $authUser->partner_id;
+            $query->where(function ($q) use ($partnerId) {
+                $q->where('payments.partner_id', $partnerId)
+                    ->orWhere(function ($q2) use ($partnerId) {
+                        $q2->where('payments.entity_type', Partner::class)
+                            ->where('payments.entity_id', (string) $partnerId);
+                    });
+            });
         }
 
-        // Apply same filters as list if needed
+        // Apply same filters as list
         if (!empty($filters['date_from'])) {
-            $query->whereDate('transaction_date', '>=', $filters['date_from']);
+            $query->whereDate('payments.transaction_date', '>=', $filters['date_from']);
         }
         if (!empty($filters['date_to'])) {
-            $query->whereDate('transaction_date', '<=', $filters['date_to']);
+            $query->whereDate('payments.transaction_date', '<=', $filters['date_to']);
         }
 
-        // Accurate Date Range (Consistent with list)
-        if (!empty($filters['date_range']) && is_array($filters['date_range'])) {
-            if (isset($filters['date_range'][0]) && isset($filters['date_range'][1])) {
-                $query->whereBetween('transaction_date', [$filters['date_range'][0], $filters['date_range'][1]]);
+        $envFilter = $this->extractFilterValue($filters['is_environment'] ?? null);
+        if (isset($envFilter) && $envFilter !== '' && $envFilter !== null) {
+            $query->where('payments.is_environment', $envFilter);
+        }
+
+        $methodFilter = $this->extractFilterValue($filters['payment_from'] ?? null);
+        if (!empty($methodFilter)) {
+            $query->where('payments.payment_from', (string) $methodFilter);
+        }
+
+        $typeFilter = $this->extractFilterValue($filters['transaction_type'] ?? null);
+        if (!empty($typeFilter)) {
+            $targetType = strtolower((string) $typeFilter);
+            $isNonHostPartner = !empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0;
+
+            if ($isNonHostPartner) {
+                if ($targetType === 'debit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.is_partner_paying', 1)
+                            ->orWhere('payments.entity_type', Partner::class)
+                            ->orWhere('payments.status', 'refunded')
+                            ->orWhere('payments.payment_type', 'payout');
+                    });
+                } else if ($targetType === 'credit') {
+                    $query->where(function ($q) {
+                        $q->where(function ($q2) {
+                            $q2->where('payments.is_partner_paying', 0)
+                                ->orWhereNull('payments.is_partner_paying');
+                        })
+                            ->where('payments.entity_type', '!=', Partner::class)
+                            ->where('payments.status', '!=', 'refunded')
+                            ->where('payments.payment_type', '!=', 'payout');
+                    });
+                }
+            } else {
+                if ($targetType === 'debit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.status', 'refunded')
+                            ->orWhere('payments.payment_type', 'payout');
+                    });
+                } else if ($targetType === 'credit') {
+                    $query->where(function ($q) {
+                        $q->where('payments.status', '!=', 'refunded')
+                            ->where('payments.payment_type', '!=', 'payout');
+                    });
+                }
             }
         }
 
@@ -313,5 +421,80 @@ class PaymentService
     {
         $payment = Payment::with(['partner', 'borrower', 'invoice', 'entity'])->find($id);
         return $payment ? new PaymentResource($payment) : null;
+    }
+
+    /**
+     * Approve a processing payment with database lock and strict authorization check.
+     */
+    public function approvePayment($id, array $data = []): array
+    {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return [
+                'status'  => false,
+                'message' => __('payment.unauthenticated')
+            ];
+        }
+
+        $note = trim((string) ($data['note'] ?? $data['details'] ?? ''));
+        if (empty($note)) {
+            return [
+                'status'  => false,
+                'message' => __('payment.approval_note_required')
+            ];
+        }
+
+        return DB::transaction(function () use ($id, $note, $authUser) {
+            /** @var Payment|null $payment */
+            $payment = Payment::lockForUpdate()->with(['invoice', 'partner', 'borrower', 'entity'])->find($id);
+
+            if (!$payment) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.not_found')
+                ];
+            }
+
+            if (strtolower((string) $payment->status) !== Payment::STATUS_PROCESSING) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.only_processing_can_be_approved')
+                ];
+            }
+
+            if (!$payment->canApproveForUser($authUser)) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.unauthorized_approve')
+                ];
+            }
+
+            $now = now();
+            $existingDetails = is_array($payment->details) ? $payment->details : [];
+            $existingDetails['approval_note'] = $note;
+            $existingDetails['approved_at'] = $now->toDateTimeString();
+            $existingDetails['approved_by'] = $authUser->id;
+
+            // Update payment status to Succeeded, transaction_date to now, and save details
+            $payment->update([
+                'status'           => Payment::STATUS_SUCCEEDED,
+                'transaction_date' => $now,
+                'details'          => $existingDetails,
+            ]);
+
+            // Update invoice status to Paid and set paid_at to now
+            if ($payment->invoice) {
+                $payment->invoice->update([
+                    'status'  => Invoice::STATUS_PAID,
+                    'paid_at' => $now,
+                ]);
+            }
+
+            return [
+                'status'  => true,
+                'message' => __('payment.approved_successfully'),
+                'data'    => new PaymentResource($payment->fresh())
+            ];
+        });
     }
 }

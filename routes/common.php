@@ -126,11 +126,7 @@ Route::prefix('v1')->group(function () {
             //Borrower document types
             Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
 
-            Route::post('borrowers/personal-details', [BorrowerController::class, 'updatePersonalDetails']);
-            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']);
-
-            // Separate API for Client Info and Business Financials
-            Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
+            // Business Financials fetch — dedicated endpoint
             Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
@@ -293,6 +289,7 @@ Route::prefix('v1')->group(function () {
             //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
             Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
+            Route::post('payments/{id}/approve', [CommonPaymentController::class, 'approve']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
 
             // Partner Plans

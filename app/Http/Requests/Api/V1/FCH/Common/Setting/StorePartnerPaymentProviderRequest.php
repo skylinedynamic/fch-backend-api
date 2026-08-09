@@ -31,6 +31,16 @@ class StorePartnerPaymentProviderRequest extends BaseApiRequest
             'status' => 'boolean',
             'is_default' => 'boolean',
             'configuration' => 'nullable|array',
+            'bank_details' => 'nullable|array',
+            'bank_details.*.id' => 'nullable|integer|exists:payment_method_bank_details,id',
+            'bank_details.*.bank_name' => 'required|string|max:255',
+            'bank_details.*.account_name' => 'required|string|max:255',
+            'bank_details.*.account_number' => 'required|string|max:255',
+            'bank_details.*.routing_number' => 'nullable|string|max:255',
+            'bank_details.*.instructions' => 'nullable|string',
+            'bank_details.*.payment_mode' => ['required', Rule::in([PaymentProvider::MODE_PRODUCTION, PaymentProvider::MODE_SANDBOX])],
+            'bank_details.*.is_default' => 'boolean',
+            'bank_details.*.status' => 'boolean',
         ];
     }
 }

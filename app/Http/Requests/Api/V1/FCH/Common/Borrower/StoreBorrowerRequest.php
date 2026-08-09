@@ -50,6 +50,8 @@ class StoreBorrowerRequest extends BaseApiRequest
             'fico_score' => ['nullable', 'numeric'],
             'paydex_score' => ['nullable', 'numeric'],
             'is_free_trail' => ['nullable', 'boolean'],
+            'assign_id' => ['nullable', 'integer', 'exists:users,id'],
+            'partner_id' => ['nullable', 'integer', 'exists:partners,id'],
         ];
 
         if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
@@ -143,6 +145,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'enrollment_amount.regex' => __('borrower_validation.enrollment_payment_regex'),
             'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric' => __('borrower_validation.paydex_score_numeric'),
+            'assign_id.exists' => __('borrower_validation.assign_id_exists'),
         ];
     }
 }

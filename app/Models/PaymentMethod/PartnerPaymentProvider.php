@@ -17,6 +17,7 @@ class PartnerPaymentProvider extends Model
         'payment_provider_id',
         'status',
         'is_default',
+        'payment_mode',
         'configuration',
     ];
 

@@ -142,6 +142,7 @@ class Invoice extends Model
     const STATUS_SUCCESS = 'Success';
     const STATUS_CANCELED = 'Canceled';
     const STATUS_OVERDUE = 'Overdue';
+    const STATUS_PROCESSING = 'Processing';
     const STATUS_ALL = 'All Status';
 
     public const CURRENCY_USD = 'USD';

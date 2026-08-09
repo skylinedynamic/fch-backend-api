@@ -33,6 +33,12 @@ class Payment extends Model
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';
     public const STATUS_REFUNDED = 'refunded';
+    public const STATUS_PROCESSING = 'processing';
+
+    public const TYPE_PAYOUT = 'payout';
+
+    public const TRANSACTION_TYPE_DEBIT = 'Debit';
+    public const TRANSACTION_TYPE_CREDIT = 'Credit';
 
     public const ENVIRONMENT_SANDBOX = 0;
     public const ENVIRONMENT_PRODUCTION = 1;
@@ -46,12 +52,61 @@ class Payment extends Model
     public const CURRENCY_SYMBOL_USD = '$';
 
     /**
+     * Determine transaction type (Debit vs Credit) for a specific user role.
+     */
+    public function getTransactionTypeForUser(?User $authUser = null): string
+    {
+        $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
+        $status = strtolower((string) ($this->status ?? ''));
+        $paymentType = strtolower((string) ($this->payment_type ?? ''));
+
+        if ($status === self::STATUS_REFUNDED || $paymentType === self::TYPE_PAYOUT) {
+            return self::TRANSACTION_TYPE_DEBIT;
+        }
+
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            return $isPartnerPaying ? self::TRANSACTION_TYPE_DEBIT : self::TRANSACTION_TYPE_CREDIT;
+        }
+
+        return self::TRANSACTION_TYPE_CREDIT;
+    }
+
+    /**
+     * Determine if an authenticated user can approve this payment.
+     */
+    public function canApproveForUser(?User $authUser = null): bool
+    {
+        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING) {
+            return false;
+        }
+
+        if (empty($authUser)) {
+            return false;
+        }
+
+        $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
+        $isHost = !empty($authUser->partner) ? (int) ($authUser->partner->is_host ?? 0) === 1 : ($authUser->hasRole('Super Admin') || $authUser->hasRole('Admin'));
+
+        if ($isHost) {
+            return true;
+        }
+
+        if (!empty($authUser->partner)) {
+            return (int) $this->partner_id === (int) $authUser->partner_id && !$isPartnerPaying;
+        }
+
+        return false;
+    }
+
+    /**
      * Create a payment record dynamically.
      */
     public function createRecord(array $data): self
     {
         $partnerId = $data['partner_id'] ?? null;
         $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
+        $paymentFrom = $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE;
+        $paymentType = $data['payment_type'] ?? ($paymentFrom === self::PAYMENT_FROM_STRIPE ? self::PAYMENT_TYPE_CARD : $paymentFrom);
 
         return self::create([
             'partner_id' => $partnerId,
@@ -62,8 +117,8 @@ class Payment extends Model
             'transaction_id' => $data['transaction_id'] ?? null,
             'amount' => $data['amount'] ?? 0.00,
             'currency' => $data['currency'] ?? self::CURRENCY_USD,
-            'payment_from' => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
-            'payment_type' => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
+            'payment_from' => $paymentFrom,
+            'payment_type' => $paymentType,
             'status' => $data['status'] ?? self::STATUS_PENDING,
             'is_environment' => $isEnvironment,
             'details' => $data['details'] ?? null,

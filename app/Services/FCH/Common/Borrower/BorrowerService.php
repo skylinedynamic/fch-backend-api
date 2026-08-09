@@ -489,7 +489,7 @@ class BorrowerService
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
 
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
-            
+
             $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table or are used for mapping
@@ -556,6 +556,7 @@ class BorrowerService
                 // ── FREE TRIAL PATH ───────────────────────────────────────────────────────
                 if (!empty($data['is_free_trail']) && $data['is_free_trail']) {
                     $trialEndDate = $data['free_trail_end_date'] ?? null;
+
                     $this->activityLogService->logModelEvent(
                         $borrower,
                         ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL,

@@ -50,6 +50,7 @@ class PaymentMethodConfigurationService
             'payment_provider_id' => $provider->id,
             'status' => false,
             'is_default' => false,
+            'payment_mode' => 'sandbox',
             'configuration' => new \stdClass()
         ];
     }
@@ -81,12 +82,22 @@ class PaymentMethodConfigurationService
                 ->first();
         }
 
-        $configuration = isset($data['configuration'])
-            ? $data['configuration']
-            : ($existingLinkage ? $existingLinkage->configuration : []);
+        $paymentMode = $data['payment_mode'] ?? ($existingLinkage ? $existingLinkage->payment_mode : PaymentProvider::MODE_SANDBOX);
 
-        if (isset($data['payment_mode'])) {
-            $configuration['payment_mode'] = $data['payment_mode'];
+        $provider = PaymentProvider::find($providerId);
+        $isBank = $provider && $provider->name === PaymentProvider::BANK_TRANSFER;
+        $isCash = $provider && $provider->name === PaymentProvider::CASH;
+
+        if ($isBank || $isCash) {
+            $configuration = null;
+        } else {
+            $configuration = isset($data['configuration'])
+                ? $data['configuration']
+                : ($existingLinkage ? $existingLinkage->configuration : null);
+
+            if (is_array($configuration)) {
+                unset($configuration['payment_mode']);
+            }
         }
 
         // If setting as default, clear other default configurations for this partner
@@ -94,7 +105,7 @@ class PaymentMethodConfigurationService
             PartnerPaymentProvider::where('partner_id', $partnerId)->update(['is_default' => false]);
         }
 
-        return PartnerPaymentProvider::updateOrCreate(
+        $linkage = PartnerPaymentProvider::updateOrCreate(
             [
                 'partner_id' => $partnerId,
                 'payment_provider_id' => $providerId,
@@ -102,9 +113,50 @@ class PaymentMethodConfigurationService
             [
                 'status' => $status,
                 'is_default' => $isDefault,
+                'payment_mode' => $paymentMode,
                 'configuration' => $configuration,
             ]
         );
+
+        if ($isBank && isset($data['bank_details'])) {
+            $incomingDetails = $data['bank_details'];
+            $incomingIds = collect($incomingDetails)->pluck('id')->filter()->toArray();
+
+            // Delete existing bank details that are not in the payload
+            \App\Models\PaymentMethod\PaymentMethodBankDetail::where('partner_id', $partnerId)
+                ->whereNotIn('id', $incomingIds)
+                ->delete();
+
+            foreach ($incomingDetails as $detail) {
+                $isDefaultBank = filter_var($detail['is_default'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                $paymentMode = $detail['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+
+                if ($isDefaultBank) {
+                    \App\Models\PaymentMethod\PaymentMethodBankDetail::where('partner_id', $partnerId)
+                        ->where('payment_mode', $paymentMode)
+                        ->update(['is_default' => false]);
+                }
+
+                \App\Models\PaymentMethod\PaymentMethodBankDetail::updateOrCreate(
+                    [
+                        'id' => $detail['id'] ?? null,
+                        'partner_id' => $partnerId,
+                    ],
+                    [
+                        'bank_name' => $detail['bank_name'],
+                        'account_name' => $detail['account_name'],
+                        'account_number' => $detail['account_number'],
+                        'routing_number' => $detail['routing_number'] ?? null,
+                        'instructions' => $detail['instructions'] ?? null,
+                        'payment_mode' => $paymentMode,
+                        'is_default' => $isDefaultBank,
+                        'status' => filter_var($detail['status'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                    ]
+                );
+            }
+        }
+
+        return $linkage;
     }
 
     /**

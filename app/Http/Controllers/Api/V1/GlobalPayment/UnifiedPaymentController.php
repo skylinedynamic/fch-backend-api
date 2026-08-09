@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1\GlobalPayment;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\GlobalPayment\ProcessPaymentRequest;
+use App\Models\Invoice\Invoice;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\GlobalPayment\UnifiedPaymentService;
@@ -86,14 +88,14 @@ class UnifiedPaymentController extends Controller
     /**
      * Resolve the Stripe Secret Key based on the invoice receiver entity.
      *
-     * @param \App\Models\Invoice\Invoice $invoice
+     * @param Invoice $invoice
      * @return string
      * @throws Exception
      */
-    protected function resolveStripeSecretKey(\App\Models\Invoice\Invoice $invoice): string
+    protected function resolveStripeSecretKey(Invoice $invoice): string
     {
         $receiverPartnerId = null;
-        if ($invoice->is_partner_paying || $invoice->entity_type === \App\Models\Partner\Partner::class) {
+        if ($invoice->is_partner_paying || $invoice->entity_type === \App\MPartner::class) {
             $receiverPartnerId = \App\Models\Partner\Partner::where('is_host', true)->first()?->id;
         } else {
             $receiverPartnerId = $invoice->partner_id;
@@ -103,12 +105,12 @@ class UnifiedPaymentController extends Controller
             throw new Exception("Receiver partner ID could not be resolved.");
         }
 
-        $stripeProvider = \App\Models\PaymentMethod\PaymentProvider::where('name', \App\Models\PaymentMethod\PaymentProvider::STRIPE)->first();
+        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
         if (!$stripeProvider) {
             throw new Exception("Stripe payment provider not found in system.");
         }
 
-        $partnerProvider = \App\Models\PaymentMethod\PartnerPaymentProvider::query()
+        $partnerProvider = PartnerPaymentProvider::query()
             ->where('partner_id', $receiverPartnerId)
             ->where('payment_provider_id', $stripeProvider->id)
             ->where('status', true)
@@ -119,7 +121,7 @@ class UnifiedPaymentController extends Controller
         }
 
         $config = $partnerProvider->configuration ?? [];
-        $environment = $config['payment_mode'] ?? \App\Models\PaymentMethod\PaymentProvider::MODE_SANDBOX;
+        $environment = $partnerProvider->payment_mode ?? ($config['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
         $envConfig = $config[$environment] ?? $config;
 
         $secretKey = $envConfig['secret_key'] ?? ($config['stripe_secret_' . $environment] ?? null);

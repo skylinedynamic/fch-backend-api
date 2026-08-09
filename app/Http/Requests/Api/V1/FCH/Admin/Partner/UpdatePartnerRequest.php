@@ -95,14 +95,25 @@ class UpdatePartnerRequest extends BaseApiRequest
             'is_free_trail' => ['nullable', 'boolean'],
         ];
 
-        if ($isFreeTrialInput) {
-            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+        $isFreeTrialNew = $this->has('is_free_trail')
+            ? ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true')
+            : $wasFreeTrial;
+
+        if ($isFreeTrialNew) {
+            if ($this->has('is_free_trail') || $this->has('free_trail_end_date')) {
+                $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+            } else {
+                $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
+            }
             $rules['enrollment_type'] = ['nullable', 'string', 'max:255'];
             $rules['enrollment_amount'] = ['nullable'];
             $rules['monthly_platform_fee'] = ['nullable'];
         } else {
             $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
-            if ($wasFreeTrial) {
+            
+            // Only require enrollment details when converting from free trial to regular enrollment
+            $isConverting = $wasFreeTrial && !$isFreeTrialNew;
+            if ($isConverting) {
                 $rules['enrollment_type'] = ['required', 'string', 'max:255'];
                 $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
                 $rules['monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
@@ -112,7 +123,7 @@ class UpdatePartnerRequest extends BaseApiRequest
                 $rules['monthly_platform_fee'] = ['nullable', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
             }
 
-            $enrollmentType = strtolower(trim((string) ($this->input('enrollment_type') ?? $partner?->subscription?->enrollment_type)));
+            $enrollmentType = strtolower(trim((string) ($this->input('enrollment_type') ?? ($partner?->subscription?->enrollment_type ?? ''))));
             if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
                 $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
                 $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
