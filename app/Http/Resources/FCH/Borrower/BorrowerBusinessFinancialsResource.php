@@ -32,6 +32,11 @@ class BorrowerBusinessFinancialsResource extends JsonResource
             'negative_days'             => $this->negative_days,
             'funding_urgency'           => $this->funding_urgency,
             'status'                    => $this->status,
+            'bank_accounts'             => $this->bankAccounts ? $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
+                'account_open_date' => $b->account_open_date,
+            ]) : [],
         ];
     }
 }

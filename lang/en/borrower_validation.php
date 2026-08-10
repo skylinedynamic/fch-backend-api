@@ -389,4 +389,7 @@ return [
     'privacy_consent_accepted' => 'You must agree to the Privacy Policy.',
     'credit_consent_accepted' => 'You must consent to the Credit Authorization.',
     'legal_binding_consent_accepted' => 'You must understand your electronic signature is legally binding.',
+    
+    // Bank Accounts
+    'bank_name_required' => 'Bank Name is required.',
 ];
