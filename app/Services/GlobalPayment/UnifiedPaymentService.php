@@ -31,10 +31,13 @@ use Exception;
 class UnifiedPaymentService
 {
     public function __construct(
-        protected PaymentGatewayManager $gatewayManager,
-        protected Payment $paymentRecord,
-        protected SubscriptionService $subscriptionService
+        protected ?PaymentGatewayManager $gatewayManager = null,
+        protected ?Payment $paymentRecord = null,
+        protected ?SubscriptionService $subscriptionService = null
     ) {
+        $this->gatewayManager = $gatewayManager ?? app(PaymentGatewayManager::class);
+        $this->paymentRecord = $paymentRecord ?? app(Payment::class);
+        $this->subscriptionService = $subscriptionService ?? app(SubscriptionService::class);
     }
 
     /**
@@ -127,6 +130,7 @@ class UnifiedPaymentService
                 'payment_from'      => $providerName ?? 'Default',
                 'payment_type'      => $paymentType,
                 'is_partner_paying' => $isPartnerPaying,
+                'is_manual'         => $isManual,
                 'status'            => $paymentStatus,
                 'details'           => $gatewayResult['raw'] ?? [],
             ]);
@@ -161,21 +165,9 @@ class UnifiedPaymentService
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice);
 
-            // 5. Auto charge platform fee if partner is certified/white-label and not is_host
-            if ($invoice->entity_type === Borrower::class) {
-                $partner = $invoice->partner;
-                if ($partner && $partner->is_host == 0 && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
-                    $paymentMethodService = new PaymentMethodService();
-                    $settings = $paymentMethodService->getSettings($partner->id);
-                    if ($settings && $settings->partner_auto_charge_host_fee) {
-                        Log::info('[AutoCharge] Charging platform fee for partner via Unified Flow', [
-                            'invoice' => $invoice,
-                            'partner' => $partner,
-                            'payment' => $payment,
-                        ]);
-                        $this->chargePlatformFee($invoice, $partner, $payment);
-                    }
-                }
+            // 5. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
+            if (!$isManual) {
+                $this->triggerPartnerAutoChargeForBorrowerInvoice($invoice, $payment);
             }
 
             DB::commit();
@@ -191,6 +183,28 @@ class UnifiedPaymentService
             DB::rollBack();
             Log::error("[UnifiedPaymentService] Error: " . $e->getMessage(), ['data' => $data]);
             throw $e;
+        }
+    }
+
+    /**
+     * Trigger automatic platform fee charge from partner to host for a borrower's invoice.
+     */
+    public function triggerPartnerAutoChargeForBorrowerInvoice(Invoice $invoice, ?Payment $payment = null): void
+    {
+        if ($invoice->entity_type === Borrower::class) {
+            $partner = $invoice->partner;
+            if ($partner && $partner->is_host == 0 && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]) && !$invoice->is_partner_paying) {
+                $paymentMethodService = new PaymentMethodService();
+                $settings = $paymentMethodService->getSettings($partner->id);
+                if ($settings && $settings->partner_auto_charge_host_fee) {
+                    Log::info('[AutoCharge] Charging platform fee for partner via Unified Flow', [
+                        'invoice' => $invoice,
+                        'partner' => $partner,
+                        'payment' => $payment,
+                    ]);
+                    $this->chargePlatformFee($invoice, $partner, $payment);
+                }
+            }
         }
     }
 

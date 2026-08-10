@@ -25,6 +25,8 @@ class Payment extends Model
         'transaction_date' => 'datetime',
         'details' => 'array',
         'is_environment' => 'boolean',
+        'is_manual' => 'boolean',
+        'is_partner_paying' => 'boolean',
     ];
 
     public const STATUS_SUCCEEDED = 'succeeded';
@@ -61,6 +63,13 @@ class Payment extends Model
         $paymentType = strtolower((string) ($this->payment_type ?? ''));
 
         if ($status === self::STATUS_REFUNDED || $paymentType === self::TYPE_PAYOUT) {
+            if ($authUser && $authUser->entity_type === Borrower::class) {
+                return self::TRANSACTION_TYPE_CREDIT;
+            }
+            return self::TRANSACTION_TYPE_DEBIT;
+        }
+
+        if ($authUser && $authUser->entity_type === Borrower::class) {
             return self::TRANSACTION_TYPE_DEBIT;
         }
 
@@ -121,6 +130,7 @@ class Payment extends Model
             'payment_type' => $paymentType,
             'status' => $data['status'] ?? self::STATUS_PENDING,
             'is_environment' => $isEnvironment,
+            'is_manual' => (bool) ($data['is_manual'] ?? false),
             'details' => $data['details'] ?? null,
             'transaction_date' => $data['transaction_date'] ?? now(),
             'created_by' => $data['created_by'] ?? auth()->id(),

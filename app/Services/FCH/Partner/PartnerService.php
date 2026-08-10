@@ -30,6 +30,7 @@ use App\Mail\Trial\PartnerTrialMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
+use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
 
@@ -40,39 +41,12 @@ class PartnerService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
+        protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
     ) {
     }
 
-    /**
-     * Send payment link email using partner's own email config.
-     */
-    private function sendPaymentLinkEmail(array $mailData, int $hostPartnerId): void
-    {
-        try {
-            Mail::to($mailData['user']->email)->send(new PartnerPaymentLinkMail($mailData, $hostPartnerId));
-        } catch (\Exception $e) {
-            Log::error('Partner payment link email failed', [
-                'partner_id' => $mailData['partner_id'],
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
 
-    /**
-     * Send migration notification email using partner's own email config.
-     */
-    private function sendMigrationEmail(array $mailData, int $hostPartnerId): void
-    {
-        try {
-            Mail::to($mailData['user']->email)->send(new PartnerMigrationMail($mailData, $hostPartnerId));
-        } catch (\Exception $e) {
-            Log::error('Partner migration email failed', [
-                'partner_id' => $mailData['partner_id'],
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
 
     /**
      * Send free trial welcome email using partner's own email config.
@@ -96,7 +70,6 @@ class PartnerService
     {
         try {
             Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
-
         } catch (\Exception $e) {
             Log::error('Partner account update email failed', [
                 'partner_id' => $mailData['partner_id'],
@@ -148,190 +121,10 @@ class PartnerService
         'partner_image' => 'partner_image',
         'partner_domain' => 'partner_domain',
         'borrower_domain' => 'borrower_domain',
-        'assign_to' => 'assign_to', // Assigned agent/user
+        'assign_to' => 'assign_to',
         'is_free_trail' => 'is_free_trail',
         'free_trail_end_date' => 'free_trail_end_date',
     ];
-
-    /**
-     * Resolve a partner subscription plan by partner_type and enrollment_type.
-     */
-    private function resolvePartnerPlan(?string $partnerType, ?string $enrollmentType, ?int $planId = null): ?SubscriptionPlan
-    {
-        if ($planId) {
-            $plan = SubscriptionPlan::find($planId);
-            if ($plan) {
-                return $plan;
-            }
-        }
-
-        if (!$partnerType || !$enrollmentType) {
-            return null;
-        }
-
-        $isInstallment = strtolower(trim((string) $enrollmentType)) === SubscriptionPlan::INSTALLMENT_PLAN
-            || Str::slug($enrollmentType) === SubscriptionPlan::INSTALLMENT_PLAN
-            || Str::contains(strtolower((string) $enrollmentType), SubscriptionPlan::INSTALLMENT_PLAN)
-            || Str::contains(strtolower((string) $enrollmentType), 'payment-plan');
-
-        $targetSlug = $isInstallment ? SubscriptionPlan::INSTALLMENT_PLAN : SubscriptionPlan::CERTIFIED_ENROLMENT_TYPE_ONE_TIME;
-
-        $plan = SubscriptionPlan::where('partner_type', $partnerType)
-            ->where(function ($q) use ($enrollmentType, $targetSlug) {
-                $q->where('enrollment_type', $enrollmentType)
-                    ->orWhere('enrollment_type_slug', Str::slug($enrollmentType))
-                    ->orWhere('enrollment_type_slug', $targetSlug);
-            })
-            ->first();
-
-        if (!$plan) {
-            $plan = SubscriptionPlan::where('partner_type_slug', Str::slug($partnerType))
-                ->where(function ($q) use ($enrollmentType, $targetSlug) {
-                    $q->where('enrollment_type', $enrollmentType)
-                        ->orWhere('enrollment_type_slug', Str::slug($enrollmentType))
-                        ->orWhere('enrollment_type_slug', $targetSlug);
-                })
-                ->first();
-        }
-
-        return $plan;
-    }
-
-    /**
-     * Calculate partner subscription amounts, applying custom overrides where supplied.
-     * Handles One Time Payment and Installment enrollment data formats.
-     * Returns ['enrollment', 'monthly', 'total', 'payable_amount', 'initial_invoice_amount', 'down_payment', 'installment_months', 'installment_monthly_amount', 'installment_remaining_balance', 'installment_type', 'isCustom'].
-     */
-    private function calculatePartnerSubscriptionAmounts(?SubscriptionPlan $plan, array $data, ?Subscription $existingSubscription = null): array
-    {
-        $enrollmentType = $data['enrollment_type'] ?? $existingSubscription?->enrollment_type ?? $plan?->enrollment_type ?? '';
-
-        $isInstallment = strtolower((string) $enrollmentType) == SubscriptionPlan::INSTALLMENT_PLAN;
-
-        // 1. Total Enrollment Amount
-        $enrollment = null;
-        if (isset($data['enrollment_amount']) && $data['enrollment_amount'] !== '') {
-            $enrollment = (float) $data['enrollment_amount'];
-        } elseif ($existingSubscription) {
-            $enrollment = (float) $existingSubscription->payable_amount;
-        } else {
-            $enrollment = (float) ($plan->total_amount ?? $plan->payment_amount ?? 0);
-        }
-
-        // 2. Monthly Platform Fee
-        $monthly = null;
-        if (isset($data['monthly_platform_fee']) && $data['monthly_platform_fee'] !== '') {
-            $monthly = (float) $data['monthly_platform_fee'];
-        } elseif ($existingSubscription) {
-            $monthly = (float) $existingSubscription->monthly_platform_fee;
-        } else {
-            $monthly = (float) ($plan->platform_fee ?? 0);
-        }
-
-        // 3. Installment-specific or One Time Payment calculations
-        $downPayment = 0.0;
-        $installmentMonths = (int) ($data['installment_months'] ?? $plan->total_installment_count_upto ?? 1);
-        $monthlyInstallmentAmount = 0.0;
-        $remainingBalance = 0.0;
-
-        if ($isInstallment) {
-            if (isset($data['installment_down_payment']) && $data['installment_down_payment'] !== '') {
-                $downPayment = (float) $data['installment_down_payment'];
-            }
-            if (isset($data['installment_monthly_amount']) && $data['installment_monthly_amount'] !== '') {
-                $monthlyInstallmentAmount = (float) $data['installment_monthly_amount'];
-            }
-            if (isset($data['installment_remaining_balance']) && $data['installment_remaining_balance'] !== '') {
-                $remainingBalance = (float) $data['installment_remaining_balance'];
-            } else {
-                $remainingBalance = max(0, $enrollment - $downPayment);
-            }
-
-            if ($monthlyInstallmentAmount <= 0 && $installmentMonths > 0) {
-                $monthlyInstallmentAmount = $remainingBalance > 0 ? ($remainingBalance / $installmentMonths) : 0;
-            }
-
-            $payableAmount = $enrollment;
-            $total = $remainingBalance;
-            $initialInvoiceAmount = $downPayment > 0 ? $downPayment : $payableAmount;
-            $installmentType = 1;
-        } else {
-            $downPayment = 0.0;
-            $payableAmount = $enrollment;
-            $total = $enrollment;
-            $initialInvoiceAmount = $enrollment;
-            $installmentType = 0;
-        }
-
-        $isCustom = false;
-        if ($plan) {
-            $isCustom = (abs($enrollment - (float) ($plan->total_amount ?? $plan->payment_amount ?? 0)) > 0.01)
-                || (abs($monthly - (float) ($plan->platform_fee ?? 0)) > 0.01);
-        }
-
-        return [
-            'enrollment' => $enrollment,
-            'monthly' => $monthly,
-            'total' => $total,
-            'payable_amount' => $payableAmount,
-            'initial_invoice_amount' => $initialInvoiceAmount,
-            'down_payment' => $downPayment,
-            'installment_months' => $installmentMonths,
-            'installment_monthly_amount' => $monthlyInstallmentAmount,
-            'installment_remaining_balance' => $remainingBalance,
-            'installment_type' => $installmentType,
-            'isCustom' => $isCustom,
-        ];
-    }
-
-    /**
-     * Create a partner enrollment invoice, log it, prepare mail data, and dispatch the email.
-     */
-    private function createPartnerInvoiceAndSendEmail(
-        Partner $partner,
-        ?object $user,
-        float $enrollmentAmount,
-        ?string $enrollmentType,
-        string $paymentLink,
-        array $businessInfo,
-        ?array $extraMailData,
-        int $senderPartnerId,
-        bool $isMigration = false,
-        ?int $subscriptionId = null
-    ): void {
-        $invoiceType = Invoice::INVOICE_TYPE_ENROLLMENT;
-
-        $invoice = $this->invoiceService->create([
-            'partner_id' => $partner->id,
-            'entity_type' => Partner::class,
-            'entity_id' => $partner->id,
-            'subscription_id' => $subscriptionId,
-            'customer_name' => $partner->full_name,
-            'email' => $partner->email,
-            'country' => $partner->country,
-            'payment_amount' => $enrollmentAmount,
-            'is_partner_paying' => false,
-            'status' => Invoice::STATUS_UNPAID,
-            'type' => $invoiceType,
-        ]);
-
-        $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
-
-        $mailData = array_merge([
-            'partner_id' => $partner->id,
-            'user' => $user,
-            'payment_link' => $paymentLink,
-            'amount' => $invoice->payment_amount,
-            'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
-            'business_info' => $businessInfo,
-        ], $extraMailData ?? []);
-
-        if ($isMigration) {
-            $this->sendMigrationEmail($mailData, $senderPartnerId);
-        } else {
-            $this->sendPaymentLinkEmail($mailData, $senderPartnerId);
-        }
-    }
 
     /**
      * Build the business_info array from the host partner (or app config fallback).
@@ -424,52 +217,11 @@ class PartnerService
                     __('partner.free_trial_created_log', ['date' => $trialEndDate ?? 'N/A'])
                 );
             } else {
-                $subscription = null;
-                $partnerType = $data['partner_type'] ?? null;
-                $enrollmentType = $data['enrollment_type'] ?? null;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null);
-                $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
+                // ── PAID / STANDARD ENROLLMENT ──────────────────────────────────────────
+                $enrollmentData = $data['enrollment'] ?? [];
+                $enrollmentData['partner_type'] = $data['partner_type'] ?? $partner->partner_type;
 
-                if ($enrollmentType) {
-                    $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
-                        'subscription_plan_id' => $plan->id ?? null,
-                        'partner_type' => $partnerType,
-                        'enrollment_type' => $enrollmentType,
-                        'installment_type' => $amounts['installment_type'],
-                        'installment_count' => $amounts['installment_months'],
-                        'monthly_platform_fee' => $amounts['monthly'],
-                        'payable_amount' => $amounts['payable_amount'],
-                        'total_subscription_amount' => $amounts['total'],
-                        'subscription_amount_per_month' => $amounts['installment_type'] == 1 ? $amounts['installment_monthly_amount'] : $amounts['monthly'],
-                        'down_payment' => $amounts['down_payment'],
-                        'is_custom' => $amounts['isCustom'],
-                    ]);
-                }
-
-                $authUser = Auth::user();
-                $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
-
-                if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
-                    $paymentLink = concatUrl(getPartnerDomain($partner->id), 'invoices', config('app.frontend_partner_url'));
-                    $this->createPartnerInvoiceAndSendEmail(
-                        $partner,
-                        $user,
-                        $amounts['initial_invoice_amount'],
-                        $enrollmentType,
-                        $paymentLink,
-                        [
-                            'company_name' => config('app.name'),
-                            'email' => config('mail.from.address'),
-                            'phone_number' => config('app.phone_number', ''),
-                            'address_line_1' => config('app.address', ''),
-                            'company_logo' => 'logo.png',
-                        ],
-                        ['plain_password' => $plainPassword],
-                        $senderPartnerId,
-                        false,
-                        $subscription->id ?? null
-                    );
-                }
+                $this->enrollmentService->enrollPartner($partner, $user, $enrollmentData, $plainPassword);
             }
 
             DB::commit();
@@ -631,7 +383,12 @@ class PartnerService
             }
 
             $changes = $partner->getChanges();
+
             unset($changes['updated_at']);
+
+            if (isset($changes['email']) && strtolower(trim((string) $partner->getOriginal('email'))) === strtolower(trim((string) $changes['email']))) {
+                unset($changes['email']);
+            }
 
             if (!empty($changes)) {
                 $extraProps = [];
@@ -652,25 +409,41 @@ class PartnerService
                     $logType = ActivityLog::LOG_TYPE_PARTNER_CONTACT_UPDATE;
                 }
 
+                $enrollmentType = $data['enrollment']['enrollment_type'] ?? null;
+                $defaultEnrollmentType = __('partner.default_enrollment_type');
+                $transitionMsg = ($wasFreeTrial && !$isFreeTrialInput)
+                    ? __('partner.free_trial_converted_log', ['enrollment_type' => $enrollmentType ? $enrollmentType : $defaultEnrollmentType])
+                    : null;
+
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
-                    $name = $field === 'assign_to' ? 'Assigned User' : ucwords(str_replace('_', ' ', $field));
+                    if ($transitionMsg && in_array($field, ['is_free_trail', 'free_trail_end_date', 'status'])) {
+                        continue;
+                    }
+
+                    $name = $field === 'assign_to' ? __('partner.assigned_user') : ucwords(str_replace('_', ' ', $field));
 
                     if ($field === 'assign_to') {
-                        $changedFields[] = "{$name} was changed";
+                        $changedFields[] = __('partner.field_changed', ['field' => $name]);
                     } elseif ($field === 'full_name') {
                         $val = (string) $newValue;
-                        $val = $val === '' ? 'empty' : $val;
-                        $changedFields[] = "Name was updated to {$val}";
+                        $val = $val === '' ? __('partner.empty_value') : $val;
+                        $changedFields[] = __('partner.name_updated', ['value' => $val]);
                     } else {
                         $val = (string) $newValue;
-                        $val = $val === '' ? 'empty' : $val;
-                        $changedFields[] = "{$name} was updated to {$val}";
+                        $val = $val === '' ? __('partner.empty_value') : $val;
+                        $changedFields[] = __('partner.field_updated', ['field' => $name, 'value' => $val]);
                     }
                 }
-                $fieldsList = implode(', ', $changedFields);
 
-                $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+                if ($transitionMsg) {
+                    $customDescription = !empty($changedFields)
+                        ? "{$transitionMsg}. " . implode(', ', $changedFields) . "."
+                        : "{$transitionMsg}.";
+                } else {
+                    $fieldsList = implode(', ', $changedFields);
+                    $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+                }
 
                 $this->activityLogService->logModelEvent(
                     $partner,
@@ -687,47 +460,11 @@ class PartnerService
 
             if ($wasFreeTrial && !$isFreeTrialInput) {
                 // Transition off free trial
-                $subscription = null;
-                $partnerType = $data['partner_type'] ?? $partner->partner_type;
-                $enrollmentType = $data['enrollment_type'] ?? null;
-                $plan = $this->resolvePartnerPlan($partnerType, $enrollmentType, $data['plan_id'] ?? null);
-                $amounts = $this->calculatePartnerSubscriptionAmounts($plan, $data);
+                // ── PAID / MIGRATION ENROLLMENT ────────────────────────────────────────
+                $enrollmentData = $data['enrollment'] ?? [];
+                $enrollmentData['partner_type'] = $data['partner_type'] ?? $partner->partner_type;
 
-                if ($enrollmentType) {
-                    $subscription = $this->subscriptionService->startSubscription($partner, $plan, [
-                        'subscription_plan_id' => $plan->id ?? null,
-                        'partner_type' => $plan->partner_type ?? $partnerType,
-                        'enrollment_type' => $enrollmentType,
-                        'installment_type' => $amounts['installment_type'],
-                        'installment_count' => $amounts['installment_months'],
-                        'monthly_platform_fee' => $amounts['monthly'],
-                        'payable_amount' => $amounts['payable_amount'],
-                        'total_subscription_amount' => $amounts['total'],
-                        'subscription_amount_per_month' => $amounts['installment_type'] == 1 ? $amounts['installment_monthly_amount'] : $amounts['monthly'],
-                        'down_payment' => $amounts['down_payment'],
-                        'is_custom' => $amounts['isCustom'],
-                    ]);
-                }
-
-                $authUser = Auth::user();
-                $senderPartnerId = $authUser ? $authUser->partner_id : Partner::where('is_host', 1)->value('id');
-
-                if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
-                    $hostPartner = Partner::where('is_host', 1)->first();
-                    $paymentLink = concatUrl(getPartnerDomain($partner->id), 'invoices', config('app.frontend_partner_url'));
-                    $this->createPartnerInvoiceAndSendEmail(
-                        $partner,
-                        $user,
-                        $amounts['initial_invoice_amount'],
-                        $enrollmentType,
-                        $paymentLink,
-                        $this->getHostPartnerBusinessInfo($hostPartner),
-                        null,
-                        $senderPartnerId,
-                        isMigration: true,
-                        subscriptionId: $subscription->id ?? null
-                    );
-                }
+                $this->enrollmentService->enrollPartner($partner, $user, $enrollmentData, isMigration: true);
             }
 
             $user->update(['is_refresh' => true]);

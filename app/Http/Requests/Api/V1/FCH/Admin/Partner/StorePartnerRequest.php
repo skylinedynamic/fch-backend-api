@@ -9,7 +9,6 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
-
 use Illuminate\Validation\Rule;
 
 class StorePartnerRequest extends BaseApiRequest
@@ -29,13 +28,18 @@ class StorePartnerRequest extends BaseApiRequest
     {
         $baseUrl = preg_replace('/^https?:\/\//', '', config('app.base_website'));
 
+        $isFreeTrial = $this->input('is_free_trail') == 1
+            || $this->input('is_free_trail') === true
+            || $this->input('is_free_trail') === 'true';
+
         $rules = [
+            // ── Partner Info ────────────────────────────────────────────────
             'full_name' => ['required', 'string', 'max:255'],
             'company_name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('partners', 'company_name')->whereNull('deleted_at')
+                Rule::unique('partners', 'company_name')->whereNull('deleted_at'),
             ],
             'email' => [
                 'required',
@@ -60,9 +64,9 @@ class StorePartnerRequest extends BaseApiRequest
             'tax_id' => ['nullable', 'string', 'max:100'],
             'website' => ['nullable', 'string'],
             'joining_date' => ['nullable', 'date'],
-            'company_logo' => ['nullable'], // 2MB max
-            'partner_image' => ['nullable'], // 2MB max
-            'assign_to' => ['nullable', 'integer', 'exists:users,id'], // Assigned agent/user
+            'company_logo' => ['nullable'],
+            'partner_image' => ['nullable'],
+            'assign_to' => ['nullable', 'integer', 'exists:users,id'],
             'partner_domain' => [
                 'required',
                 'string',
@@ -79,25 +83,29 @@ class StorePartnerRequest extends BaseApiRequest
             ],
             'borrower_domain' => ['nullable', 'string', 'max:255'],
             'is_free_trail' => ['nullable', 'boolean'],
+            'free_trail_end_date' => [$isFreeTrial ? 'required' : 'nullable', 'date_format:Y-m-d', $isFreeTrial ? 'after_or_equal:today' : 'nullable'],
+
+            // ── Enrollment sub-object ───────────────────────────────────────
+            'enrollment' => [$isFreeTrial ? 'nullable' : 'required', 'array'],
         ];
 
-        if ($this->input('is_free_trail') == 1 || $this->input('is_free_trail') === true || $this->input('is_free_trail') === 'true') {
-            $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
-            $rules['enrollment_type'] = ['nullable', 'string', 'max:255'];
-            $rules['enrollment_amount'] = ['nullable'];
-            $rules['monthly_platform_fee'] = ['nullable'];
+        if ($isFreeTrial) {
+            $rules['enrollment.enrollment_type'] = ['nullable', 'string', 'max:255'];
+            $rules['enrollment.amount'] = ['nullable'];
+            $rules['enrollment.monthly_platform_fee'] = ['nullable'];
         } else {
-            $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
-            $rules['enrollment_type'] = ['required', 'string', 'max:255'];
-            $rules['enrollment_amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
-            $rules['monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            $rules['enrollment.plan_id'] = ['nullable', 'exists:subscription_plans,id'];
+            $rules['enrollment.enrollment_type'] = ['required', 'string', 'max:255'];
+            $rules['enrollment.amount'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
+            $rules['enrollment.monthly_platform_fee'] = ['required', 'numeric', 'gt:0', 'regex:/^[1-9]\d*(\.\d+)?$|^0\.\d*[1-9]\d*$/'];
 
-            $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
+            $enrollmentType = strtolower(trim((string) $this->input('enrollment.enrollment_type')));
+
             if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
-                $rules['installment_down_payment'] = ['nullable', 'numeric', 'min:0'];
-                $rules['installment_months'] = ['nullable', 'integer', 'min:1', 'max:24'];
-                $rules['installment_monthly_amount'] = ['nullable', 'numeric', 'min:0'];
-                $rules['installment_remaining_balance'] = ['nullable', 'numeric', 'min:0'];
+                $rules['enrollment.down_payment'] = ['nullable', 'numeric', 'min:0'];
+                $rules['enrollment.months'] = ['nullable', 'integer', 'min:1', 'max:24'];
+                $rules['enrollment.monthly_amount'] = ['nullable', 'numeric', 'min:0'];
+                $rules['enrollment.remaining_balance'] = ['nullable', 'numeric', 'min:0'];
             }
         }
 
@@ -120,22 +128,24 @@ class StorePartnerRequest extends BaseApiRequest
             'city.required' => __('partner.validation.city.required'),
             'country.required' => __('partner.validation.country.required'),
             'address_line_1.required' => __('partner.validation.address_line_1.required'),
-            'enrollment_type.required' => __('partner.validation.enrollment_type_required'),
-            'enrollment_amount.required' => __('partner.validation.enrollment_amount_required'),
-            'enrollment_amount.numeric' => __('partner.validation.enrollment_amount_numeric'),
-            'enrollment_amount.gt' => __('partner.validation.enrollment_amount_gt'),
-            'enrollment_amount.regex' => __('partner.validation.enrollment_amount_regex'),
-            'monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
             'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
             'free_trail_end_date.after_or_equal' => 'Trial end date must be today or a future date.',
-            'monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
-            'monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
-            'monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),
             'partner_domain.required' => __('partner.validation.partner_domain.required'),
             'partner_domain.min' => __('partner.validation.partner_domain.min'),
             'partner_domain.max' => __('partner.validation.partner_domain.max'),
             'partner_domain.regex' => __('partner.validation.partner_domain.regex'),
             'partner_domain.unique' => __('partner.validation.partner_domain.unique'),
+            'enrollment.required' => 'Enrollment details are required.',
+            'enrollment.array' => 'Enrollment must be an object.',
+            'enrollment.enrollment_type.required' => __('partner.validation.enrollment_type_required'),
+            'enrollment.amount.required' => __('partner.validation.enrollment_amount_required'),
+            'enrollment.amount.numeric' => __('partner.validation.enrollment_amount_numeric'),
+            'enrollment.amount.gt' => __('partner.validation.enrollment_amount_gt'),
+            'enrollment.amount.regex' => __('partner.validation.enrollment_amount_regex'),
+            'enrollment.monthly_platform_fee.required' => __('partner.validation.monthly_platform_fee_required'),
+            'enrollment.monthly_platform_fee.numeric' => __('partner.validation.monthly_platform_fee_numeric'),
+            'enrollment.monthly_platform_fee.gt' => __('partner.validation.monthly_platform_fee_gt'),
+            'enrollment.monthly_platform_fee.regex' => __('partner.validation.monthly_platform_fee_regex'),
         ];
     }
 }

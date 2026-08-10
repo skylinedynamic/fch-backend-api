@@ -68,14 +68,6 @@ class Borrower extends Model
     }
 
     /**
-     * Get the saved payment methods for the borrower.
-     */
-    public function savedPaymentMethods(): \Illuminate\Database\Eloquent\Relations\MorphMany
-    {
-        return $this->morphMany(\App\Models\Payment\SavedPaymentMethod::class, 'entity');
-    }
-
-    /**
      * Get the partner that owns the borrower.
      */
     public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -315,12 +307,12 @@ class Borrower extends Model
         if ($this->business_start_date) {
             $now = Carbon::now();
             $start = Carbon::parse($this->business_start_date);
-            
+
             // Decimal years, rounded to 1 decimal place
             $diffInDays = $start->diffInDays($now);
             return round($diffInDays / 365.25, 1);
         }
-        
+
         return 0;
     }
 }

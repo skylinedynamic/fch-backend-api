@@ -241,7 +241,8 @@ class SubscriptionService
             if ($installmentType == 1 && $installmentCount > 0) {
                 $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
             } else {
-                $data['subscription_amount_per_month'] = $data['monthly_platform_fee'] ?? 0;
+                // One-time / non-installment plan: use payable_amount, fall back to monthly_platform_fee.
+                $data['subscription_amount_per_month'] = $data['payable_amount'] ?? ($data['monthly_platform_fee'] ?? 0);
             }
         }
 

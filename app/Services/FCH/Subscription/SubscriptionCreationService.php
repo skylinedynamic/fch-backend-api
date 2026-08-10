@@ -83,9 +83,12 @@ class SubscriptionCreationService
             $installmentType = $data['installment_type'] ?? 0;
 
             if ($installmentType == 1 && $installmentCount > 0) {
+                // Installment plan: spread the remaining balance over the installment months
                 $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
             } else {
-                $data['subscription_amount_per_month'] = $data['monthly_platform_fee'] ?? 0;
+                // One-time / non-installment plan: the per-month amount equals the payable amount.
+                // monthly_platform_fee is always 0 for borrowers, so fall back to payable_amount.
+                $data['subscription_amount_per_month'] = $data['payable_amount'] ?? ($data['monthly_platform_fee'] ?? 0);
             }
         }
 

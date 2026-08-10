@@ -161,4 +161,8 @@ return [
 
     'borrower_not_found' => 'Borrower not found.',
     'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Limited Access Edition</span> plan. Access time is for lifetime.',
+    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'default_enrollment_type' => 'Paid Enrollment',
+    'field_updated' => ':field was updated to :value',
+    'empty_value' => 'empty',
 ];

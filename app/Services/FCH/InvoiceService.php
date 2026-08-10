@@ -28,6 +28,37 @@ class InvoiceService
     use PaginatesApi;
 
     /**
+     * Apply RBAC / user scope to invoice query.
+     */
+    protected function applyRbacScope(Builder $query, mixed $authUser = null): Builder
+    {
+        $authUser = $authUser ?? Auth::user();
+
+        if (!$authUser) {
+            return $query;
+        }
+
+        // RBAC: Partner Wise (Non-host partner can only access their partner_id invoices)
+        if (!empty($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            $query->where('invoices.partner_id', $authUser->partner_id);
+        } elseif (!empty($authUser->partner_id) && empty($authUser->partner)) {
+            $partner = Partner::find($authUser->partner_id);
+            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                $query->where('invoices.partner_id', $authUser->partner_id);
+            }
+        }
+
+        // RBAC: Borrower Wise
+        if (!empty($authUser->borrower_id)) {
+            $query->where('invoices.borrower_id', $authUser->borrower_id);
+        } elseif (!empty($authUser->entity_type) && $authUser->entity_type === Borrower::class && !empty($authUser->entity_id)) {
+            $query->where('invoices.borrower_id', $authUser->entity_id);
+        }
+
+        return $query;
+    }
+
+    /**
      * Get list of invoices based on filters.
      *
      * @param array $filters
@@ -44,10 +75,8 @@ class InvoiceService
             ])
             ->select('invoices.*');
 
-        // RBAC: Partner Wise (Accurate Code)
-        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $query->where('invoices.partner_id', $authUser->partner_id);
-        }
+        // RBAC: Partner & Borrower Wise
+        $this->applyRbacScope($query, $authUser);
 
         // Accurate Date Range: created_at (Following User Request)
         // Accurate Date Range Filtering (Inclusive of Full Day for Timestamps)
@@ -103,39 +132,96 @@ class InvoiceService
             }
         }
 
-        // Filter by Status (Compatibility)
-        // Filter by Status (Compatibility)
-        $statusFilter = $filters['status'] ?? null;
-        if (is_array($statusFilter)) {
-            $statusFilter = $statusFilter['value'] ?? null;
-        }
-
-        if (!empty($statusFilter) && $statusFilter !== 'All Status') {
-            $query->where('invoices.status', $statusFilter);
-        }
-
-        if (isset($rawFilters['status'])) {
-            unset($rawFilters['status']);
-        }
-
-
-        if (!empty($filters['subscription_id'])) {
-            $query->where('invoices.subscription_id', $filters['subscription_id']);
-        }
-
-        // Filter by entity_id (Compatibility)
-        if (!empty($filters['entity_id']) && !empty($filters['entity_type'])) {
-            $query->where('invoices.entity_id', $filters['entity_id']);
-            if ($filters['entity_type'] == User::PARTNER) {
-                $query->where('invoices.entity_type', Partner::class);
-            } elseif ($filters['entity_type'] == User::BORROWER) {
-                $query->where('invoices.entity_type', Borrower::class);
-            } else {
-                $query->where('invoices.entity_type', User::class);
+        // Handle structured filter for invoice_id (INV-...)
+        if (isset($rawFilters['invoice_id'])) {
+            $invoiceFilter = $rawFilters['invoice_id'];
+            $constraints = $invoiceFilter['constraints'] ?? [$invoiceFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->where('invoice_id', 'like', "%{$value}%");
+                    }
+                }
             }
+            unset($rawFilters['invoice_id']);
+        }
 
-            unset($rawFilters['entity_id']);
-            unset($rawFilters['entity_type']);
+        // Handle "partner_name" filter
+        if (isset($rawFilters['partner_name'])) {
+            $partnerNameFilter = $rawFilters['partner_name'];
+            $constraints = $partnerNameFilter['constraints'] ?? [$partnerNameFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('partner', function ($pq) use ($value) {
+                            $pq->where('full_name', 'like', "%{$value}%");
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['partner_name']);
+        }
+
+        // Handle "borrower_name" filter
+        if (isset($rawFilters['borrower_name'])) {
+            $borrowerNameFilter = $rawFilters['borrower_name'];
+            $constraints = $borrowerNameFilter['constraints'] ?? [$borrowerNameFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->whereHas('borrower', function ($bq) use ($value) {
+                            $bq->where('first_name', 'like', "%{$value}%")
+                                ->orWhere('last_name', 'like', "%{$value}%")
+                                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$value}%"]);
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['borrower_name']);
+        }
+
+        // Handle "customer_name" filter specifically
+        if (isset($rawFilters['customer_name'])) {
+            $customerFilter = $rawFilters['customer_name'];
+            $constraints = $customerFilter['constraints'] ?? [$customerFilter];
+            if (is_array($constraints)) {
+                foreach ($constraints as $c) {
+                    $value = $c['value'] ?? null;
+                    if ($value) {
+                        $query->where(function ($q) use ($value) {
+                            $q->whereHas('partner', function ($pq) use ($value) {
+                                $pq->where('full_name', 'like', "%{$value}%");
+                            })->orWhereHas('borrower', function ($bq) use ($value) {
+                                $bq->where('first_name', 'like', "%{$value}%")
+                                    ->orWhere('last_name', 'like', "%{$value}%")
+                                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$value}%"]);
+                            });
+                        });
+                    }
+                }
+            }
+            unset($rawFilters['customer_name']);
+        }
+
+        // Filter by Payee (Compatibility)
+        if (!empty($filters['payee']) && $filters['payee'] !== Invoice::PAYEE_ALL) {
+            $query->where(function ($q) use ($filters) {
+                $q->whereHas('partner', function ($pq) use ($filters) {
+                    $pq->where('full_name', 'like', '%' . $filters['payee'] . '%');
+                })->orWhereHas('borrower', function ($bq) use ($filters) {
+                    $bq->where('first_name', 'like', '%' . $filters['payee'] . '%')
+                        ->orWhere('last_name', 'like', '%' . $filters['payee'] . '%')
+                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ['%' . $filters['payee'] . '%']);
+                });
+            });
+        }
+
+        // Filter by Status (Compatibility)
+        if (!empty($filters['status'])) {
+            $query->where('invoices.status', strtolower($filters['status']));
         }
 
         // Sorting
@@ -143,27 +229,44 @@ class InvoiceService
         $sortOrder = $filters['sort_order'] ?? 'desc';
 
         $sortFieldMap = [
-            'date' => 'created_at',
-            'payment_date' => 'payment_date',
-            'amount' => 'payment_amount',
+            'date' => 'invoices.created_at',
+            'created_at' => 'invoices.created_at',
+            'amount' => 'invoices.payment_amount',
+            'payment_amount' => 'invoices.payment_amount',
+            'status' => 'invoices.status',
+            'invoice_id' => 'invoices.invoice_id',
         ];
 
-        $actualSortField = $sortFieldMap[$sortField] ?? $sortField;
-        if (!str_contains($actualSortField, '.')) {
-            $actualSortField = 'invoices.' . $actualSortField;
+        $actualSortField = $sortFieldMap[$sortField] ?? 'invoices.created_at';
+
+        $skipSorting = false;
+        if ($sortField === 'customer_name') {
+            $query->leftJoin('partners', 'invoices.partner_id', '=', 'partners.id')
+                ->leftJoin('borrowers', 'invoices.borrower_id', '=', 'borrowers.id')
+                ->orderBy(DB::raw("COALESCE(partners.full_name, CONCAT(borrowers.first_name, ' ', borrowers.last_name))"), $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'partner_name') {
+            $query->leftJoin('partners', 'invoices.partner_id', '=', 'partners.id')
+                ->orderBy('partners.full_name', $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'borrower_name') {
+            $query->leftJoin('borrowers', 'invoices.borrower_id', '=', 'borrowers.id')
+                ->orderBy(DB::raw("CONCAT(borrowers.first_name, ' ', borrowers.last_name)"), $sortOrder);
+            $skipSorting = true;
         }
 
-        // Apply remaining structured filters via QueryFilter
+        // Apply remaining filters via QueryFilter
         $query = QueryFilter::apply(
             $query,
             $actualSortField,
             $sortOrder,
             $rawFilters,
             [
+                'skip_sorting' => $skipSorting,
                 'aliases' => [
                     'amount' => 'payment_amount',
-                    'date' => 'created_at',
-                    'payment_date' => 'payment_date',
+                    'status' => 'status',
+                    'invoice_id' => 'invoice_id',
                 ]
             ]
         );
@@ -191,10 +294,8 @@ class InvoiceService
         $authUser = Auth::user();
         $query = Invoice::query();
 
-        // RBAC: Partner Wise (Accurate Code)
-        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $query->where('invoices.partner_id', $authUser->partner_id);
-        }
+        // RBAC: Partner & Borrower Wise
+        $this->applyRbacScope($query, $authUser);
 
         if (!empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
@@ -263,8 +364,12 @@ class InvoiceService
 
     public function find($id)
     {
-        return Invoice::with(['partner', 'borrower', 'subscription'])->find($id)
-            ?? Invoice::with(['partner', 'borrower', 'subscription'])->where('invoice_id', $id)->first();
+        $authUser = Auth::user();
+        $query = Invoice::query()->with(['partner', 'borrower', 'subscription'])->select('invoices.*');
+        $this->applyRbacScope($query, $authUser);
+
+        return (clone $query)->where('invoices.id', $id)->first()
+            ?? (clone $query)->where('invoices.invoice_id', $id)->first();
     }
 
     /**

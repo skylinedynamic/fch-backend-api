@@ -170,4 +170,11 @@ return [
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',
+    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'default_enrollment_type' => 'Paid Enrollment',
+    'assigned_user' => 'Assigned User',
+    'field_changed' => ':field was changed',
+    'field_updated' => ':field was updated to :value',
+    'name_updated' => 'Name was updated to :value',
+    'empty_value' => 'empty',
 ];

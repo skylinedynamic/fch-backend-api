@@ -39,7 +39,6 @@ class BorrowerUserDetailResource extends JsonResource
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
             'partner_type' => $partnerType,
-            'partner_invoice_status' => $partnerInvoiceStatus,
             'partner_payment_for_me' => $this->borrower ? (bool) $this->borrower->partner_payment_for_me : true,
             'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
             'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),

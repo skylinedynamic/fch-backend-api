@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Borrower\Agreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\AuthProfileController;
 use App\Http\Controllers\Api\V1\Borrower\Auth\BorrowerUserDetailController;
+use App\Http\Controllers\Api\V1\Borrower\Billing\BillingController as BorrowerBillingController;
 use App\Http\Controllers\Api\V1\Borrower\Common\BorrowerController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\Borrower\CreditBuilder\CreditBuilderOverviewController;
@@ -82,6 +83,7 @@ Route::prefix('v1/borrower')->group(function () {
             );
 
             Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
+            Route::get('/billing-details', [BorrowerBillingController::class, 'getBillingDetails']);
 
             Route::group(
                 ['prefix' => 'myapplication',],
@@ -106,7 +108,7 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/requests', [FundingRequestController::class, 'store']);
                     Route::post('/requests/list', [FundingRequestController::class, 'index']);
                     Route::get('/requests/{id}', [FundingRequestController::class, 'show']);
-                    
+
                     Route::post('/requests/documents/upload', [FundingRequestController::class, 'uploadDocument']);
                     Route::delete('/requests/documents/{documentId}', [FundingRequestController::class, 'deleteDocument']);
 

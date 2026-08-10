@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Services\Global\Datatable\QueryFilter;
+use App\Services\GlobalPayment\UnifiedPaymentService;
 use App\Http\Resources\FCH\Common\Payment\PaymentResource;
 
 class PaymentService
@@ -470,10 +471,11 @@ class PaymentService
             }
 
             $now = now();
+            $userName = $authUser->name ?? $authUser->full_name ?? ($authUser->first_name ? trim($authUser->first_name . ' ' . ($authUser->last_name ?? '')) : null) ?? $authUser->email ?? __('payment.admin');
             $existingDetails = is_array($payment->details) ? $payment->details : [];
             $existingDetails['approval_note'] = $note;
-            $existingDetails['approved_at'] = $now->toDateTimeString();
-            $existingDetails['approved_by'] = $authUser->id;
+            $existingDetails['approved_at'] = $now->utc()->toDateTimeString();
+            $existingDetails['approved_by'] = $userName;
 
             // Update payment status to Succeeded, transaction_date to now, and save details
             $payment->update([
@@ -488,6 +490,12 @@ class PaymentService
                     'status'  => Invoice::STATUS_PAID,
                     'paid_at' => $now,
                 ]);
+
+                // Auto charge partner host fee upon approval of manual borrower payment
+                if ($payment->invoice->entity_type === \App\Models\Borrower\Borrower::class) {
+                    $unifiedPaymentService = app(UnifiedPaymentService::class);
+                    $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($payment->invoice, $payment);
+                }
             }
 
             return [
