@@ -99,7 +99,7 @@ class DashboardService
             'tasks_under_review' => $borrower->taskUnderReview()->count(),
         ] : null;
 
-        $data['fico_score'] = $borrower->credit_profile_updated ? $borrower->fico_score : null;
+        $data['fico_score'] = $borrower->credit_profile_updated ? ($borrower->fico_score) : null;
 
         // Fetch the latest active approved funding request (Not Started Funding Application)
         $activeApprovedRequestsQuery = FundingRequest::with('fundingSequence')
