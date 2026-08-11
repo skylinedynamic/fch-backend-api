@@ -43,12 +43,15 @@ class SendFundingApplicationReminders extends Command
 
         $count = 0;
 
+
         foreach ($allFundingRequests as $fundingRequest) {
             if (!$fundingRequest->borrower) continue;
-
+   
             $approvedAt = Carbon::parse($fundingRequest->approved_at);
             $hoursSinceApproval = $approvedAt->diffInHours($now);
-            $daysSinceApproval = $approvedAt->diffInDays($now);
+            
+            // Calculate full calendar days difference, ignoring the exact time of day
+            $daysSinceApproval = $approvedAt->copy()->startOfDay()->diffInDays($now->copy()->startOfDay());
 
             $user = $fundingRequest->borrower->user;
             if (!$user) continue;
@@ -58,7 +61,7 @@ class SendFundingApplicationReminders extends Command
             // Reverse so we check the longest time first
             $reversedDays = array_reverse($reminderDays);
             $totalSteps = count($reminderDays);
-
+            
             foreach ($reversedDays as $index => $days) {
                 // Determine which step this corresponds to (1 for 1d, 2 for 3d, 3 for 7d)
                 $step = $totalSteps - $index;
@@ -78,19 +81,19 @@ class SendFundingApplicationReminders extends Command
                     // Send Borrower Email
                     if ($borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to borrower ({$borrowerEmail})");
-                        Mail::to($borrowerEmail)->send(new BorrowerFundingApplicationReminder($fundingRequest));
+                        Mail::to($borrowerEmail)->queue(new BorrowerFundingApplicationReminder($fundingRequest));
                     }
 
                     // Send Partner Email
                     if ($isNonHostPartner && $partnerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
-                        Mail::to($partnerEmail)->send(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
+                        Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
                     }
 
                     // Send Host Email
                     if ($hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to Host ({$hostEmail})");
-                        Mail::to($hostEmail)->send(new PartnerFundingApplicationReminder($fundingRequest, $hostPartner, true));
+                        Mail::to($hostEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $hostPartner, true));
                     }
 
                     $fundingRequest->update(['reminder_step' => $step]);

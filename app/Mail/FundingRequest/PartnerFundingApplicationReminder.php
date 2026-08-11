@@ -6,6 +6,7 @@ use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\FundingRequest\FundingRequest;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Partner\Partner;
 use App\Models\Common\AppConfiguration;
 
-class PartnerFundingApplicationReminder extends Mailable
+class PartnerFundingApplicationReminder extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
