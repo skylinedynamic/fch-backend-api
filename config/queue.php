@@ -109,4 +109,12 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Global Email Queue Settings
+    |--------------------------------------------------------------------------
+    */
+    'mail_tries' => env('QUEUE_MAIL_TRIES', 3),
+    'mail_backoff' => env('QUEUE_MAIL_BACKOFF', 60),
+
 ];

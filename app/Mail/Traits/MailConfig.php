@@ -13,6 +13,22 @@ trait MailConfig
     protected ?int $mailPartnerId = null;
 
     /**
+     * Determine the number of times the job may be attempted.
+     */
+    public function tries(): int
+    {
+        return config('queue.mail_tries', 3);
+    }
+
+    /**
+     * Determine the number of seconds to wait before retrying the job.
+     */
+    public function backoff(): int
+    {
+        return config('queue.mail_backoff', 60);
+    }
+
+    /**
      * Set the partner ID for dynamic SMTP configuration.
      */
     public function setMailPartnerId(): self
