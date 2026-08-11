@@ -51,6 +51,10 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'nsf_count'                 => ['nullable', 'integer', 'min:0', 'max:99999'],
             'negative_days'             => ['nullable', 'integer', 'min:0', 'max:99999'],
             'funding_urgency'           => ['nullable', 'string', 'max:255'],
+            'bank_accounts'             => ['nullable', 'array'],
+            'bank_accounts.*.id'        => ['nullable', 'integer', 'exists:borrower_bank_accounts,id'],
+            'bank_accounts.*.bank_name' => ['required_with:bank_accounts.*', 'string', 'max:255'],
+            'bank_accounts.*.account_open_date' => ['nullable', 'date', 'before_or_equal:today'],
         ];
     }
 
@@ -65,6 +69,7 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
             'negative_days.integer'     => __('borrower_validation.negative_days_integer'),
             'negative_days.min'         => __('borrower_validation.negative_days_min'),
             'negative_days.max'         => __('borrower_validation.negative_days_max'),
+            'bank_accounts.*.bank_name.required_with' => __('borrower_validation.bank_name_required'),
         ];
     }
 }

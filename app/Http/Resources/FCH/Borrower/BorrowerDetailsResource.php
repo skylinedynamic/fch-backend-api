@@ -79,6 +79,11 @@ class BorrowerDetailsResource extends JsonResource
             'nsf_count' => $this->nsf_count,
             'negative_days' => $this->negative_days,
             'funding_urgency' => $this->funding_urgency,
+            'bank_accounts' => $this->bankAccounts ? $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
+                'account_open_date' => $b->account_open_date ? Carbon::parse($b->account_open_date)->format('Y-m-d') : null,
+            ]) : [],
 
             'status' => $this->status,
             'notes' => $this->notes,

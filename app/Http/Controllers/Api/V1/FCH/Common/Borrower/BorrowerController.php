@@ -92,6 +92,7 @@ class BorrowerController extends Controller
                 __('borrower.updated')
             );
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Borrower updateBusinessFinancials error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
             return ApiResponse::serverError(__('borrower.update_failed'));
         }
     }
