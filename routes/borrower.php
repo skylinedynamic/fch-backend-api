@@ -84,6 +84,8 @@ Route::prefix('v1/borrower')->group(function () {
 
             Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
             Route::get('/billing-details', [BorrowerBillingController::class, 'getBillingDetails']);
+            Route::post('/update-default-payment-method', [BorrowerBillingController::class, 'updateDefaultPaymentMethod']);
+            Route::post('/cancel-subscription', [BorrowerBillingController::class, 'cancelSubscription']);
 
             Route::group(
                 ['prefix' => 'myapplication',],
@@ -184,7 +186,6 @@ Route::prefix('v1/borrower')->group(function () {
             Route::prefix('invoice')->group(
                 function () {
                     Route::post('/', [InvoiceController::class, 'index']);
-                    Route::post('/stats', [InvoiceController::class, 'stats']);
                     Route::get('/check-unpaid-invoice', [InvoiceController::class, 'checkUnpaidInvoice']);
                     Route::get('/{id}', [InvoiceController::class, 'show']);
                     Route::get('/{id}/download', [InvoiceController::class, 'download']);
@@ -194,7 +195,6 @@ Route::prefix('v1/borrower')->group(function () {
             Route::prefix('payments')->group(
                 function () {
                     Route::post('fetch-payments', [PaymentController::class, 'index']);
-                    Route::post('stats', [PaymentController::class, 'stats']);
                     Route::get('{id}', [PaymentController::class, 'show']);
                 }
             );

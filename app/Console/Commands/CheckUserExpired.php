@@ -7,7 +7,7 @@ use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;

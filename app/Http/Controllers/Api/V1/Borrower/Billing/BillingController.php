@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Services\Borrower\Billing\BorrowerBillingService;
 use Illuminate\Http\JsonResponse;
 
+use Illuminate\Http\Request;
+
 class BillingController extends Controller
 {
     protected $borrowerBillingService;
@@ -18,5 +20,20 @@ class BillingController extends Controller
     public function getBillingDetails(): JsonResponse
     {
         return $this->borrowerBillingService->getBillingDetails();
+    }
+
+    public function getPaymentProviders(): JsonResponse
+    {
+        return $this->borrowerBillingService->getPaymentProviders();
+    }
+
+    public function updateDefaultPaymentMethod(Request $request): JsonResponse
+    {
+        return $this->borrowerBillingService->updateDefaultPaymentMethod($request->all());
+    }
+
+    public function cancelSubscription(Request $request): JsonResponse
+    {
+        return $this->borrowerBillingService->cancelSubscription($request->all());
     }
 }

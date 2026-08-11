@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Invoice;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Traits\PaginatesApi;
 use App\Services\Global\Datatable\QueryFilter;
@@ -28,25 +29,36 @@ class InvoiceService
         $partnerId = $user->partner_id;
 
         $query = Invoice::query()
-            ->where('borrower_id', $borrowerId)
-            ->where('partner_id', $partnerId)
             ->where('is_partner_paying', false)
-            ->with(['partner', 'borrower'])
-            ->select('invoices.*');
+            ->where(function ($q) use ($borrowerId) {
+                $q->where('invoices.borrower_id', $borrowerId)
+                  ->orWhere(function ($sub) use ($borrowerId) {
+                      $sub->where('invoices.entity_type', Borrower::class)
+                          ->where('invoices.entity_id', $borrowerId);
+                  });
+            });
 
-        // Filter by status dropdown
-        if (!empty($filters['status']) && $filters['status'] !== 'All Status') {
-            $query->where('invoices.status', $filters['status']);
+        if (!empty($partnerId)) {
+            $query->where('invoices.partner_id', $partnerId);
         }
 
-        // Filter by date range
+        // Apply date range filters
         if (!empty($filters['date_from'])) {
             $query->whereDate('invoices.created_at', '>=', $filters['date_from']);
         }
-
         if (!empty($filters['date_to'])) {
             $query->whereDate('invoices.created_at', '<=', $filters['date_to']);
         }
+
+        // Filter by status dropdown
+        if (!empty($filters['status']) && $filters['status'] !== Invoice::STATUS_ALL) {
+            $query->where('invoices.status', $filters['status']);
+        }
+
+        $query->with([
+            'partner:id,full_name,company_name,email',
+            'borrower:id,first_name,last_name,business_name,email'
+        ])->select('invoices.*');
 
         // Determine sorting
         $sortField = $filters['sort_field'] ?? 'id';
@@ -82,6 +94,7 @@ class InvoiceService
                     Invoice::STATUS_UNPAID,
                     Invoice::STATUS_DISPUTED,
                     Invoice::STATUS_FAILED,
+                    Invoice::STATUS_PROCESSING,
                     Invoice::STATUS_PENDING,
                     Invoice::STATUS_SUCCESS,
                     Invoice::STATUS_CANCELED,
@@ -137,6 +150,9 @@ class InvoiceService
             ]
         );
 
+        // Perform stats calculation on fully filtered query JUST BEFORE pagination
+        $stats = $this->getStatsFromQuery(clone $query);
+
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
@@ -146,7 +162,9 @@ class InvoiceService
         return $this->respondWithPaginationResource(
             $paginator,
             InvoiceResource::class,
-            __('invoice.list_retrieved')
+            __('invoice.list_retrieved'),
+            200,
+            ['stats' => $stats]
         );
     }
 
@@ -158,23 +176,69 @@ class InvoiceService
      */
     public function getUnpaidInvoices(int $borrowerId): Collection
     {
-        return Invoice::where('borrower_id', $borrowerId)
+        return Invoice::where(function ($q) use ($borrowerId) {
+                $q->where('borrower_id', $borrowerId)
+                  ->orWhere(function ($sub) use ($borrowerId) {
+                      $sub->where('entity_type', Borrower::class)
+                          ->where('entity_id', $borrowerId);
+                  });
+            })
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('is_partner_paying', false)
             ->get();
     }
 
     /**
-     * Get invoice statistics for borrower.
+     * Get invoice statistics from cloned Query Builder using optimized SQL aggregation.
+     */
+    public function getStatsFromQuery($query): array
+    {
+        $cloned = clone $query;
+        $cloned->setEagerLoads([]);
+        $cloned->getQuery()->columns = null;
+        $cloned->getQuery()->orders = null;
+
+        $result = $cloned->selectRaw("
+            COALESCE(SUM(invoices.payment_amount), 0) as total_sent,
+            COALESCE(SUM(CASE WHEN invoices.status IN (?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as paid_amount,
+            COALESCE(SUM(CASE WHEN invoices.status IN (?, ?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as unpaid_amount
+        ", [
+            Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS,
+            Invoice::STATUS_UNPAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE
+        ])->first();
+
+        $totalSent = (float) ($result->total_sent ?? 0);
+        $paidAmount = (float) ($result->paid_amount ?? 0);
+        $unpaidAmount = (float) ($result->unpaid_amount ?? 0);
+        $collectionRate = $totalSent > 0 ? ($paidAmount / $totalSent) * 100 : 0;
+
+        return [
+            'invoices_sent' => currencyFormat($totalSent),
+            'paid_invoices' => currencyFormat($paidAmount),
+            'unpaid_invoices' => currencyFormat($unpaidAmount),
+            'collection_rate' => round($collectionRate, 2),
+        ];
+    }
+
+    /**
+     * Get invoice statistics for borrower using optimized SQL aggregation.
      *
      * @param int $borrowerId
      * @param int $partnerId
      * @param array $filters
      * @return array
      */
-    public function getStats(int $borrowerId, int $partnerId, array $filters = []): array
+    public function getStats(int $borrowerId, int $partnerId = 0, array $filters = []): array
     {
-        $query = Invoice::where('borrower_id', $borrowerId)->where('is_partner_paying', false);
+        $query = Invoice::query()
+            ->where('is_partner_paying', false)
+            ->where(function ($q) use ($borrowerId) {
+                $q->where('borrower_id', $borrowerId)
+                  ->orWhere(function ($sub) use ($borrowerId) {
+                      $sub->where('entity_type', Borrower::class)
+                          ->where('entity_id', $borrowerId);
+                  });
+            });
 
         if (!empty($partnerId)) {
             $query->where('partner_id', $partnerId);
@@ -188,27 +252,7 @@ class InvoiceService
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
-        $allInvoices = $query->get(['payment_amount', 'status']);
-
-        $totalSent = $allInvoices->sum('payment_amount');
-
-        $paidAmount = $allInvoices->whereIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
-            ->sum('payment_amount');
-
-        $unpaidAmount = $allInvoices->whereIn('status', [
-            Invoice::STATUS_UNPAID,
-            Invoice::STATUS_PENDING,
-            Invoice::STATUS_OVERDUE
-        ])->sum('payment_amount');
-
-        $collectionRate = $totalSent > 0 ? ($paidAmount / $totalSent) * 100 : 0;
-
-        return [
-            'invoices_sent'   => $totalSent,
-            'paid_invoices'   => $paidAmount,
-            'unpaid_invoices' => $unpaidAmount,
-            'collection_rate' => round($collectionRate, 2),
-        ];
+        return $this->getStatsFromQuery($query);
     }
 
     /**
@@ -226,7 +270,7 @@ class InvoiceService
         return Invoice::with(['partner', 'borrower', 'subscription'])
             ->where(function ($q) use ($id) {
                 $q->where('id', $id)
-                  ->orWhere('invoice_id', $id);
+                    ->orWhere('invoice_id', $id);
             })
             ->where('borrower_id', $borrowerId)
             ->where('partner_id', $partnerId)

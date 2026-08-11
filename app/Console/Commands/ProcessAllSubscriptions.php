@@ -14,7 +14,7 @@ use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\Subscription\Subscription;
 use App\Models\User\User;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
@@ -169,7 +169,7 @@ class ProcessAllSubscriptions extends Command
             throw new \RuntimeException("Entity not found for invoice #{$invoice->invoice_id}");
         }
 
-        if (!$entity->stripe_customer_id) {
+        if (!$entity->stripe_customer_id_raw) {
             throw new \RuntimeException("No Stripe Customer ID for entity ID {$entity->id} — cannot auto-charge.");
         }
 
@@ -182,7 +182,7 @@ class ProcessAllSubscriptions extends Command
         $driver          = $gatewayManager->driverFor($partnerProvider);
 
         $result = $driver->chargeOffSession(
-            $entity->stripe_customer_id,
+            $entity->stripe_customer_id_raw,
             (int) round($invoice->payment_amount * 100),
             strtolower($invoice->currency ?? 'usd'),
             "Auto-charge for Invoice #{$invoice->invoice_id}"

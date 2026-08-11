@@ -16,6 +16,8 @@ class Subscription extends Model
     use HasFactory, SoftDeletes;
 
     const STATUS_ACTIVE = 'Active';
+    const STATUS_COMPLETED = 'Completed';
+    const STATUS_CANCELLED = 'Cancelled';
     const STATUS_EXPIRED = 'Expired';
     const STATUS_PENDING = 'Pending';
 

@@ -18,7 +18,7 @@ use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;

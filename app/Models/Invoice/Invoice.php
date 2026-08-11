@@ -44,6 +44,24 @@ class Invoice extends Model
     ];
 
 
+    const STATUS_PAID = 'Paid';
+    const STATUS_UNPAID = 'Unpaid';
+    const STATUS_DISPUTED = 'Disputed';
+    const STATUS_FAILED = 'Failed';
+    const STATUS_PENDING = 'Pending';
+    const STATUS_SUCCESS = 'Success';
+    const STATUS_CANCELED = 'Canceled';
+    const STATUS_OVERDUE = 'Overdue';
+    const STATUS_PROCESSING = 'Processing';
+    const STATUS_ALL = 'All Status';
+
+    public const CURRENCY_USD = 'USD';
+
+
+    const PAYEE_ALL = 'All Payees';
+
+
+
     // Invoice types mirror Subscription::PHASE_* constants for full sync
     const INVOICE_TYPE_ENROLLMENT = 'enrollment';
     const INVOICE_TYPE_DOWN_PAYMENT = 'down_payment';
@@ -133,22 +151,6 @@ class Invoice extends Model
             });
         });
     }
-
-    const STATUS_PAID = 'Paid';
-    const STATUS_UNPAID = 'Unpaid';
-    const STATUS_DISPUTED = 'Disputed';
-    const STATUS_FAILED = 'Failed';
-    const STATUS_PENDING = 'Pending';
-    const STATUS_SUCCESS = 'Success';
-    const STATUS_CANCELED = 'Canceled';
-    const STATUS_OVERDUE = 'Overdue';
-    const STATUS_PROCESSING = 'Processing';
-    const STATUS_ALL = 'All Status';
-
-    public const CURRENCY_USD = 'USD';
-
-
-    const PAYEE_ALL = 'All Payees';
 
 
 

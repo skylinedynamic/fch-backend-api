@@ -31,7 +31,7 @@ class InvoiceDetailResource extends JsonResource
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'displayable_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
-            'payment_date' => $this->payment_date ? Carbon::parse($this->payment_date)->setTimezone($timezone)->format('Y-m-d') : null,
+            'payment_date' => toTimezone($this->payment_date),
             'status' => $this->status,
             'type' => $this->type,
             'note' => $this->note,
@@ -58,7 +58,7 @@ class InvoiceDetailResource extends JsonResource
                 : ($this->partner ? ($this->partner->address_line_1 ?: $this->partner->postal_code) : null),
 
             'branding' => $this->resolveBrandingData(),
-            'created_at' => $this->created_at ? Carbon::parse($this->created_at)->setTimezone($timezone)->format('Y-m-d H:i:s') : null,
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
         ];
     }
 

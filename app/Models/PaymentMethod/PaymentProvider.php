@@ -13,6 +13,7 @@ class PaymentProvider extends Model
 
     protected $fillable = [
         'name',
+        'display_name',
         'logo',
         'status',
     ];
@@ -20,6 +21,20 @@ class PaymentProvider extends Model
     protected $casts = [
         'status' => 'boolean',
     ];
+
+    /**
+     * Prevent modifying 'name' once created.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::updating(function ($provider) {
+            if ($provider->isDirty('name')) {
+                $provider->name = $provider->getOriginal('name');
+            }
+        });
+    }
 
     public const STRIPE = 'Stripe';
     public const ECRYPT = 'Ecrypt';

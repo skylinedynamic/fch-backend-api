@@ -266,7 +266,6 @@ Route::prefix('v1')->group(function () {
 
             //  Invoices
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
-            Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
             Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
@@ -288,8 +287,8 @@ Route::prefix('v1')->group(function () {
 
             //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
-            Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
             Route::post('payments/{id}/approve', [CommonPaymentController::class, 'approve']);
+            Route::post('payments/{id}/reject', [CommonPaymentController::class, 'reject']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
 
             // Partner Plans

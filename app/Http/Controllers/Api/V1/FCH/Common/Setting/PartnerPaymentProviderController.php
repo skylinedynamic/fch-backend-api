@@ -8,8 +8,11 @@ use App\Http\Requests\Api\V1\FCH\Common\Setting\StorePartnerPaymentProviderReque
 use App\Http\Requests\Api\V1\FCH\Common\Setting\UpdatePartnerPaymentProviderStatusRequest;
 use App\Http\Resources\FCH\PaymentMethod\PartnerPaymentProviderResource;
 use App\Http\Resources\FCH\PaymentMethod\PartnerPaymentProviderListResource;
+use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Setting\PaymentMethodConfigurationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PartnerPaymentProviderController extends Controller
@@ -24,16 +27,29 @@ class PartnerPaymentProviderController extends Controller
     /**
      * Get list of active payment providers for the current partner.
      *
+     * @param Request $request
      * @return JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $partnerId = Auth::user()->partner_id;
+        $user = Auth::user();
+        $partnerId = $user->partner_id;
+
+        if (!$partnerId && $user && $user->entity_type === Borrower::class) {
+            $borrower = Borrower::find($user->entity_id);
+            $partnerId = $borrower?->partner_id;
+        }
+
+        if (!$partnerId) {
+            $partnerId = Partner::host()?->id;
+        }
+
         if (!$partnerId) {
             return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
         }
 
-        $providers = $this->configService->getProviders($partnerId);
+        $activeOnly = $request->has('active_only') ? $request->boolean('active_only') : true;
+        $providers = $this->configService->getProviders($partnerId, $activeOnly);
 
         return ApiResponse::success(
             PartnerPaymentProviderListResource::collection($providers),

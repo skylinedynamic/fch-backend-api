@@ -152,6 +152,9 @@ class PaymentService
             ]
         );
 
+        // Perform stats calculation on fully filtered query JUST BEFORE pagination
+        $stats = $this->getStatsFromQuery(clone $query);
+
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -160,8 +163,47 @@ class PaymentService
         return $this->respondWithPaginationResource(
             $paginator,
             PaymentResource::class,
-            __('payment.list_retrieved')
+            __('payment.list_retrieved'),
+            200,
+            ['stats' => $stats]
         );
+    }
+
+    /**
+     * Get payment statistics from cloned Query Builder using optimized SQL aggregation.
+     *
+     * @param mixed $query
+     * @return array
+     */
+    public function getStatsFromQuery($query): array
+    {
+        $cloned = clone $query;
+        $cloned->setEagerLoads([]);
+        $cloned->getQuery()->columns = null;
+        $cloned->getQuery()->orders = null;
+
+        $result = $cloned->selectRaw("
+            COALESCE(SUM(payments.amount), 0) as total_payments,
+            COALESCE(SUM(CASE WHEN payments.status IN (?, ?) THEN payments.amount ELSE 0 END), 0) as completed,
+            COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as pending,
+            COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as processing
+        ", [
+            Payment::STATUS_SUCCEEDED, 'success',
+            Payment::STATUS_PENDING,
+            Payment::STATUS_PROCESSING
+        ])->first();
+
+        $totalPayments = (float) ($result->total_payments ?? 0);
+        $completed = (float) ($result->completed ?? 0);
+        $pending = (float) ($result->pending ?? 0);
+        $processing = (float) ($result->processing ?? 0);
+
+        return [
+            'total_payments' => currencyFormat($totalPayments),
+            'completed'      => currencyFormat($completed),
+            'pending'        => currencyFormat($pending),
+            'processing'     => currencyFormat($processing),
+        ];
     }
 
     /**
@@ -187,14 +229,7 @@ class PaymentService
             }
         }
 
-        $allPayments = $query->get(['amount', 'status']);
-
-        return [
-            'total_payments' => $allPayments->sum('amount'),
-            'completed' => $allPayments->whereIn('status', ['succeeded', 'success'])->sum('amount'),
-            'pending' => $allPayments->where('status', 'pending')->sum('amount'),
-            'failed' => $allPayments->where('status', 'failed')->sum('amount'),
-        ];
+        return $this->getStatsFromQuery($query);
     }
 
     /**

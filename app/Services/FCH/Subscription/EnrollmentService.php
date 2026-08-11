@@ -12,7 +12,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Mail\Borrower\BorrowerMigrationMail;
 use App\Mail\Borrower\BorrowerPaymentLinkMail;

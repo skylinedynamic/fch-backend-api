@@ -12,15 +12,22 @@ class PaymentMethodConfigurationService
      * Get active payment providers list with partner linkages.
      *
      * @param int $partnerId
+     * @param bool $activeOnly
      * @return Collection
      */
-    public function getProviders(int $partnerId): Collection
+    public function getProviders(int $partnerId, bool $activeOnly = true): Collection
     {
-        $providers = PaymentProvider::where('status', true)
-            ->with(['partnerPaymentProviders' => function ($query) use ($partnerId) {
-                $query->where('partner_id', $partnerId);
-            }])
-            ->get();
+        $query = PaymentProvider::where('status', true);
+
+        if ($activeOnly) {
+            $query->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
+                $q->where('partner_id', $partnerId)->where('status', true);
+            });
+        }
+
+        $providers = $query->with(['partnerPaymentProviders' => function ($query) use ($partnerId) {
+            $query->where('partner_id', $partnerId);
+        }])->get();
 
         $providers->each(function ($provider) {
             $provider->linkage = $provider->partnerPaymentProviders->first();

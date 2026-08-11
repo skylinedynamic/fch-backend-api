@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\CronJobFailureMail;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
 use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;

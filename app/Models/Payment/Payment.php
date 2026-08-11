@@ -8,9 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
-
-use App\Models\PaymentMethod\PaymentMethod;
-
+use App\Models\PaymentMethod\PaymentProvider;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
 use Stripe\Stripe;
 
 class Payment extends Model
@@ -142,22 +141,45 @@ class Payment extends Model
      */
     public function configureStripeForPartner(?int $partnerId): object
     {
-        $paymentMethodService = new \App\Services\FCH\Common\PaymentMethod\PaymentMethodService();
-        $setting = $paymentMethodService->getSettings($partnerId);
+        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
 
-        if (!$setting) {
-            throw new \Exception('Payment settings not found or inactive.');
+        if (!$stripeProvider) {
+            throw new \Exception('Stripe payment provider not found.');
         }
 
-        $secretKey = ($setting->payment_mode === 'production')
-            ? $setting->stripe_secret_production
-            : $setting->stripe_secret_sandbox;
+        $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
+            ->where('payment_provider_id', $stripeProvider->id)
+            ->first();
+
+        if (!$linkage) {
+            throw new \Exception('Stripe is not configured for this partner.');
+        }
+
+        $configuration = $linkage->configuration;
+        if (is_object($configuration)) {
+            $configuration = (array) $configuration;
+        }
+
+        $paymentMode = $linkage->payment_mode ?? $configuration['payment_mode'] ?? self::MODE_SANDBOX;
+
+        $secretKey = null;
+        if (is_array($configuration)) {
+            $secretKey = $configuration[$paymentMode]['secret_key']
+                ?? $configuration['secret_key']
+                ?? $configuration['stripe_secret_' . $paymentMode]
+                ?? null;
+        }
 
         if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
+            throw new \Exception('Stripe secret key not configured for ' . $paymentMode . ' mode.');
         }
 
         Stripe::setApiKey($secretKey);
+
+        // Return a compatible settings object for callers that use $setting->payment_mode, etc.
+        $setting = new \stdClass();
+        $setting->partner_id   = $partnerId;
+        $setting->payment_mode = $paymentMode;
 
         return $setting;
     }
@@ -177,9 +199,17 @@ class Payment extends Model
             }
         }
 
-        $paymentMode = PaymentMethod::where('partner_id', $partnerId)
-            ->where('key', 'payment_mode')
-            ->first()?->value ?? self::MODE_SANDBOX;
+        $paymentMode = self::MODE_SANDBOX;
+
+        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
+        if ($stripeProvider) {
+            $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
+                ->where('payment_provider_id', $stripeProvider->id)
+                ->first();
+            if ($linkage && $linkage->payment_mode) {
+                $paymentMode = $linkage->payment_mode;
+            }
+        }
 
         return $this->environmentFromMode($paymentMode);
     }

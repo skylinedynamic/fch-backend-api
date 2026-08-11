@@ -130,7 +130,7 @@ class AutoChargeSubscriptions extends Command
             throw new \RuntimeException("Entity not found for invoice #{$invoice->invoice_id}");
         }
 
-        if (!$entity->stripe_customer_id) {
+        if (!$entity->stripe_customer_id_raw) {
             throw new \RuntimeException("No Stripe Customer ID saved for entity (ID: {$entity->id}). Cannot charge off-session.");
         }
 
@@ -148,7 +148,7 @@ class AutoChargeSubscriptions extends Command
 
         // Off-session charge using the vaulted Stripe Customer ID
         $result = $driver->chargeOffSession(
-            $entity->stripe_customer_id,
+            $entity->stripe_customer_id_raw,
             $amountInCents,
             $currency,
             $description

@@ -15,7 +15,7 @@ use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;

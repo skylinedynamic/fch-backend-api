@@ -70,19 +70,25 @@ class StripePaymentDriver implements PaymentGatewayInterface
         }
 
         $payer = $invoice->entity;
-        $stripeCustomerId = $payer?->stripe_customer_id;
+        $stripeCustomerData = $payer?->stripe_customer_id;
+        $stripeCustomerIdRaw = $payer?->stripe_customer_id_raw;
 
         // 2. Resolve or create Stripe Customer
         $customerService = app(StripeCustomerService::class);
         $customerId = $customerService->resolveCustomer(
             $invoice->email,
-            $invoice->customer_name ?? 'FCH Client',
-            $stripeCustomerId
+            $invoice->customer_name ?? 'Client',
+            $stripeCustomerData
         );
 
-        // Persist Stripe Customer ID locally if newly created
-        if ($payer && $stripeCustomerId !== $customerId) {
-            $payer->update(['stripe_customer_id' => $customerId]);
+        // Persist Stripe Customer ID only when the payer has no saved card details yet.
+        // Card details can only be updated from the Billing Details page.
+        if ($payer && empty($stripeCustomerIdRaw)) {
+            $payer->update(['stripe_customer_id' => [
+                'customer_id' => $customerId,
+                'name'        => null,
+                'card_no'     => null,
+            ]]);
         }
 
         // 3. Attach payment method and set as default (if a token is provided)
@@ -94,13 +100,13 @@ class StripePaymentDriver implements PaymentGatewayInterface
 
         // 4. Build PaymentIntent parameters
         $intentParams = [
-            'amount'      => $amountInCents,
-            'currency'    => $currency,
-            'customer'    => $customerId,
+            'amount' => $amountInCents,
+            'currency' => $currency,
+            'customer' => $customerId,
             'description' => $params['description'] ?? "Payment for Invoice #{$invoice->invoice_id}",
-            'confirm'     => true,
+            'confirm' => true,
             'automatic_payment_methods' => [
-                'enabled'        => true,
+                'enabled' => true,
                 'allow_redirects' => 'never',
             ],
         ];
@@ -113,11 +119,11 @@ class StripePaymentDriver implements PaymentGatewayInterface
         $intent = PaymentIntent::create($intentParams);
 
         return [
-            'success'        => in_array($intent->status, ['succeeded', 'requires_capture']),
+            'success' => in_array($intent->status, ['succeeded', 'requires_capture']),
             'transaction_id' => $intent->id,
-            'status'         => $intent->status,
-            'client_secret'  => $intent->client_secret,
-            'raw'            => $intent->toArray(),
+            'status' => $intent->status,
+            'client_secret' => $intent->client_secret,
+            'raw' => $intent->toArray(),
         ];
     }
 
@@ -134,23 +140,23 @@ class StripePaymentDriver implements PaymentGatewayInterface
     public function chargeOffSession(string $customerId, int $amountCents, string $currency = 'usd', string $description = 'Subscription Auto-Charge'): array
     {
         $intent = PaymentIntent::create([
-            'amount'               => $amountCents,
-            'currency'             => strtolower($currency),
-            'customer'             => $customerId,
-            'description'          => $description,
-            'confirm'              => true,
-            'off_session'          => true,
+            'amount' => $amountCents,
+            'currency' => strtolower($currency),
+            'customer' => $customerId,
+            'description' => $description,
+            'confirm' => true,
+            'off_session' => true,
             'automatic_payment_methods' => [
-                'enabled'         => true,
+                'enabled' => true,
                 'allow_redirects' => 'never',
             ],
         ]);
 
         return [
-            'success'        => $intent->status === 'succeeded',
+            'success' => $intent->status === 'succeeded',
             'transaction_id' => $intent->id,
-            'status'         => $intent->status,
-            'raw'            => $intent->toArray(),
+            'status' => $intent->status,
+            'raw' => $intent->toArray(),
         ];
     }
 
@@ -158,13 +164,13 @@ class StripePaymentDriver implements PaymentGatewayInterface
     {
         $customer = StripeCustomer::create([
             'email' => $params['email'] ?? null,
-            'name'  => $params['name'] ?? null,
+            'name' => $params['name'] ?? null,
         ]);
 
         return [
-            'success'     => true,
+            'success' => true,
             'customer_id' => $customer->id,
-            'raw'         => $customer->toArray(),
+            'raw' => $customer->toArray(),
         ];
     }
 

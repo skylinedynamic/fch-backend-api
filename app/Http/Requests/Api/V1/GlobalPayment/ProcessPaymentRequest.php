@@ -25,6 +25,7 @@ class ProcessPaymentRequest extends BaseApiRequest
             'payment_method_id' => 'required|integer|exists:partner_payment_providers,payment_provider_id',
             'invoice_id' => 'required|integer|exists:invoices,id',
             'payment_token' => 'required|string',
+            'bank_detail_id' => 'nullable|integer|exists:payment_method_bank_details,id',
         ];
     }
 
@@ -44,6 +45,8 @@ class ProcessPaymentRequest extends BaseApiRequest
             'invoice_id.exists' => __('payment_validation.invoice_id_exists'),
             'payment_token.required' => __('payment_validation.payment_token_required'),
             'payment_token.string' => __('payment_validation.payment_token_string'),
+            'bank_detail_id.integer' => __('payment_validation.bank_detail_id_integer'),
+            'bank_detail_id.exists' => __('payment_validation.bank_detail_id_exists'),
         ];
     }
 }

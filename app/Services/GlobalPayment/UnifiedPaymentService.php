@@ -6,6 +6,8 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\Borrower\Borrower;
+use App\Models\PaymentMethod\PaymentProvider;
+use App\Models\PaymentMethod\PaymentMethodBankDetail;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
@@ -64,47 +66,63 @@ class UnifiedPaymentService
             throw new Exception("Unauthorized invoice payment attempt.");
         }
 
-        $partnerId       = $this->resolvePartnerId($invoice);
-        $receiverId      = in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) ? Partner::host()->id : $invoice->partner_id;
+        $partnerId = $this->resolvePartnerId($invoice);
+        $receiverId = in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]) ? Partner::host()->id : $invoice->partner_id;
         $partnerProvider = $this->gatewayManager->resolvePartnerProvider($receiverId, $data['payment_method_id'] ?? null);
-        $providerName    = $partnerProvider->provider?->name;
+        $providerName = $partnerProvider->provider?->name;
 
         $borrowerId = $invoice->entity_type === Borrower::class ? $invoice->entity_id : $invoice->borrower_id;
 
         $tokenPayload = is_string($data['payment_token'] ?? null) ? json_decode($data['payment_token'], true) : [];
-        $isStripe = $providerName && strtolower(trim($providerName)) === 'stripe';
+        $isStripe = $providerName && $providerName == PaymentProvider::STRIPE;
         $isManual = !$isStripe;
 
         if (is_array($tokenPayload) && isset($tokenPayload['mode']) && $tokenPayload['mode'] === 'manual') {
             $isManual = true;
         }
 
+        $bankDetailId = $data['bank_detail_id'] ?? (is_array($tokenPayload) ? ($tokenPayload['bank_detail_id'] ?? null) : null);
+        $bankDetail = $bankDetailId ? PaymentMethodBankDetail::find($bankDetailId) : null;
+
         DB::beginTransaction();
         try {
             // 1. Charge the payment gateway (or handle manual processing)
             if ($isManual) {
+                $isBankTransfer = strtolower(trim($providerName ?? '')) === strtolower(PaymentProvider::BANK_TRANSFER)
+                    || (is_array($tokenPayload) && strtolower(trim($tokenPayload['gateway'] ?? '')) === strtolower(PaymentProvider::BANK_TRANSFER));
+
+                if ($isBankTransfer && !$bankDetail) {
+                    throw new Exception("Please select a bank account to proceed with bank transfer.");
+                }
+
                 $manualTx = !empty($tokenPayload['transaction_number'])
                     ? trim($tokenPayload['transaction_number'])
                     : ('MANUAL_TX_' . time() . '_' . rand(1000, 9999));
 
                 $gatewayResult = [
-                    'success'        => true,
+                    'success' => true,
                     'transaction_id' => $manualTx,
-                    'raw'            => [
-                        'mode'               => 'manual',
-                        'provider'           => $providerName,
-                        'transaction_number' => $tokenPayload['transaction_number'] ?? null,
+                    'raw' => [
+                        'mode' => 'manual',
+                        'provider' => $providerName ?? PaymentProvider::BANK_TRANSFER,
+                        'bank_detail_id' => $bankDetail?->id,
+                        'bank_name' => $bankDetail?->bank_name,
+                        'account_name' => $bankDetail?->account_name,
+                        'account_number' => $bankDetail?->account_number,
+                        'routing_number' => $bankDetail?->routing_number,
+                        'instructions' => $bankDetail?->instructions,
+                        'transaction_number' => is_array($tokenPayload) ? ($tokenPayload['transaction_number'] ?? null) : null,
                     ],
                 ];
             } else {
-                $driver        = $this->gatewayManager->driverFor($partnerProvider);
+                $driver = $this->gatewayManager->driverFor($partnerProvider);
                 $gatewayResult = $driver->charge([
-                    'amount'            => $invoice->payment_amount,
-                    'currency'          => $invoice->currency ?? 'USD',
+                    'amount' => $invoice->payment_amount,
+                    'currency' => $invoice->currency ?? 'USD',
                     'payment_method_id' => $data['payment_method_id'],
-                    'payment_token'     => $data['payment_token'] ?? null,
-                    'invoice_id'        => $invoice->id,
-                    'description'       => "Payment for invoice #{$invoice->invoice_id}",
+                    'payment_token' => $data['payment_token'] ?? null,
+                    'invoice_id' => $invoice->id,
+                    'description' => "Payment for invoice #{$invoice->invoice_id}",
                 ]);
             }
 
@@ -112,38 +130,54 @@ class UnifiedPaymentService
                 throw new Exception("Payment charge failed via " . ($providerName ?? 'gateway'));
             }
 
-            $paymentStatus   = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
-            $invoiceStatus   = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
-            $paymentType     = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? 'Bank Transfer'));
+            $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
+            $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
+            $paymentType = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? 'Bank Transfer'));
             $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
 
             // 2. Create local payment ledger entry
             $payment = $this->paymentRecord->createRecord([
-                'partner_id'        => $partnerId,
-                'borrower_id'       => $borrowerId,
-                'invoice_id'        => $invoice->id,
-                'entity_type'       => $invoice->entity_type,
-                'entity_id'         => $invoice->entity_id,
-                'transaction_id'    => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
-                'amount'            => $invoice->payment_amount,
-                'currency'          => strtoupper($invoice->currency ?? 'USD'),
-                'payment_from'      => $providerName ?? 'Default',
-                'payment_type'      => $paymentType,
+                'partner_id' => $partnerId,
+                'borrower_id' => $borrowerId,
+                'invoice_id' => $invoice->id,
+                'entity_type' => $invoice->entity_type,
+                'entity_id' => $invoice->entity_id,
+                'transaction_id' => $gatewayResult['transaction_id'] ?? ('TX_' . uniqid()),
+                'amount' => $invoice->payment_amount,
+                'currency' => strtoupper($invoice->currency ?? 'USD'),
+                'payment_from' => $providerName ?? 'Default',
+                'payment_type' => $paymentType,
                 'is_partner_paying' => $isPartnerPaying,
-                'is_manual'         => $isManual,
-                'status'            => $paymentStatus,
-                'details'           => $gatewayResult['raw'] ?? [],
+                'is_manual' => $isManual,
+                'status' => $paymentStatus,
+                'details' => $gatewayResult['raw'] ?? [],
             ]);
 
-            // Save stripe_customer_id to payer model if returned in gateway response details
-            $stripeCustId = $gatewayResult['raw']['customer'] ?? null;
-            if ($stripeCustId && $invoice->entity && $invoice->entity->stripe_customer_id !== $stripeCustId) {
-                $invoice->entity->update(['stripe_customer_id' => $stripeCustId]);
+            // Save default_payment_method and stripe_customer_id on first payment only.
+            // Once card details are saved they can only be updated from the Billing Details page.
+            $payer = $isPartnerPaying ? Partner::find($partnerId) : ($borrowerId ? Borrower::find($borrowerId) : $invoice->entity);
+            if ($payer && empty($payer->default_payment_method) && empty($payer->stripe_customer_id_raw)) {
+                $rawCustId = $gatewayResult['raw']['customer'] ?? null;
+                $updateData = [
+                    'default_payment_method' => $providerName ?? PaymentProvider::CASH,
+                ];
+
+                if ($isStripe && $rawCustId) {
+                    $updateData['stripe_customer_id'] = [
+                        'customer_id' => $rawCustId,
+                        'name'        => null,
+                        'card_no'     => null,
+                    ];
+                } elseif (!$isStripe) {
+                    $updateData['stripe_customer_id'] = null;
+                }
+
+                $payer->update($updateData);
             }
 
             // 3. Update the invoice status
             $invoice->update([
-                'status'       => $invoiceStatus,
+                'status' => $invoiceStatus,
                 'payment_date' => $isManual ? null : now(),
             ]);
 
@@ -173,11 +207,11 @@ class UnifiedPaymentService
             DB::commit();
 
             return [
-                'success'        => true,
-                'payment_id'     => $payment->id,
+                'success' => true,
+                'payment_id' => $payment->id,
                 'transaction_id' => $payment->transaction_id,
-                'status'         => Payment::STATUS_SUCCEEDED,
-                'details'        => $gatewayResult,
+                'status' => Payment::STATUS_SUCCEEDED,
+                'details' => $gatewayResult,
             ];
         } catch (Exception $e) {
             DB::rollBack();
@@ -279,7 +313,7 @@ class UnifiedPaymentService
                     return !empty($p->details['payment_method']);
                 });
 
-            $customerId = $partner->stripe_customer_id;
+            $customerId = $partner->stripe_customer_id_raw;
             if (!$customerId && $partnerPayment) {
                 $customerId = $partnerPayment->details['customer'] ?? null;
             }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\FCH;
+namespace App\Services\FCH\Common\Invoice;
 
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
@@ -38,21 +38,39 @@ class InvoiceService
             return $query;
         }
 
-        // RBAC: Partner Wise (Non-host partner can only access their partner_id invoices)
-        if (!empty($authUser->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $query->where('invoices.partner_id', $authUser->partner_id);
-        } elseif (!empty($authUser->partner_id) && empty($authUser->partner)) {
-            $partner = Partner::find($authUser->partner_id);
-            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                $query->where('invoices.partner_id', $authUser->partner_id);
-            }
+        // RBAC: Borrower Wise
+        if ($authUser->entity_type === Borrower::class && !empty($authUser->entity_id)) {
+            return $query->where('invoices.borrower_id', $authUser->entity_id);
         }
 
-        // RBAC: Borrower Wise
-        if (!empty($authUser->borrower_id)) {
-            $query->where('invoices.borrower_id', $authUser->borrower_id);
-        } elseif (!empty($authUser->entity_type) && $authUser->entity_type === Borrower::class && !empty($authUser->entity_id)) {
-            $query->where('invoices.borrower_id', $authUser->entity_id);
+        // RBAC: Partner & Host Wise
+        $partnerId = $authUser->partner_id;
+        $partner = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+        $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+
+        if (!$partner) {
+            $hostPartnerId = Partner::where('is_host', 1)->value('id');
+            if ($hostPartnerId) {
+                $isHost = true;
+                $partnerId = $hostPartnerId;
+            }
+        } else {
+            $partnerId = $partner->id;
+        }
+
+        if ($isHost) {
+            // Host sees: All partner invoices (is_partner_paying = true or entity_type = Partner) AND only host's own client invoices
+            $query->where(function ($q) use ($partnerId) {
+                $q->where('invoices.is_partner_paying', true)
+                    ->orWhere('invoices.entity_type', Partner::class)
+                    ->orWhere(function ($sub) use ($partnerId) {
+                        $sub->where('invoices.partner_id', $partnerId)
+                            ->where('invoices.is_partner_paying', false);
+                    });
+            });
+        } elseif ($partnerId) {
+            // Non-host partner sees ONLY his own invoices and his client invoices
+            $query->where('invoices.partner_id', $partnerId);
         }
 
         return $query;
@@ -224,6 +242,27 @@ class InvoiceService
             $query->where('invoices.status', strtolower($filters['status']));
         }
 
+        // Filter by is_mine (Mine Invoice vs Borrower Invoice vs All Invoice)
+        if (array_key_exists('is_mine', $filters) && $filters['is_mine'] !== null && $filters['is_mine'] !== '') {
+            $isMine = filter_var($filters['is_mine'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($isMine !== null) {
+                if ($isMine) {
+                    $query->where(function ($q) {
+                        $q->where('invoices.is_partner_paying', true)
+                            ->orWhere('invoices.entity_type', Partner::class);
+                    });
+                } else {
+                    $query->where(function ($q) {
+                        $q->where('invoices.is_partner_paying', false)
+                            ->where(function ($sub) {
+                                $sub->whereNull('invoices.entity_type')
+                                    ->orWhere('invoices.entity_type', '!=', Partner::class);
+                            });
+                    });
+                }
+            }
+        }
+
         // Sorting
         $sortField = $filters['sort_field'] ?? 'created_at';
         $sortOrder = $filters['sort_order'] ?? 'desc';
@@ -271,6 +310,9 @@ class InvoiceService
             ]
         );
 
+        // Perform stats calculation on fully filtered query JUST BEFORE pagination
+        $stats = $this->getStatsFromQuery(clone $query);
+
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -279,8 +321,45 @@ class InvoiceService
         return $this->respondWithPaginationResource(
             $paginator,
             InvoiceResource::class,
-            __('invoice.list_retrieved')
+            __('invoice.list_retrieved'),
+            200,
+            ['stats' => $stats]
         );
+    }
+
+    /**
+     * Get invoice statistics from cloned Query Builder using optimized SQL aggregation.
+     *
+     * @param mixed $query
+     * @return array
+     */
+    public function getStatsFromQuery($query): array
+    {
+        $cloned = clone $query;
+        $cloned->setEagerLoads([]);
+        $cloned->getQuery()->columns = null;
+        $cloned->getQuery()->orders = null;
+
+        $result = $cloned->selectRaw("
+            COALESCE(SUM(invoices.payment_amount), 0) as total_sent,
+            COALESCE(SUM(CASE WHEN invoices.status IN (?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as paid_amount,
+            COALESCE(SUM(CASE WHEN invoices.status IN (?, ?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as unpaid_amount
+        ", [
+            Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS,
+            Invoice::STATUS_UNPAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE
+        ])->first();
+
+        $totalSent = (float) ($result->total_sent ?? 0);
+        $paidAmount = (float) ($result->paid_amount ?? 0);
+        $unpaidAmount = (float) ($result->unpaid_amount ?? 0);
+        $collectionRate = $totalSent > 0 ? ($paidAmount / $totalSent) * 100 : 0;
+
+        return [
+            'invoices_sent' => currencyFormat($totalSent),
+            'paid_invoices' => currencyFormat($paidAmount),
+            'unpaid_invoices' => currencyFormat($unpaidAmount),
+            'collection_rate' => round($collectionRate, 2),
+        ];
     }
 
     /**
@@ -308,24 +387,27 @@ class InvoiceService
             $query->where('customer_name', 'like', '%' . $filters['payee'] . '%');
         }
 
-        $allInvoices = (clone $query)->get(['payment_amount', 'status']);
+        if (array_key_exists('is_mine', $filters) && $filters['is_mine'] !== null && $filters['is_mine'] !== '') {
+            $isMine = filter_var($filters['is_mine'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($isMine !== null) {
+                if ($isMine) {
+                    $query->where(function ($q) {
+                        $q->where('is_partner_paying', true)
+                            ->orWhere('entity_type', Partner::class);
+                    });
+                } else {
+                    $query->where(function ($q) {
+                        $q->where('is_partner_paying', false)
+                            ->where(function ($sub) {
+                                $sub->whereNull('entity_type')
+                                    ->orWhere('entity_type', '!=', Partner::class);
+                            });
+                    });
+                }
+            }
+        }
 
-        $totalSent = $allInvoices->sum('payment_amount');
-
-        $paidAmount = $allInvoices->whereIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
-            ->sum('payment_amount');
-
-        $unpaidAmount = $allInvoices->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE])
-            ->sum('payment_amount');
-
-        $collectionRate = $totalSent > 0 ? ($paidAmount / $totalSent) * 100 : 0;
-
-        return [
-            'invoices_sent' => $totalSent,
-            'paid_invoices' => $paidAmount,
-            'unpaid_invoices' => $unpaidAmount,
-            'collection_rate' => round($collectionRate, 2)
-        ];
+        return $this->getStatsFromQuery($query);
     }
 
     /**

@@ -14,11 +14,16 @@ class StripeCustomerService
      *
      * @param string $email
      * @param string $name
-     * @param string|null $stripeCustomerId The customer ID if stored locally in our database
+     * @param string|array|null $stripeCustomerData The customer ID or JSON data if stored locally in our database
      * @return string Stripe Customer ID
      */
-    public function resolveCustomer(string $email, string $name, ?string $stripeCustomerId = null): string
+    public function resolveCustomer(string $email, string $name, string|array|null $stripeCustomerData = null): string
     {
+        // Extract raw customer ID whether it's a plain string or JSON array
+        $stripeCustomerId = is_array($stripeCustomerData)
+            ? ($stripeCustomerData['customer_id'] ?? null)
+            : $stripeCustomerData;
+
         // 1. Use locally stored Stripe Customer ID if available
         if (!empty($stripeCustomerId)) {
             Log::info('[Stripe Customer Service] Using locally stored Stripe customer ID', ['customer_id' => $stripeCustomerId]);
@@ -40,6 +45,26 @@ class StripeCustomerService
         ]);
 
         return $customer->id;
+    }
+
+    /**
+     * Fetch cardholder name and last 4 digits of a PaymentMethod from Stripe.
+     *
+     * @param string $paymentMethodId
+     * @return array{name: string|null, card_no: string|null}
+     */
+    public function fetchCardDetails(string $paymentMethodId): array
+    {
+        try {
+            $pm = StripePaymentMethod::retrieve($paymentMethodId);
+            return [
+                'name'    => $pm->billing_details->name ?? null,
+                'card_no' => isset($pm->card->last4) ? '**** **** **** ' . $pm->card->last4 : null,
+            ];
+        } catch (\Exception $e) {
+            Log::warning('[Stripe Customer Service] Could not fetch card details: ' . $e->getMessage());
+            return ['name' => null, 'card_no' => null];
+        }
     }
 
     /**

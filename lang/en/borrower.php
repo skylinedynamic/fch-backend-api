@@ -165,4 +165,13 @@ return [
     'default_enrollment_type' => 'Paid Enrollment',
     'field_updated' => ':field was updated to :value',
     'empty_value' => 'empty',
+
+    // Billing & Subscription Messages
+    'billing_details_retrieved' => 'Billing details retrieved successfully.',
+    'payment_providers_retrieved' => 'Payment providers retrieved successfully.',
+    'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'subscription_not_found' => 'No active subscription found.',
+    'subscription_already_cancelled' => 'Subscription is already cancelled.',
+    'subscription_cancelled' => 'Subscription cancelled successfully.',
+    'provider_name_required' => 'Provider name is required.',
 ];

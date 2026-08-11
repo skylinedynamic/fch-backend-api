@@ -300,6 +300,9 @@ class PaymentService
             ]
         );
 
+        // Perform stats calculation on fully filtered query JUST BEFORE pagination
+        $stats = $this->getStatsFromQuery(clone $query);
+
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
@@ -308,8 +311,47 @@ class PaymentService
         return $this->respondWithPaginationResource(
             $paginator,
             PaymentResource::class,
-            __('payment.list_retrieved')
+            __('payment.list_retrieved'),
+            200,
+            ['stats' => $stats]
         );
+    }
+
+    /**
+     * Get payment statistics from cloned Query Builder using optimized SQL aggregation.
+     *
+     * @param mixed $query
+     * @return array
+     */
+    public function getStatsFromQuery($query): array
+    {
+        $cloned = clone $query;
+        $cloned->setEagerLoads([]);
+        $cloned->getQuery()->columns = null;
+        $cloned->getQuery()->orders = null;
+
+        $result = $cloned->selectRaw("
+            COALESCE(SUM(payments.amount), 0) as total_payments,
+            COALESCE(SUM(CASE WHEN payments.status IN (?, ?) THEN payments.amount ELSE 0 END), 0) as completed,
+            COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as pending,
+            COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as processing
+        ", [
+            Payment::STATUS_SUCCEEDED, 'success',
+            Payment::STATUS_PENDING,
+            Payment::STATUS_PROCESSING
+        ])->first();
+
+        $totalPayments = (float) ($result->total_payments ?? 0);
+        $completed = (float) ($result->completed ?? 0);
+        $pending = (float) ($result->pending ?? 0);
+        $processing = (float) ($result->processing ?? 0);
+
+        return [
+            'total_payments' => currencyFormat($totalPayments),
+            'completed'      => currencyFormat($completed),
+            'pending'        => currencyFormat($pending),
+            'processing'     => currencyFormat($processing),
+        ];
     }
 
     /**
@@ -405,14 +447,7 @@ class PaymentService
             }
         }
 
-        $allPayments = $query->get(['amount', 'status']);
-
-        return [
-            'total_payments' => $allPayments->sum('amount'),
-            'completed' => $allPayments->whereIn('status', ['succeeded', 'success'])->sum('amount'),
-            'pending' => $allPayments->where('status', 'pending')->sum('amount'),
-            'failed' => $allPayments->where('status', 'failed')->sum('amount'),
-        ];
+        return $this->getStatsFromQuery($query);
     }
 
     /**
@@ -473,9 +508,11 @@ class PaymentService
             $now = now();
             $userName = $authUser->name ?? $authUser->full_name ?? ($authUser->first_name ? trim($authUser->first_name . ' ' . ($authUser->last_name ?? '')) : null) ?? $authUser->email ?? __('payment.admin');
             $existingDetails = is_array($payment->details) ? $payment->details : [];
+            $existingDetails['decision'] = 'approved';
             $existingDetails['approval_note'] = $note;
             $existingDetails['approved_at'] = $now->utc()->toDateTimeString();
             $existingDetails['approved_by'] = $userName;
+            $existingDetails['approved_by_id'] = $authUser->id;
 
             // Update payment status to Succeeded, transaction_date to now, and save details
             $payment->update([
@@ -501,6 +538,80 @@ class PaymentService
             return [
                 'status'  => true,
                 'message' => __('payment.approved_successfully'),
+                'data'    => new PaymentResource($payment->fresh())
+            ];
+        });
+    }
+
+    /**
+     * Reject a processing payment with database lock and strict authorization check.
+     */
+    public function rejectPayment($id, array $data = []): array
+    {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return [
+                'status'  => false,
+                'message' => __('payment.unauthenticated')
+            ];
+        }
+
+        $reason = trim((string) ($data['reason'] ?? $data['note'] ?? $data['details'] ?? ''));
+        if (empty($reason)) {
+            return [
+                'status'  => false,
+                'message' => __('payment.rejection_reason_required')
+            ];
+        }
+
+        return DB::transaction(function () use ($id, $reason, $authUser) {
+            /** @var Payment|null $payment */
+            $payment = Payment::lockForUpdate()->with(['invoice', 'partner', 'borrower', 'entity'])->find($id);
+
+            if (!$payment) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.not_found')
+                ];
+            }
+
+            if (strtolower((string) $payment->status) !== Payment::STATUS_PROCESSING) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.only_processing_can_be_rejected')
+                ];
+            }
+
+            if (!$payment->canApproveForUser($authUser)) {
+                return [
+                    'status'  => false,
+                    'message' => __('payment.unauthorized_reject')
+                ];
+            }
+
+            $now = now();
+            $userName = $authUser->name ?? $authUser->full_name ?? ($authUser->first_name ? trim($authUser->first_name . ' ' . ($authUser->last_name ?? '')) : null) ?? $authUser->email ?? __('payment.admin');
+            $existingDetails = is_array($payment->details) ? $payment->details : [];
+            $existingDetails['decision'] = 'rejected';
+            $existingDetails['rejection_reason'] = $reason;
+            $existingDetails['rejected_at'] = $now->utc()->toDateTimeString();
+            $existingDetails['rejected_by'] = $userName;
+            $existingDetails['rejected_by_id'] = $authUser->id;
+
+            $payment->update([
+                'status'  => Payment::STATUS_FAILED,
+                'details' => $existingDetails,
+            ]);
+
+            if ($payment->invoice) {
+                $payment->invoice->update([
+                    'status' => Invoice::STATUS_UNPAID,
+                ]);
+            }
+
+            return [
+                'status'  => true,
+                'message' => __('payment.rejected_successfully'),
                 'data'    => new PaymentResource($payment->fresh())
             ];
         });
