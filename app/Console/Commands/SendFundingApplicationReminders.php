@@ -70,33 +70,40 @@ class SendFundingApplicationReminders extends Command
                     
                     $borrowerEmail = $user->email;
                     
-                    $partner = $fundingRequest->partner ?? $fundingRequest->borrower->partner;
+                    $partner = $fundingRequest->partner;
                     $hostPartner = Partner::host() ?? Partner::where('is_host', true)->first();
                     
                     $partnerEmail = $partner?->email;
                     $hostEmail = $hostPartner?->email;
                     
+                    $emailSent = false;
 
                     // Send Borrower Email
                     if ($borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to borrower ({$borrowerEmail})");
                         Mail::to($borrowerEmail)->queue(new BorrowerFundingApplicationReminder($fundingRequest));
+                        $emailSent = true;
                     }
 
                     // Send Partner Email
                     if ($partnerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
                         Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
+                        $emailSent = true;
                     }
 
                     // Send Host Email
                     if ($hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to Host ({$hostEmail})");
                         Mail::to($hostEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $hostPartner, true));
+                        $emailSent = true;
                     }
 
-                    $fundingRequest->update(['reminder_step' => $step]);
-                    $count++;
+                    if ($emailSent) {
+                        $fundingRequest->update(['reminder_step' => $step]);
+                        $count++;
+                    }
+                    
                     break; // Only send the highest applicable reminder in this run
                 }
             }
