@@ -54,7 +54,7 @@ class SendFundingApplicationReminders extends Command
             $daysSinceApproval = $approvedAt->copy()->startOfDay()->diffInDays($now->copy()->startOfDay());
 
             $user = $fundingRequest->borrower->user;
-            if (!$user) continue;
+            $borrowerEmail = $user ? $user->email : null;
 
             $reminderDays = config('funding.application_reminder_days', [1, 3, 7]);
             
@@ -67,8 +67,6 @@ class SendFundingApplicationReminders extends Command
                 $step = $totalSteps - $index;
                 
                 if ($daysSinceApproval >= $days && $fundingRequest->reminder_step < $step) {
-                    
-                    $borrowerEmail = $user->email;
                     
                     $partner = $fundingRequest->partner;
                     $hostPartner = Partner::host() ?? Partner::where('is_host', true)->first();
