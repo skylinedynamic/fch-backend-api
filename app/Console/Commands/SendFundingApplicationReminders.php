@@ -73,10 +73,9 @@ class SendFundingApplicationReminders extends Command
                     $partner = $fundingRequest->partner ?? $fundingRequest->borrower->partner;
                     $hostPartner = Partner::host() ?? Partner::where('is_host', true)->first();
                     
-                    $partnerEmail = $partner ? ($partner->contact_person_email ?? $partner->email) : null;
-                    $hostEmail = $hostPartner ? ($hostPartner->contact_person_email ?? $hostPartner->email) : null;
+                    $partnerEmail = $partner?->email;
+                    $hostEmail = $hostPartner?->email;
                     
-                    $isNonHostPartner = $partner && !$partner->is_host && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL;
 
                     // Send Borrower Email
                     if ($borrowerEmail) {
@@ -85,7 +84,7 @@ class SendFundingApplicationReminders extends Command
                     }
 
                     // Send Partner Email
-                    if ($isNonHostPartner && $partnerEmail) {
+                    if ($partnerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
                         Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
                     }
