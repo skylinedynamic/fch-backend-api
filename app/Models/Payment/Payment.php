@@ -31,6 +31,7 @@ class Payment extends Model
     public const STATUS_SUCCEEDED = 'succeeded';
     public const STATUS_REQUIRES_CAPTURE = 'requires_capture';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_REJECTED = 'rejected';
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';
     public const STATUS_REFUNDED = 'refunded';
@@ -271,6 +272,7 @@ class Payment extends Model
             $statuses = [
                 self::STATUS_SUCCEEDED,
                 self::STATUS_FAILED,
+                self::STATUS_REJECTED,
                 self::STATUS_PENDING,
                 self::STATUS_DISPUTED,
                 self::STATUS_REFUNDED,

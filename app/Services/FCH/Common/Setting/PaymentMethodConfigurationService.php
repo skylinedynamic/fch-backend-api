@@ -19,15 +19,17 @@ class PaymentMethodConfigurationService
     {
         $query = PaymentProvider::where('status', true);
 
-        if ($activeOnly) {
-            $query->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
-                $q->where('partner_id', $partnerId)->where('status', true);
-            });
-        }
+        // if ($activeOnly) {
+        //     $query->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
+        //         $q->where('partner_id', $partnerId)->where('status', true);
+        //     });
+        // }
 
-        $providers = $query->with(['partnerPaymentProviders' => function ($query) use ($partnerId) {
-            $query->where('partner_id', $partnerId);
-        }])->get();
+        $providers = $query->with([
+            'partnerPaymentProviders' => function ($query) use ($partnerId) {
+                $query->where('partner_id', $partnerId);
+            }
+        ])->get();
 
         $providers->each(function ($provider) {
             $provider->linkage = $provider->partnerPaymentProviders->first();
@@ -51,7 +53,7 @@ class PaymentMethodConfigurationService
             ->where('payment_provider_id', $providerId)
             ->first();
 
-        return $linkage ?: (object)[
+        return $linkage ?: (object) [
             'id' => null,
             'partner_id' => $partnerId,
             'payment_provider_id' => $provider->id,

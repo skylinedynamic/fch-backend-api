@@ -57,14 +57,16 @@ class BorrowerBillingService
             'type',
             'created_at',
         ])
-            ->where('borrower_id', $borrower->id)
+            ->where('entity_id', $borrower->id)
             ->where('entity_type', Borrower::class)
+            ->where('subscription_id', $subscription->id)
             ->orderBy('id', 'desc')
             ->first();
 
         // Recent Payments
         $recentPayments = Payment::with(['invoice', 'borrower', 'partner'])
-            ->where('borrower_id', $borrower->id)
+            ->where('entity_id', $borrower->id)
+            ->where('entity_type', Borrower::class)
             ->orderBy('id', 'desc')
             ->limit(10)
             ->get();
@@ -86,10 +88,12 @@ class BorrowerBillingService
                 $isCompleted = $hasCompletedDate && ($installmentCount > 0 && $installmentsPaid >= $installmentCount);
             }
 
-            if (!$isCompleted && in_array(strtolower($subscription->status ?? ''), [
-                strtolower(Subscription::STATUS_EXPIRED),
-                strtolower(Subscription::STATUS_COMPLETED),
-            ])) {
+            if (
+                !$isCompleted && in_array(strtolower($subscription->status ?? ''), [
+                    strtolower(Subscription::STATUS_EXPIRED),
+                    strtolower(Subscription::STATUS_COMPLETED),
+                ])
+            ) {
                 $isCompleted = true;
             }
         }
@@ -121,19 +125,19 @@ class BorrowerBillingService
                 ],
             ],
             'subscription' => $subscription ? [
-                'id'                            => $subscription->id,
-                'enrollment_type'              => $subscription->enrollment_type,
-                'status'                       => $subscription->status,
-                'total_subscription_amount'    => currencyFormat($subscription->total_subscription_amount),
-                'payable_amount'               => currencyFormat($subscription->payable_amount),
-                'down_payment'                 => currencyFormat($subscription->down_payment),
-                'subscription_amount_per_month'=> currencyFormat($subscription->subscription_amount_per_month),
-                'installment_count'            => (int) $subscription->installment_count,
-                'installments_paid'            => (int) ($subscription->installments_paid ?? 0),
-                'subscription_start_date'      => toTimezone($subscription->subscription_start_date),
-                'subscription_end_date'        => toTimezone($subscription->subscription_end_date),
-                'enrollment_completed_at'      => toTimezone($subscription->enrollment_completed_at),
-                'is_completed'                 => $isCompleted,
+                'id' => $subscription->id,
+                'enrollment_type' => $subscription->enrollment_type,
+                'status' => $subscription->status,
+                'total_subscription_amount' => currencyFormat($subscription->total_subscription_amount),
+                'payable_amount' => currencyFormat($subscription->payable_amount),
+                'down_payment' => currencyFormat($subscription->down_payment),
+                'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
+                'installment_count' => (int) $subscription->installment_count,
+                'installments_paid' => (int) ($subscription->installments_paid ?? 0),
+                'subscription_start_date' => toTimezone($subscription->subscription_start_date),
+                'subscription_end_date' => toTimezone($subscription->subscription_end_date),
+                'enrollment_completed_at' => toTimezone($subscription->enrollment_completed_at),
+                'is_completed' => $isCompleted,
             ] : null,
             'recent_bill' => $latestInvoice ? [
                 'id' => $latestInvoice->id,
@@ -178,12 +182,12 @@ class BorrowerBillingService
             }
 
             return [
-                'id'              => $p->id,
-                'name'            => $p->name,
-                'display_name'    => $p->display_name ?? $p->name,
-                'logo'            => $p->logo ? encodeUrl(asset($p->logo)) : null,
+                'id' => $p->id,
+                'name' => $p->name,
+                'display_name' => $p->display_name ?? $p->name,
+                'logo' => $p->logo ? encodeUrl(asset($p->logo)) : null,
                 'publishable_key' => $pubKey,
-                'status'          => $p->status ?? 1,
+                'status' => $p->status ?? 1,
             ];
         });
 
@@ -243,24 +247,24 @@ class BorrowerBillingService
                     ? ($existingCustomerData['customer_id'] ?? null)
                     : $existingCustomerData;
                 $cardDetails = [
-                    'name'    => is_array($existingCustomerData) ? ($existingCustomerData['name'] ?? null) : null,
+                    'name' => is_array($existingCustomerData) ? ($existingCustomerData['name'] ?? null) : null,
                     'card_no' => is_array($existingCustomerData) ? ($existingCustomerData['card_no'] ?? null) : null,
                 ];
             }
 
             $borrower->update([
                 'default_payment_method' => PaymentProvider::STRIPE,
-                'stripe_customer_id'     => $stripeCustId ? [
+                'stripe_customer_id' => $stripeCustId ? [
                     'customer_id' => $stripeCustId,
-                    'name'        => $cardDetails['name'],
-                    'card_no'     => $cardDetails['card_no'],
+                    'name' => $cardDetails['name'],
+                    'card_no' => $cardDetails['card_no'],
                 ] : null,
             ]);
         } else {
             // For other payment providers, set provider name & make stripe_customer_id null
             $borrower->update([
                 'default_payment_method' => $providerName,
-                'stripe_customer_id'     => null,
+                'stripe_customer_id' => null,
             ]);
         }
 
@@ -277,8 +281,8 @@ class BorrowerBillingService
 
         return ApiResponse::success([
             'default_payment_method' => $borrower->default_payment_method,
-            'stripe_card_info'       => $borrower->stripe_card_info,
-            'payment_provider'       => [
+            'stripe_card_info' => $borrower->stripe_card_info,
+            'payment_provider' => [
                 'name' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $borrower->default_payment_method,
                 'logo' => $providerLogoUrl,
             ],

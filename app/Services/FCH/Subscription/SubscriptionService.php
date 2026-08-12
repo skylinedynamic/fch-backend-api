@@ -18,6 +18,8 @@ use App\Models\Subscription\Subscription;
 use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Partner\SubscriptionPlan;
@@ -50,6 +52,45 @@ class SubscriptionService
     }
 
     /**
+     * Apply RBAC / user scope to subscription query.
+     */
+    protected function applyRbacScope(Builder $query, mixed $authUser = null): Builder
+    {
+        $authUser = $authUser ?? Auth::user();
+
+        if (!$authUser) {
+            return $query;
+        }
+
+        $partnerId = $authUser->partner_id;
+        $partner   = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+        $isHost    = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+
+        if (!$partner) {
+            $hostPartnerId = Partner::where('is_host', 1)->value('id');
+            if ($hostPartnerId) {
+                $isHost    = true;
+                $partnerId = $hostPartnerId;
+            }
+        } else {
+            $partnerId = $partner->id;
+        }
+
+        if (!$isHost && $partnerId) {
+            // Non-host partner sees only his clients' (borrowers') subscriptions
+            $query->where('subscriptions.entity_type', Borrower::class)
+                ->whereExists(function ($inner) use ($partnerId) {
+                    $inner->selectRaw(1)
+                        ->from('borrowers')
+                        ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                        ->where('borrowers.partner_id', $partnerId);
+                });
+        }
+
+        return $query;
+    }
+
+    /**
      * Fetch All Subscriptions (Global).
      *
      * @param array $filters
@@ -58,7 +99,9 @@ class SubscriptionService
     public function fetchAll(array $filters)
     {
         $query = $this->prepareSubscriptionQuery($filters, null, null);
-        return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'));
+        $this->applyRbacScope($query);
+        $stats = $this->getStatsFromQuery(clone $query);
+        return $this->paginateAndRespond($query, $filters, __('partner.subscription_list_retrieved'), ['stats' => $stats]);
     }
 
     /**
@@ -77,6 +120,7 @@ class SubscriptionService
             ->select('subscriptions.*');
 
         $effectivePartnerId = $partnerId ?: ($filters['partner_id'] ?? null);
+
         if ($effectivePartnerId) {
             $query->where('entity_type', Partner::class)
                 ->where('entity_id', $effectivePartnerId);
@@ -141,12 +185,15 @@ class SubscriptionService
             }
         }
 
-        // Join Enrollment Phase for next_installment_date
-        if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date'])) {
+        // Join Enrollment Phase for next_installment_date or enrollment_completed_at
+        if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date']) || $sortField === 'enrollment_completed_at' || isset($rawFilters['enrollment_completed_at'])) {
             $query->withEnrollmentPhase();
 
             if ($sortField === 'next_installment_date') {
                 $query->orderBy('ep.next_installment_date', $sortOrder);
+                $skipSorting = true;
+            } elseif ($sortField === 'enrollment_completed_at') {
+                $query->orderBy('ep.enrollment_completed_at', $sortOrder);
                 $skipSorting = true;
             }
         }
@@ -189,8 +236,9 @@ class SubscriptionService
                     'payable_amount' => 'subscriptions.payable_amount',
                     'status' => 'subscriptions.status',
                     'created_at' => 'subscriptions.created_at',
-                    'next_installment_date' => 'ep.next_installment_date',
-                    'next_platform_fee_date' => 'pfp.next_platform_fee_date',
+                    'subscription_start_date' => 'subscriptions.subscription_start_date',
+                    'subscription_end_date' => 'subscriptions.subscription_end_date',
+                    'enrollment_completed_at' => 'ep.enrollment_completed_at',
                 ],
                 'concat_fields' => [
                     'partner_name' => ['partners.full_name', 'partners.company_name'],
@@ -203,7 +251,7 @@ class SubscriptionService
     /**
      * Paginate and respond with resource.
      */
-    private function paginateAndRespond($query, array $filters, string $message)
+    private function paginateAndRespond($query, array $filters, string $message, array $additionalData = [])
     {
         $perPage = isset($filters['per_page']) ? max(1, min((int) $filters['per_page'], 100)) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
@@ -213,7 +261,9 @@ class SubscriptionService
         return $this->respondWithPaginationResource(
             $paginator,
             SubscriptionResource::class,
-            $message
+            $message,
+            200,
+            $additionalData
         );
     }
 
@@ -257,14 +307,18 @@ class SubscriptionService
      */
     public function getById(int $id)
     {
-        return Subscription::with([
+        $query = Subscription::with([
             'partner',
             'borrower',
             'borrower.partner',
             'partnerPlan',
             'enrollmentPhase',
             'platformFeePhase'
-        ])->find($id);
+        ])->where('id', $id);
+
+        $this->applyRbacScope($query);
+
+        return $query->first();
     }
 
     /**
@@ -355,24 +409,24 @@ class SubscriptionService
 
                 if ($user) {
                     $user->update([
-                        'status'         => \App\Models\User\User::STATUS['active'],
+                        'status' => \App\Models\User\User::STATUS['active'],
                         'payment_status' => \App\Models\User\User::PAYMENT_STATUS_PAID,
-                        'password'       => \Illuminate\Support\Facades\Hash::make($plainPassword),
-                        'start_date'     => now(),
-                        'end_date'       => $newEnd,
+                        'password' => \Illuminate\Support\Facades\Hash::make($plainPassword),
+                        'start_date' => now(),
+                        'end_date' => $newEnd,
                     ]);
 
                     try {
                         Mail::to($user->email)->send(new \App\Mail\Payment\PaymentSuccessUserMail([
-                            'amount'         => $invoice->payment_amount,
-                            'currency'       => $invoice->currency,
+                            'amount' => $invoice->payment_amount,
+                            'currency' => $invoice->currency,
                             'transaction_id' => 'SUB_' . $subscription->id,
-                            'description'    => 'User seat activation',
-                            'date'           => now(),
-                            'user_name'      => $user->name,
-                            'user_email'     => $user->email,
-                            'plainPassword'  => $plainPassword,
-                            'user'           => $user,
+                            'description' => 'User seat activation',
+                            'date' => now(),
+                            'user_name' => $user->name,
+                            'user_email' => $user->email,
+                            'plainPassword' => $plainPassword,
+                            'user' => $user,
                         ], $user->partner_id));
                     } catch (\Exception $e) {
                         Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
@@ -381,10 +435,10 @@ class SubscriptionService
 
                 $subscription->update([
                     'subscription_start_date' => now(),
-                    'first_payment_date'      => now(),
-                    'subscription_end_date'   => $newEnd,
-                    'status'                  => Subscription::STATUS_ACTIVE,
-                    'current_phase'           => Subscription::PHASE_USER_SEAT,
+                    'first_payment_date' => now(),
+                    'subscription_end_date' => $newEnd,
+                    'status' => Subscription::STATUS_ACTIVE,
+                    'current_phase' => Subscription::PHASE_USER_SEAT,
                 ]);
             } else {
                 // Renewal: extend subscription_end_date
@@ -393,14 +447,14 @@ class SubscriptionService
 
                 $subscription->update([
                     'subscription_end_date' => $newEnd,
-                    'status'                => Subscription::STATUS_ACTIVE,
+                    'status' => Subscription::STATUS_ACTIVE,
                 ]);
 
                 if ($user) {
                     $user->update([
                         'payment_status' => \App\Models\User\User::PAYMENT_STATUS_PAID,
-                        'end_date'       => $newEnd,
-                        'status'         => \App\Models\User\User::STATUS['active'],
+                        'end_date' => $newEnd,
+                        'status' => \App\Models\User\User::STATUS['active'],
                     ]);
                 }
             }
@@ -416,7 +470,7 @@ class SubscriptionService
             ->where('status', Invoice::STATUS_PAID)
             ->count();
 
-        $hasDownPayment  = $subscription->down_payment && $subscription->down_payment > 0;
+        $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
         $installmentsPaid = $hasDownPayment ? max(0, $invoiceCount - 1) : $invoiceCount;
 
         $subscription->update(['installments_paid' => $installmentsPaid]);
@@ -425,8 +479,8 @@ class SubscriptionService
         if (!$subscription->subscription_start_date) {
             $subscription->update([
                 'subscription_start_date' => now(),
-                'first_payment_date'      => now(),
-                'status'                  => Subscription::STATUS_ACTIVE,
+                'first_payment_date' => now(),
+                'status' => Subscription::STATUS_ACTIVE,
             ]);
             $subscription->refresh();
         } else {
@@ -450,7 +504,7 @@ class SubscriptionService
         if ($phase === Subscription::PHASE_ENROLLMENT) {
             // Down payment just paid — move to installment phase
             $subscription->update([
-                'current_phase'        => Subscription::PHASE_INSTALLMENT,
+                'current_phase' => Subscription::PHASE_INSTALLMENT,
                 'subscription_end_date' => $nextEnd,
             ]);
             return;
@@ -462,14 +516,14 @@ class SubscriptionService
             if ($subscription->installments_paid < $installmentCount) {
                 // More installments remain
                 $subscription->update([
-                    'current_phase'        => Subscription::PHASE_INSTALLMENT,
+                    'current_phase' => Subscription::PHASE_INSTALLMENT,
                     'subscription_end_date' => $nextEnd,
                 ]);
             } else {
                 // All installments paid — move to platform fee phase
                 $subscription->update([
-                    'current_phase'          => Subscription::PHASE_PLATFORM_FEE,
-                    'subscription_end_date'  => $nextEnd,
+                    'current_phase' => Subscription::PHASE_PLATFORM_FEE,
+                    'subscription_end_date' => $nextEnd,
                     'enrollment_completed_at' => now(),
                 ]);
             }
@@ -478,7 +532,7 @@ class SubscriptionService
 
         if ($phase === Subscription::PHASE_PLATFORM_FEE) {
             $subscription->update([
-                'current_phase'        => Subscription::PHASE_PLATFORM_FEE,
+                'current_phase' => Subscription::PHASE_PLATFORM_FEE,
                 'subscription_end_date' => $nextEnd,
             ]);
         }
@@ -510,7 +564,7 @@ class SubscriptionService
         }
 
         $dueDate = Carbon::parse($dueDate);
-        $generateBeforeDays   = config('subscription.generate_before_days', 5);
+        $generateBeforeDays = config('subscription.generate_before_days', 5);
         $earliestGenerateDate = $dueDate->copy()->subDays($generateBeforeDays);
 
         if ($today < $earliestGenerateDate) {
@@ -551,17 +605,22 @@ class SubscriptionService
 
                 // Status guard per entity type
                 if ($subscription->entity_type === Borrower::class) {
-                    if ($entity->status !== Borrower::STATUS_ACTIVE) return;
+                    if ($entity->status !== Borrower::STATUS_ACTIVE)
+                        return;
                     $entity->loadMissing('partner');
                     $partner = $entity->partner;
-                    if (!$partner || $partner->status !== Partner::STATUS_ACTIVE) return;
+                    if (!$partner || $partner->status !== Partner::STATUS_ACTIVE)
+                        return;
                 } elseif ($subscription->entity_type === Partner::class) {
-                    if ($entity->status !== Partner::STATUS_ACTIVE) return;
+                    if ($entity->status !== Partner::STATUS_ACTIVE)
+                        return;
                 } elseif ($subscription->entity_type === \App\Models\User\User::class) {
-                    if ($entity->status !== \App\Models\User\User::STATUS['active']) return;
+                    if ($entity->status !== \App\Models\User\User::STATUS['active'])
+                        return;
                 } elseif ($subscription->entity_type === Employee::class) {
                     $userRecord = \App\Models\User\User::where('entity_type', Employee::class)->where('entity_id', $subscription->entity_id)->first();
-                    if (!$userRecord || $userRecord->status !== \App\Models\User\User::STATUS['active']) return;
+                    if (!$userRecord || $userRecord->status !== \App\Models\User\User::STATUS['active'])
+                        return;
                 }
 
                 if (!$this->createInvoiceIfDue($subscription)) {
@@ -573,10 +632,10 @@ class SubscriptionService
 
                 // Installment limit check
                 if ($phase === Subscription::PHASE_INSTALLMENT) {
-                    $invoiceCount  = Invoice::where('subscription_id', $subscription->id)
+                    $invoiceCount = Invoice::where('subscription_id', $subscription->id)
                         ->whereNotIn('type', [Invoice::INVOICE_TYPE_PLATFORM_FEE])
                         ->count();
-                    $totalCount    = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
+                    $totalCount = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
                     $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
                     $allowedInvoices = $hasDownPayment ? ($totalCount + 1) : $totalCount;
 
@@ -621,30 +680,30 @@ class SubscriptionService
 
                 // Entity display info
                 $customerName = $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? ''));
-                $email        = $entity->email;
+                $email = $entity->email;
 
                 // For user seat: bill the partner
                 if ($isUserSeatPhase) {
                     $partner = Partner::find($entity->partner_id);
                     $customerName = $partner ? ($partner->company_name ?: $partner->full_name) : $customerName;
-                    $email        = $partner ? $partner->email : $email;
+                    $email = $partner ? $partner->email : $email;
                 }
 
                 $invoice = $this->invoiceService->create([
-                    'partner_id'        => $partnerId,
-                    'borrower_id'       => $subscription->entity_type === Borrower::class ? $subscription->entity_id : null,
-                    'subscription_id'   => $subscription->id,
-                    'entity_type'       => $isUserSeatPhase ? Partner::class : $subscription->entity_type,
-                    'entity_id'         => $isUserSeatPhase ? $entity->partner_id : $subscription->entity_id,
-                    'customer_name'     => $customerName,
-                    'email'             => $email,
-                    'country'           => $entity->country ?? null,
-                    'payment_amount'    => $amount,
-                    'currency'          => Invoice::CURRENCY_USD,
-                    'status'            => Invoice::STATUS_UNPAID,
-                    'type'              => $phase,  // mirrors Subscription::PHASE_* directly
+                    'partner_id' => $partnerId,
+                    'borrower_id' => $subscription->entity_type === Borrower::class ? $subscription->entity_id : null,
+                    'subscription_id' => $subscription->id,
+                    'entity_type' => $isUserSeatPhase ? Partner::class : $subscription->entity_type,
+                    'entity_id' => $isUserSeatPhase ? $entity->partner_id : $subscription->entity_id,
+                    'customer_name' => $customerName,
+                    'email' => $email,
+                    'country' => $entity->country ?? null,
+                    'payment_amount' => $amount,
+                    'currency' => Invoice::CURRENCY_USD,
+                    'status' => Invoice::STATUS_UNPAID,
+                    'type' => $phase,  // mirrors Subscription::PHASE_* directly
                     'is_partner_paying' => $isPartnerPaying ? 1 : 0,
-                    'is_platform_fee'   => $isPlatformFee ? 1 : 0,
+                    'is_platform_fee' => $isPlatformFee ? 1 : 0,
                 ]);
 
                 Log::info('Invoice created successfully', ['invoice_id' => $invoice->id ?? null, 'phase' => $phase]);
@@ -654,16 +713,16 @@ class SubscriptionService
                 } catch (\Exception $e) {
                     Log::error('Failed to send invoice email in batch process', [
                         'invoice_id' => $invoice->id,
-                        'error'      => $e->getMessage(),
+                        'error' => $e->getMessage(),
                     ]);
                 }
             });
         } catch (\Exception $e) {
             Log::error('Failed to create invoice for subscription', [
                 'subscription_id' => $subscription->id,
-                'phase'           => $subscription->current_phase,
-                'error'           => $e->getMessage(),
-                'trace'           => $e->getTraceAsString(),
+                'phase' => $subscription->current_phase,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             $emails = explode(',', config('app.cron_notify_emails', ''));
@@ -672,13 +731,13 @@ class SubscriptionService
             if (!empty($emails)) {
                 $entity = $subscription->entity;
                 Mail::to($emails)->send(new CronJobFailureMail([
-                    'job_name'      => 'generateDueInvoices — Failure',
+                    'job_name' => 'generateDueInvoices — Failure',
                     'error_message' => $e->getMessage(),
-                    'timestamp'     => now()->toDateTimeString(),
-                    'stack_trace'   => $e->getTraceAsString(),
-                    'user_email'    => $entity->email ?? 'N/A',
-                    'user_id'       => $entity->id ?? 'N/A',
-                    'partner_name'  => $entity->full_name ?? ($entity->partner?->full_name ?? 'N/A'),
+                    'timestamp' => now()->toDateTimeString(),
+                    'stack_trace' => $e->getTraceAsString(),
+                    'user_email' => $entity->email ?? 'N/A',
+                    'user_id' => $entity->id ?? 'N/A',
+                    'partner_name' => $entity->full_name ?? ($entity->partner?->full_name ?? 'N/A'),
                 ]));
             }
         }
@@ -736,36 +795,66 @@ class SubscriptionService
     }
 
     /**
-     * Get Subscription Statistics.
+     * Get Subscription Statistics from cloned Query Builder.
+     *
+     * @param mixed $query
+     * @return array
      */
-    public function getStats(): array
+    public function getStatsFromQuery($query): array
     {
-        $totalSubscriptions = Subscription::count();
-        $totalActive = Subscription::where('status', Subscription::STATUS_ACTIVE)->count();
+        $cloned = clone $query;
+        $cloned->setEagerLoads([]);
+        $cloned->getQuery()->orders = null;
+        $cloned->getQuery()->limit = null;
+        $cloned->getQuery()->offset = null;
+
+        $totalSubscriptions = (clone $cloned)->count();
+        $totalActive = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_ACTIVE)->count();
 
         // Expiring Soon (within 30 days)
-        $expiringSoon = Subscription::where('status', Subscription::STATUS_ACTIVE)
-            ->whereNotNull('subscription_end_date')
-            ->whereBetween('subscription_end_date', [now(), now()->addDays(30)])
+        $expiringSoon = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_ACTIVE)
+            ->whereNotNull('subscriptions.subscription_end_date')
+            ->whereBetween('subscriptions.subscription_end_date', [now(), now()->addDays(30)])
             ->count();
 
         // Expired Subscriptions
-        $expiredCount = Subscription::whereNotNull('subscription_end_date')
-            ->where('subscription_end_date', '<', now())
+        $expiredCount = (clone $cloned)->whereNotNull('subscriptions.subscription_end_date')
+            ->where('subscriptions.subscription_end_date', '<', now())
             ->count();
 
-        // Revenue this month (from paid invoices)
-        $revenueThisMonth = Invoice::where('status', Invoice::STATUS_PAID)
+        // Revenue this month (from paid invoices linked to scoped partner)
+        $revenueQuery = Invoice::where('status', Invoice::STATUS_PAID)
             ->whereMonth('payment_date', now()->month)
-            ->whereYear('payment_date', now()->year)
-            ->sum('payment_amount');
+            ->whereYear('payment_date', now()->year);
+
+        $authUser = Auth::user();
+        if ($authUser) {
+            $partnerId = $authUser->partner_id;
+            $partner   = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+            $isHost    = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+            if (!$isHost && $partnerId) {
+                $revenueQuery->where('partner_id', $partnerId);
+            }
+        }
+
+        $revenueThisMonth = $revenueQuery->sum('payment_amount');
 
         return [
             'total_subscriptions' => $totalSubscriptions,
             'active_subscriptions' => $totalActive,
             'expiring_soon' => $expiringSoon,
             'expired_subscriptions' => $expiredCount,
-            'revenue_this_month' => (float) $revenueThisMonth,
+            'revenue_this_month' => currencyFormat($revenueThisMonth),
         ];
+    }
+
+    /**
+     * Get Subscription Statistics.
+     */
+    public function getStats(): array
+    {
+        $baseQuery = Subscription::query();
+        $this->applyRbacScope($baseQuery);
+        return $this->getStatsFromQuery($baseQuery);
     }
 }

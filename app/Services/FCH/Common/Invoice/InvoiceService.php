@@ -96,6 +96,10 @@ class InvoiceService
         // RBAC: Partner & Borrower Wise
         $this->applyRbacScope($query, $authUser);
 
+        if (!empty($filters['subscription_id'])) {
+            $query->where('invoices.subscription_id', $filters['subscription_id']);
+        }
+
         // Accurate Date Range: created_at (Following User Request)
         // Accurate Date Range Filtering (Inclusive of Full Day for Timestamps)
         if (!empty($filters['date_from'])) {
@@ -345,8 +349,11 @@ class InvoiceService
             COALESCE(SUM(CASE WHEN invoices.status IN (?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as paid_amount,
             COALESCE(SUM(CASE WHEN invoices.status IN (?, ?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as unpaid_amount
         ", [
-            Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS,
-            Invoice::STATUS_UNPAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE
+            Invoice::STATUS_PAID,
+            Invoice::STATUS_SUCCESS,
+            Invoice::STATUS_UNPAID,
+            Invoice::STATUS_PENDING,
+            Invoice::STATUS_OVERDUE
         ])->first();
 
         $totalSent = (float) ($result->total_sent ?? 0);

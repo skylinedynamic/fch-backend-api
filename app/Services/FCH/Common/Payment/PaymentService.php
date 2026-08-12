@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\Payment;
 
 use App\Models\Partner\Partner;
+use App\Models\Borrower\Borrower;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
@@ -10,6 +11,7 @@ use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Services\GlobalPayment\UnifiedPaymentService;
 use App\Http\Resources\FCH\Common\Payment\PaymentResource;
@@ -17,6 +19,67 @@ use App\Http\Resources\FCH\Common\Payment\PaymentResource;
 class PaymentService
 {
     use PaginatesApi;
+
+    /**
+     * Apply RBAC / user scope to payment query following exact Invoice logic.
+     */
+    protected function applyRbacScope(Builder $query, mixed $authUser = null): Builder
+    {
+        $authUser = $authUser ?? Auth::user();
+
+        if (!$authUser) {
+            return $query;
+        }
+
+        // RBAC: Borrower Wise
+        if ($authUser->entity_type === Borrower::class && !empty($authUser->entity_id)) {
+            return $query->where('payments.borrower_id', $authUser->entity_id);
+        }
+
+        // RBAC: Partner & Host Wise
+        $partnerId = $authUser->partner_id;
+        $partner = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+        $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+
+        if (!$partner) {
+            $hostPartnerId = Partner::where('is_host', 1)->value('id');
+            if ($hostPartnerId) {
+                $isHost = true;
+                $partnerId = $hostPartnerId;
+            }
+        } else {
+            $partnerId = $partner->id;
+        }
+
+        if ($isHost) {
+            // Host sees:
+            // 1. All partner payments (is_partner_paying = true or entity_type = Partner) -> partner paying host
+            // 2. ONLY host's own client payments (partner_id = hostPartnerId AND is_partner_paying = false)
+            // Host CANNOT see non-host partners' client payments!
+            $query->where(function ($q) use ($partnerId) {
+                $q->where('payments.is_partner_paying', true)
+                    ->orWhere('payments.entity_type', Partner::class)
+                    ->orWhere(function ($sub) use ($partnerId) {
+                        $sub->where('payments.partner_id', $partnerId)
+                            ->where(function ($s2) {
+                                $s2->where('payments.is_partner_paying', false)
+                                    ->orWhereNull('payments.is_partner_paying');
+                            });
+                    });
+            });
+        } elseif ($partnerId) {
+            // Non-host partner sees ONLY his own payments (partner paying host) and his client payments (borrower paying partner)
+            $query->where(function ($q) use ($partnerId) {
+                $q->where('payments.partner_id', $partnerId)
+                    ->orWhere(function ($q2) use ($partnerId) {
+                        $q2->where('payments.entity_type', Partner::class)
+                            ->where('payments.entity_id', (string) $partnerId);
+                    });
+            });
+        }
+
+        return $query;
+    }
 
     /**
      * List payments with pagination and filtering.
@@ -33,17 +96,8 @@ class PaymentService
             ])
             ->select('payments.*');
 
-        // RBAC: Partner Wise (Accurate Code following Borrowers)
-        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
-            $partnerId = $authUser->partner_id;
-            $query->where(function ($q) use ($partnerId) {
-                $q->where('payments.partner_id', $partnerId)
-                    ->orWhere(function ($q2) use ($partnerId) {
-                        $q2->where('payments.entity_type', Partner::class)
-                            ->where('payments.entity_id', (string) $partnerId);
-                    });
-            });
-        }
+        // RBAC: Partner & Borrower Wise (Following Invoice Logic)
+        $this->applyRbacScope($query, $authUser);
 
         // Accurate Date Range: transaction_date (Consistent with InvoiceService)
         // Accurate Date Range Filtering (Inclusive of Full Day)
@@ -451,11 +505,16 @@ class PaymentService
     }
 
     /**
-     * Get payment details.
+     * Get payment details with RBAC security scoping.
      */
     public function find($id)
     {
-        $payment = Payment::with(['partner', 'borrower', 'invoice', 'entity'])->find($id);
+        $authUser = Auth::user();
+        $query = Payment::query()->with(['partner', 'borrower', 'invoice', 'entity']);
+
+        $this->applyRbacScope($query, $authUser);
+
+        $payment = $query->find($id);
         return $payment ? new PaymentResource($payment) : null;
     }
 
@@ -529,7 +588,7 @@ class PaymentService
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment
-                if ($payment->invoice->entity_type === \App\Models\Borrower\Borrower::class) {
+                if ($payment->invoice->entity_type === Borrower::class) {
                     $unifiedPaymentService = app(UnifiedPaymentService::class);
                     $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($payment->invoice, $payment);
                 }
@@ -599,7 +658,7 @@ class PaymentService
             $existingDetails['rejected_by_id'] = $authUser->id;
 
             $payment->update([
-                'status'  => Payment::STATUS_FAILED,
+                'status'  => Payment::STATUS_REJECTED,
                 'details' => $existingDetails,
             ]);
 

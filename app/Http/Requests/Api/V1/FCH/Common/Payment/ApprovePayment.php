@@ -22,7 +22,7 @@ class ApprovePayment extends FormRequest
     public function rules(): array
     {
         return [
-            'note' => ['required', 'string', 'max:1000'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ];
     }
 

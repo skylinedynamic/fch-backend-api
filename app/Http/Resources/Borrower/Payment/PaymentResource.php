@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Borrower\Payment;
 
 use Illuminate\Http\Request;
+use App\Models\User\User;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
@@ -18,6 +19,27 @@ class PaymentResource extends JsonResource
     public function toArray(Request $request): array
     {
         $timezone = $request->header('x-timezone', config('app.timezone', 'UTC'));
+        $rawDetails = $this->details;
+        if (is_array($rawDetails)) {
+            if (!empty($rawDetails['approved_at'])) {
+                $rawDetails['approved_at'] = toTimezone($rawDetails['approved_at']);
+            }
+            if (!empty($rawDetails['rejected_at'])) {
+                $rawDetails['rejected_at'] = toTimezone($rawDetails['rejected_at']);
+            }
+            if (isset($rawDetails['approved_by']) && is_numeric($rawDetails['approved_by'])) {
+                $approver = User::find($rawDetails['approved_by']);
+                if ($approver) {
+                    $rawDetails['approved_by'] = $approver->name ?? $approver->full_name ?? $approver->email;
+                }
+            }
+            if (isset($rawDetails['rejected_by']) && is_numeric($rawDetails['rejected_by'])) {
+                $rejecter = User::find($rawDetails['rejected_by']);
+                if ($rejecter) {
+                    $rawDetails['rejected_by'] = $rejecter->name ?? $rejecter->full_name ?? $rejecter->email;
+                }
+            }
+        }
 
         return [
             'id' => $this->id,
@@ -27,6 +49,9 @@ class PaymentResource extends JsonResource
             'transaction_type' => $this->getTransactionTypeForUser($request->user()),
             'company' => $this->getCompanyName(),
             'details' => $this->getPaymentDetails(),
+            'note' => is_array($this->details) ? ($this->details['approval_note'] ?? $this->details['note'] ?? null) : null,
+            'rejection_reason' => is_array($this->details) ? ($this->details['rejection_reason'] ?? $this->details['reason'] ?? null) : null,
+            'raw_details' => $rawDetails,
             'invoice_id' => $this->invoice?->invoice_id ?? $this->invoice_id,
             'invoice_no' => $this->invoice?->invoice_id,
             'transaction_id' => $this->transaction_id,

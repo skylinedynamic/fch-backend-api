@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
+use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
+use App\Http\Controllers\Api\V1\FCH\Common\Subscription\SubscriptionController as CommonSubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
@@ -284,6 +286,12 @@ Route::prefix('v1')->group(function () {
             Route::post('billing/fetch-upcoming', [BillingController::class, 'fetchUpcoming']);
             Route::get('billing/{id}', [BillingController::class, 'details']);
 
+            // 📋 Non-Host Partner My Subscription Module
+            Route::prefix('my-subscription')->group(function () {
+                Route::get('/', [MySubscriptionController::class, 'index']);
+                Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
+            });
+
 
             //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
@@ -295,6 +303,12 @@ Route::prefix('v1')->group(function () {
             Route::get('partner-plans', [SubscriptionPlanController::class, 'index']);
             Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
+
+            // 🔄 Subscriptions Module Menu Routes (accessible to host and non-host partners)
+            Route::prefix('subscriptions')->group(function () {
+                Route::post('fetch-all', [CommonSubscriptionController::class, 'index']);
+                Route::get('{id}', [CommonSubscriptionController::class, 'show']);
+            });
 
             // Commissions
             Route::prefix('commissions')->group(function () {

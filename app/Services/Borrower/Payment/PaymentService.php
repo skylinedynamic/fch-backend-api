@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Payment;
 
+use App\Models\Borrower\Borrower;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
@@ -23,13 +24,13 @@ class PaymentService
         $authUser = Auth::user();
         $borrowerId = $authUser->entity_id;
 
-        $query = Payment::where('is_partner_paying', false)
+        $query = Payment::where('entity_type', Borrower::class)
+            ->where('entity_id', $borrowerId)
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
                 'invoice:id,invoice_id'
             ])
-            ->where('payments.borrower_id', $borrowerId)
             ->select('payments.*');
 
         // Accurate Date Range: transaction_date
@@ -188,7 +189,8 @@ class PaymentService
             COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as pending,
             COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as processing
         ", [
-            Payment::STATUS_SUCCEEDED, 'success',
+            Payment::STATUS_SUCCEEDED,
+            'success',
             Payment::STATUS_PENDING,
             Payment::STATUS_PROCESSING
         ])->first();
@@ -200,9 +202,9 @@ class PaymentService
 
         return [
             'total_payments' => currencyFormat($totalPayments),
-            'completed'      => currencyFormat($completed),
-            'pending'        => currencyFormat($pending),
-            'processing'     => currencyFormat($processing),
+            'completed' => currencyFormat($completed),
+            'pending' => currencyFormat($pending),
+            'processing' => currencyFormat($processing),
         ];
     }
 
@@ -241,8 +243,8 @@ class PaymentService
         $borrowerId = $authUser->entity_id;
 
         $payment = Payment::with(['partner', 'borrower', 'invoice'])
-            ->where('partner_id', auth()->user()->partner_id)
-            ->where('borrower_id', $borrowerId)
+            ->where('entity_type', Borrower::class)
+            ->where('entity_id', $borrowerId)
             ->find($id);
 
         return $payment ? new PaymentResource($payment) : null;

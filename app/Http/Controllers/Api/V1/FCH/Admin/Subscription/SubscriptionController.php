@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\Subscription;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchSubscriptionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StoreUpdateSubscriptionRequest;
 use App\Http\Resources\FCH\Subscription\SubscriptionResource;
 use App\Services\FCH\Subscription\SubscriptionService;
@@ -14,26 +13,9 @@ class SubscriptionController extends Controller
     public function __construct(protected SubscriptionService $subscriptionService) {}
 
     /**
-     * List subscriptions.
-     */
-    public function index(FetchSubscriptionRequest $request, int $partnerId)
-    {
-        return $this->subscriptionService->list($request->validated(), $partnerId);
-    }
-
-    /**
-     * Fetch All Subscriptions (Global).
-     */
-    public function fetchAll(FetchSubscriptionRequest $request)
-    {
-        return $this->subscriptionService->fetchAll($request->validated());
-    }
-
-    /**
-     * Create And Update Subscription
+     * Create And Update Subscription for Partner.
      */
     public function store(StoreUpdateSubscriptionRequest $request)
-
     {
         try {
             $data = $request->validated();
@@ -53,55 +35,6 @@ class SubscriptionController extends Controller
             return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_saved'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('partner.subscription_save_failed'));
-        }
-    }
-
-    /**
-     * Get Subscriptions
-     */
-    public function details(int $partnerId)
-    {
-        try {
-            $subscription = $this->subscriptionService->getByPartnerId($partnerId);
-
-            if (! $subscription) {
-                return ApiResponse::success(null, __('partner.subscription_not_found'));
-            }
-
-            return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_details'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
-        }
-    }
-
-    /**
-     * Get Subscription Statistics.
-     */
-    public function stats()
-    {
-        try {
-            $stats = $this->subscriptionService->getStats();
-            return ApiResponse::success($stats, __('partner.subscription_stats_retrieved'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
-        }
-    }
-
-    /**
-     * Get single subscription details by ID.
-     */
-    public function show(int $id)
-    {
-        try {
-            $subscription = $this->subscriptionService->getById($id);
-
-            if (!$subscription) {
-                return ApiResponse::error(__('partner.subscription_not_found'), 404);
-            }
-
-            return ApiResponse::success(new SubscriptionResource($subscription), __('partner.subscription_details'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('partner.subscription_fetch_failed'));
         }
     }
 }

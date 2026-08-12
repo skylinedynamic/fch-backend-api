@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest\ChangeRequestController;
@@ -53,16 +52,6 @@ Route::prefix('v1/admin')
         Route::post('partners/documents/{id}', [PartnerDocumentController::class, 'update']); // Using POST for file upload update
         Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
         Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
-
-        // 💳 Subscriptions
-        Route::post('partners/fetch-all-subscriptions', [SubscriptionController::class, 'fetchAll']);
-        Route::post('partners/fetch-subscriptions/{partnerId}', [SubscriptionController::class, 'index']);
-
-        Route::post('partners/subscription', [SubscriptionController::class, 'store']);
-        Route::get('partners/subscription/{id}', [SubscriptionController::class, 'show']);
-        Route::post('partner-subscriptions/{partnerId}', [SubscriptionController::class, 'details']);
-
-        Route::post('partners/subscriptions-stats', [SubscriptionController::class, 'stats']);
 
         // 💰 Plan & Fee (Admin/Host Partner only)
         Route::post('plan-fee/fetch-subscription-plans', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'index']);
