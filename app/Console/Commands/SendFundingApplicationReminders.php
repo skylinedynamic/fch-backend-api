@@ -74,7 +74,6 @@ class SendFundingApplicationReminders extends Command
                     $hostPartner = Partner::host() ?? Partner::where('is_host', true)->first();
                     
                     $partnerEmail = $partner?->email;
-                    $hostEmail = $hostPartner?->email;
                     
                     $emailSent = false;
 
@@ -86,16 +85,9 @@ class SendFundingApplicationReminders extends Command
                     }
 
                     // Send Partner Email
-                    if ($partnerEmail) {
+                    if ($partnerEmail && $partnerEmail !== $borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
                         Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
-                        $emailSent = true;
-                    }
-
-                    // Send Host Email
-                    if ($hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail) {
-                        Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to Host ({$hostEmail})");
-                        Mail::to($hostEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $hostPartner, true));
                         $emailSent = true;
                     }
 
