@@ -83,7 +83,7 @@ Schedule::command('users:check-expired')
 
 
 Schedule::command('funding:application-reminders')
-    ->dailyAt('02:00')
+    ->everyMinute()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(30)
     ->onFailure($onFailure('funding:application-reminders'));
