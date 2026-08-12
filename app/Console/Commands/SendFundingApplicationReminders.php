@@ -83,7 +83,7 @@ class SendFundingApplicationReminders extends Command
                     }
 
                     // Send Partner Email
-                    if ($partnerEmail && $partnerEmail !== $borrowerEmail) {
+                    if ($partnerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
                         Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
                         $emailSent = true;
