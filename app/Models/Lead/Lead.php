@@ -42,6 +42,8 @@ class Lead extends Model
     const LEAD_SOURCE_PROFESSIONAL_REFERRAL = 'Professional Referral (CPA/Realtor/LO/etc.)';
     const LEAD_SOURCE_OTHER = 'Other';
 
+    const DEFAULT_COUNTRY_CODE = '+1';
+
     public static function getSourceOptions(): array
     {
         return [
