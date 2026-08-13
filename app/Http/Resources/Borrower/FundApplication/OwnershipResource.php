@@ -46,12 +46,12 @@ class OwnershipResource extends JsonResource
                     : date('Y-m-d', strtotime($borrower->date_of_birth)))
                 : null;
                 
-            $ssn = $borrower?->ssn ?? null;
+            $ssn = $borrower?->last_4_ssn ?? null;
             $streetAddress = $borrower?->home_address ?? null;
-            $city = $borrower?->home_city ?? null;
-            $state = $borrower?->home_state ?? null;
-            $zip = $borrower?->home_postal_code ?? null;
-            $country = $borrower?->home_country ?? null;
+            $city = $borrower?->city ?? null;
+            $state = $borrower?->state ?? null;
+            $zip = $borrower?->postal_code ?? null;
+            $country = $borrower?->country ?? null;
             
             $citizenship = null;
             if ($borrower && method_exists($borrower, 'citizenship')) {
