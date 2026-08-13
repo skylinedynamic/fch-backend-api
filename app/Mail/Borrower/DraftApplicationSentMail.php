@@ -70,7 +70,7 @@ class DraftApplicationSentMail extends Mailable
         $this->dynamicData['applicationUrl'] = concatUrl(getBorrowerDomain($this->mailPartnerId), 'fund-application/' . $this->application->funding_request_id, config('app.frontend_borrower_url'));
 
         return new Envelope(
-            subject: 'Action Required: Complete Your Funding Application',
+            subject: 'Please Review and Complete Your Funding Application',
         );
     }
 
