@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Billing;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\Billing\FetchUpcomingBillingRequest;
 use App\Services\FCH\Common\Billing\BillingService;
-use Illuminate\Http\Request;
 
 class BillingController extends Controller
 {
@@ -14,20 +14,10 @@ class BillingController extends Controller
     /**
      * Fetch upcoming billings.
      */
-    public function fetchUpcoming(Request $request)
+    public function fetchUpcoming(FetchUpcomingBillingRequest $request)
     {
         try {
-            $validated = $request->validate([
-                'search'          => ['nullable', 'string'],
-                'status'          => ['nullable'],
-                'filters'         => ['nullable', 'array'],
-                'page'            => ['nullable', 'integer', 'min:1'],
-                'per_page'        => ['nullable', 'integer', 'min:1'],
-                'sort_field'      => ['nullable', 'string'],
-                'sort_order'      => ['nullable', 'in:asc,desc'],
-            ]);
-
-            return $this->billingService->fetchUpcoming($validated);
+            return $this->billingService->fetchUpcoming($request->validated());
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('billing.failed_upcoming') . ': ' . $e->getMessage());
         }

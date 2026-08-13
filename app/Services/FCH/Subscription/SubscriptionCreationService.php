@@ -7,6 +7,7 @@ use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
+use Log;
 
 class SubscriptionCreationService
 {
@@ -15,11 +16,12 @@ class SubscriptionCreationService
      *
      * @param string $entityType
      * @param int $entityId
+     * @param Partner $partner
      * @param float $amount
      * @param int $months
      * @return Subscription
      */
-    public function createPendingUserSeatSubscription(string $entityType, int $entityId, float $amount, int $months): Subscription
+    public function createPendingUserSeatSubscription(string $entityType, int $entityId, Partner $partner, float $amount, int $months): Subscription
     {
         $monthlyFee = $months > 0 ? ($amount / $months) : $amount;
 
@@ -75,6 +77,7 @@ class SubscriptionCreationService
         $data['down_payment'] = $data['down_payment'] ?? 0;
         $data['total_subscription_amount'] = $data['total_subscription_amount'] ?? $plan?->total_amount ?? 0;
 
+
         // Calculate subscription_amount_per_month
         if (!isset($data['subscription_amount_per_month'])) {
             $totalSubAmount = $data['total_subscription_amount'] ?? 0;
@@ -92,26 +95,30 @@ class SubscriptionCreationService
             }
         }
 
+        Log::info("subscription_amount_per_month: ", $data);
+
         $data['status'] = $data['status'] ?? Subscription::STATUS_PENDING;
 
         //only for partners
         $data['user_seats'] = $seat_plan ? $seat_plan->total_seat_count : null;
         $data['per_seat_amount'] = $seat_plan ? $seat_plan->total_amount : null;
 
-        // Determine initial current_phase and subscription_end_date
+        $isInstallmentType = strtolower($data['enrollment_type']) == SubscriptionPlan::INSTALLMENT_PLAN;
         $hasDownPayment = ($data['down_payment'] ?? 0) > 0;
-        $hasInstallments = ($data['installment_count'] ?? 0) > 0 && ($data['installment_type'] ?? 0) == 1;
 
         if (!isset($data['current_phase'])) {
-            if ($hasDownPayment) {
+
+            if ($isInstallmentType && $hasDownPayment) {
                 // Waiting for down payment before installments start
                 $data['current_phase'] = Subscription::PHASE_ENROLLMENT;
-            } elseif ($hasInstallments) {
+            } elseif ($isInstallmentType && !$hasDownPayment) {
                 // No down payment, installments start immediately
                 $data['current_phase'] = Subscription::PHASE_INSTALLMENT;
+            } elseif (!$isInstallmentType) {
+                $data['current_phase'] = Subscription::PHASE_ENROLLMENT;
             } else {
                 // Monthly-only plan (no installments)
-                $data['current_phase'] = Subscription::PHASE_PLATFORM_FEE;
+                $data['current_phase'] = Subscription::PHASE_USER_SEAT;
             }
         }
 

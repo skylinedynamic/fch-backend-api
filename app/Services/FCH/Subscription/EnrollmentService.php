@@ -151,7 +151,7 @@ class EnrollmentService
             $total = $totalAmount;
             $initialInvoiceAmount = $totalAmount;
             $installmentType = 0;
-            $subscriptionAmountPerMonth = $monthly;
+            $subscriptionAmountPerMonth = 0;
         }
 
         $isCustom = false;
@@ -310,6 +310,8 @@ class EnrollmentService
                 'status' => Invoice::STATUS_UNPAID,
                 'type' => Invoice::INVOICE_TYPE_ENROLLMENT,
             ]);
+
+            $subscription->update(['current_cycle_invoice_id' => $invoice->id]);
 
             $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 

@@ -99,7 +99,7 @@ class MySubscriptionService
         $recentPayments = $recentPaymentsQuery->orderBy('id', 'desc')->limit(10)->get();
 
         // Calculate Upcoming Billing Details for subscription
-        $nextDate = $subscription?->next_installment_date?->toDateString() ?? $subscription?->subscription_end_date?->toDateString();
+        $nextDate = toTimezone($subscription?->subscription_end_date);
         $nextAmount = $subscription?->subscription_amount_per_month ?? $subscription?->payable_amount ?? 0;
 
         // Determine Subscription Completion Status

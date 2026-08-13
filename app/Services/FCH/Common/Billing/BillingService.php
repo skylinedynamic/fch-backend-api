@@ -23,35 +23,70 @@ class BillingService
      */
     public function fetchUpcoming(array $filters)
     {
-        $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
+        $authUser = auth()->user();
+        $partner = $authUser?->partner ?? ($authUser?->partner_id ? Partner::find($authUser->partner_id) : null);
+        $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+        $userPartnerId = $partner?->id ?? $authUser?->partner_id;
 
-        $query = SubscriptionPhase::query()
-            ->join('subscriptions', 'subscription_phases.subscription_id', '=', 'subscriptions.id')
-            ->select('subscription_phases.*')
-            ->where('subscriptions.status', Subscription::STATUS_ACTIVE)
-            ->where(function ($q) use ($targetDate) {
-                $q->where(function ($sub) use ($targetDate) {
-                    $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_ENROLLMENT)
-                        ->whereNotNull('subscription_phases.next_installment_date')
-                        ->whereDate('subscription_phases.next_installment_date', '<=', $targetDate);
-                })->orWhere(function ($sub) use ($targetDate) {
-                    $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
-                        ->whereNotNull('subscription_phases.next_platform_fee_date')
-                        ->whereDate('subscription_phases.next_platform_fee_date', '<=', $targetDate);
-                });
-            })
+        $targetDate = now()->addDays(10)->toDateString();
+
+        $query = Subscription::query()
             ->with([
-                'subscription.partner:id,full_name,company_name,email',
-                'subscription.borrower:id,first_name,last_name,email,partner_id',
-                'subscription.borrower.partner:id,full_name,company_name,email',
-            ]);
+                'partner:id,full_name,company_name,email',
+                'borrower:id,first_name,last_name,email,partner_id',
+                'borrower.partner:id,full_name,company_name,email',
+            ])
+            ->where('subscriptions.status', Subscription::STATUS_ACTIVE);
+
+        // Host vs Non-Host Partner Scoping:
+        // Host gets all partners and borrowers belonging to current user partner ID
+        if ($isHost && $userPartnerId) {
+            $query->where(function ($q) use ($userPartnerId) {
+                $q->where('subscriptions.entity_type', Partner::class)
+                  ->orWhere(function ($sub) use ($userPartnerId) {
+                      $sub->where('subscriptions.entity_type', Borrower::class)
+                          ->whereExists(function ($inner) use ($userPartnerId) {
+                              $inner->selectRaw(1)
+                                  ->from('borrowers')
+                                  ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                                  ->where('borrowers.partner_id', $userPartnerId);
+                          });
+                  });
+            });
+        } elseif (!$isHost && $userPartnerId) {
+            $query->where(function ($q) use ($userPartnerId) {
+                $q->where(function ($sub) use ($userPartnerId) {
+                    $sub->where('subscriptions.entity_type', Partner::class)
+                        ->where('subscriptions.entity_id', $userPartnerId);
+                })->orWhere(function ($sub) use ($userPartnerId) {
+                    $sub->where('subscriptions.entity_type', Borrower::class)
+                        ->whereExists(function ($inner) use ($userPartnerId) {
+                            $inner->selectRaw(1)
+                                ->from('borrowers')
+                                ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                                ->where('borrowers.partner_id', $userPartnerId);
+                        });
+                });
+            });
+        }
+
+        // Subscription end date & enrollment completed rules:
+        // - check who's subscription end date is finish within 10 days
+        // - if subscription end date is null and enrollment_completed_at is not null do not take it
+        $query->where(function ($q) use ($targetDate) {
+            $q->where(function ($sub) use ($targetDate) {
+                $sub->whereNotNull('subscriptions.subscription_end_date')
+                    ->whereDate('subscriptions.subscription_end_date', '<=', $targetDate);
+            })->orWhere(function ($sub) {
+                $sub->whereNull('subscriptions.subscription_end_date')
+                    ->whereNull('subscriptions.enrollment_completed_at');
+            });
+        });
 
         // Global Search
         $globalSearch = $filters['filters']['global']['value'] ?? ($filters['search'] ?? null);
         if (!empty($globalSearch)) {
-            $query->whereHas('subscription', function ($q) use ($globalSearch) {
-                $q->search($globalSearch);
-            });
+            $query->search($globalSearch);
         }
 
         $rawFilters = $filters['filters'] ?? [];
@@ -62,10 +97,10 @@ class BillingService
             $val = $rawFilters['partner_name']['constraints'][0]['value'] ?? null;
             if ($val) {
                 $query->where(function ($q) use ($val) {
-                    $q->whereHas('subscription.partner', function ($sub) use ($val) {
+                    $q->whereHas('partner', function ($sub) use ($val) {
                         $sub->where('full_name', 'like', "%{$val}%")
                             ->orWhere('company_name', 'like', "%{$val}%");
-                    })->orWhereHas('subscription.borrower', function ($sub) use ($val) {
+                    })->orWhereHas('borrower', function ($sub) use ($val) {
                         $sub->whereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$val}%"]);
                     });
                 });
@@ -76,10 +111,11 @@ class BillingService
         if (!empty($rawFilters['upcoming_billing_type'])) {
             $val = $rawFilters['upcoming_billing_type']['constraints'][0]['value'] ?? null;
             if ($val) {
-                if ($val === 'Platform Fee') {
-                    $query->where('subscription_phases.phase', SubscriptionPhase::PHASE_PLATFORM_FEE);
+                $normalized = strtolower(str_replace(' ', '_', $val));
+                if (in_array($normalized, [Subscription::PHASE_PLATFORM_FEE, Subscription::PHASE_INSTALLMENT, Subscription::PHASE_USER_SEAT])) {
+                    $query->where('subscriptions.current_phase', $normalized);
                 } else {
-                    $query->where('subscription_phases.phase', SubscriptionPhase::PHASE_ENROLLMENT);
+                    $query->where('subscriptions.current_phase', 'like', "%{$val}%");
                 }
             }
             unset($rawFilters['upcoming_billing_type']);
@@ -90,11 +126,14 @@ class BillingService
             if ($val) {
                 $query->where(function ($q) use ($val) {
                     $q->where(function ($sub) use ($val) {
-                        $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
+                        $sub->where('subscriptions.current_phase', Subscription::PHASE_INSTALLMENT)
+                            ->where('subscriptions.subscription_amount_per_month', 'like', "%{$val}%");
+                    })->orWhere(function ($sub) use ($val) {
+                        $sub->where('subscriptions.current_phase', Subscription::PHASE_PLATFORM_FEE)
                             ->where('subscriptions.monthly_platform_fee', 'like', "%{$val}%");
                     })->orWhere(function ($sub) use ($val) {
-                        $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_ENROLLMENT)
-                            ->where('subscriptions.payable_amount', 'like', "%{$val}%");
+                        $sub->where('subscriptions.current_phase', Subscription::PHASE_USER_SEAT)
+                            ->where('subscriptions.per_seat_amount', 'like', "%{$val}%");
                     });
                 });
             }
@@ -104,15 +143,7 @@ class BillingService
         if (!empty($rawFilters['upcoming_billing_date'])) {
             $val = $rawFilters['upcoming_billing_date']['constraints'][0]['value'] ?? null;
             if ($val) {
-                $query->where(function ($q) use ($val) {
-                    $q->where(function ($sub) use ($val) {
-                        $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_PLATFORM_FEE)
-                            ->where('subscription_phases.next_platform_fee_date', 'like', "%{$val}%");
-                    })->orWhere(function ($sub) use ($val) {
-                        $sub->where('subscription_phases.phase', SubscriptionPhase::PHASE_ENROLLMENT)
-                            ->where('subscription_phases.next_installment_date', 'like', "%{$val}%");
-                    });
-                });
+                $query->whereDate('subscriptions.subscription_end_date', 'like', "%{$val}%");
             }
             unset($rawFilters['upcoming_billing_date']);
         }
@@ -127,18 +158,31 @@ class BillingService
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'upcoming_billing_date';
-        $sortOrder = $filters['sort_order'] ?? 'asc';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
         $skipSorting = false;
 
         switch ($sortField) {
             case 'upcoming_billing_date':
             case 'next_billing_date':
-                $query->orderByRaw('COALESCE(subscription_phases.next_installment_date, subscription_phases.next_platform_fee_date) ' . $sortOrder);
+            case 'subscription_end_date':
+                $query->orderBy('subscriptions.subscription_end_date', $sortOrder);
                 $skipSorting = true;
                 break;
 
             case 'upcoming_billing_amount':
-                $query->orderByRaw('CASE WHEN subscription_phases.phase = "platform_fee" THEN subscriptions.monthly_platform_fee ELSE subscriptions.payable_amount END ' . $sortOrder);
+                $query->orderByRaw("
+                    CASE 
+                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_INSTALLMENT . "' THEN subscriptions.subscription_amount_per_month 
+                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_PLATFORM_FEE . "' THEN subscriptions.monthly_platform_fee 
+                        WHEN subscriptions.current_phase = '" . Subscription::PHASE_USER_SEAT . "' THEN subscriptions.per_seat_amount 
+                        ELSE subscriptions.payable_amount 
+                    END {$sortOrder}
+                ");
+                $skipSorting = true;
+                break;
+
+            case 'upcoming_billing_type':
+                $query->orderBy('subscriptions.current_phase', $sortOrder);
                 $skipSorting = true;
                 break;
 
@@ -169,7 +213,7 @@ class BillingService
                 break;
 
             default:
-                $query->orderBy('subscription_phases.id', $sortOrder);
+                $query->orderBy('subscriptions.id', $sortOrder);
                 $skipSorting = true;
                 break;
         }

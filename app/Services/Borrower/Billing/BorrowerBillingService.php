@@ -72,7 +72,7 @@ class BorrowerBillingService
             ->get();
 
         // Calculate Upcoming Billing Details
-        $nextDate = $subscription?->next_installment_date?->toDateString() ?? $subscription?->subscription_end_date?->toDateString();
+        $nextDate = toTimezone($subscription?->subscription_end_date);
         $nextAmount = $subscription?->subscription_amount_per_month ?? $subscription?->payable_amount ?? 0;
 
         // Determine Subscription Completion Status

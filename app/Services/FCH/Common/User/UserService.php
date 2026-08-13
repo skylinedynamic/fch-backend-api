@@ -107,6 +107,7 @@ class UserService
                 $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
                     User::class,
                     $user->id,
+                    $partner,
                     $amount,
                     $months
                 );

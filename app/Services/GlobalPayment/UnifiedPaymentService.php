@@ -8,6 +8,7 @@ use App\Models\Payment\Payment;
 use App\Models\Borrower\Borrower;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PaymentMethodBankDetail;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
@@ -133,6 +134,7 @@ class UnifiedPaymentService
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
             $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
             $paymentType = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? 'Bank Transfer'));
+
             $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
 
             // 2. Create local payment ledger entry
@@ -155,7 +157,8 @@ class UnifiedPaymentService
 
             // Save default_payment_method and stripe_customer_id on first payment only.
             // Once card details are saved they can only be updated from the Billing Details page.
-            $payer = $isPartnerPaying ? Partner::find($partnerId) : ($borrowerId ? Borrower::find($borrowerId) : $invoice->entity);
+            $payer = $invoice->entity;
+
             if ($payer && empty($payer->default_payment_method) && empty($payer->stripe_customer_id_raw)) {
                 $rawCustId = $gatewayResult['raw']['customer'] ?? null;
                 $updateData = [
@@ -165,8 +168,8 @@ class UnifiedPaymentService
                 if ($isStripe && $rawCustId) {
                     $updateData['stripe_customer_id'] = [
                         'customer_id' => $rawCustId,
-                        'name'        => null,
-                        'card_no'     => null,
+                        'name' => null,
+                        'card_no' => null,
                     ];
                 } elseif (!$isStripe) {
                     $updateData['stripe_customer_id'] = null;
@@ -181,21 +184,8 @@ class UnifiedPaymentService
                 'payment_date' => $isManual ? null : now(),
             ]);
 
-            // If it is a User or Employee seat invoice, update the partner's total_paid_users count on first payment
-            $subscription = $invoice->subscription_id ? \App\Models\Subscription\Subscription::find($invoice->subscription_id) : null;
-            if ($subscription && in_array($subscription->entity_type, [User::class, Employee::class])) {
-                if (!$subscription->subscription_start_date) {
-                    $partner = Partner::find($invoice->partner_id);
-                    if ($partner) {
-                        $partnerSubscription = $partner->subscription;
-                        if ($partnerSubscription) {
-                            $partnerSubscription->increment('user_seats');
-                        }
-                    }
-                }
-            }
 
-            // 4. Advance the local subscription phase and schedule next billing date
+            // 3. Advance the local subscription phase and schedule next billing date
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice);
 

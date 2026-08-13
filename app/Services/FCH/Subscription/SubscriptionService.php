@@ -2,6 +2,9 @@
 
 namespace App\Services\FCH\Subscription;
 
+use App\Mail\Payment\PaymentSuccessUserMail;
+use App\Models\User\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
@@ -63,13 +66,13 @@ class SubscriptionService
         }
 
         $partnerId = $authUser->partner_id;
-        $partner   = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
-        $isHost    = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+        $partner = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+        $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
 
         if (!$partner) {
             $hostPartnerId = Partner::where('is_host', 1)->value('id');
             if ($hostPartnerId) {
-                $isHost    = true;
+                $isHost = true;
                 $partnerId = $hostPartnerId;
             }
         } else {
@@ -388,17 +391,17 @@ class SubscriptionService
 
         // ── USER SEAT ──────────────────────────────────────────────────────────
         if ($phase === Subscription::PHASE_USER_SEAT) {
-            $monthlyFee = $subscription->monthly_platform_fee ?: 49.97;
+            $monthlyFee = $subscription->per_seat_amount ?: 49.97;
             $monthsPaid = max(1, (int) round($invoice->payment_amount / $monthlyFee));
 
             $isFirstActivation = !$subscription->subscription_start_date;
 
             // Resolve user record
             $user = null;
-            if ($subscription->entity_type === \App\Models\User\User::class) {
-                $user = \App\Models\User\User::find($subscription->entity_id);
+            if ($subscription->entity_type === User::class || $subscription->entity_type == '' || $subscription->entity_type = null) {
+                $user = User::find($subscription->entity_id);
             } else {
-                $user = \App\Models\User\User::where('entity_type', \App\Models\Employee\Employee::class)
+                $user = User::where('entity_type', Employee::class)
                     ->where('entity_id', $subscription->entity_id)
                     ->first();
             }
@@ -409,15 +412,15 @@ class SubscriptionService
 
                 if ($user) {
                     $user->update([
-                        'status' => \App\Models\User\User::STATUS['active'],
-                        'payment_status' => \App\Models\User\User::PAYMENT_STATUS_PAID,
-                        'password' => \Illuminate\Support\Facades\Hash::make($plainPassword),
+                        'status' => User::STATUS['active'],
+                        'payment_status' => User::PAYMENT_STATUS_PAID,
+                        'password' => Hash::make($plainPassword),
                         'start_date' => now(),
                         'end_date' => $newEnd,
                     ]);
 
                     try {
-                        Mail::to($user->email)->send(new \App\Mail\Payment\PaymentSuccessUserMail([
+                        Mail::to($user->email)->send(new PaymentSuccessUserMail([
                             'amount' => $invoice->payment_amount,
                             'currency' => $invoice->currency,
                             'transaction_id' => 'SUB_' . $subscription->id,
@@ -452,9 +455,9 @@ class SubscriptionService
 
                 if ($user) {
                     $user->update([
-                        'payment_status' => \App\Models\User\User::PAYMENT_STATUS_PAID,
+                        'payment_status' => User::PAYMENT_STATUS_PAID,
                         'end_date' => $newEnd,
-                        'status' => \App\Models\User\User::STATUS['active'],
+                        'status' => User::STATUS['active'],
                     ]);
                 }
             }
@@ -830,8 +833,8 @@ class SubscriptionService
         $authUser = Auth::user();
         if ($authUser) {
             $partnerId = $authUser->partner_id;
-            $partner   = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
-            $isHost    = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
+            $partner = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
+            $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
             if (!$isHost && $partnerId) {
                 $revenueQuery->where('partner_id', $partnerId);
             }

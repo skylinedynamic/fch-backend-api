@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
-use App\Models\Subscription\SubscriptionPhase;
+use App\Models\Subscription\Subscription;
 
 class BillingResource extends JsonResource
 {
@@ -15,46 +15,53 @@ class BillingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $subscription = $this->subscription;
         $partner = null;
         $borrower = null;
 
-        if ($subscription) {
-            if ($subscription->entity_type === Partner::class) {
-                $partner = $subscription->partner;
-            } elseif ($subscription->entity_type === Borrower::class) {
-                $borrower = $subscription->borrower;
-                $partner = $borrower?->partner;
-            }
+        if ($this->entity_type === Partner::class) {
+            $partner = $this->partner;
+        } elseif ($this->entity_type === Borrower::class) {
+            $borrower = $this->borrower;
+            $partner = $borrower?->partner;
         }
 
-        $isPlatformFee = $this->phase === SubscriptionPhase::PHASE_PLATFORM_FEE;
+        // Amount mapping based on current_phase:
+        // - PHASE_INSTALLMENT: subscription_amount_per_month
+        // - PHASE_PLATFORM_FEE: monthly_platform_fee
+        // - PHASE_USER_SEAT: per_seat_amount
+        $billingAmount = match ($this->current_phase) {
+            Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?? 0,
+            Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?? 0,
+            Subscription::PHASE_USER_SEAT => $this->per_seat_amount ?? 0,
+            default => $this->subscription_amount_per_month ?? $this->payable_amount ?? $this->down_payment ?? 0,
+        };
 
-        $billingDate = $isPlatformFee
-            ? $this->next_platform_fee_date
-            : $this->next_installment_date;
-
-        $billingAmount = $isPlatformFee
-            ? ($subscription->monthly_platform_fee ?? 0)
-            : ($subscription->payable_amount ?? 0);
+        // Human readable billing type for UI table
+        $billingType = match ($this->current_phase) {
+            Subscription::PHASE_PLATFORM_FEE => 'Platform Fee',
+            Subscription::PHASE_USER_SEAT => 'User Seat',
+            Subscription::PHASE_INSTALLMENT => 'Installment',
+            default => ucfirst(str_replace('_', ' ', $this->current_phase ?? 'Installment')),
+        };
 
         return [
             'id' => $this->id,
-            'subscription_id' => $this->subscription_id,
-            'partner_id' => $partner->id ?? null,
-            'borrower_id' => $borrower->id ?? null,
+            'subscription_id' => $this->id,
+            'partner_id' => $partner?->id,
+            'borrower_id' => $borrower?->id,
             'partner_name' => $partner?->full_name,
             'company_name' => $partner?->company_name,
             'partner_email' => $partner?->email,
-            'borrower_name' => $borrower ? ($borrower->first_name . ' ' . $borrower->last_name) : null,
+            'borrower_name' => $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null,
             'borrower_email' => $borrower?->email,
-            'upcoming_billing_date' => $billingDate ? $billingDate->format('Y-m-d') : null,
-            'upcoming_billing_amount' => $billingAmount,
-            'upcoming_billing_type' => $isPlatformFee ? 'Platform Fee' : 'Installment',
-            'enrollment_type' => $subscription?->enrollment_type,
-            'status' => $subscription?->status ?? 'Active',
-            'created_at' => $this->created_at?->format('Y-m-d'),
-            'updated_at' => $this->updated_at?->format('Y-m-d'),
+            'upcoming_billing_date' => toTimezone($this->subscription_end_date, null, 'Y-m-d'),
+            'upcoming_billing_amount' => (float) $billingAmount,
+            'upcoming_billing_type' => $billingType,
+            'current_phase' => $this->current_phase,
+            'enrollment_type' => $this->enrollment_type,
+            'status' => $this->status ?? Subscription::STATUS_ACTIVE,
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
+            'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d'),
         ];
     }
 }
