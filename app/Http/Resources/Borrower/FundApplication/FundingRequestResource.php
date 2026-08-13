@@ -37,30 +37,20 @@ class FundingRequestResource extends JsonResource
         }
 
         $fundingSequenceId = $this->funding_sequence_id 
-            ?? ($fundingReq ? $fundingReq->funding_sequence_id : null)
             ?? $request->input('funding_sequence_id') 
             ?? $request->input('fundingSequenceId') 
             ?? null;
 
-        $requestedAmount = $this->requested_amount 
-            ?? ($fundingReq ? $fundingReq->requested_amount : null);
-
-        $purposeOfFunds = $this->purpose_of_funds 
-            ?? ($fundingReq ? $fundingReq->use_of_funds : null);
-
-        $approvedFunding = $this->approved_funding 
-            ?? ($fundingReq && $fundingReq->fundingSequence ? $fundingReq->fundingSequence->name : null);
-
-        $preferredFundingType = $this->preferred_funding_type 
-            ?? ($fundingReq ? $fundingReq->funding_type : null);
-
-        $timeframeNeeded = $this->timeframe_needed 
-            ?? ($fundingReq ? $fundingReq->estimated_speed : null);
+        $requestedAmount = $this->requested_amount;
+        $purposeOfFunds = $this->purpose_of_funds;
+        $approvedFunding = $this->approved_funding;
+        $preferredFundingType = $this->preferred_funding_type;
+        $timeframeNeeded = $this->timeframe_needed;
 
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
-            'funding_request_id' => $fundingRequestId ? (int)$fundingRequestId : null,
-            'funding_sequence_id' => $fundingSequenceId ? (int)$fundingSequenceId : null,
+            'funding_request_id' => $fundingReq ? $fundingReq->id : null,
+            'funding_sequence_id' => $fundingReq ? $fundingReq->funding_sequence_id : null,
             'requested_amount' => $requestedAmount,
             'purpose_of_funds' => $purposeOfFunds,
             'approved_funding' => $approvedFunding,
