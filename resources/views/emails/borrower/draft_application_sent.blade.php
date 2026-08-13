@@ -32,7 +32,7 @@
                 @if ($application->partner)
                     <tr>
                         <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Prepared By:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0ab39c; text-align: right; padding-right: 10px;">{{ $application->partner->company_name ?? $application->partner->first_name . ' ' . $application->partner->last_name }}</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->partner->company_name ?? $application->partner->first_name . ' ' . $application->partner->last_name }}</td>
                     </tr>
                 @endif
                 @if ($application->fundingSequence)
@@ -50,7 +50,7 @@
                 @if ($application->fundingRequest && $application->fundingRequest->requested_amount)
                     <tr>
                         <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Requested Amount:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0ab39c; text-align: right; padding-right: 10px;">${{ number_format($application->fundingRequest->requested_amount, 2) }}</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0f172a; text-align: right; padding-right: 10px;">${{ number_format($application->fundingRequest->requested_amount, 2) }}</td>
                     </tr>
                 @endif
                 <tr>
