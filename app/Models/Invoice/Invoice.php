@@ -29,6 +29,7 @@ class Invoice extends Model
         'email',
         'country',
         'payment_amount',
+        'month_count',
         'payment_date',
         'status',
         'type',
@@ -52,6 +53,7 @@ class Invoice extends Model
     const STATUS_SUCCESS = 'Success';
     const STATUS_CANCELED = 'Canceled';
     const STATUS_OVERDUE = 'Overdue';
+    const STATUS_EXPIRED = 'Expired';
     const STATUS_PROCESSING = 'Processing';
     const STATUS_ALL = 'All Status';
 

@@ -52,10 +52,7 @@ class User extends Authenticatable implements OAuthenticatable
         'entity_type',
         'entity_id',
         'is_paid',
-        'start_date',
-        'end_date',
         'is_refresh',
-        'payment_status',
     ];
 
     /**
@@ -80,8 +77,6 @@ class User extends Authenticatable implements OAuthenticatable
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
             'is_paid' => 'boolean',
-            'start_date' => 'date',
-            'end_date' => 'date',
         ];
     }
 
@@ -612,9 +607,6 @@ class User extends Authenticatable implements OAuthenticatable
             throw $e;
         }
     }
-
-    public const PAYMENT_STATUS_PAID = 'Paid';
-    public const PAYMENT_STATUS_UNPAID = 'Unpaid';
 
     public function getEntityImage(): string
     {

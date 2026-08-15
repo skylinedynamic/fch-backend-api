@@ -27,6 +27,8 @@ use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
 
+use function Illuminate\Support\months;
+
 class UserService
 {
     /**
@@ -49,6 +51,7 @@ class UserService
     {
         $authUser = auth()->user();
         $partnerId = $authUser->partner_id;
+        $isPaid = false;
 
         // Check user limit if not host and not purchasing a paid seat
         $partner = Partner::find($partnerId);
@@ -83,13 +86,10 @@ class UserService
                 'user_type' => $authUser->user_type,
                 'password' => Hash::make($plainPassword),
                 'partner_id' => $authUser->partner_id,
-                'status' => isset($data['is_paid']) && $data['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                'status' => $isPaid ? User::STATUS['inactive'] : User::STATUS['active'],
                 'entity_type' => null,
                 'entity_id' => null,
-                'is_paid' => isset($data['is_paid']) ? $data['is_paid'] : false,
-                'payment_status' => isset($data['is_paid']) && $data['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
-                'start_date' => isset($data['is_paid']) && $data['is_paid'] ? now() : null,
-                'end_date' => isset($data['is_paid']) && $data['is_paid'] ? now()->addMonths($data['months']) : null,
+                'is_paid' => $isPaid,
             ]);
 
             $roleId = $data['role_id'] ?? null;
@@ -97,7 +97,7 @@ class UserService
             if ($roleId) {
                 $this->assignRoleAndPermissions($user, $roleId);
             }
-            if (isset($data['is_paid']) && $data['is_paid']) {
+            if ($isPaid) {
                 $partner = Partner::find($authUser->partner_id);
                 $partnerSub = $partner ? $partner->subscription : null;
                 $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;
@@ -108,8 +108,7 @@ class UserService
                     User::class,
                     $user->id,
                     $partner,
-                    $amount,
-                    $months
+                    $perSeatAmount
                 );
 
                 $invoiceId = $this->invoiceService->generateInvoiceId();
@@ -122,27 +121,34 @@ class UserService
                     'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $user->name,
                     'email' => $partner ? $partner->email : $user->email,
                     'payment_amount' => $amount,
-                    'payment_date' => null,
+                    'month_count' => $months,
                     'status' => Invoice::STATUS_UNPAID,
-                    'created_by' => Auth::id(),
+                    'type' => Invoice::INVOICE_TYPE_USER_SEAT,
+                    'is_partner_paying' => true,
+                    'is_platform_fee' => false,
                 ]);
-                $user->invoice_id = $invoice->id;
-            } else {
-                $user->invoice_id = null;
-            }
 
-            // Log Invoice Creation if present
-            if ($user->invoice_id) {
-                $createdInvoice = Invoice::find($user->invoice_id);
-                if ($createdInvoice) {
-                    $this->activityLogService->logModelEvent(
-                        $createdInvoice,
-                        ActivityLog::LOG_TYPE_INVOICE_CREATE
-                    );
+                $this->activityLogService->logModelEvent(
+                    $invoice,
+                    ActivityLog::LOG_TYPE_INVOICE_CREATE
+                );
+
+                // Update current cycle invoice
+                $subscription->update([
+                    'current_cycle_invoice_id' => $invoice->id,
+                ]);
+
+                // Send invoice mail to partner
+                try {
+                    $this->invoiceService->sendInvoice($invoice->id);
+                } catch (Throwable $e) {
+                    Log::error('Invoice created but email failed', [
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 
-            // Log System Event
             $this->activityLogService->logModelEvent(
                 $user,
                 ActivityLog::LOG_TYPE_USER_CREATE
@@ -154,7 +160,7 @@ class UserService
             throw $e; // user not created if DB fails
         }
 
-        if ($user && !$user->is_paid) {
+        if ($user && !$isPaid) {
             // AFTER COMMIT — email section
             try {
                 $userInfo = User::find($user->id);

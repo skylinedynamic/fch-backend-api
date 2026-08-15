@@ -69,21 +69,32 @@ class AuthService
             return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
         }
 
-        if ($user->is_paid && $user->payment_status != User::PAYMENT_STATUS_PAID) {
-            $partner = $user->partner;
-            // Only block if partner is NOT a host
-            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
-                return ApiResponse::loginError(__('auth.payment_not_completed', ['partner' => $partnerName]), 'email');
+        $userSeatSubscription = Subscription::where(function ($q) use ($user) {
+            $q->where('entity_type', User::class)->where('entity_id', $user->id);
+            if ($user->entity_type === Employee::class && $user->entity_id) {
+                $q->orWhere(function ($eq) use ($user) {
+                    $eq->where('entity_type', Employee::class)->where('entity_id', $user->entity_id);
+                });
             }
-        }
+        })->first();
 
-        if ($user->is_paid && $user->end_date && Carbon::parse($user->end_date)->isPast()) {
-            $partner = $user->partner;
-            // Only block if partner is NOT a host
-            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
-                return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
+        if ($userSeatSubscription) {
+            if ($userSeatSubscription->status === Subscription::STATUS_PENDING) {
+                $partner = $user->partner;
+                // Only block if partner is NOT a host
+                if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                    $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                    return ApiResponse::loginError(__('auth.payment_not_completed', ['partner' => $partnerName]), 'email');
+                }
+            }
+
+            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->isPast()) {
+                $partner = $user->partner;
+                // Only block if partner is NOT a host
+                if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                    $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                    return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
+                }
             }
         }
 

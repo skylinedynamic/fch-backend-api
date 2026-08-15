@@ -22,7 +22,7 @@ use RuntimeException;
  *
  * Stripe Subscription Schedules are NOT used in this architecture.
  * The application (Laravel) manages billing cycles, installments, and platform fees entirely.
- * Due payments are automatically charged off-session by the `subscriptions:auto-charge` cron job.
+ * Due payments are automatically charged off-session by the `subscriptions:process-all` cron job.
  */
 class StripePaymentDriver implements PaymentGatewayInterface
 {

@@ -48,7 +48,6 @@ use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaContr
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
-use App\Http\Controllers\Api\V1\GlobalPayment\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -79,9 +78,6 @@ Route::prefix('v1')->group(function () {
 
     // 📊 Public Weekly Executive Summary (no auth required)
     Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);
-
-    // 💳 Public Stripe Webhook (no auth required)
-    Route::post('payment/stripe-webhook', [StripeWebhookController::class, 'handle']);
 
     Route::middleware('auth:api')->group(function () {
 

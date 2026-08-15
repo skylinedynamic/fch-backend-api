@@ -55,6 +55,8 @@ class UnifiedPaymentService
     {
         $invoice = Invoice::findOrFail($data['invoice_id']);
         $user = auth()->user();
+        $subscription = $invoice->subscription;
+        
 
         $isAuthorized = false;
         if ($invoice->entity_type === $user->entity_type && (int) $invoice->entity_id === (int) $user->entity_id) {
@@ -64,6 +66,10 @@ class UnifiedPaymentService
         }
 
         if (!$isAuthorized) {
+            throw new Exception("Unauthorized invoice payment attempt.");
+        }
+
+        if ($subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
             throw new Exception("Unauthorized invoice payment attempt.");
         }
 

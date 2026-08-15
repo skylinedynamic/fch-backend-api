@@ -66,10 +66,10 @@ class ConvertLeadRequest extends BaseApiRequest
         $isInstallment = false;
         if ($plan) {
             $isInstallment = ($plan->total_installment_count_upto > 1)
-                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
+                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG);
         } else {
             $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
-            $isInstallment = ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN);
+            $isInstallment = ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG);
         }
 
         if ($isInstallment) {
@@ -103,10 +103,10 @@ class ConvertLeadRequest extends BaseApiRequest
         $isInstallment = false;
         if ($plan) {
             $isInstallment = ($plan->total_installment_count_upto > 1)
-                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::INSTALLMENT_PLAN);
+                || (strtolower(trim((string) $plan->enrollment_type)) === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG);
         } else {
             $enrollmentType = strtolower(trim((string) $this->input('enrollment_type')));
-            $isInstallment = ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN);
+            $isInstallment = ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG);
         }
 
         if ($isInstallment) {

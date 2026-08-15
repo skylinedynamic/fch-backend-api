@@ -5,6 +5,7 @@ namespace App\Models\Subscription;
 use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Partner\SubscriptionPlan;
@@ -20,6 +21,7 @@ class Subscription extends Model
     const STATUS_CANCELLED = 'Cancelled';
     const STATUS_EXPIRED = 'Expired';
     const STATUS_PENDING = 'Pending';
+    const STATUS_PAST_DUE = 'Past Due';
 
     const ENROLLMENT_TYPE_PAYMENT_PLAN = 'Payment Plan';
     const ENROLLMENT_TYPE_MONTHLY = 'Monthly';
@@ -227,9 +229,10 @@ class Subscription extends Model
         $map = [
             Partner::class => User::PARTNER,
             Borrower::class => User::BORROWER,
-            \App\Models\Employee\Employee::class => User::EMPLOYEE,
+            Employee::class => User::EMPLOYEE,
+            User::class => User::USER,
         ];
 
-        return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
+        return $map[$this->entity_type] ?? class_basename($this->entity_type);
     }
 }

@@ -2,23 +2,17 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\ChargeSubscriptionInvoiceJob;
+use App\Mail\CronJobFailureMail;
+use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
+use App\Services\FCH\Subscription\SubscriptionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Carbon;
-use App\Mail\CronJobFailureMail;
-use App\Models\Employee\Employee;
-use App\Models\Invoice\Invoice;
-use App\Models\Partner\Partner;
-use App\Models\Payment\Payment;
-use App\Models\Subscription\Subscription;
-use App\Models\User\User;
-use App\Services\FCH\Common\Invoice\InvoiceService;
-use App\Services\FCH\Subscription\SubscriptionService;
-use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\GlobalPayment\PaymentGatewayManager;
-use App\Models\ActivityLog\ActivityLog;
 
 /**
  * Command: subscriptions:process-all
@@ -33,16 +27,14 @@ use App\Models\ActivityLog\ActivityLog;
  *   c) User/Employee seat renewal invoices (subscription_end_date approaching)
  *
  *  STEP 2 — Auto-Charge
- *   - Find all Unpaid invoices linked to active subscriptions
- *   - Attempt off-session charge via saved Stripe Customer ID
- *   - On success: advance subscription phase / extend seat dates
- *   - On failure: mark invoice as Failed, set subscription to Past Due
+ *   - Query all Unpaid invoices linked to active subscriptions
+ *   - Dispatch ChargeSubscriptionInvoiceJob to Redis queue for background off-session charging
  */
 class ProcessAllSubscriptions extends Command
 {
     protected $signature = 'subscriptions:process-all';
 
-    protected $description = 'Unified: generate invoices for all subscription types and auto-charge due invoices.';
+    protected $description = 'Unified: generate invoices for all subscription types and dispatch auto-charge jobs to Redis queue.';
 
     public function __construct(
         protected InvoiceService $invoiceService,
@@ -51,10 +43,8 @@ class ProcessAllSubscriptions extends Command
         parent::__construct();
     }
 
-    public function handle(
-        SubscriptionService $subscriptionService,
-        PaymentGatewayManager $gatewayManager
-    ): int {
+    public function handle(SubscriptionService $subscriptionService): int
+    {
         $runId = DB::table('scheduler_runs')->insertGetId([
             'command'    => 'subscriptions:process-all',
             'date'       => now()->toDateString(),
@@ -70,9 +60,9 @@ class ProcessAllSubscriptions extends Command
             $subscriptionService->generateDueInvoices();
             $this->info('[Invoices] Done. All due invoices generated.');
 
-            // ── STEP 2: Auto-charge unpaid invoices ─────────────────────────────
-            $this->info('=== STEP 2: Auto-Charging Unpaid Invoices ===');
-            $this->autoChargeInvoices($subscriptionService, $gatewayManager);
+            // ── STEP 2: Dispatch auto-charge jobs to Redis queue ────────────────
+            $this->info('=== STEP 2: Dispatching Auto-Charge Jobs to Redis Queue ===');
+            $this->dispatchAutoChargeJobs();
 
             DB::table('scheduler_runs')->where('id', $runId)->update([
                 'status'       => 'completed',
@@ -105,117 +95,25 @@ class ProcessAllSubscriptions extends Command
         return Command::SUCCESS;
     }
 
-
     // ──────────────────────────────────────────────────────────────────────────
-    // STEP 2 — Auto-charge all due unpaid invoices
+    // STEP 2 — Dispatch auto-charge jobs to Redis queue
     // ──────────────────────────────────────────────────────────────────────────
 
-    protected function autoChargeInvoices(
-        SubscriptionService $subscriptionService,
-        PaymentGatewayManager $gatewayManager
-    ): void {
+    protected function dispatchAutoChargeJobs(): void
+    {
         $dueInvoices = Invoice::query()
             ->where('status', Invoice::STATUS_UNPAID)
             ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
             ->whereDate('created_at', '<=', now())
-            ->with(['subscription.entity'])
             ->get();
 
-        $this->info("[AutoCharge] Found {$dueInvoices->count()} unpaid invoice(s) to charge.");
-
-        $charged = 0;
-        $failed  = 0;
+        $this->info("[AutoCharge] Found {$dueInvoices->count()} unpaid invoice(s) to dispatch.");
 
         foreach ($dueInvoices as $invoice) {
-            try {
-                $this->chargeInvoice($invoice, $gatewayManager, $subscriptionService);
-                $charged++;
-                $this->info("[AutoCharge] Charged invoice #{$invoice->invoice_id}");
-            } catch (\Exception $e) {
-                $failed++;
-                Log::error('[AutoCharge] Failed to charge invoice', [
-                    'invoice_id' => $invoice->id,
-                    'error'      => $e->getMessage(),
-                ]);
-                $this->error("[AutoCharge] Failed invoice #{$invoice->invoice_id}: " . $e->getMessage());
-
-                $invoice->update(['status' => Invoice::STATUS_FAILED]);
-
-                if ($invoice->subscription) {
-                    $invoice->subscription->update(['status' => 'Past Due']);
-                }
-
-                $this->notifyAdmins(
-                    'ProcessAllSubscriptions — Auto-Charge',
-                    $e->getMessage(),
-                    '',
-                    ['invoice_id' => $invoice->id, 'user_email' => $invoice->email ?? 'N/A']
-                );
-            }
+            ChargeSubscriptionInvoiceJob::dispatch($invoice);
         }
 
-        $this->info("[AutoCharge] Completed. Charged: {$charged} | Failed: {$failed}");
-    }
-
-    protected function chargeInvoice(
-        Invoice $invoice,
-        PaymentGatewayManager $gatewayManager,
-        SubscriptionService $subscriptionService
-    ): void {
-        $subscription = $invoice->subscription;
-        $entity       = $subscription?->entity;
-
-        if (!$entity) {
-            throw new \RuntimeException("Entity not found for invoice #{$invoice->invoice_id}");
-        }
-
-        if (!$entity->stripe_customer_id_raw) {
-            throw new \RuntimeException("No Stripe Customer ID for entity ID {$entity->id} — cannot auto-charge.");
-        }
-
-        // For Partner/User seat invoices the receiver is the Host; for Borrowers it is the partner
-        $receiverId = ($subscription->entity_type === Partner::class)
-            ? Partner::where('is_host', true)->first()?->id
-            : $invoice->partner_id;
-
-        $partnerProvider = $gatewayManager->resolvePartnerProvider($receiverId);
-        $driver          = $gatewayManager->driverFor($partnerProvider);
-
-        $result = $driver->chargeOffSession(
-            $entity->stripe_customer_id_raw,
-            (int) round($invoice->payment_amount * 100),
-            strtolower($invoice->currency ?? 'usd'),
-            "Auto-charge for Invoice #{$invoice->invoice_id}"
-        );
-
-        if (empty($result['success'])) {
-            throw new \RuntimeException("Stripe charge failed. Status: " . ($result['status'] ?? 'unknown'));
-        }
-
-        DB::transaction(function () use ($invoice, $result, $subscriptionService) {
-            $payment = new Payment();
-            $payment->createRecord([
-                'partner_id'     => $invoice->partner_id,
-                'borrower_id'    => $invoice->borrower_id,
-                'invoice_id'     => $invoice->id,
-                'entity_type'    => $invoice->entity_type,
-                'entity_id'      => $invoice->entity_id,
-                'transaction_id' => $result['transaction_id'] ?? ('TX_' . uniqid()),
-                'amount'         => $invoice->payment_amount,
-                'currency'       => strtoupper($invoice->currency ?? 'USD'),
-                'payment_from'   => Payment::PAYMENT_FROM_STRIPE,
-                'status'         => Payment::STATUS_SUCCEEDED,
-                'details'        => $result['raw'] ?? [],
-            ]);
-
-            $invoice->update([
-                'status'       => Invoice::STATUS_PAID,
-                'payment_date' => now(),
-            ]);
-
-            // Advance subscription phase and/or extend seat dates
-            $subscriptionService->handleSuccessfulPayment($invoice);
-        });
+        $this->info("[AutoCharge] Successfully dispatched {$dueInvoices->count()} charge job(s) to Redis queue.");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

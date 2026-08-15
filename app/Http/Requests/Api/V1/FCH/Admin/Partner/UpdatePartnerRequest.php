@@ -114,7 +114,7 @@ class UpdatePartnerRequest extends BaseApiRequest
             ];
 
             $enrollmentType = strtolower(trim((string) ($this->input('enrollment.enrollment_type') ?? ($partner?->subscription?->enrollment_type ?? ''))));
-            if ($enrollmentType === SubscriptionPlan::INSTALLMENT_PLAN) {
+            if ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG) {
                 $rules['enrollment.down_payment']      = ['nullable', 'numeric', 'min:0'];
                 $rules['enrollment.months']            = ['nullable', 'integer', 'min:1', 'max:24'];
                 $rules['enrollment.monthly_amount']    = ['nullable', 'numeric', 'min:0'];

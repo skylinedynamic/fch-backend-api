@@ -7,7 +7,7 @@ use App\Models\Subscription\SubscriptionPhase;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Http\Resources\FCH\Billing\BillingResource;
-use App\Http\Resources\FCH\Subscription\SubscriptionResource;
+use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 
@@ -35,8 +35,7 @@ class BillingService
                 'partner:id,full_name,company_name,email',
                 'borrower:id,first_name,last_name,email,partner_id',
                 'borrower.partner:id,full_name,company_name,email',
-            ])
-            ->where('subscriptions.status', Subscription::STATUS_ACTIVE);
+            ]);
 
         // Host vs Non-Host Partner Scoping:
         // Host gets all partners and borrowers belonging to current user partner ID
@@ -266,7 +265,7 @@ class BillingService
             'entity_type' => $subscription->entity_name,
             'entity_id' => $subscription->entity_id,
             'subscriber' => $subscriber,
-            'subscription' => new SubscriptionResource($subscription),
+            'subscription' => new SubscriptionDetailsResource($subscription),
         ];
     }
 }

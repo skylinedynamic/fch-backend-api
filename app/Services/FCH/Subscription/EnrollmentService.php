@@ -103,7 +103,7 @@ class EnrollmentService
             ?? $plan?->enrollment_type
             ?? '';
 
-        $isInstallment = strtolower((string) $enrollmentType) === SubscriptionPlan::INSTALLMENT_PLAN;
+        $isInstallment = strtolower((string) $enrollmentType) === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG;
 
         $totalAmount = isset($enrollment['amount']) && $enrollment['amount'] !== ''
             ? (float) $enrollment['amount']
@@ -305,6 +305,7 @@ class EnrollmentService
                 'customer_name' => $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
+                'month_count' => 1,
                 'payment_amount' => $amounts['initial_invoice_amount'],
                 'is_partner_paying' => false,
                 'status' => Invoice::STATUS_UNPAID,
@@ -397,7 +398,7 @@ class EnrollmentService
             // WL / Certified: partner pays a fixed borrower fee
             $borrower->update(['partner_payment_for_me' => false]);
 
-            $wlFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
+            $wlFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
                 ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
                 ->first();
 
@@ -440,7 +441,7 @@ class EnrollmentService
             'status' => Invoice::STATUS_UNPAID,
             'is_partner_paying' => ($isWlOrCertified && !$isHostCreating) ? false : ($isHostCreating ? false : true),
             'is_platform_fee' => false,
-            'type' => Invoice::INVOICE_TYPE_ENROLLMENT,
+            'type' => ($amounts['installment_type'] && isset($amounts['down_payment']) && $amounts['down_payment'] > 0) ? Invoice::INVOICE_TYPE_DOWN_PAYMENT : Invoice::INVOICE_TYPE_ENROLLMENT,
         ]);
 
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);

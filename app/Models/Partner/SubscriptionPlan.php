@@ -39,16 +39,17 @@ class SubscriptionPlan extends Model
         'status' => 'boolean',
     ];
 
-    const CERTIFIED_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
-    const CERTIFIED_ENROLMENT_TYPE_INSTALLMENT = 'payment-plan-11-month-plan';
-    const WL_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
-    const WL_ENROLMENT_TYPE_INSTALLMENT = 'payment-plan-11-month-plan';
-    const BORROWER_ENROLMENT_TYPE_ONE_TIME = 'one-time-payment';
-    const BORROWER_ENROLMENT_TYPE_INSTALLMENT = '6-month-payment';
-    const BORROWER_FIXED_ENROLLMENT = 'fixed-enrollment';
 
-    const INSTALLMENT_PLAN = 'installment';
+    const ENROLLMENT_TYPE_ONE_TIME_PAYMENT = 'One Time Payment';
+    const ENROLLMENT_TYPE_INSTALLMENT = 'Installment';
+    const ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT = 'Fixed Enrollment';
+    const ENROLLMENT_TYPE_MONTHLY_SEAT_FEE = 'Monthly';
 
+
+    const ENROLLMENT_TYPE_ONE_TIME_PAYMENT_SLUG = 'one_time_payment';
+    const ENROLLMENT_TYPE_INSTALLMENT_SLUG = 'installment';
+    const ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG = 'fixed_enrollment';
+    const ENROLLMENT_TYPE_MONTHLY_SEAT_FEE_SLUG = 'monthly';
 
 
     //subscription plan group
@@ -64,11 +65,7 @@ class SubscriptionPlan extends Model
     {
         $slug = strtolower((string) $this->enrollment_type_slug);
 
-        return $slug === self::INSTALLMENT_PLAN
-            || $slug === self::CERTIFIED_ENROLMENT_TYPE_INSTALLMENT
-            || $slug === self::WL_ENROLMENT_TYPE_INSTALLMENT
-            || $slug === self::BORROWER_ENROLMENT_TYPE_INSTALLMENT
-            || strtolower((string) $this->enrollment_type) === self::INSTALLMENT_PLAN;
+        return strtolower((string) $this->enrollment_type) === self::ENROLLMENT_TYPE_INSTALLMENT_SLUG;
     }
 
     public function scopeActive($query)
