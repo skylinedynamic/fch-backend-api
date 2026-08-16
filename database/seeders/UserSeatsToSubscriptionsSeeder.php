@@ -17,7 +17,6 @@ class UserSeatsToSubscriptionsSeeder extends Seeder
         // 1. Fetch all users who have is_paid = 1 and end_date is set
         $paidUsers = DB::table('users')
             ->where('is_paid', 1)
-            ->whereNotNull('end_date')
             ->get();
 
         foreach ($paidUsers as $user) {
@@ -53,7 +52,6 @@ class UserSeatsToSubscriptionsSeeder extends Seeder
                     'payable_amount' => $amount,
                     'down_payment' => 0.00,
                     'first_payment_date' => $user->start_date,
-                    'platform_fee_start_date' => $user->start_date,
                     'installment_type' => 0,
                     'installment_count' => 0,
                     'subscription_start_date' => $user->start_date,
@@ -62,8 +60,6 @@ class UserSeatsToSubscriptionsSeeder extends Seeder
                     'is_custom' => false,
                     'current_phase' => 'platform_fee',
                     'installments_paid' => 0,
-                    'next_installment_date' => null,
-                    'next_platform_fee_date' => $user->end_date,
                     'enrollment_completed_at' => $user->start_date,
                     'created_at' => now(),
                     'updated_at' => now(),
