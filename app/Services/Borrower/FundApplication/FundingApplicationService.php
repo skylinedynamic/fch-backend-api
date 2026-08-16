@@ -69,8 +69,6 @@ class FundingApplicationService
             if (empty($data['funding_request_id'])) {
                 $data['funding_request_id'] = request()->input('funding_request_id') 
                     ?? request()->input('fundingRequestId') 
-                    ?? request()->input('id')
-                    ?? request()->route('id')
                     ?? request()->route('fundingRequestId');
             }
 

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('funding_requests', function (Blueprint $table) {
-            $table->integer('reminder_step')->default(0)->comment('Tracks funding application reminder emails (0: none, 1: 24h, 2: 72h, 3: 168h)');
+            $table->integer('reminder_step')->after('reject_reason')->default(0)->comment('Tracks funding application reminder emails (0: none, 1: 24h, 2: 72h, 3: 168h)');
         });
     }
 
