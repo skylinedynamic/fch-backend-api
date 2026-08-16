@@ -79,6 +79,7 @@ class PartnerFundingApplicationController extends Controller
             );
 
         } catch (\Exception $e) {
+            \Log::error('saveBusinessInfo error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
         }
     }
