@@ -2,7 +2,6 @@
 
 namespace App\Services\GlobalPayment;
 
-use \App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Mail\Payment\PaymentFailedMail;
 use App\Mail\Payment\PaymentSuccessMail;
 use App\Mail\Payment\PaymentSuccessUserMail;
@@ -12,7 +11,6 @@ use App\Models\Common\AppConfiguration;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
-use App\Models\Setting\PaymentMethod;
 use App\Models\User\User;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
@@ -53,7 +51,7 @@ class GlobalPaymentService
             if ($invoice) {
                 // If it is a partner invoice (partner paying the host platform fee/enrollment fee),
                 // configure Stripe for the Host because the host receives the payment.
-                if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
+                if ($invoice->is_partner_paying || $invoice->entity_type == Partner::class) {
                     $partnerId = Partner::where('is_host', true)->first()?->id;
                 } else {
                     $partnerId = $invoice->partner_id;
@@ -141,7 +139,7 @@ class GlobalPaymentService
 
             $paymentIntentData = [
                 'amount' => $data['amount'],
-                'currency' => $data['currency'] ?? config('stripe.currency', 'usd'),
+                'currency' => $data['currency'] ?? config('stripe.currency', Payment::CURRENCY_USD),
                 'payment_method' => $data['payment_method_id'],
                 'description' => $data['description'] ?? 'Stripe Payment',
                 'confirm' => true,
@@ -171,7 +169,7 @@ class GlobalPaymentService
             }
 
             $payment = null;
-            if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+            if (in_array($paymentIntent->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_REQUIRES_CAPTURE])) {
 
                 $borrowerId = null;
                 if ($invoice && $invoice->entity_type == Borrower::class) {
@@ -187,7 +185,7 @@ class GlobalPaymentService
                     'transaction_id' => $paymentIntent->id,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
-                    'is_partner_paying' => $data['is_partner_paying'] ?? false,
+                    'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] === Partner::class) ? 1 : 0,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                 ]);
@@ -331,7 +329,6 @@ class GlobalPaymentService
         try {
             $partnerId = $this->resolvePartnerId($data);
             $invoice = !empty($data['invoice_id']) ? Invoice::where('id', $data['invoice_id'])->first() : null;
-
             $this->payment->createRecord([
                 'partner_id' => $partnerId,
                 'borrower_id' => $invoice->borrower_id ?? null,
@@ -341,6 +338,7 @@ class GlobalPaymentService
                 'transaction_id' => 'FAILED_' . uniqid(),
                 'amount' => ($data['amount'] ?? 0) / 100,
                 'currency' => $data['currency'] ?? Payment::CURRENCY_USD,
+                'is_partner_paying' => ($data['entity_type'] == Partner::class) ? 1 : 0,
                 'details' => [
                     'error' => $errorMessage,
                     'type' => $errorType,
@@ -358,7 +356,7 @@ class GlobalPaymentService
      */
     protected function handlePartnerPayment(Invoice $invoice)
     {
-        if ($invoice->entity_type !== \App\Models\Partner\Partner::class) {
+        if ($invoice->entity_type != Partner::class) {
             return;
         }
 
@@ -455,14 +453,14 @@ class GlobalPaymentService
             'entity_type' => Partner::class,
             'entity_id' => $partner->id,
             'amount' => $amount * 100, // recordFailedPayment divides by 100
-            'currency' => 'usd',
+            'currency' => Payment::CURRENCY_USD,
         ];
 
         try {
             // ── Step 1: Find a successful payment from this partner to get their customer and payment method
             $partnerPayments = $this->payment->where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
-                ->where('status', 'succeeded')
+                ->where('status', Payment::STATUS_SUCCEEDED)
                 ->where('payment_from', Payment::PAYMENT_FROM_STRIPE)
                 ->orderBy('id', 'desc')
                 ->get();
@@ -519,7 +517,7 @@ class GlobalPaymentService
             // ── Step 3: Create off-session PaymentIntent on the Host's Stripe account
             $paymentIntent = PaymentIntent::create([
                 'amount' => (int) round($amount * 100), // e.g. 800.00 → 80000 cents
-                'currency' => 'usd',
+                'currency' => Payment::CURRENCY_USD,
                 'customer' => $customerId,
                 'payment_method' => $paymentMethodId,
                 'off_session' => true,
@@ -541,7 +539,7 @@ class GlobalPaymentService
                 'status' => $paymentIntent->status,
             ]);
 
-            if (!in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+            if (!in_array($paymentIntent->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_REQUIRES_CAPTURE])) {
                 Log::error('[AutoCharge] PaymentIntent did not succeed', [
                     'pi_id' => $paymentIntent->id,
                     'status' => $paymentIntent->status,
@@ -567,7 +565,7 @@ class GlobalPaymentService
             ]);
 
             $payment = $this->payment->createRecord([
-                'partner_id' => $partner->id,
+                'partner_id' => (int) $partner->id,
                 'borrower_id' => null,
                 'invoice_id' => $invoice->id,
                 'entity_type' => Partner::class,
@@ -577,7 +575,7 @@ class GlobalPaymentService
                 'payment_type' => Payment::PAYMENT_TYPE_CARD,
                 'amount' => $amount,
                 'currency' => Payment::CURRENCY_USD,
-                'is_partner_paying' => true,
+                'is_partner_paying' => 1,
                 'details' => $paymentIntent->toArray(),
                 'status' => $paymentIntent->status,
                 'transaction_date' => now(),
@@ -757,7 +755,7 @@ class GlobalPaymentService
             // 1. Create Stripe PaymentIntent on Host account
             $paymentIntent = PaymentIntent::create([
                 'amount' => $data['amount'],
-                'currency' => $data['currency'] ?? 'usd',
+                'currency' => $data['currency'] ?? Payment::CURRENCY_USD,
                 'customer' => $customerId,
                 'payment_method' => $data['payment_method_id'],
                 'setup_future_usage' => 'off_session',
@@ -775,7 +773,7 @@ class GlobalPaymentService
                 ],
             ]);
 
-            if (in_array($paymentIntent->status, ['succeeded', 'requires_capture'])) {
+            if (in_array($paymentIntent->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_REQUIRES_CAPTURE])) {
                 $invoice = Invoice::where('id', $data['invoice_id'])->first();
                 $invoice->update([
                     'payment_date' => now(),
@@ -785,7 +783,6 @@ class GlobalPaymentService
                     'updated_by' => Auth::id(),
                 ]);
 
-                // 3. Create Payment
                 $payment = $this->payment->createRecord([
                     'partner_id' => $partner->id,
                     'invoice_id' => $data['invoice_id'],
@@ -794,8 +791,9 @@ class GlobalPaymentService
                     'transaction_id' => $paymentIntent->id,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
+                    'is_partner_paying' => 1,
                     'details' => $paymentIntent->toArray(),
-                    'status' => 'succeeded',
+                    'status' => Payment::STATUS_SUCCEEDED,
                 ]);
 
                 // Log Activity Event

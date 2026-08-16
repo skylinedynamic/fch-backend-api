@@ -378,4 +378,18 @@ return [
     'migrated_task_id_must_be_integer' => 'Migrated task ID must be an integer.',
     'migrated_task_id_not_found' => 'The selected migrated task ID does not exist.',
     'enrollment_payment_regex' => 'Enrollment payment must be a number greater than 0 and cannot be -0.',
+    
+    // Attestation & Authorization
+    'signature_name_required' => 'Electronic signature (full legal name) is required.',
+    'signature_name_min' => 'Electronic signature must be at least 3 characters.',
+    'signature_name_max' => 'Electronic signature may not be greater than 255 characters.',
+    'signature_name_invalid' => 'Electronic signature cannot be only spaces.',
+    'esign_consent_accepted' => 'You must certify your electronic signature under the ESIGN Act.',
+    'terms_consent_accepted' => 'You must agree to the Terms & Conditions.',
+    'privacy_consent_accepted' => 'You must agree to the Privacy Policy.',
+    'credit_consent_accepted' => 'You must consent to the Credit Authorization.',
+    'legal_binding_consent_accepted' => 'You must understand your electronic signature is legally binding.',
+    
+    // Bank Accounts
+    'bank_name_required' => 'Bank Name is required.',
 ];

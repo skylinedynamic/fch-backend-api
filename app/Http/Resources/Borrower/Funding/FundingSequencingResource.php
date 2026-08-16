@@ -2,10 +2,13 @@
 
 namespace App\Http\Resources\Borrower\Funding;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\User\User;
 use App\Services\Borrower\Funding\FundingReadinessService;
+use App\Services\FCH\Common\Funding\FundingQualificationService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FundingSequencingResource extends JsonResource
@@ -83,7 +86,7 @@ class FundingSequencingResource extends JsonResource
 
         $borrower = null;
         if (request()->has('borrower_id') && auth()->check() && in_array(auth()->user()->user_type, [\App\Models\User\User::ADMIN, \App\Models\User\User::EMPLOYEE, \App\Models\User\User::PARTNER])) {
-            $borrower = \App\Models\Borrower\Borrower::find(request()->get('borrower_id'));
+            $borrower = Borrower::find(request()->get('borrower_id'));
         } elseif (auth()->check() && auth()->user() && auth()->user()->user_type === User::BORROWER && auth()->user()->borrower) {
             $borrower = auth()->user()->borrower;
         }
@@ -91,7 +94,7 @@ class FundingSequencingResource extends JsonResource
         $readinessService = app(FundingReadinessService::class);
         $missingDocumentsList = $readinessService->getMissingDocuments($this->resource, $borrower);
         
-        $qualificationService = app(\App\Services\FCH\Common\Funding\FundingQualificationService::class);
+        $qualificationService = app(FundingQualificationService::class);
         $formattedReadinessFactors = $qualificationService->evaluateReadinessFactors($borrower, $this->id);
 
         $engineStatus = $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE;
@@ -115,6 +118,7 @@ class FundingSequencingResource extends JsonResource
         $latestRequestedAmount = null;
         $latestUseOfFunds = null;
         $latestReviewStatus = null;
+        $hasFundingApplication = false;
 
         if ($borrower) {
             $latestReview = FundingRequest::where('borrower_id', $borrower->id)
@@ -126,6 +130,19 @@ class FundingSequencingResource extends JsonResource
                 $latestRequestedAmount = $latestReview->requested_amount;
                 $latestUseOfFunds = $latestReview->use_of_funds;
                 $latestReviewStatus = $latestReview->status;
+            }
+
+            if ($latestReview) {
+                $hasFundingApplication = FundingApplication::where('funding_request_id', $latestReview->id)->exists();
+                if (!$hasFundingApplication) {
+                    $approvedFundingName = $this->name ?: ($this->type ? $this->type->name : null);
+                    if ($approvedFundingName) {
+                        $hasFundingApplication = FundingApplication::where('borrower_id', $borrower->id)
+                            ->where('approved_funding', $approvedFundingName)
+                            ->where('created_at', '>=', $latestReview->created_at)
+                            ->exists();
+                    }
+                }
             }
         }
 
@@ -161,6 +178,8 @@ class FundingSequencingResource extends JsonResource
             'latest_requested_amount' => $latestRequestedAmount,
             'latest_use_of_funds' => $latestUseOfFunds,
             'latest_review_status' => $latestReviewStatus,
+            'has_funding_application' => $hasFundingApplication,
+            'latest_review_id' => $latestReview ? $latestReview->id : null,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE,
             'engine_status_label' => $this->engine_status_label ?? FundingSequencing::ENGINE_LABEL_ACTIVE,

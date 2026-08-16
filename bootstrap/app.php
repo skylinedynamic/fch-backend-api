@@ -26,9 +26,6 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class
         );
 
-        $middleware->appendToGroup('api', [
-            \App\Http\Middleware\EnsureTenantAccess::class,
-        ]);
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
             'check-2fa-status' => \App\Http\Middleware\CheckTwoFactorStatus::class,

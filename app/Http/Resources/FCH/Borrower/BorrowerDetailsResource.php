@@ -64,9 +64,10 @@ class BorrowerDetailsResource extends JsonResource
 
             // Financial
             'currency' => $this->currency,
-            'years_in_business' => $this->years_in_business,
+            'years_in_business' => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue' => formatComma($this->monthly_revenue),
             'annual_revenue' => formatComma($this->annual_revenue),
+            'annual_personal_income' => formatComma($this->annual_personal_income),
             'avg_bank_balance' => formatComma($this->avg_bank_balance),
             'average_monthly_deposits' => formatComma($this->average_monthly_deposits),
             'monthly_deposit_count' => $this->monthly_deposit_count,
@@ -78,6 +79,11 @@ class BorrowerDetailsResource extends JsonResource
             'nsf_count' => $this->nsf_count,
             'negative_days' => $this->negative_days,
             'funding_urgency' => $this->funding_urgency,
+            'bank_accounts' => $this->bankAccounts ? $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
+                'account_open_date' => $b->account_open_date ? Carbon::parse($b->account_open_date)->format('Y-m-d') : null,
+            ]) : [],
 
             'status' => $this->status,
             'notes' => $this->notes,

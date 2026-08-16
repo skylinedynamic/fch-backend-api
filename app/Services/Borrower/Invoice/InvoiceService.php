@@ -2,13 +2,14 @@
 
 namespace App\Services\Borrower\Invoice;
 
-use App\Models\Invoice\Invoice;
-use App\Traits\PaginatesApi;
-use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\Borrower\Invoice\InvoiceResource;
-use Illuminate\Database\Eloquent\Collection;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\Borrower\Borrower;
 use App\Models\Common\AppConfiguration;
+use App\Models\Invoice\Invoice;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceService
@@ -30,6 +31,7 @@ class InvoiceService
         $query = Invoice::query()
             ->where('borrower_id', $borrowerId)
             ->where('partner_id', $partnerId)
+            ->where('entity_type','=',Borrower::class)
             ->where('is_partner_paying', false)
             ->with(['partner', 'borrower'])
             ->select('invoices.*');

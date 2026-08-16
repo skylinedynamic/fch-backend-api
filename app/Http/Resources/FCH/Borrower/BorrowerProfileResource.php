@@ -55,7 +55,7 @@ class BorrowerProfileResource extends JsonResource
 
             // Financial
             'currency'                  => $this->currency,
-            'years_in_business'         => $this->years_in_business,
+            'years_in_business'         => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue'           => $this->monthly_revenue,
             'annual_revenue'            => $this->annual_revenue,
             'avg_bank_balance'          => $this->avg_bank_balance,

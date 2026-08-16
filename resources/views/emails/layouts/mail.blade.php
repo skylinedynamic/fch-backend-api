@@ -202,7 +202,7 @@
 
             <!-- Logo Section -->
             <div class="header-logo"
-                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;">
+                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;margin-bottom:10px;">
                 @if(!empty($logoUrl))
                     <img src="{{ $logoUrl }}" alt="{{ $siteName ?? config('app.name') }}" class="logo"
                         style="display: block; margin: 0 auto; width: 200px; height: auto;">

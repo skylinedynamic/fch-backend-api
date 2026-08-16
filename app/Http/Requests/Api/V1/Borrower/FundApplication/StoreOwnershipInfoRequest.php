@@ -22,7 +22,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|exists:funding_applications,id',
+            'id' => 'nullable|exists:funding_applications,id',
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'date_of_birth' => 'required|date',

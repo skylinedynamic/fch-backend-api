@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
+
 use App\Models\Monitoring\SystemMetric;
 use Spatie\Health\ResultStores\ResultStore;
 use Spatie\Backup\Tasks\Monitor\BackupDestinationStatusFactory;
@@ -16,26 +16,18 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // Cache system stats for 60s to avoid spawning shell commands on every page load.
-        $stats = Cache::remember('dashboard.system_stats', 60, fn() => $this->getSystemStats());
+        $stats = $this->getSystemStats();
+        $userCount = \App\Models\User\User::count();
 
-        // User count rarely changes quickly; cache briefly.
-        $userCount = Cache::remember('dashboard.user_count', 60, fn() => \App\Models\User\User::count());
+        $monitorConfig = config('backup.monitor_backups');
+        $latestBackup = collect($monitorConfig)->map(function ($config) {
+            $config['healthChecks'] = $config['health_checks'] ?? [];
+            $status = BackupDestinationStatusFactory::createForSingleMonitor($config)->first();
+            return $status ? $status->backupDestination()->newestBackup() : null;
+        })->filter()->sortByDesc(fn($b) => $b->date())->first();
+        $latestBackupDate = $latestBackup ? $latestBackup->date() : null;
 
-        // Backup destination inspection can be slow (especially on S3). Cache for 5 minutes.
-        $latestBackupDate = Cache::remember('dashboard.latest_backup_date', 300, function () {
-            $monitorConfig = config('backup.monitor_backups');
-            $latestBackup = collect($monitorConfig)->map(function ($config) {
-                $config['healthChecks'] = $config['health_checks'] ?? [];
-                $status = BackupDestinationStatusFactory::createForSingleMonitor($config)->first();
-                return $status ? $status->backupDestination()->newestBackup() : null;
-            })->filter()->sortByDesc(fn($b) => $b->date())->first();
-
-            return $latestBackup ? $latestBackup->date() : null;
-        });
-
-        // Health checks run on a schedule; just read the latest stored results.
-        $healthResults = Cache::remember('dashboard.health_results', 60, fn() => app(ResultStore::class)->latestResults());
+        $healthResults = app(ResultStore::class)->latestResults();
         $isHealthy = $healthResults ? $healthResults->storedCheckResults->every(fn($r) => $r->status === 'ok') : true;
 
         return view('system_monitoring.dashboard.overview', [
@@ -52,27 +44,39 @@ class DashboardController extends Controller
     /**
      * Show database backups.
      */
-    public function backups()
+    public function backups(Request $request)
     {
-        // Backup destination inspection can be expensive on remote disks. Cache the
-        // rendered list for 5 minutes; clear it automatically after restore/delete.
-        $backups = Cache::remember('dashboard.backups_list', 300, function () {
-            $monitorConfig = config('backup.monitor_backups');
+        $monitorConfig = config('backup.monitor_backups');
 
-            $statuses = collect($monitorConfig)->flatMap(function ($config) {
-                // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
-                $config['healthChecks'] = $config['health_checks'] ?? [];
+        $statuses = collect($monitorConfig)->flatMap(function ($config) {
+            // The factory expects 'healthChecks' (camelCase) but config uses 'health_checks' (snake_case)
+            $config['healthChecks'] = $config['health_checks'] ?? [];
+
+            try {
                 return BackupDestinationStatusFactory::createForSingleMonitor($config);
-            });
+            } catch (\Throwable $e) {
+                Log::error('Backup monitor factory failed.', [
+                    'config' => $config,
+                    'error' => $e->getMessage(),
+                ]);
 
-            return $statuses->map(function (BackupDestinationStatus $status) {
-                $destination = $status->backupDestination();
+                return collect();
+            }
+        });
+
+        $backups = $statuses->map(function (BackupDestinationStatus $status) {
+            $destination = $status->backupDestination();
+
+            try {
+                $files = $destination->backups();
+
                 return [
                     'name' => $destination->backupName(),
                     'disk' => $destination->diskName(),
                     'reachable' => $destination->isReachable(),
+                    'connection_error' => $destination->connectionError?->getMessage(),
                     'healthy' => $status->isHealthy(),
-                    'files' => $destination->backups()->map(function ($backup) {
+                    'files' => $files->map(function ($backup) {
                         return [
                             'path' => $backup->path(),
                             'date' => $backup->date(),
@@ -82,7 +86,23 @@ class DashboardController extends Controller
                     'storage_used' => $this->formatBytes($destination->usedStorage()),
                     'newest_backup' => $destination->newestBackup() ? $destination->newestBackup()->date() : null,
                 ];
-            });
+            } catch (\Throwable $e) {
+                Log::error('Failed to read backup destination.', [
+                    'disk' => $destination->diskName(),
+                    'error' => $e->getMessage(),
+                ]);
+
+                return [
+                    'name' => $destination->backupName(),
+                    'disk' => $destination->diskName(),
+                    'reachable' => false,
+                    'connection_error' => $e->getMessage(),
+                    'healthy' => false,
+                    'files' => collect(),
+                    'storage_used' => '0 B',
+                    'newest_backup' => null,
+                ];
+            }
         });
 
         return view('system_monitoring.dashboard.backups', compact('backups'));
@@ -207,10 +227,6 @@ class DashboardController extends Controller
                     @rmdir($tempPath . '/' . $segments[0]); // e.g. db-dumps
                 }
 
-                // Invalidate cached backup data after a restore.
-                Cache::forget('dashboard.backups_list');
-                Cache::forget('dashboard.latest_backup_date');
-
                 return back()->with('success', 'System Restoration Complete. Database synchronized to: ' . basename($path));
             }
             else {
@@ -242,10 +258,6 @@ class DashboardController extends Controller
         try {
             $disk->delete($path);
 
-            // Invalidate cached backup data after deletion.
-            Cache::forget('dashboard.backups_list');
-            Cache::forget('dashboard.latest_backup_date');
-
             return back()->with('success', 'Security Cleanup Complete. Snapshot permanently purged from: ' . strtoupper($diskName));
         }
         catch (\Exception $e) {
@@ -259,13 +271,11 @@ class DashboardController extends Controller
     {
         // Pull the last 24 hours of snapshots instead of a fixed row count. This is
         // more predictable and keeps the chart light even if the scheduler runs frequently.
-        $metrics = Cache::remember('dashboard.chart_metrics', 60, function () {
-            return SystemMetric::query()
-                ->where('created_at', '>=', now()->subDay())
-                ->orderBy('created_at', 'asc')
-                ->select(['id', 'cpu_usage', 'ram_usage', 'disk_usage', 'created_at'])
-                ->get();
-        });
+        $metrics = SystemMetric::query()
+            ->where('created_at', '>=', now()->subDay())
+            ->orderBy('created_at', 'asc')
+            ->select(['id', 'cpu_usage', 'ram_usage', 'disk_usage', 'created_at'])
+            ->get();
 
         return view('system_monitoring.dashboard.charts', compact('metrics'));
     }
@@ -274,6 +284,13 @@ class DashboardController extends Controller
     {
         // Inspect the Laravel scheduler to show a human-readable list of all
         // scheduled tasks, their cron expressions, and next run times.
+        // Console routes (where schedules are defined) are not loaded on web
+        // requests, so we need to load them manually to populate the Schedule.
+        $consoleRoutes = base_path('routes/console.php');
+        if (file_exists($consoleRoutes)) {
+            require $consoleRoutes;
+        }
+
         $schedule = app(\Illuminate\Console\Scheduling\Schedule::class);
 
         $events = collect($schedule->events())->map(function ($event) {
@@ -300,7 +317,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Log Viewer',
             'subtitle' => 'System Monitoring',
-            'url' => url('log-viewer'),
+            'url' => '/log-viewer',
         ]);
     }
 
@@ -309,7 +326,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Admin API Docs',
             'subtitle' => 'API Reference (Admin)',
-            'url' => url('docs/admin'),
+            'url' => '/docs/admin',
         ]);
     }
 
@@ -318,7 +335,7 @@ class DashboardController extends Controller
         return view('system_monitoring.dashboard.iframe', [
             'title' => 'Borrower API Docs',
             'subtitle' => 'API Reference (Borrower)',
-            'url' => url('docs/borrower'),
+            'url' => '/docs/borrower',
         ]);
     }
 
@@ -327,13 +344,12 @@ class DashboardController extends Controller
      */
     public function health()
     {
-        // Cache system stats so shell commands are not run on every page refresh.
-        $stats = Cache::remember('dashboard.system_stats', 60, fn() => $this->getSystemStats());
+        $stats = $this->getSystemStats();
 
         // Do NOT run health:check synchronously here — it blocks the request and can
         // include external pings. The scheduler already runs health:check periodically.
         // Just read the latest stored results.
-        $healthResults = Cache::remember('dashboard.health_results', 60, fn() => app(ResultStore::class)->latestResults());
+        $healthResults = app(ResultStore::class)->latestResults();
 
         return view('system_monitoring.dashboard.health', compact('stats', 'healthResults'));
     }

@@ -23,7 +23,6 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
     {
         return [
             'currency' => 'required|string|max:10',
-            'years_in_business' => 'required|string',
             'monthly_revenue' => 'required|numeric|min:0|max:999999999.99',
             'annual_revenue' => 'required|numeric|min:0|max:999999999.99',
             'current_business_debt' => 'nullable|numeric|min:0|max:999999999.99',
@@ -52,9 +51,6 @@ class UpdateFinancialInfoRequest extends BaseApiRequest
             'currency.required' => __('borrower_validation.currency_required'),
             'currency.string' => __('borrower_validation.currency_string'),
             'currency.max' => __('borrower_validation.currency_max'),
-
-            'years_in_business.required' => __('borrower_validation.years_in_business_required'),
-            'years_in_business.string' => __('borrower_validation.years_in_business_string'),
 
 
             'monthly_revenue.required' => __('borrower_validation.monthly_revenue_required'),

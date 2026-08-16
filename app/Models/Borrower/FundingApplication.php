@@ -2,11 +2,14 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Borrower\DownloadHistory;
 use App\Models\Commission\Commission;
+use App\Models\Funding\FundingSequencing;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Builder;
 
 class FundingApplication extends Model
 {
@@ -27,6 +30,7 @@ class FundingApplication extends Model
         'application_number',
         'borrower_id',
         'partner_id',
+        'is_partner_prepared',
         'status',
         'status_note',
         'admin_commission',
@@ -90,14 +94,21 @@ class FundingApplication extends Model
         'any_outstanding_judgments_owner',
         'federal_compliance_disclosures_explanation',
         'attestation_authorization',
+        'signature_data',
         'currency',
         'currency_symbol',
         'conversion_rate',
+        'funding_sequence_id',
+        'funding_request_id',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
         'funded_date' => 'date',
+        'signature_data' => 'array',
+
         'business_checking_start_date' => 'date',
         'number_of_employees' => 'integer',
         'ownership' => 'decimal:2',
@@ -129,7 +140,8 @@ class FundingApplication extends Model
 
     // Status Constants
     public const ON_HOLD = 'On Hold';
-    public const PENDING = 'Pending';
+    public const DRAFT = 'Draft';
+    public const PENDING = 'Submitted – Pending Review';
     public const SUBMITTED = 'Submitted (Received)';
     public const UNDERWRITING_REVIEW = 'Underwriting Review';
     public const MISSING_DOCUMENTS = 'Missing Documents (Action Required)';
@@ -166,6 +178,7 @@ class FundingApplication extends Model
     public const FUNDED_CLASS = 'success';
     public const CLOSED_COMPLETED_CLASS = 'secondary';
     public const ON_HOLD_CLASS = 'warning';
+    public const DRAFT_CLASS = 'secondary';
     public const DENIED_CLASS = 'danger';
 
     public const STATUS_CLASS = [
@@ -186,6 +199,7 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED_CLASS,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED_CLASS,
         self::ON_HOLD => self::ON_HOLD_CLASS,
+        self::DRAFT => self::DRAFT_CLASS,
         self::DENIED => self::DENIED_CLASS,
     ];
 
@@ -207,6 +221,7 @@ class FundingApplication extends Model
         self::FUNDED => self::FUNDED,
         self::CLOSED_COMPLETED => self::CLOSED_COMPLETED,
         self::ON_HOLD => self::ON_HOLD,
+        self::DRAFT => self::DRAFT,
         self::DENIED => self::DENIED,
     ];
 
@@ -280,5 +295,22 @@ class FundingApplication extends Model
     public function partner()
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    public function fundingSequence()
+    {
+        return $this->belongsTo(FundingSequencing::class, 'funding_sequence_id');
+    }
+
+    public function fundingRequest()
+    {
+        return $this->belongsTo(FundingRequest::class, 'funding_request_id');
+    }
+
+
+
+    public function downloadHistories()
+    {
+        return $this->hasMany(DownloadHistory::class, 'funding_application_id')->orderBy('created_at', 'desc');
     }
 }

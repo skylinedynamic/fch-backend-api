@@ -65,6 +65,8 @@ class FundingRequestResource extends JsonResource
             'requested_amount' => $this->requested_amount ? currencyFormat($this->requested_amount, 0) : null,
             'use_of_funds' => $this->use_of_funds,
             'status' => $this->status,
+            'application_status' => $this->fundingApplication?->status ?? null,
+            'funding_application_id' => $this->fundingApplication?->id ?? null,
             'documents_uploaded' => $this->documents_uploaded,
             'actual_documents' => $actualDocs,
             'estimated_speed' => $this->estimated_speed,

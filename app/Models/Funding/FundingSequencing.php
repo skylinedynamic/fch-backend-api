@@ -72,7 +72,13 @@ class FundingSequencing extends Model
     protected $appends = [
         'engine_status',
         'engine_status_label',
+        'formatted_amount_range',
     ];
+
+    public function getFormattedAmountRangeAttribute(): ?string
+    {
+        return formatAmountRange($this->amount_range);
+    }
 
     public function group(): BelongsTo
     {

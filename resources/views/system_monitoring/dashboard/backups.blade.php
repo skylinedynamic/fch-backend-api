@@ -70,7 +70,7 @@
                 <span class="text-xl font-black text-indigo-400 tabular-nums">{{ $backups->first()['storage_used'] ?? '0 B' }}</span>
             </div>
             
-            <a href="{{ route('dashboard.backups') }}" class="p-4 bg-slate-900/50 backdrop-blur-xl hover:bg-indigo-600/10 rounded-2xl border border-white/5 text-slate-400 hover:text-indigo-400 transition-all shadow-2xl hover:scale-105 active:scale-95 group">
+            <a href="{{ route('dashboard.backups', ['refresh' => 1]) }}" title="Refresh backup list" class="p-4 bg-slate-900/50 backdrop-blur-xl hover:bg-indigo-600/10 rounded-2xl border border-white/5 text-slate-400 hover:text-indigo-400 transition-all shadow-2xl hover:scale-105 active:scale-95 group">
                 <svg class="w-5 h-5 group-hover:rotate-180 transition-transform duration-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </a>
         </div>
@@ -80,7 +80,15 @@
     @forelse($backups as $destination)
     <div class="relative group">
         {{-- Card Glow Effect --}}
-        <div class="absolute -inset-0.5 bg-gradient-to-r {{ $destination['healthy'] ? 'from-emerald-500/20 to-indigo-500/20' : 'from-amber-500/10 to-slate-500/5' }} rounded-[2rem] blur opacity-0 group-hover:opacity-100 transition duration-1000"></div>
+        <div class="absolute -inset-0.5 bg-gradient-to-r
+            @if(! $destination['reachable'])
+                from-rose-500/20 to-slate-500/5
+            @elseif($destination['healthy'])
+                from-emerald-500/20 to-indigo-500/20
+            @else
+                from-amber-500/10 to-slate-500/5
+            @endif
+            rounded-[2rem] blur opacity-0 group-hover:opacity-100 transition duration-1000"></div>
         
         <div class="relative bg-slate-900/40 backdrop-blur-3xl rounded-[1.5rem] border border-white/5 overflow-hidden flex flex-col transition-all duration-500">
             {{-- Card Header --}}
@@ -100,10 +108,22 @@
                             </div>
                             <div class="flex items-center space-x-4">
                                 <div class="flex items-center space-x-2">
-                                    <div class="w-2.5 h-2.5 {{ $destination['healthy'] ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' }} rounded-full"></div>
-                                    <span class="text-[11px] font-black uppercase tracking-widest {{ $destination['healthy'] ? 'text-emerald-500' : 'text-amber-500' }}">
-                                        {{ $destination['healthy'] ? 'PORTFOLIO OPTIMAL' : 'DISK WARNING' }}
-                                    </span>
+                                    @if(! $destination['reachable'])
+                                        <div class="w-2.5 h-2.5 bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)] rounded-full"></div>
+                                        <span class="text-[11px] font-black uppercase tracking-widest text-rose-500">
+                                            DISK UNREACHABLE
+                                        </span>
+                                    @elseif($destination['healthy'])
+                                        <div class="w-2.5 h-2.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] rounded-full"></div>
+                                        <span class="text-[11px] font-black uppercase tracking-widest text-emerald-500">
+                                            PORTFOLIO OPTIMAL
+                                        </span>
+                                    @else
+                                        <div class="w-2.5 h-2.5 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] rounded-full"></div>
+                                        <span class="text-[11px] font-black uppercase tracking-widest text-amber-500">
+                                            DISK WARNING
+                                        </span>
+                                    @endif
                                 </div>
                                 <span class="text-slate-700 font-black text-[10px]">/</span>
                                 <div class="flex items-center space-x-2">
@@ -132,6 +152,9 @@
                 <div class="py-24 flex flex-col items-center justify-center opacity-40 grayscale group-hover:grayscale-0 transition-all duration-1000">
                      <svg class="w-16 h-16 text-slate-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                      <p class="text-sm font-black uppercase tracking-[0.3em] text-slate-600">No backup snapshots discovered</p>
+                     @if(! empty($destination['connection_error']))
+                         <p class="mt-3 text-xs font-bold text-rose-500/70 max-w-md text-center px-6">{{ $destination['connection_error'] }}</p>
+                     @endif
                 </div>
                 @else
                 <div class="overflow-hidden">

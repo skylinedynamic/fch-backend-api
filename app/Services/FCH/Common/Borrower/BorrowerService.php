@@ -10,6 +10,7 @@ use App\Traits\UploadsFiles;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerBankAccount;
 use Illuminate\Http\UploadedFile;
 use App\Models\CreditBuilder\Tier;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +102,16 @@ class BorrowerService
             $query->where('borrowers.assign_id', $assignId);
         }
 
+        // Filter by status
+        $status = $filters['status']['value'] ?? ($filters['status'] ?? null);
+        if ($status !== null && $status !== '') {
+            if (is_array($status)) {
+                $query->whereIn('borrowers.status', $status);
+            } else {
+                $query->where('borrowers.status', $status);
+            }
+        }
+
         // Apply Search
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
@@ -155,6 +166,35 @@ class BorrowerService
                 }
             }
             unset($rawFilters['current_tier_name']);
+        }
+
+        // 4. Filter by Status
+        if (isset($rawFilters['status'])) {
+            $constraints = $rawFilters['status']['constraints'] ?? [];
+            if (!empty($constraints)) {
+                $query->where(function ($q) use ($constraints) {
+                    foreach ($constraints as $constraint) {
+                        $value = $constraint['value'] ?? null;
+                        if ($value !== null && $value !== '') {
+                            if (is_array($value)) {
+                                $q->orWhereIn('borrowers.status', $value);
+                            } else {
+                                $q->orWhere('borrowers.status', $value);
+                            }
+                        }
+                    }
+                });
+            } else {
+                $value = $rawFilters['status']['value'] ?? null;
+                if ($value !== null && $value !== '') {
+                    if (is_array($value)) {
+                        $query->whereIn('borrowers.status', $value);
+                    } else {
+                        $query->where('borrowers.status', $value);
+                    }
+                }
+            }
+            unset($rawFilters['status']);
         }
 
         // Handle Relation Sorting
@@ -737,8 +777,82 @@ class BorrowerService
      */
     public function updateBusinessFinancials(Borrower $borrower, array $data)
     {
+        $bankAccountsData = null;
+        if (array_key_exists('bank_accounts', $data)) {
+            $bankAccountsData = collect($data['bank_accounts'] ?? []);
+            unset($data['bank_accounts']);
+        }
+
         $borrower->update($data);
-        return $borrower->fresh();
+        $changes = $borrower->getChanges();
+        if (isset($changes['updated_at'])) {
+            unset($changes['updated_at']);
+        }
+
+        $bankAccountsChanged = false;
+        
+        // Sync bank accounts
+        if ($bankAccountsData !== null) {
+            $incomingIds = $bankAccountsData->pluck('id')->filter()->values()->toArray();
+
+            $deleted = BorrowerBankAccount::where('borrower_id', $borrower->id)
+                ->whereNotIn('id', $incomingIds)
+                ->delete();
+                
+            if ($deleted > 0) {
+                $bankAccountsChanged = true;
+            }
+
+            foreach ($bankAccountsData as $row) {
+                if (!empty($row['id'])) {
+                    $bba = BorrowerBankAccount::where('id', $row['id'])
+                        ->where('borrower_id', $borrower->id)
+                        ->first();
+                    if ($bba) {
+                        $bba->fill([
+                            'bank_name' => $row['bank_name'],
+                            'account_open_date' => $row['account_open_date'] ?? null,
+                        ]);
+                        if ($bba->isDirty()) {
+                            $bba->save();
+                            $bankAccountsChanged = true;
+                        }
+                    }
+                } else {
+                    BorrowerBankAccount::create([
+                        'borrower_id' => $borrower->id,
+                        'bank_name' => $row['bank_name'],
+                        'account_open_date' => $row['account_open_date'] ?? null,
+                    ]);
+                    $bankAccountsChanged = true;
+                }
+            }
+        }
+        
+        $changedFields = [];
+        foreach ($changes as $field => $newValue) {
+            $name = ucwords(str_replace('_', ' ', $field));
+            $val = (string) $newValue;
+            $val = $val === '' ? 'empty' : $val;
+            $changedFields[] = "{$name} was updated to {$val}";
+        }
+
+        if ($bankAccountsChanged) {
+            $changedFields[] = "Bank Accounts were updated";
+        }
+
+        if (!empty($changedFields)) {
+            $customDescription = implode(', ', $changedFields) . '.';
+            $this->activityLogService->logModelEvent(
+                $borrower,
+                ActivityLog::LOG_TYPE_BORROWER_UPDATE,
+                [],
+                null,
+                $customDescription
+            );
+        }
+
+        return $borrower->load('bankAccounts')->fresh();
     }
 
     /**

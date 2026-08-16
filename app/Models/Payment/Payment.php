@@ -2,15 +2,15 @@
 
 namespace App\Models\Payment;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Partner\Partner;
-use App\Models\Borrower\Borrower;
-use App\Models\User\User;
-
-use App\Models\PaymentMethod\PaymentMethod;
-
+use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 
 class Payment extends Model
@@ -28,6 +28,7 @@ class Payment extends Model
     ];
 
     public const STATUS_SUCCEEDED = 'succeeded';
+    public const STATUS_REQUIRES_CAPTURE = 'requires_capture';
     public const STATUS_FAILED = 'failed';
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';
@@ -49,11 +50,11 @@ class Payment extends Model
      */
     public function createRecord(array $data): self
     {
-        $partnerId = $data['partner_id'] ?? null;
-        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
+        $invoice = Invoice::find($data['invoice_id']);
+        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($invoice->partner_id ?? null);
 
         return self::create([
-            'partner_id' => $partnerId,
+            'partner_id' => $invoice->partner_id ?? null,
             'borrower_id' => $data['borrower_id'] ?? null,
             'invoice_id' => $data['invoice_id'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
@@ -61,6 +62,7 @@ class Payment extends Model
             'transaction_id' => $data['transaction_id'] ?? null,
             'amount' => $data['amount'] ?? 0.00,
             'currency' => $data['currency'] ?? self::CURRENCY_USD,
+            'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] == Partner::class) ? 1 : ($data['is_partner_paying'] ?? 0),
             'payment_from' => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
             'payment_type' => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
             'status' => $data['status'] ?? self::STATUS_PENDING,

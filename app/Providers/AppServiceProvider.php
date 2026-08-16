@@ -40,9 +40,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // if (str_starts_with(config('app.url'), 'https://')) {
-        //     URL::forceScheme('https');
-        // }
+        if (app()->isProduction()) {
+            URL::forceScheme('https');
+        }
 
         Model::preventLazyLoading(!app()->isProduction());
 
@@ -110,12 +110,7 @@ class AppServiceProvider extends ServiceProvider
                 return true;
             }
 
-            if (!$user) {
-                return false;
-            }
-
-            $allowedEmails = array_filter(array_map('trim', explode(',', (string)env('LOG_VIEWER_ALLOWED_EMAILS', ''))));
-            return in_array($user->email, $allowedEmails, true);
+            return $user;
         });
 
         // 📧 Global BCC Listener: Automatically adds BCCs from the partner's active configuration

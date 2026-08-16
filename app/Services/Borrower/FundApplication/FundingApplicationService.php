@@ -11,6 +11,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationCoBorrower;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -31,18 +32,22 @@ class FundingApplicationService
 
     public function getFundingInfo()
     {
-        $fundingInfo = FundingApplication::where('borrower_id', auth()->user()->entity_id)
-            ->with('borrower', 'coborrowers')
-            ->where('status', FundingApplication::ON_HOLD)
-            ->latest()
-            ->first();
+        $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
+        $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
+            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
+            ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+
+        if ($fundingRequestId) {
+            $query->where('funding_request_id', $fundingRequestId);
+        }
+
+        $fundingInfo = $query->latest()->first();
 
         if ($fundingInfo) {
             return $fundingInfo;
         } else {
             return Borrower::where('id', auth()->user()->entity_id)->first();
         }
-
     }
 
 
@@ -61,16 +66,65 @@ class FundingApplicationService
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id;
 
-            $matchId = $data['id'] ?? null;
-            if (empty($matchId)) {
-                $existing = FundingApplication::where('borrower_id', $borrowerId)
-                    ->where('status', FundingApplication::ON_HOLD)
+            if (empty($data['funding_request_id'])) {
+                $data['funding_request_id'] = request()->input('funding_request_id') 
+                    ?? request()->input('fundingRequestId') 
+                    ?? request()->route('fundingRequestId');
+            }
+
+            if (empty($data['funding_request_id'])) {
+                $latestReq = FundingRequest::where('borrower_id', $borrowerId)
+                    ->where('status', FundingRequest::STATUS_APPROVED)
                     ->latest()
                     ->first();
+                if ($latestReq) {
+                    $data['funding_request_id'] = $latestReq->id;
+                    if (empty($data['funding_sequence_id'])) {
+                        $data['funding_sequence_id'] = $latestReq->funding_sequence_id;
+                    }
+                }
+            }
+
+            $req = null;
+            if (!empty($data['funding_request_id'])) {
+                $req = FundingRequest::with('fundingSequence')->find($data['funding_request_id']);
+                if ($req && empty($data['funding_sequence_id'])) {
+                    $data['funding_sequence_id'] = $req->funding_sequence_id;
+                }
+            }
+
+            if (empty($data['funding_sequence_id']) && request()->has('funding_sequence_id')) {
+                $data['funding_sequence_id'] = request()->input('funding_sequence_id');
+            }
+
+            $matchId = $data['id'] ?? null;
+            $existing = null;
+            if (empty($matchId)) {
+                $fundingReqId = $data['funding_request_id'] ?? null;
+                $query = FundingApplication::where('borrower_id', $borrowerId)
+                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+
+                if ($fundingReqId) {
+                    $query->where('funding_request_id', $fundingReqId);
+                }
+
+                $existing = $query->latest()->first();
                 if ($existing) {
                     $matchId = $existing->id;
                 }
+            } else {
+                $existing = FundingApplication::find($matchId);
             }
+
+            $isNew = empty($existing);
+
+            if ($isNew) {
+                $data['created_by'] = auth()->id();
+            } else {
+                $data['updated_by'] = auth()->id();
+            }
+
+
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
@@ -120,32 +174,44 @@ class FundingApplicationService
             // Send email if submitted
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
-                    $recipients = [];
-
-                    // Add Partner Email
-                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
-                        $recipients[] = $fundingApplication->partner->email;
-                    }
-
-                    // Add Configured Email
-                    $host = Partner::host();
-
-                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
-                        $recipients[] = $host->email;
-                    }
-
-                    if (!empty($recipients)) {
+                    // Send to Borrower
+                    if ($fundingApplication->borrower && $fundingApplication->borrower->email) {
                         try {
-                            Mail::to($recipients)->send(new FundingApplicationSubmittedMail($fundingApplication));
+                            Mail::to($fundingApplication->borrower->email)->send(new \App\Mail\Borrower\FundingApplicationSubmittedMail($fundingApplication));
                         } catch (\Throwable $e) {
-                            Log::error('Failed to send funding application submission email', [
+                            Log::error('Failed to send funding application submission email to borrower', [
+                                'application_id' => $fundingApplication->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+
+                    // Send to Partner
+                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
+                        try {
+                            Mail::to($fundingApplication->partner->email)->send(new \App\Mail\Partner\BorrowerSubmittedFundingApplicationMail($fundingApplication, $fundingApplication->partner->id));
+                        } catch (\Throwable $e) {
+                            Log::error('Failed to send funding application submission email to partner', [
+                                'application_id' => $fundingApplication->id,
+                                'error' => $e->getMessage()
+                            ]);
+                        }
+                    }
+
+                    // Send to Host
+                    $host = Partner::host();
+                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                        try {
+                            Mail::to($host->email)->send(new \App\Mail\Partner\BorrowerSubmittedFundingApplicationMail($fundingApplication, $host->id));
+                        } catch (\Throwable $e) {
+                            Log::error('Failed to send funding application submission email to host', [
                                 'application_id' => $fundingApplication->id,
                                 'error' => $e->getMessage()
                             ]);
                         }
                     }
                 } catch (\Throwable $e) {
-                    Log::error('Failed to send funding application submission email', [
+                    Log::error('Failed to process funding application emails', [
                         'application_id' => $fundingApplication->id,
                         'error' => $e->getMessage()
                     ]);

@@ -56,7 +56,7 @@ class BorrowerResource extends JsonResource
 
             // Financial
             'currency'                  => $this->currency,
-            'years_in_business'         => $this->years_in_business,
+            'years_in_business'         => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue'           => formatComma($this->monthly_revenue),
             'annual_revenue'            => formatComma($this->annual_revenue),
             'avg_bank_balance'          => formatComma($this->avg_bank_balance),
@@ -83,6 +83,11 @@ class BorrowerResource extends JsonResource
             'other_city'    => $this->other_city,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
             'free_trail_end_date' => $this->free_trail_end_date ? $this->free_trail_end_date->toDateString() : null,
+            'bank_accounts' => $this->bankAccounts ? $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
+                'account_open_date' => $b->account_open_date,
+            ]) : [],
             // 'invoice' => $this->latestInvoice ? [
             //     'id' => $this->latestInvoice->id,
             //     'invoice_id' => $this->latestInvoice->invoice_id,

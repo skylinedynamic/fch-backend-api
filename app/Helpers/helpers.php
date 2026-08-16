@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Partner\Partner;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 if (!function_exists('encodeUrl')) {
@@ -54,6 +55,41 @@ if (!function_exists('currencyFormat')) {
             return null;
         }
         return $symbol . number_format((float) $value * $conversionRate, $decimal, '.', $thousandSeparator);
+    }
+}
+
+if (!function_exists('formatAmountRange')) {
+    /**
+     * Format a numerical range string (e.g. "5000-250000") into currency format ("$5,000 - $250,000").
+     *
+     * @param string|null $range
+     * @param int $decimal
+     * @param string $symbol
+     * @return string|null
+     */
+    function formatAmountRange(?string $range, int $decimal = 0, string $symbol = '$'): ?string
+    {
+        if (empty($range)) {
+            return null;
+        }
+
+        $parts = explode('-', $range);
+        if (count($parts) === 2) {
+            $min = trim(str_replace(['$', ','], '', $parts[0]));
+            $max = trim(str_replace(['$', ','], '', $parts[1]));
+
+            if (is_numeric($min) && is_numeric($max)) {
+                return currencyFormat((float) $min, $decimal, $symbol) . ' - ' . currencyFormat((float) $max, $decimal, $symbol);
+            }
+            return trim($parts[0]) . ' - ' . trim($parts[1]);
+        }
+
+        $clean = trim(str_replace(['$', ','], '', $range));
+        if (is_numeric($clean)) {
+            return currencyFormat((float) $clean, $decimal, $symbol);
+        }
+
+        return $range;
     }
 }
 
@@ -205,5 +241,36 @@ if (!function_exists('make_url')) {
         $path = ltrim($path, '/');
 
         return $path ? "{$domain}/{$path}" : $domain;
+    }
+}
+
+if (!function_exists('calculateTimeInBusiness')) {
+    function calculateTimeInBusiness($startDate)
+    {
+        if (empty($startDate)) {
+            return 'N/A';
+        }
+        
+        $start = Carbon::parse($startDate);
+        $now = now();
+        
+        if ($start->isFuture()) {
+            return '0 Days';
+        }
+        
+        $diff = $start->diff($now);
+        
+        $parts = [];
+        if ($diff->y > 0) {
+            $parts[] = $diff->y . ' Year' . ($diff->y > 1 ? 's' : '');
+        }
+        if ($diff->m > 0) {
+            $parts[] = $diff->m . ' Month' . ($diff->m > 1 ? 's' : '');
+        }
+        if ($diff->d > 0 || empty($parts)) {
+            $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
+        }
+        
+        return implode(' ', $parts);
     }
 }

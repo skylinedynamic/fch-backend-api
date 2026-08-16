@@ -10,6 +10,7 @@ use App\Models\User\User;
 use App\Services\FCH\InvoiceService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Models\ActivityLog\ActivityLog;
@@ -53,6 +54,16 @@ class CheckUserExpired extends Command
      */
     public function handle()
     {
+        //This is for checking if schedular is runing or not
+        $runId = DB::table('scheduler_runs')->insertGetId([
+            'command' => 'users:check-expired',
+            'date' => now()->toDateString(),
+            'status' => 'running',
+            'started_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         try {
             $generateBeforeDays = config('subscription.generate_before_days', 5);
             $targetDate = Carbon::today()->addDays($generateBeforeDays)->toDateString();
@@ -173,7 +184,21 @@ class CheckUserExpired extends Command
                     }
                 }
             }
+
+            DB::table('scheduler_runs')->where('id', $runId)->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'updated_at' => now(),
+            ]);
         } catch (\Exception $e) {
+            
+            DB::table('scheduler_runs')->where('id', $runId)->update([
+                'status' => 'failed',
+                'completed_at' => now(),
+                'error_message' => $e->getMessage(),
+                'updated_at' => now(),
+            ]);
+
             $this->error("CheckUserExpired Job Failed: " . $e->getMessage());
 
             $emails = explode(',', config('app.cron_notify_emails', ''));

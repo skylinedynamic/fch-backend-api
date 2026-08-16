@@ -19,6 +19,9 @@ class Subscription extends Model
     const STATUS_EXPIRED = 'Expired';
     const STATUS_PENDING = 'Pending';
 
+    const ENROLLMENT_TYPE_PAYMENT_PLAN = 'Payment Plan';
+    const ENROLLMENT_TYPE_MONTHLY = 'Monthly';
+
     protected $table = 'subscriptions';
 
     protected $fillable = [

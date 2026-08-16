@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -28,13 +29,27 @@ $scheduleTimezone = config('app.scheduler_timezone', config('app.timezone', 'UTC
 $schedulerLogPath = storage_path('logs/scheduler.log');
 
 /**
- * Shared failure handler: logs AND notifies (Slack/email/etc via
- * whatever channel you wire into notifyFailure()).
+ * Shared failure handler: logs AND notifies the on-call email list.
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
-        Log::error("Scheduled command failed: {$command}");
-        notifyFailure($command); // wire this to Slack/Discord/email/Notification facade
+        $message = "Scheduled command failed: {$command}";
+
+        Log::error($message);
+
+        $emails = array_filter(
+            array_map('trim', explode(',', config('app.cron_notify_emails', '')))
+        );
+
+        if (!empty($emails) && config('mail.default')) {
+            try {
+                Mail::raw($message, function ($mail) use ($emails, $command) {
+                    $mail->to($emails)->subject("Scheduler failure: {$command}");
+                });
+            } catch (\Throwable $e) {
+                Log::error('Failed to send cron failure notification: ' . $e->getMessage());
+            }
+        }
     };
 };
 
@@ -67,8 +82,11 @@ Schedule::command('users:check-expired')
     ->onFailure($onFailure('users:check-expired'));
 
 
-
-
+Schedule::command('funding:application-reminders')
+    ->dailyAt('14:00')
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('funding:application-reminders'));
 
 /*
 |--------------------------------------------------------------------------
