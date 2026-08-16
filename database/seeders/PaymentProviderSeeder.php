@@ -22,7 +22,7 @@ class PaymentProviderSeeder extends Seeder
             [
                 'name' => PaymentProvider::ECRYPT,
                 'display_name' => PaymentProvider::ECRYPT,
-                'logo' => 'payment_provider/ecrytp.png',
+                'logo' => 'payment_provider/ecrypt.png',
                 'status' => true,
             ],
             [
@@ -34,7 +34,7 @@ class PaymentProviderSeeder extends Seeder
             [
                 'name' => PaymentProvider::AUTHORIZE_NET,
                 'display_name' => PaymentProvider::AUTHORIZE_NET,
-                'logo' => 'payment_provider/authorize.png',
+                'logo' => 'payment_provider/authorization.png',
                 'status' => true,
             ],
             [
