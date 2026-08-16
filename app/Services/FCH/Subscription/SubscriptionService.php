@@ -379,24 +379,40 @@ class SubscriptionService
             return;
         }
 
+        // Activate partner or borrower status upon successful payment
+        $entity = $subscription->entity;
+        if ($entity) {
+            if ($entity instanceof Partner && $entity->status !== Partner::STATUS_ACTIVE) {
+                $entity->update(['status' => Partner::STATUS_ACTIVE]);
+            } elseif ($entity instanceof Borrower && $entity->status !== Borrower::STATUS_ACTIVE) {
+                $entity->update(['status' => Borrower::STATUS_ACTIVE]);
+            }
+        }
+
         $enrollmentType = $subscription->enrollment_type;
 
-        if ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT
-            || $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT_SLUG) {
+        if (
+            $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT
+            || $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT_SLUG
+        ) {
             $this->handleOneTimePayment($subscription, $invoice);
             return;
         }
 
-        if ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT
-            || $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG) {
+        if (
+            $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT
+            || $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG
+        ) {
             $this->handleInstallmentPayment($subscription, $invoice);
             return;
         }
 
-        if ($enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_MONTHLY_SEAT_FEE
+        if (
+            $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_MONTHLY_SEAT_FEE
             || $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_MONTHLY_SEAT_FEE_SLUG
             || $subscription->entity_type === Employee::class
-            || $subscription->entity_type === User::class) {
+            || $subscription->entity_type === User::class
+        ) {
             $this->handleUserSeatPayment($subscription, $invoice);
             return;
         }
@@ -608,22 +624,30 @@ class SubscriptionService
             return false;
         }
 
-        $dueDate = Carbon::parse($dueDate);
-        $generateBeforeDays = config('subscription.generate_before_days', 5);
-        $earliestGenerateDate = $dueDate->copy()->subDays($generateBeforeDays);
+        $dueDate = Carbon::parse($dueDate)->startOfDay();
+        $generateBeforeDays = (int) config('subscription.generate_before_days', 5);
+        $earliestGenerateDate = $dueDate->copy()->subDays($generateBeforeDays)->startOfDay();
 
-        if ($today < $earliestGenerateDate) {
+        // Must be within the generation window (e.g. within 5 days before subscription_end_date)
+        if ($today->lt($earliestGenerateDate)) {
             return false;
         }
 
-        // Deduplication: one invoice per subscription per calendar month
-        $currentMonth = $today->format('Y-m');
-        $invoiceExistsThisMonth = Invoice::where('subscription_id', $subscription->id)
-            ->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PAID])
-            ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
+        // Deduplication: do not create if an unpaid invoice already exists for this subscription
+        $hasUnpaidInvoice = Invoice::where('subscription_id', $subscription->id)
+            ->where('status', Invoice::STATUS_UNPAID)
             ->exists();
 
-        return !$invoiceExistsThisMonth;
+        if ($hasUnpaidInvoice) {
+            return false;
+        }
+
+        // Deduplication: do not create if an invoice was already generated within this cycle window
+        $alreadyGeneratedThisCycle = Invoice::where('subscription_id', $subscription->id)
+            ->where('created_at', '>=', $earliestGenerateDate)
+            ->exists();
+
+        return !$alreadyGeneratedThisCycle;
     }
 
     /**
@@ -753,6 +777,7 @@ class SubscriptionService
                     'currency' => Invoice::CURRENCY_USD,
                     'status' => Invoice::STATUS_UNPAID,
                     'type' => $phase,  // mirrors Subscription::PHASE_* directly
+                    'month_count' => 1,
                     'is_partner_paying' => $isPartnerPaying ? 1 : 0,
                     'is_platform_fee' => $isPlatformFee ? 1 : 0,
                 ]);

@@ -33,23 +33,9 @@ class PartnerPaymentProviderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $partnerId = $user->partner_id;
+        $partnerId = $user->entity_type == Borrower::class ? $user->partner_id : Partner::host()?->id;
 
-        if (!$partnerId && $user && $user->entity_type === Borrower::class) {
-            $borrower = Borrower::find($user->entity_id);
-            $partnerId = $borrower?->partner_id;
-        }
-
-        if (!$partnerId) {
-            $partnerId = Partner::host()?->id;
-        }
-
-        if (!$partnerId) {
-            return ApiResponse::validationError(['partner_id' => [__('payment_method.partner_id_required')]], __('payment_method.partner_id_required'));
-        }
-
-        $activeOnly = $request->has('active_only') ? $request->boolean('active_only') : true;
-        $providers = $this->configService->getProviders($partnerId, $activeOnly);
+        $providers = $this->configService->getProviders($partnerId);
 
         return ApiResponse::success(
             PartnerPaymentProviderListResource::collection($providers),

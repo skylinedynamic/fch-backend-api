@@ -13,6 +13,7 @@ use App\Models\User\User;
 use App\Models\Employee\Employee;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
+use App\Services\GlobalPayment\Stripe\StripeCustomerService;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Illuminate\Support\Facades\DB;
@@ -56,7 +57,10 @@ class UnifiedPaymentService
         $invoice = Invoice::findOrFail($data['invoice_id']);
         $user = auth()->user();
         $subscription = $invoice->subscription;
-        
+
+        if ($invoice->status !== Invoice::STATUS_UNPAID) {
+            throw new Exception(__('payment.only_unpaid_can_be_paid'));
+        }
 
         $isAuthorized = false;
         if ($invoice->entity_type === $user->entity_type && (int) $invoice->entity_id === (int) $user->entity_id) {
@@ -66,11 +70,11 @@ class UnifiedPaymentService
         }
 
         if (!$isAuthorized) {
-            throw new Exception("Unauthorized invoice payment attempt.");
+            throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
         if ($subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
-            throw new Exception("Unauthorized invoice payment attempt.");
+            throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
         $partnerId = $this->resolvePartnerId($invoice);
@@ -99,7 +103,7 @@ class UnifiedPaymentService
                     || (is_array($tokenPayload) && strtolower(trim($tokenPayload['gateway'] ?? '')) === strtolower(PaymentProvider::BANK_TRANSFER));
 
                 if ($isBankTransfer && !$bankDetail) {
-                    throw new Exception("Please select a bank account to proceed with bank transfer.");
+                    throw new Exception(__('payment.bank_account_required'));
                 }
 
                 $manualTx = !empty($tokenPayload['transaction_number'])
@@ -129,12 +133,12 @@ class UnifiedPaymentService
                     'payment_method_id' => $data['payment_method_id'],
                     'payment_token' => $data['payment_token'] ?? null,
                     'invoice_id' => $invoice->id,
-                    'description' => "Payment for invoice #{$invoice->invoice_id}",
+                    'description' => __('payment.invoice_payment_description', ['invoice_id' => $invoice->invoice_id]),
                 ]);
             }
 
             if (empty($gatewayResult['success'])) {
-                throw new Exception("Payment charge failed via " . ($providerName ?? 'gateway'));
+                throw new Exception(__('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]));
             }
 
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
@@ -161,27 +165,39 @@ class UnifiedPaymentService
                 'details' => $gatewayResult['raw'] ?? [],
             ]);
 
-            // Save default_payment_method and stripe_customer_id on first payment only.
-            // Once card details are saved they can only be updated from the Billing Details page.
+            // Save default_payment_method and stripe_customer_id on first payment / when card details are missing
             $payer = $invoice->entity;
 
-            if ($payer && empty($payer->default_payment_method) && empty($payer->stripe_customer_id_raw)) {
-                $rawCustId = $gatewayResult['raw']['customer'] ?? null;
-                $updateData = [
-                    'default_payment_method' => $providerName ?? PaymentProvider::CASH,
-                ];
+            if ($payer) {
+                $rawCustId = $gatewayResult['customer_id'] ?? ($gatewayResult['raw']['customer'] ?? null);
+                $cardName = $gatewayResult['card_name'] ?? null;
+                $cardNo = $gatewayResult['card_no'] ?? null;
 
                 if ($isStripe && $rawCustId) {
-                    $updateData['stripe_customer_id'] = [
-                        'customer_id' => $rawCustId,
-                        'name' => null,
-                        'card_no' => null,
-                    ];
-                } elseif (!$isStripe) {
-                    $updateData['stripe_customer_id'] = null;
-                }
+                    if (!$cardNo && !empty($gatewayResult['raw']['payment_method'])) {
+                        $cardInfo = app(StripeCustomerService::class)->fetchCardDetails($gatewayResult['raw']['payment_method']);
+                        $cardName = $cardName ?: ($cardInfo['name'] ?? null);
+                        $cardNo = $cardNo ?: ($cardInfo['card_no'] ?? null);
+                    }
 
-                $payer->update($updateData);
+                    $isSandbox = ($partnerProvider->payment_mode ?? PaymentProvider::MODE_SANDBOX) === PaymentProvider::MODE_SANDBOX;
+                    $cardName = !empty($cardName) ? $cardName : ($isSandbox ? 'Sandbox Card' : null);
+
+                    if (empty($payer->stripe_customer_id_raw) || empty($payer->stripe_customer_id['card_no'] ?? null)) {
+                        $payer->update([
+                            'default_payment_method' => PaymentProvider::STRIPE,
+                            'stripe_customer_id' => [
+                                'customer_id' => $rawCustId,
+                                'name' => $cardName,
+                                'card_no' => $cardNo,
+                            ],
+                        ]);
+                    }
+                } elseif (empty($payer->default_payment_method)) {
+                    $payer->update([
+                        'default_payment_method' => $providerName ?? PaymentProvider::CASH,
+                    ]);
+                }
             }
 
             // 3. Update the invoice status
@@ -190,12 +206,20 @@ class UnifiedPaymentService
                 'payment_date' => $isManual ? null : now(),
             ]);
 
+            // 4. If payment is successful, make partner or borrower status Active
+            if (!$isManual && $payer) {
+                if ($payer instanceof Partner && $payer->status !== Partner::STATUS_ACTIVE) {
+                    $payer->update(['status' => Partner::STATUS_ACTIVE]);
+                } elseif ($payer instanceof Borrower && $payer->status !== Borrower::STATUS_ACTIVE) {
+                    $payer->update(['status' => Borrower::STATUS_ACTIVE]);
+                }
+            }
 
-            // 3. Advance the local subscription phase and schedule next billing date
+            // 5. Advance the local subscription phase and schedule next billing date
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice);
 
-            // 5. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
+            // 6. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
             if (!$isManual) {
                 $this->triggerPartnerAutoChargeForBorrowerInvoice($invoice, $payment);
             }

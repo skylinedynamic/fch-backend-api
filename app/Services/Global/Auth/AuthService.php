@@ -7,6 +7,7 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Models\User\User;
 use App\Services\Global\Common\PortalIsolationService;

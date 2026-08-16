@@ -9,7 +9,9 @@ use Illuminate\Http\Request;
 
 class MySubscriptionController extends Controller
 {
-    public function __construct(protected MySubscriptionService $mySubscriptionService) {}
+    public function __construct(protected MySubscriptionService $mySubscriptionService)
+    {
+    }
 
     /**
      * Get subscription details for authenticated non-host partner.
@@ -35,6 +37,18 @@ class MySubscriptionController extends Controller
             ]);
 
             return $this->mySubscriptionService->updateDefaultPaymentMethod($validated);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
+
+    /**
+     * Cancel non-host partner active subscription.
+     */
+    public function cancelSubscription()
+    {
+        try {
+            return $this->mySubscriptionService->cancelSubscription();
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage());
         }

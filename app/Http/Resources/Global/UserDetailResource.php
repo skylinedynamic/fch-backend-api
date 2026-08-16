@@ -27,18 +27,12 @@ class UserDetailResource extends JsonResource
             'is_host' => $partner ? (boolval($partner->is_host)) : false,
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
-            'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
-            'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $subscription?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $subscription?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $subscription?->enrollment_completed_at?->toDateString(),
-            'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
-            'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
+            'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
+            'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
             'phase' => $subscription?->current_phase,
-            'user_seats' => $subscription?->user_seats ?? 3,
             'is_refresh' => (boolval($this->is_refresh)),
             'is_free_trail' => $entityIsFreeTrial || ($partner?->is_free_trail ?? false),
-            'free_trail_end_date' => ($entityFreeTrialEndDate ?? ($partner?->free_trail_end_date ?? null))?->toDateString(),
+            'free_trail_end_date' => toTimezone($entityFreeTrialEndDate ?? ($partner?->free_trail_end_date ?? null)),
         ];
     }
 }

@@ -165,9 +165,10 @@ return [
     'subscription_list' => 'Subscription list retrieved successfully.',
     'subscription_list_failed' => 'Failed to retrieve subscription list.',
     'partner_delete_failed' => 'Failed to delete partner.',
-    'subscription_details' => 'Subscription details retrieved successfully.',
     'subscription_not_found' => 'Subscription not found.',
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
+    'subscription_cancelled' => 'Subscription cancelled successfully.',
+    'subscription_already_cancelled' => 'Subscription is already cancelled.',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',

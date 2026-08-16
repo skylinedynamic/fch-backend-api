@@ -283,4 +283,38 @@ class MySubscriptionService
             ],
         ], __('partner.default_payment_method_updated'));
     }
+
+    /**
+     * Cancel non-host partner active subscription.
+     */
+    public function cancelSubscription()
+    {
+        $user = Auth::user();
+
+        $partner = $user->partner;
+
+        if (!$partner) {
+            return ApiResponse::error(__('partner.partner_not_found'), 404);
+        }
+
+        $subscription = Subscription::where('entity_id', $partner->id)
+            ->where('entity_type', Partner::class)
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (!$subscription) {
+            return ApiResponse::error(__('partner.subscription_not_found'), 404);
+        }
+
+        if (strtolower($subscription->status) === strtolower(Subscription::STATUS_CANCELLED)) {
+            return ApiResponse::error(__('partner.subscription_already_cancelled'), 400);
+        }
+
+        $subscription->status = Subscription::STATUS_CANCELLED;
+        $subscription->save();
+
+        Log::info("Partner ID {$partner->id} cancelled subscription ID {$subscription->id}");
+
+        return ApiResponse::success(null, __('partner.subscription_cancelled'));
+    }
 }

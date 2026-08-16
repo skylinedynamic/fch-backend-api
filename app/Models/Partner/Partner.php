@@ -75,6 +75,7 @@ class Partner extends Model
         'is_free_trail',
         'free_trail_end_date',
         'stripe_customer_id',
+        'default_payment_method',
     ];
 
     /**

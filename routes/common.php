@@ -286,6 +286,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('my-subscription')->group(function () {
                 Route::get('/', [MySubscriptionController::class, 'index']);
                 Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
+                Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
             });
 
 

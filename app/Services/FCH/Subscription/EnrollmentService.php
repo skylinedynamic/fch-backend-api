@@ -309,7 +309,7 @@ class EnrollmentService
                 'payment_amount' => $amounts['initial_invoice_amount'],
                 'is_partner_paying' => false,
                 'status' => Invoice::STATUS_UNPAID,
-                'type' => Invoice::INVOICE_TYPE_ENROLLMENT,
+                'type' => ($subscription->enrollment_type == SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT && $subscription->down_payment > 0) ? Invoice::INVOICE_TYPE_DOWN_PAYMENT : Invoice::INVOICE_TYPE_ENROLLMENT,
             ]);
 
             $subscription->update(['current_cycle_invoice_id' => $invoice->id]);

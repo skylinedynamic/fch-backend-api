@@ -81,21 +81,13 @@ class StripePaymentDriver implements PaymentGatewayInterface
             $stripeCustomerData
         );
 
-        // Persist Stripe Customer ID only when the payer has no saved card details yet.
-        // Card details can only be updated from the Billing Details page.
-        if ($payer && empty($stripeCustomerIdRaw)) {
-            $payer->update(['stripe_customer_id' => [
-                'customer_id' => $customerId,
-                'name'        => null,
-                'card_no'     => null,
-            ]]);
-        }
-
         // 3. Attach payment method and set as default (if a token is provided)
         $paymentMethodId = null;
+        $cardDetails = ['name' => null, 'card_no' => null];
         if (!empty($params['payment_token']) && str_starts_with($params['payment_token'], 'pm_')) {
             $paymentMethodId = $params['payment_token'];
             $customerService->setDefaultPaymentMethod($customerId, $paymentMethodId);
+            $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
         }
 
         // 4. Build PaymentIntent parameters
@@ -118,11 +110,34 @@ class StripePaymentDriver implements PaymentGatewayInterface
         // 5. Create & confirm the PaymentIntent
         $intent = PaymentIntent::create($intentParams);
 
+        if (!$cardDetails['card_no'] && !empty($intent->payment_method)) {
+            $cardDetails = $customerService->fetchCardDetails($intent->payment_method);
+        }
+
+        $isSandbox = $this->environment === PaymentProvider::MODE_SANDBOX;
+        $cardName = !empty($cardDetails['name']) ? $cardDetails['name'] : ($isSandbox ? 'Sandbox Card' : null);
+        $cardNo = $cardDetails['card_no'];
+
+        // Persist Stripe Customer ID and card details
+        if ($payer && (empty($stripeCustomerIdRaw) || empty($payer->stripe_customer_id['card_no'] ?? null))) {
+            $payer->update([
+                'default_payment_method' => PaymentProvider::STRIPE,
+                'stripe_customer_id' => [
+                    'customer_id' => $customerId,
+                    'name'        => $cardName,
+                    'card_no'     => $cardNo,
+                ],
+            ]);
+        }
+
         return [
             'success' => in_array($intent->status, ['succeeded', 'requires_capture']),
             'transaction_id' => $intent->id,
             'status' => $intent->status,
             'client_secret' => $intent->client_secret,
+            'customer_id' => $customerId,
+            'card_name' => $cardName,
+            'card_no' => $cardNo,
             'raw' => $intent->toArray(),
         ];
     }
@@ -139,18 +154,36 @@ class StripePaymentDriver implements PaymentGatewayInterface
      */
     public function chargeOffSession(string $customerId, int $amountCents, string $currency = 'usd', string $description = 'Subscription Auto-Charge'): array
     {
-        $intent = PaymentIntent::create([
+        $customer = StripeCustomer::retrieve($customerId);
+        $defaultPaymentMethod = $customer->invoice_settings->default_payment_method ?? null;
+
+        if (!$defaultPaymentMethod) {
+            $methods = \Stripe\PaymentMethod::all([
+                'customer' => $customerId,
+                'type' => 'card',
+            ]);
+            $defaultPaymentMethod = $methods->data[0]->id ?? null;
+        }
+
+        $params = [
             'amount' => $amountCents,
             'currency' => strtolower($currency),
             'customer' => $customerId,
             'description' => $description,
             'confirm' => true,
             'off_session' => true,
-            'automatic_payment_methods' => [
+        ];
+
+        if ($defaultPaymentMethod) {
+            $params['payment_method'] = $defaultPaymentMethod;
+        } else {
+            $params['automatic_payment_methods'] = [
                 'enabled' => true,
                 'allow_redirects' => 'never',
-            ],
-        ]);
+            ];
+        }
+
+        $intent = PaymentIntent::create($params);
 
         return [
             'success' => $intent->status === 'succeeded',

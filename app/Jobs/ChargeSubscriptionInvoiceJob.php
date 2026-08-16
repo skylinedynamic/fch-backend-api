@@ -44,8 +44,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
      */
     public function __construct(public Invoice $invoice)
     {
-        $this->onConnection('redis');
-        $this->onQueue('payments');
+        $this->onConnection('database');
     }
 
     /**
@@ -179,7 +178,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         if (!empty($emails)) {
             try {
                 Mail::to($emails)->send(new CronJobFailureMail([
-                    'job_name'      => 'ChargeSubscriptionInvoiceJob (Redis Queue)',
+                    'job_name'      => 'ChargeSubscriptionInvoiceJob (Database Queue)',
                     'error_message' => $reason,
                     'timestamp'     => now()->toDateTimeString(),
                     'user_email'    => $this->invoice->email ?? 'N/A',

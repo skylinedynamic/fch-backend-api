@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Setting;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use Illuminate\Support\Collection;
+use Log;
 
 class PaymentMethodConfigurationService
 {
@@ -12,18 +13,11 @@ class PaymentMethodConfigurationService
      * Get active payment providers list with partner linkages.
      *
      * @param int $partnerId
-     * @param bool $activeOnly
      * @return Collection
      */
-    public function getProviders(int $partnerId, bool $activeOnly = true): Collection
+    public function getProviders(int $partnerId): Collection
     {
         $query = PaymentProvider::where('status', true);
-
-        // if ($activeOnly) {
-        //     $query->whereHas('partnerPaymentProviders', function ($q) use ($partnerId) {
-        //         $q->where('partner_id', $partnerId)->where('status', true);
-        //     });
-        // }
 
         $providers = $query->with([
             'partnerPaymentProviders' => function ($query) use ($partnerId) {
@@ -35,6 +29,7 @@ class PaymentMethodConfigurationService
             $provider->linkage = $provider->partnerPaymentProviders->first();
         });
 
+        Log::info($partnerId . ' providers list: ', [$providers]);
         return $providers;
     }
 

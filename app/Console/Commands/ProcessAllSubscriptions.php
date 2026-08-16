@@ -28,13 +28,13 @@ use Illuminate\Support\Facades\Mail;
  *
  *  STEP 2 — Auto-Charge
  *   - Query all Unpaid invoices linked to active subscriptions
- *   - Dispatch ChargeSubscriptionInvoiceJob to Redis queue for background off-session charging
+ *   - Dispatch ChargeSubscriptionInvoiceJob to database queue for background off-session charging
  */
 class ProcessAllSubscriptions extends Command
 {
     protected $signature = 'subscriptions:process-all';
 
-    protected $description = 'Unified: generate invoices for all subscription types and dispatch auto-charge jobs to Redis queue.';
+    protected $description = 'Unified: generate invoices for all subscription types and dispatch auto-charge jobs to database queue.';
 
     public function __construct(
         protected InvoiceService $invoiceService,
@@ -60,8 +60,8 @@ class ProcessAllSubscriptions extends Command
             $subscriptionService->generateDueInvoices();
             $this->info('[Invoices] Done. All due invoices generated.');
 
-            // ── STEP 2: Dispatch auto-charge jobs to Redis queue ────────────────
-            $this->info('=== STEP 2: Dispatching Auto-Charge Jobs to Redis Queue ===');
+            // ── STEP 2: Dispatch auto-charge jobs to database queue ─────────────
+            $this->info('=== STEP 2: Dispatching Auto-Charge Jobs to Database Queue ===');
             $this->dispatchAutoChargeJobs();
 
             DB::table('scheduler_runs')->where('id', $runId)->update([
@@ -113,7 +113,7 @@ class ProcessAllSubscriptions extends Command
             ChargeSubscriptionInvoiceJob::dispatch($invoice);
         }
 
-        $this->info("[AutoCharge] Successfully dispatched {$dueInvoices->count()} charge job(s) to Redis queue.");
+        $this->info("[AutoCharge] Successfully dispatched {$dueInvoices->count()} charge job(s) to database queue.");
     }
 
     // ──────────────────────────────────────────────────────────────────────────

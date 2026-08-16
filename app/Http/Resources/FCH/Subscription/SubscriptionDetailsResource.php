@@ -16,8 +16,8 @@ class SubscriptionDetailsResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $isPartner = $this->entity_type === Partner::class ;
-        $isBorrower = $this->entity_type === Borrower::class ;
+        $isPartner = $this->entity_type === Partner::class;
+        $isBorrower = $this->entity_type === Borrower::class;
 
         $partner = $this->relationLoaded('partner') ? $this->getRelation('partner') : null;
         $borrower = $this->relationLoaded('borrower') ? $this->getRelation('borrower') : null;
@@ -55,7 +55,7 @@ class SubscriptionDetailsResource extends JsonResource
         $nextBillingAmount = null;
 
         if ($isPartner) {
-            $isInstallment = (int)$this->installment_type === 1;
+            $isInstallment = (int) $this->installment_type === 1;
 
             if (!$isInstallment) {
                 // Partner: One Time Payment
@@ -74,7 +74,7 @@ class SubscriptionDetailsResource extends JsonResource
                 if (!$isEnrollmentCompleted) {
                     // Until enrollment_completed_at is not null, next bill is installment (or down payment if applicable)
                     $nextBillingDate = toTimezone($this->subscription_end_date);
-                    if ((int)$this->installments_paid === 0 && (float)$this->down_payment > 0) {
+                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
                         $nextBillingType = 'Down Payment';
                         $nextBillingAmount = currencyFormat($this->down_payment);
                     } else {
@@ -104,7 +104,7 @@ class SubscriptionDetailsResource extends JsonResource
         }
 
         $totalSeatAmount = ($this->user_seats && $this->per_seat_amount)
-            ? currencyFormat((float)$this->user_seats * (float)$this->per_seat_amount)
+            ? currencyFormat((float) $this->user_seats * (float) $this->per_seat_amount)
             : null;
 
         return [

@@ -35,22 +35,23 @@ class BillingService
                 'partner:id,full_name,company_name,email',
                 'borrower:id,first_name,last_name,email,partner_id',
                 'borrower.partner:id,full_name,company_name,email',
-            ]);
+            ])
+            ->where('subscriptions.status', Subscription::STATUS_ACTIVE);
 
         // Host vs Non-Host Partner Scoping:
         // Host gets all partners and borrowers belonging to current user partner ID
         if ($isHost && $userPartnerId) {
             $query->where(function ($q) use ($userPartnerId) {
                 $q->where('subscriptions.entity_type', Partner::class)
-                  ->orWhere(function ($sub) use ($userPartnerId) {
-                      $sub->where('subscriptions.entity_type', Borrower::class)
-                          ->whereExists(function ($inner) use ($userPartnerId) {
-                              $inner->selectRaw(1)
-                                  ->from('borrowers')
-                                  ->whereColumn('borrowers.id', 'subscriptions.entity_id')
-                                  ->where('borrowers.partner_id', $userPartnerId);
-                          });
-                  });
+                    ->orWhere(function ($sub) use ($userPartnerId) {
+                        $sub->where('subscriptions.entity_type', Borrower::class)
+                            ->whereExists(function ($inner) use ($userPartnerId) {
+                                $inner->selectRaw(1)
+                                    ->from('borrowers')
+                                    ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                                    ->where('borrowers.partner_id', $userPartnerId);
+                            });
+                    });
             });
         } elseif (!$isHost && $userPartnerId) {
             $query->where(function ($q) use ($userPartnerId) {
