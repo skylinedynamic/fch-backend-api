@@ -79,6 +79,7 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::get('/credit-profile-request', [CreditProfileRequestController::class, 'show']);
                     Route::post('/credit-profile-request', [CreditProfileRequestController::class, 'store']);
                     Route::get('/credit-profile', [BorrowerCreditProfileController::class, 'show']);
+                    Route::post('/credit-profile/update-request/{id}', [BorrowerCreditProfileController::class, 'requestUpdate']);
                 }
             );
 
@@ -177,9 +178,10 @@ Route::prefix('v1/borrower')->group(function () {
                     Route::post('/attestation-authorization', [FundingApplicationController::class, 'saveAttestationAndAuthorization']);
 
 
-                    Route::get('/documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);
-                    Route::post('/documents/upload', [FundingApplicationController::class, 'uploadDocument']);
-                    Route::delete('/documents/{id}', [FundingApplicationController::class, 'deleteDocument']);
+                    Route::get('documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);
+                    Route::post('documents/upload', [FundingApplicationController::class, 'uploadDocument']);
+                    Route::delete('documents/{id}', [FundingApplicationController::class, 'deleteDocument']);
+                    Route::get('documents/{id}/download', [FundingApplicationController::class, 'downloadDocument']);
                 }
             );
 

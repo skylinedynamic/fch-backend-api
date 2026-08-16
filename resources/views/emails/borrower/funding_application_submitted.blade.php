@@ -1,50 +1,37 @@
-@extends('emails.layouts.mail')
-
-@section('title', 'New Funding Application Submitted')
+@extends('emails.layouts.master')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
+    <div class="content"
+        style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); overflow: hidden; margin-bottom: 20px;">
+        <div class="content-header"
+            style="background-color: #f8fafc; padding: 25px 30px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+            @if ($logoUrl)
+                <img src="{{ $logoUrl }}" alt="{{ $siteName }}" class="logo"
+                    style="max-width: 200px; height: auto; display: block; margin: 0 auto;">
+            @else
+                <h1
+                    style="margin: 0; color: #1e293b; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; text-align: center;">
+                    {{ $siteName }}</h1>
+            @endif
+        </div>
+        <div class="content-body" style="padding: 30px;">
+            <h2 style="margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 600; margin-bottom: 20px;">Hello {{ $application->borrower?->first_name ?? 'Client' }},</h2>
+            <p style="color: #475569; line-height: 1.6; margin-bottom: 20px; font-size: 15px;">
+                Your funding application has been successfully submitted and is now under review. We will notify you once there is an update.
+            </p>
 
-    <p style="line-height: 1.5; margin-bottom: 24px;">
-        A new funding application has been submitted and requires verification. Please review the details below:
-    </p>
-
-    <div class="box-light info-card-container" style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 8px; margin-bottom: 24px; text-align: left; overflow: hidden;">
-        <div class="info-card-content" style="padding: 20px;">
-            <table class="info-table compact" style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+            <table class="info-table"
+                style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border-radius: 6px; overflow: hidden; margin-bottom: 25px;">
                 <tr>
-                    <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Client Name:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
-                        {{ $application->full_name ?? $application->first_name . ' ' . $application->last_name }}</td>
-                </tr>
-                @if ($application->business_name)
-                    <tr>
-                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_name }}</td>
-                    </tr>
-                @endif
-                @if ($application->business_email)
-                    <tr>
-                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Email:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->business_email }}</td>
-                    </tr>
-                @endif
-                @if ($application->business_phone_no)
-                    <tr>
-                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Phone:</td>
-                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $application->business_phone_no }}</td>
-                    </tr>
-                @endif
-                <tr>
-                    <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Application ID:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->application_number }}</td>
+                    <td class="label" style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%;">Application ID:</td>
+                    <td class="value" style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; font-size: 14px; font-weight: 600; color: #1e3a8a; text-align: right;">{{ $application->application_number }}</td>
                 </tr>
             </table>
         </div>
     </div>
 
     <div class="btn-container" style="margin: 30px 0; text-align: center;">
-        <a href="{{ config('app.frontend_partner_url') }}/intake-review/funding-request/{{ $application->id }}"
-            class="btn" style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Review Application</a>
+        <a href="{{ $applicationUrl }}"
+            class="btn" style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">View Application</a>
     </div>
 @endsection

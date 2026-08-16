@@ -12,6 +12,7 @@ use App\Models\Borrower\BorrowerDocument;
 use App\Models\Common\AppConfiguration;
 use App\Models\Employee\Employee;
 use App\Models\FundingRequest\FundingRequest;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
@@ -120,6 +121,13 @@ class ActivityLogService
             });
         }
 
+        if (!empty($filters['funding_application_id'])) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('subject_type', FundingApplication::class)
+                    ->where('subject_id', $filters['funding_application_id']);
+            });
+        }
+
         $limit = $filters['limit'] ?? 15;
         $page = $filters['page'] ?? 1;
 
@@ -179,6 +187,9 @@ class ActivityLogService
             } elseif (!empty($data['funding_request_id'])) {
                 $subjectType = FundingRequest::class;
                 $subjectId = $data['funding_request_id'];
+            } elseif (!empty($data['funding_application_id'])) {
+                $subjectType = FundingApplication::class;
+                $subjectId = $data['funding_application_id'];
             }
 
             // Sync targets
@@ -195,6 +206,12 @@ class ActivityLogService
                     $borrower = Borrower::find($subjectId);
                     if ($borrower && $borrower->partner_id)
                         $targetPartnerId = $borrower->partner_id;
+                } elseif ($subjectType === FundingApplication::class) {
+                    $app = FundingApplication::find($subjectId);
+                    if ($app) {
+                        if ($app->partner_id) $targetPartnerId = $app->partner_id;
+                        if ($app->borrower_id && !$targetBorrowerId) $targetBorrowerId = $app->borrower_id;
+                    }
                 }
             }
 

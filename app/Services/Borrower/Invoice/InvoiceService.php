@@ -4,12 +4,10 @@ namespace App\Services\Borrower\Invoice;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
-use App\Traits\PaginatesApi;
 use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\Borrower\Invoice\InvoiceResource;
-use Illuminate\Database\Eloquent\Collection;
+use App\Traits\PaginatesApi;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Common\AppConfiguration;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 
 class InvoiceService
@@ -32,10 +30,10 @@ class InvoiceService
             ->where('is_partner_paying', false)
             ->where(function ($q) use ($borrowerId) {
                 $q->where('invoices.borrower_id', $borrowerId)
-                  ->orWhere(function ($sub) use ($borrowerId) {
-                      $sub->where('invoices.entity_type', Borrower::class)
-                          ->where('invoices.entity_id', $borrowerId);
-                  });
+                    ->orWhere(function ($sub) use ($borrowerId) {
+                        $sub->where('invoices.entity_type', Borrower::class)
+                            ->where('invoices.entity_id', $borrowerId);
+                    });
             });
 
         if (!empty($partnerId)) {
@@ -177,12 +175,12 @@ class InvoiceService
     public function getUnpaidInvoices(int $borrowerId): Collection
     {
         return Invoice::where(function ($q) use ($borrowerId) {
-                $q->where('borrower_id', $borrowerId)
-                  ->orWhere(function ($sub) use ($borrowerId) {
-                      $sub->where('entity_type', Borrower::class)
-                          ->where('entity_id', $borrowerId);
-                  });
-            })
+            $q->where('borrower_id', $borrowerId)
+                ->orWhere(function ($sub) use ($borrowerId) {
+                    $sub->where('entity_type', Borrower::class)
+                        ->where('entity_id', $borrowerId);
+                });
+        })
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('is_partner_paying', false)
             ->get();
@@ -203,8 +201,11 @@ class InvoiceService
             COALESCE(SUM(CASE WHEN invoices.status IN (?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as paid_amount,
             COALESCE(SUM(CASE WHEN invoices.status IN (?, ?, ?) THEN invoices.payment_amount ELSE 0 END), 0) as unpaid_amount
         ", [
-            Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS,
-            Invoice::STATUS_UNPAID, Invoice::STATUS_PENDING, Invoice::STATUS_OVERDUE
+            Invoice::STATUS_PAID,
+            Invoice::STATUS_SUCCESS,
+            Invoice::STATUS_UNPAID,
+            Invoice::STATUS_PENDING,
+            Invoice::STATUS_OVERDUE
         ])->first();
 
         $totalSent = (float) ($result->total_sent ?? 0);
@@ -234,10 +235,10 @@ class InvoiceService
             ->where('is_partner_paying', false)
             ->where(function ($q) use ($borrowerId) {
                 $q->where('borrower_id', $borrowerId)
-                  ->orWhere(function ($sub) use ($borrowerId) {
-                      $sub->where('entity_type', Borrower::class)
-                          ->where('entity_id', $borrowerId);
-                  });
+                    ->orWhere(function ($sub) use ($borrowerId) {
+                        $sub->where('entity_type', Borrower::class)
+                            ->where('entity_id', $borrowerId);
+                    });
             });
 
         if (!empty($partnerId)) {

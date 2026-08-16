@@ -4,17 +4,13 @@ namespace App\Services\Borrower\Profile;
 
 use App\Models\Borrower\BorrowerChangeRequest;
 use App\Models\User\User;
+use App\Models\Partner\Partner;
+use App\Mail\Partner\NewChangeRequestSubmittedMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class ChangeRequestService
 {
-    /**
-     * Submit a new change request for a borrower field
-     *
-     * @param int $userId
-     * @param array $data
-     * @return BorrowerChangeRequest
-     * @throws \Exception
-     */
     /**
      * Submit a new change request for a borrower field
      *
@@ -29,14 +25,14 @@ class ChangeRequestService
         $borrower = $user?->entity;
 
         if (!$borrower) {
-            throw new \Exception(__("profile.borrower_not_found"));
+            throw new \Exception(__("borrower.borrower_not_found"));
         }
 
         $fieldName = $data["field_name"];
         $mapping = \App\Services\FCH\Common\ChangeRequest\BorrowerMappingService::getFieldMapping($fieldName);
 
         if (!$mapping) {
-            throw new \Exception("Field mapping not found for: {$fieldName}");
+            throw new \Exception(__('borrower.field_mapping_not_found', ['field' => $fieldName]));
         }
 
         $dbColumn    = $mapping['db_column'];
@@ -65,7 +61,7 @@ class ChangeRequestService
             $oldValue = $borrower->{$dbColumn};
         }
 
-        return BorrowerChangeRequest::create([
+        $changeRequest = BorrowerChangeRequest::create([
             "partner_id"         => $borrower->partner_id,
             "borrower_id"        => $borrower->id,
             "field_name"         => $fieldName,
@@ -80,6 +76,22 @@ class ChangeRequestService
             "note"               => null,
             "updated_by"         => null,
         ]);
+
+        // Send email to Host Partner with host partner email config
+        try {
+            $hostPartner = Partner::host();
+            $hostEmail = $hostPartner?->email ?: $hostPartner?->contact_person_email;
+
+            if ($hostEmail) {
+                Mail::to($hostEmail)->send(new NewChangeRequestSubmittedMail($hostPartner, $changeRequest));
+            } else {
+                Log::warning('NewChangeRequestSubmitted email not sent: Host partner email is empty.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send Change Request email to host partner: ' . $e->getMessage());
+        }
+
+        return $changeRequest;
     }
 }
 

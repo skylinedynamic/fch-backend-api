@@ -131,7 +131,7 @@
             {{-- Message / Requirements --}}
             <div class="section-label mb-2 mt-4" style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-top: 32px;">Message / Requirements</div>
             <div class="box-light" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-                <p class="mb-0" style="margin: 0; line-height: 1.6; color: #495057;">{{ $lead->requirement_details }}</p>
+                <div class="mb-0" style="margin: 0; line-height: 1.6; color: #495057;">{!! html_entity_decode($lead->requirement_details) !!}</div>
             </div>
         @endif
 

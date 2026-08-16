@@ -6,9 +6,13 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\Profile\StoreCreditProfileRequestRequest;
 use App\Http\Resources\Borrower\Profile\CreditProfileRequestResource;
+use App\Mail\Borrower\CreditProfileRequestMail;
+use App\Models\Partner\Partner;
 use App\Services\Borrower\Profile\CreditProfileRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class CreditProfileRequestController extends Controller
 {
@@ -31,6 +35,16 @@ class CreditProfileRequestController extends Controller
             }
 
             $creditProfileRequest = $this->service->store($user, $request->validated());
+
+            // Fetch the host partner (is_host = 1) and send them the upload request email
+            $host = Partner::where('is_host', 1)->first();
+            if ($host && $host->email) {
+                try {
+                    Mail::to($host->email)->send(new CreditProfileRequestMail($creditProfileRequest));
+                } catch (\Exception $mailException) {
+                    Log::error("Failed to send credit profile upload email to host: " . $mailException->getMessage());
+                }
+            }
 
             return ApiResponse::success(
                 new CreditProfileRequestResource($creditProfileRequest),

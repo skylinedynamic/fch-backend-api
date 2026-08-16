@@ -78,6 +78,13 @@ Schedule::command('subscriptions:process-all')
     ->onFailure($onFailure('subscriptions:process-all'))
     ->onSuccess($onSuccess('subscriptions:process-all'));
 
+
+Schedule::command('funding:application-reminders')
+    ->dailyAt('14:00')
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(30)
+    ->onFailure($onFailure('funding:application-reminders'));
+
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat

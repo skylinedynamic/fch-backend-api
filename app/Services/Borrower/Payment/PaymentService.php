@@ -6,11 +6,11 @@ use App\Models\Borrower\Borrower;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use App\Services\Global\Datatable\QueryFilter;
-use App\Http\Resources\Borrower\Payment\PaymentResource;
 
 class PaymentService
 {

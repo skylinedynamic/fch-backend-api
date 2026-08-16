@@ -8,15 +8,21 @@ use App\Http\Requests\Api\V1\FCH\Common\Application\FetchRequestApplicationReque
 use App\Http\Requests\Api\V1\FCH\Common\Application\UpdatePreQualificationStatusRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Application\UpdateFundingApplicationStatusRequest;
 use App\Services\FCH\Common\Application\RequestApplicationService;
+use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RequestApplicationController extends Controller
 {
     protected RequestApplicationService $requestApplicationService;
+    protected FundingApplicationDocumentService $documentService;
 
-    public function __construct(RequestApplicationService $requestApplicationService)
-    {
+    public function __construct(
+        RequestApplicationService $requestApplicationService,
+        FundingApplicationDocumentService $documentService
+    ) {
         $this->requestApplicationService = $requestApplicationService;
+        $this->documentService = $documentService;
     }
 
     /**
@@ -99,6 +105,78 @@ class RequestApplicationController extends Controller
     }
 
     /**
+     * Get Funding Application Audit History (Paginated)
+     */
+    public function getAuditHistory($id, Request $request): JsonResponse
+    {
+        try {
+            $filters = [
+                'per_page'      => $request->input('per_page', 10),
+                'page'          => $request->input('page', 1),
+                'search'        => $request->input('search'),
+                'sort_by'       => $request->input('sort_by'),
+                'sort_dir'      => $request->input('sort_dir'),
+                'timezone'      => $request->header('X-Timezone') ?? config('app.timezone'),
+            ];
+            return $this->requestApplicationService->getAuditHistory($id, $filters);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Audit History Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return ApiResponse::serverError(__('application.error_retrieving_audit_history'));
+        }
+    }
+
+    /**
+     * Download Funding Application PDF
+     */
+    public function downloadApplication(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->documentService->downloadApplicationPdf($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_downloading_funding_application'));
+        }
+    }
+
+    /**
+     * Download Signature PDF
+     */
+    public function downloadSignature(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->documentService->downloadSignaturePdf($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('application.error_downloading_signature'));
+        }
+    }
+
+    /**
+     * Download Both PDFs as ZIP
+     */
+    public function downloadZip(Request $request, $id)
+    {
+        try {
+            $password = $request->query('password');
+            return $this->documentService->downloadZip($id, $password);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError('An error occurred while generating the ZIP file.');
+        }
+    }
+
+    /**
+     * Download File from Audit History
+     */
+    public function downloadFromHistory($historyId)
+    {
+        try {
+            return $this->documentService->downloadFromHistory($historyId);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError('An error occurred while downloading the document: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Update Pre-Qualification Application Status
      */
     public function preQualificationStatusUpdate(UpdatePreQualificationStatusRequest $request): JsonResponse
@@ -137,6 +215,7 @@ class RequestApplicationController extends Controller
         try {
             return $this->requestApplicationService->getFundingApplicationCardSummary();
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Funding Application List Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return ApiResponse::serverError(__('application.error_retrieving_funding_application'));
         }
     }

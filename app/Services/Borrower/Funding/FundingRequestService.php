@@ -83,14 +83,21 @@ class FundingRequestService
         }
         $data['lender_ids'] = $finalLenderIds;
 
-        $fundingRequest = FundingRequest::updateOrCreate(
-            [
-                'borrower_id' => $borrower->id,
-                'funding_sequence_id' => $data['funding_sequence_id']
-            ],
-            $data
-        );
+        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->orderBy('id', 'desc')
+            ->first();
 
+        if ($latestRequest && in_array($latestRequest->status, [FundingRequest::STATUS_REJECTED, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_ACCEPTED])) {
+            $data['reject_reason'] = null;
+            $data['approved_by'] = null;
+            $data['approved_at'] = null;
+            $latestRequest->update($data);
+            $fundingRequest = $latestRequest;
+            $fundingRequest->wasRecentlyCreated = false;
+        } else {
+            $fundingRequest = FundingRequest::create($data);
+        }
         if ($fundingRequest->wasRecentlyCreated || $fundingRequest->status === FundingRequest::STATUS_PENDING) {
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
@@ -158,7 +165,7 @@ class FundingRequestService
         $query = FundingRequest::query()
             ->select('funding_requests.*')
             ->leftJoin('funding_sequencings', 'funding_requests.funding_sequence_id', '=', 'funding_sequencings.id')
-            ->with(['borrower', 'fundingSequence', 'reviewer'])
+            ->with(['borrower', 'fundingSequence', 'reviewer', 'fundingApplication'])
             ->where('funding_requests.borrower_id', $borrower->id);
 
         if (!empty($filters['status'])) {
@@ -169,17 +176,38 @@ class FundingRequestService
             $query->where('funding_requests.funding_sequence_id', $filters['funding_sequence_id']);
         }
 
+        if (!empty($filters['application_status'])) {
+            if ($filters['application_status'] === FundingRequest::APPLICATION_STATUS_NOT_STARTED) {
+                $query->where('funding_requests.status', FundingRequest::STATUS_APPROVED)
+                      ->doesntHave('fundingApplication');
+            } else {
+                $query->whereHas('fundingApplication', function ($q) use ($filters) {
+                    $q->where('status', $filters['application_status']);
+                });
+            }
+        }
+
         if (!empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('funding_requests.funding_type', 'like', "%{$search}%")
                   ->orWhere('funding_requests.use_of_funds', 'like', "%{$search}%")
                   ->orWhere('funding_requests.requested_amount', 'like', "%{$search}%")
-                  ->orWhere('funding_requests.status', 'like', "%{$search}%")
+                  ->orWhere('funding_requests.status', 'like', "{$search}%")
                   ->orWhereRaw("DATE_FORMAT(funding_requests.created_at, '%b %d, %Y') LIKE ?", ["%{$search}%"])
                   ->orWhereRaw("DATE_FORMAT(funding_requests.created_at, '%M %d, %Y') LIKE ?", ["%{$search}%"])
                   ->orWhere('funding_sequencings.amount_range', 'like', "%{$search}%")
-                  ->orWhere('funding_sequencings.name', 'like', "%{$search}%");
+                  ->orWhere('funding_sequencings.name', 'like', "%{$search}%")
+                  ->orWhereHas('fundingApplication', function($qApp) use ($search) {
+                      $qApp->where('status', 'like', "{$search}%");
+                  });
+
+                if (stripos(FundingRequest::APPLICATION_STATUS_NOT_STARTED, $search) !== false) {
+                    $q->orWhere(function($sq) {
+                        $sq->where('funding_requests.status', FundingRequest::STATUS_APPROVED)
+                           ->doesntHave('fundingApplication');
+                    });
+                }
             });
         }
 
@@ -200,18 +228,34 @@ class FundingRequestService
         $paginator = $this->paginateBuilderWith($query, $perPage, $page);
 
         // Fetch unique funding sequences used by this borrower to populate the dropdown
-        $fundingTypes = \App\Models\Funding\FundingSequencing::whereIn('id', function($q) use ($borrower) {
+        $fundingTypes = FundingSequencing::whereIn('id', function($q) use ($borrower) {
             $q->select('funding_sequence_id')
               ->from('funding_requests')
               ->where('borrower_id', $borrower->id);
         })->get(['id', 'name']);
+
+        $stats = [
+            'total_reviews' => FundingRequest::where('borrower_id', $borrower->id)->count(),
+            'approved' => FundingRequest::where('borrower_id', $borrower->id)
+                ->whereIn('status', [FundingRequest::STATUS_APPROVED, FundingRequest::STATUS_ACCEPTED])
+                ->count(),
+            'pending' => FundingRequest::where('borrower_id', $borrower->id)
+                ->whereIn('status', [FundingRequest::STATUS_PENDING, 'Pending'])
+                ->count(),
+            'rejected' => FundingRequest::where('borrower_id', $borrower->id)
+                ->where('status', FundingRequest::STATUS_REJECTED)
+                ->count(),
+        ];
 
         return $this->respondWithPaginationResource(
             $paginator,
             FundingRequestResource::class,
             'funding requests retrieved successfully.',
             200,
-            ['funding_types' => $fundingTypes]
+            [
+                'funding_types' => $fundingTypes,
+                'stats' => $stats,
+            ]
         );
     }
 
@@ -230,7 +274,7 @@ class FundingRequestService
             throw new Exception("Borrower profile not found for this user.");
         }
 
-        $review = FundingRequest::with(['borrower', 'fundingSequence', 'reviewer'])
+        $review = FundingRequest::with(['borrower', 'fundingSequence', 'reviewer', 'fundingApplication'])
             ->where('borrower_id', $borrower->id)
             ->where('id', $id)
             ->first();
@@ -264,10 +308,15 @@ class FundingRequestService
         
         $documents = $documentResponse->getData(true)['data'] ?? [];
 
-        // 2. Find any pending/rejected FundingRequest for this sequence
+        // 2. Find any pending/rejected/in_progress/accepted FundingRequest for this sequence
         $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
             ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+            ->whereIn('status', [
+                FundingRequest::STATUS_PENDING, 
+                FundingRequest::STATUS_REJECTED, 
+                FundingRequest::STATUS_IN_PROGRESS, 
+                FundingRequest::STATUS_ACCEPTED
+            ])
             ->first();
 
         // 3. Update the documents_uploaded array if funding request exists
@@ -309,7 +358,12 @@ class FundingRequestService
             if ($otherDocsCount === 0) {
                 $fundingRequest = FundingRequest::where('borrower_id', $borrower->id)
                     ->where('funding_sequence_id', $data['funding_sequence_id'])
-                    ->whereIn('status', [FundingRequest::STATUS_PENDING, FundingRequest::STATUS_REJECTED])
+                    ->whereIn('status', [
+                        FundingRequest::STATUS_PENDING, 
+                        FundingRequest::STATUS_REJECTED, 
+                        FundingRequest::STATUS_IN_PROGRESS, 
+                        FundingRequest::STATUS_ACCEPTED
+                    ])
                     ->first();
 
                 if ($fundingRequest) {

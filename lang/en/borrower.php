@@ -174,4 +174,11 @@ return [
     'subscription_already_cancelled' => 'Subscription is already cancelled.',
     'subscription_cancelled' => 'Subscription cancelled successfully.',
     'provider_name_required' => 'Provider name is required.',
+
+    // Change Request Messages & Defaults
+    'field_mapping_not_found' => 'Field mapping not found for: :field',
+    'change_request_submitted_subject' => 'New Profile Change Request Submitted',
+    'default_borrower_name' => 'Borrower',
+    'host_partner' => 'Host Partner',
+    'not_applicable' => 'N/A',
 ];

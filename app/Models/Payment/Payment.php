@@ -2,6 +2,11 @@
 
 namespace App\Models\Payment;
 
+use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,6 +15,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
+use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 
 class Payment extends Model
@@ -118,7 +124,7 @@ class Payment extends Model
         $paymentType = $data['payment_type'] ?? ($paymentFrom === self::PAYMENT_FROM_STRIPE ? self::PAYMENT_TYPE_CARD : $paymentFrom);
 
         return self::create([
-            'partner_id' => $partnerId,
+            'partner_id' => $invoice->partner_id ?? null,
             'borrower_id' => $data['borrower_id'] ?? null,
             'invoice_id' => $data['invoice_id'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
@@ -179,7 +185,7 @@ class Payment extends Model
 
         // Return a compatible settings object for callers that use $setting->payment_mode, etc.
         $setting = new \stdClass();
-        $setting->partner_id   = $partnerId;
+        $setting->partner_id = $partnerId;
         $setting->payment_mode = $paymentMode;
 
         return $setting;

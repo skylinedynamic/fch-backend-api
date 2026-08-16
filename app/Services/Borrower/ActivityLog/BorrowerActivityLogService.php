@@ -7,6 +7,7 @@ use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Employee\Employee;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Invoice\Invoice;
@@ -96,12 +97,26 @@ class BorrowerActivityLogService
             });
         }
 
-        if (!empty($filters['funding_request_id'])) {
+        if (isset($filters['funding_request_id']) && $filters['funding_request_id']) {
             $query->where(function ($q) use ($filters) {
                 $q->where('subject_type', FundingRequest::class)
                     ->where('subject_id', $filters['funding_request_id']);
             });
         }
+        
+        if (isset($filters['funding_application_id']) && $filters['funding_application_id']) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('subject_type', FundingApplication::class)
+                    ->where('subject_id', $filters['funding_application_id']);
+            });
+        }
+
+        // if (isset($filters['pre_qualification_id']) && $filters['pre_qualification_id']) {
+        //     $query->where(function ($q) use ($filters) {
+        //         $q->where('subject_type', \App\Models\Funding\PreQualification::class)
+        //             ->where('subject_id', $filters['pre_qualification_id']);
+        //     });
+        // }
 
         $limit = $filters['limit'] ?? 15;
         $page = $filters['page'] ?? 1;

@@ -51,7 +51,7 @@ class GlobalPaymentService
             if ($invoice) {
                 // If it is a partner invoice (partner paying the host platform fee/enrollment fee),
                 // configure Stripe for the Host because the host receives the payment.
-                if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
+                if ($invoice->is_partner_paying || $invoice->entity_type == Partner::class) {
                     $partnerId = Partner::where('is_host', true)->first()?->id;
                 } else {
                     $partnerId = $invoice->partner_id;
@@ -185,7 +185,7 @@ class GlobalPaymentService
                     'transaction_id' => $paymentIntent->id,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
-                    'is_partner_paying' => $data['is_partner_paying'] ?? false,
+                    'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] === Partner::class) ? 1 : 0,
                     'details' => $paymentIntent->toArray(),
                     'status' => $paymentIntent->status,
                 ]);
@@ -329,7 +329,6 @@ class GlobalPaymentService
         try {
             $partnerId = $this->resolvePartnerId($data);
             $invoice = !empty($data['invoice_id']) ? Invoice::where('id', $data['invoice_id'])->first() : null;
-
             $this->payment->createRecord([
                 'partner_id' => $partnerId,
                 'borrower_id' => $invoice->borrower_id ?? null,
@@ -339,6 +338,7 @@ class GlobalPaymentService
                 'transaction_id' => 'FAILED_' . uniqid(),
                 'amount' => ($data['amount'] ?? 0) / 100,
                 'currency' => $data['currency'] ?? Payment::CURRENCY_USD,
+                'is_partner_paying' => ($data['entity_type'] == Partner::class) ? 1 : 0,
                 'details' => [
                     'error' => $errorMessage,
                     'type' => $errorType,
@@ -356,7 +356,7 @@ class GlobalPaymentService
      */
     protected function handlePartnerPayment(Invoice $invoice)
     {
-        if ($invoice->entity_type !== Partner::class) {
+        if ($invoice->entity_type != Partner::class) {
             return;
         }
 
@@ -565,7 +565,7 @@ class GlobalPaymentService
             ]);
 
             $payment = $this->payment->createRecord([
-                'partner_id' => $partner->id,
+                'partner_id' => (int) $partner->id,
                 'borrower_id' => null,
                 'invoice_id' => $invoice->id,
                 'entity_type' => Partner::class,
@@ -575,7 +575,7 @@ class GlobalPaymentService
                 'payment_type' => Payment::PAYMENT_TYPE_CARD,
                 'amount' => $amount,
                 'currency' => Payment::CURRENCY_USD,
-                'is_partner_paying' => true,
+                'is_partner_paying' => 1,
                 'details' => $paymentIntent->toArray(),
                 'status' => $paymentIntent->status,
                 'transaction_date' => now(),
@@ -783,7 +783,6 @@ class GlobalPaymentService
                     'updated_by' => Auth::id(),
                 ]);
 
-                // 3. Create Payment
                 $payment = $this->payment->createRecord([
                     'partner_id' => $partner->id,
                     'invoice_id' => $data['invoice_id'],
@@ -792,6 +791,7 @@ class GlobalPaymentService
                     'transaction_id' => $paymentIntent->id,
                     'amount' => $data['amount'] / 100,
                     'currency' => strtoupper($paymentIntent->currency),
+                    'is_partner_paying' => 1,
                     'details' => $paymentIntent->toArray(),
                     'status' => Payment::STATUS_SUCCEEDED,
                 ]);

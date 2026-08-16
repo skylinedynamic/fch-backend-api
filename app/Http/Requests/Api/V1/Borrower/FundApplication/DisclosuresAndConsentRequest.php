@@ -22,7 +22,7 @@ class DisclosuresAndConsentRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|exists:funding_applications,id',
+            'id' => 'nullable|exists:funding_applications,id',
             'credit_pull_authorization' => 'required|accepted',
             'terms_conditions_acceptance' => 'required|accepted',
         ];

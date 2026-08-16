@@ -7,6 +7,7 @@ use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
+use App\Models\FundingRequest\FundingRequest;
 use App\Models\Invoice\Invoice;
 use App\Models\Subscription\Subscription;
 use Carbon\Carbon;
@@ -180,6 +181,11 @@ class Borrower extends Model
         return $this->hasMany(FundingApplication::class, 'borrower_id');
     }
 
+    public function fundingRequests()
+    {
+        return $this->hasMany(FundingRequest::class, 'borrower_id');
+    }
+
     public function preQualificationRequests()
     {
         return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
@@ -281,7 +287,7 @@ class Borrower extends Model
 
     public function creditProfileRequests()
     {
-        return $this->hasMany(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
+        return $this->hasOne(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
     }
 
     public function scopeSearch($query, ?string $search)

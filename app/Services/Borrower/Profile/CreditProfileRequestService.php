@@ -6,6 +6,7 @@ use App\Models\Borrower\CreditProfileRequest;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Exception;
 
 class CreditProfileRequestService
@@ -20,15 +21,18 @@ class CreditProfileRequestService
      */
     public function store(User $user, array $data): CreditProfileRequest
     {
+        Log::info("Starting CreditProfileRequest creation/update for Borrower ID: {$user->entity_id}");
+        
         try {
             DB::beginTransaction();
 
             $borrowerId = $user->entity_id;
 
             // Save the details in the database
-            $creditProfileRequest = CreditProfileRequest::create(array_merge($data, [
-                'borrower_id' => $borrowerId,
-            ]));
+            $creditProfileRequest = CreditProfileRequest::updateOrCreate(
+                ['borrower_id' => $borrowerId],
+                $data
+            );
 
             // Set the borrower's credit_profile_updated to true
             $borrower = Borrower::find($borrowerId);
@@ -42,9 +46,12 @@ class CreditProfileRequestService
 
             DB::commit();
 
+            Log::info("Successfully stored/updated CreditProfileRequest for Borrower ID: {$user->entity_id} (Request ID: {$creditProfileRequest->id})");
+
             return $creditProfileRequest;
         } catch (Exception $e) {
             DB::rollBack();
+            Log::error("Failed to store credit profile request for Borrower ID: {$user->entity_id}. Error: " . $e->getMessage());
             throw new Exception('Failed to store credit profile request: ' . $e->getMessage());
         }
     }
