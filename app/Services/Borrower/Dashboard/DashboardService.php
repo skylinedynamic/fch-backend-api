@@ -116,7 +116,6 @@ class DashboardService
                                      ->whereColumn('funding_applications.funding_sequence_id', 'funding_requests.funding_sequence_id');
                               });
                       })
-                      ->whereNotIn('funding_applications.status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT])
                       ->whereNull('deleted_at');
             });
 
