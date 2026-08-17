@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\FundApplication;
 
+use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -21,7 +22,7 @@ class FundingRequestResource extends JsonResource
             ?? null;
 
         $fundingReq = null;
-        if ($this->resource instanceof \App\Models\Borrower\FundingApplication && $this->relationLoaded('fundingRequest') && $this->fundingRequest) {
+        if ($this->resource instanceof FundingApplication && $this->relationLoaded('fundingRequest') && $this->fundingRequest) {
             $fundingReq = $this->fundingRequest;
         } elseif ($fundingRequestId) {
             $fundingReq = FundingRequest::with('fundingSequence')->find($fundingRequestId);
@@ -69,6 +70,7 @@ class FundingRequestResource extends JsonResource
             'timeframe_needed' => $timeframeNeeded,
             'collateral_available' => $this->collateral_available ?? null,
             'is_funding_request_saved' => $this->requested_amount !== null,
+            'status' => $this->resource instanceof FundingApplication ? $this->status : null,
         ];
     }
 }
