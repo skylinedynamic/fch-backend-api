@@ -20,7 +20,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
-// use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundingApplicationController;
+use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
@@ -177,26 +177,27 @@ Route::prefix('v1')->group(function () {
 
             // Borrower Funding Application Wizard (For Admin/Partner)
             #SCRUM-67
-            // Route::prefix('funding-application/{fundingRequestId}')->group(function () {
-            //     Route::get('business-info', [PartnerFundingApplicationController::class, 'getBusinessInfo']);
-            //     Route::post('business-info', [PartnerFundingApplicationController::class, 'saveBusinessInfo']);
-            //     Route::get('ownership-info', [PartnerFundingApplicationController::class, 'getOwnershipInfo']);
-            //     Route::post('ownership-info', [PartnerFundingApplicationController::class, 'saveOwnershipInfo']);
-            //     Route::get('financial-info', [PartnerFundingApplicationController::class, 'getFinancialInfo']);
-            //     Route::post('financial-info', [PartnerFundingApplicationController::class, 'saveFinancialInfo']);
-            //     Route::get('funding-request', [PartnerFundingApplicationController::class, 'getFundingRequest']);
-            //     Route::post('funding-request', [PartnerFundingApplicationController::class, 'saveFundingRequest']);
-            //     Route::get('disclosures-and-consent', [PartnerFundingApplicationController::class, 'getDisclosuresAndConsent']);
-            //     Route::post('disclosures-and-consent', [PartnerFundingApplicationController::class, 'saveDisclosuresAndConsent']);
-            //     Route::get('federal-compliance-disclosures', [PartnerFundingApplicationController::class, 'getFederalComplianceDisclosures']);
-            //     Route::post('federal-compliance-disclosures', [PartnerFundingApplicationController::class, 'saveFederalComplianceDisclosures']);
-            //     Route::get('documents/{funding_application_id}', [PartnerFundingApplicationController::class, 'getDocuments']);
-            //     Route::post('documents/upload', [PartnerFundingApplicationController::class, 'uploadDocument']);
-            //     Route::delete('documents/{id}', [PartnerFundingApplicationController::class, 'deleteDocument']);
-            //     Route::get('documents/{id}/download', [PartnerFundingApplicationController::class, 'downloadDocument']);
-            //     Route::get('attestation-authorization', [PartnerFundingApplicationController::class, 'getAttestationAndAuthorization']);
-            //     Route::post('attestation-authorization', [PartnerFundingApplicationController::class, 'saveAttestationAndAuthorization']);
-            // });
+            Route::prefix('funding-application')->group(function () {
+                Route::get('business-info', [PartnerFundingApplicationController::class, 'getBusinessInfo']);
+                Route::post('business-info', [PartnerFundingApplicationController::class, 'saveBusinessInfo']);
+                Route::get('ownership-info', [PartnerFundingApplicationController::class, 'getOwnershipInfo']);
+                Route::post('ownership-info', [PartnerFundingApplicationController::class, 'saveOwnershipInfo']);
+                Route::get('financial-info', [PartnerFundingApplicationController::class, 'getFinancialInfo']);
+                Route::post('financial-info', [PartnerFundingApplicationController::class, 'saveFinancialInfo']);
+                Route::get('funding-request', [PartnerFundingApplicationController::class, 'getFundingRequest']);
+                Route::post('funding-request', [PartnerFundingApplicationController::class, 'saveFundingRequest']);
+                Route::get('disclosures-and-consent', [PartnerFundingApplicationController::class, 'getDisclosuresAndConsent']);
+                Route::post('disclosures-and-consent', [PartnerFundingApplicationController::class, 'saveDisclosuresAndConsent']);
+                Route::get('federal-compliance-disclosures', [PartnerFundingApplicationController::class, 'getFederalComplianceDisclosures']);
+                Route::post('federal-compliance-disclosures', [PartnerFundingApplicationController::class, 'saveFederalComplianceDisclosures']);
+                Route::get('documents/{funding_application_id}', [PartnerFundingApplicationController::class, 'getDocuments']);
+                Route::post('documents/upload', [PartnerFundingApplicationController::class, 'uploadDocument']);
+                Route::delete('documents/{id}', [PartnerFundingApplicationController::class, 'deleteDocument']);
+                Route::get('documents/{id}/download', [PartnerFundingApplicationController::class, 'downloadDocument']);
+                Route::get('attestation-authorization', [PartnerFundingApplicationController::class, 'getAttestationAndAuthorization']);
+                Route::post('attestation-authorization', [PartnerFundingApplicationController::class, 'saveAttestationAndAuthorization']);
+                Route::post('co-borrower-validation', [PartnerFundingApplicationController::class, 'coBorrowerValidation']);
+            });
 
             // Funding Request
             Route::prefix('funding-request')->group(function () {

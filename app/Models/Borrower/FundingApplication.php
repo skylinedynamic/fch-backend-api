@@ -30,6 +30,7 @@ class FundingApplication extends Model
         'application_number',
         'borrower_id',
         'partner_id',
+        'is_partner_prepared',
         'status',
         'status_note',
         'admin_commission',
@@ -99,6 +100,8 @@ class FundingApplication extends Model
         'conversion_rate',
         'funding_sequence_id',
         'funding_request_id',
+        'created_by',
+        'updated_by',
     ];
 
     protected $casts = [

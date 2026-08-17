@@ -35,7 +35,7 @@ class FundingApplicationService
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
         $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
             ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
-            ->where('status', FundingApplication::ON_HOLD);
+            ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
 
         if ($fundingRequestId) {
             $query->where('funding_request_id', $fundingRequestId);
@@ -102,7 +102,7 @@ class FundingApplicationService
             if (empty($matchId)) {
                 $fundingReqId = $data['funding_request_id'] ?? null;
                 $query = FundingApplication::where('borrower_id', $borrowerId)
-                    ->where('status', FundingApplication::ON_HOLD);
+                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
 
                 if ($fundingReqId) {
                     $query->where('funding_request_id', $fundingReqId);
@@ -117,6 +117,12 @@ class FundingApplicationService
             }
 
             $isNew = empty($existing);
+
+            if ($isNew) {
+                $data['created_by'] = auth()->id();
+            } else {
+                $data['updated_by'] = auth()->id();
+            }
 
             // Inherit default values from FundingRequest if creating new or if field is explicitly empty in update
             if ($req) {
