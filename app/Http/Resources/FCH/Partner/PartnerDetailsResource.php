@@ -17,6 +17,7 @@ class PartnerDetailsResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'user_id' => $this->users->first()->id ?? null,
             'assigned_user_id' => $this->assignedUser->id ?? null,
             'assigned_user_name' => $this->assignedUser->name ?? null,
             'full_name' => $this->full_name,
@@ -41,6 +42,9 @@ class PartnerDetailsResource extends JsonResource
             'partner_image' => $this->partner_image,
             'partner_domain' => $this->partner_domain,
             'borrower_domain' => $this->borrower_domain,
+            'active_custom_url' => (bool) $this->active_custom_url,
+            'is_host' => $this->is_host ?? false,
+            'has_sign' => $this->has_sign,
             'tax_id' => $this->tax_id ?? null, // Assuming model accessor or field exists
             'website' => $this->website ?? null, // Assuming model accessor or field exists
             'enrollment_details' => [

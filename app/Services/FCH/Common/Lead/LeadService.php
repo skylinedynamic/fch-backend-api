@@ -2,15 +2,9 @@
 
 namespace App\Services\FCH\Common\Lead;
 
-use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Lead\LeadResource;
-use App\Mail\Borrower\BorrowerAccountCreatedMail;
-use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
-use App\Models\Common\Permission;
-use App\Models\Common\Role;
-use App\Models\CreditBuilder\Tier;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
@@ -44,26 +38,14 @@ class LeadService
         $authUser = Auth::user();
         $query = Lead::query()
             ->with(['salesperson', 'partner'])
+            ->where('leads.partner_id', $authUser->partner_id)
             ->select('leads.*');
 
         // Top-level Dropdown Filters (Robust Normalization)
         $leadType = is_array($filters['lead_type'] ?? null) ? ($filters['lead_type']['value'] ?? null) : ($filters['lead_type'] ?? null);
         $statusValue = is_array($filters['status'] ?? null) ? ($filters['status']['value'] ?? null) : ($filters['status'] ?? null);
         $salespersonId = is_array($filters['salesperson_id'] ?? null) ? ($filters['salesperson_id']['value'] ?? null) : ($filters['salesperson_id'] ?? null);
-        $partnerId = is_array($filters['partner_id'] ?? null) ? ($filters['partner_id']['value'] ?? null) : ($filters['partner_id'] ?? null);
 
-        // Access Control & Partner Filtering
-        if ($authUser && $authUser->partner) {
-            if ($authUser->partner->is_host) {
-                // Host can filter by Partner
-                if ($partnerId !== null && $partnerId !== '') {
-                    $query->where('leads.partner_id', $partnerId);
-                }
-            } else {
-                // Non-hosts see only their own partner's leads
-                $query->where('leads.partner_id', $authUser->partner_id);
-            }
-        }
 
         // Apply Dropdown Filters - Strictly skip if null or empty string to show "All" data
         if ($leadType !== null && $leadType !== '') {
@@ -634,8 +616,7 @@ class LeadService
         if (!$query) {
             $authUser = Auth::user();
             $query = Lead::query();
-
-            if ($authUser && $authUser->partner && $authUser->partner->is_host == false) {
+            if ($authUser->partner_id) {
                 $query->where('partner_id', $authUser->partner_id);
             }
         }

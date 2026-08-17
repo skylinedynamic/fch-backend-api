@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\PaymentMethod;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PaymentMethodBankDetail;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use Illuminate\Support\Facades\Log;
@@ -119,7 +120,7 @@ class PaymentMethodService
                 }
 
                 if ($provider->name === PaymentProvider::BANK_TRANSFER && $partnerProvider) {
-                    $bankDetails = \App\Models\PaymentMethod\PaymentMethodBankDetail::where('partner_id', $recipientPartnerId)
+                    $bankDetails = PaymentMethodBankDetail::where('partner_id', $recipientPartnerId)
                         ->where(function ($q) use ($environment) {
                             $q->where('payment_mode', $environment)
                                 ->orWhereNull('payment_mode');

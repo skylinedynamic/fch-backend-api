@@ -169,16 +169,4 @@ class LeadController extends Controller
         }
     }
 
-    /**
-     * Dashboard Stats
-     */
-    public function stats()
-    {
-        try {
-            $stats = $this->leadService->getStats();
-            return ApiResponse::success($stats, __('lead.stats_retrieved'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('lead.stats_failed'));
-        }
-    }
 }

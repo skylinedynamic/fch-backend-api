@@ -17,9 +17,7 @@ use App\Http\Controllers\Api\V1\Borrower\Funding\FundingRequestController;
 use App\Http\Controllers\Api\V1\Borrower\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\Borrower\MyApplication\MyApplicationController;
 use App\Http\Controllers\Api\V1\Borrower\Payment\PaymentController;
-use App\Http\Controllers\Api\V1\Borrower\PaymentMethod\PaymentMethodController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 
 use App\Http\Controllers\Api\V1\Borrower\Profile\BusinessInfoController;
@@ -202,8 +200,6 @@ Route::prefix('v1/borrower')->group(function () {
             );
 
             Route::get('/user-details', BorrowerUserDetailController::class);
-
-            Route::get('/payment-methods', [PaymentMethodController::class, 'show']);
 
             Route::post('/process-payment', [UnifiedPaymentController::class, 'processPayment']);
 

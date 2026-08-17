@@ -390,7 +390,8 @@ class PaymentService
             COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as pending,
             COALESCE(SUM(CASE WHEN payments.status = ? THEN payments.amount ELSE 0 END), 0) as processing
         ", [
-            Payment::STATUS_SUCCEEDED, 'success',
+            Payment::STATUS_SUCCEEDED,
+            'success',
             Payment::STATUS_PENDING,
             Payment::STATUS_PROCESSING
         ])->first();
@@ -402,9 +403,9 @@ class PaymentService
 
         return [
             'total_payments' => currencyFormat($totalPayments),
-            'completed'      => currencyFormat($completed),
-            'pending'        => currencyFormat($pending),
-            'processing'     => currencyFormat($processing),
+            'completed' => currencyFormat($completed),
+            'pending' => currencyFormat($pending),
+            'processing' => currencyFormat($processing),
         ];
     }
 
@@ -526,18 +527,13 @@ class PaymentService
         $authUser = Auth::user();
         if (!$authUser) {
             return [
-                'status'  => false,
+                'status' => false,
                 'message' => __('payment.unauthenticated')
             ];
         }
 
         $note = trim((string) ($data['note'] ?? $data['details'] ?? ''));
-        if (empty($note)) {
-            return [
-                'status'  => false,
-                'message' => __('payment.approval_note_required')
-            ];
-        }
+
 
         return DB::transaction(function () use ($id, $note, $authUser) {
             /** @var Payment|null $payment */
@@ -545,27 +541,27 @@ class PaymentService
 
             if (!$payment) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.not_found')
                 ];
             }
 
             if (strtolower((string) $payment->status) !== Payment::STATUS_PROCESSING) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.only_processing_can_be_approved')
                 ];
             }
 
             if (!$payment->canApproveForUser($authUser)) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.unauthorized_approve')
                 ];
             }
 
             $now = now();
-            $userName = $authUser->name ?? $authUser->full_name ?? ($authUser->first_name ? trim($authUser->first_name . ' ' . ($authUser->last_name ?? '')) : null) ?? $authUser->email ?? __('payment.admin');
+            $userName = $authUser->name ?? __('payment.admin');
             $existingDetails = is_array($payment->details) ? $payment->details : [];
             $existingDetails['decision'] = 'approved';
             $existingDetails['approval_note'] = $note;
@@ -575,15 +571,15 @@ class PaymentService
 
             // Update payment status to Succeeded, transaction_date to now, and save details
             $payment->update([
-                'status'           => Payment::STATUS_SUCCEEDED,
+                'status' => Payment::STATUS_SUCCEEDED,
                 'transaction_date' => $now,
-                'details'          => $existingDetails,
+                'details' => $existingDetails,
             ]);
 
             // Update invoice status to Paid and set paid_at to now
             if ($payment->invoice) {
                 $payment->invoice->update([
-                    'status'  => Invoice::STATUS_PAID,
+                    'status' => Invoice::STATUS_PAID,
                     'paid_at' => $now,
                 ]);
 
@@ -595,9 +591,9 @@ class PaymentService
             }
 
             return [
-                'status'  => true,
+                'status' => true,
                 'message' => __('payment.approved_successfully'),
-                'data'    => new PaymentResource($payment->fresh())
+                'data' => new PaymentResource($payment->fresh())
             ];
         });
     }
@@ -610,7 +606,7 @@ class PaymentService
         $authUser = Auth::user();
         if (!$authUser) {
             return [
-                'status'  => false,
+                'status' => false,
                 'message' => __('payment.unauthenticated')
             ];
         }
@@ -618,7 +614,7 @@ class PaymentService
         $reason = trim((string) ($data['reason'] ?? $data['note'] ?? $data['details'] ?? ''));
         if (empty($reason)) {
             return [
-                'status'  => false,
+                'status' => false,
                 'message' => __('payment.rejection_reason_required')
             ];
         }
@@ -629,21 +625,21 @@ class PaymentService
 
             if (!$payment) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.not_found')
                 ];
             }
 
             if (strtolower((string) $payment->status) !== Payment::STATUS_PROCESSING) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.only_processing_can_be_rejected')
                 ];
             }
 
             if (!$payment->canApproveForUser($authUser)) {
                 return [
-                    'status'  => false,
+                    'status' => false,
                     'message' => __('payment.unauthorized_reject')
                 ];
             }
@@ -658,7 +654,7 @@ class PaymentService
             $existingDetails['rejected_by_id'] = $authUser->id;
 
             $payment->update([
-                'status'  => Payment::STATUS_REJECTED,
+                'status' => Payment::STATUS_REJECTED,
                 'details' => $existingDetails,
             ]);
 
@@ -669,9 +665,9 @@ class PaymentService
             }
 
             return [
-                'status'  => true,
+                'status' => true,
                 'message' => __('payment.rejected_successfully'),
-                'data'    => new PaymentResource($payment->fresh())
+                'data' => new PaymentResource($payment->fresh())
             ];
         });
     }

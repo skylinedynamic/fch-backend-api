@@ -3,19 +3,13 @@
 namespace App\Models\Payment;
 
 use App\Models\Borrower\Borrower;
-use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Partner\Partner;
-use App\Models\Borrower\Borrower;
-use App\Models\User\User;
-use App\Models\PaymentMethod\PaymentProvider;
-use App\Models\PaymentMethod\PartnerPaymentProvider;
-use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 
 class Payment extends Model
@@ -100,7 +94,7 @@ class Payment extends Model
         }
 
         $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
-        $isHost = !empty($authUser->partner) ? (int) ($authUser->partner->is_host ?? 0) === 1 : ($authUser->hasRole('Super Admin') || $authUser->hasRole('Admin'));
+        $isHost = $authUser->entity_type === Partner::class && $authUser->partner->is_host === 1;
 
         if ($isHost) {
             return true;
@@ -124,7 +118,7 @@ class Payment extends Model
         $paymentType = $data['payment_type'] ?? ($paymentFrom === self::PAYMENT_FROM_STRIPE ? self::PAYMENT_TYPE_CARD : $paymentFrom);
 
         return self::create([
-            'partner_id' => $invoice->partner_id ?? null,
+            'partner_id' => $partnerId,
             'borrower_id' => $data['borrower_id'] ?? null,
             'invoice_id' => $data['invoice_id'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
@@ -151,7 +145,7 @@ class Payment extends Model
         $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
 
         if (!$stripeProvider) {
-            throw new \Exception('Stripe payment provider not found.');
+            throw new \Exception(__('payment.stripe_provider_not_found'));
         }
 
         $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
@@ -159,7 +153,7 @@ class Payment extends Model
             ->first();
 
         if (!$linkage) {
-            throw new \Exception('Stripe is not configured for this partner.');
+            throw new \Exception(__('payment.stripe_not_configured'));
         }
 
         $configuration = $linkage->configuration;
@@ -178,7 +172,7 @@ class Payment extends Model
         }
 
         if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured for ' . $paymentMode . ' mode.');
+            throw new \Exception(__('payment.stripe_secret_not_configured', ['mode' => $paymentMode]));
         }
 
         Stripe::setApiKey($secretKey);
