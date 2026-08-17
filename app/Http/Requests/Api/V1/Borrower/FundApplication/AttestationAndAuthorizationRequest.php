@@ -23,6 +23,7 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
     {
         return [
             'id' => 'nullable|exists:funding_applications,id',
+            'funding_request_id' => 'nullable|integer',
             'signature_name' => 'required|string|min:3|max:255|regex:/^(?!\s*$).+/',
             'esign_consent' => 'required|accepted',
             'terms_consent' => 'required|accepted',

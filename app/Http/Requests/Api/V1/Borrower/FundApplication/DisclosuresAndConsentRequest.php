@@ -23,6 +23,7 @@ class DisclosuresAndConsentRequest extends BaseApiRequest
     {
         return [
             'id' => 'nullable|exists:funding_applications,id',
+            'funding_request_id' => 'nullable|integer',
             'credit_pull_authorization' => 'required|accepted',
             'terms_conditions_acceptance' => 'required|accepted',
         ];
