@@ -148,25 +148,6 @@ class FundingApplicationService
                 unset($data['status']);
             }
 
-            // Inherit default values from FundingRequest if creating new or if field is explicitly empty in update
-            if ($req) {
-                if ($isNew || (array_key_exists('requested_amount', $data) && empty($data['requested_amount']) && empty($existing?->requested_amount))) {
-                    $data['requested_amount'] = $data['requested_amount'] ?? $req->requested_amount;
-                }
-                if ($isNew || (array_key_exists('purpose_of_funds', $data) && empty($data['purpose_of_funds']) && empty($existing?->purpose_of_funds))) {
-                    $data['purpose_of_funds'] = $data['purpose_of_funds'] ?? $req->use_of_funds;
-                }
-                if ($isNew || (array_key_exists('approved_funding', $data) && empty($data['approved_funding']) && empty($existing?->approved_funding))) {
-                    $data['approved_funding'] = $data['approved_funding'] ?? ($req->fundingSequence ? $req->fundingSequence->name : null);
-                }
-                if ($isNew || (array_key_exists('preferred_funding_type', $data) && empty($data['preferred_funding_type']) && empty($existing?->preferred_funding_type))) {
-                    $data['preferred_funding_type'] = $data['preferred_funding_type'] ?? $req->funding_type;
-                }
-                if ($isNew || (array_key_exists('timeframe_needed', $data) && empty($data['timeframe_needed']) && empty($existing?->timeframe_needed))) {
-                    $data['timeframe_needed'] = $data['timeframe_needed'] ?? $req->estimated_speed;
-                }
-            }
-
             // Inherit default values from Borrower if creating new or if field is explicitly empty in update
             $borrower = Borrower::find($borrowerId);
             if ($borrower) {

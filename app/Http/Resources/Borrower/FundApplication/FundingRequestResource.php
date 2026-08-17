@@ -68,6 +68,7 @@ class FundingRequestResource extends JsonResource
             'preferred_funding_type' => $preferredFundingType,
             'timeframe_needed' => $timeframeNeeded,
             'collateral_available' => $this->collateral_available ?? null,
+            'is_funding_request_saved' => $this->requested_amount !== null,
         ];
     }
 }
