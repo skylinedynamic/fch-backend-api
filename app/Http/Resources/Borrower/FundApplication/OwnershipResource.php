@@ -34,31 +34,35 @@ class OwnershipResource extends JsonResource
             $citizenship = $owner->citizenship;
             $ownershipPct = $owner->ownership_percentage;
         } else {
-            $firstName = $borrower?->first_name ?? null;
-            $lastName = $borrower?->last_name ?? null;
+            $firstName = $this->first_name ?? $borrower?->first_name ?? null;
+            $lastName = $this->last_name ?? $borrower?->last_name ?? null;
             $email = $borrower?->email ?? null;
-            $mobilePhone = $borrower?->phone_number ?? null;
+            $mobilePhone = $this->phone_number ?? $borrower?->phone_number ?? null;
             $homePhone = null;
             
-            $dob = $borrower?->date_of_birth 
-                ? (preg_match('/^\d{4}-\d{2}-\d{2}$/', $borrower->date_of_birth) 
-                    ? $borrower->date_of_birth 
-                    : date('Y-m-d', strtotime($borrower->date_of_birth)))
-                : null;
+            $dobRaw = $this->date_of_birth ?? $borrower?->date_of_birth;
+            $dob = null;
+            if ($dobRaw) {
+                if ($dobRaw instanceof \DateTimeInterface) {
+                    $dob = $dobRaw->format('Y-m-d');
+                } else {
+                    $dob = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dobRaw) ? $dobRaw : date('Y-m-d', strtotime($dobRaw));
+                }
+            }
                 
-            $ssn = $borrower?->last_4_ssn ?? null;
-            $streetAddress = $borrower?->home_address ?? null;
-            $city = $borrower?->city ?? null;
-            $state = $borrower?->state ?? null;
-            $zip = $borrower?->postal_code ?? null;
-            $country = $borrower?->country ?? null;
+            $ssn = $this->ssn ?? $borrower?->last_4_ssn ?? null;
+            $streetAddress = $this->street_address ?? $borrower?->home_address ?? null;
+            $city = $this->city ?? $borrower?->city ?? null;
+            $state = $this->state ?? $borrower?->state ?? null;
+            $zip = $this->zip_code ?? $borrower?->postal_code ?? null;
+            $country = $this->country ?? $borrower?->country ?? null;
             
-            $citizenship = null;
-            if ($borrower && method_exists($borrower, 'citizenship')) {
+            $citizenship = $this->citizenship_status ?? null;
+            if (!$citizenship && $borrower && method_exists($borrower, 'citizenship')) {
                 $citizenship = $borrower->citizenship;
             }
             
-            $ownershipPct = null;
+            $ownershipPct = $this->ownership ?? null;
         }
 
         return [
@@ -78,6 +82,8 @@ class OwnershipResource extends JsonResource
             'ownership' => $ownershipPct ?? '100.00',
             'has_co_borrower' => $this->has_co_borrower ?? false,
             'co_borrowers' => CoBorrowerResource::collection($this->whenLoaded('coborrowers') ?? collect()),
+            'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+            'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
         ];
     }
 }
