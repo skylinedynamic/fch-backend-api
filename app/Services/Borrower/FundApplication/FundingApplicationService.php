@@ -34,11 +34,12 @@ class FundingApplicationService
     {
         $fundingRequestId = request()->input('funding_request_id') ?? request()->input('fundingRequestId');
         $query = FundingApplication::where('borrower_id', auth()->user()->entity_id)
-            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
-            ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence');
 
         if ($fundingRequestId) {
             $query->where('funding_request_id', $fundingRequestId);
+        } else {
+            $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
         }
 
         $fundingInfo = $query->latest()->first();
@@ -101,11 +102,12 @@ class FundingApplicationService
             $existing = null;
             if (empty($matchId)) {
                 $fundingReqId = $data['funding_request_id'] ?? null;
-                $query = FundingApplication::where('borrower_id', $borrowerId)
-                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+                $query = FundingApplication::where('borrower_id', $borrowerId);
 
                 if ($fundingReqId) {
                     $query->where('funding_request_id', $fundingReqId);
+                } else {
+                    $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
                 }
 
                 $existing = $query->latest()->first();
