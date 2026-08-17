@@ -4,8 +4,8 @@ namespace App\Http\Resources\FCH\PaymentMethod;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
-use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -46,13 +46,18 @@ class PartnerPaymentProviderListResource extends JsonResource
                     $partnerId = Partner::host()?->id;
                 }
                 if ($partnerId) {
-                    $setting = (new PaymentMethodService())->getSettings($partnerId);
-                    if ($setting) {
-                        $mode = $setting->payment_mode ?? PaymentProvider::MODE_SANDBOX;
-                        $pubKey = ($mode === PaymentProvider::MODE_PRODUCTION)
-                            ? ($setting->stripe_key_production ?? null)
-                            : ($setting->stripe_key_sandbox ?? null);
+                    $providerConfig = PartnerPaymentProvider::where('partner_id', $partnerId)
+                        ->where('payment_provider_id', $this->id)
+                        ->where('status', true)
+                        ->first()?->configuration ?? [];
+                    if (is_object($providerConfig)) {
+                        $providerConfig = (array) $providerConfig;
                     }
+                    $mode = $providerConfig['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+                    $pubKey = $providerConfig[$mode]['publishable_key']
+                        ?? $providerConfig['publishable_key']
+                        ?? $providerConfig['public_key']
+                        ?? null;
                 }
             }
         }

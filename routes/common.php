@@ -279,7 +279,6 @@ Route::prefix('v1')->group(function () {
 
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
-            Route::get('leads-stats', [LeadController::class, 'stats']);
 
             // Explicitly define Leads Resource and separate split endpoints
             Route::get('leads', [LeadController::class, 'index']);

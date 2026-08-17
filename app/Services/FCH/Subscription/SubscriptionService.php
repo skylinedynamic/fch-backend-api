@@ -359,19 +359,21 @@ class SubscriptionService
      * Handle logic after a successful payment for an invoice.
      *
      * @param Invoice $invoice
+     * @param Subscription $subscription
      * @return void
      */
-    public function handleSuccessfulPayment(Invoice $invoice)
+    public function handleSuccessfulPayment(Invoice $invoice, Subscription $subscription)
     {
-        $subscription = null;
-        if ($invoice->subscription_id) {
-            $subscription = Subscription::find($invoice->subscription_id);
-        }
-
-        if (!$subscription) {
-            $subscription = Subscription::where('entity_type', $invoice->entity_type)
-                ->where('entity_id', $invoice->entity_id)
-                ->first();
+        // When invoice status is Processing, do not update or start the subscription (invoice is not paid yet)
+        if (
+            $invoice->status === Invoice::STATUS_PROCESSING ||
+            strtolower((string) $invoice->status) === strtolower(Invoice::STATUS_PROCESSING)
+        ) {
+            Log::info('Invoice status is Processing, skipping subscription start/update', [
+                'invoice_id' => $invoice->id,
+                'status' => $invoice->status,
+            ]);
+            return;
         }
 
         if (!$subscription) {
@@ -381,6 +383,7 @@ class SubscriptionService
 
         // Activate partner or borrower status upon successful payment
         $entity = $subscription->entity;
+
         if ($entity) {
             if ($entity instanceof Partner && $entity->status !== Partner::STATUS_ACTIVE) {
                 $entity->update(['status' => Partner::STATUS_ACTIVE]);
@@ -456,23 +459,41 @@ class SubscriptionService
      */
     private function handleInstallmentPayment(Subscription $subscription, Invoice $invoice): void
     {
-
+        $nextEnd = now()->addMonth()->toDateString();
         $plan = $subscription->partnerPlan;
 
         // Set start date on first payment
-        if (!$subscription->subscription_start_date) {
+        if (!$subscription->subscription_start_date && $subscription->phase != Subscription::PHASE_ENROLLMENT) {
             $subscription->update([
                 'subscription_start_date' => now(),
                 'first_payment_date' => now(),
                 'installments_paid' => $invoice->type == Invoice::INVOICE_TYPE_DOWN_PAYMENT ? 0 : 1,
                 'status' => Subscription::STATUS_ACTIVE,
+                'current_phase' => Subscription::PHASE_INSTALLMENT,
+                'subscription_end_date' => $nextEnd,
+                'current_cycle_invoice_id' => null,
             ]);
-            $subscription->refresh();
+
+        } elseif ($subscription->phase == Subscription::PHASE_INSTALLMENT) {
+
+            $isLastInstallment = $subscription->installment_count == ($subscription->installments_paid + 1);
+            $subscription->update([
+                'status' => Subscription::STATUS_ACTIVE,
+                'installments_paid' => $subscription->installments_paid + 1,
+                'installment_end_date' => $nextEnd,
+                'enrollment_completed_at' => $isLastInstallment ? now() : null,
+                'current_phase' => $isLastInstallment ? Subscription::PHASE_PLATFORM_FEE : Subscription::PHASE_INSTALLMENT,
+                'current_cycle_invoice_id' => null,
+            ]);
         } else {
-            $subscription->update(['status' => Subscription::STATUS_ACTIVE]);
+            $subscription->update([
+                'status' => Subscription::STATUS_ACTIVE,
+                'installment_end_date' => $nextEnd,
+                'current_cycle_invoice_id' => null,
+            ]);
         }
 
-        $this->advancePhase($subscription, $plan);
+        return;
     }
 
     /**
@@ -551,53 +572,6 @@ class SubscriptionService
         }
     }
 
-    /**
-     * Advance the subscription phase after a successful payment.
-     *
-     * Sets current_phase and advances subscription_end_date as the single billing trigger.
-     * next_installment_date and next_platform_fee_date are no longer written to.
-     */
-    private function advancePhase(Subscription $subscription, $plan): void
-    {
-        $phase = $subscription->current_phase;
-        $nextEnd = now()->addMonth()->toDateString();
-
-        if ($phase === Subscription::PHASE_ENROLLMENT) {
-            // Down payment just paid — move to installment phase
-            $subscription->update([
-                'current_phase' => Subscription::PHASE_INSTALLMENT,
-                'subscription_end_date' => $nextEnd,
-            ]);
-            return;
-        }
-
-        if ($phase === Subscription::PHASE_INSTALLMENT) {
-            $installmentCount = $subscription->installment_count ?? ($plan?->total_installment_count_upto ?? 0);
-
-            if ($subscription->installments_paid < $installmentCount) {
-                // More installments remain
-                $subscription->update([
-                    'current_phase' => Subscription::PHASE_INSTALLMENT,
-                    'subscription_end_date' => $nextEnd,
-                ]);
-            } else {
-                // All installments paid — move to platform fee phase
-                $subscription->update([
-                    'current_phase' => Subscription::PHASE_PLATFORM_FEE,
-                    'subscription_end_date' => $nextEnd,
-                    'enrollment_completed_at' => now(),
-                ]);
-            }
-            return;
-        }
-
-        if ($phase === Subscription::PHASE_PLATFORM_FEE) {
-            $subscription->update([
-                'current_phase' => Subscription::PHASE_PLATFORM_FEE,
-                'subscription_end_date' => $nextEnd,
-            ]);
-        }
-    }
     /**
      * Check if an invoice already exists for the given cycle.
      *

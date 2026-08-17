@@ -33,7 +33,7 @@ class PartnerPaymentProviderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $partnerId = $user->entity_type == Borrower::class ? $user->partner_id : Partner::host()?->id;
+        $partnerId = $user->partner_id;
 
         $providers = $this->configService->getProviders($partnerId);
 
@@ -43,7 +43,7 @@ class PartnerPaymentProviderController extends Controller
         );
     }
 
-    /**
+    /**   
      * Get configuration for a specific payment provider.
      *
      * @param mixed $id

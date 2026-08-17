@@ -50,9 +50,12 @@ class CommonService
 
             $partnerSubscription = $user->partner->subscription;
             $perSeatPrice = $partnerSubscription ? $partnerSubscription->per_seat_amount : 49.00;
+            $userSeats = $partnerSubscription ? ($partnerSubscription->user_seats ?? 3) : 3;
 
             return [
                 'count' => $count,
+                'seat_limit' => $userSeats,
+                'user_seats' => $userSeats,
                 'per_user_price' => $perSeatPrice,
             ];
         }

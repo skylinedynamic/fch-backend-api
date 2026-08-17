@@ -91,7 +91,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             : $invoice->partner_id;
 
         $partnerProvider = $gatewayManager->resolvePartnerProvider($receiverId);
-        $driver          = $gatewayManager->driverFor($partnerProvider);
+        $driver = $gatewayManager->driverFor($partnerProvider);
 
         $currency = strtolower($invoice->currency ?? Invoice::CURRENCY_USD);
         $amountInCents = (int) round($invoice->payment_amount * 100);
@@ -114,26 +114,28 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             DB::transaction(function () use ($invoice, $result, $subscriptionService) {
                 $payment = new Payment();
                 $payment->createRecord([
-                    'partner_id'     => $invoice->partner_id,
-                    'borrower_id'    => $invoice->borrower_id,
-                    'invoice_id'     => $invoice->id,
-                    'entity_type'    => $invoice->entity_type,
-                    'entity_id'      => $invoice->entity_id,
+                    'partner_id' => $invoice->partner_id,
+                    'borrower_id' => $invoice->borrower_id,
+                    'invoice_id' => $invoice->id,
+                    'entity_type' => $invoice->entity_type,
+                    'entity_id' => $invoice->entity_id,
                     'transaction_id' => $result['transaction_id'] ?? ('TX_' . uniqid()),
-                    'amount'         => $invoice->payment_amount,
-                    'currency'       => strtoupper($invoice->currency ?? Payment::CURRENCY_USD),
-                    'payment_from'   => Payment::PAYMENT_FROM_STRIPE,
-                    'status'         => Payment::STATUS_SUCCEEDED,
-                    'details'        => $result['raw'] ?? [],
+                    'amount' => $invoice->payment_amount,
+                    'currency' => strtoupper($invoice->currency ?? Payment::CURRENCY_USD),
+                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                    'status' => Payment::STATUS_SUCCEEDED,
+                    'details' => $result['raw'] ?? [],
                 ]);
 
                 $invoice->update([
-                    'status'       => Invoice::STATUS_PAID,
+                    'status' => Invoice::STATUS_PAID,
                     'payment_date' => now(),
                 ]);
 
+                $subscription = Subscription::find($invoice->subscription_id);
+
                 // Advance subscription phase and/or extend renewal dates
-                $subscriptionService->handleSuccessfulPayment($invoice);
+                $subscriptionService->handleSuccessfulPayment($invoice, $subscription);
             });
 
             Log::info("[Queue AutoCharge] Successfully charged invoice #{$invoice->invoice_id}");
@@ -151,17 +153,17 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         try {
             $payment = new Payment();
             $payment->createRecord([
-                'partner_id'     => $this->invoice->partner_id,
-                'borrower_id'    => $this->invoice->borrower_id,
-                'invoice_id'     => $this->invoice->id,
-                'entity_type'    => $this->invoice->entity_type,
-                'entity_id'      => $this->invoice->entity_id,
+                'partner_id' => $this->invoice->partner_id,
+                'borrower_id' => $this->invoice->borrower_id,
+                'invoice_id' => $this->invoice->id,
+                'entity_type' => $this->invoice->entity_type,
+                'entity_id' => $this->invoice->entity_id,
                 'transaction_id' => 'FAILED_' . uniqid(),
-                'amount'         => $this->invoice->payment_amount,
-                'currency'       => strtoupper($this->invoice->currency ?? Payment::CURRENCY_USD),
-                'payment_from'   => Payment::PAYMENT_FROM_STRIPE,
-                'status'         => Payment::STATUS_FAILED,
-                'details'        => array_merge(['error' => $reason], $details),
+                'amount' => $this->invoice->payment_amount,
+                'currency' => strtoupper($this->invoice->currency ?? Payment::CURRENCY_USD),
+                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                'status' => Payment::STATUS_FAILED,
+                'details' => array_merge(['error' => $reason], $details),
             ]);
         } catch (\Exception $e) {
             Log::error('[Queue AutoCharge] Failed to create failed payment record', ['error' => $e->getMessage()]);
@@ -178,11 +180,11 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         if (!empty($emails)) {
             try {
                 Mail::to($emails)->send(new CronJobFailureMail([
-                    'job_name'      => 'ChargeSubscriptionInvoiceJob (Database Queue)',
+                    'job_name' => 'ChargeSubscriptionInvoiceJob (Database Queue)',
                     'error_message' => $reason,
-                    'timestamp'     => now()->toDateTimeString(),
-                    'user_email'    => $this->invoice->email ?? 'N/A',
-                    'user_id'       => $this->invoice->entity_id ?? 'N/A',
+                    'timestamp' => now()->toDateTimeString(),
+                    'user_email' => $this->invoice->email ?? 'N/A',
+                    'user_id' => $this->invoice->entity_id ?? 'N/A',
                 ]));
             } catch (\Exception $e) {
                 Log::error('[Queue AutoCharge] Failed to send failure notification email', ['error' => $e->getMessage()]);

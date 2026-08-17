@@ -5,11 +5,8 @@ namespace App\Http\Resources\Global\Auth;
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /** @mixin \App\Models\User\User */
 class UserResource extends JsonResource
@@ -81,7 +78,9 @@ class UserResource extends JsonResource
             'subscription_status' => $subscription?->status,
             'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
             'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
+            'first_payment_date' => toTimezone($subscription?->first_payment_date),
             'per_seat_amount' => $subscription?->per_seat_amount ?? 49,
+            'user_seats' => $subscription?->user_seats ?? 1,
             'credit_profile_updated' => $this->borrower?->credit_profile_updated,
             'is_paid' => (bool) $this->is_paid,
             'phase' => $subscription?->current_phase,
