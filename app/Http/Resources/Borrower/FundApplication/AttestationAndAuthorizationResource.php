@@ -17,6 +17,7 @@ class AttestationAndAuthorizationResource extends JsonResource
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
             'attestation_authorization' => $this->attestation_authorization ? true : false,
+            'signature_data' => $this->signature_data,
         ];
     }
 }
