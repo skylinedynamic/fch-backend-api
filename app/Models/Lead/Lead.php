@@ -21,6 +21,11 @@ class Lead extends Model
 
     protected $guarded = [];
 
+    const PARTNER_TYPE_LEAD = 'Partner';
+    const BORROWER_TYPE_LEAD = 'Borrower';
+
+    const DEFAULT_COUNTRY_CODE = '+1';
+
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';
     const STATUS_LEAD_IDENTIFIED = 'Lead Identified';

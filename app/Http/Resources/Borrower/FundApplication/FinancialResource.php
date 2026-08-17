@@ -27,6 +27,8 @@ class FinancialResource extends JsonResource
                 'self_reported_business_credit_score' => $this->self_reported_business_credit_score ?? ($borrower?->paydex_score ? (string)$borrower->paydex_score : null),
                 'has_business_debt' => $this->has_business_debt ? true : ($borrower && $borrower->current_business_debt > 0 ? true : false),
                 'debt_balance' => $this->debt_balance ?? ($borrower?->current_business_debt ?? null),
+                'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+                'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
             ];
         } else {
             return [
@@ -39,6 +41,8 @@ class FinancialResource extends JsonResource
                 'self_reported_business_credit_score' => $borrower?->paydex_score ? (string)$borrower->paydex_score : null,
                 'has_business_debt' => $borrower && $borrower->current_business_debt > 0 ? true : false,
                 'debt_balance' => $borrower?->current_business_debt ?? null,
+                'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+                'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
             ];
         } 
     }

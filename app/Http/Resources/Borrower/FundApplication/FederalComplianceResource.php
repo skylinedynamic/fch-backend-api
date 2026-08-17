@@ -26,6 +26,8 @@ class FederalComplianceResource extends JsonResource
             'any_outstanding_judgments_business' => $this->any_outstanding_judgments_business === null ? null : $this->any_outstanding_judgments_business,
             'any_outstanding_judgments_owner' => $this->any_outstanding_judgments_owner === null ? null : $this->any_outstanding_judgments_owner,
             'federal_compliance_disclosures_explanation' => $this->federal_compliance_disclosures_explanation === null ? null : $this->federal_compliance_disclosures_explanation,
+            'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+            'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
         ];
     }
 }
