@@ -430,7 +430,9 @@ class SubscriptionService
      */
     private function handleOneTimePayment(Subscription $subscription, Invoice $invoice): void
     {
-        $nextEnd = now()->addMonth()->toDateString();
+        $nextEnd = $subscription->subscription_end_date
+            ? Carbon::parse($subscription->subscription_end_date)->addMonth()->toDateString()
+            : now()->addMonth()->toDateString();
         $isFirstPayment = !$subscription->subscription_start_date;
 
         $updateData = [
@@ -459,7 +461,9 @@ class SubscriptionService
      */
     private function handleInstallmentPayment(Subscription $subscription, Invoice $invoice): void
     {
-        $nextEnd = now()->addMonth()->toDateString();
+        $nextEnd = $subscription->subscription_end_date
+            ? Carbon::parse($subscription->subscription_end_date)->addMonth()->toDateString()
+            : now()->addMonth()->toDateString();
         $plan = $subscription->partnerPlan;
 
         // Set start date on first payment
@@ -481,6 +485,7 @@ class SubscriptionService
                 'status' => Subscription::STATUS_ACTIVE,
                 'installments_paid' => $subscription->installments_paid + 1,
                 'installment_end_date' => $nextEnd,
+                'subscription_end_date' => $nextEnd,
                 'enrollment_completed_at' => $isLastInstallment ? now() : null,
                 'current_phase' => $isLastInstallment ? Subscription::PHASE_PLATFORM_FEE : Subscription::PHASE_INSTALLMENT,
                 'current_cycle_invoice_id' => null,
@@ -489,6 +494,7 @@ class SubscriptionService
             $subscription->update([
                 'status' => Subscription::STATUS_ACTIVE,
                 'installment_end_date' => $nextEnd,
+                'subscription_end_date' => $nextEnd,
                 'current_cycle_invoice_id' => null,
             ]);
         }

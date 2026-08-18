@@ -67,7 +67,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
+            ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription', 'bankAccounts:id,borrower_id,bank_name,account_open_date'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status

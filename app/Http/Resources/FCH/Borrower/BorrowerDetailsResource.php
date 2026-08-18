@@ -63,6 +63,8 @@ class BorrowerDetailsResource extends JsonResource
                 'plan_id' => (int) $latestSub->subscription_plan_id,
                 'enrollment_type' => $latestSub->enrollment_type,
                 'payable_amount' => (float) $latestSub->payable_amount,
+                'borrower_fee_amount' => (float) $latestSub->borrower_fee_amount,
+                'borrower_fee_amount_formatted' => currencyFormat($latestSub->borrower_fee_amount),
                 'payable_amount_formatted' => currencyFormat($latestSub->payable_amount),
                 'total_subscription_amount' => (float) $latestSub->total_subscription_amount,
                 'total_subscription_amount_formatted' => currencyFormat($latestSub->total_subscription_amount),

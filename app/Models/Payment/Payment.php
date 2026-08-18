@@ -93,11 +93,11 @@ class Payment extends Model
             return false;
         }
 
-        if ($authUser->partner?->is_host == false && $this->entity_type == Borrower::class) {
+        if ($authUser->partner?->is_host == false && $this->entity_type == Borrower::class && $this->partner_id == $authUser->partner_id) {
             return true;
         }
 
-        if ($authUser->partner?->is_host == true && $this->entity_type != Borrower::class) {
+        if ($authUser->partner?->is_host == true && $this->partner_id == $authUser->partner_id) {
             return true;
         }
 

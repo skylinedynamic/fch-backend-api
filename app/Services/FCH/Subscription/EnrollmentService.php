@@ -457,6 +457,7 @@ class EnrollmentService
             'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
             'is_custom' => $amounts['is_custom'],
             'borrower_fee_amount' => $wlPartnerFeeAmount,
+            'current_cycle_invoice_id' => $invoice->id,
         ]);
 
         // Link invoices → subscription

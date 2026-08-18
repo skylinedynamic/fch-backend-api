@@ -43,6 +43,7 @@ class BorrowerController extends Controller
         try {
             return $this->borrowerService->list($request->validated());
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Borrower index error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
             return ApiResponse::serverError(__('borrower.list_failed'));
         }
     }

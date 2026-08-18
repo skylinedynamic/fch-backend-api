@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Payment;
 
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Subscription\Subscription;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
@@ -586,8 +587,18 @@ class PaymentService
 
                 // Auto charge partner host fee upon approval of manual borrower payment
                 if ($payment->invoice->entity_type === Borrower::class) {
-                    $unifiedPaymentService = app(UnifiedPaymentService::class);
-                    $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($payment->invoice, $payment);
+
+                    $subscription = Subscription::where('entity_id', $payment->entity_id)->first();
+                    if (!$subscription->first_payment_date && $subscription->entity_type === Borrower::class) {
+                        $borrowerFeeInvoice = Invoice::where('subscription_id', $subscription->id)
+                            ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
+                            ->first();
+                        if ($borrowerFeeInvoice && $borrowerFeeInvoice->status = Invoice::STATUS_UNPAID) {
+                            $unifiedPaymentService = app(UnifiedPaymentService::class);
+                            $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
+                        }
+
+                    }
                 }
 
                 // Update subscription data

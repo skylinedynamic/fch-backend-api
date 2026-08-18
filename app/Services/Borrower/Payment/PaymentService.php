@@ -2,8 +2,8 @@
 
 namespace App\Services\Borrower\Payment;
 
+use App\Http\Resources\Borrower\Payment\PaymentResource;
 use App\Models\Borrower\Borrower;
-use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
 use App\Services\Global\Datatable\QueryFilter;

@@ -2,7 +2,9 @@
 
 namespace App\Services\Borrower\Invoice;
 
+use App\Http\Resources\Borrower\Invoice\InvoiceResource;
 use App\Models\Borrower\Borrower;
+use App\Models\Common\AppConfiguration;
 use App\Models\Invoice\Invoice;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
