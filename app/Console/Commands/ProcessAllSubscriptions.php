@@ -41,6 +41,7 @@ class ProcessAllSubscriptions extends Command
         protected ActivityLogService $activityLogService,
     ) {
         parent::__construct();
+        $this->description = __('subscription.command_description');
     }
 
     public function handle(SubscriptionService $subscriptionService): int
@@ -56,12 +57,12 @@ class ProcessAllSubscriptions extends Command
 
         try {
             // ── STEP 1: Generate invoices (all types via unified method) ──────────
-            $this->info('=== STEP 1: Generating Invoices ===');
+            $this->info(__('subscription.step_1_generating_invoices'));
             $subscriptionService->generateDueInvoices();
-            $this->info('[Invoices] Done. All due invoices generated.');
+            $this->info(__('subscription.invoices_generated'));
 
             // ── STEP 2: Dispatch auto-charge jobs to database queue ─────────────
-            $this->info('=== STEP 2: Dispatching Auto-Charge Jobs to Database Queue ===');
+            $this->info(__('subscription.step_2_dispatching_jobs'));
             $this->dispatchAutoChargeJobs();
 
             DB::table('scheduler_runs')->where('id', $runId)->update([
@@ -70,7 +71,7 @@ class ProcessAllSubscriptions extends Command
                 'updated_at'   => now(),
             ]);
 
-            $this->info('[Done] Unified subscription processing completed.');
+            $this->info(__('subscription.processing_completed'));
 
         } catch (\Exception $e) {
             DB::table('scheduler_runs')->where('id', $runId)->update([
@@ -80,8 +81,9 @@ class ProcessAllSubscriptions extends Command
                 'updated_at'    => now(),
             ]);
 
-            Log::error('[ProcessAllSubscriptions] Critical failure: ' . $e->getMessage());
-            $this->error('[ProcessAllSubscriptions] Critical failure: ' . $e->getMessage());
+            $failureMessage = __('subscription.critical_failure') . $e->getMessage();
+            Log::error($failureMessage);
+            $this->error($failureMessage);
 
             $this->notifyAdmins(
                 'ProcessAllSubscriptions (subscriptions:process-all)',
@@ -107,13 +109,13 @@ class ProcessAllSubscriptions extends Command
             ->whereDate('created_at', '<=', now())
             ->get();
 
-        $this->info("[AutoCharge] Found {$dueInvoices->count()} unpaid invoice(s) to dispatch.");
+        $this->info(__('subscription.found_unpaid_invoices', ['count' => $dueInvoices->count()]));
 
         foreach ($dueInvoices as $invoice) {
             ChargeSubscriptionInvoiceJob::dispatch($invoice);
         }
 
-        $this->info("[AutoCharge] Successfully dispatched {$dueInvoices->count()} charge job(s) to database queue.");
+        $this->info(__('subscription.dispatched_charge_jobs', ['count' => $dueInvoices->count()]));
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -136,7 +138,7 @@ class ProcessAllSubscriptions extends Command
                 'stack_trace'   => $trace,
             ], $extra)));
         } catch (\Exception $e) {
-            Log::error('[ProcessAllSubscriptions] Failed to send admin notification', ['error' => $e->getMessage()]);
+            Log::error(__('subscription.failed_send_admin_notify'), ['error' => $e->getMessage()]);
         }
     }
 }

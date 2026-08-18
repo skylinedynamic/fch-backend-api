@@ -87,18 +87,19 @@ return [
     'payments' => [
         'permissions' => [
             ['name' => 'view payments', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create payments', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update payments', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete payments', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'can approve payment', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
     'invoices' => [
         'permissions' => [
             ['name' => 'view invoices', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create invoices', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update invoices', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete invoices', 'is_certified' => 0, 'is_host' => 0],
+        ],
+    ],
+
+    'upcoming billings' => [
+        'permissions' => [
+            ['name' => 'view billings', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 

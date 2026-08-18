@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Services\GlobalPayment\UnifiedPaymentService;
+use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Common\Payment\PaymentResource;
 
 class PaymentService
@@ -587,6 +588,12 @@ class PaymentService
                 if ($payment->invoice->entity_type === Borrower::class) {
                     $unifiedPaymentService = app(UnifiedPaymentService::class);
                     $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($payment->invoice, $payment);
+                }
+
+                // Update subscription data
+                if ($payment->invoice->subscription) {
+                    $subscriptionService = app(SubscriptionService::class);
+                    $subscriptionService->handleSuccessfulPayment($payment->invoice->fresh(), $payment->invoice->subscription);
                 }
             }
 
