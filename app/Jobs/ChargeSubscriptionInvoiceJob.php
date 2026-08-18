@@ -170,7 +170,10 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         }
 
         if ($this->invoice->subscription) {
-            $this->invoice->subscription->update(['status' => Subscription::STATUS_PAST_DUE]);
+            $sub = $this->invoice->subscription;
+            if ($sub->subscription_end_date && \Illuminate\Support\Carbon::parse($sub->subscription_end_date)->endOfDay()->isPast()) {
+                $sub->update(['status' => Subscription::STATUS_PAST_DUE]);
+            }
         }
 
         Log::error("[Queue AutoCharge] Failed auto-charge for invoice #{$this->invoice->invoice_id}: {$reason}");

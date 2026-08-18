@@ -6,8 +6,10 @@ use App\Models\Subscription\Subscription;
 use App\Models\Subscription\SubscriptionPhase;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
 use App\Http\Resources\FCH\Billing\BillingResource;
 use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
+use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 

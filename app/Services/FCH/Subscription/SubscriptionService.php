@@ -598,16 +598,36 @@ class SubscriptionService
             return false;
         }
 
-        $dueDate = Carbon::parse($dueDate)->startOfDay();
+        $parsedDueDate = Carbon::parse($dueDate)->startOfDay();
         $generateBeforeDays = (int) config('subscription.generate_before_days', 5);
-        $earliestGenerateDate = $dueDate->copy()->subDays($generateBeforeDays)->startOfDay();
+        $earliestGenerateDate = $parsedDueDate->copy()->subDays($generateBeforeDays)->startOfDay();
+
+        // Check if subscription_end_date has expired: mark status as Past Due if current cycle invoice remains unpaid
+        if ($today->gt($parsedDueDate)) {
+            if ($subscription->current_cycle_invoice_id) {
+                $currentInvoice = Invoice::find($subscription->current_cycle_invoice_id);
+                if ($currentInvoice && $currentInvoice->status === Invoice::STATUS_UNPAID) {
+                    $subscription->update(['status' => Subscription::STATUS_PAST_DUE]);
+                }
+            }
+        }
 
         // Must be within the generation window (e.g. within 5 days before subscription_end_date)
         if ($today->lt($earliestGenerateDate)) {
             return false;
         }
 
-        // Deduplication: do not create if an unpaid invoice already exists for this subscription
+        // Deduplication using current_cycle_invoice_id
+        if ($subscription->current_cycle_invoice_id) {
+            $currentInvoice = Invoice::find($subscription->current_cycle_invoice_id);
+            if ($currentInvoice) {
+                if ($currentInvoice->status === Invoice::STATUS_UNPAID || $currentInvoice->created_at >= $earliestGenerateDate) {
+                    return false;
+                }
+            }
+        }
+
+        // Deduplication fallback: do not create if an unpaid invoice already exists for this subscription
         $hasUnpaidInvoice = Invoice::where('subscription_id', $subscription->id)
             ->where('status', Invoice::STATUS_UNPAID)
             ->exists();
@@ -616,7 +636,7 @@ class SubscriptionService
             return false;
         }
 
-        // Deduplication: do not create if an invoice was already generated within this cycle window
+        // Deduplication fallback: do not create if an invoice was already generated within this cycle window
         $alreadyGeneratedThisCycle = Invoice::where('subscription_id', $subscription->id)
             ->where('created_at', '>=', $earliestGenerateDate)
             ->exists();

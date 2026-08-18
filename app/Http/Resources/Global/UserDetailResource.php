@@ -29,7 +29,7 @@ class UserDetailResource extends JsonResource
             'subscription_status' => $subscription?->status,
             'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
             'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
-            'first_payment_date' => toTimezone($subscription->first_payment_date),
+            'first_payment_date' => toTimezone($subscription?->first_payment_date),
             'phase' => $subscription?->current_phase,
             'is_refresh' => (boolval($this->is_refresh)),
             'is_free_trail' => $entityIsFreeTrial || ($partner?->is_free_trail ?? false),

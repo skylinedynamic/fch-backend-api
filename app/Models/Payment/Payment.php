@@ -85,7 +85,7 @@ class Payment extends Model
      */
     public function canApproveForUser(?User $authUser = null): bool
     {
-        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING) {
+        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING || $authUser->entity_type == Borrower::class) {
             return false;
         }
 
@@ -93,15 +93,12 @@ class Payment extends Model
             return false;
         }
 
-        $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
-        $isHost = $authUser->entity_type === Partner::class && $authUser->partner->is_host === 1;
-
-        if ($isHost) {
+        if ($authUser->partner?->is_host == false && $this->entity_type == Borrower::class) {
             return true;
         }
 
-        if (!empty($authUser->partner)) {
-            return (int) $this->partner_id === (int) $authUser->partner_id && !$isPartnerPaying;
+        if ($authUser->partner?->is_host == true && $this->entity_type != Borrower::class) {
+            return true;
         }
 
         return false;
