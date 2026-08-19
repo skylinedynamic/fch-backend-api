@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 class ReadinessScoreCalculationService
 {
     /**
-     * Calculate the funding readiness score.
+     * Calculate the Capital Access Readiness Scores.
      *
      * @param Borrower        $borrower
      * @return array

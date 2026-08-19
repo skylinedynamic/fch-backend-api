@@ -24,6 +24,7 @@ class Lead extends Model
     const PARTNER_TYPE_LEAD = 'Partner';
     const BORROWER_TYPE_LEAD = 'Borrower';
 
+    const DEFAULT_COUNTRY_CODE = '+1';
 
     const STATUS_NEW_LEAD = 'New Lead';
     const STATUS_CONTACT_INITIATED = 'Contact Initiated';
@@ -45,8 +46,6 @@ class Lead extends Model
     const LEAD_SOURCE_COLD_OUTREACH = 'Cold Outreach';
     const LEAD_SOURCE_PROFESSIONAL_REFERRAL = 'Professional Referral (CPA/Realtor/LO/etc.)';
     const LEAD_SOURCE_OTHER = 'Other';
-
-    const DEFAULT_COUNTRY_CODE = '+1';
 
     public static function getSourceOptions(): array
     {

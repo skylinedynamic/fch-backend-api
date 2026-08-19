@@ -43,11 +43,12 @@ class PartnerFundingApplicationService
         }
 
         $query = FundingApplication::where('borrower_id', $borrowerId)
-            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence')
-            ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+            ->with('borrower', 'coborrowers', 'fundingRequest.fundingSequence', 'fundingSequence');
 
         if ($fundingRequestId) {
             $query->where('funding_request_id', $fundingRequestId);
+        } else {
+            $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
         }
 
         $fundingInfo = $query->latest()->first();
@@ -55,7 +56,10 @@ class PartnerFundingApplicationService
         if ($fundingInfo) {
             return $fundingInfo;
         } else {
-            return Borrower::where('id', $borrowerId)->first();
+            if ($borrowerId) {
+                return Borrower::find($borrowerId);
+            }
+            return null;
         }
     }
 
@@ -89,7 +93,24 @@ class PartnerFundingApplicationService
                 throw new \Exception("Could not determine borrower ID.");
             }
 
-            $data['status'] = $status ?? FundingApplication::DRAFT;
+            $existingStatus = $existing->status ?? null;
+            
+            // If the application is already submitted or beyond, preserve its status unless explicitly overridden
+            if ($existingStatus && !in_array($existingStatus, [FundingApplication::ON_HOLD, FundingApplication::DRAFT])) {
+                $data['status'] = $status ?? $existingStatus;
+            } else {
+                // Check if federal compliance exists (either being saved now, or already exists)
+                $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation']) || (isset($existing) && $existing->federal_compliance_disclosures_explanation !== null);
+                
+                if ($hasFederalCompliance) {
+                    // When saving the last data, update status to DRAFT
+                    $data['status'] = $status ?? FundingApplication::DRAFT;
+                } else {
+                    // Otherwise, all saves should be ON_HOLD
+                    $data['status'] = $status ?? FundingApplication::ON_HOLD;
+                }
+            }
+            
             $data['is_partner_prepared'] = true;
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id ?? auth()->id(); // Use partner_id if it exists, otherwise fallback

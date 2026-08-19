@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\FundApplication;
 
+use App\Models\Borrower\FundingApplication;
 use App\Models\FundingRequest\FundingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -21,7 +22,7 @@ class FundingRequestResource extends JsonResource
             ?? null;
 
         $fundingReq = null;
-        if ($this->resource instanceof \App\Models\Borrower\FundingApplication && $this->relationLoaded('fundingRequest') && $this->fundingRequest) {
+        if ($this->resource instanceof FundingApplication && $this->relationLoaded('fundingRequest') && $this->fundingRequest) {
             $fundingReq = $this->fundingRequest;
         } elseif ($fundingRequestId) {
             $fundingReq = FundingRequest::with('fundingSequence')->find($fundingRequestId);
@@ -68,6 +69,14 @@ class FundingRequestResource extends JsonResource
             'preferred_funding_type' => $preferredFundingType,
             'timeframe_needed' => $timeframeNeeded,
             'collateral_available' => $this->collateral_available ?? null,
+            'is_business_info_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_business_info_saved : false,
+            'is_ownership_info_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_ownership_info_saved : false,
+            'is_financial_info_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_financial_info_saved : false,
+            'is_funding_request_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_funding_request_saved : false,
+            'is_disclosures_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_disclosures_saved : false,
+            'is_federal_compliance_saved' => $this->resource instanceof FundingApplication ? (bool)$this->is_federal_compliance_saved : false,
+            'signature_data' => $this->resource instanceof FundingApplication ? $this->signature_data : null,
+            'status' => $this->resource instanceof FundingApplication ? $this->status : null,
         ];
     }
 }

@@ -15,7 +15,7 @@ class OwnershipResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $borrower = $this->borrower ?? ($this instanceof \App\Models\Borrower\Borrower ? $this : null);
+        $borrower = $this->borrower ?? ($this->resource instanceof \App\Models\Borrower\Borrower ? $this->resource : null);
         $owner = $this->coborrowers ? $this->coborrowers->firstWhere('title_role', 'Owner') : null;
 
         if ($owner) {

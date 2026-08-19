@@ -73,19 +73,57 @@ class FundingApplicationService
                     ?? request()->route('fundingRequestId');
             }
 
+            $matchId = $data['id'] ?? null;
+            $existing = null;
+
+            // 1. Try to find the application by ID if provided
+            if (!empty($matchId)) {
+                $existing = FundingApplication::find($matchId);
+            }
+
+            // 2. Determine funding_request_id (use existing if not provided in payload)
             if (empty($data['funding_request_id'])) {
-                $latestReq = FundingRequest::where('borrower_id', $borrowerId)
-                    ->where('status', FundingRequest::STATUS_APPROVED)
-                    ->latest()
-                    ->first();
-                if ($latestReq) {
-                    $data['funding_request_id'] = $latestReq->id;
-                    if (empty($data['funding_sequence_id'])) {
-                        $data['funding_sequence_id'] = $latestReq->funding_sequence_id;
+                $data['funding_request_id'] = request()->input('funding_request_id') 
+                    ?? request()->input('fundingRequestId') 
+                    ?? request()->route('fundingRequestId');
+            }
+
+            // 3. If we STILL don't have an existing application, try to find one by request ID or ON_HOLD status
+            if (empty($existing)) {
+                $fundingReqId = $data['funding_request_id'] ?? null;
+                $query = FundingApplication::where('borrower_id', $borrowerId);
+
+                if ($fundingReqId) {
+                    $query->where('funding_request_id', $fundingReqId);
+                } else {
+                    $query->where('status', FundingApplication::ON_HOLD);
+                }
+
+                $existing = $query->latest()->first();
+                if ($existing) {
+                    $matchId = $existing->id;
+                }
+            }
+
+            // 4. If we STILL don't have a funding_request_id, and we are creating a NEW application, fallback to latest approved request
+            if (empty($data['funding_request_id'])) {
+                if ($existing) {
+                    $data['funding_request_id'] = $existing->funding_request_id;
+                } else {
+                    $latestReq = FundingRequest::where('borrower_id', $borrowerId)
+                        ->where('status', FundingRequest::STATUS_APPROVED)
+                        ->latest()
+                        ->first();
+                    if ($latestReq) {
+                        $data['funding_request_id'] = $latestReq->id;
+                        if (empty($data['funding_sequence_id'])) {
+                            $data['funding_sequence_id'] = $latestReq->funding_sequence_id;
+                        }
                     }
                 }
             }
 
+            // 5. Setup sequence ID defaults based on the resolved request
             $req = null;
             if (!empty($data['funding_request_id'])) {
                 $req = FundingRequest::with('fundingSequence')->find($data['funding_request_id']);
@@ -127,6 +165,10 @@ class FundingApplicationService
             }
 
 
+
+            if (!$isNew && $existing && empty($status)) {
+                unset($data['status']); // Do not overwrite existing status
+            }
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],

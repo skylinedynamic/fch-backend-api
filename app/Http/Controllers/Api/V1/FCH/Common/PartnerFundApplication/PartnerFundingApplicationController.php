@@ -4,23 +4,23 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFinancialInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingApplicationDocumentRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreFundingRequestRequest;
-use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreOwnershipInfoRequest;
-use App\Http\Requests\Api\V1\Borrower\MyApplication\CoBorrowerValidationRequest;
-use App\Http\Resources\Borrower\FundApplication\AttestationAndAuthorizationResource;
-use App\Http\Resources\Borrower\FundApplication\BusinessResource;
-use App\Http\Resources\Borrower\FundApplication\DisclosuresAndConsentResource;
-use App\Http\Resources\Borrower\FundApplication\FederalComplianceResource;
-use App\Http\Resources\Borrower\FundApplication\FinancialResource;
-use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
-use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
-use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\AttestationAndAuthorizationRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\DisclosuresAndConsentRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\FederalComplianceRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreBusinessInfoRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFinancialInfoRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFundingApplicationDocumentRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreFundingRequestRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\StoreOwnershipInfoRequest;
+use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\CoBorrowerValidationRequest;
+use App\Http\Resources\FCH\Partner\FundApplication\AttestationAndAuthorizationResource;
+use App\Http\Resources\FCH\Partner\FundApplication\BusinessResource;
+use App\Http\Resources\FCH\Partner\FundApplication\DisclosuresAndConsentResource;
+use App\Http\Resources\FCH\Partner\FundApplication\FederalComplianceResource;
+use App\Http\Resources\FCH\Partner\FundApplication\FinancialResource;
+use App\Http\Resources\FCH\Partner\FundApplication\FundingApplicationDocumentResource;
+use App\Http\Resources\FCH\Partner\FundApplication\FundingRequestResource;
+use App\Http\Resources\FCH\Partner\FundApplication\OwnershipResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
@@ -71,7 +71,9 @@ class PartnerFundingApplicationController extends Controller
     public function saveBusinessInfo(StoreBusinessInfoRequest $request)
     {
         try {
-            $businessInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_business_info_saved'] = true;
+            $businessInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new BusinessResource($businessInfo),
@@ -112,7 +114,9 @@ class PartnerFundingApplicationController extends Controller
      */
     public function saveOwnershipInfo(StoreOwnershipInfoRequest $request){
         try {
-            $ownershipInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_ownership_info_saved'] = true;
+            $ownershipInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new OwnershipResource($ownershipInfo),
@@ -151,7 +155,9 @@ class PartnerFundingApplicationController extends Controller
      */
     public function saveFinancialInfo(StoreFinancialInfoRequest $request){
         try {
-            $financialInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_financial_info_saved'] = true;
+            $financialInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new FinancialResource($financialInfo),
@@ -188,7 +194,9 @@ class PartnerFundingApplicationController extends Controller
      */
     public function saveFundingRequest(StoreFundingRequestRequest $request){
         try {
-            $fundingRequest = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_funding_request_saved'] = true;
+            $fundingRequest = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new FundingRequestResource($fundingRequest),
@@ -220,7 +228,9 @@ class PartnerFundingApplicationController extends Controller
 
     public function saveDisclosuresAndConsent(DisclosuresAndConsentRequest $request){
         try {
-            $disclosuresAndConsent = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_disclosures_saved'] = true;
+            $disclosuresAndConsent = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
@@ -252,7 +262,9 @@ class PartnerFundingApplicationController extends Controller
 
     public function saveFederalComplianceDisclosures(FederalComplianceRequest $request){
         try {
-            $federalCompliance = $this->fundingApplicationService->saveFundingApplication($request->validated(), FundingApplication::DRAFT);
+            $data = $request->validated();
+            $data['is_federal_compliance_saved'] = true;
+            $federalCompliance = $this->fundingApplicationService->saveFundingApplication($data, FundingApplication::DRAFT);
 
             $fundingApp = FundingApplication::with('borrower')->find($federalCompliance->funding_application_id ?? $federalCompliance->id);
             if ($fundingApp && $fundingApp->borrower) {
@@ -393,7 +405,8 @@ class PartnerFundingApplicationController extends Controller
             $appId = $app->id;
 
             // Ensure borrower uploaded documents are synced to the application
-            $this->fundingApplicationService->createFundingApplicationDocumentDir($appId);
+            // Removed for Partner: Do not auto-sync borrower documents so the step doesn't get a false tick
+            // $this->fundingApplicationService->createFundingApplicationDocumentDir($appId);
 
             $documents = FundingApplicationDocument::query()
                 ->where('funding_application_id', $appId)

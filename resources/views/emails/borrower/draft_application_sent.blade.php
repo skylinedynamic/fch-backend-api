@@ -58,6 +58,10 @@
                     <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->application_number }}</td>
                 </tr>
                 <tr>
+                    <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Status:</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #f59e0b; text-align: right; padding-right: 10px;">{{ $application->status ?? 'Draft' }}</td>
+                </tr>
+                <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Date Prepared:</td>
                     <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #495057; text-align: right; padding-right: 10px;">{{ \Carbon\Carbon::now()->format('F j, Y') }}</td>
                 </tr>

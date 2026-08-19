@@ -100,6 +100,12 @@ class FundingApplication extends Model
         'conversion_rate',
         'funding_sequence_id',
         'funding_request_id',
+        'is_business_info_saved',
+        'is_ownership_info_saved',
+        'is_financial_info_saved',
+        'is_funding_request_saved',
+        'is_disclosures_saved',
+        'is_federal_compliance_saved',
         'created_by',
         'updated_by',
     ];
@@ -108,6 +114,13 @@ class FundingApplication extends Model
         'date_of_birth' => 'date',
         'funded_date' => 'date',
         'signature_data' => 'array',
+
+        'is_business_info_saved' => 'boolean',
+        'is_ownership_info_saved' => 'boolean',
+        'is_financial_info_saved' => 'boolean',
+        'is_funding_request_saved' => 'boolean',
+        'is_disclosures_saved' => 'boolean',
+        'is_federal_compliance_saved' => 'boolean',
 
         'business_checking_start_date' => 'date',
         'number_of_employees' => 'integer',

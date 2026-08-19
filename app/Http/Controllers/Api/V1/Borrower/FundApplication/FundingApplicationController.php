@@ -70,7 +70,9 @@ class FundingApplicationController extends Controller
     public function saveBusinessInfo(StoreBusinessInfoRequest $request)
     {
         try {
-            $businessInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_business_info_saved'] = true;
+            $businessInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new BusinessResource($businessInfo),
@@ -110,7 +112,9 @@ class FundingApplicationController extends Controller
      */
     public function saveOwnershipInfo(StoreOwnershipInfoRequest $request){
         try {
-            $ownershipInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_ownership_info_saved'] = true;
+            $ownershipInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new OwnershipResource($ownershipInfo),
@@ -149,7 +153,9 @@ class FundingApplicationController extends Controller
      */
     public function saveFinancialInfo(StoreFinancialInfoRequest $request){
         try {
-            $financialInfo = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_financial_info_saved'] = true;
+            $financialInfo = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new FinancialResource($financialInfo),
@@ -186,7 +192,9 @@ class FundingApplicationController extends Controller
      */
     public function saveFundingRequest(StoreFundingRequestRequest $request){
         try {
-            $fundingRequest = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_funding_request_saved'] = true;
+            $fundingRequest = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new FundingRequestResource($fundingRequest),
@@ -218,7 +226,9 @@ class FundingApplicationController extends Controller
 
     public function saveDisclosuresAndConsent(DisclosuresAndConsentRequest $request){
         try {
-            $disclosuresAndConsent = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_disclosures_saved'] = true;
+            $disclosuresAndConsent = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
@@ -250,7 +260,9 @@ class FundingApplicationController extends Controller
 
     public function saveFederalComplianceDisclosures(FederalComplianceRequest $request){
         try {
-            $federalCompliance = $this->fundingApplicationService->saveFundingApplication($request->validated());
+            $data = $request->validated();
+            $data['is_federal_compliance_saved'] = true;
+            $federalCompliance = $this->fundingApplicationService->saveFundingApplication($data);
 
             return ApiResponse::success(
                 new FederalComplianceResource($federalCompliance),

@@ -14,7 +14,7 @@ class BusinessResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $borrower = $this->borrower ?? ($this instanceof \App\Models\Borrower\Borrower ? $this : null);
+        $borrower = $this->borrower ?? ($this->resource instanceof \App\Models\Borrower\Borrower ? $this->resource : null);
 
         $fullName = $this->full_name 
             ?? ($borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : null);
