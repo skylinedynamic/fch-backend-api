@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\GlobalPayment\ProcessPaymentRequest;
 use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
@@ -95,8 +96,8 @@ class UnifiedPaymentController extends Controller
     protected function resolveStripeSecretKey(Invoice $invoice): string
     {
         $receiverPartnerId = null;
-        if ($invoice->is_partner_paying || $invoice->entity_type === \App\MPartner::class) {
-            $receiverPartnerId = \App\Models\Partner\Partner::where('is_host', true)->first()?->id;
+        if ($invoice->is_partner_paying || $invoice->entity_type === Partner::class) {
+            $receiverPartnerId = Partner::where('is_host', true)->first()?->id;
         } else {
             $receiverPartnerId = $invoice->partner_id;
         }

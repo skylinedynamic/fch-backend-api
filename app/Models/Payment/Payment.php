@@ -54,6 +54,34 @@ class Payment extends Model
     public const CURRENCY_SYMBOL_USD = '$';
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Payment $payment) {
+            if ($payment->status === self::STATUS_SUCCEEDED && ($payment->wasRecentlyCreated || $payment->wasChanged('status'))) {
+                $entityType = $payment->entity_type ?: $payment->invoice?->entity_type;
+                $entityId = $payment->entity_id ?: $payment->invoice?->entity_id;
+
+
+
+                if ($entityId) {
+                    if (!$entityType || $entityType === User::class) {
+                        User::where('id', $entityId)
+                            ->first()
+                                ?->markAsRefresh();
+                    } else {
+                        User::where('entity_type', $entityType)
+                            ->where('entity_id', $entityId)
+                            ->first()
+                                ?->markAsRefresh();
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Determine transaction type (Debit vs Credit) for a specific user role.
      */
     public function getTransactionTypeForUser(?User $authUser = null): string

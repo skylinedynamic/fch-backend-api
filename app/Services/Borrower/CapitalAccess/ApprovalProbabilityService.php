@@ -38,11 +38,6 @@ class ApprovalProbabilityService
         int $delayDays = -1,
         ?BorrowerCapitalAccessPlay $latestCompletedPlay = null
     ): array {
-        Log::info('ApprovalProbabilityService::calculate', [
-            'borrower_id' => $borrower->id,
-            'play_id'     => $play->id,
-            'play_name'   => $play->name ?? '',
-        ]);
 
         // Build context on-the-fly if not supplied
         if ($ctx === null) {
@@ -51,7 +46,7 @@ class ApprovalProbabilityService
 
         // Load tiers / modifiers if not supplied
         if ($probTiers === null || $modifiers === null) {
-            $cache     = app(ScoreConfigurationCache::class);
+            $cache = app(ScoreConfigurationCache::class);
             $probTiers = $probTiers ?? $cache->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
             $modifiers = $modifiers ?? $cache->getModifiersFor(ScoreConfiguration::MODEL_APPROVAL_PROBABILITY);
         }
@@ -65,49 +60,28 @@ class ApprovalProbabilityService
         // 2. Base probability
         $probability = $ctx->readinessScore + ($play->difficulty_modifier ?? 0);
 
-        Log::info('ApprovalProbabilityService::calculate - base', [
-            'readiness_score'     => $ctx->readinessScore,
-            'difficulty_modifier' => $play->difficulty_modifier,
-            'base'                => $probability,
-        ]);
-
         // 3. Factor subscores
-        $fico_diff     = max(0, $ctx->ficoScore - ((int) ($play->minimum_fico_requirement ?? 0)));
-        $ficoPoints    = $this->matchTier($probTiers->get('fico_above_minimum') ?? collect(), $fico_diff);
-        $utilPoints    = $this->matchTier($probTiers->get('utilization') ?? collect(), $ctx->revolvingUtilization);
+        $fico_diff = max(0, $ctx->ficoScore - ((int) ($play->minimum_fico_requirement ?? 0)));
+        $ficoPoints = $this->matchTier($probTiers->get('fico_above_minimum') ?? collect(), $fico_diff);
+        $utilPoints = $this->matchTier($probTiers->get('utilization') ?? collect(), $ctx->revolvingUtilization);
         $inquiryPoints = $this->matchTier($probTiers->get('recent_inquiries') ?? collect(), $ctx->recentInquiries);
 
         $bankProbLabel = $this->mapBankingLabel($ctx->bankingLabel);
-        $bankPoints    = (int) (($probTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
+        $bankPoints = (int) (($probTiers->get('banking_relationship') ?? collect())->firstWhere('label', $bankProbLabel)?->numeric_value ?? 0);
 
         $tradeProbLabel = $this->mapTradelineLabel($ctx->tradeLabel);
-        $tradePoints    = (int) (($probTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
+        $tradePoints = (int) (($probTiers->get('tradeline_depth') ?? collect())->firstWhere('label', $tradeProbLabel)?->numeric_value ?? 0);
 
         $revProbLabel = $this->mapRevenueLabel($ctx->revenueLabel);
-        $revPoints    = (int) (($probTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
+        $revPoints = (int) (($probTiers->get('revenue_income') ?? collect())->firstWhere('label', $revProbLabel)?->numeric_value ?? 0);
 
         $probability += $ficoPoints + $utilPoints + $inquiryPoints + $bankPoints + $tradePoints + $revPoints;
 
-        Log::info('ApprovalProbabilityService::calculate - subscores', [
-            'fico'         => $ficoPoints,
-            'util'         => $utilPoints,
-            'inquiry'      => $inquiryPoints,
-            'bank'         => $bankPoints,
-            'trade'        => $tradePoints,
-            'rev'          => $revPoints,
-            'intermediate' => $probability,
-        ]);
-
         $finalProbability = max(0, min(99, (int) round($probability)));
-
-        Log::info('ApprovalProbabilityService::calculate - final', [
-            'raw'   => $probability,
-            'final' => $finalProbability,
-        ]);
 
         // 4. Next Play Delay gate — only when not skipped and delay > 0
         $nextPlayDelayActive = false;
-        $unlockAt            = null;
+        $unlockAt = null;
 
         if (!$skipDelayCheck) {
             // Lazy-load from ScoreConfigurationCache when not pre-supplied by orchestrator
@@ -135,7 +109,7 @@ class ApprovalProbabilityService
                         $calcUnlockAt = $latestCompletedPlay->updated_at->copy()->addDays($delayDays);
                         if (now()->lessThan($calcUnlockAt)) {
                             $nextPlayDelayActive = true;
-                            $unlockAt            = $calcUnlockAt->toIso8601String();
+                            $unlockAt = $calcUnlockAt->toIso8601String();
                         }
                     }
                 }
@@ -144,9 +118,9 @@ class ApprovalProbabilityService
 
         return [
             'probability' => $finalProbability,
-            'status'      => true,
+            'status' => true,
             'reason_code' => $nextPlayDelayActive ? 'NEXT_PLAY_DELAY_ACTIVE' : null,
-            'unlock_at'   => $unlockAt,
+            'unlock_at' => $unlockAt,
         ];
     }
 
@@ -202,10 +176,10 @@ class ApprovalProbabilityService
     private function mapBankingLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_BANKING_STRONG   => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
+            ScoreConfiguration::STATUS_BANKING_STRONG => ScoreConfiguration::PROB_STATUS_BANKING_STRONG,
             ScoreConfiguration::STATUS_BANKING_MODERATE => ScoreConfiguration::PROB_STATUS_BANKING_MODERATE,
-            ScoreConfiguration::STATUS_BANKING_LIMITED  => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
+            ScoreConfiguration::STATUS_BANKING_LIMITED => ScoreConfiguration::PROB_STATUS_BANKING_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_BANKING_NONE,
         };
     }
 
@@ -213,25 +187,24 @@ class ApprovalProbabilityService
     {
         return match ($label) {
             ScoreConfiguration::STATUS_TRADE_MULTIPLE_HIGH => ScoreConfiguration::PROB_STATUS_TRADE_MULTIPLE_HIGH,
-            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH    => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
-            ScoreConfiguration::STATUS_TRADE_MODERATE      => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
-            default                                        => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
+            ScoreConfiguration::STATUS_TRADE_GOOD_DEPTH => ScoreConfiguration::PROB_STATUS_TRADE_GOOD_DEPTH,
+            ScoreConfiguration::STATUS_TRADE_MODERATE => ScoreConfiguration::PROB_STATUS_TRADE_MODERATE,
+            default => ScoreConfiguration::PROB_STATUS_TRADE_THIN,
         };
     }
 
     private function mapRevenueLabel(?string $label): string
     {
         return match ($label) {
-            ScoreConfiguration::STATUS_REVENUE_STRONG   => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
+            ScoreConfiguration::STATUS_REVENUE_STRONG => ScoreConfiguration::PROB_STATUS_REVENUE_STRONG,
             ScoreConfiguration::STATUS_REVENUE_MODERATE => ScoreConfiguration::PROB_STATUS_REVENUE_MODERATE,
-            ScoreConfiguration::STATUS_REVENUE_LIMITED  => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
-            default                                     => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
+            ScoreConfiguration::STATUS_REVENUE_LIMITED => ScoreConfiguration::PROB_STATUS_REVENUE_LIMITED,
+            default => ScoreConfiguration::PROB_STATUS_REVENUE_STARTUP,
         };
     }
 
     private function disqualify(string $reasonCode): array
     {
-        Log::info('ApprovalProbabilityService::disqualify', ['reason_code' => $reasonCode]);
         return ['probability' => 0, 'status' => false, 'reason_code' => $reasonCode, 'unlock_at' => null];
     }
 }

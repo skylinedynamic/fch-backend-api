@@ -395,7 +395,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('payment')->group(function () {
             Route::post('process', [UnifiedPaymentController::class, 'processPayment']);
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
-            Route::get('partner-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
+            Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });
 
         // V1 Notification routes

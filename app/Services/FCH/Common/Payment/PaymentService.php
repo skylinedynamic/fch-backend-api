@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Payment;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Subscription\Subscription;
+use App\Models\User\User;
 use App\Traits\PaginatesApi;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
@@ -578,18 +579,19 @@ class PaymentService
                 'details' => $existingDetails,
             ]);
 
+            $invoice = $payment->invoice;
+            $subscription = Subscription::find($invoice->subscription_id);
+
             // Update invoice status to Paid and set paid_at to now
-            if ($payment->invoice) {
-                $payment->invoice->update([
+            if ($invoice) {
+                $invoice->update([
                     'status' => Invoice::STATUS_PAID,
                     'paid_at' => $now,
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment
-                if ($payment->invoice->entity_type === Borrower::class) {
-
-                    $subscription = Subscription::where('entity_id', $payment->entity_id)->first();
-                    if (!$subscription->first_payment_date && $subscription->entity_type === Borrower::class) {
+                if ($subscription && $invoice->entity_type === Borrower::class && $authUser->partner->is_host == false) {
+                    if (!$subscription->first_payment_date) {
                         $borrowerFeeInvoice = Invoice::where('subscription_id', $subscription->id)
                             ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
                             ->first();
@@ -602,9 +604,9 @@ class PaymentService
                 }
 
                 // Update subscription data
-                if ($payment->invoice->subscription) {
+                if ($subscription) {
                     $subscriptionService = app(SubscriptionService::class);
-                    $subscriptionService->handleSuccessfulPayment($payment->invoice->fresh(), $payment->invoice->subscription);
+                    $subscriptionService->handleSuccessfulPayment($invoice->fresh(), $subscription);
                 }
             }
 

@@ -77,6 +77,7 @@ class User extends Authenticatable implements OAuthenticatable
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
             'is_paid' => 'boolean',
+            'is_refresh' => 'boolean',
         ];
     }
 
@@ -514,7 +515,7 @@ class User extends Authenticatable implements OAuthenticatable
      */
     public function invoices(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->morphMany(\App\Models\Invoice\Invoice::class, 'entity');
+        return $this->morphMany(Invoice::class, 'entity');
     }
 
     /**
@@ -624,7 +625,7 @@ class User extends Authenticatable implements OAuthenticatable
             }
         }
 
-        if ($this->entity_type === \App\Models\Borrower\Borrower::class || $this->user_type === self::BORROWER) {
+        if ($this->entity_type === Borrower::class || $this->user_type === self::BORROWER) {
             return asset('avatar/avatar-default.jpg');
         }
 
@@ -634,5 +635,16 @@ class User extends Authenticatable implements OAuthenticatable
     public function getImageAttribute($value)
     {
         return $value ? encodeUrl(asset("storage/{$value}")) : null;
+    }
+
+    /**
+     * Mark the user for session/state refresh.
+     *
+     * @param bool $refresh
+     * @return bool
+     */
+    public function markAsRefresh(bool $refresh = true): bool
+    {
+        return $this->update(['is_refresh' => $refresh]);
     }
 }
