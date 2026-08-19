@@ -18,6 +18,8 @@ class AttestationAndAuthorizationResource extends JsonResource
             'id' => isset($this->borrower_id) ? $this->id : null,
             'attestation_authorization' => $this->attestation_authorization ? true : false,
             'signature_data' => $this->signature_data,
+            'funding_sequence_id' => $this->funding_sequence_id ?? $request->input('funding_sequence_id') ?? $request->input('fundingSequenceId') ?? null,
+            'funding_request_id' => $this->funding_request_id ?? $request->input('funding_request_id') ?? $request->input('fundingRequestId') ?? null,
         ];
     }
 }

@@ -39,7 +39,7 @@ class FundingApplicationService
         if ($fundingRequestId) {
             $query->where('funding_request_id', $fundingRequestId);
         } else {
-            $query->where('status', FundingApplication::ON_HOLD);
+            $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
         }
 
         $fundingInfo = $query->latest()->first();
@@ -136,16 +136,50 @@ class FundingApplicationService
                 $data['funding_sequence_id'] = request()->input('funding_sequence_id');
             }
 
-            $isNew = empty($existing);
-            
-            // Fix: Only set status to ON_HOLD if creating a new application or explicitly requested
-            if ($status) {
-                $data['status'] = $status;
-            } elseif ($isNew) {
-                $data['status'] = FundingApplication::ON_HOLD;
+            $matchId = $data['id'] ?? null;
+            $existing = null;
+            if (empty($matchId)) {
+                $fundingReqId = $data['funding_request_id'] ?? null;
+                $query = FundingApplication::where('borrower_id', $borrowerId)
+                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+
+                if ($fundingReqId) {
+                    $query->where('funding_request_id', $fundingReqId);
+                }
+
+                $existing = $query->latest()->first();
+                if ($existing) {
+                    $matchId = $existing->id;
+                }
             } else {
-                // Keep the existing status
-                unset($data['status']);
+                $existing = FundingApplication::find($matchId);
+            }
+
+            $isNew = empty($existing);
+
+            if ($isNew) {
+                $data['created_by'] = auth()->id();
+            } else {
+                $data['updated_by'] = auth()->id();
+            }
+
+            // Inherit default values from FundingRequest if creating new or if field is explicitly empty in update
+            if ($req) {
+                if ($isNew || (array_key_exists('requested_amount', $data) && empty($data['requested_amount']) && empty($existing?->requested_amount))) {
+                    $data['requested_amount'] = $data['requested_amount'] ?? $req->requested_amount;
+                }
+                if ($isNew || (array_key_exists('purpose_of_funds', $data) && empty($data['purpose_of_funds']) && empty($existing?->purpose_of_funds))) {
+                    $data['purpose_of_funds'] = $data['purpose_of_funds'] ?? $req->use_of_funds;
+                }
+                if ($isNew || (array_key_exists('approved_funding', $data) && empty($data['approved_funding']) && empty($existing?->approved_funding))) {
+                    $data['approved_funding'] = $data['approved_funding'] ?? ($req->fundingSequence ? $req->fundingSequence->name : null);
+                }
+                if ($isNew || (array_key_exists('preferred_funding_type', $data) && empty($data['preferred_funding_type']) && empty($existing?->preferred_funding_type))) {
+                    $data['preferred_funding_type'] = $data['preferred_funding_type'] ?? $req->funding_type;
+                }
+                if ($isNew || (array_key_exists('timeframe_needed', $data) && empty($data['timeframe_needed']) && empty($existing?->timeframe_needed))) {
+                    $data['timeframe_needed'] = $data['timeframe_needed'] ?? $req->estimated_speed;
+                }
             }
 
             // Inherit default values from Borrower if creating new or if field is explicitly empty in update
@@ -246,6 +280,10 @@ class FundingApplicationService
                 if ($isNew || (array_key_exists('has_business_debt', $data) && !isset($data['has_business_debt']) && !isset($existing?->has_business_debt))) {
                     $data['has_business_debt'] = $data['has_business_debt'] ?? ($borrower->current_business_debt ? true : false);
                 }
+            }
+
+            if (!$isNew && $existing && empty($status)) {
+                unset($data['status']); // Do not overwrite existing status
             }
 
             $fundingApplication = FundingApplication::updateOrCreate(
