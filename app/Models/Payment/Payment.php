@@ -3,6 +3,7 @@
 namespace App\Models\Payment;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
@@ -113,23 +114,27 @@ class Payment extends Model
      */
     public function canApproveForUser(?User $authUser = null): bool
     {
-        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING || $authUser->entity_type == Borrower::class) {
+        if (!$authUser || $authUser->entity_type === Borrower::class) {
             return false;
         }
 
-        if (empty($authUser)) {
+        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING) {
             return false;
         }
 
-        if ($authUser->partner?->is_host == false && $this->entity_type == Borrower::class && $this->partner_id == $authUser->partner_id) {
-            return true;
+        $authUserPartner = $authUser->partner;
+        $isHost = (bool) ($authUserPartner?->is_host ?? false);
+        $authUserPartnerId = $authUser->partner_id;
+
+        // Host partner: can approve their own partner payments OR borrower fee invoices
+        if ($isHost) {
+            return $this->partner_id === $authUserPartnerId
+                || $this->invoice?->type === Invoice::INVOICE_TYPE_BORROWER_FEE;
         }
 
-        if ($authUser->partner?->is_host == true && $this->partner_id == $authUser->partner_id) {
-            return true;
-        }
-
-        return false;
+        // Non-host partner: can only approve borrower payments under their own partner
+        return $this->partner_id === $authUserPartnerId
+            && $this->entity_type === Borrower::class;
     }
 
     /**

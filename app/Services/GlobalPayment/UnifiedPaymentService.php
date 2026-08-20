@@ -73,7 +73,7 @@ class UnifiedPaymentService
             throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
-        if ($subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
+        if ($invoice->type != Invoice::INVOICE_TYPE_BORROWER_FEE && $subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
             throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
@@ -278,7 +278,7 @@ class UnifiedPaymentService
                 Log::info(__('payment.log_autocharge_no_unpaid_invoice', ['partner_id' => $partner->id]));
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error(__('payment.log_autocharge_failed_error', ['error' => $e->getMessage()]));
         }
     }
