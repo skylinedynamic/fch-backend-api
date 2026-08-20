@@ -47,7 +47,8 @@ class FundingController extends Controller
                 return in_array($type->id, $availableTypeIds);
             })->values();
             
-            $stats = $this->service->getDashboardStats($groupedSequencings);
+            $borrower = $request->user()->entity;
+            $stats = $this->service->getDashboardStats($groupedSequencings, $borrower);
 
             return ApiResponse::success(
                 [
