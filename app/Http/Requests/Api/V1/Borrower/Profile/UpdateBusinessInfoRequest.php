@@ -36,7 +36,9 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_zip_code' => 'required|string|size:5',
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
+            'business_entity_type_note' => 'required_if:business_entity_type,' . config('borrower.entity_type_other') . '|nullable|string|max:255',
             'business_industry_type' => 'required|string|max:255',
+            'business_industry_type_note' => 'required_if:business_industry_type,' . config('borrower.industry_type_other') . '|nullable|string|max:255',
             'business_start_date' => 'required|date',
         ];
     }
@@ -80,11 +82,13 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_entity_type.required' => __('borrower_validation.business_entity_type_required'),
             'business_entity_type.string' => __('borrower_validation.business_entity_type_string'),
             'business_entity_type.max' => __('borrower_validation.business_entity_type_max'),
+            'business_entity_type_note.required_if' => __('borrower_validation.business_entity_type_note_required_if'),
             'business_website.url' => __('borrower_validation.business_website_url'),
             'business_website.max' => __('borrower_validation.business_website_max'),
             'business_industry_type.required' => __('borrower_validation.business_industry_type_required'),
             'business_industry_type.string' => __('borrower_validation.business_industry_type_string'),
             'business_industry_type.max' => __('borrower_validation.business_industry_type_max'),
+            'business_industry_type_note.required_if' => __('borrower_validation.business_industry_type_note_required_if'),
         ];
     }
 }

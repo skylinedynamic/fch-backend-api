@@ -61,7 +61,9 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_email' => ['nullable', 'email', 'max:255'],
             'business_website' => ['nullable', 'max:255'],
             'business_entity_type' => ['nullable', 'string', 'max:255'],
+            'business_entity_type_note' => ['required_if:business_entity_type,' . config('borrower.entity_type_other'), 'nullable', 'string', 'max:255'],
             'business_industry_type' => ['nullable', 'string', 'max:255'],
+            'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_description' => ['nullable', 'string'],
             'business_logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120'],
             'business_registration_number' => ['nullable', 'string', 'max:255'],
@@ -137,6 +139,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'assign_id.exists' => __('borrower_validation.assign_id_exists'),
             'fico_score.numeric' => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric' => __('borrower_validation.paydex_score_numeric'),
+            'business_entity_type_note.required_if' => __('borrower_validation.business_entity_type_note_required_if'),
+            'business_industry_type_note.required_if' => __('borrower_validation.business_industry_type_note_required_if'),
             'free_trail_end_date.required' => 'Trial end date is required when free trial is enabled.',
         ];
     }
