@@ -12,8 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('funding_applications', function (Blueprint $table) {
-            $table->unsignedBigInteger('created_by')->nullable()->after('conversion_rate');
-            $table->unsignedBigInteger('updated_by')->nullable()->after('created_by');
+            if (!Schema::hasColumn('funding_applications', 'created_by')) {
+                $table->unsignedBigInteger('created_by')->nullable()->after('conversion_rate');
+            }
+            if (!Schema::hasColumn('funding_applications', 'updated_by')) {
+                $table->unsignedBigInteger('updated_by')->nullable()->after('created_by');
+            }
         });
     }
 
