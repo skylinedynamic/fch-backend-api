@@ -132,6 +132,8 @@ return [
     'business_industry_type_required' => 'Business industry type is required',
     'business_industry_type_string' => 'Business industry type must be a string',
     'business_industry_type_max' => 'Business industry type cannot exceed 255 characters',
+    'business_entity_type_note_required_if' => 'Entity type details are required when entity type is Other.',
+    'business_industry_type_note_required_if' => 'Industry type details are required when industry type is Other.',
     'industry_required' => 'Industry is required',
     'industry_string' => 'Industry must be a string',
     'industry_max' => 'Industry cannot exceed 255 characters',

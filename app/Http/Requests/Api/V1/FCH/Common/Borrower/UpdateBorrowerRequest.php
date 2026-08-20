@@ -66,7 +66,9 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_email'        => ['nullable', 'email', 'max:255'],
             'business_website'      => ['nullable', 'max:255'],
             'business_entity_type'  => ['nullable', 'string', 'max:255'],
+            'business_entity_type_note' => ['required_if:business_entity_type,' . config('borrower.entity_type_other'), 'nullable', 'string', 'max:255'],
             'business_industry_type'=> ['nullable', 'string', 'max:255'],
+            'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_description'  => ['nullable', 'string'],
             'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120'],
             'duns_number'           => ['nullable', 'string', 'max:255'],
@@ -148,6 +150,8 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'enrollment.amount.numeric'      => __('borrower_validation.enrollment_payment_numeric'),
             'enrollment.amount.gt'           => __('borrower_validation.enrollment_payment_gt'),
             'enrollment.amount.regex'        => __('borrower_validation.enrollment_payment_regex'),
+            'business_entity_type_note.required_if' => __('borrower_validation.business_entity_type_note_required_if'),
+            'business_industry_type_note.required_if' => __('borrower_validation.business_industry_type_note_required_if'),
         ];
     }
 }
