@@ -17,6 +17,16 @@
             style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
             Payment Details</div>
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            @if(!empty($invoice_id))
+            <tr>
+                <td class="label"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
+                    Invoice ID</td>
+                <td class="value"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
+                    #{{ $invoice_id }}</td>
+            </tr>
+            @endif
             <tr>
                 <td class="label"
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
@@ -41,6 +51,16 @@
                     style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
                     {{ $transaction_id }}</td>
             </tr>
+            @if(!empty($payment_method))
+            <tr>
+                <td class="label"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
+                    Payment Method</td>
+                <td class="value"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px;">
+                    {{ $payment_method }}</td>
+            </tr>
+            @endif
             <tr>
                 <td class="label"
                     style="padding: 10px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">

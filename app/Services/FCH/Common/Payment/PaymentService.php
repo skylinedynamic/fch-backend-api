@@ -13,6 +13,10 @@ use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\Payment\PaymentSuccessMail;
+use App\Mail\Payment\PaymentApprovedMail;
+use App\Mail\Payment\PaymentRejectedMail;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Services\GlobalPayment\UnifiedPaymentService;
@@ -608,6 +612,45 @@ class PaymentService
                     $subscriptionService = app(SubscriptionService::class);
                     $subscriptionService->handleSuccessfulPayment($invoice->fresh(), $subscription);
                 }
+
+                // Send payment approval receipt email upon manual payment approval
+                $payer = $payment->entity ?: ($invoice ? $invoice->entity : null);
+                $recipientEmail = null;
+                $userName = null;
+
+                if ($payer instanceof Borrower) {
+                    $recipientEmail = $payer->email ?: $invoice?->email;
+                    $userName = $payer->name ?: trim(($payer->first_name ?? '') . ' ' . ($payer->last_name ?? ''));
+                } elseif ($payer instanceof Partner) {
+                    $recipientEmail = $payer->email ?: $payer->contact_person_email ?: $invoice?->email;
+                    $userName = $payer->contact_person_name ?: $payer->company_name ?: $payer->name;
+                } elseif ($payer instanceof User || $payer instanceof Employee) {
+                    $recipientEmail = $payer->email;
+                    $userName = $payer->name;
+                }
+
+                if ($recipientEmail) {
+                    try {
+                        $companyName = $payment->partner?->company_name ?? config('app.name');
+                        $invoiceDisplayId = $invoice?->invoice_id ?: $invoice?->id;
+
+                        $mailData = [
+                            'amount' => $payment->amount,
+                            'currency' => $payment->currency ?? 'USD',
+                            'transaction_id' => $payment->transaction_id,
+                            'invoice_id' => $invoiceDisplayId,
+                            'payment_method' => $payment->payment_from ?: __('payment.bank_transfer'),
+                            'description' => ($invoice && method_exists($invoice, 'getFormattedType')) ? $invoice->getFormattedType() : ($invoice?->type ?? __('payment.manual_payment_approved')),
+                            'approval_note' => $note ?: null,
+                            'date' => now(),
+                            'user_name' => $userName ?: __('payment.valued_customer'),
+                            'subject' => __('payment.mail_subject_payment_approved', ['company' => $companyName, 'invoice_id' => $invoiceDisplayId]),
+                        ];
+                        Mail::to($recipientEmail)->send(new PaymentApprovedMail($mailData, $payment->partner_id));
+                    } catch (\Exception $mailEx) {
+                        Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentApprovedMail', 'error' => $mailEx->getMessage()]));
+                    }
+                }
             }
 
             return [
@@ -678,10 +721,51 @@ class PaymentService
                 'details' => $existingDetails,
             ]);
 
-            if ($payment->invoice) {
-                $payment->invoice->update([
+            $invoice = $payment->invoice;
+
+            if ($invoice) {
+                $invoice->update([
                     'status' => Invoice::STATUS_UNPAID,
                 ]);
+            }
+
+            // Send payment rejection notification email
+            $payer = $payment->entity ?: ($invoice ? $invoice->entity : null);
+            $recipientEmail = null;
+            $userName = null;
+
+            if ($payer instanceof Borrower) {
+                $recipientEmail = $payer->email ?: $invoice?->email;
+                $userName = $payer->name ?: trim(($payer->first_name ?? '') . ' ' . ($payer->last_name ?? ''));
+            } elseif ($payer instanceof Partner) {
+                $recipientEmail = $payer->email ?: $payer->contact_person_email ?: $invoice?->email;
+                $userName = $payer->contact_person_name ?: $payer->company_name ?: $payer->name;
+            } elseif ($payer instanceof User || $payer instanceof Employee) {
+                $recipientEmail = $payer->email;
+                $userName = $payer->name;
+            }
+
+            if ($recipientEmail) {
+                try {
+                    $companyName = $payment->partner?->company_name ?? config('app.name');
+                    $invoiceDisplayId = $invoice?->invoice_id ?: $invoice?->id;
+
+                    $mailData = [
+                        'amount' => $payment->amount,
+                        'currency' => $payment->currency ?? 'USD',
+                        'transaction_id' => $payment->transaction_id,
+                        'invoice_id' => $invoiceDisplayId,
+                        'payment_method' => $payment->payment_from ?: __('payment.bank_transfer'),
+                        'description' => ($invoice && method_exists($invoice, 'getFormattedType')) ? $invoice->getFormattedType() : ($invoice?->type ?? __('payment.payment_verification')),
+                        'rejection_reason' => $reason,
+                        'date' => now(),
+                        'user_name' => $userName ?: __('payment.valued_customer'),
+                        'subject' => __('payment.mail_subject_payment_rejected', ['company' => $companyName, 'invoice_id' => $invoiceDisplayId]),
+                    ];
+                    Mail::to($recipientEmail)->send(new PaymentRejectedMail($mailData, $payment->partner_id));
+                } catch (\Exception $mailEx) {
+                    Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentRejectedMail', 'error' => $mailEx->getMessage()]));
+                }
             }
 
             return [
