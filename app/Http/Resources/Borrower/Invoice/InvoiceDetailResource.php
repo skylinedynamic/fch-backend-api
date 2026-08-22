@@ -33,7 +33,7 @@ class InvoiceDetailResource extends JsonResource
             'displayable_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'payment_date' => toTimezone($this->payment_date),
             'status' => $this->status,
-            'type' => $this->type,
+            'type' => $this->getFormattedType(),
             'note' => $this->note,
             'details' => $this->details,
             'items' => $this->items,
@@ -60,6 +60,25 @@ class InvoiceDetailResource extends JsonResource
             'branding' => $this->resolveBrandingData(),
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
         ];
+    }
+
+    /**
+     * Get human readable formatted invoice type.
+     */
+    protected function getFormattedType(): string
+    {
+        if (empty($this->type)) {
+            return '';
+        }
+
+        $isEnrollmentType = $this->type === \App\Models\Invoice\Invoice::INVOICE_TYPE_ENROLLMENT;
+        $subscription = $this->relationLoaded('subscription') ? $this->subscription : null;
+
+        if ($isEnrollmentType && $subscription && $subscription->down_payment > 0 && (int) $subscription->installment_type === 1) {
+            return ucwords(\App\Models\Invoice\Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', \App\Models\Invoice\Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')';
+        }
+
+        return ucwords(str_replace('_', ' ', (string) $this->type));
     }
 
     private function resolveBrandingData()
