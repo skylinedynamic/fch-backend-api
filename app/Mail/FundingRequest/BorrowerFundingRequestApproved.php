@@ -31,26 +31,6 @@ class BorrowerFundingRequestApproved extends Mailable
         }
     }
 
-    protected function getBrandingData(): array
-    {
-        $partnerId = $this->mailPartnerId ?: getConfigPartner()->id;
-
-        $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
-            ->where('module', AppConfiguration::MODULE_BRANDING)
-            ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
-            ->pluck('value', 'key')
-            ->toArray();
-
-        $partner = $partnerId ? Partner::find($partnerId) : Partner::where('is_host', true)->first();
-
-        return [
-            'siteName' => $brandingConfig['site_name'] ?? ($partner ? $partner->company_name : config('app.name')),
-            'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) 
-                ? asset('storage/' . $brandingConfig['secondary_logo']) 
-                : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
-        ];
-    }
-
     public function build()
     {
         try {

@@ -49,8 +49,9 @@ class PaymentSuccessMail extends Mailable
 
     public function content(): Content
     {
-        $userName = $this->paymentData['user_name'] ?? __('payment.valued_customer');
-        $firstName = explode(' ', trim($userName))[0] ?? __('payment.customer');
+        $isReceiver = !empty($this->paymentData['is_receiver']);
+        $userName = $this->paymentData['user_name'] ?? ($isReceiver ? __('payment.admin') : __('payment.valued_customer'));
+        $firstName = $userName;
 
         $businessInfo = [
             'company_name' => $this->dynamicData['siteName'],
@@ -74,6 +75,10 @@ class PaymentSuccessMail extends Mailable
             'date' => $formattedDate,
             'user_name' => $userName,
             'first_name' => $firstName,
+            'is_receiver' => $isReceiver,
+            'payer_name' => $this->paymentData['payer_name'] ?? $userName,
+            'payer_email' => $this->paymentData['payer_email'] ?? null,
+            'payment_url' => $this->paymentData['payment_url'] ?? null,
             'business_info' => $businessInfo,
         ];
 

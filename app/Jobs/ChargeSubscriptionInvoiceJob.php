@@ -8,6 +8,7 @@ use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use App\Services\FCH\Subscription\SubscriptionService;
@@ -122,7 +123,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                     'transaction_id' => $result['transaction_id'] ?? ('TX_' . uniqid()),
                     'amount' => $invoice->payment_amount,
                     'currency' => strtoupper($invoice->currency ?? Payment::CURRENCY_USD),
-                    'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                    'payment_from' => PaymentProvider::STRIPE,
                     'status' => Payment::STATUS_SUCCEEDED,
                     'details' => $result['raw'] ?? [],
                 ]);
@@ -161,7 +162,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                 'transaction_id' => 'FAILED_' . uniqid(),
                 'amount' => $this->invoice->payment_amount,
                 'currency' => strtoupper($this->invoice->currency ?? Payment::CURRENCY_USD),
-                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
+                'payment_from' => PaymentProvider::STRIPE,
                 'status' => Payment::STATUS_FAILED,
                 'details' => array_merge(['error' => $reason], $details),
             ]);

@@ -36,9 +36,25 @@ class InvoiceResource extends JsonResource
             ),
             'payment_date' => toTimezone($this->payment_date),
             'status' => $this->status,
+            'payment_id' => $this->relationLoaded('latestPayment')
+                ? $this->latestPayment?->id
+                : ($this->relationLoaded('payments') ? $this->payments->first()?->id : $this->payments()->latest('id')->value('id')),
             'type' => $this->getFormattedType(),
             'details' => $this->details,
             'branding' => $this->resolveBrandingData(),
+            'can_approve' => (bool) $this->canApproveForUser($request->user()),
+            'is_receiver' => (function () use ($request) {
+                $authUser = $request->user();
+                if (!$authUser) {
+                    return false;
+                }
+                if ($authUser->is_host) {
+                    return true;
+                }
+                $entityClass = $this->entity_type;
+                $isBorrowerInvoice = ($entityClass === \App\Models\Borrower\Borrower::class || $this->entity_name === 'Borrower' || !empty($this->borrower_id));
+                return $isBorrowerInvoice && ((int) $this->partner_id === (int) $authUser->partner_id);
+            })(),
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
         ];
     }

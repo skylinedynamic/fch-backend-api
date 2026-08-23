@@ -176,7 +176,7 @@ if (!function_exists('getPartnerDomain')) {
             $partner = Partner::find($partnerId);
             return $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         }
-        $partner = auth()->user()->partner;
+        $partner = auth()->check() ? auth()->user()->partner : null;
         $domain = $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         return $domain;
     }
@@ -189,7 +189,7 @@ if (!function_exists('getBorrowerDomain')) {
             $partner = Partner::find($partnerId);
             return $partner->borrower_domain ?? config('app.frontend_borrower_url');
         }
-        $partner = auth()->user()->partner;
+        $partner = auth()->check() ? auth()->user()->partner : null;
         $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
         return $domain;
     }
@@ -197,7 +197,7 @@ if (!function_exists('getBorrowerDomain')) {
 
 if (!function_exists('concatUrl')) {
     /**
-     * Concatenate domain and path using HTTPS protocol.
+     * Concatenate domain and path using appropriate protocol.
      *
      * @param string|null $domain
      * @param string $path
@@ -212,13 +212,32 @@ if (!function_exists('concatUrl')) {
             return '';
         }
 
-        // Remove any existing protocol
-        $target = preg_replace('/^https?:\/\//i', '', trim($target));
+        $target = trim($target);
 
-        // Enforce HTTPS
-        $target = 'https://' . rtrim($target, '/');
+        // Check if domain explicitly specifies http:// or https://
+        $hasHttp = (bool) preg_match('/^http:\/\//i', $target);
+        $hasHttps = (bool) preg_match('/^https:\/\//i', $target);
 
-        return $target . '/' . ltrim($path, '/');
+        // Detect local environment (localhost, 127.0.0.1, .test, .local)
+        $isLocal = app()->isLocal()
+            || str_contains($target, 'localhost')
+            || str_contains($target, '127.0.0.1')
+            || str_ends_with(parse_url($target, PHP_URL_HOST) ?? $target, '.test')
+            || str_ends_with(parse_url($target, PHP_URL_HOST) ?? $target, '.local');
+
+        // Clean domain
+        $cleanDomain = preg_replace('/^https?:\/\//i', '', $target);
+        $cleanDomain = rtrim($cleanDomain, '/');
+
+        if ($hasHttps) {
+            $protocol = 'https://';
+        } elseif ($hasHttp) {
+            $protocol = 'http://';
+        } else {
+            $protocol = $isLocal ? 'http://' : 'https://';
+        }
+
+        return $protocol . $cleanDomain . '/' . ltrim($path, '/');
     }
 }
 

@@ -20,9 +20,14 @@ class InvoiceMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public $invoice, public $pdfContent = null)
+    public function __construct(public $invoice, public $pdfContent = null, ?int $mailPartnerId = null, public ?string $customSubject = null)
     {
-        $this->setMailPartnerId();
+        if ($mailPartnerId) {
+            $this->mailPartnerId = $mailPartnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
+        $this->dynamicData['partner_id'] = $this->mailPartnerId;
     }
 
     /**
@@ -34,8 +39,10 @@ class InvoiceMail extends Mailable
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        $invoiceId = $this->invoice->invoice_id ?: $this->invoice->id;
+
         return new Envelope(
-            subject: 'Invoice #' . $this->invoice->invoice_id,
+            subject: $this->customSubject ?: ("Invoice #{$invoiceId}"),
         );
     }
 

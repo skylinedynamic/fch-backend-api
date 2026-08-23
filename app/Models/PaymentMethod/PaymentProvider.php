@@ -43,6 +43,10 @@ class PaymentProvider extends Model
     public const CASH = 'Cash Payment';
     public const BANK_TRANSFER = 'Bank Transfer';
 
+    public const TYPE_CARD = 'Card';
+
+    public const ENVIRONMENT_SANDBOX = 0;
+    public const ENVIRONMENT_PRODUCTION = 1;
 
     public const MODE_SANDBOX = 'sandbox';
     public const MODE_PRODUCTION = 'production';

@@ -28,7 +28,7 @@ class BorrowerAccountCreatedMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
         $defaultSubject = !empty($this->mailData['is_update']) 
             ? __('common.email_changed_subject')
-            : "Welcome to " . $branding['siteName'];
+            : __('borrower.mail.subject_account_created', ['company' => $this->dynamicData['siteName']]);
         $subject = $this->mailData['subject'] ?? $defaultSubject;
 
         return new Envelope(

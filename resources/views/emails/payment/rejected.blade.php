@@ -8,15 +8,31 @@
             <strong>{{ $first_name }}</strong>,
         </h4>
 
+        @if(!empty($is_receiver))
+        <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
+            The manual payment verification request for Invoice <strong>#{{ $invoice_id }}</strong> from <strong>{{ $payer_name }}</strong> has been marked as rejected.
+        </p>
+        @else
         <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
             We are writing to inform you that your manual payment verification request could not be approved by administration.
         </p>
+        @endif
 
         {{-- Submission Details --}}
         <div class="section-label mb-2"
             style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
             Transaction Details</div>
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            @if(!empty($is_receiver) && !empty($payer_name))
+            <tr>
+                <td class="label"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
+                    Customer / Payer</td>
+                <td class="value"
+                    style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
+                    {{ $payer_name }} @if(!empty($payer_email))<span style="font-size: 11px; color: #64748b; font-weight: normal;">({{ $payer_email }})</span>@endif</td>
+            </tr>
+            @endif
             @if(!empty($invoice_id))
             <tr>
                 <td class="label"
@@ -67,7 +83,7 @@
                     Description</td>
                 <td class="value"
                     style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px;">
-                    {{ $description }}</td>
+                    {{ ucwords(str_replace(['_', '-'], ' ', $description)) }}</td>
             </tr>
         </table>
 
@@ -83,7 +99,11 @@
         </div>
 
         <p style="color: #64748b; font-size: 12px; line-height: 1.6; margin-top: 24px;">
+            @if(!empty($is_receiver))
+            The customer has been notified with the rejection reason provided above.
+            @else
             Please log into your portal to verify your invoice and resubmit payment with valid proof or choose an alternate payment method.
+            @endif
         </p>
 
         <p style="color: #64748b; line-height: 1.5; margin-top: 40px; margin-bottom: 0;">

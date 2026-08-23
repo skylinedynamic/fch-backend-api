@@ -43,14 +43,6 @@ class Payment extends Model
     public const TRANSACTION_TYPE_DEBIT = 'Debit';
     public const TRANSACTION_TYPE_CREDIT = 'Credit';
 
-    public const ENVIRONMENT_SANDBOX = 0;
-    public const ENVIRONMENT_PRODUCTION = 1;
-
-    public const MODE_SANDBOX = 'sandbox';
-    public const MODE_PRODUCTION = 'production';
-
-    public const PAYMENT_FROM_STRIPE = 'Stripe';
-    public const PAYMENT_TYPE_CARD = 'Card';
     public const CURRENCY_USD = 'USD';
     public const CURRENCY_SYMBOL_USD = '$';
 
@@ -123,18 +115,25 @@ class Payment extends Model
         }
 
         $authUserPartner = $authUser->partner;
-        $isHost = (bool) ($authUserPartner?->is_host ?? false);
+        $isHost = (bool) ($authUserPartner?->is_host ?? (bool) ($authUser->is_host ?? false));
         $authUserPartnerId = $authUser->partner_id;
 
-        // Host partner: can approve their own partner payments OR borrower fee invoices
+        // Host partner: can approve partner payments to host, borrower fee invoices, or host's own borrower payments
         if ($isHost) {
-            return $this->partner_id === $authUserPartnerId
-                || $this->invoice?->type === Invoice::INVOICE_TYPE_BORROWER_FEE;
+            return true;
         }
 
         // Non-host partner: can only approve borrower payments under their own partner
-        return $this->partner_id === $authUserPartnerId
-            && $this->entity_type === Borrower::class;
+        return (int) $this->partner_id === (int) $authUserPartnerId
+            && ($this->entity_type === Borrower::class || !empty($this->borrower_id));
+    }
+
+    /**
+     * Alias helper for canApproveForUser.
+     */
+    public function canApprove(?User $authUser = null): bool
+    {
+        return $this->canApproveForUser($authUser ?? auth()->user());
     }
 
     /**
@@ -144,8 +143,8 @@ class Payment extends Model
     {
         $partnerId = $data['partner_id'] ?? null;
         $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
-        $paymentFrom = $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE;
-        $paymentType = $data['payment_type'] ?? ($paymentFrom === self::PAYMENT_FROM_STRIPE ? self::PAYMENT_TYPE_CARD : $paymentFrom);
+        $paymentFrom = $data['payment_from'] ?? PaymentProvider::STRIPE;
+        $paymentType = $data['payment_type'] ?? ($paymentFrom === PaymentProvider::STRIPE ? PaymentProvider::TYPE_CARD : $paymentFrom);
 
         return self::create([
             'partner_id' => $partnerId,
@@ -191,7 +190,7 @@ class Payment extends Model
             $configuration = (array) $configuration;
         }
 
-        $paymentMode = $linkage->payment_mode ?? $configuration['payment_mode'] ?? self::MODE_SANDBOX;
+        $paymentMode = $linkage->payment_mode ?? $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
 
         $secretKey = null;
         if (is_array($configuration)) {
@@ -230,7 +229,7 @@ class Payment extends Model
             }
         }
 
-        $paymentMode = self::MODE_SANDBOX;
+        $paymentMode = PaymentProvider::MODE_SANDBOX;
 
         $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
         if ($stripeProvider) {
@@ -247,9 +246,9 @@ class Payment extends Model
 
     public function environmentFromMode(string $mode): int
     {
-        return $mode === self::MODE_PRODUCTION
-            ? self::ENVIRONMENT_PRODUCTION
-            : self::ENVIRONMENT_SANDBOX;
+        return $mode === PaymentProvider::MODE_PRODUCTION
+            ? PaymentProvider::ENVIRONMENT_PRODUCTION
+            : PaymentProvider::ENVIRONMENT_SANDBOX;
     }
 
     public function partner()
@@ -331,9 +330,9 @@ class Payment extends Model
 
             // Environment Search Accuracy: Map "Sandbox" and "Production" to boolean values
             if (str_contains(strtolower($search), 'sand')) {
-                $q->orWhere('payments.is_environment', self::ENVIRONMENT_SANDBOX);
+                $q->orWhere('payments.is_environment', PaymentProvider::ENVIRONMENT_SANDBOX);
             } elseif (str_contains(strtolower($search), 'prod')) {
-                $q->orWhere('payments.is_environment', self::ENVIRONMENT_PRODUCTION);
+                $q->orWhere('payments.is_environment', PaymentProvider::ENVIRONMENT_PRODUCTION);
             }
         });
     }

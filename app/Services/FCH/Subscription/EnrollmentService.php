@@ -19,6 +19,7 @@ use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Mail\Partner\PartnerMigrationMail;
+use App\Mail\Invoice\InvoiceMail;
 
 /**
  * EnrollmentService
@@ -383,19 +384,16 @@ class EnrollmentService
         bool $isMigration = false,
         ?string $plainPassword = null
     ): array {
+        $isNonHostPartner = !$isHostCreating && ($partner ? !$partner->is_host : true);
         $planId = isset($enrollment['plan_id']) ? (int) $enrollment['plan_id'] : null;
-        $isWlOrCertified = in_array(
-            $partner->partner_type,
-            [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]
-        );
 
         [$plan] = $this->resolveBorrowerPlan($planId);
 
         $partnerInvoice = null;
         $wlPartnerFeeAmount = null;
 
-        if ($isWlOrCertified && !$isHostCreating) {
-            // WL / Certified: partner pays a fixed borrower fee
+        if ($isNonHostPartner) {
+            // Non-host partner creates borrower: partner pays a fixed borrower fee to Host
             $borrower->update(['partner_payment_for_me' => false]);
 
             $wlFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
@@ -409,7 +407,7 @@ class EnrollmentService
                 'borrower_id' => $borrower->id,
                 'entity_type' => Partner::class,
                 'entity_id' => $borrower->partner_id,
-                'customer_name' => $partner->full_name,
+                'customer_name' => $partner->company_name ?: $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
                 'payment_amount' => $wlPartnerFeeAmount,
@@ -423,7 +421,7 @@ class EnrollmentService
 
             $amounts = $this->calculateBorrowerAmounts($plan, $enrollment);
         } else {
-            // Host / Direct partner path
+            // Host partner path
             $fallback = 0.0;
             $amounts = $this->calculateBorrowerAmounts($plan, $enrollment, $fallback);
         }
@@ -439,12 +437,32 @@ class EnrollmentService
             'country' => $borrower->country,
             'payment_amount' => $amounts['initial_invoice_amount'],
             'status' => Invoice::STATUS_UNPAID,
-            'is_partner_paying' => ($isWlOrCertified && !$isHostCreating) ? false : ($isHostCreating ? false : true),
+            'is_partner_paying' => $isNonHostPartner ? false : ($isHostCreating ? false : true),
             'is_platform_fee' => false,
             'type' => ($amounts['installment_type'] && isset($amounts['down_payment']) && $amounts['down_payment'] > 0) ? Invoice::INVOICE_TYPE_DOWN_PAYMENT : Invoice::INVOICE_TYPE_ENROLLMENT,
         ]);
 
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
+
+        // For non-host partner borrower creation: send notification mail to Host Admin for the borrower invoice
+        if ($isNonHostPartner) {
+            $hostPartner = Partner::where('is_host', true)->first();
+            $hostEmail = $hostPartner?->email ?: $hostPartner?->contact_person_email ?: config('mail.from.address');
+            if ($hostEmail) {
+                try {
+                    $hostPartnerId = $hostPartner?->id ?: 1;
+                    $subject = 'New Borrower Invoice #' . ($invoice->invoice_id ?: $invoice->id) . ' - ' . ($borrower->full_name ?: 'Borrower');
+                    $this->sendPartnerMail(
+                        $hostEmail,
+                        new InvoiceMail($invoice, null, $hostPartnerId, $subject),
+                        $hostPartnerId,
+                        $hostPartnerId
+                    );
+                } catch (\Exception $e) {
+                    Log::error('Failed to send borrower invoice notification mail to host admin', ['error' => $e->getMessage()]);
+                }
+            }
+        }
 
         // Create / update subscription
         $subscription = $this->subscriptionService->startSubscription($borrower, $plan, [

@@ -18,9 +18,7 @@ use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\Payment\PaymentSuccessMail;
-use App\Mail\Payment\PaymentSubmittedMail;
+use App\Services\GlobalPayment\PaymentMailService;
 use Exception;
 
 /**
@@ -40,11 +38,13 @@ class UnifiedPaymentService
     public function __construct(
         protected ?PaymentGatewayManager $gatewayManager = null,
         protected ?Payment $paymentRecord = null,
-        protected ?SubscriptionService $subscriptionService = null
+        protected ?SubscriptionService $subscriptionService = null,
+        protected ?PaymentMailService $paymentMailService = null
     ) {
-        $this->gatewayManager = $gatewayManager ?? app(PaymentGatewayManager::class);
-        $this->paymentRecord = $paymentRecord ?? app(Payment::class);
+        $this->gatewayManager     = $gatewayManager ?? app(PaymentGatewayManager::class);
+        $this->paymentRecord      = $paymentRecord ?? app(Payment::class);
         $this->subscriptionService = $subscriptionService ?? app(SubscriptionService::class);
+        $this->paymentMailService  = $paymentMailService ?? app(PaymentMailService::class);
     }
 
     /**
@@ -146,7 +146,7 @@ class UnifiedPaymentService
 
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
             $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
-            $paymentType = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
+            $paymentType = $data['payment_type'] ?? ($isStripe ? PaymentProvider::TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
 
             $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
 
@@ -237,58 +237,12 @@ class UnifiedPaymentService
                 $this->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
             }
 
-            // 7. Send payment email (Instant Success for Stripe / Submission Notice for Manual)
+            // 7. Send payment email to both payer and receiver via centralized PaymentMailService
             if ($payer) {
-                $recipientEmail = null;
-                $userName = null;
-                if ($payer instanceof Borrower) {
-                    $recipientEmail = $payer->email ?: $invoice->email;
-                    $userName = $payer->name ?: trim(($payer->first_name ?? '') . ' ' . ($payer->last_name ?? ''));
-                } elseif ($payer instanceof Partner) {
-                    $recipientEmail = $payer->email ?: $payer->contact_person_email ?: $invoice->email;
-                    $userName = $payer->contact_person_name ?: $payer->company_name ?: $payer->name;
-                } elseif ($payer instanceof User || $payer instanceof Employee) {
-                    $recipientEmail = $payer->email;
-                    $userName = $payer->name;
-                }
-
-                if ($recipientEmail) {
-                    try {
-                        $companyName = $payer->partner?->company_name ?? config('app.name');
-                        $invoiceDisplayId = $invoice->invoice_id ?: $invoice->id;
-
-                        if ($isManual) {
-                            $mailData = [
-                                'amount' => $invoice->payment_amount,
-                                'currency' => $invoice->currency ?? 'USD',
-                                'transaction_id' => $payment->transaction_id,
-                                'invoice_id' => $invoiceDisplayId,
-                                'payment_method' => $providerName ?? __('payment.bank_transfer'),
-                                'description' => method_exists($invoice, 'getFormattedType') ? $invoice->getFormattedType() : ($invoice->type ?? __('payment.program_payment')),
-                                'bank_name' => $bankDetail?->bank_name,
-                                'account_name' => $bankDetail?->account_name,
-                                'date' => now(),
-                                'user_name' => $userName ?: __('payment.valued_customer'),
-                                'subject' => __('payment.mail_subject_payment_submitted', ['company' => $companyName, 'invoice_id' => $invoiceDisplayId]),
-                            ];
-                            Mail::to($recipientEmail)->send(new PaymentSubmittedMail($mailData, $partnerId));
-                        } elseif ($isPaidOrSuccess) {
-                            $mailData = [
-                                'amount' => $invoice->payment_amount,
-                                'currency' => $invoice->currency ?? 'USD',
-                                'transaction_id' => $payment->transaction_id,
-                                'invoice_id' => $invoiceDisplayId,
-                                'payment_method' => $providerName ?? 'Stripe',
-                                'description' => method_exists($invoice, 'getFormattedType') ? $invoice->getFormattedType() : ($invoice->type ?? __('payment.program_payment')),
-                                'date' => now(),
-                                'user_name' => $userName ?: __('payment.valued_customer'),
-                                'subject' => __('payment.mail_subject_payment_receipt', ['company' => $companyName, 'invoice_id' => $invoiceDisplayId]),
-                            ];
-                            Mail::to($recipientEmail)->send(new PaymentSuccessMail($mailData, $partnerId));
-                        }
-                    } catch (Exception $mailEx) {
-                        Log::error(__('payment.log_mail_send_error', ['mail' => 'UnifiedPayment', 'error' => $mailEx->getMessage()]));
-                    }
+                if ($isManual) {
+                    $this->paymentMailService->sendSubmitted($payment, $invoice, $providerName, $bankDetail, $partnerId);
+                } elseif ($isPaidOrSuccess) {
+                    $this->paymentMailService->sendSuccess($payment, $invoice, $providerName, $partnerId);
                 }
             }
 
@@ -366,7 +320,7 @@ class UnifiedPaymentService
             $partnerPayment = Payment::where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
                 ->where('status', Payment::STATUS_SUCCEEDED)
-                ->where('payment_from', Payment::PAYMENT_FROM_STRIPE)
+                ->where('payment_from', PaymentProvider::STRIPE)
                 ->orderBy('id', 'desc')
                 ->get()
                 ->first(function ($p) {
@@ -460,8 +414,8 @@ class UnifiedPaymentService
                 'entity_type' => Partner::class,
                 'entity_id' => (string) $partner->id,
                 'transaction_id' => $paymentIntent->id,
-                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
-                'payment_type' => Payment::PAYMENT_TYPE_CARD,
+                'payment_from' => PaymentProvider::STRIPE,
+                'payment_type' => PaymentProvider::TYPE_CARD,
                 'amount' => $amount,
                 'currency' => Payment::CURRENCY_USD,
                 'is_partner_paying' => true,
