@@ -3,7 +3,7 @@
 @section('title', 'Reminder: Borrower Has Not Started Funding Application')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">
         Hello {{ $recipientName ?? ($fundingRequest->partner?->contact_person ?? $fundingRequest->partner?->company_name ?? 'Partner') }},
     </h4>
 

@@ -5,9 +5,9 @@
 @section('content')
 
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <p style="line-height: 1.5; margin-bottom: 16px;">
-            Hello <strong>{{ $user->name }}</strong>,
-        </p>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+            <strong>{{ $user->name }}</strong>,
+        </h4>
 
         <p style="line-height: 1.5; margin-bottom: 16px;">
             Welcome to <strong>{{ $business_info['company_name'] }}</strong>.

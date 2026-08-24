@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <h2 style="margin-top: 0; color: #0f172a; font-size: 20px; font-weight: 600; margin-bottom: 20px;">Hello {{ $application->borrower?->first_name ?? 'Client' }},</h2>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $application->borrower?->first_name ?? 'Client' }},</h4>
             <p style="color: #475569; line-height: 1.6; margin-bottom: 20px; font-size: 15px;">
                 Your funding application has been successfully submitted and is now under review. We will notify you once there is an update.
             </p>

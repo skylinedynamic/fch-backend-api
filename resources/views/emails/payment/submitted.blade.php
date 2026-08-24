@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
             <strong>{{ $first_name }}</strong>,
         </h4>
 
@@ -20,7 +20,7 @@
 
         {{-- Submission Details --}}
         <div class="section-label mb-2"
-            style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
+            style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
             Submission Details</div>
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
             @if(!empty($is_receiver) && !empty($payer_name))
@@ -101,7 +101,7 @@
         @if(!empty($is_receiver))
         <div class="box-light"
             style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;">
-            <p style="margin: 0 0 14px 0; line-height: 1.5; color: #92400e; font-weight: 500;">
+            <p style="margin: 0 0 14px 0; line-height: 1.5; font-weight: 500;">
                 <strong style="color: #b45309;">Action Required: Pending Verification.</strong> Please review transaction details in your portal and approve or reject this payment.
             </p>
             @if(!empty($payment_url))

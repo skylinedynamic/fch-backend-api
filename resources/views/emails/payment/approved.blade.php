@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
             <strong>{{ $first_name }}</strong>,
         </h4>
 
@@ -109,7 +109,7 @@
         <div class="box-light"
             style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;">
             <p style="margin: 0; line-height: 1.5; font-weight: 500;">
-                <strong style="color: #047857;">Status: Approved & Paid.</strong> Your payment has been credited to your account and your enrollment/subscription is active.
+                <strong style="color: #047857;">Status: Approved & Paid.</strong> Your payment has been approved and your enrollment/subscription is active.
             </p>
         </div>
         @endif

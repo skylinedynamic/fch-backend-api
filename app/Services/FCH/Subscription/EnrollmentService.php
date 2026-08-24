@@ -19,6 +19,7 @@ use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Mail\Partner\PartnerMigrationMail;
+use App\Mail\Partner\BorrowerFeeInvoiceNotificationMail;
 use App\Mail\Invoice\InvoiceMail;
 
 /**
@@ -444,22 +445,22 @@ class EnrollmentService
 
         $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
 
-        // For non-host partner borrower creation: send notification mail to Host Admin for the borrower invoice
-        if ($isNonHostPartner) {
+        // For non-host partner borrower creation: send notification mail to Host Admin for the borrower fee invoice
+        if ($isNonHostPartner && $partnerInvoice) {
             $hostPartner = Partner::where('is_host', true)->first();
-            $hostEmail = $hostPartner?->email ?: $hostPartner?->contact_person_email ?: config('mail.from.address');
+            $hostEmail = $hostPartner?->email ?: null;
             if ($hostEmail) {
                 try {
                     $hostPartnerId = $hostPartner?->id ?: 1;
-                    $subject = 'New Borrower Invoice #' . ($invoice->invoice_id ?: $invoice->id) . ' - ' . ($borrower->full_name ?: 'Borrower');
+                    $hostName = $hostPartner?->full_name ?: null;
                     $this->sendPartnerMail(
                         $hostEmail,
-                        new InvoiceMail($invoice, null, $hostPartnerId, $subject),
+                        new BorrowerFeeInvoiceNotificationMail($partnerInvoice, $borrower, $partner, $hostName, $hostPartnerId),
                         $hostPartnerId,
                         $hostPartnerId
                     );
                 } catch (\Exception $e) {
-                    Log::error('Failed to send borrower invoice notification mail to host admin', ['error' => $e->getMessage()]);
+                    Log::error('Failed to send borrower fee invoice notification mail to host admin', ['error' => $e->getMessage()]);
                 }
             }
         }

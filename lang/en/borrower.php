@@ -184,7 +184,7 @@ return [
     'not_applicable' => 'N/A',
 
     'mail' => [
-        'subject_account_created' => 'Welcome to :company - Your Account Details',
+        'subject_account_created' => 'Welcome to :company - Your Borrower Account Details & Enrollment',
         'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
         'subject_account_created_trial' => 'Welcome to :company - Limited Free Edition',
         'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',

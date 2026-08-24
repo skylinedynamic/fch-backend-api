@@ -31,7 +31,7 @@
     </style>
 
     <div class="content">
-        <p>Dear <strong>{{ $commission->partner->full_name ?? ($commission->partner->company_name ?? 'Partner') }}</strong>,</p>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Dear <strong>{{ $commission->partner->full_name ?? ($commission->partner->company_name ?? 'Partner') }}</strong>,</h4>
 
         <p>We are pleased to inform you that your commission payout has been successfully processed.</p>
 

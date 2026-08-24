@@ -5,7 +5,7 @@
 @section('content')
 
     @if (isset($content['greeting']))
-        <h4>{{ $content['greeting'] }}</h4>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">{{ $content['greeting'] }}</h4>
     @endif
 
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">

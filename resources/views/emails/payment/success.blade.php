@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
             <strong>{{ $first_name }}</strong>,
         </h4>
 
@@ -92,7 +92,7 @@
         <div class="box-light"
             style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
             <p style="margin: 0 0 14px 0; line-height: 1.5; color: #166534; font-weight: 500;">
-                <strong style="color: #15803d;">Payment Settled.</strong> Your partner account and invoice status have been updated automatically.
+                <strong style="color: #15803d;">Payment Settled.</strong> The payment has been received and invoice #{{ $invoice_id }} has been marked as Paid.
             </p>
             @if(!empty($payment_url))
             <div style="margin-top: 14px;">

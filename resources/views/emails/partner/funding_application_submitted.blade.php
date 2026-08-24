@@ -3,7 +3,7 @@
 @section('title', 'New Funding Application Submitted')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         A new funding application has been submitted and requires verification. Please review the details below:

@@ -5,7 +5,7 @@
 @section('content')
 
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
             <strong>{{ $user->name }}</strong>,
         </h4>
 
