@@ -18,6 +18,7 @@ use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\GlobalPayment\PaymentMailService;
 use Exception;
 
 /**
@@ -37,11 +38,13 @@ class UnifiedPaymentService
     public function __construct(
         protected ?PaymentGatewayManager $gatewayManager = null,
         protected ?Payment $paymentRecord = null,
-        protected ?SubscriptionService $subscriptionService = null
+        protected ?SubscriptionService $subscriptionService = null,
+        protected ?PaymentMailService $paymentMailService = null
     ) {
-        $this->gatewayManager = $gatewayManager ?? app(PaymentGatewayManager::class);
-        $this->paymentRecord = $paymentRecord ?? app(Payment::class);
+        $this->gatewayManager     = $gatewayManager ?? app(PaymentGatewayManager::class);
+        $this->paymentRecord      = $paymentRecord ?? app(Payment::class);
         $this->subscriptionService = $subscriptionService ?? app(SubscriptionService::class);
+        $this->paymentMailService  = $paymentMailService ?? app(PaymentMailService::class);
     }
 
     /**
@@ -73,7 +76,7 @@ class UnifiedPaymentService
             throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
-        if ($subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
+        if ($invoice->type != Invoice::INVOICE_TYPE_BORROWER_FEE && $subscription && $subscription->current_cycle_invoice_id != $invoice->id) {
             throw new Exception(__('payment.unauthorized_payment_attempt'));
         }
 
@@ -143,7 +146,7 @@ class UnifiedPaymentService
 
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
             $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
-            $paymentType = $data['payment_type'] ?? ($isStripe ? Payment::PAYMENT_TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
+            $paymentType = $data['payment_type'] ?? ($isStripe ? PaymentProvider::TYPE_CARD : ($providerName ?? __('payment.bank_transfer')));
 
             $isPartnerPaying = (bool) ($invoice->is_partner_paying || in_array($invoice->entity_type, [Partner::class, User::class, Employee::class]));
 
@@ -234,6 +237,15 @@ class UnifiedPaymentService
                 $this->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
             }
 
+            // 7. Send payment email to both payer and receiver via centralized PaymentMailService
+            if ($payer) {
+                if ($isManual) {
+                    $this->paymentMailService->sendSubmitted($payment, $invoice, $providerName, $bankDetail, $partnerId);
+                } elseif ($isPaidOrSuccess) {
+                    $this->paymentMailService->sendSuccess($payment, $invoice, $providerName, $partnerId);
+                }
+            }
+
             DB::commit();
 
             return [
@@ -278,7 +290,7 @@ class UnifiedPaymentService
                 Log::info(__('payment.log_autocharge_no_unpaid_invoice', ['partner_id' => $partner->id]));
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error(__('payment.log_autocharge_failed_error', ['error' => $e->getMessage()]));
         }
     }
@@ -308,7 +320,7 @@ class UnifiedPaymentService
             $partnerPayment = Payment::where('entity_type', Partner::class)
                 ->where('entity_id', $partner->id)
                 ->where('status', Payment::STATUS_SUCCEEDED)
-                ->where('payment_from', Payment::PAYMENT_FROM_STRIPE)
+                ->where('payment_from', PaymentProvider::STRIPE)
                 ->orderBy('id', 'desc')
                 ->get()
                 ->first(function ($p) {
@@ -402,8 +414,8 @@ class UnifiedPaymentService
                 'entity_type' => Partner::class,
                 'entity_id' => (string) $partner->id,
                 'transaction_id' => $paymentIntent->id,
-                'payment_from' => Payment::PAYMENT_FROM_STRIPE,
-                'payment_type' => Payment::PAYMENT_TYPE_CARD,
+                'payment_from' => PaymentProvider::STRIPE,
+                'payment_type' => PaymentProvider::TYPE_CARD,
                 'amount' => $amount,
                 'currency' => Payment::CURRENCY_USD,
                 'is_partner_paying' => true,

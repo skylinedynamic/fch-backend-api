@@ -27,35 +27,9 @@ class FundingApplicationSubmittedMail extends Mailable
     public function __construct(FundingApplication $application, $mailPartnerId = null)
     {
         $this->application = $application;
-        $this->mailPartnerId = $mailPartnerId;
-        if (!$this->mailPartnerId) {
-            $partner = $application->partner ?? $application->borrower?->partner;
-            if ($partner && $partner->partner_type === \App\Models\Partner\Partner::PARTNER_TYPE_WHITE_LABEL) {
-                $this->mailPartnerId = $partner->id;
-            } else {
-                $this->setMailPartnerId();
-            }
-        }
-    }
-
-    protected function getBrandingData(): array
-    {
-        $partnerId = $this->mailPartnerId ?: getConfigPartner()->id;
-
-        $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
-            ->where('module', AppConfiguration::MODULE_BRANDING)
-            ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
-            ->pluck('value', 'key')
-            ->toArray();
-
-        $partner = $partnerId ? Partner::find($partnerId) : \App\Models\Partner\Partner::where('is_host', true)->first();
-
-        return [
-            'siteName' => $brandingConfig['site_name'] ?? ($partner ? $partner->company_name : config('app.name')),
-            'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) 
-                ? asset('storage/' . $brandingConfig['secondary_logo']) 
-                : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
-        ];
+        $partner = $application->partner ?? $application->borrower?->partner;
+        $this->mailPartnerId = $mailPartnerId ?: ($partner?->id ?: Partner::where('is_host', 1)->value('id'));
+        $this->dynamicData['partner_id'] = $this->mailPartnerId;
     }
 
     /**

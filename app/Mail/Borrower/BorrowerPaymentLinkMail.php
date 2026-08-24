@@ -13,19 +13,26 @@ class BorrowerPaymentLinkMail extends Mailable
     use MailableBranding, MailConfig;
 
     protected array $mailData;
+    protected array $dynamicData = [];
 
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->setMailPartnerId();
+        if ($partnerId) {
+            $this->mailPartnerId = $partnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $this->dynamicData['siteName'] = $branding['siteName'];
-        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
-        $subject = $this->mailData['subject'] ?? "Complete Your Account Setup";
+        $this->dynamicData['siteName'] = $branding['siteName'] ?? config('app.name');
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'] ?? null;
+
+        $siteName = $this->dynamicData['siteName'];
+        $subject = $this->mailData['subject'] ?? __('borrower.mail.subject_account_created_enrollment', ['company' => $siteName]);
 
         return new Envelope(
             subject: $subject,

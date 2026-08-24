@@ -33,9 +33,24 @@ $schedulerLogPath = storage_path('logs/scheduler.log');
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
-        $message = "Scheduled command failed: {$command}";
+        $env      = config('app.env', 'unknown');
+        $appUrl   = config('app.url', 'unknown');
+        $hostname = gethostname() ?: 'unknown';
 
-        Log::error($message);
+        $message = implode("\n", [
+            "Scheduled command failed: {$command}",
+            "",
+            "--- Origin ---",
+            "Environment : {$env}",
+            "App URL     : {$appUrl}",
+            "Server Host : {$hostname}",
+        ]);
+
+        Log::error("Scheduled command failed: {$command}", [
+            'env'      => $env,
+            'app_url'  => $appUrl,
+            'hostname' => $hostname,
+        ]);
 
         $emails = array_filter(
             array_map('trim', explode(',', config('app.cron_notify_emails', '')))
@@ -43,8 +58,8 @@ $onFailure = function (string $command) {
 
         if (!empty($emails) && config('mail.default')) {
             try {
-                Mail::raw($message, function ($mail) use ($emails, $command) {
-                    $mail->to($emails)->subject("Scheduler failure: {$command}");
+                Mail::raw($message, function ($mail) use ($emails, $command, $env) {
+                    $mail->to($emails)->subject("[{$env}] Scheduler failure: {$command}");
                 });
             } catch (\Throwable $e) {
                 Log::error('Failed to send cron failure notification: ' . $e->getMessage());

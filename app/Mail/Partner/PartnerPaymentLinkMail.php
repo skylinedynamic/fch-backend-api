@@ -25,11 +25,14 @@ class PartnerPaymentLinkMail extends Mailable
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['siteName'] = $branding['siteName'] ?? config('app.name');
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        $siteName = $this->dynamicData['siteName'];
+        $defaultSubject = __('partner.mail.subject_account_created_enrollment', ['company' => $siteName]);
+
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Complete Your Partner Enrollment",
+            subject: $this->mailData['subject'] ?? $defaultSubject,
         );
     }
 

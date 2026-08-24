@@ -47,12 +47,12 @@ class PaymentMethodService
         $flat->partner_id = $partnerId;
 
         // Define default fallback values to prevent "Undefined property" errors
-        $flat->payment_mode = Payment::MODE_SANDBOX;
+        $flat->payment_mode = PaymentProvider::MODE_SANDBOX;
         $flat->stripe_key_sandbox = null;
         $flat->stripe_secret_sandbox = null;
         $flat->stripe_key_production = null;
         $flat->stripe_secret_production = null;
-        $flat->payment_method = Payment::PAYMENT_FROM_STRIPE;
+        $flat->payment_method = PaymentProvider::STRIPE;
         $flat->status = true;
         $flat->configuration = null;
         $flat->partner_auto_charge_host_fee = 1;

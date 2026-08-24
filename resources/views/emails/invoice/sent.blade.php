@@ -4,9 +4,9 @@
 
 @section('content')
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <p style="line-height: 1.5; margin-bottom: 16px;">
-            Hello <strong>{{ $invoice->customer_name }}</strong>,
-        </p>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+            <strong>{{ $invoice->customer_name }}</strong>,
+        </h4>
 
         <p style="line-height: 1.5; margin-bottom: 32px; color: #64748b;">
             An invoice has been generated for your account. Please find the details below and proceed with the payment to

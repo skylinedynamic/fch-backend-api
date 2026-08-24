@@ -3,7 +3,7 @@
 @section('title', 'Reminder: Process Your Funding Application')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $fundingRequest->borrower?->first_name ?? 'Valued Client' }},</h4>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $fundingRequest->borrower?->first_name ?? 'Valued Client' }},</h4>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         This is a friendly reminder that your <strong>{{ $fundingRequest->funding_type }}</strong> funding request has been <strong>approved</strong>. To proceed and secure your funding, you must complete your Funding Application.

@@ -169,4 +169,32 @@ class Invoice extends Model
 
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
+
+    /**
+     * Relationship: most recent payment associated with this invoice.
+     */
+    public function latestPayment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Payment::class, 'invoice_id')->latestOfMany();
+    }
+
+    /**
+     * Check if the authenticated user can approve the payment for this invoice.
+     */
+    public function canApproveForUser(?User $authUser = null): bool
+    {
+        $payment = $this->relationLoaded('latestPayment')
+            ? $this->latestPayment
+            : ($this->relationLoaded('payments') ? $this->payments->first() : $this->payments()->latest('id')->first());
+
+        return $payment ? $payment->canApproveForUser($authUser) : false;
+    }
+
+    /**
+     * Alias helper for canApproveForUser.
+     */
+    public function canApprove(?User $authUser = null): bool
+    {
+        return $this->canApproveForUser($authUser ?? auth()->user());
+    }
 }

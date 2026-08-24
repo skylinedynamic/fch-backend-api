@@ -362,7 +362,7 @@ class SubscriptionService
      * @param Subscription $subscription
      * @return void
      */
-    public function handleSuccessfulPayment(Invoice $invoice, Subscription $subscription)
+    public function handleSuccessfulPayment(Invoice $invoice, ?Subscription $subscription)
     {
         // When invoice status is Processing, do not update or start the subscription (invoice is not paid yet)
         if (
@@ -420,6 +420,7 @@ class SubscriptionService
             return;
         }
     }
+
 
     /**
      * Handle payment for One Time Payment enrollment.

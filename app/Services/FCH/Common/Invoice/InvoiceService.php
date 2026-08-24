@@ -89,7 +89,8 @@ class InvoiceService
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
-                'subscription'
+                'subscription',
+                'latestPayment'
             ])
             ->select('invoices.*');
 

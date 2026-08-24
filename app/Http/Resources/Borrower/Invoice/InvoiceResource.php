@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Borrower\Invoice;
 
+use App\Models\Invoice\Invoice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -32,7 +33,27 @@ class InvoiceResource extends JsonResource
             'payment_date' => toTimezone($this->payment_date),
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d'),
             'status' => $this->status,
+            'type' => $this->getFormattedType(),
             'details' => $this->details,
         ];
+    }
+
+    /**
+     * Get human readable formatted invoice type safely without triggering N+1 queries.
+     */
+    protected function getFormattedType(): string
+    {
+        if (empty($this->type)) {
+            return '';
+        }
+
+        $isEnrollmentType = $this->type === Invoice::INVOICE_TYPE_ENROLLMENT;
+        $subscription = $this->relationLoaded('subscription') ? $this->subscription : null;
+
+        if ($isEnrollmentType && $subscription && $subscription->down_payment > 0 && (int) $subscription->installment_type === 1) {
+            return ucwords(Invoice::INVOICE_TYPE_ENROLLMENT) . ' (' . ucwords(str_replace('_', ' ', Invoice::INVOICE_TYPE_DOWN_PAYMENT)) . ')';
+        }
+
+        return ucwords(str_replace('_', ' ', (string) $this->type));
     }
 }

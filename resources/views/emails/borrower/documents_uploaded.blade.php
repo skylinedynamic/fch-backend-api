@@ -3,7 +3,7 @@
 @section('title', 'Documents Uploaded Successfully')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
 
     <p style="line-height: 1.5; margin-bottom: 16px;">
         Documents have been uploaded for the following client:

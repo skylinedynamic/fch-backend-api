@@ -156,6 +156,7 @@ return [
     'file_path_not_found' => 'File path not found in record.',
     'file_not_found_on_server' => 'File not found on server.',
     'account_created_subject' => 'Welcome to :company_name',
+    'payment_link_subject' => ':company - Complete Your Payment to Activate Your Account',
     'download_failed' => 'Failed to download document. Please try again.',
 
 
@@ -181,4 +182,11 @@ return [
     'default_borrower_name' => 'Borrower',
     'host_partner' => 'Host Partner',
     'not_applicable' => 'N/A',
+
+    'mail' => [
+        'subject_account_created' => 'Welcome to :company - Your Borrower Account Details & Enrollment',
+        'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
+        'subject_account_created_trial' => 'Welcome to :company - Limited Free Edition',
+        'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
+    ],
 ];

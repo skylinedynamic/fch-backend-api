@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PaymentProvider;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->string('provider_method_id'); // Stripe Payment Method ID (pm_xxxx)
 
             // Card details for display
-            $table->string('provider')->default(PaymentMethod::STRIPE);
+            $table->string('provider')->default(PaymentProvider::STRIPE);
             $table->string('card_brand')->nullable();
             $table->string('card_last_four', 4)->nullable();
             $table->integer('exp_month')->nullable();

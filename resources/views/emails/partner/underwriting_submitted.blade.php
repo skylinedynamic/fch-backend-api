@@ -3,7 +3,7 @@
 @section('title', 'New Funding Request Submitted')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $fundingRequest->borrower->first_name ?? ($fundingRequest->borrower->first_name . ' ' . $fundingRequest->borrower->last_name) }},</h4>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello {{ $fundingRequest->borrower->first_name ?? ($fundingRequest->borrower->first_name . ' ' . $fundingRequest->borrower->last_name) }},</h4>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         A new funding request has been submitted and requires your attention. Please review the details below:

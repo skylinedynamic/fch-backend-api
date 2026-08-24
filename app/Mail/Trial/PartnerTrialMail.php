@@ -28,11 +28,14 @@ class PartnerTrialMail extends Mailable
     public function envelope(): Envelope
     {
         $branding = $this->getBrandingData();
-        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['siteName'] = $branding['siteName'] ?? config('app.name');
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
+        $siteName = $this->dynamicData['siteName'];
+        $defaultSubject = __('partner.mail.subject_account_created_trial', ['company' => $siteName]);
+
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Welcome to Your Partner Portal - Free Trial",
+            subject: $this->mailData['subject'] ?? $defaultSubject,
         );
     }
 

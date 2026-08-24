@@ -84,6 +84,7 @@ class InvoiceService
                 $q->where('invoices.invoice_id', 'LIKE', "%{$search}%")
                     ->orWhere('invoices.customer_name', 'LIKE', "%{$search}%")
                     ->orWhere('invoices.email', 'LIKE', "%{$search}%")
+                    ->orWhere('invoices.type', 'LIKE', "%{$search}%")
                     ->orWhere('invoices.payment_amount', 'LIKE', "%{$search}%")
                     ->orWhere('invoices.payment_date', 'LIKE', "%{$search}%")
                     ->orWhere('invoices.created_at', 'LIKE', "%{$search}%");
@@ -131,6 +132,7 @@ class InvoiceService
             'payment_amount' => 'invoices.payment_amount',
             'payment_date' => 'invoices.payment_date',
             'status' => 'invoices.status',
+            'type' => 'invoices.type',
         ];
 
         // Add join-dependent aliases

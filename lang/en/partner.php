@@ -176,6 +176,11 @@ return [
     'assigned_user' => 'Assigned User',
     'field_changed' => ':field was changed',
     'field_updated' => ':field was updated to :value',
-    'name_updated' => 'Name was updated to :value',
     'empty_value' => 'empty',
+
+    'mail' => [
+        'subject_account_created_enrollment' => 'Welcome to :company - Your Partner Account Details & Enrollment',
+        'subject_account_created_trial' => 'Welcome to :company - Partner Portal Free Trial Access',
+        'subject_account_migrated' => 'Welcome to :company - Partner Account Migrated from Free Trial',
+    ],
 ];
