@@ -6,10 +6,16 @@ use Dedoc\Scramble\Scramble;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\SchedulerCheckController;
+use App\Http\Controllers\Web\EmbedFormPageController;
 
 Route::get("/", function () {
     abort(404);
 });
+
+// Public Embed Form — shareable URL or iframe embed
+Route::get('/form/{key}', [EmbedFormPageController::class, 'show'])->name('embed-form.show');
+
+
 
 Route::get("/login", [AuthController::class, "showLoginForm"])->name("login");
 Route::post("/login", [AuthController::class, "login"]);
