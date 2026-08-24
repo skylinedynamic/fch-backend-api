@@ -32,6 +32,12 @@
 
         * {
             border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            max-width: 100vw;
         }
 
         body {
@@ -43,20 +49,20 @@
         }
 
         .brand-logo-img {
-            max-height: 48px;
-            max-width: 220px;
+            max-height: 68px;
+            max-width: 280px;
             object-fit: contain;
             border-radius: 4px !important;
         }
 
         .brand-avatar {
-            width: 48px;
-            height: 48px;
+            width: 60px;
+            height: 60px;
             border-radius: 4px !important;
             background: var(--brand-primary);
             color: #fff;
             font-weight: 700;
-            font-size: 20px;
+            font-size: 24px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -69,7 +75,7 @@
             background: #ffffff;
         }
 
-        /* Form Inputs — 4px radius, no border change on hover or focus */
+        /* Form Inputs — 4px radius, no border change on normal hover/focus */
         .form-control,
         .form-select,
         textarea {
@@ -101,6 +107,27 @@
             font-size: 13px;
         }
 
+        /* Red Border for Validation States - Only when explicitly marked is-invalid */
+        .form-control.is-invalid,
+        .form-select.is-invalid,
+        textarea.is-invalid {
+            border: 1px solid #dc3545 !important;
+            background-color: #fff8f8 !important;
+            background-image: none !important;
+        }
+
+        .form-control.is-invalid:hover,
+        .form-select.is-invalid:hover,
+        textarea.is-invalid:hover,
+        .form-control.is-invalid:focus,
+        .form-select.is-invalid:focus,
+        textarea.is-invalid:focus {
+            border: 1px solid #dc3545 !important;
+            background-color: #ffffff !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
         .input-group-text {
             border-radius: 4px !important;
             border: 1px solid #e2e8f0 !important;
@@ -108,6 +135,20 @@
             color: #64748b;
             font-size: 13px;
             padding: 9px 12px;
+        }
+
+        /* Outline whole input group including icon in red ONLY on validation error */
+        .input-group.is-invalid .input-group-text,
+        .input-group:has(>.form-control.is-invalid) .input-group-text {
+            border-color: #dc3545 !important;
+            border-right-color: transparent !important;
+            background-color: #fff8f8 !important;
+            color: #dc3545 !important;
+        }
+
+        .input-group.is-invalid .form-control,
+        .input-group:has(>.form-control.is-invalid) .form-control {
+            border-left-color: #dc3545 !important;
         }
 
         .input-group > .form-control {
@@ -123,6 +164,8 @@
         /* Select2 Custom Styling matching 4px radius & zero focus/hover border */
         .select2-container {
             width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         .select2-container--default .select2-selection--single {
@@ -143,6 +186,12 @@
             background-color: #ffffff !important;
             outline: none !important;
             box-shadow: none !important;
+        }
+
+        .select2-container.is-invalid .select2-selection--single,
+        select.is-invalid + .select2 .select2-selection--single {
+            border: 1px solid #dc3545 !important;
+            background-color: #fff8f8 !important;
         }
 
         .select2-container--default .select2-selection--single .select2-selection__rendered {
@@ -168,6 +217,8 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
             font-size: 13.5px !important;
             overflow: hidden;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         .select2-container--default .select2-results__option--highlighted[aria-selected] {
@@ -193,7 +244,7 @@
             font-size: 13px !important;
         }
 
-        /* Buttons & Badges — 4px radius */
+        /* Buttons & Badges — 4px radius, no on-hover color changes */
         .btn,
         .badge,
         .alert,
@@ -201,9 +252,37 @@
             border-radius: 4px !important;
         }
 
-        .btn-primary {
-            background-color: var(--brand-primary);
-            border-color: var(--brand-primary);
+        .btn-primary,
+        .btn-primary:hover,
+        .btn-primary:focus,
+        .btn-primary:active {
+            background-color: var(--brand-primary) !important;
+            border-color: var(--brand-primary) !important;
+            color: #ffffff !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
+        .btn-success,
+        .btn-success:hover,
+        .btn-success:focus,
+        .btn-success:active {
+            background-color: var(--brand-secondary) !important;
+            border-color: var(--brand-secondary) !important;
+            color: #ffffff !important;
+            box-shadow: none !important;
+            outline: none !important;
+        }
+
+        .btn-outline-secondary,
+        .btn-outline-secondary:hover,
+        .btn-outline-secondary:focus,
+        .btn-outline-secondary:active {
+            background-color: transparent !important;
+            border-color: #cbd5e1 !important;
+            color: #64748b !important;
+            box-shadow: none !important;
+            outline: none !important;
         }
 
         /* Stepper styles with clean underlying track to prevent line bleed */
@@ -371,7 +450,7 @@
                 </div>
             @endif
         </div>
-        <h3 class="fw-bold mb-1 text-dark">{{ $config->form_title }}</h3>
+        <h5 class="fw-bold mb-1 text-dark fs-17">{{ $config->form_title }}</h5>
         <p class="text-muted mb-0 small">
             Powered by <strong>{{ $partnerName }}</strong> &bull; <span class="badge bg-light text-secondary border badge-verified"><i class="bi bi-shield-check text-success me-1"></i>Secure Application</span>
         </p>
@@ -671,7 +750,14 @@
     $(document).ready(function() {
         $('.select2').select2({
             minimumResultsForSearch: 10,
-            width: '100%'
+            width: '100%',
+            dropdownAutoWidth: false
+        });
+
+        // Clear validation on select2 change
+        $('.select2').on('change', function() {
+            $(this).removeClass('is-invalid');
+            $(this).next('.select2-container').removeClass('is-invalid');
         });
     });
 
@@ -725,21 +811,43 @@
             const ln = document.getElementById('last_name');
             const em = document.getElementById('email');
 
+            function markInvalid(el) {
+                el.classList.add('is-invalid');
+                const grp = el.closest('.input-group');
+                if (grp) grp.classList.add('is-invalid');
+            }
+            function markValid(el) {
+                el.classList.remove('is-invalid');
+                const grp = el.closest('.input-group');
+                if (grp) grp.classList.remove('is-invalid');
+            }
+
             let valid = true;
-            if (!fn.value.trim()) { fn.classList.add('is-invalid'); valid = false; } else { fn.classList.remove('is-invalid'); }
-            if (!ln.value.trim()) { ln.classList.add('is-invalid'); valid = false; } else { ln.classList.remove('is-invalid'); }
+            if (!fn.value.trim()) { markInvalid(fn); valid = false; } else { markValid(fn); }
+            if (!ln.value.trim()) { markInvalid(ln); valid = false; } else { markValid(ln); }
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!em.value.trim() || !emailRegex.test(em.value.trim())) {
-                em.classList.add('is-invalid');
+                markInvalid(em);
                 valid = false;
             } else {
-                em.classList.remove('is-invalid');
+                markValid(em);
             }
             return valid;
         }
         return true;
     }
+
+    // Input blur / input listener to clear validation
+    document.querySelectorAll('.form-control, .form-select').forEach(input => {
+        input.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('is-invalid');
+                const grp = this.closest('.input-group');
+                if (grp) grp.classList.remove('is-invalid');
+            }
+        });
+    });
 
     // SSN Formatter
     document.getElementById('ssn').addEventListener('input', function (e) {
@@ -852,6 +960,11 @@
                 let err = json.message || 'There was a problem submitting your application.';
                 if (json.errors) {
                     err = Object.values(json.errors).flat().join('<br>');
+                    // Highlight invalid fields if mapped
+                    Object.keys(json.errors).forEach(key => {
+                        const el = document.getElementById(key);
+                        if (el) el.classList.add('is-invalid');
+                    });
                 }
                 document.getElementById('errorMessageText').innerHTML = err;
                 document.getElementById('errorScreen').style.display = 'block';

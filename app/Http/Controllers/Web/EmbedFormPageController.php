@@ -37,11 +37,11 @@ class EmbedFormPageController extends Controller
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
-        // Resolved logo URL (priority: primary_logo -> header_logo -> secondary_logo -> partner->company_logo)
+        // Resolved logo URL (priority: secondary_logo -> primary_logo -> header_logo -> partner->company_logo)
         $logoUrl = null;
-        $logoPath = $branding['primary_logo']
+        $logoPath = $branding['secondary_logo']
+            ?? ($branding['primary_logo']
             ?? ($branding['header_logo']
-            ?? ($branding['secondary_logo']
             ?? $partner?->company_logo));
 
         if ($logoPath) {

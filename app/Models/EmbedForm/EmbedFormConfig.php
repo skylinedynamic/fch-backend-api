@@ -36,7 +36,7 @@ class EmbedFormConfig extends Model
     public static function generatePublicKey(): string
     {
         do {
-            $key = 'fch_pub_' . bin2hex(random_bytes(16));
+            $key = 'share_pub_' . bin2hex(random_bytes(16));
         } while (self::where('public_key', $key)->exists());
 
         return $key;

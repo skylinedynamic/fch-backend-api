@@ -44,9 +44,9 @@ class PublicEmbedFormController extends Controller
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name')));
 
         $logoUrl = null;
-        $logoPath = $branding['primary_logo']
+        $logoPath = $branding['secondary_logo']
+            ?? ($branding['primary_logo']
             ?? ($branding['header_logo']
-            ?? ($branding['secondary_logo']
             ?? $partner?->company_logo));
 
         if ($logoPath) {
