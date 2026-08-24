@@ -28,7 +28,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Mail\AccountCreateNotificationMail;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
 use Illuminate\Support\Facades\Mail;
 

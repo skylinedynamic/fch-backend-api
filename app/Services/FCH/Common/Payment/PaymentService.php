@@ -591,16 +591,25 @@ class PaymentService
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment
-                if ($subscription && $invoice->entity_type === Borrower::class && $authUser->partner->is_host == false) {
-                    if (!$subscription->first_payment_date) {
-                        $borrowerFeeInvoice = Invoice::where('subscription_id', $subscription->id)
-                            ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
-                            ->first();
-                        if ($borrowerFeeInvoice && $borrowerFeeInvoice->status = Invoice::STATUS_UNPAID) {
-                            $unifiedPaymentService = app(UnifiedPaymentService::class);
-                            $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
-                        }
+                $isHostPartner = (bool) ($authUser->partner?->is_host ?? false);
+                if ($subscription && $invoice->entity_type === Borrower::class && !$isHostPartner && empty($subscription->first_payment_date)) {
+                    $borrowerId = $invoice->borrower_id ?? $subscription->entity_id;
+                    $borrowerFeeInvoice = Invoice::where(function ($q) use ($subscription, $borrowerId) {
+                            if ($subscription?->id) {
+                                $q->where('subscription_id', $subscription->id);
+                            }
+                            if (!empty($borrowerId)) {
+                                $q->orWhere('borrower_id', $borrowerId);
+                            }
+                        })
+                        ->where('entity_type', Partner::class)
+                        ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
+                        ->where('status', Invoice::STATUS_UNPAID)
+                        ->first();
 
+                    if ($borrowerFeeInvoice) {
+                        $unifiedPaymentService = app(UnifiedPaymentService::class);
+                        $unifiedPaymentService->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
                     }
                 }
 

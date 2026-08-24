@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Global\Notification\Mail;
+namespace App\Mail;
 
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
@@ -18,12 +18,16 @@ class AccountCreateNotificationMail extends Mailable
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->setMailPartnerId();
+        $resolvedPartnerId = $partnerId
+            ?? ($mailData['partner_id'] ?? null)
+            ?? ($mailData['user']?->partner_id ?? null);
+
+        $this->setMailPartnerId($resolvedPartnerId);
     }
 
     public function envelope(): Envelope
     {
-        $branding = $this->getBrandingData();
+        $branding = $this->getBrandingData($this->mailPartnerId);
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
         $defaultSubject = !empty($this->mailData['is_update'])
@@ -38,6 +42,10 @@ class AccountCreateNotificationMail extends Mailable
 
     public function content(): Content
     {
+        $branding = $this->getBrandingData($this->mailPartnerId);
+        $siteName = $branding['siteName'];
+        $logoUrl = $branding['logoUrl'];
+
         $user = $this->mailData['user'];
         $loginUrl = match ($user->user_type) {
             \App\Models\User\User::ADMIN,
@@ -52,10 +60,10 @@ class AccountCreateNotificationMail extends Mailable
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-                'siteName' => $this->dynamicData['siteName'],
-                'logoUrl' => $this->dynamicData['logoUrl'],
+                'siteName' => $siteName,
+                'logoUrl' => $logoUrl,
                 'business_info' => [
-                    'company_name' => $this->mailData['business_info']['company_name'] ?? ($this->dynamicData['siteName'] ?? config('app.name')),
+                    'company_name' => $this->mailData['business_info']['company_name'] ?? ($siteName ?? config('app.name')),
                     'email' => $this->mailData['business_info']['email'] ?? '',
                     'phone_number' => $this->mailData['business_info']['phone_number'] ?? '',
                     'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',

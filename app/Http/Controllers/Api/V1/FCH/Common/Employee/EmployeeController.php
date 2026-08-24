@@ -10,7 +10,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
 use App\Http\Resources\FCH\Employee\EmployeeResource;
 use App\Models\Employee\Employee;
 use App\Services\FCH\Common\Employee\EmployeeService;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Mail\AccountCreateNotificationMail;
 use App\Traits\PaginatesApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
