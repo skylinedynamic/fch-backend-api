@@ -278,6 +278,11 @@ class EnrollmentService
         $plan = $this->resolvePartnerPlan($planId);
         $amounts = $this->calculatePartnerAmounts($plan, $enrollment);
 
+        $borrowerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
+            ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
+            ->first();
+        $borrowerFeeAmount = $borrowerFeePlan ? (float) ($borrowerFeePlan->total_amount ?? 0) : 0.00;
+
         $subscription = null;
 
         if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
@@ -293,6 +298,7 @@ class EnrollmentService
                 'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
                 'down_payment' => $amounts['down_payment'],
                 'is_custom' => $amounts['is_custom'],
+                'borrower_fee_amount' => $borrowerFeeAmount,
             ]);
         }
 

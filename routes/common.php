@@ -333,6 +333,7 @@ Route::prefix('v1')->group(function () {
             // 🔄 Subscriptions Module Menu Routes (accessible to host and non-host partners)
             Route::prefix('subscriptions')->group(function () {
                 Route::post('fetch-all', [CommonSubscriptionController::class, 'index']);
+                Route::get('partner-borrower-fee', [CommonSubscriptionController::class, 'getPartnerBorrowerFee']);
                 Route::get('{id}', [CommonSubscriptionController::class, 'show']);
             });
 

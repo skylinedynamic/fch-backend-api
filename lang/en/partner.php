@@ -169,6 +169,7 @@ return [
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
     'subscription_cancelled' => 'Subscription cancelled successfully.',
     'subscription_already_cancelled' => 'Subscription is already cancelled.',
+    'borrower_fee_retrieved' => 'Borrower fee retrieved successfully.',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',

@@ -435,6 +435,17 @@ class LeadService
             $firstName = $this->getFirstName($lead->contact_person);
             $lastName = $this->getLastName($lead->contact_person);
 
+            $enrollmentData = is_array($data['enrollment'] ?? null) ? $data['enrollment'] : [];
+            $enrollmentData = array_merge([
+                'plan_id' => $data['plan_id'] ?? ($enrollmentData['plan_id'] ?? null),
+                'enrollment_type' => $data['enrollment_type'] ?? ($enrollmentData['enrollment_type'] ?? null),
+                'amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? ($enrollmentData['amount'] ?? null)),
+                'down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? ($enrollmentData['down_payment'] ?? null)),
+                'months' => $data['installment_months'] ?? ($data['months'] ?? ($enrollmentData['months'] ?? null)),
+                'monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? ($enrollmentData['monthly_amount'] ?? null)),
+                'remaining_balance' => $data['installment_remaining_balance'] ?? ($data['remaining_balance'] ?? ($enrollmentData['remaining_balance'] ?? null)),
+            ], $enrollmentData);
+
             $borrowerData = [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -466,17 +477,21 @@ class LeadService
                 'postal_code' => $lead->zip_code,
                 'home_address' => $lead->business_address,
                 'home_phone' => $lead->business_phone,
-                // 'enrollment_type' => $data['enrollment_type'] ?? null,
                 'assign_id' => $lead->salesperson_id,
                 'partner_id' => $lead->partner_id ?: (Auth::user()?->partner_id ?? null),
                 'plan_id' => $data['plan_id'] ?? null,
-                'enrollment_payment' => $data['enrollment_amount'] ?? null,  // frontend sends enrollment_amount → maps to enrollment_payment
+                'enrollment_payment' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
                 'is_free_trail' => $data['is_free_trail'] ?? null,
-                'free_trail_end_date' => null,
-                'installment_down_payment' => $data['installment_down_payment'] ?? null,
-                'installment_months' => $data['installment_months'] ?? null,
-                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? null,
-                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? null,
+                'free_trail_end_date' => $data['free_trail_end_date'] ?? (
+                    (($data['is_free_trail'] ?? null) == 1 || ($data['is_free_trail'] ?? null) === true || ($data['is_free_trail'] ?? null) === 'true')
+                    ? now()->addDays(30)->toDateString()
+                    : null
+                ),
+                'installment_down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? null),
+                'installment_months' => $data['installment_months'] ?? ($data['months'] ?? null),
+                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? null),
+                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? ($data['remaining_balance'] ?? null),
+                'enrollment' => $enrollmentData,
             ];
 
             $result = $this->borrowerService->store($borrowerData);
@@ -520,6 +535,19 @@ class LeadService
                 throw new \InvalidArgumentException('A partner with this email already exists.');
             }
 
+            $enrollmentData = is_array($data['enrollment'] ?? null) ? $data['enrollment'] : [];
+            $enrollmentData = array_merge([
+                'plan_id' => $data['plan_id'] ?? ($enrollmentData['plan_id'] ?? null),
+                'partner_type' => $data['partner_type'] ?? ($enrollmentData['partner_type'] ?? 'Referral Partner'),
+                'enrollment_type' => $data['enrollment_type'] ?? ($enrollmentData['enrollment_type'] ?? 'Monthly Platform Fee'),
+                'amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? ($enrollmentData['amount'] ?? null)),
+                'monthly_platform_fee' => $data['monthly_platform_fee'] ?? ($enrollmentData['monthly_platform_fee'] ?? null),
+                'down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? ($enrollmentData['down_payment'] ?? null)),
+                'months' => $data['installment_months'] ?? ($data['months'] ?? ($enrollmentData['months'] ?? null)),
+                'monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? ($enrollmentData['monthly_amount'] ?? null)),
+                'remaining_balance' => $data['installment_remaining_balance'] ?? ($data['remaining_balance'] ?? ($enrollmentData['remaining_balance'] ?? null)),
+            ], $enrollmentData);
+
             // Map Lead data to Partner storage format
             $partnerData = [
                 'full_name' => $lead->contact_person,
@@ -535,8 +563,8 @@ class LeadService
                 // Conversion Options from payload
                 'partner_type' => $data['partner_type'] ?? 'Referral Partner',
                 'enrollment_type' => $data['enrollment_type'] ?? 'Monthly Platform Fee',
-                'enrollment_amount' => $data['enrollment_amount'],
-                'monthly_platform_fee' => $data['monthly_platform_fee'],
+                'enrollment_amount' => $data['enrollment_amount'] ?? ($data['amount'] ?? null),
+                'monthly_platform_fee' => $data['monthly_platform_fee'] ?? null,
 
                 'status' => Partner::STATUS_ONBOARDING,
                 'joining_date' => now(),
@@ -558,10 +586,11 @@ class LeadService
                     ? now()->addDays(30)->toDateString()
                     : null
                 ),
-                'installment_down_payment' => $data['installment_down_payment'] ?? null,
-                'installment_months' => $data['installment_months'] ?? null,
-                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? null,
-                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? null,
+                'installment_down_payment' => $data['installment_down_payment'] ?? ($data['down_payment'] ?? null),
+                'installment_months' => $data['installment_months'] ?? ($data['months'] ?? null),
+                'installment_monthly_amount' => $data['installment_monthly_amount'] ?? ($data['monthly_amount'] ?? null),
+                'installment_remaining_balance' => $data['installment_remaining_balance'] ?? ($data['remaining_balance'] ?? null),
+                'enrollment' => $enrollmentData,
             ];
 
             // Trigger robust Partner storage logic

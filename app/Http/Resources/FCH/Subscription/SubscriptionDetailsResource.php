@@ -142,7 +142,7 @@ class SubscriptionDetailsResource extends JsonResource
             'subscription_amount_per_month' => currencyFormat($this->subscription_amount_per_month),
             'down_payment' => currencyFormat($this->down_payment),
             'monthly_platform_fee' => $isPartner ? currencyFormat($this->monthly_platform_fee) : null,
-            'borrower_fee_amount' => $isBorrower ? currencyFormat($this->borrower_fee_amount) : null,
+            'borrower_fee_amount' => !is_null($this->borrower_fee_amount) ? currencyFormat($this->borrower_fee_amount) : null,
 
             // Installment Details
             'installment_type' => $this->installment_type,
