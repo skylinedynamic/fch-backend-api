@@ -8,12 +8,13 @@ use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class BorrowerFeeInvoiceNotificationMail extends Mailable
+class BorrowerFeeInvoiceNotificationMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

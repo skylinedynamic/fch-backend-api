@@ -538,7 +538,7 @@ class SubscriptionService
                 ]);
 
                 try {
-                    Mail::to($user->email)->send(new PaymentSuccessUserMail([
+                    Mail::to($user->email)->queue(new PaymentSuccessUserMail([
                         'amount' => $invoice->payment_amount,
                         'currency' => $invoice->currency,
                         'transaction_id' => 'SUB_' . $subscription->id,

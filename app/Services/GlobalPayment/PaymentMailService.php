@@ -81,7 +81,7 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($payerEmail)->send(new PaymentSubmittedMail($payerMailData, $receiverPartnerId));
+                Mail::to($payerEmail)->queue(new PaymentSubmittedMail($payerMailData, $receiverPartnerId));
             }
 
             // 2. Send to Receiver (Admin / Partner Action Alert) - branding is Receiver's branding
@@ -98,7 +98,7 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($receiverEmail)->send(new PaymentSubmittedMail($receiverMailData, $receiverPartnerId));
+                Mail::to($receiverEmail)->queue(new PaymentSubmittedMail($receiverMailData, $receiverPartnerId));
             }
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentSubmittedMail', 'error' => $e->getMessage()]));
@@ -151,7 +151,7 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($payerEmail)->send(new PaymentSuccessMail($payerMailData, $receiverPartnerId));
+                Mail::to($payerEmail)->queue(new PaymentSuccessMail($payerMailData, $receiverPartnerId));
             }
 
             // 2. Send to Receiver (Partner / Admin Payment Notice) - branding is Receiver's branding
@@ -168,7 +168,7 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($receiverEmail)->send(new PaymentSuccessMail($receiverMailData, $receiverPartnerId));
+                Mail::to($receiverEmail)->queue(new PaymentSuccessMail($receiverMailData, $receiverPartnerId));
             }
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentSuccessMail', 'error' => $e->getMessage()]));
@@ -216,7 +216,7 @@ class PaymentMailService
                 ]),
             ];
 
-            Mail::to($payerEmail)->send(new PaymentApprovedMail($mailData, $receiverPartnerId));
+            Mail::to($payerEmail)->queue(new PaymentApprovedMail($mailData, $receiverPartnerId));
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentApprovedMail', 'error' => $e->getMessage()]));
         }
@@ -263,7 +263,7 @@ class PaymentMailService
                 ]),
             ];
 
-            Mail::to($payerEmail)->send(new PaymentRejectedMail($mailData, $receiverPartnerId));
+            Mail::to($payerEmail)->queue(new PaymentRejectedMail($mailData, $receiverPartnerId));
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentRejectedMail', 'error' => $e->getMessage()]));
         }
