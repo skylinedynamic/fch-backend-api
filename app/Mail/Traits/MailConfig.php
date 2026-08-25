@@ -31,10 +31,15 @@ trait MailConfig
     /**
      * Set the partner ID for dynamic SMTP configuration.
      */
-    public function setMailPartnerId(): self
+    public function setMailPartnerId(?int $partnerId = null): self
     {
+        if ($partnerId) {
+            $this->mailPartnerId = $partnerId;
+            return $this;
+        }
+
         $partner = getConfigPartner();
-        $this->mailPartnerId = $partner->id;
+        $this->mailPartnerId = $partner?->id;
         return $this;
     }
 

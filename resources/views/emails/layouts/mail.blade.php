@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="x-apple-disable-message-reformatting">
-    <title>@yield('title', $siteName ?? config('app.name'))</title>
+    <title>@yield('title', $siteName ?? null)</title>
     <style>
         /* Reset for email clients */
         body,
@@ -204,7 +204,7 @@
             <div class="header-logo"
                 style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;margin-bottom:10px;">
                 @if(!empty($logoUrl))
-                    <img src="{{ $logoUrl }}" alt="{{ $siteName ?? config('app.name') }}" class="logo"
+                    <img src="{{ $logoUrl }}" alt="{{ $siteName ?? null }}" class="logo"
                         style="display: block; margin: 0 auto; width: 200px; height: auto;">
                 @else
                     <h2 style="margin: 0; color: #1a2e44;">{{ $siteName ?? config('app.name') }}</h2>

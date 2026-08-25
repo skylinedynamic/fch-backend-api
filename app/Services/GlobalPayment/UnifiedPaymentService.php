@@ -221,20 +221,33 @@ class UnifiedPaymentService
             }
 
 
+            $isFirstPaymentPaid = !empty($subscription->first_payment_date);
+
             // 5. Advance the local subscription phase and schedule next billing date
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice, $subscription);
 
             // 6. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
-            if (!$isManual && !$subscription->first_payment_date && $subscription->entity_type === Borrower::class) {
-                $borrowerFeeInvoice = Invoice::where('subscription_id', $subscription->id)
+            if (!$isManual && !$isFirstPaymentPaid && $subscription->entity_type === Borrower::class) {
+                $borrowerId = $invoice->borrower_id ?? $subscription->entity_id;
+                $borrowerFeeInvoice = Invoice::where(function ($q) use ($subscription, $borrowerId) {
+                        if ($subscription?->id) {
+                            $q->where('subscription_id', $subscription->id);
+                        }
+                        if (!empty($borrowerId)) {
+                            $q->orWhere('borrower_id', $borrowerId);
+                        }
+                    })
                     ->where('entity_type', Partner::class)
                     ->where('entity_id', $invoice->partner_id)
+                    ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
                     ->where('status', Invoice::STATUS_UNPAID)
                     ->where('is_partner_paying', 1)
                     ->first();
 
-                $this->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
+                if ($borrowerFeeInvoice) {
+                    $this->triggerPartnerAutoChargeForBorrowerInvoice($borrowerFeeInvoice);
+                }
             }
 
             // 7. Send payment email to both payer and receiver via centralized PaymentMailService
@@ -265,10 +278,16 @@ class UnifiedPaymentService
     /**
      * Trigger automatic platform fee charge from partner to host for a borrower's invoice.
      */
-    public function triggerPartnerAutoChargeForBorrowerInvoice(Invoice $invoice, ?Payment $payment = null): void
+    public function triggerPartnerAutoChargeForBorrowerInvoice(?Invoice $invoice, ?Payment $payment = null): void
     {
-        $partner = $invoice->partner;
-        $this->chargePlatformFee($invoice, $partner, $payment);
+        if (!$invoice) {
+            return;
+        }
+
+        $partner = $invoice->partner ?? Partner::find($invoice->entity_id);
+        if ($partner) {
+            $this->chargePlatformFee($invoice, $partner, $payment);
+        }
     }
 
     /**
@@ -278,18 +297,15 @@ class UnifiedPaymentService
     {
         try {
             if ($invoice) {
-                Log::info(__('payment.log_autocharge_trigger_info', ['amount' => $invoice->payment_amount, 'partner_id' => $partner->id]));
-                $success = $this->chargePartnerCardAutomatically($partner, $invoice, $invoice->payment_amount, $borrower, $payment);
+                $borrower = $invoice->borrower ?? ($invoice->borrower_id ? Borrower::find($invoice->borrower_id) : null);
+                $success = $this->chargePartnerCardAutomatically($partner, $invoice, (float) $invoice->payment_amount, $borrower, $payment);
 
                 if ($success) {
                     Log::info(__('payment.log_autocharge_success_info', ['partner_id' => $partner->id, 'amount' => $invoice->payment_amount]));
                 } else {
                     Log::warning(__('payment.log_autocharge_failed_warning', ['amount' => $invoice->payment_amount]));
                 }
-            } else {
-                Log::info(__('payment.log_autocharge_no_unpaid_invoice', ['partner_id' => $partner->id]));
             }
-
         } catch (Exception $e) {
             Log::error(__('payment.log_autocharge_failed_error', ['error' => $e->getMessage()]));
         }
@@ -298,14 +314,8 @@ class UnifiedPaymentService
     /**
      * Charge partner card automatically for WL Partner client.
      */
-    protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount, Borrower $borrower = null, Payment $payment = null): bool
+    protected function chargePartnerCardAutomatically(Partner $partner, Invoice $invoice, float $amount, ?Borrower $borrower = null, ?Payment $payment = null): bool
     {
-        Log::info(__('payment.log_autocharge_starting'), [
-            'partner_id' => $partner->id,
-            'invoice_id' => $invoice->id,
-            'amount' => $amount,
-        ]);
-
         $failedData = [
             'partner_id' => $partner->id,
             'invoice_id' => $invoice->id,
@@ -340,12 +350,6 @@ class UnifiedPaymentService
 
             $paymentMethodId = $partnerPayment->details['payment_method'];
 
-            Log::info(__('payment.log_autocharge_located'), [
-                'payment_id' => $partnerPayment->id,
-                'customer_id' => $customerId,
-                'payment_method' => $paymentMethodId,
-            ]);
-
             // ── Step 2: Fetch the Host's Stripe credentials
             $host = Partner::where('is_host', true)->first();
             if (!$host) {
@@ -376,11 +380,6 @@ class UnifiedPaymentService
                 ],
             ]);
 
-            Log::info(__('payment.log_autocharge_pi_created'), [
-                'pi_id' => $paymentIntent->id,
-                'status' => $paymentIntent->status,
-            ]);
-
             if (!in_array($paymentIntent->status, [Payment::STATUS_SUCCEEDED, Payment::STATUS_REQUIRES_CAPTURE])) {
                 Log::error(__('payment.log_autocharge_pi_failed_error'), [
                     'pi_id' => $paymentIntent->id,
@@ -402,12 +401,8 @@ class UnifiedPaymentService
                 ]);
             }
 
-            Log::info(__('payment.log_autocharge_marked_paid'), [
-                'invoice_id' => $invoice->id,
-            ]);
-
             // ── Step 5: Record the payment ledger entry
-            $this->paymentRecord->createRecord([
+            $partnerPayment = $this->paymentRecord->createRecord([
                 'partner_id' => $partner->id,
                 'borrower_id' => null,
                 'invoice_id' => $invoice->id,
@@ -424,8 +419,11 @@ class UnifiedPaymentService
                 'transaction_date' => now(),
             ]);
 
+            // ── Step 6: Send payment email notification (to Host Partner and Partner)
+            $this->paymentMailService->sendSuccess($partnerPayment, $invoice, PaymentProvider::STRIPE, $partner->id);
+
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error(__('payment.log_autocharge_exception_error', ['error' => $e->getMessage()]));
             $this->recordFailedPayment($failedData, $e->getMessage(), __('payment.autocharge_exception'));
             return false;
@@ -456,7 +454,7 @@ class UnifiedPaymentService
                 ],
                 'status' => Payment::STATUS_FAILED,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error(__('payment.log_record_failed_payment_error', ['error' => $e->getMessage()]));
         }
     }

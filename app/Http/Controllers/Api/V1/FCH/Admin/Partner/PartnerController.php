@@ -16,7 +16,7 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Mail\AccountCreateNotificationMail;
 
 class PartnerController extends Controller
 {
