@@ -153,7 +153,7 @@ class EnrollmentService
             $total = $totalAmount;
             $initialInvoiceAmount = $totalAmount;
             $installmentType = 0;
-            $subscriptionAmountPerMonth = 0;
+            $subscriptionAmountPerMonth = null;
         }
 
         $isCustom = false;
@@ -234,7 +234,7 @@ class EnrollmentService
             $initialInvoiceAmount = $amount;
             $installmentType = 0;
             $installmentMonths = $plan ? (int) ($plan->total_installment_count_upto ?? 1) : 1;
-            $subscriptionAmountPerMonth = $payableAmount;
+            $subscriptionAmountPerMonth = null;
         }
 
         $isCustom = false;
@@ -278,11 +278,6 @@ class EnrollmentService
         $plan = $this->resolvePartnerPlan($planId);
         $amounts = $this->calculatePartnerAmounts($plan, $enrollment);
 
-        $borrowerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
-            ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
-            ->first();
-        $borrowerFeeAmount = $borrowerFeePlan ? (float) ($borrowerFeePlan->total_amount ?? 0) : 0.00;
-
         $subscription = null;
 
         if ($enrollmentType || $amounts['initial_invoice_amount'] > 0) {
@@ -297,8 +292,7 @@ class EnrollmentService
                 'total_subscription_amount' => $amounts['total'],
                 'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
                 'down_payment' => $amounts['down_payment'],
-                'is_custom' => $amounts['is_custom'],
-                'borrower_fee_amount' => $borrowerFeeAmount,
+                'is_custom' => $amounts['is_custom']
             ]);
         }
 
@@ -397,17 +391,17 @@ class EnrollmentService
         [$plan] = $this->resolveBorrowerPlan($planId);
 
         $partnerInvoice = null;
-        $wlPartnerFeeAmount = null;
+        $borrowerPartnerFeeAmount = null;
 
         if ($isNonHostPartner) {
             // Non-host partner creates borrower: partner pays a fixed borrower fee to Host
-            $borrower->update(['partner_payment_for_me' => false]);
+            $borrower->update(['partner_payment_for_me' => false]); // this is for is partner paid borrower fee yet
 
-            $wlFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
+            $borrowerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
                 ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
                 ->first();
 
-            $wlPartnerFeeAmount = $wlFeePlan ? (float) ($wlFeePlan->total_amount ?? 0) : 0.00;
+            $borrowerPartnerFeeAmount = $borrowerFeePlan ? (float) ($borrowerFeePlan->total_amount ?? 0) : 0.00;
 
             $partnerInvoice = $this->invoiceService->create([
                 'partner_id' => $borrower->partner_id,
@@ -417,7 +411,7 @@ class EnrollmentService
                 'customer_name' => $partner->company_name ?: $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
-                'payment_amount' => $wlPartnerFeeAmount,
+                'payment_amount' => $borrowerPartnerFeeAmount,
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => true,
                 'is_platform_fee' => false,
@@ -481,7 +475,7 @@ class EnrollmentService
             'installment_type' => $amounts['installment_type'],
             'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
             'is_custom' => $amounts['is_custom'],
-            'borrower_fee_amount' => $wlPartnerFeeAmount,
+            'borrower_fee_amount' => $borrowerPartnerFeeAmount,
             'current_cycle_invoice_id' => $invoice->id,
         ]);
 

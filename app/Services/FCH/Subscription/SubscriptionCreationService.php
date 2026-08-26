@@ -109,7 +109,7 @@ class SubscriptionCreationService
 
         //only for partners
         $data['user_seats'] = $seat_plan ? $seat_plan->total_seat_count : null;
-        $data['per_seat_amount'] = $seat_plan ? $seat_plan->total_amount : null;
+        // $data['per_seat_amount'] = $seat_plan ? $seat_plan->total_amount : null;
 
         $isInstallmentType = strtolower($data['enrollment_type']) == SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG;
         $hasDownPayment = ($data['down_payment'] ?? 0) > 0;
