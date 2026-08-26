@@ -53,7 +53,7 @@ class EnrollmentService
         try {
             Mail::to($email)->send($mailable);
         } catch (\Exception $e) {
-            Log::error('Borrower enrollment email failed', [
+            Log::error(__('subscription.borrower_enrollment_email_failed'), [
                 'email' => $email,
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
@@ -66,7 +66,7 @@ class EnrollmentService
         try {
             Mail::to($email)->send($mailable);
         } catch (\Exception $e) {
-            Log::error('Partner enrollment email failed', [
+            Log::error(__('subscription.partner_enrollment_email_failed'), [
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
@@ -153,7 +153,7 @@ class EnrollmentService
             $total = $totalAmount;
             $initialInvoiceAmount = $totalAmount;
             $installmentType = 0;
-            $subscriptionAmountPerMonth = 0;
+            $subscriptionAmountPerMonth = null;
         }
 
         $isCustom = false;
@@ -234,7 +234,7 @@ class EnrollmentService
             $initialInvoiceAmount = $amount;
             $installmentType = 0;
             $installmentMonths = $plan ? (int) ($plan->total_installment_count_upto ?? 1) : 1;
-            $subscriptionAmountPerMonth = $payableAmount;
+            $subscriptionAmountPerMonth = null;
         }
 
         $isCustom = false;
@@ -292,7 +292,7 @@ class EnrollmentService
                 'total_subscription_amount' => $amounts['total'],
                 'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
                 'down_payment' => $amounts['down_payment'],
-                'is_custom' => $amounts['is_custom'],
+                'is_custom' => $amounts['is_custom']
             ]);
         }
 
@@ -329,7 +329,7 @@ class EnrollmentService
                     'user' => $user,
                     'payment_link' => $paymentLink,
                     'amount' => $invoice->payment_amount,
-                    'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
+                    'enrollment_type' => $enrollmentType ?? __('subscription.default_enrollment_fee_title'),
                     'business_info' => [
                         'company_name' => $hostPartner->company_name ?? config('app.name'),
                         'email' => $hostPartner->email ?? config('mail.from.address'),
@@ -391,17 +391,17 @@ class EnrollmentService
         [$plan] = $this->resolveBorrowerPlan($planId);
 
         $partnerInvoice = null;
-        $wlPartnerFeeAmount = null;
+        $borrowerPartnerFeeAmount = null;
 
         if ($isNonHostPartner) {
             // Non-host partner creates borrower: partner pays a fixed borrower fee to Host
-            $borrower->update(['partner_payment_for_me' => false]);
+            $borrower->update(['partner_payment_for_me' => false]); // this is for is partner paid borrower fee yet
 
-            $wlFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
+            $borrowerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
                 ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
                 ->first();
 
-            $wlPartnerFeeAmount = $wlFeePlan ? (float) ($wlFeePlan->total_amount ?? 0) : 0.00;
+            $borrowerPartnerFeeAmount = $borrowerFeePlan ? (float) ($borrowerFeePlan->total_amount ?? 0) : 0.00;
 
             $partnerInvoice = $this->invoiceService->create([
                 'partner_id' => $borrower->partner_id,
@@ -411,7 +411,7 @@ class EnrollmentService
                 'customer_name' => $partner->company_name ?: $partner->full_name,
                 'email' => $partner->email,
                 'country' => $partner->country,
-                'payment_amount' => $wlPartnerFeeAmount,
+                'payment_amount' => $borrowerPartnerFeeAmount,
                 'status' => Invoice::STATUS_UNPAID,
                 'is_partner_paying' => true,
                 'is_platform_fee' => false,
@@ -460,7 +460,7 @@ class EnrollmentService
                         $hostPartnerId
                     );
                 } catch (\Exception $e) {
-                    Log::error('Failed to send borrower fee invoice notification mail to host admin', ['error' => $e->getMessage()]);
+                    Log::error(__('subscription.borrower_fee_notification_failed'), ['error' => $e->getMessage()]);
                 }
             }
         }
@@ -475,7 +475,7 @@ class EnrollmentService
             'installment_type' => $amounts['installment_type'],
             'subscription_amount_per_month' => $amounts['subscription_amount_per_month'],
             'is_custom' => $amounts['is_custom'],
-            'borrower_fee_amount' => $wlPartnerFeeAmount,
+            'borrower_fee_amount' => $borrowerPartnerFeeAmount,
             'current_cycle_invoice_id' => $invoice->id,
         ]);
 
@@ -490,7 +490,7 @@ class EnrollmentService
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
-                'company_name' => $partner->company_name ?? 'Four Corner Funding',
+                'company_name' => $partner->company_name ?? __('subscription.default_company_name'),
                 'company_logo' => $partner->company_logo ?? 'logo.png',
                 'email' => $partner->email ?? config('mail.from.address'),
                 'phone_number' => $partner->phone_number ?? '',

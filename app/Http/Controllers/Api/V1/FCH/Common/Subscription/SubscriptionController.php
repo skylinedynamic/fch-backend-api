@@ -10,7 +10,9 @@ use App\Services\FCH\Subscription\SubscriptionService;
 
 class SubscriptionController extends Controller
 {
-    public function __construct(protected SubscriptionService $subscriptionService) {}
+    public function __construct(protected SubscriptionService $subscriptionService)
+    {
+    }
 
     /**
      * Fetch all subscriptions with stats for Subscriptions Module menu (RBAC-scoped).
@@ -18,6 +20,15 @@ class SubscriptionController extends Controller
     public function index(FetchSubscriptionRequest $request)
     {
         return $this->subscriptionService->fetchAll($request->validated());
+    }
+
+    /**
+     * Get borrower fee for authenticated partner from their subscription,
+     * or fallback to fixed enrollment plan from subscription_plans table.
+     */
+    public function getPartnerBorrowerFee()
+    {
+        return $this->subscriptionService->getPartnerBorrowerFee();
     }
 
     /**

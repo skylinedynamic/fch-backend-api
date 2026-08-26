@@ -515,7 +515,7 @@ class InvoiceService
 
 
         try {
-            Mail::to($recipientEmail)->send(new InvoiceMail($invoice, $pdfContent));
+            Mail::to($recipientEmail)->queue(new InvoiceMail($invoice, $pdfContent));
         } catch (\Exception $e) {
             Log::error('Failed to send invoice email', ['error' => $e->getMessage()]);
         }

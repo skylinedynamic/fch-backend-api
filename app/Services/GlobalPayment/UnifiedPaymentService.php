@@ -41,10 +41,10 @@ class UnifiedPaymentService
         protected ?SubscriptionService $subscriptionService = null,
         protected ?PaymentMailService $paymentMailService = null
     ) {
-        $this->gatewayManager     = $gatewayManager ?? app(PaymentGatewayManager::class);
-        $this->paymentRecord      = $paymentRecord ?? app(Payment::class);
+        $this->gatewayManager = $gatewayManager ?? app(PaymentGatewayManager::class);
+        $this->paymentRecord = $paymentRecord ?? app(Payment::class);
         $this->subscriptionService = $subscriptionService ?? app(SubscriptionService::class);
-        $this->paymentMailService  = $paymentMailService ?? app(PaymentMailService::class);
+        $this->paymentMailService = $paymentMailService ?? app(PaymentMailService::class);
     }
 
     /**
@@ -221,23 +221,23 @@ class UnifiedPaymentService
             }
 
 
-            $isFirstPaymentPaid = !empty($subscription->first_payment_date);
+            $isFirstPayment = $subscription && empty($subscription->first_payment_date);
 
             // 5. Advance the local subscription phase and schedule next billing date
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice, $subscription);
 
             // 6. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
-            if (!$isManual && !$isFirstPaymentPaid && $subscription->entity_type === Borrower::class) {
+            if (!$isManual && $isFirstPayment && $subscription?->entity_type === Borrower::class) {
                 $borrowerId = $invoice->borrower_id ?? $subscription->entity_id;
                 $borrowerFeeInvoice = Invoice::where(function ($q) use ($subscription, $borrowerId) {
-                        if ($subscription?->id) {
-                            $q->where('subscription_id', $subscription->id);
-                        }
-                        if (!empty($borrowerId)) {
-                            $q->orWhere('borrower_id', $borrowerId);
-                        }
-                    })
+                    if ($subscription?->id) {
+                        $q->where('subscription_id', $subscription->id);
+                    }
+                    if (!empty($borrowerId)) {
+                        $q->orWhere('borrower_id', $borrowerId);
+                    }
+                })
                     ->where('entity_type', Partner::class)
                     ->where('entity_id', $invoice->partner_id)
                     ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)

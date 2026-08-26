@@ -20,8 +20,10 @@ use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
 use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;
+use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
 use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
+use App\Http\Resources\FCH\Subscription\PartnerBorrowerFeeResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -538,7 +540,7 @@ class SubscriptionService
                 ]);
 
                 try {
-                    Mail::to($user->email)->send(new PaymentSuccessUserMail([
+                    Mail::to($user->email)->queue(new PaymentSuccessUserMail([
                         'amount' => $invoice->payment_amount,
                         'currency' => $invoice->currency,
                         'transaction_id' => 'SUB_' . $subscription->id,
@@ -922,5 +924,21 @@ class SubscriptionService
         $baseQuery = Subscription::query();
         $this->applyRbacScope($baseQuery);
         return $this->getStatsFromQuery($baseQuery);
+    }
+
+    /**
+     * Get borrower fee for authenticated partner from their subscription,
+     * or fallback to fixed enrollment plan from subscription_plans table.
+     */
+    public function getPartnerBorrowerFee()
+    {
+        $borrowerFee = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
+            ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
+            ->value('total_amount') ?? 0;
+
+        return ApiResponse::success(
+            new PartnerBorrowerFeeResource((float) $borrowerFee),
+            __('partner.borrower_fee_retrieved')
+        );
     }
 }

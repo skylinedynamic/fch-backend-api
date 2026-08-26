@@ -41,7 +41,7 @@ class SubscriptionCreationService
             'enrollment_type' => Subscription::ENROLLMENT_TYPE_MONTHLY,
             'monthly_platform_fee' => $amount ?? $plan->total_amount,
             'total_subscription_amount' => $amount ?? $plan->total_amount,
-            'subscription_amount_per_month' => $amount ?? $plan->total_amount,
+            'subscription_amount_per_month' => null,
             'payable_amount' => $amount ?? $plan->total_amount,
             'down_payment' => 0.00,
             'first_payment_date' => null,
@@ -109,7 +109,7 @@ class SubscriptionCreationService
 
         //only for partners
         $data['user_seats'] = $seat_plan ? $seat_plan->total_seat_count : null;
-        $data['per_seat_amount'] = $seat_plan ? $seat_plan->total_amount : null;
+        // $data['per_seat_amount'] = $seat_plan ? $seat_plan->total_amount : null;
 
         $isInstallmentType = strtolower($data['enrollment_type']) == SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT_SLUG;
         $hasDownPayment = ($data['down_payment'] ?? 0) > 0;

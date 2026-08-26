@@ -79,6 +79,7 @@ class PlanFeeController extends Controller
             'platform_fee'                 => ['nullable', 'numeric', 'min:0'],
             'total_installment_count_upto' => ['nullable', 'integer', 'min:1'],
             'total_seat_count'             => ['nullable', 'integer', 'min:0'],
+            'include_existing_subscription'=> ['nullable', 'boolean'],
         ]);
 
         try {
