@@ -932,22 +932,9 @@ class SubscriptionService
      */
     public function getPartnerBorrowerFee()
     {
-        $user = Auth::user();
-        $partnerId = $user->partner_id ?? ($user->entity_type === Partner::class ? $user->entity_id : null);
-
-        $borrowerFee = null;
-        if ($partnerId) {
-            $borrowerFee = Subscription::where('entity_type', Partner::class)
-                ->where('entity_id', $partnerId)
-                ->latest('id')
-                ->value('borrower_fee_amount');
-        }
-
-        if (is_null($borrowerFee)) {
-            $borrowerFee = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
-                ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
-                ->value('total_amount') ?? 0;
-        }
+        $borrowerFee = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::ENROLLMENT_TYPE_BORROWER_FIXED_ENROLLMENT_SLUG)
+            ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
+            ->value('total_amount') ?? 0;
 
         return ApiResponse::success(
             new PartnerBorrowerFeeResource((float) $borrowerFee),

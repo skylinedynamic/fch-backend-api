@@ -53,7 +53,7 @@ class EnrollmentService
         try {
             Mail::to($email)->send($mailable);
         } catch (\Exception $e) {
-            Log::error('Borrower enrollment email failed', [
+            Log::error(__('subscription.borrower_enrollment_email_failed'), [
                 'email' => $email,
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
@@ -66,7 +66,7 @@ class EnrollmentService
         try {
             Mail::to($email)->send($mailable);
         } catch (\Exception $e) {
-            Log::error('Partner enrollment email failed', [
+            Log::error(__('subscription.partner_enrollment_email_failed'), [
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
@@ -329,7 +329,7 @@ class EnrollmentService
                     'user' => $user,
                     'payment_link' => $paymentLink,
                     'amount' => $invoice->payment_amount,
-                    'enrollment_type' => $enrollmentType ?? 'Enrollment Fee',
+                    'enrollment_type' => $enrollmentType ?? __('subscription.default_enrollment_fee_title'),
                     'business_info' => [
                         'company_name' => $hostPartner->company_name ?? config('app.name'),
                         'email' => $hostPartner->email ?? config('mail.from.address'),
@@ -460,7 +460,7 @@ class EnrollmentService
                         $hostPartnerId
                     );
                 } catch (\Exception $e) {
-                    Log::error('Failed to send borrower fee invoice notification mail to host admin', ['error' => $e->getMessage()]);
+                    Log::error(__('subscription.borrower_fee_notification_failed'), ['error' => $e->getMessage()]);
                 }
             }
         }
@@ -490,7 +490,7 @@ class EnrollmentService
             'user' => $user,
             'plain_password' => $plainPassword,
             'business_info' => [
-                'company_name' => $partner->company_name ?? 'Four Corner Funding',
+                'company_name' => $partner->company_name ?? __('subscription.default_company_name'),
                 'company_logo' => $partner->company_logo ?? 'logo.png',
                 'email' => $partner->email ?? config('mail.from.address'),
                 'phone_number' => $partner->phone_number ?? '',

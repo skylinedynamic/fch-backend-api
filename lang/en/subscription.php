@@ -9,6 +9,10 @@ return [
     'critical_failure'           => '[ProcessAllSubscriptions] Critical failure: ',
     'found_unpaid_invoices'      => '[AutoCharge] Found :count unpaid invoice(s) to dispatch.',
     'dispatched_charge_jobs'     => '[AutoCharge] Successfully dispatched :count charge job(s) to database queue.',
-    'failed_send_admin_notify'   => '[ProcessAllSubscriptions] Failed to send admin notification',
-    'invoices_retrieved'         => 'Subscription invoices retrieved successfully.',
+    'invoices_retrieved'               => 'Subscription invoices retrieved successfully.',
+    'borrower_enrollment_email_failed' => 'Borrower enrollment email failed',
+    'partner_enrollment_email_failed'  => 'Partner enrollment email failed',
+    'borrower_fee_notification_failed' => 'Failed to send borrower fee invoice notification mail to host admin',
+    'default_enrollment_fee_title'     => 'Enrollment Fee',
+    'default_company_name'             => 'Four Corner Funding',
 ];

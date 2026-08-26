@@ -41,7 +41,7 @@ class SubscriptionCreationService
             'enrollment_type' => Subscription::ENROLLMENT_TYPE_MONTHLY,
             'monthly_platform_fee' => $amount ?? $plan->total_amount,
             'total_subscription_amount' => $amount ?? $plan->total_amount,
-            'subscription_amount_per_month' => $amount ?? $plan->total_amount,
+            'subscription_amount_per_month' => null,
             'payable_amount' => $amount ?? $plan->total_amount,
             'down_payment' => 0.00,
             'first_payment_date' => null,
