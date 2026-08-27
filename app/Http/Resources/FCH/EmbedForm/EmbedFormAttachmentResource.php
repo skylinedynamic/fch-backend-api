@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Http\Resources\FCH\EmbedForm;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\EmbedForm\EmbedFormAttachment */
+class EmbedFormAttachmentResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'submission_id' => $this->submission_id,
+            'partner_id' => $this->partner_id,
+            'field_name' => $this->field_name,
+            'original_name' => $this->original_name,
+            'file_path' => $this->file_path,
+            'file_size' => $this->file_size,
+            'mime_type' => $this->mime_type,
+            'download_url' => url("api/v1/common/embed-forms/attachments/{$this->id}/download"),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
+        ];
+    }
+}

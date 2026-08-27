@@ -16,8 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
             __DIR__ . '/../routes/borrower.php',
             __DIR__ . '/../routes/filemanager.php',
             __DIR__ . '/../routes/website.php',
-            __DIR__ . '/../routes/embed_form.php',
         ],
+
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )

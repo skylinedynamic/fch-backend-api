@@ -6,9 +6,10 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest;
 use App\Models\Common\AppConfiguration;
-use App\Services\Global\Website\EmbedForm\EmbedFormService;
+use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+
 
 class PublicEmbedFormController extends Controller
 {

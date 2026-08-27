@@ -3,6 +3,7 @@
 use App\Models\Partner\Partner;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 if (!function_exists('encodeUrl')) {
     /**
@@ -112,9 +113,9 @@ if (!function_exists('normalizeDate')) {
                 return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
             }
 
-            return \Illuminate\Support\Carbon::parse($date)->format('Y-m-d');
+            return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
+            Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
             return null;
         }
     }
@@ -185,7 +186,7 @@ if (!function_exists('getPartnerDomain')) {
 if (!function_exists('getBorrowerDomain')) {
     function getBorrowerDomain(int $partnerId = null): ?string
     {
-        if($partnerId){
+        if ($partnerId) {
             $partner = Partner::find($partnerId);
             return $partner->borrower_domain ?? config('app.frontend_borrower_url');
         }
@@ -250,16 +251,16 @@ if (!function_exists('calculateTimeInBusiness')) {
         if (empty($startDate)) {
             return 'N/A';
         }
-        
+
         $start = Carbon::parse($startDate);
         $now = now();
-        
+
         if ($start->isFuture()) {
             return '0 Days';
         }
-        
+
         $diff = $start->diff($now);
-        
+
         $parts = [];
         if ($diff->y > 0) {
             $parts[] = $diff->y . ' Year' . ($diff->y > 1 ? 's' : '');
@@ -270,7 +271,7 @@ if (!function_exists('calculateTimeInBusiness')) {
         if ($diff->d > 0 || empty($parts)) {
             $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
         }
-        
+
         return implode(' ', $parts);
     }
 }

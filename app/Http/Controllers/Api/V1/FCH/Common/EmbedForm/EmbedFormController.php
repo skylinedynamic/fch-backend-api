@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormSubmission;
-use App\Services\Global\Website\EmbedForm\EmbedFormService;
+use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,11 +17,12 @@ class EmbedFormController extends Controller
 {
     public function __construct(
         protected EmbedFormService $embedFormService
-    ) {}
+    ) {
+    }
 
     /**
      * Get embed config and code snippet for the authenticated partner.
-     * GET /api/v1/embed-forms/config
+     * GET /api/v1/common/embed-forms/config
      */
     public function getConfig(Request $request): JsonResponse
     {
@@ -32,26 +35,12 @@ class EmbedFormController extends Controller
 
         $config = $this->embedFormService->getOrCreateConfig($partnerId);
 
-        $baseUrl = config('app.url');
-        $embedSnippet = "<iframe src=\"{$baseUrl}/form/{$config->public_key}\" width=\"100%\" height=\"800\" frameborder=\"0\" style=\"border:none;border-radius:8px;\"></iframe>";
-        $directUrl = "{$baseUrl}/form/{$config->public_key}";
-
-        return ApiResponse::success([
-            'id' => $config->id,
-            'public_key' => $config->public_key,
-            'form_title' => $config->form_title,
-            'allowed_domains' => $config->allowed_domains ?? [],
-            'notification_email' => $config->notification_email,
-            'is_active' => $config->is_active,
-            'embed_snippet' => $embedSnippet,
-            'direct_url' => $directUrl,
-            'submissions_count' => $config->submissions()->count(),
-        ]);
+        return ApiResponse::success(new EmbedFormConfigResource($config));
     }
 
     /**
      * Update config settings.
-     * PUT /api/v1/embed-forms/config
+     * PUT /api/v1/common/embed-forms/config
      */
     public function updateConfig(Request $request): JsonResponse
     {
@@ -67,12 +56,12 @@ class EmbedFormController extends Controller
 
         $config = $this->embedFormService->updateConfig($partnerId, $request->all());
 
-        return ApiResponse::success($config, 'Embed form configuration updated.');
+        return ApiResponse::success(new EmbedFormConfigResource($config), 'Embed form configuration updated.');
     }
 
     /**
      * Regenerate the public embed key.
-     * POST /api/v1/embed-forms/config/generate-key
+     * POST /api/v1/common/embed-forms/config/generate-key
      */
     public function regenerateKey(): JsonResponse
     {
@@ -86,7 +75,7 @@ class EmbedFormController extends Controller
 
     /**
      * DataTable — fetch submissions.
-     * POST /api/v1/embed-forms/submissions/fetch
+     * POST /api/v1/common/embed-forms/submissions/fetch
      */
     public function fetchSubmissions(Request $request): JsonResponse
     {
@@ -132,7 +121,7 @@ class EmbedFormController extends Controller
         $paginated = $query->orderByDesc('created_at')->paginate($perPage);
 
         return ApiResponse::successWithPagination(
-            $paginated->items(),
+            EmbedFormSubmissionResource::collection($paginated->items()),
             [
                 'total' => $paginated->total(),
                 'per_page' => $paginated->perPage(),
@@ -144,7 +133,7 @@ class EmbedFormController extends Controller
 
     /**
      * Show a single submission.
-     * GET /api/v1/embed-forms/submissions/{id}
+     * GET /api/v1/common/embed-forms/submissions/{id}
      */
     public function showSubmission(int $id): JsonResponse
     {
@@ -161,12 +150,12 @@ class EmbedFormController extends Controller
             return ApiResponse::forbidden();
         }
 
-        return ApiResponse::success($submission);
+        return ApiResponse::success(new EmbedFormSubmissionResource($submission));
     }
 
     /**
      * Update submission status.
-     * PUT /api/v1/embed-forms/submissions/{id}/status
+     * PUT /api/v1/common/embed-forms/submissions/{id}/status
      */
     public function updateStatus(Request $request, int $id): JsonResponse
     {
@@ -189,12 +178,12 @@ class EmbedFormController extends Controller
 
         $submission = $this->embedFormService->updateStatus($submission, $request->status);
 
-        return ApiResponse::success($submission, 'Status updated successfully.');
+        return ApiResponse::success(new EmbedFormSubmissionResource($submission), 'Status updated successfully.');
     }
 
     /**
      * Secure file download for an attachment.
-     * GET /api/v1/embed-forms/attachments/{id}/download
+     * GET /api/v1/common/embed-forms/attachments/{id}/download
      */
     public function downloadAttachment(int $id): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
     {
