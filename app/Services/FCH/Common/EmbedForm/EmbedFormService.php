@@ -2,16 +2,23 @@
 
 namespace App\Services\FCH\Common\EmbedForm;
 
+use App\Helpers\ApiResponse;
+use App\Models\Borrower\Borrower;
 use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
+use App\Services\FCH\Common\Borrower\BorrowerService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
 
 class EmbedFormService
 {
@@ -140,7 +147,7 @@ class EmbedFormService
             return $submission->load('attachments');
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('EmbedFormService::storeSubmission failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error(__('embed_form.log_store_failed'), ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
         }
     }
@@ -183,7 +190,7 @@ class EmbedFormService
                 new \App\Mail\EmbedForm\NewSubmissionMail($submission)
             );
         } catch (\Exception $e) {
-            Log::error('Failed to send embed form notification email', ['error' => $e->getMessage()]);
+            Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
     }
 
@@ -230,4 +237,110 @@ class EmbedFormService
         $submission->update(['status' => $status]);
         return $submission->fresh(['attachments']);
     }
+
+    /**
+     * Convert an EmbedFormSubmission to a Borrower.
+     */
+    public function convertToBorrower(EmbedFormSubmission $submission, array $data = []): array
+    {
+        DB::beginTransaction();
+        try {
+            if (empty($submission->email)) {
+                throw new \InvalidArgumentException(__('embed_form.email_required_conversion'));
+            }
+
+            if (Borrower::where('email', $submission->email)->exists()) {
+                throw new \InvalidArgumentException(__('embed_form.borrower_exists_email'));
+            }
+
+            $borrowerService = app(BorrowerService::class);
+
+            $ssnDecrypted = null;
+            if ($submission->ssn_encrypted) {
+                try {
+                    $ssnDecrypted = Crypt::decryptString($submission->ssn_encrypted);
+                } catch (\Throwable $e) {
+                    $ssnDecrypted = null;
+                }
+            }
+
+            $borrowerData = [
+                'first_name' => $submission->first_name,
+                'last_name' => $submission->last_name,
+                'email' => $submission->email,
+                'phone_number' => $submission->phone,
+                'business_name' => $submission->employer_name ?: "{$submission->first_name} {$submission->last_name}",
+                'business_email' => $submission->email,
+                'business_phone' => $submission->employer_phone ?: $submission->phone,
+                'home_address' => $submission->home_address,
+                'city' => $submission->city,
+                'state' => $submission->state,
+                'postal_code' => $submission->postal_code,
+                'country' => 'United States',
+                'country_code' => 'US',
+                'last_4_ssn' => $ssnDecrypted ? substr($ssnDecrypted, -4) : null,
+                'status' => Borrower::STATUS_ONBOARDING,
+                'partner_id' => $submission->partner_id ?: (auth()->user()?->partner_id ?? null),
+                'plan_id' => $data['plan_id'] ?? null,
+                'enrollment_payment' => $data['enrollment_amount'] ?? ($data['payment_amount'] ?? null),
+                'is_free_trail' => $data['is_free_trail'] ?? null,
+                'assign_id' => $data['salesperson_id'] ?? null,
+            ];
+
+            $result = $borrowerService->store($borrowerData);
+            $borrower = $result['borrower'] ?? $result;
+
+            $submission->update([
+                'status' => EmbedFormSubmission::STATUS_CONVERTED,
+            ]);
+
+            DB::commit();
+            return [
+                'borrower' => $borrower,
+                'id' => is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null),
+                'invoice_id' => $result['invoice_id'] ?? null,
+                'payment_amount' => $result['payment_amount'] ?? ($data['enrollment_amount'] ?? 0),
+            ];
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Securely download an embed form attachment with tenant RBAC scoping.
+     * Ensures auth user partner_id and form partner_id strictly match (unless host admin).
+     */
+    public function downloadAttachment(int $id): StreamedResponse|JsonResponse
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return ApiResponse::unauthenticated();
+        }
+
+        $userPartnerId = $user->partner_id ?? $user->entity_id;
+        $isHost = (bool) ($user->is_host || $user->partner?->is_host);
+
+        $attachment = EmbedFormAttachment::with('submission')->find($id);
+
+        if (!$attachment) {
+            return ApiResponse::notFound(__('embed_form.file_not_found'));
+        }
+
+        // Verify attachment and its submission/form partner ID matches the authenticated user's partner ID
+        $formPartnerId = $attachment->partner_id ?: $attachment->submission?->partner_id;
+
+        if (!$isHost && (empty($userPartnerId) || empty($formPartnerId) || (int) $formPartnerId !== (int) $userPartnerId)) {
+            return ApiResponse::forbidden(__('embed_form.unauthorized_attachment'));
+        }
+
+        $disk = Storage::disk('public');
+        if (!$disk->exists($attachment->file_path)) {
+            return ApiResponse::notFound(__('embed_form.file_not_exists'));
+        }
+
+        return $disk->download($attachment->file_path, $attachment->original_name);
+    }
 }
+

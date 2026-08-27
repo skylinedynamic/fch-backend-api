@@ -245,6 +245,38 @@ if (!function_exists('make_url')) {
     }
 }
 
+if (!function_exists('toTimezone')) {
+    /**
+     * Convert a date/time value to the specified timezone and format.
+     *
+     * @param mixed $datetime
+     * @param string|null $timezone
+     * @param string $format
+     * @return string|null
+     */
+    function toTimezone($datetime, ?string $timezone = null, string $format = 'Y-m-d'): ?string
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        $timezone ??= request()->header('x-timezone', config('app.timezone', 'UTC'));
+
+        try {
+            return Carbon::parse($datetime)
+                ->setTimezone($timezone)
+                ->format($format);
+        } catch (\Exception $e) {
+            Log::error('Timezone conversion failed', [
+                'datetime' => $datetime,
+                'timezone' => $timezone,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
+
 if (!function_exists('calculateTimeInBusiness')) {
     function calculateTimeInBusiness($startDate)
     {

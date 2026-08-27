@@ -384,9 +384,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
                 Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
                 Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
 
                 Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
             });
+
         });
 
 

@@ -26,8 +26,8 @@ class EmbedFormConfigResource extends JsonResource
             'embed_snippet' => "<iframe src=\"{$baseUrl}/form/{$this->public_key}\" width=\"100%\" height=\"800\" frameborder=\"0\" style=\"border:none;border-radius:8px;\"></iframe>",
             'direct_url' => "{$baseUrl}/form/{$this->public_key}",
             'submissions_count' => $this->submissions()->count(),
-            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
+            'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
     }
 }

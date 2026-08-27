@@ -6,12 +6,11 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
-use App\Models\EmbedForm\EmbedFormAttachment;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmbedFormController extends Controller
 {
@@ -56,7 +55,7 @@ class EmbedFormController extends Controller
 
         $config = $this->embedFormService->updateConfig($partnerId, $request->all());
 
-        return ApiResponse::success(new EmbedFormConfigResource($config), 'Embed form configuration updated.');
+        return ApiResponse::success(new EmbedFormConfigResource($config), __('embed_form.config_updated'));
     }
 
     /**
@@ -70,7 +69,7 @@ class EmbedFormController extends Controller
 
         return ApiResponse::success([
             'public_key' => $config->public_key,
-        ], 'Embed key regenerated successfully.');
+        ], __('embed_form.key_regenerated'));
     }
 
     /**
@@ -117,6 +116,15 @@ class EmbedFormController extends Controller
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
+        $baseQuery = EmbedFormSubmission::query();
+        if ($partnerId) {
+            $baseQuery->where('partner_id', $partnerId);
+        }
+        $totalCount = (clone $baseQuery)->count();
+        $newCount = (clone $baseQuery)->where('status', 'new')->count();
+        $reviewingCount = (clone $baseQuery)->where('status', 'reviewing')->count();
+        $convertedCount = (clone $baseQuery)->where('status', 'converted')->count();
+
         $perPage = max(1, (int) ($filters['per_page'] ?? 15));
         $paginated = $query->orderByDesc('created_at')->paginate($perPage);
 
@@ -127,6 +135,12 @@ class EmbedFormController extends Controller
                 'per_page' => $paginated->perPage(),
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),
+                'stats' => [
+                    'total' => $totalCount,
+                    'new_count' => $newCount,
+                    'reviewing_count' => $reviewingCount,
+                    'converted_count' => $convertedCount,
+                ],
             ]
         );
     }
@@ -138,12 +152,12 @@ class EmbedFormController extends Controller
     public function showSubmission(int $id): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
-        $isHost = (bool) auth()->user()?->partner?->is_host;
+        $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
         $submission = EmbedFormSubmission::with('attachments', 'partner')->find($id);
 
         if (!$submission) {
-            return ApiResponse::notFound('Submission not found.');
+            return ApiResponse::notFound(__('embed_form.submission_not_found'));
         }
 
         if (!$isHost && $submission->partner_id !== $partnerId) {
@@ -164,12 +178,12 @@ class EmbedFormController extends Controller
         ]);
 
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
-        $isHost = (bool) auth()->user()?->partner?->is_host;
+        $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
         $submission = EmbedFormSubmission::find($id);
 
         if (!$submission) {
-            return ApiResponse::notFound('Submission not found.');
+            return ApiResponse::notFound(__('embed_form.submission_not_found'));
         }
 
         if (!$isHost && $submission->partner_id !== $partnerId) {
@@ -178,32 +192,46 @@ class EmbedFormController extends Controller
 
         $submission = $this->embedFormService->updateStatus($submission, $request->status);
 
-        return ApiResponse::success(new EmbedFormSubmissionResource($submission), 'Status updated successfully.');
+        return ApiResponse::success(new EmbedFormSubmissionResource($submission), __('embed_form.status_updated'));
     }
 
     /**
      * Secure file download for an attachment.
      * GET /api/v1/common/embed-forms/attachments/{id}/download
      */
-    public function downloadAttachment(int $id): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
+    public function downloadAttachment(int $id): StreamedResponse|JsonResponse
+    {
+        return $this->embedFormService->downloadAttachment($id);
+    }
+
+    /**
+     * Convert submission to a Borrower.
+     * POST /api/v1/common/embed-forms/submissions/{id}/convert-to-borrower
+     */
+    public function convertToBorrower(Request $request, int $id): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
-        $isHost = (bool) auth()->user()?->partner?->is_host;
+        $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $attachment = EmbedFormAttachment::with('submission')->find($id);
+        $submission = EmbedFormSubmission::find($id);
 
-        if (!$attachment) {
-            return ApiResponse::notFound('File not found.');
+        if (!$submission) {
+            return ApiResponse::notFound(__('embed_form.submission_not_found'));
         }
 
-        if (!$isHost && $attachment->partner_id !== $partnerId) {
+        if (!$isHost && $submission->partner_id !== $partnerId) {
             return ApiResponse::forbidden();
         }
 
-        if (!Storage::disk('public')->exists($attachment->file_path)) {
-            return ApiResponse::notFound('File no longer exists on server.');
-        }
 
-        return Storage::disk('public')->download($attachment->file_path, $attachment->original_name);
+        try {
+            $borrower = $this->embedFormService->convertToBorrower($submission, $request->all());
+            return ApiResponse::success($borrower, __('embed_form.converted_to_borrower'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Throwable $e) {
+            return ApiResponse::error($e->getMessage() ?: __('embed_form.conversion_failed'), 500);
+        }
     }
 }
+

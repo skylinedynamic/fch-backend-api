@@ -57,18 +57,18 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'first_name.required' => 'First name is required.',
-            'last_name.required' => 'Last name is required.',
-            'email.required' => 'Email address is required.',
-            'email.email' => 'Please enter a valid email address.',
-            'ssn.regex' => 'SSN must be in the format XXX-XX-XXXX.',
-            'credit_score.min' => 'Credit score must be at least 300.',
-            'credit_score.max' => 'Credit score cannot exceed 850.',
-            '_hp_company.max' => 'Submission rejected.',
-            'paystub_document.*.mimes' => 'Paystub must be a PDF, Word, Excel, or image file.',
-            'paystub_document.*.max' => 'Each paystub file may not exceed 10 MB.',
-            'credit_report_document.*.mimes' => 'Credit report must be a PDF, Word, Excel, or image file.',
-            'credit_report_document.*.max' => 'Each credit report file may not exceed 10 MB.',
+            'first_name.required' => __('embed_form.first_name_required'),
+            'last_name.required' => __('embed_form.last_name_required'),
+            'email.required' => __('embed_form.email_required'),
+            'email.email' => __('embed_form.email_invalid'),
+            'ssn.regex' => __('embed_form.ssn_format'),
+            'credit_score.min' => __('embed_form.credit_score_min'),
+            'credit_score.max' => __('embed_form.credit_score_max'),
+            '_hp_company.max' => __('embed_form.honeypot_triggered'),
+            'paystub_document.*.mimes' => __('embed_form.paystub_mimes'),
+            'paystub_document.*.max' => __('embed_form.paystub_max'),
+            'credit_report_document.*.mimes' => __('embed_form.credit_report_mimes'),
+            'credit_report_document.*.max' => __('embed_form.credit_report_max'),
         ];
     }
 }

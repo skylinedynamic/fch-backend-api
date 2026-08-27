@@ -31,7 +31,9 @@ class NewSubmissionMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: "New Loan Application — {$this->submission->first_name} {$this->submission->last_name}",
+            subject: __('embed_form.new_submission_mail_subject', [
+                'name' => "{$this->submission->first_name} {$this->submission->last_name}",
+            ]),
         );
     }
 

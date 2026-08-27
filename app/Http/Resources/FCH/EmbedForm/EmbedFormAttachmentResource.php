@@ -4,6 +4,7 @@ namespace App\Http\Resources\FCH\EmbedForm;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /** @mixin \App\Models\EmbedForm\EmbedFormAttachment */
 class EmbedFormAttachmentResource extends JsonResource
@@ -20,11 +21,12 @@ class EmbedFormAttachmentResource extends JsonResource
             'field_name' => $this->field_name,
             'original_name' => $this->original_name,
             'file_path' => $this->file_path,
+            'file_url' => $this->file_path ? Storage::disk('public')->url($this->file_path) : null,
             'file_size' => $this->file_size,
             'mime_type' => $this->mime_type,
             'download_url' => url("api/v1/common/embed-forms/attachments/{$this->id}/download"),
-            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
+            'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
     }
 }

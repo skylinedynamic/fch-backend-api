@@ -26,7 +26,7 @@ class PublicEmbedFormController extends Controller
         $config = $this->embedFormService->resolveConfig($key);
 
         if (!$config) {
-            return ApiResponse::notFound('Form not found or is no longer active.');
+            return ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'));
         }
 
         $partner = $config->partner;
@@ -75,18 +75,18 @@ class PublicEmbedFormController extends Controller
         $config = $this->embedFormService->resolveConfig($key);
 
         if (!$config) {
-            return ApiResponse::notFound('Form not found or is no longer active.');
+            return ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'));
         }
 
         // Honeypot: reject if filled
         if ($request->filled('_hp_company')) {
-            return ApiResponse::success([], 'Submission received.');
+            return ApiResponse::success([], __('embed_form.submission_received'));
         }
 
         $submission = $this->embedFormService->storeSubmission($config, $request->validated(), $request);
 
         return ApiResponse::success([
             'submission_uid' => $submission->submission_uid,
-        ], 'Your application has been submitted successfully. We will be in touch soon!', 201);
+        ], __('embed_form.submission_success'), 201);
     }
 }
