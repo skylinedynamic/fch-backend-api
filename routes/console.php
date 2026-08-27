@@ -88,6 +88,13 @@ Schedule::command('funding:application-reminders')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('funding:application-reminders'));
 
+Schedule::command('task:reminder-check')
+    ->everyMinute()
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(5)
+    ->onSuccess($onSuccess('task:reminder-check'))
+    ->onFailure($onFailure('task:reminder-check'));
+
 /*
 |--------------------------------------------------------------------------
 | Scheduler Health Heartbeat

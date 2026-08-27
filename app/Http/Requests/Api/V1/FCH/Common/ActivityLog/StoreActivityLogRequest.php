@@ -83,6 +83,10 @@ class StoreActivityLogRequest extends BaseApiRequest
             // Attachments array
             'attachments'   => ['nullable', 'array'],
             'attachments.*' => ['file'], // basic file check
+            
+            // Reminders
+            'remind_me'     => ['nullable', 'in:1,0,true,false'],
+            'remind_at'     => ['nullable', 'required_if:remind_me,1,true', 'date'],
         ];
     }
 
@@ -98,6 +102,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'subject.required'       => __('activity_log.subject_required'),
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),
+            'remind_at.required_if'  => 'A reminder time is required when setting a reminder.',
         ];
     }
 
