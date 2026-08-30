@@ -692,16 +692,18 @@ class SubscriptionService
                 $isRecurringPhase = in_array($subscription->current_phase, [
                     Subscription::PHASE_INSTALLMENT,
                     Subscription::PHASE_PLATFORM_FEE,
+                    Subscription::PHASE_USER_SEAT,
                 ], true);
 
                 if ($isRecurringPhase) {
                     // Expire the missed invoice and advance to the next cycle. The
-                    // subscription stays Active and keeps billing every month
+                    // subscription stays Active and keeps billing every cycle
                     // regardless of a missed payment — it never permanently dies in
-                    // Past Due. installments_paid is NOT incremented here (only a
-                    // real payment does that), so an installment plan simply takes
-                    // longer to complete if cycles are missed — nothing is silently
-                    // forgiven.
+                    // Past Due. installments_paid/seat counters are NOT incremented
+                    // here (only a real payment does that), so an installment plan
+                    // simply takes longer to complete if cycles are missed —
+                    // nothing is silently forgiven. Applies to PHASE_INSTALLMENT,
+                    // PHASE_PLATFORM_FEE and PHASE_USER_SEAT alike.
                     $currentInvoice->update(['status' => Invoice::STATUS_EXPIRED]);
 
                     // Only expected_end_date moves — subscription_end_date (paid
@@ -723,8 +725,10 @@ class SubscriptionService
                     return true;
                 }
 
-                // Any other phase reaching this state (e.g. user_seat) keeps the
-                // original behavior: mark Past Due and stop being auto-billed.
+                // Any non-recurring phase reaching this state (e.g. enrollment,
+                // which shouldn't have an expected_end_date/cycle invoice to begin
+                // with) keeps the original behavior: mark Past Due and stop being
+                // auto-billed.
                 $subscription->update(['status' => Subscription::STATUS_PAST_DUE]);
 
                 return false;
