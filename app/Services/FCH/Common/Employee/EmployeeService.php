@@ -111,24 +111,28 @@ class EmployeeService
     {
         $partnerId = auth()->user()->partner_id;
 
-        // Check user limit if not host and creating a user account and not purchasing a paid seat
+        // A host partner is never billable, regardless of what the request sends —
+        // computed once here and used everywhere below instead of re-reading
+        // $employeeData['is_paid'] raw at each usage site.
         $partner = Partner::find($partnerId);
-        if ($partner && !$partner->is_host && $userData) {
-            $isPaid = isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'];
-            if (!$isPaid) {
-                $currentCount = User::where('partner_id', $partnerId)
-                    ->where(function ($query) {
-                        $query->whereIn('entity_type', [Partner::class, Employee::class])
-                            ->orWhereNull('entity_type');
-                    })
-                    ->count();
+        $isPaid = ($partner && !$partner->is_host)
+            ? (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'])
+            : false;
 
-                $partnerSub = $partner->subscription;
-                $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
+        // Check user limit if not host and creating a user account and not purchasing a paid seat
+        if ($partner && !$partner->is_host && $userData && !$isPaid) {
+            $currentCount = User::where('partner_id', $partnerId)
+                ->where(function ($query) {
+                    $query->whereIn('entity_type', [Partner::class, Employee::class])
+                        ->orWhereNull('entity_type');
+                })
+                ->count();
 
-                if ($currentCount >= $allowedSeats) {
-                    throw new \Exception('User limit reached. Please purchase additional seats.');
-                }
+            $partnerSub = $partner->subscription;
+            $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
+
+            if ($currentCount >= $allowedSeats) {
+                throw new \Exception('User limit reached. Please purchase additional seats.');
             }
         }
 
@@ -170,8 +174,8 @@ class EmployeeService
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
-                    'is_paid' => isset($employeeData['is_paid']) ? (bool) $employeeData['is_paid'] : false,
-                    'status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
+                    'is_paid' => $isPaid,
+                    'status' => $isPaid ? User::STATUS['inactive'] : User::STATUS['active'],
                 ]);
 
                 Log::info('User created successfully', ['user_id' => $user->id]);
@@ -181,7 +185,7 @@ class EmployeeService
                 }
             }
 
-            if (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid']) {
+            if ($isPaid) {
                 $partner = Partner::find($partnerId);
                 $partnerSub = $partner ? $partner->subscription : null;
                 $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;

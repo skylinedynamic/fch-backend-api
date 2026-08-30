@@ -844,7 +844,9 @@ class SubscriptionService
                 if ($phase === Subscription::PHASE_PLATFORM_FEE) {
                     $amount = $subscription->monthly_platform_fee;
                 } elseif ($phase === Subscription::PHASE_USER_SEAT) {
-                    $amount = $subscription->monthly_platform_fee;
+                    // User/Employee seat renewal — billed at the per-seat rate, not
+                    // monthly_platform_fee (which only applies to Partner subscriptions).
+                    $amount = $subscription->per_seat_amount;
                 } else {
                     // enrollment or installment
                     $invoiceCount = Invoice::where('subscription_id', $subscription->id)
