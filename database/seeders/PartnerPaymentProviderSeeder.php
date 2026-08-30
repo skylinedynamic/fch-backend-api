@@ -38,21 +38,32 @@ class PartnerPaymentProviderSeeder extends Seeder
                 continue;
             }
 
-            // Fetch all key-value rows for this partner
-            $methods = PaymentMethod::where('partner_id', $partnerId)->get();
+            // Fetch all key-value rows for this partner (handle both partner_id and null)
+            $query = PaymentMethod::query();
+            if ($partnerId === null) {
+                $query->whereNull('partner_id');
+            } else {
+                $query->where('partner_id', $partnerId);
+            }
+            $methods = $query->get();
+
             $items = [];
             foreach ($methods as $m) {
-                if (in_array(strtolower($m->key), ['stripe', PaymentProvider::STRIPE], true)) {
+                $keyLower = strtolower(trim($m->key));
+                if (in_array($keyLower, ['stripe', strtolower(PaymentProvider::STRIPE)], true)) {
                     $jsonConfig = json_decode($m->value, true);
                     if (is_array($jsonConfig)) {
-                        $items = array_merge($items, $jsonConfig);
+                        foreach ($jsonConfig as $jk => $jv) {
+                            $items[strtolower(trim($jk))] = $jv;
+                        }
                     }
                 } else {
-                    $items[$m->key] = $m->value;
+                    $items[$keyLower] = $m->value;
                 }
             }
 
-            $paymentMode = $items['payment_mode'] ?? 'sandbox';
+            $rawMode = $items['payment_mode'] ?? $items['paymentmode'] ?? $items['mode'] ?? $items['environment'] ?? $items['stripe_mode'] ?? 'sandbox';
+            $paymentMode = strtolower(trim((string) $rawMode)) === 'production' ? 'production' : 'sandbox';
 
             $configuration = [
                 'payment_mode' => $paymentMode,
@@ -74,6 +85,7 @@ class PartnerPaymentProviderSeeder extends Seeder
                 [
                     'status' => filter_var($items['status'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     'is_default' => true,
+                    'payment_mode' => $paymentMode,
                     'configuration' => $configuration,
                 ]
             );

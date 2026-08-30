@@ -107,8 +107,12 @@ class DatabaseSeeder extends Seeder
 
 // need to run for new billing 
 // php artisan db:seed --class=PaymentProviderSeeder
+//saved_payment_methods remove miogration and model
 // php artisan db:seed --class=PartnerPaymentProviderSeeder
 // php artisan db:seed --class=NewSubscriptionPlanSeeder
+
+//manually disable 6 month and 11 month subscription
+
 // php artisan db:seed --class=UserSeatsToSubscriptionsSeeder
 // php artisan db:seed --class = ModifySubscriptionPlansSeeder
 // php artisan db:seed --class = AdditionalSeatForUserSeeder
