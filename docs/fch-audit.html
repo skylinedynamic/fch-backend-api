@@ -1,0 +1,726 @@
+<title>FCH Platform Audit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root {
+    --ground: #F6F7F9;
+    --surface: #FFFFFF;
+    --surface-sunk: #EDEFF3;
+    --ink: #1A2029;
+    --ink-soft: #4A5462;
+    --ink-faint: #77818F;
+    --rule: #DCE0E7;
+    --rule-soft: #E8EBF0;
+    --accent: #2C5F8D;
+    --accent-soft: #E7EEF5;
+    --critical: #B3261E;
+    --critical-soft: #FBEAE8;
+    --high: #C2410C;
+    --high-soft: #FCEEE6;
+    --medium: #A16207;
+    --medium-soft: #FBF3E2;
+    --clear: #2F6B3F;
+    --clear-soft: #E9F2EB;
+    --shadow: 0 1px 2px rgba(26, 32, 41, .06), 0 4px 16px rgba(26, 32, 41, .04);
+
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #11151B;
+      --surface: #171C24;
+      --surface-sunk: #1E242E;
+      --ink: #E4E8EE;
+      --ink-soft: #A6B0BE;
+      --ink-faint: #78838F;
+      --rule: #2A323D;
+      --rule-soft: #232A34;
+      --accent: #7FB0DA;
+      --accent-soft: #1B2733;
+      --critical: #F08B84;
+      --critical-soft: #2B1917;
+      --high: #EFA173;
+      --high-soft: #2A1D15;
+      --medium: #DDB861;
+      --medium-soft: #272014;
+      --clear: #85C295;
+      --clear-soft: #17241A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .25);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #11151B;
+    --surface: #171C24;
+    --surface-sunk: #1E242E;
+    --ink: #E4E8EE;
+    --ink-soft: #A6B0BE;
+    --ink-faint: #78838F;
+    --rule: #2A323D;
+    --rule-soft: #232A34;
+    --accent: #7FB0DA;
+    --accent-soft: #1B2733;
+    --critical: #F08B84;
+    --critical-soft: #2B1917;
+    --high: #EFA173;
+    --high-soft: #2A1D15;
+    --medium: #DDB861;
+    --medium-soft: #272014;
+    --clear: #85C295;
+    --clear-soft: #17241A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead { display: flex; flex-direction: column; gap: 18px; padding-bottom: 30px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 500;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    font-size: clamp(2.1rem, 5vw, 3.05rem); font-weight: 700; line-height: 1.06;
+    letter-spacing: -.022em; margin: 0; text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--serif); font-size: 1.12rem; line-height: 1.62;
+    color: var(--ink-soft); max-width: 63ch; margin: 0;
+  }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 9px;
+    border: 1px solid var(--rule); border-radius: 3px;
+    background: var(--surface); color: var(--ink-soft);
+  }
+  .chip-date { border-color: transparent; background: var(--surface-sunk); }
+
+  /* ---------- tally ---------- */
+  .tally {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+    margin: 34px 0 8px; border-radius: 5px; overflow: hidden;
+  }
+  .stat { background: var(--surface); padding: 17px 16px 15px; display: flex; flex-direction: column; gap: 3px; }
+  .stat-n {
+    font-family: var(--sans); font-size: 2rem; font-weight: 700;
+    line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+  }
+  .stat-l { font-size: 12.5px; color: var(--ink-soft); line-height: 1.35; }
+  .n-critical { color: var(--critical); }
+  .n-high { color: var(--high); }
+  .n-medium { color: var(--medium); }
+  .n-plain { color: var(--ink); }
+
+  .tally-note {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
+    margin: 0 0 42px; padding-top: 9px;
+  }
+
+  /* ---------- phases ---------- */
+  .phase { margin-top: 52px; }
+  .phase-head { display: flex; gap: 15px; align-items: baseline; padding-bottom: 11px; border-bottom: 1px solid var(--rule); }
+  .phase-num {
+    font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--surface);
+    background: var(--ink); padding: 3px 8px; border-radius: 3px; letter-spacing: .04em;
+    flex-shrink: 0; align-self: center;
+  }
+  .phase-title { font-size: 1.42rem; font-weight: 700; letter-spacing: -.017em; margin: 0; flex: 1; }
+  .phase-when {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--ink-faint); white-space: nowrap;
+  }
+  .phase-intro {
+    font-family: var(--serif); font-size: 1.02rem; color: var(--ink-soft);
+    max-width: 64ch; margin: 15px 0 0;
+  }
+
+  /* ---------- findings ---------- */
+  .finding {
+    background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--rule);
+    border-radius: 4px; padding: 19px 21px; margin-top: 15px; box-shadow: var(--shadow);
+  }
+  .finding.sev-critical { border-left-color: var(--critical); }
+  .finding.sev-high { border-left-color: var(--high); }
+  .finding.sev-medium { border-left-color: var(--medium); }
+
+  .finding-head { display: flex; flex-wrap: wrap; gap: 9px; align-items: baseline; margin-bottom: 9px; }
+  .finding-id { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--ink-faint); }
+  .finding-title { font-size: 1.06rem; font-weight: 600; letter-spacing: -.01em; margin: 0; flex: 1; min-width: 220px; }
+  .badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .09em; padding: 3px 7px; border-radius: 3px; white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-soft); color: var(--critical); }
+  .badge-high { background: var(--high-soft); color: var(--high); }
+  .badge-medium { background: var(--medium-soft); color: var(--medium); }
+  .badge-mine { background: var(--accent-soft); color: var(--accent); }
+
+  .finding p { font-family: var(--serif); font-size: 1rem; color: var(--ink-soft); margin: 0 0 11px; max-width: 66ch; }
+  .finding p:last-child { margin-bottom: 0; }
+  .finding strong { color: var(--ink); font-weight: 600; }
+
+  code {
+    font-family: var(--mono); font-size: .855em; background: var(--surface-sunk);
+    padding: 1.5px 5px; border-radius: 3px; color: var(--ink); word-break: break-word;
+  }
+
+  .evidence {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+    background: var(--surface-sunk); border-radius: 4px; padding: 10px 12px;
+    margin: 0 0 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .evidence b { color: var(--ink-soft); font-weight: 500; }
+
+  ul.fix { list-style: none; padding: 0; margin: 11px 0 0; display: flex; flex-direction: column; gap: 7px; }
+  ul.fix li {
+    font-family: var(--serif); font-size: .97rem; color: var(--ink-soft);
+    padding-left: 19px; position: relative; max-width: 66ch;
+  }
+  ul.fix li::before {
+    content: "→"; position: absolute; left: 0; top: 0;
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+  }
+
+  /* ---------- table ---------- */
+  .table-scroll { overflow-x: auto; margin-top: 15px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; }
+  th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: .09em; color: var(--ink-faint); font-weight: 600;
+    background: var(--surface-sunk); white-space: nowrap;
+  }
+  td { font-size: .93rem; color: var(--ink-soft); }
+  td:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--ink); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ---------- callout ---------- */
+  .callout {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 4px; padding: 17px 20px; margin-top: 20px;
+  }
+  .callout p { font-family: var(--serif); font-size: 1rem; color: var(--ink-soft); margin: 0; max-width: 66ch; }
+  .callout strong { color: var(--ink); }
+
+  footer {
+    margin-top: 62px; padding-top: 22px; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 7px 18px;
+  }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 38px 18px 68px; }
+    .phase-when { display: none; }
+    .finding { padding: 16px 16px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">Security &amp; Engineering Audit</div>
+    <h1>FCH Platform Audit</h1>
+    <p class="standfirst">
+      A verified review of the three FCH repositories. Eight critical security defects, two builds
+      that ship broken, no automated tests and no CI quality gate. This is a US lending platform
+      holding SSNs, credit-bureau data and payment credentials — several findings are live
+      regulatory exposure, not hypothetical risk.
+    </p>
+    <div class="meta">
+      <span class="chip chip-date">2026-08-30</span>
+      <span class="chip">fch-api · Laravel 12</span>
+      <span class="chip">client-fch · borrower</span>
+      <span class="chip">Fch-admin-frontend-react</span>
+    </div>
+  </header>
+
+  <section class="tally" aria-label="Findings at a glance">
+    <div class="stat"><span class="stat-n n-critical">8</span><span class="stat-l">Critical security defects</span></div>
+    <div class="stat"><span class="stat-n n-critical">2</span><span class="stat-l">Builds broken in production</span></div>
+    <div class="stat"><span class="stat-n n-high">0</span><span class="stat-l">Automated tests, all repos</span></div>
+    <div class="stat"><span class="stat-n n-high">0</span><span class="stat-l">CI checks before deploy</span></div>
+    <div class="stat"><span class="stat-n n-medium">415</span><span class="stat-l">Unreported type errors</span></div>
+    <div class="stat"><span class="stat-n n-plain">9.4k</span><span class="stat-l">Lines duplicated across apps</span></div>
+  </section>
+  <p class="tally-note">Every finding below was verified by reading the code. Nothing here is inferred.</p>
+
+  <!-- ================= PHASE 0 ================= -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">PHASE 0</span>
+      <h2 class="phase-title">Emergency</h2>
+      <span class="phase-when">Do first</span>
+    </div>
+    <p class="phase-intro">
+      These are exploitable or actively failing right now. Everything else waits.
+    </p>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">0.1</span>
+        <h3 class="finding-title">Runaway session hook is spawning processes</h3>
+        <span class="badge badge-mine">My bug</span>
+      </div>
+      <p>
+        The <code>SessionEnd</code> hook I added last session calls <code>claude --resume</code>, which starts a
+        <em>new</em> session; that session's exit fires <code>SessionEnd</code> again. Unbounded recursion.
+      </p>
+      <div class="evidence"><b>client-fch/docs/handoff/</b> — 516 files, all 0 bytes
+one every ~2s · ~258 per session · claude + node processes still live</div>
+      <p>
+        Files are empty because the script is killed before its <code>[ -s "$out" ] || rm -f</code> cleanup ever runs.
+      </p>
+      <ul class="fix">
+        <li>Kill the live processes, delete the 516 files, gitignore <code>docs/handoff/</code>.</li>
+        <li>Add a re-entry guard <em>and</em> a repo-keyed lockfile — an env guard alone won't hold, since the child is a fresh process tree.</li>
+        <li>If a safe guard can't be proven, remove the hook rather than ship a process bomb.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">0.2</span>
+        <h3 class="finding-title">Live production APP_KEY is committed to the repo</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <p>
+        <code>.env.example</code> is <strong>byte-identical to the live <code>.env</code></strong>. Anything
+        <code>Crypt::</code>-encrypted is decryptable by anyone with repo read access — including TOTP secrets,
+        recovery codes, and <strong>Stripe secret keys</strong> stored as <code>encrypted:array</code>.
+      </p>
+      <div class="evidence"><b>.env.example:3</b>  APP_KEY=base64:Q+Qwd7iA/B1SuM59tPJEPPo4hL+ELQc3LNVV8/BjtXs=
+<b>.env:3</b>          APP_KEY=base64:Q+Qwd7iA/B1SuM59tPJEPPo4hL+ELQc3LNVV8/BjtXs=  ← identical</div>
+      <p>
+        Also committed: Mailtrap credentials, the reCAPTCHA secret, and the internal resolver key
+        <code>fourcornerfunding2026</code> — which appears in <strong>four</strong> places, including a hardcoded
+        fallback at <code>config/domains.php:12</code> and a copy-pasteable exploit <code>curl</code> in the SaaS
+        routing docs.
+      </p>
+      <ul class="fix">
+        <li>Rotate all four secrets; re-encrypt affected columns before rotating <code>APP_KEY</code>.</li>
+        <li>Delete the <code>config/domains.php:12</code> fallback so a missing env var fails closed instead of accepting the leaked key.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">0.3</span>
+        <h3 class="finding-title">Any borrower token reaches the entire admin API</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <p>
+        Roughly 300 endpoints sit behind <code>auth:api</code> with <strong>no role or permission check at all</strong>.
+        A token issued by borrower login reaches user CRUD, role CRUD, every borrower's PII, credit profiles,
+        invoices, payments and tenant config. Spatie's permission middleware is registered and used on
+        <strong>zero</strong> routes.
+      </p>
+      <div class="evidence"><b>routes/common.php:83</b>   middleware('auth:api')        ← no role gate
+<b>routes/admin.php:32</b>     ['auth:api', 'admin']         ← correct
+<b>routes/borrower.php:47</b>  ['auth:api', 'borrower']      ← correct</div>
+      <p>These compose into full account takeover plus platform-wide PII access:</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Location</th><th>Defect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>UserRoleController:29</td><td>assignPermissions has no authz and no tenant scope — any user grants themselves every permission. The method directly above it <em>does</em> scope by partner.</td></tr>
+            <tr><td>BorrowerService:702</td><td>Tenant scoping only applies when user_type is PARTNER; every other token reads any borrower. delete() has no scoping at all.</td></tr>
+            <tr><td>TwoFaController:35</td><td>2FA confirm sits outside auth and takes a bare user_id — no proof the password step passed. 2FA is the only factor, not a second one.</td></tr>
+            <tr><td>FileManagerService:32</td><td>entity_type/entity_id taken raw from the request. Cross-tenant read and delete of loan files, bank statements, credit reports.</td></tr>
+            <tr><td>UploadFileRequest:17</td><td>No mimes, no max, original extension preserved onto the public disk. Stored XSS, plausibly RCE.</td></tr>
+            <tr><td>config/cors.php:11</td><td>Origin pattern matches every origin, with supports_credentials true.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <p>
+          <strong>The regression guard for this whole class:</strong> one Feature test asserting a borrower token
+          gets <code>403</code> on every <code>v1/common/*</code> route. Write it before the fixes, not after.
+        </p>
+      </div>
+    </article>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">0.4</span>
+        <h3 class="finding-title">Credentials and financials exposed to logs and the public</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <div class="evidence"><b>MicroBiltService.php:57</b>     logs client_secret in plaintext
+<b>log-viewer.php:23</b>          require_auth_in_production => false
+<b>AppServiceProvider.php:103</b>  viewApiDocs returns true unconditionally
+<b>routes/common.php:80</b>       common/weekly-summary — unauthenticated</div>
+      <p>
+        The credit-bureau client secret is written to logs, and the log viewer is readable by any authenticated
+        user. The full admin OpenAPI spec is public. And <code>weekly-summary</code> returns gross revenue, net,
+        partner payouts and per-partner commissions <strong>with no authentication</strong>.
+      </p>
+    </article>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">0.5</span>
+        <h3 class="finding-title">Both frontends ship broken</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <div class="evidence"><b>client-fch</b> FundingRequestDetailPage.tsx:10
+  imports components/Common/Modal/FileUploadModal — file does not exist
+  route is live at App.jsx:139 → npm run build fails → deploy fails
+
+<b>admin</b> FundApplication.tsx:472-475
+  isApplicationSubmitted — 4 uses, 0 definitions → throws on every render</div>
+      <p>
+        With no ErrorBoundary anywhere in either repo, the admin defect white-screens the whole SPA rather
+        than degrading one panel.
+      </p>
+    </article>
+  </section>
+
+  <!-- ================= PHASE 1 ================= -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">PHASE 1</span>
+      <h2 class="phase-title">Verification layer</h2>
+      <span class="phase-when">Next</span>
+    </div>
+    <p class="phase-intro">
+      The absence of this layer is what allowed every Phase 0 item to ship. Build it before touching anything structural.
+    </p>
+
+    <article class="finding sev-high">
+      <div class="finding-head">
+        <span class="finding-id">1.1</span>
+        <h3 class="finding-title">No tests exist anywhere</h3>
+        <span class="badge badge-high">High</span>
+      </div>
+      <p>
+        <code>phpunit.xml</code> points at test directories that are empty or absent, so <code>composer test</code>
+        has nothing to run. <code>database/factories/</code> contains only <code>UserFactory</code> — factories for
+        Borrower, FundingApplication, Invoice, Payment and Subscription are prerequisites before feature tests
+        are even possible.
+      </p>
+      <p>
+        One trap: <code>phpunit.xml</code> configures sqlite in-memory, but the app uses MySQL-only SQL
+        (<code>DATE_FORMAT</code>, <code>CONCAT_WS</code>, correlated <code>DB::raw</code>). Point tests at a real
+        MySQL test database or they won't exercise the query layer.
+      </p>
+      <ul class="fix">
+        <li>Start with the security regressions from 0.3 — highest value per line of test written.</li>
+        <li>Frontends: Vitest + React Testing Library, Playwright for the money paths.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-high">
+      <div class="finding-head">
+        <span class="finding-id">1.2</span>
+        <h3 class="finding-title">CI deploys to production with zero checks</h3>
+        <span class="badge badge-high">High</span>
+      </div>
+      <p>
+        Six workflows exist across the three repos. All are deploy-only, all trigger on push to
+        <code>stage</code>/<code>release</code>, and <strong>none</strong> run tests, lint, typecheck or scanning.
+        There is no pull-request trigger anywhere — a push to <code>release</code> is an unreviewed, unverified
+        production deploy.
+      </p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Defect</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>Dead smoke tests</td><td>Production URL fallback value equals the skip condition, so the check never runs. Staging is verified; production is not.</td></tr>
+            <tr><td>Unguarded migration</td><td>API release deploy runs migrate --force with no backup and no rollback, against a database holding SSNs.</td></tr>
+            <tr><td>Moving action pin</td><td>ssh-deploy@main is a branch, not a SHA — on the step handed the production SSH key.</td></tr>
+            <tr><td>Key left on disk</td><td>On smoke-test failure the EC2 private key is written to the workspace; its rm only runs inside the failure branch.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">1.3</span>
+        <h3 class="finding-title">strict: true is decorative — 415 errors go unreported</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <p>
+        Both frontends set <code>"strict": true</code>, but <code>build</code> is <code>vite build</code>
+        (esbuild, transpile-only) and <code>tsc</code> runs nowhere. Actual state: <strong>168 errors</strong> in
+        the borrower portal, <strong>247</strong> in the admin.
+      </p>
+      <p>
+        The causes are mechanical, not deep: <code>allowJs</code> is unset while 155 <code>.jsx</code> files exist,
+        so every TSX→JSX import is an implicit <code>any</code>; <code>@types/react</code> v19 is installed against
+        React 18; <code>@types/jquery</code> is missing. Fix those, baseline the remainder, fail CI on new errors.
+      </p>
+    </article>
+  </section>
+
+  <!-- ================= PHASE 2 ================= -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">PHASE 2</span>
+      <h2 class="phase-title">Data security &amp; compliance</h2>
+      <span class="phase-when">Regulatory</span>
+    </div>
+    <p class="phase-intro">
+      GLBA, FCRA and PCI-DSS obligations that the current code does not meet.
+    </p>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">2.1</span>
+        <h3 class="finding-title">SSNs and bank accounts stored in plaintext</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <p>
+        SSN, date of birth, EIN and bank account/routing numbers are unencrypted across
+        <code>funding_applications</code>, <code>funding_application_co_borrowers</code>,
+        <code>credit_profile_requests</code> (where SSN is <code>NOT NULL</code>),
+        <code>payment_method_bank_details</code>, <code>borrower_credit_profiles</code> and <code>partners</code>.
+      </p>
+      <p>
+        The codebase already knows the pattern — <code>PartnerPaymentProvider</code> uses
+        <code>encrypted:array</code>. It simply was not applied to the regulated fields. Prefer storing
+        <code>last_4_ssn</code> only, as the <code>Borrower</code> model already does.
+      </p>
+    </article>
+
+    <article class="finding sev-critical">
+      <div class="finding-head">
+        <span class="finding-id">2.2</span>
+        <h3 class="finding-title">Raw card number and CVV capture code is committed</h3>
+        <span class="badge badge-critical">Critical</span>
+      </div>
+      <p>
+        <code>PaymentMethodForms.jsx</code> in <strong>both</strong> frontends contains three forms that collect
+        the full PAN <strong>and CVV</strong> and POST them to our own backend. They are currently dead code —
+        only <code>StripeForm</code> is imported — but they are one import away from putting the platform in
+        PCI-DSS SAQ D scope, and transmitting CVV to your own server is never permissible.
+      </p>
+      <p>Delete both copies and the server-side raw-card branch. The live Stripe path is correct and stays.</p>
+    </article>
+
+    <article class="finding sev-high">
+      <div class="finding-head">
+        <span class="finding-id">2.3</span>
+        <h3 class="finding-title">Live secret keys are sent to the admin browser</h3>
+        <span class="badge badge-high">High</span>
+      </div>
+      <p>
+        Admin settings forms round-trip real secrets into React state and the DOM: Stripe secret keys,
+        MicroBilt credentials, the OpenAI key, AWS secret key and reCAPTCHA secret. An XSS in the admin panel
+        exfiltrates all of them in a single request.
+      </p>
+      <ul class="fix">
+        <li>Make these fields write-only — the API returns a masked stub and accepts a new value only on change.</li>
+        <li>Stop persisting <code>cached_email_config</code> to <code>localStorage</code>; nothing ever reads it.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-high">
+      <div class="finding-head">
+        <span class="finding-id">2.4</span>
+        <h3 class="finding-title">Unsanitized HTML plus a token in localStorage</h3>
+        <span class="badge badge-high">High</span>
+      </div>
+      <p>
+        Twenty <code>dangerouslySetInnerHTML</code> sites, and <strong>no sanitizer in either repo</strong>. The
+        dangerous ones render admin-authored CKEditor HTML <em>inside the borrower portal</em>.
+      </p>
+      <p>
+        Meanwhile the bearer token and full user PII are persisted to <code>localStorage</code> regardless of the
+        "Remember me" checkbox — with a code comment stating so explicitly. The store's
+        <code>[key: string]: unknown</code> index signature means nobody can audit what actually lands on disk.
+        Together these two form a direct token-theft chain.
+      </p>
+      <ul class="fix">
+        <li>Add DOMPurify behind a single <code>&lt;SafeHtml&gt;</code> component covering all 20 sites.</li>
+        <li>Honor <code>rememberMe</code>, and narrow the persisted shape to the fields actually needed.</li>
+        <li>Add a CSP; pin and SRI the unversioned CDN scripts.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-high">
+      <div class="finding-head">
+        <span class="finding-id">2.5</span>
+        <h3 class="finding-title">Credit reports sent to OpenAI unredacted</h3>
+        <span class="badge badge-high">High</span>
+      </div>
+      <p>
+        <code>OpenAiParserService.php:40</code> sends full credit-report text — including SSN and date of birth —
+        to the public OpenAI API. No redaction, no data-processing agreement referenced in the repo, no
+        zero-retention flag set. Under GLBA and FCRA this needs a documented subprocessor agreement and
+        disclosure, or redaction before the call.
+      </p>
+    </article>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">2.6</span>
+        <h3 class="finding-title">Auth hardening is absent or silently inert</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <div class="evidence">Passport tokens never expire — no tokensExpireIn call (default: 1 year)
+No route throttling — the login limiter is defined but attached to nothing
+reCAPTCHA is nullable — attackers simply omit the field
+Login distinguishes unknown-email from bad-password → user enumeration</div>
+      <p>
+        The 2FA lockout settings are the sharpest: <code>TwoFaService.php:350</code> reads them with
+        <code>config()</code> when they are <code>env()</code> keys, so the configured values <strong>never
+        apply</strong> — and the env name in code doesn't even match the one in <code>.env.example</code>.
+      </p>
+    </article>
+  </section>
+
+  <!-- ================= PHASE 3 ================= -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">PHASE 3</span>
+      <h2 class="phase-title">Structural debt</h2>
+      <span class="phase-when">Ongoing</span>
+    </div>
+    <p class="phase-intro">
+      Not dangerous, but it is what makes every fix above cost twice what it should.
+    </p>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">3.1</span>
+        <h3 class="finding-title">9,400 lines duplicated across the two frontends</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <p>
+        <strong>51 files are byte-for-byte identical</strong> across the two apps, and the copies have already
+        silently drifted — Stripe key handling differs between them. Every fix must be made twice, which is
+        precisely how the PCI code in 2.2 ended up in both repos.
+      </p>
+      <p>
+        Extract in dependency order: <code>@fch/http</code>, <code>@fch/auth</code>, <code>@fch/formatters</code>,
+        <code>@fch/data</code>, <code>@fch/ui</code>, then the heavy features. Start with <code>@fch/billing</code>
+        and <code>@fch/auth</code> — where drift is already causing divergent behavior.
+      </p>
+      <p>
+        The same pattern exists server-side: <strong>14 service class names exist twice</strong> under
+        <code>Services/Borrower/</code> and <code>Services/FCH/</code> as near-copies.
+      </p>
+    </article>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">3.2</span>
+        <h3 class="finding-title">Every user downloads a 4 MB bundle before the login form</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <p>
+        <code>React.lazy</code> and <code>Suspense</code> appear <strong>zero times</strong> in either repo;
+        <code>App.jsx</code> eagerly imports around 40 routes. The result is a single
+        <strong>3.8 MB</strong> (borrower) and <strong>4.5 MB</strong> (admin) JavaScript chunk plus roughly 2 MB
+        of CSS — FullCalendar, jQuery, Summernote and all of PrimeReact, delivered before anyone can log in.
+      </p>
+      <ul class="fix">
+        <li>Route-level <code>React.lazy</code> plus a <code>manualChunks</code> vendor split — biggest UX win per hour spent.</li>
+        <li>Drop ten verified-unused dependencies, and a committed 2 MB background image.</li>
+        <li>Add ErrorBoundaries — their absence is what turns one render throw into a white screen.</li>
+      </ul>
+    </article>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">3.3</span>
+        <h3 class="finding-title">API types are hand-written and already drifted</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <p>
+        TypeScript types are maintained by hand against 133 PHP Resource classes.
+        <strong>All three endpoints sampled were drifted</strong>, in both directions — fields TypeScript
+        declares that the API never sends, and real fields TypeScript hides entirely.
+      </p>
+      <p>
+        <code>dedoc/scramble</code> already produces a live spec; generate the types from it. Delete
+        <code>.scribe/</code> — it is orphaned, ten months stale, covers three endpoints, and states
+        "This API is not authenticated."
+      </p>
+    </article>
+
+    <article class="finding sev-medium">
+      <div class="finding-head">
+        <span class="finding-id">3.4</span>
+        <h3 class="finding-title">Branch topology contradicts the documented policy</h3>
+        <span class="badge badge-medium">Medium</span>
+      </div>
+      <div class="evidence">Default branch: <b>main</b> in the API, <b>master</b> in both frontends
+  → 4 commits ahead of stage, and deploys nowhere
+release is 36–90 commits behind stage
+develop is abandoned: 377–814 commits behind, still checked out locally
+52–98 remote branches per repo · 8–27 stale beyond 6 months</div>
+      <p>
+        Also worth a quick pass: the <code>.env.example</code> files name Twilio variables incorrectly, so anyone
+        copying them gets silently-broken SMS 2FA. Two Vite variables are undefined in <em>every</em> environment,
+        breaking the lead payment modal in both stage and production. And the borrower portal's README is
+        UTF-16 encoded and names the admin repo.
+      </p>
+    </article>
+  </section>
+
+  <!-- ================= VERIFICATION ================= -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">CHECK</span>
+      <h2 class="phase-title">How to verify each phase</h2>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Phase</th><th>Verification</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>0 · Emergency</td>
+            <td>Hook produces exactly one file per session end. <code>npm run build</code> succeeds in both frontends. A borrower token returns 403 on every <code>v1/common/*</code> route. A request with a foreign Origin no longer receives an allow header. No secrets remain in <code>.env.example</code> or <code>config/domains.php</code>.</td>
+          </tr>
+          <tr>
+            <td>1 · Verification</td>
+            <td><code>composer test</code> and <code>vitest</code> both pass. A deliberately broken pull request fails CI on lint, typecheck and test.</td>
+          </tr>
+          <tr>
+            <td>2 · Compliance</td>
+            <td>SSN and account-number columns read as ciphertext when queried directly. Grepping both frontends for <code>cardNumber</code> and <code>cvv</code> returns nothing. The settings API returns masked secrets. DOMPurify covers all 20 injection sites.</td>
+          </tr>
+          <tr>
+            <td>3 · Structural</td>
+            <td>Bundle size measured before and after. <code>tsc --noEmit</code> clean against generated API types. Duplication re-measured after each package extraction.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p>
+        Each phase lands as its own pull request into <strong>stage</strong>, reviewed with the
+        <code>code-reviewer</code> agent before it is merged to <strong>release</strong>.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>FCH Platform Audit · 2026-08-30</span>
+    <span>3 repositories reviewed</span>
+    <span>All findings verified against source</span>
+  </footer>
+
+</div>

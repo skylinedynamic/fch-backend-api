@@ -1,5 +1,7 @@
 # fch-api
 
+**This is the base project of the FCH platform.** It is the system of record and the shared backend for all three frontends — the data model, API contracts, auth/permissions, business logic and compliance controls all originate here. Cross-cutting decisions (schema changes, endpoint shape, roles/permissions, encryption, tenancy) are made in this repo first; the frontends follow. When a change spans repos, start here and treat the frontends as consumers.
+
 Laravel 12 (PHP 8.2) API backend. Passport auth, Spatie permissions/activitylog/backup/health, Stripe, AWS S3, Octane, Twilio, 2FA (google2fa).
 
 ## Commands
@@ -58,7 +60,7 @@ This API is the system of record for applicant PII, credit bureau data (credit-b
 Use the `code-reviewer` agent (`~/.claude/agents/code-reviewer.md`) before merging into `stage` or `release`: architecture, security, duplication, vulnerable dependencies, magic strings, code smells, performance.
 
 ## Related projects
-Sibling repos under `d:\laragon\www\`, part of the same FCH system. This API is the shared backend for all three:
+Sibling repos under `d:\laragon\www\`, part of the same FCH system. This API is the base project and shared backend for all three — they consume it, it depends on none of them:
 - **`fch-borrower-react`** (`client-fch`) — borrower portal (Vite + React), consumes the `v1/borrower` routes.
 - **`Fch-admin-frontend-react`** — internal admin/back-office panel (Vite + React), consumes the `v1/admin` (`FCH` controller namespace) routes and manages the CMS/leads/blog content the website reads.
 - **`fch-website-react`** — public marketing site (Next.js), consumes only the unauthenticated `v1/website` routes (`routes/website.php`) for CMS content, blog, SEO settings, and lead/pre-qualification submission.
