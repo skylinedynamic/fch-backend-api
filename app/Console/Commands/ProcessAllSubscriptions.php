@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Mail;
  *  STEP 1 — Invoice Generation
  *   a) Partner/Client installment invoices (enrollment phase)
  *   b) Partner/Client platform fee invoices (platform_fee phase)
- *   c) User/Employee seat renewal invoices (subscription_end_date approaching)
+ *   c) User/Employee seat renewal invoices (expected_end_date approaching)
  *
  *  STEP 2 — Auto-Charge
  *   - Query all Unpaid invoices linked to active subscriptions
@@ -105,6 +105,7 @@ class ProcessAllSubscriptions extends Command
     {
         $dueInvoices = Invoice::query()
             ->where('status', Invoice::STATUS_UNPAID)
+            ->where('payment_amount', '>', 0)
             ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
             ->whereDate('created_at', '<=', now())
             ->get();

@@ -39,7 +39,7 @@ class SubscriptionListResource extends JsonResource
             'enrollment_type' => $this->enrollment_type,
             'payable_amount' => currencyFormat($this->payable_amount),
             'subscription_start_date' => toTimezone($this->subscription_start_date),
-            'subscription_end_date' => toTimezone($this->subscription_end_date),
+            'subscription_end_date' => toTimezone($this->subscription_end_date), // paid through
             'enrollment_completed_at' => toTimezone($this->enrollment_completed_at),
             'status' => $this->status,
             'created_at' => toTimezone($this->created_at),

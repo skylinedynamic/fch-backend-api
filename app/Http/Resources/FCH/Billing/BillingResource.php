@@ -29,10 +29,12 @@ class BillingResource extends JsonResource
         // - PHASE_INSTALLMENT: subscription_amount_per_month
         // - PHASE_PLATFORM_FEE: monthly_platform_fee
         // - PHASE_USER_SEAT: per_seat_amount
+        // - PHASE_COMPLETED: nothing further is owed (borrower finished enrollment)
         $billingAmount = match ($this->current_phase) {
             Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?? 0,
             Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?? 0,
             Subscription::PHASE_USER_SEAT => $this->per_seat_amount ?? 0,
+            Subscription::PHASE_COMPLETED => 0,
             default => $this->subscription_amount_per_month ?? $this->payable_amount ?? $this->down_payment ?? 0,
         };
 
@@ -41,6 +43,7 @@ class BillingResource extends JsonResource
             Subscription::PHASE_PLATFORM_FEE => 'Platform Fee',
             Subscription::PHASE_USER_SEAT => 'User Seat',
             Subscription::PHASE_INSTALLMENT => 'Installment',
+            Subscription::PHASE_COMPLETED => 'Completed',
             default => ucfirst(str_replace('_', ' ', $this->current_phase ?? 'Installment')),
         };
 

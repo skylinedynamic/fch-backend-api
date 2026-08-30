@@ -41,7 +41,7 @@ class BorrowerUserDetailResource extends JsonResource
             'partner_type' => $partnerType,
             'partner_payment_for_me' => (bool) ($this->borrower?->partner_payment_for_me ?? true),
             'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
-            'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
+            'subscription_end_date' => toTimezone($subscription?->subscription_end_date), // paid through
             'is_refresh' => (bool) ($this->is_refresh ?? false),
             'is_free_trail' => (bool) ($this->entity?->is_free_trail ?? false),
             'free_trail_end_date' => toTimezone($this->entity?->free_trail_end_date ?? null),

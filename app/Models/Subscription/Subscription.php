@@ -12,6 +12,18 @@ use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+/**
+ * subscription_end_date vs expected_end_date:
+ *  - subscription_end_date: paid through this date. Only moves on an actual
+ *    successful payment (handleOneTimePayment / handleInstallmentPayment /
+ *    handleUserSeatPayment in SubscriptionService).
+ *  - expected_end_date: the scheduling field. generateDueInvoices() and
+ *    createInvoiceIfDue() key off THIS, not subscription_end_date. It advances
+ *    both on payment and on a missed-cycle rollover (invoice expired, next
+ *    cycle generated) — so it can run ahead of subscription_end_date.
+ *  The gap between the two is, by construction, how far behind a subscription
+ *  actually is on real payment.
+ */
 class Subscription extends Model
 {
     use HasFactory, SoftDeletes;
@@ -31,6 +43,7 @@ class Subscription extends Model
     const PHASE_INSTALLMENT = 'installment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
     const PHASE_USER_SEAT = 'user_seat';
+    const PHASE_COMPLETED = 'completed';
 
     protected $table = 'subscriptions';
 
@@ -51,6 +64,7 @@ class Subscription extends Model
         'installment_count',
         'subscription_start_date',
         'subscription_end_date',
+        'expected_end_date',
         'current_cycle_invoice_id',
         'status',
         'is_custom',
@@ -65,6 +79,7 @@ class Subscription extends Model
         'first_payment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'expected_end_date' => 'date',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',
         'total_subscription_amount' => 'decimal:2',

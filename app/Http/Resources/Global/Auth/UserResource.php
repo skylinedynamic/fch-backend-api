@@ -75,7 +75,7 @@ class UserResource extends JsonResource
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
             'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
-            'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
+            'subscription_end_date' => toTimezone($subscription?->subscription_end_date), // paid through
             'first_payment_date' => toTimezone($subscription?->first_payment_date),
             'per_seat_amount' => $subscription?->per_seat_amount ?? 49,
             'user_seats' => $subscription?->user_seats ?? 1,

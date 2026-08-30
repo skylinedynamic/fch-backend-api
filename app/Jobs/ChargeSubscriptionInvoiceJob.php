@@ -170,12 +170,15 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             Log::error('[Queue AutoCharge] Failed to create failed payment record', ['error' => $e->getMessage()]);
         }
 
-        if ($this->invoice->subscription) {
-            $sub = $this->invoice->subscription;
-            if ($sub->subscription_end_date && \Illuminate\Support\Carbon::parse($sub->subscription_end_date)->endOfDay()->isPast()) {
-                $sub->update(['status' => Subscription::STATUS_PAST_DUE]);
-            }
-        }
+        // Deciding whether this subscription is now Past Due belongs solely to
+        // SubscriptionService::createInvoiceIfDue(), which runs on the very next
+        // cron pass (Step 1, before this job's queue is even re-dispatched in
+        // Step 2). This job used to duplicate that check here against
+        // subscription_end_date — but that field now means "paid through", which
+        // is in the past almost immediately after any payment, so it would have
+        // marked subscriptions Past Due on the first failed charge attempt,
+        // regardless of grace period. Removed rather than fixed to avoid two
+        // independent implementations of the same decision drifting again.
 
         Log::error("[Queue AutoCharge] Failed auto-charge for invoice #{$this->invoice->invoice_id}: {$reason}");
 

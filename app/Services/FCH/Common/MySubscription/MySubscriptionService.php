@@ -163,6 +163,7 @@ class MySubscriptionService
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
                 'subscription_start_date' => toTimezone($subscription->subscription_start_date),
                 'subscription_end_date' => toTimezone($subscription->subscription_end_date),
+                'expected_end_date' => toTimezone($subscription->expected_end_date),
                 'enrollment_completed_at' => toTimezone($subscription->enrollment_completed_at),
                 'is_completed' => $isCompleted,
             ] : null,
