@@ -24,7 +24,7 @@ abstract class BaseApiRequest extends FormRequest
             $errors[$field] = $messages[0]; 
         }
         throw new HttpResponseException(
-            ApiResponse::validationError($errors, __('auth.validation_failed'))
+            ApiResponse::validationError($errors, $validator->errors()->first() ?? __('auth.validation_failed'))
         );
     }
 }

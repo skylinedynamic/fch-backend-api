@@ -2,218 +2,116 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Common\Role;
+use App\Models\Employee\Employee;
+use App\Models\User\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class EmployeeSeeder extends Seeder
 {
+    use LocationHelper;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        DB::table('employees')->insert([
-            [
-                'user_id' => 1, // Admin User
-                'business_id' => 1, // Tech Solutions Inc (assigned to admin)
-                'first_name' => 'Admin',
-                'last_name' => 'User',
-                'email' => 'admin@fch.com',
-                'phone_number' => '+1234567890',
-                'phone_number_2' => '+1234567891',
-                'date_of_birth' => '1985-01-01',
-                'gender' => 'other',
-                'city' => 'San Francisco',
-                'state' => 'CA',
-                'postal_code' => '94105',
-                'country' => 'USA',
-                'address' => '123 Main St',
-                'ssn' => '000-00-0000',
-                'image' => 'admin_user.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => 2, // John Partner
-                'business_id' => 1, // Tech Solutions Inc
-                'first_name' => 'John',
-                'last_name' => 'Partner',
-                'email' => 'john.partner@example.com',
-                'phone_number' => '+1234567891',
-                'phone_number_2' => '+1234567892',
-                'date_of_birth' => '1980-05-20',
-                'gender' => 'male',
-                'city' => 'Los Angeles',
-                'state' => 'CA', // Note: keeping 'sate' as per migration schema
-                'postal_code' => '90210',
-                'country' => 'USA',
-                'address' => '456 Oak St',
-                'ssn' => '123-45-6789',
-                'image' => 'john_partner.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => 3, // Sarah Wilson
-                'business_id' => 2, // Green Energy Solutions LLC
-                'first_name' => 'Sarah',
-                'last_name' => 'Wilson',
-                'email' => 'sarah.wilson@example.com',
-                'phone_number' => '+1234567892',
-                'phone_number_2' => '+1234567893',
-                'date_of_birth' => '1988-03-12',
-                'gender' => 'female',
-                'city' => 'Chicago',
-                'state' => 'IL',
-                'postal_code' => '60601',
-                'country' => 'USA',
-                'address' => '789 Pine St',
-                'ssn' => '987-65-4321',
-                'image' => 'sarah_wilson.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-                 [
-                'user_id' => 4, // Michael Johnson (Borrower)
-                'business_id' => 1, // Tech Solutions Inc
-                'first_name' => 'Michael',
-                'last_name' => 'Johnson',
-                'email' => 'michael.johnson@example.com',
-                'phone_number' => '+1234567893',
-                'phone_number_2' => '+1234567894',
-                'date_of_birth' => '1990-02-15',
-                'gender' => 'male',
-                'city' => 'San Francisco',
-                'state' => 'CA',
-                'postal_code' => '94105',
-                'country' => 'USA',
-                'address' => '101 Maple St',
-                'ssn' => '111-22-3333',
-                'image' => 'michael_johnson.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => 5, // Emily Davis (Borrower)
-                'business_id' => 2, // Green Energy Solutions LLC
-                'first_name' => 'Emily',
-                'last_name' => 'Davis',
-                'email' => 'emily.davis@example.com',
-                'phone_number' => '+1234567894',
-                'phone_number_2' => '+1234567895',
-                'date_of_birth' => '1991-08-10',
-                'gender' => 'female',
-                'city' => 'Austin',
-                'state' => 'TX',
-                'postal_code' => '78701',
-                'country' => 'USA',
-                'address' => '202 Cedar St',
-                'ssn' => '222-33-4444',
-                'image' => 'emily_davis.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => 6, // Robert Brown (Borrower)
-                'business_id' => 3, // Urban Restaurant Group
-                'first_name' => 'Robert',
-                'last_name' => 'Brown',
-                'email' => 'robert.brown@example.com',
-                'phone_number' => '+1234567895',
-                'phone_number_2' => '+1234567896',
-                'date_of_birth' => '1989-11-30',
-                'gender' => 'male',
-                'city' => 'New York',
-                'state' => 'NY',
-                'postal_code' => '10001',
-                'country' => 'USA',
-                'address' => '303 Birch St',
-                'ssn' => '333-44-5555',
-                'image' => 'robert_brown.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => null, // Employee without user account
-                'business_id' => 1, // Tech Solutions Inc
-                'first_name' => 'David',
-                'last_name' => 'Thompson',
-                'email' => 'david.thompson@techsolutions.com',
-                'phone_number' => '+1234567896',
-                'phone_number_2' => '+1234567897',
-                'date_of_birth' => '1985-11-08',
-                'gender' => 'male',
-                'city' => 'San Francisco',
-                'state' => 'CA',
-                'postal_code' => '94105',
-                'country' => 'USA',
-                'address' => '404 Elm St',
-                'ssn' => '456-78-9012',
-                'image' => 'david_thompson.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => null, // Employee without user account
-                'business_id' => 2, // Green Energy Solutions LLC
-                'first_name' => 'Lisa',
-                'last_name' => 'Martinez',
-                'email' => 'lisa.martinez@greenenergy.com',
-                'phone_number' => '+1234567897',
-                'phone_number_2' => '+1234567898',
-                'date_of_birth' => '1990-07-22',
-                'gender' => 'female',
-                'city' => 'Austin',
-                'state' => 'TX',
-                'postal_code' => '78701',
-                'country' => 'USA',
-                'address' => '505 Oak St',
-                'ssn' => '789-01-2345',
-                'image' => 'lisa_martinez.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => null, // Employee without user account
-                'business_id' => 3, // Urban Restaurant Group
-                'first_name' => 'James',
-                'last_name' => 'Rodriguez',
-                'email' => 'james.rodriguez@urbanrestaurants.com',
-                'phone_number' => '+1234567898',
-                'phone_number_2' => '+1234567899',
-                'date_of_birth' => '1987-04-15',
-                'gender' => 'male',
-                'city' => 'New York',
-                'state' => 'NY',
-                'postal_code' => '10001',
-                'country' => 'USA',
-                'address' => '606 Pine St',
-                'ssn' => '234-56-7890',
-                'image' => 'james_rodriguez.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'user_id' => null, // Employee without user account
-                'business_id' => 4, // Digital Marketing Pro
-                'first_name' => 'Amanda',
-                'last_name' => 'Chen',
-                'email' => 'amanda.chen@digitalmarketingpro.com',
-                'phone_number' => '+1234567899',
-                'phone_number_2' => '+1234567900',
-                'date_of_birth' => '1992-12-03',
-                'gender' => 'female',
-                'city' => 'Chicago',
-                'state' => 'IL',
-                'postal_code' => '60601',
-                'country' => 'USA',
-                'address' => '707 Maple St',
-                'ssn' => '345-67-8901',
-                'image' => 'amanda_chen.jpg',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
-        ]);
+        // Generate 10 employees for every partner (with full random profile fields)
+        $departments = ['Operations', 'Finance', 'IT', 'HR', 'Sales', 'Support'];
+        $designations = ['Staff', 'Manager', 'Lead', 'Analyst', 'Coordinator', 'Specialist'];
+        $streets = ['Oak', 'Pine', 'Elm', 'Maple', 'Cedar', 'Walnut', 'Birch', 'Ash', 'Cherry', 'Willow'];
+        $genders = ['male', 'female'];
+
+        // Get all partners
+        $partners = DB::table('partners')->pluck('id');
+
+        foreach ($partners as $partnerId) {
+            // Get the Sales role for this partner
+            $salesRole = Role::where('name', 'Sales')
+                ->where('partner_id', $partnerId)
+                ->where('guard_name', 'api')
+                ->first();
+
+            if (! $salesRole) {
+                $this->command?->warn("Sales role not found for Partner ID {$partnerId}. Skipping employees for this partner.");
+
+                continue;
+            }
+
+            for ($i = 1; $i <= 10; $i++) {
+                $location = $this->getRandomLocation();
+                $firstName = "Employee{$partnerId}{$i}";
+                $lastName = 'User';
+                $empCode = "Emp-0000{$i}";
+                $department = $departments[$i % count($departments)];
+                $designation = $designations[$i % count($designations)];
+                $email = "partner{$partnerId}.employee{$i}@example.com";
+                $number = $partnerId * 1000 + $i;
+
+                $phone1 = str_pad($number, 10, '0', STR_PAD_LEFT);
+                $phone2 = str_pad($number, 10, '0', STR_PAD_LEFT);
+
+                // Random profile fields
+                $gender = $genders[array_rand($genders)];
+                $postal = str_pad((string) mt_rand(10000, 99999), 5, '0', STR_PAD_LEFT);
+                $address = mt_rand(100, 999) . ' ' . $streets[array_rand($streets)] . ' St';
+                $image = "employee_{$partnerId}_{$i}.jpg";
+                $dobTs = mt_rand(strtotime('1970-01-01'), strtotime('2002-12-31'));
+                $dateOfBirth = date('Y-m-d', $dobTs);
+                $joinTs = mt_rand(strtotime('2018-01-01'), strtotime('2024-12-31'));
+                $joiningDate = date('Y-m-d', $joinTs);
+                $emergencyContact = $firstName . ' ' . $lastName . ' Contact';
+                $emergencyPhone = str_pad($number, 10, '0', STR_PAD_LEFT);
+                $countryCode = '+1';
+
+                // Create employee
+                $employee = Employee::create([
+                    'partner_id' => $partnerId,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'employee_code' => $empCode,
+                    'email' => $email,
+                    'phone_number_1' => $phone1,
+                    'phone_number_2' => $phone2,
+                    'date_of_birth' => $dateOfBirth,
+                    'gender' => $gender,
+                    'city' => $location['city'],
+                    'state' => $location['state'],
+                    'postal_code' => $postal,
+                    'country' => $location['country'],
+                    'country_code' => $countryCode,
+                    'address' => $address,
+                    'image' => null,
+                    'department' => $department,
+                    'designation' => $designation,
+                    'job_status' => 'Active',
+                    'joining_date' => $joiningDate,
+                    'emergency_contact' => $emergencyContact,
+                    'emergency_phone' => $emergencyPhone,
+                ]);
+
+                // Create user for the employee
+                $user = User::create([
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'phone_number' => $phone1,
+                    'phone_verified_at' => null,
+                    'email_verified_at' => now(),
+                    'user_type' => 'Admin',
+                    'status' => 'active',
+                    'password' => Hash::make('12345678'),
+                    'partner_id' => $partnerId,
+                    'entity_type' => 'App\Models\Employee\Employee',
+                    'entity_id' => $employee->id,
+                ]);
+
+                // Assign Sales role to the user
+                $user->assignRole($salesRole);
+            }
+        }
+
+        $this->command?->info('EmployeeSeeder completed successfully.');
     }
 }

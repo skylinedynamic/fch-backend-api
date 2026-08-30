@@ -13,20 +13,23 @@ class PersonalProfileResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+        
         return [
             'id' => $this->id,
-            'first_name' => $this->employee->first_name,
-            'last_name' => $this->employee->last_name,
+            'first_name' => $this->entity->first_name,
+            'last_name' => $this->entity->last_name,
             'email' => $this->email,
-            'home_address' => $this->employee->address,
-            'city' => $this->employee->city,
-            'state' => $this->employee->state,
-            'zip_code' => $this->employee->postal_code,
-            'country' => $this->employee->country,
-            'home_phone' => $this->employee->phone_number_2,
-            'mobile_phone' => $this->employee->phone_number,
-            'last_4_ssn' => $this->employee->ssn ? substr($this->employee->ssn, -4) : null,
-            'date_of_birth' => $this->employee->date_of_birth,
+            'phone_number' => $this->entity->phone_number, 
+            'country' => $this->entity->country,
+            'country_code' => $this->entity->country_code,
+            'state' => $this->entity->state,
+            'city' => $this->entity->city,
+            'zip_code' => $this->entity->postal_code,
+            'home_address' => $this->entity->home_address,
+            'home_phone' => $this->entity->home_phone,
+            'last_4_ssn' => $this->entity->last_4_ssn,
+            'date_of_birth' => $this->entity->date_of_birth ? \Carbon\Carbon::parse($this->entity->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,
         ];
     }
 }

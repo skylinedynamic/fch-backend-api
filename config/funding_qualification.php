@@ -1,0 +1,122 @@
+<?php
+
+use App\Models\Borrower\BorrowerDocType;
+
+return [
+    'factor_keys' => [
+        'Personal Credit'  => 'personal_credit',
+        'Business Credit'  => 'business_credit',
+        'Revenue'          => 'revenue',
+        'Time in Business' => 'time_in_business',
+        'Banking Activity' => 'banking_activity',
+        'Minimum Monthly Deposits' => 'min_monthly_deposits',
+        'Monthly Deposit Count' => 'min_deposit_count',
+        'Minimum Average Daily Balance' => 'min_average_balance',
+        'Max NSF' => 'max_nsf',
+        'Negative Days' => 'max_negative_days',
+        
+        // Geographical and Industry Restrictions
+        'State Eligibility'      => 'allowed_states',
+        'Restricted State'       => 'restricted_states',
+        'Industry Eligibility'   => 'allowed_industries',
+        'Restricted Industry'    => 'restricted_industries',
+
+    ],
+
+    'rules' => [
+        'business_credit' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.paydex_score',
+            'funding_field'  => 'lender_visibilities.min_business_credit_score',
+            'strong_offset'  => 20,
+        ],
+        'personal_credit' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.fico_score',
+            'funding_field'  => 'lender_visibilities.min_fico',
+            'strong_offset'  => 20,
+        ],
+        'revenue' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.monthly_revenue',
+            'funding_field'  => 'lender_visibilities.min_monthly_revenue',
+            'strong_offset'  => 0.01,
+        ],
+        'time_in_business' => [
+            'type'           => 'date_compare',
+            'borrower_field' => 'borrowers.business_start_date',
+            'funding_field'  => 'lender_visibilities.min_tib_months',
+            'strong_offset'  => 12,
+        ],
+        'banking_activity' => [
+            'type'          => 'specific_document',
+            'document_name' => BorrowerDocType::BANK_STATEMENTS,
+        ],
+        'min_monthly_deposits' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.average_monthly_deposits',
+            'funding_field'  => 'lender_visibilities.min_monthly_deposits',
+            'strong_offset'  => 0.01,
+        ],
+        'min_deposit_count' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.monthly_deposit_count',
+            'funding_field'  => 'lender_visibilities.min_deposit_count',
+            'strong_offset'  => 1,
+        ],
+        'min_average_balance' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.avg_bank_balance',
+            'funding_field'  => 'lender_visibilities.min_average_daily_balance',
+            'strong_offset'  => 0.01,
+        ],
+        'max_nsf' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.nsf_count',
+            'funding_field'  => 'lender_visibilities.max_nsf_count',
+            'strong_offset'  => -1,
+        ],
+        'max_negative_days' => [
+            'type'           => 'compare',
+            'borrower_field' => 'borrowers.negative_days',
+            'funding_field'  => 'lender_visibilities.max_negative_days',
+            'strong_offset'  => -1,
+        ],
+        'equipment' => [
+            'type' => '',
+        ],
+        'allowed_states' => [
+            'type'           => 'in_array',
+            'borrower_field' => 'borrowers.business_state',
+            'funding_field'  => 'lender_visibilities.allowed_states',
+        ],
+        'restricted_states' => [
+            'type'           => 'not_in_array',
+            'borrower_field' => 'borrowers.business_state',
+            'funding_field'  => 'lender_visibilities.restricted_states',
+        ],
+        'allowed_industries' => [
+            'type'           => 'in_array',
+            'borrower_field' => 'borrowers.business_industry_type',
+            'funding_field'  => 'lender_visibilities.allowed_industries',
+        ],
+        'restricted_industries' => [
+            'type'           => 'not_in_array',
+            'borrower_field' => 'borrowers.business_industry_type',
+            'funding_field'  => 'lender_visibilities.restricted_industries',
+        ]
+    ],
+
+    'statuses' => [
+        'strong'   => 'Strong',
+        'good'     => 'Good',
+        'failed'   => 'Failed',
+    ],
+
+    'qualify_keys' => [
+        'Revenue meets minimum threshold'             => 'revenue',
+        'Business has been operating at least 1 year' => 'time_in_business',
+        'Credit score meets minimum threshold'        => 'business_credit',
+        'Equipment qualifies for financing'           => 'equipment',
+    ]
+];

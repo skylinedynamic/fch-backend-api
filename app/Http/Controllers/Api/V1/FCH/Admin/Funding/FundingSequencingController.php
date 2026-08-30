@@ -1,0 +1,145 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\FCH\Admin\Funding;
+
+use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\FetchFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\StoreFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingDisplayRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\UpdateFundingSequencingVisibilityRequest;
+use App\Http\Requests\Api\V1\FCH\Admin\Funding\DeleteFundingSequencingVisibilityRequest;
+use App\Http\Resources\FCH\Funding\FundingSequencingResource;
+use App\Services\FCH\Admin\Funding\FundingSequencingService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+
+class FundingSequencingController extends Controller
+{
+    protected $service;
+
+    public function __construct(FundingSequencingService $service)
+    {
+        $this->service = $service;
+    }
+
+    public function index(FetchFundingSequencingRequest $request): JsonResponse
+    {
+        try {
+            return $this->service->list($request->validated());
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('funding_sequencing.list_failed'));
+        }
+    }
+    
+    public function grouped(): JsonResponse
+    {
+        $data = $this->service->getGroupedSequencings();
+        return ApiResponse::success($data, __('funding_sequencing.grouped_list_fetched'));
+    }
+
+    public function store(StoreFundingSequencingRequest $request): JsonResponse
+    {
+        $sequencing = $this->service->store($request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.created'),
+            201
+        );
+    }
+
+    public function show($id): JsonResponse
+    {
+        $sequencing = $this->service->show($id);
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.fetched')
+        );
+    }
+
+    public function update(UpdateFundingSequencingRequest $request, $id): JsonResponse
+    {
+        $sequencing = $this->service->update($id, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateDisplay(UpdateFundingSequencingDisplayRequest $request, $id): JsonResponse
+    {
+        $sequencing = $this->service->update($id, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateVisibility(UpdateFundingSequencingVisibilityRequest $request, $id): JsonResponse
+    {
+        $sequencing = $this->service->update($id, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateSingleLenderVisibility(UpdateFundingSequencingVisibilityRequest $request, $id, $lenderId): JsonResponse
+    {
+        $sequencing = $this->service->updateSingleLenderVisibility($id, $lenderId, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function updateSingleCategoryVisibility(UpdateFundingSequencingVisibilityRequest $request, $id, $lenderId, $categoryId): JsonResponse
+    {
+        $sequencing = $this->service->updateSingleCategoryVisibility($id, $lenderId, $categoryId, $request->validated());
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.updated')
+        );
+    }
+
+    public function deleteVisibilities(DeleteFundingSequencingVisibilityRequest $request, $id): JsonResponse
+    {
+        $this->service->deleteVisibilities($id, $request->visibility_ids);
+
+        return ApiResponse::success(null, __('funding_sequencing.visibility_deleted'));
+    }
+
+    public function updateStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate(['status' => 'required|string|in:Active,Inactive']);
+        $sequencing = $this->service->updateStatus($id, $request->status);
+
+        return ApiResponse::success(
+            new FundingSequencingResource($sequencing),
+            __('funding_sequencing.status_updated')
+        );
+    }
+
+    public function fetchVisibilities(Request $request, $id): JsonResponse
+    {
+        return $this->service->getPaginatedVisibilities($id, $request->all());
+    }
+
+    public function destroy($id): JsonResponse
+    {
+        $this->service->delete($id);
+
+        return ApiResponse::success(
+            null,
+            __('funding_sequencing.deleted')
+        );
+    }
+}

@@ -3,9 +3,13 @@
 namespace App\Services\Global\Notification\Types;
 
 use App\Models\User\User;
+use Illuminate\Support\Facades\Log;
+use PgSql\Lob;
+use App\Mail\Traits\MailableBranding;
 
 class PasswordResetNotification implements NotificationTypeInterface
 {
+    use MailableBranding;
     protected $token;
 
     public function __construct(string $token)
@@ -18,13 +22,17 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getSmsMessage(User $user): string
     {
-        $appName = config('app.name');
-        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
-        $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
-        
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+
+
+        $appName = $siteName;
+        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type, $user->partner_id);
+        $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
+
         return trans('notification.password_reset.sms_message', [
             'appName' => $appName,
-            'resetUrl' => $resetUrl,
+            'resetUrl' => make_url($resetUrl),
         ]);
     }
 
@@ -41,24 +49,27 @@ class PasswordResetNotification implements NotificationTypeInterface
      */
     public function getEmailContent(User $user): array
     {
-        $appName = config('app.name');
-        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type);
-        $resetUrl = $frontendUrl . '/password/reset?token=' . $this->token . '&email=' . urlencode($user->email);
+        $branding = $this->getBrandingData();
+        $siteName = $branding['siteName'];
+        $appName = $siteName;
+
+        $frontendUrl = $this->getFrontendUrlByUserType($user->user_type, $user->partner_id);
+        $resetUrl = $frontendUrl . '/reset-password?token=' . $this->token . '&email=' . urlencode($user->email);
 
         return [
-            'greeting' => trans('notification.greeting_hello_name', [
-                'name' => $user->first_name,
+            'greeting' => __('notification.greeting_hello_name', [
+                'name' => $user->name,
             ]),
             'lines' => [
-                trans('notification.password_reset.email_lines.line_1'),
-                trans('notification.password_reset.email_lines.line_2'),
-                trans('notification.password_reset.email_lines.line_3'),
+                __('notification.password_reset.email_lines.line_1'),
+                __('notification.password_reset.email_lines.line_2'),
+                __('notification.password_reset.email_lines.line_3'),
             ],
             'action' => [
-                'text' => trans('notification.password_reset.action_text'),
-                'url' => $resetUrl,
+                'text' => __('notification.password_reset.action_text'),
+                'url' => make_url($resetUrl),
             ],
-            'salutation' => trans('notification.salutation_best_regards_team', [
+            'salutation' => __('notification.salutation_best_regards_team', [
                 'appName' => $appName,
             ]),
         ];
@@ -86,18 +97,18 @@ class PasswordResetNotification implements NotificationTypeInterface
     /**
      * Get the frontend URL based on user type.
      */
-    private function getFrontendUrlByUserType(?string $userType): string
+    private function getFrontendUrlByUserType(?string $userType ,$partnerId = null): string
     {
         // Handle null user type by defaulting to Partner
-        if ($userType === null) {
+        if ($userType == null) {
             $userType = User::PARTNER;
         }
-        
+
         return match ($userType) {
-            User::ADMIN => config('app.frontend_admin_url'),
-            User::PARTNER => config('app.frontend_partner_url'),
-            User::BORROWER => config('app.frontend_borrower_url'),
-            default => config('app.frontend_partner_url'), // Default fallback
+            User::ADMIN => getPartnerDomain($partnerId),
+            User::PARTNER =>getPartnerDomain($partnerId),
+            User::BORROWER => getBorrowerDomain($partnerId)
         };
     }
+
 }

@@ -2,8 +2,10 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use App\Models\Company\Company;
+use Illuminate\Support\Facades\Auth;
 
 class ProfileCompletionService
 {
@@ -11,14 +13,14 @@ class ProfileCompletionService
      * Check if the borrower's profile is complete (personal, business, financial required fields).
      * Returns overall status and which fields are missing per section.
      */
-    public function checkCompletion(User $user): array
+    public function checkCompletion(): array
     {
-        $personal = $this->checkPersonal($user);
+        $user = Auth::user();
+        $borrower = Borrower::where('id', $user->entity_id)->first();
 
-        $company = Company::where('user_id', $user->id)->first();
-        
-        $business = $this->checkBusiness($company);
-        $financial = $this->checkFinancial($company);
+        $personal = $this->checkPersonal($borrower);
+        $business = $this->checkBusiness($borrower);
+        $financial = $this->checkFinancial($borrower);
 
         $isComplete = $personal['is_complete'] && $business['is_complete'] && $financial['is_complete'];
 
@@ -30,64 +32,22 @@ class ProfileCompletionService
         ];
     }
 
-    /**
-     * Check personal required fields against the User model.
-     * Required request keys: first_name, last_name, email, home_address, city, state, zip_code, country, mobile_phone, last_4_ssn, date_of_birth
-     */
-    private function checkPersonal(User $user): array
+    private function checkPersonal($borrower): array
     {
         $missing = [];
 
         $fields = [
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'email' => $user->email,
-            'home_address' => $user->address_line_1,
-            'city' => $user->city,
-            'state' => $user->state,
-            'zip_code' => $user->postal_code,
-            'country' => $user->country,
-            'mobile_phone' => $user->phone_number,
-            'date_of_birth' => $user->date_of_birth,
-        ];
-        foreach ($fields as $key => $value) {
-            $this->requireField($missing, $key, $value);
-        }
-
-        // last_4_ssn: consider present if ssn exists and has at least 4 characters
-        $this->requireMinLength($missing, 'last_4_ssn', $user->ssn, 4);
-
-        return [
-            'is_complete' => empty($missing),
-            'missing_fields' => $missing,
-        ];
-    }
-
-    /**
-     * Check business required fields against the Company model.
-     * Required request keys: business_name, business_address, city, state, zip_code, entity_type, industry_type
-     */
-    private function checkBusiness(?Company $company): array
-    {
-        $missing = [];
-        if (!$company) {
-            $missing = [
-                'business_name', 'business_address', 'city', 'state', 'zip_code', 'entity_type', 'industry_type'
-            ];
-            return [
-                'is_complete' => false,
-                'missing_fields' => $missing,
-            ];
-        }
-
-        $fields = [
-            'business_name' => $company->company_name,
-            'business_address' => $company->address_line_1,
-            'city' => $company->city,
-            'state' => $company->state,
-            'zip_code' => $company->postal_code,
-            'entity_type' => $company->company_entity_type,
-            'industry_type' => $company->company_type,
+            'first_name' => $borrower->first_name,
+            'last_name' => $borrower->last_name,
+            'email' => $borrower->email,
+            'phone_number' => $borrower->phone_number,
+            'city' => $borrower->city,
+            'state' => $borrower->state,
+            'zip_code' => $borrower->postal_code,
+            'country' => $borrower->country,
+            'home_address' => $borrower->home_address,
+            'last_4_ssn' => $borrower->last_4_ssn,
+            'date_of_birth' => $borrower->date_of_birth,
         ];
         foreach ($fields as $key => $value) {
             $this->requireField($missing, $key, $value);
@@ -99,24 +59,26 @@ class ProfileCompletionService
         ];
     }
 
-    /**
-     * Check financial required fields against the Company model.
-     * Required request keys: currency, years_in_business, monthly_revenue
-     */
-    private function checkFinancial(?Company $company): array
+    private function checkBusiness($borrower): array
     {
         $missing = [];
-        if (!$company) {
-            $missing = ['currency', 'years_in_business', 'monthly_revenue'];
-            return [
-                'is_complete' => false,
-                'missing_fields' => $missing,
-            ];
-        }
 
-        $this->requireField($missing, 'currency', $company->currency);
-        $this->requireNumericField($missing, 'years_in_business', $company->years_in_business);
-        $this->requireNumericField($missing, 'monthly_revenue', $company->monthly_revenue);
+        $fields = [
+            'business_name' => $borrower->business_name,
+            'business_ein' => $borrower->business_ein,
+            // 'business_phone' => $borrower->business_phone,
+            'business_address' => $borrower->business_address,
+            'entity_type' => $borrower->business_entity_type,
+            'industry_type' => $borrower->business_industry_type,
+            'state' => $borrower->business_state,
+            'city' => $borrower->business_city,
+            'zip_code' => $borrower->business_postal_code,
+            'business_start_date' => $borrower->business_start_date,
+
+        ];
+        foreach ($fields as $key => $value) {
+            $this->requireField($missing, $key, $value);
+        }
 
         return [
             'is_complete' => empty($missing),
@@ -124,9 +86,26 @@ class ProfileCompletionService
         ];
     }
 
-    /**
-     * Helper to mark a field as missing when empty.
-     */
+    private function checkFinancial($borrower): array
+    {
+        $missing = [];
+
+        $fields = [
+            'monthly_revenue' => $borrower->monthly_revenue,
+            'annual_revenue' => $borrower->annual_revenue,
+            'years_in_business' => $borrower->years_in_business,
+        ];
+
+        foreach ($fields as $key => $value) {
+            $this->requireField($missing, $key, $value);
+        }
+
+        return [
+            'is_complete' => empty($missing),
+            'missing_fields' => $missing,
+        ];
+    }
+
     private function requireField(array &$missing, string $key, mixed $value): void
     {
         if ($value === null) {
@@ -139,19 +118,4 @@ class ProfileCompletionService
         }
     }
 
-    private function requireNumericField(array &$missing, string $key, mixed $value): void
-    {
-        if ($value === null || $value === '' || !is_numeric($value)) {
-            $missing[] = $key;
-            return;
-        }
-    }
-
-    private function requireMinLength(array &$missing, string $key, mixed $value, int $min): void
-    {
-        if ($value === null || mb_strlen(trim((string)$value)) < $min) {
-            $missing[] = $key;
-            return;
-        }
-    }
 }

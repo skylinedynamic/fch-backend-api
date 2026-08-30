@@ -1,0 +1,287 @@
+<?php
+
+namespace App\Http\Controllers\Api\V1\FCH\Common\Employee;
+
+use App\Helpers\ApiResponse;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FCH\Common\Employee\FetchEmployee;
+use App\Http\Requests\Api\V1\FCH\Common\Employee\StoreEmployeeRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Employee\UpdateEmployeeRequest;
+use App\Http\Resources\FCH\Employee\EmployeeResource;
+use App\Models\Employee\Employee;
+use App\Services\FCH\Common\Employee\EmployeeService;
+use App\Mail\AccountCreateNotificationMail;
+use App\Traits\PaginatesApi;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
+use Throwable;
+
+class EmployeeController extends Controller
+{
+    use PaginatesApi;
+
+    public function __construct(protected EmployeeService $employeeService) {}
+
+    /**
+     * All Employee
+     */
+    public function index()
+    {
+        try {
+            return $this->employeeService->getAll();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
+        }
+    }
+
+    /**
+     * Employee Details
+     */
+    public function show($id)
+    {
+        try {
+            $employee = $this->employeeService->find($id);
+
+            return ApiResponse::success(new EmployeeResource($employee), __('employee.employee_details'));
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('employee.employee_not_found'));
+        }
+    }
+
+    /**
+     * Employee With Pagination
+     */
+    public function fetchEmployees(FetchEmployee $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+        try {
+            $partnerId = $request->user()->partner_id;
+            $input = $request->validated();
+
+            // Sanitize and cap pagination to avoid heavy payloads
+            $perPage = isset($input['per_page']) ? (int) $input['per_page'] : null;
+            $perPage = $perPage !== null ? max(1, min($perPage, 100)) : null; // cap at 100
+
+            $filters = [
+                'per_page' => $perPage,
+                'page' => isset($input['page']) ? max(1, (int) $input['page']) : 1,
+                'search' => isset($input['search']) ? trim((string) $input['search']) : null,
+                'job_status' => $input['job_status'] ?? null,
+                'department' => $input['department'] ?? null,
+                'filters' => $input['filters'] ?? null, // array expected per request rules
+                'sort_field' => $input['sort_field'] ?? null,
+                'sort_order' => $input['sort_order'] ?? null,
+            ];
+
+            return $this->employeeService->list($partnerId, $filters);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
+        }
+    }
+
+    /**
+     * Store Employee
+     */
+    public function store(StoreEmployeeRequest $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+        $partnerId = $request->user()->partner_id;
+        $partnerInfo = auth()->user()->partner;
+        // ✅ Include all extended employee fields
+        $fields = [
+            'first_name',
+            'last_name',
+            'designation',
+            'department',
+            'job_status',
+            'joining_date',
+            'emergency_contact',
+            'emergency_phone',
+            'employee_code',
+            'phone_number_1',
+            'phone_number_2',
+            'email',
+            'date_of_birth',
+            'gender',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'image',
+            'create_account',
+            'role_id',
+            'address',
+            'country_code',
+            'months',
+            'is_paid',
+            'amount',
+        ];
+
+        $employeeData = $request->only($fields);
+        $employeeData['partner_id'] = $partnerId;
+
+        $createAccount = $request->boolean('create_account', false);
+        $userData = null;
+        $plainPassword = null;
+
+        if ($createAccount) {
+            $plainPassword = bin2hex(random_bytes(4));
+
+            $userData = [
+                'name' => trim($request->first_name . ' ' . $request->last_name) ?: $request->email,
+                'email' => $request->email,
+                'phone_number' => $request->phone_number,
+                'plain_password' => $plainPassword,
+                'user_type' => auth()->user()->user_type ?? '',
+            ];
+        }
+
+        $result = $this->employeeService->create($employeeData, $userData, $request->role_id ?? null);
+
+        if (!empty($result['user']) && !isset($employeeData['is_paid'])) {
+            $this->employeeService->sendAccountCreatedMail($result['user'], $partnerInfo, $plainPassword);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => __('employee.employee_created'),
+            'data' => [
+                'employee' => $result['employee'],
+                'user' => $result['user']?->makeHidden(['password']),
+            ],
+        ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * Update Employee
+     */
+    public function update(UpdateEmployeeRequest $request, int $id)
+    {
+        $this->checkWhiteLabelConfiguration();
+        $employee = Employee::findOrFail($id);
+        $partnerId = $request->user()->partner_id;
+
+        if ($employee->partner_id !== $partnerId) {
+            return response()->json([
+                'status' => false,
+                'message' => __('employee.unauthorized'),
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $fields = [
+            'first_name',
+            'last_name',
+            'designation',
+            'department',
+            'job_status',
+            'joining_date',
+            'emergency_contact',
+            'emergency_phone',
+            'employee_code',
+            'phone_number_1',
+            'phone_number_2',
+            'email',
+            'date_of_birth',
+            'gender',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'image',
+            'create_account',
+            'role_id',
+            'address',
+            'country_code',
+        ];
+
+        $employeeData = $request->only($fields);
+
+        if ($request->hasFile('image')) {
+            $employeeData['image'] = $request->file('image');
+        }
+
+        $createAccount = $request->boolean('create_account', false);
+        $roleId = $request->role_id ?? null;
+
+        $result = $this->employeeService->updateWithUserSync($employee, $employeeData, $createAccount, $roleId, $request->user()->partner);
+
+        return response()->json([
+            'status' => true,
+            'message' => __('employee.employee_updated'),
+            'data' => [
+                'employee' => $result['employee'],
+                'user' => $result['user']?->makeHidden(['password']),
+            ],
+        ]);
+    }
+
+    /**
+     * Delete Employee
+     */
+    public function destroy(Request $request, Employee $employee)
+    {
+        $this->checkWhiteLabelConfiguration();
+        $businessId = $request->user()->partner_id;
+
+        if ($employee->partner_id !== $businessId) {
+            return response()->json([
+                'status' => false,
+                'message' => __('employee.unauthorized'),
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->employeeService->delete($employee, $request->boolean('delete_user', true));
+
+        return response()->json([
+            'status' => true,
+            'message' => __('employee.employee_deleted'),
+        ]);
+    }
+
+
+
+    /**
+     * Fetch employees by department and job status
+     */
+    public function fetchDepartmentStatus(Request $request)
+    {
+        $type = $request->input('type'); // department or status
+        $partnerId = $request->user()->partner_id;
+
+        try {
+            if (! in_array($type, ['department', 'status'])) {
+                return ApiResponse::error(__('Invalid type parameter. Must be "department" or "status".'));
+            }
+
+            $data = $this->employeeService->getTypeData($partnerId, $type);
+
+            return ApiResponse::success($data, __('employee.department_status'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('employee.fetch_failed'));
+        }
+    }
+
+    /**
+     * Multiple Delete
+     */
+    public function multipleDelete(Request $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+        $ids = $request->input('ids', []);
+        if ($this->employeeService->deleteMultiple($ids)) {
+            return ApiResponse::success([], __('employee.employee_deleted'));
+        }
+
+        return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
+    }
+
+    /**
+     * Get Next Employee ID
+     */
+    public function nextId()
+    {
+        $nextId = $this->employeeService->getNextEmployeeId();
+        return ApiResponse::success(['next_id' => $nextId], 'Next Employee ID retrieved successfully');
+    }
+}

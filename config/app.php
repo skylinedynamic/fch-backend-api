@@ -137,7 +137,20 @@ return [
     |
     */
 
-    'frontend_admin_url' => env('APP_FRONTEND_ADMIN_URL', 'http://localhost:8000/api/v1'),
-    'frontend_partner_url' => env('APP_FRONTEND_PARTNER_URL', 'http://localhost:5173'),
-    'frontend_borrower_url' => env('APP_FRONTEND_BORROWER_URL', 'http://localhost:8000/api'),
+    'frontend_partner_url' => env('BASE_PARTNER_PORTAL', 'https://partner.fourcornerfunding.com'),
+    'frontend_borrower_url' => env('BASE_BORROWER_PORTAL', 'https://app.fourcornerfunding.com'),
+    'base_website' => env('BASE_WEBSITE', 'fourcornerfunding.com'),
+
+    'for_free_white_level_count' => env('FOR_FREE_WHITE_LEVEL_COUNT', 3),
+    'for_free_certified_user_count' => env('FOR_FREE_CERTIFIED_USER_COUNT', 3),
+
+    'mail_to_doc' => env('MAIL_TO_DOC', 'docs@fourcornerfunding.com'),
+    'per_user_price' => env('PER_USER_PRICE', 49.97),
+    'cron_notify_emails' => env('CRON_ERROR_NOTIFY_EMAILS', 'arafat@invento.com.bd,awladdeleo@gmail.com'),
+
+    /*
+     * Optional external heartbeat URL (e.g. Dead Man's Snitch, healthchecks.io).
+     * The scheduler:heartbeat command will ping this URL every minute when set.
+     */
+    'schedule_heartbeat_url' => env('SCHEDULE_HEARTBEAT_URL',''),
 ];

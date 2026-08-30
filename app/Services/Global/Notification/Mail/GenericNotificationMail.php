@@ -3,20 +3,28 @@
 namespace App\Services\Global\Notification\Mail;
 
 use Illuminate\Mail\Mailable;
+use App\Mail\Traits\MailableBranding;
+use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 class GenericNotificationMail extends Mailable
 {
+    use MailableBranding, MailConfig;
 
-    protected $mailData;
+    protected array $mailData;
+    protected array $dynamicData = [];
 
-    /**
-     * Create a new message instance.
-     */
-    public function __construct(array $mailData)
+    public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
+
+        $resolvedPartnerId = $partnerId ?? ($mailData['partner_id'] ?? null);
+        if ($resolvedPartnerId) {
+            $this->mailPartnerId = $resolvedPartnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     /**
@@ -24,8 +32,13 @@ class GenericNotificationMail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $branding = $this->getBrandingData();
+        $this->dynamicData['siteName'] = $branding['siteName'];
+        $this->dynamicData['logoUrl'] = $branding['logoUrl'];
+        $subject = $this->mailData['subject'] ?? 'Notification';
+
         return new Envelope(
-            subject: $this->mailData['subject'],
+            subject: $subject,
         );
     }
 
@@ -40,8 +53,10 @@ class GenericNotificationMail extends Mailable
                 'content' => $this->mailData['content'],
                 'user' => $this->mailData['user'],
                 'notificationType' => $this->mailData['notification_type'],
-                'data' => $this->mailData['data']
-            ]
+                'data' => $this->mailData['data'],
+                'siteName' => $this->dynamicData['siteName'],
+                'logoUrl' => $this->dynamicData['logoUrl'],
+            ],
         );
     }
 

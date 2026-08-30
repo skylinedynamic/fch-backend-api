@@ -4,28 +4,34 @@ namespace App\Models\User;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
-use App\Models\Business\Business;
-use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Passport\HasApiTokens;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Laravel\Passport\Contracts\OAuthenticatable;
+use App\Models\Invoice\Invoice;
+use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
+use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
-use App\Models\TwoFaAuth\TwoFaAuthSetting;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 use OTPHP\TOTP;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements OAuthenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasRoles;
+
+    /**
+     * Spatie Permission guard to use for this model.
+     */
+    protected string $guard_name = 'api';
 
     /**
      * The attributes that are mass assignable.
@@ -36,11 +42,17 @@ class User extends Authenticatable implements OAuthenticatable
         'name',
         'email',
         'phone_number',
+        'image',
         'phone_verified_at',
         'email_verified_at',
         'user_type',
         'status',
         'password',
+        'partner_id',
+        'entity_type',
+        'entity_id',
+        'is_paid',
+        'is_refresh',
     ];
 
     /**
@@ -64,6 +76,8 @@ class User extends Authenticatable implements OAuthenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
+            'is_paid' => 'boolean',
+            'is_refresh' => 'boolean',
         ];
     }
 
@@ -80,7 +94,9 @@ class User extends Authenticatable implements OAuthenticatable
 
     public const ADMIN = 'Admin';
     public const PARTNER = 'Partner';
+    public const USER = 'User';
     public const BORROWER = 'Borrower';
+    public const EMPLOYEE = 'Employee';
 
     /**
      * Send the password reset notification.
@@ -171,8 +187,8 @@ class User extends Authenticatable implements OAuthenticatable
 
         // For SMS/Email verification
         if (in_array($twoFactorSetting->method, [TwoFaAuthSetting::SMS, TwoFaAuthSetting::EMAIL])) {
-            return $twoFactorSetting->code === $code && 
-                   !$twoFactorSetting->isCodeExpired();
+            return $twoFactorSetting->code === $code &&
+                !$twoFactorSetting->isCodeExpired();
         }
 
         return false;
@@ -205,15 +221,15 @@ class User extends Authenticatable implements OAuthenticatable
         $twoFactorSetting->enabled = true;
         $twoFactorSetting->method = $method;
         $twoFactorSetting->confirmed_at = now();
-        
+
         if ($method === TwoFaAuthSetting::TOTP && !$twoFactorSetting->secret) {
             $twoFactorSetting->generateSecret();
         }
-        
+
         if (!$twoFactorSetting->recovery_codes) {
             $twoFactorSetting->generateRecoveryCodes();
         }
-        
+
         $twoFactorSetting->save();
     }
 
@@ -414,44 +430,221 @@ class User extends Authenticatable implements OAuthenticatable
     /**
      * Get the user's partner profile.
      */
-    public function partner(): HasOne
+    public function partner()
     {
-        return $this->hasOne(Partner::class);
+        return $this->belongsTo(Partner::class, 'partner_id');
     }
 
     /**
      * Get the user's borrower profile.
      */
-    public function borrower(): HasOne
+    public function borrower()
     {
-        return $this->hasOne(Borrower::class);
+        return $this->belongsTo(Borrower::class, 'entity_id');
+    }
+
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'entity_id');
     }
 
     /**
-     * Get the user's employee profile.
+     * Polymorphic relation to the associated entity model.
      */
-    public function employee(): HasOne
+    public function entity(): MorphTo
     {
-        return $this->hasOne(Employee::class);
+        return $this->morphTo(__FUNCTION__, 'entity_type', 'entity_id');
     }
 
     /**
-     * Get businesses assigned to this user.
+     * Accessor: human-readable entity name (partner/borrower/employee).
      */
-    public function assignedBusinesses(): HasMany
+    public function getEntityNameAttribute(): ?string
     {
-        return $this->hasMany(Business::class, 'assign_id');
+        if (!$this->entity_type) {
+            return null;
+        }
+
+        $map = [
+            Partner::class => User::PARTNER,
+            Borrower::class => User::BORROWER,
+            Employee::class => User::EMPLOYEE,
+        ];
+
+        return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
 
-    public function business()
+    public function scopeSearch($query, ?string $search)
     {
-        return $this->hasOneThrough(
-            Business::class,
-            Employee::class,
-            'user_id',
-            'id', 
-            'id',
-            'business_id'
-        );
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone_number', 'like', "%{$search}%")
+                ->orWhere('entity_type', 'like', "%{$search}%")
+                ->orWhere('status', 'like', "%{$search}%")
+                ->orWhere('end_date', 'like', "%{$search}%")
+                ->orWhereHas('roles', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    public function getRoleNamesListAttribute(): string
+    {
+        return $this->roles->pluck('name')->implode(', ');
+    }
+
+    public function getRoleIdsListAttribute(): string
+    {
+        return $this->roles->pluck('id')->implode(', ');
+    }
+
+    public function getFirstRoleAttribute()
+    {
+        return $this->roles->first()?->name;
+    }
+
+    /**
+     * Get the invoices for the user.
+     */
+    public function invoices(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Invoice::class, 'entity');
+    }
+
+    /**
+     * Get the subscriptions for the user.
+     */
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Subscription::class, 'entity');
+    }
+
+    /**
+     * Check if the user is deletable based on invoice status.
+     * Checks direct and related entity invoices.
+     */
+    public function isDeletable(): bool
+    {
+        $targetType = $this->entity_type ?: self::class;
+        $targetId = $this->entity_id ?: $this->id;
+
+        // Check for Paid or Successful invoices linked to this user or their entity
+        return !Invoice::where('entity_type', $targetType)
+            ->where('entity_id', $targetId)
+            ->whereIn('status', [Invoice::STATUS_PAID])
+            ->exists();
+    }
+
+    public static $isCascading = false;
+
+    /**
+     * Delete user and all relations ONLY if no paid invoices exist.
+     */
+    public function safeDeleteWithRelations(): bool
+    {
+        if (!$this->isDeletable()) {
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
+        }
+
+        DB::beginTransaction();
+        try {
+            $isAlreadyCascading = self::$isCascading;
+            self::$isCascading = true;
+
+            // 1. If NOT already cascading, call entity safeDelete
+            // This prevents infinite loops while still ensuring the primary side is deleted
+            if (!$isAlreadyCascading) {
+                if ($this->entity_type && $this->entity_id) {
+                    $entity = $this->entity;
+                    if ($entity) {
+                        if (method_exists($entity, 'safeDeleteWithRelations')) {
+                            $entity->safeDeleteWithRelations();
+                        } elseif ($this->entity_type === Employee::class) {
+                            $entity->delete();
+                        }
+                    }
+                }
+            }
+
+            // 2. Delete Subscriptions & Phases (Direct or via Entity)
+            // This ensures we clean up the entity's financial records if we are its face
+            $targetType = $this->entity_type ?: self::class;
+            $targetId = $this->entity_id ?: $this->id;
+
+            Subscription::where('entity_type', $targetType)
+                ->where('entity_id', $targetId)
+                ->get()
+                ->each(function ($sub) {
+                    $sub->allPhases()->delete();
+                    $sub->delete();
+                });
+
+            // 3. Delete Invoices (Unpaid only - double checked for safety)
+            Invoice::where('entity_type', $targetType)
+                ->where('entity_id', $targetId)
+                ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
+                ->delete();
+
+            // 4. Detach Roles & Permissions
+            $this->roles()->detach();
+            $this->permissions()->detach();
+
+            // 5. Finally Delete User record
+            $this->delete();
+
+            DB::commit();
+            self::$isCascading = $isAlreadyCascading;
+            return true;
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            self::$isCascading = $isAlreadyCascading;
+            throw $e;
+        }
+    }
+
+    public function getEntityImage(): string
+    {
+        if ($this->relationLoaded('entity')) {
+            if ($this->entity && method_exists($this->entity, 'getEntityImage')) {
+                return $this->entity->getEntityImage();
+            }
+        } else {
+            if ($this->entity_type && $this->entity_id && class_exists($this->entity_type)) {
+                $entityClass = $this->entity_type;
+                $entity = $entityClass::find($this->entity_id);
+                if ($entity && method_exists($entity, 'getEntityImage')) {
+                    return $entity->getEntityImage();
+                }
+            }
+        }
+
+        if ($this->entity_type === Borrower::class || $this->user_type === self::BORROWER) {
+            return asset('avatar/avatar-default.jpg');
+        }
+
+        return asset('avatar/avatar-default.jpg');
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+    }
+
+    /**
+     * Mark the user for session/state refresh.
+     *
+     * @param bool $refresh
+     * @return bool
+     */
+    public function markAsRefresh(bool $refresh = true): bool
+    {
+        return $this->update(['is_refresh' => $refresh]);
     }
 }

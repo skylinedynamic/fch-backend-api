@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Auth;
 
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerSignupId;
+use App\Models\CreditBuilder\Tier;
 use App\Models\Employee\Employee;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,7 @@ class BorrowerAuthService
         DB::beginTransaction();
         try {
             $signup = BorrowerSignupId::where('signup_id', $data['signup_id'])->first();
+            $first_tier = Tier::orderBy('order', 'asc')->first();
               
             if (!$signup) {
                 DB::rollBack();
@@ -30,25 +32,32 @@ class BorrowerAuthService
                 ];
             }
 
-            $user = User::create([
+            $borrower = Borrower::create([
+                'signup_id' => $signup->signup_id,
+                'partner_id' => $signup->partner_id,
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'business_email' => $data['email'],
+                'phone_number' => $data['phone_number'],
+                'home_phone' => $data['phone_number'],
+                'state' => $data['state'],
+                'country' => $data['country'],
+                'country_code' => $data['country_code'],
+                'business_phone' => $data['phone_number'],
+                'current_tier' => $first_tier->id,
+                'business_state' => $data['state'],
+            ]);
+
+             $user = User::create([
                 'name' => $data['first_name']. ' ' .$data['last_name'],
                 'email' => $data['email'],
-                'phone_number' => $data['phone_number'],
+                'phone_number' => $data['country_code'] . $data['phone_number'],
                 'password' => Hash::make($data['password']),
                 'user_type' => User::BORROWER,
                 'status' => User::STATUS['active'],
-            ]);
-
-            $employee = Employee::create([
-                'user_id' => $user->id,
-                'state' => $data['state'],
-            ]);
-
-            Borrower::create([
-                'user_id' => $user->id,
-                'signup_id' => $signup->signup_id,
-                'partner_id' => $signup->partner_id,
-                'employee_id' => $employee->id,
+                'entity_type' => Borrower::class,
+                'entity_id' => $borrower->id,
             ]);
 
             $signup->delete();

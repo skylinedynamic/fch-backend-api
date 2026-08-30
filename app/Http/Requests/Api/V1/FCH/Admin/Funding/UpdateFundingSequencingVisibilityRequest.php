@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Http\Requests\Api\V1\FCH\Admin\Funding;
+
+use App\Http\Requests\Api\V1\BaseApiRequest;
+
+class UpdateFundingSequencingVisibilityRequest extends BaseApiRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'lender_visibilities'                        => 'nullable|array',
+            'lender_visibilities.*.lender_id'            => 'required|exists:lenders,id',
+            'lender_visibilities.*.lender_product_category_id' => 'required|integer|exists:lender_product_categories,id',
+            'lender_visibilities.*.min_fico'             => ['required', 'integer', 'min:0', 'digits_between:1,8'],
+            'lender_visibilities.*.min_business_credit_score' => ['nullable', 'integer', 'min:0', 'digits_between:1,8'],
+            'lender_visibilities.*.min_tib_months'       => ['required', 'integer', 'min:0', 'digits_between:1,8'],
+            'lender_visibilities.*.min_monthly_revenue'  => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
+            'lender_visibilities.*.min_monthly_deposits' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
+            'lender_visibilities.*.min_average_daily_balance' => ['nullable', 'numeric', 'min:0', 'max:9999999999999.99'],
+            'lender_visibilities.*.min_avg_deposits'     => ['nullable', 'numeric', 'min:0', 'max:9999999999999.99'],
+            'lender_visibilities.*.min_deposit_count'    => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.max_nsf_count'        => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.max_negative_days'    => ['nullable', 'integer', 'min:0', 'digits_between:1,5'],
+            'lender_visibilities.*.min_dscr'             => ['nullable', 'numeric', 'min:0', 'regex:/^\d{1,8}(\.\d{1,4})?$/'],
+            'lender_visibilities.*.allowed_states'       => 'nullable|array',
+            'lender_visibilities.*.allowed_states.*'     => 'string',
+            'lender_visibilities.*.restricted_states'    => 'nullable|array',
+            'lender_visibilities.*.restricted_states.*'  => 'string',
+            'lender_visibilities.*.allowed_industries'   => 'nullable|array',
+            'lender_visibilities.*.allowed_industries.*' => 'string',
+            'lender_visibilities.*.restricted_industries' => 'nullable|array',
+            'lender_visibilities.*.restricted_industries.*' => 'string',
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'lender_visibilities.*.min_fico'             => 'Min FICO',
+            'lender_visibilities.*.min_business_credit_score' => 'Min Business Credit Score',
+            'lender_visibilities.*.min_tib_months'       => 'Min Time In Business',
+            'lender_visibilities.*.min_monthly_revenue'  => 'Min Monthly Revenue',
+            'lender_visibilities.*.min_monthly_deposits' => 'Min Monthly Deposits',
+            'lender_visibilities.*.min_average_daily_balance' => 'Min Average Daily Balance',
+            'lender_visibilities.*.min_avg_deposits'     => 'Min Average Deposits',
+            'lender_visibilities.*.min_deposit_count'    => 'Min Deposit Count',
+            'lender_visibilities.*.max_nsf_count'        => 'Max NSF',
+            'lender_visibilities.*.max_negative_days'    => 'Negative Days',
+            'lender_visibilities.*.min_dscr'             => 'Min DSCR',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'lender_visibilities.*.lender_id.required'   => __('funding_sequencing.lender_id_required'),
+            'lender_visibilities.*.lender_id.exists'     => __('funding_sequencing.lender_id_exists'),
+            'lender_visibilities.*.lender_product_category_id.required' => 'The product category is required.',
+            'lender_visibilities.*.min_fico.required'              => __('funding_sequencing.min_fico_required'),
+            'lender_visibilities.*.min_fico.integer'               => __('funding_sequencing.min_fico_integer'),
+            'lender_visibilities.*.min_tib_months.required'        => __('funding_sequencing.min_tib_months_required'),
+            'lender_visibilities.*.min_monthly_revenue.required'   => __('funding_sequencing.min_monthly_revenue_required'),
+            'lender_visibilities.*.min_monthly_revenue.regex'      => __('funding_sequencing.min_monthly_revenue_regex'),
+            'lender_visibilities.*.min_monthly_deposits.required'  => __('funding_sequencing.min_monthly_deposits_required'),
+            'lender_visibilities.*.min_monthly_deposits.regex'     => __('funding_sequencing.min_monthly_deposits_regex'),
+            'lender_visibilities.*.min_average_daily_balance.required'=> __('funding_sequencing.min_average_daily_balance_required'),
+            'lender_visibilities.*.min_average_daily_balance.regex'=> __('funding_sequencing.min_average_daily_balance_regex'),
+            'lender_visibilities.*.min_dscr.regex'                 => __('funding_sequencing.min_dscr_regex'),
+            'lender_visibilities.*.min_deposit_count.required'     => __('funding_sequencing.min_deposit_count_required'),
+            'lender_visibilities.*.max_nsf_count.required'         => __('funding_sequencing.max_nsf_count_required'),
+            'lender_visibilities.*.max_negative_days.required'     => __('funding_sequencing.max_negative_days_required'),
+            'lender_visibilities.*.lender_id.distinct'             => __('funding_sequencing.lender_id_distinct'),
+        ];
+    }
+}

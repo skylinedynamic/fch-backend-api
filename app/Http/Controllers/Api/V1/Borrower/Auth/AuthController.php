@@ -19,10 +19,11 @@ class AuthController extends Controller
     /**
      * Borrower Registration.
      */
-    public function register(BorrowerRegistrationRequest $request): JsonResponse
+    public function register(BorrowerRegistrationRequest $request)
     {
         $borrowerAuthService = new BorrowerAuthService();
         $validatedData = $request->validated();
+  
         try {
             if (!$borrowerAuthService->validateSignupId($validatedData['signup_id'])) {
                 return ApiResponse::error(__('borrower_validation.signup_id_invalid'),422);

@@ -5,44 +5,102 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User\User;
+use App\Models\Partner\Partner;
 
 class PartnerSeeder extends Seeder
 {
+    use LocationHelper;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        // Resolve employee IDs dynamically to avoid dependency on static IDs
-        $johnEmployeeId = DB::table('employees')->where('user_id', 2)->value('id');
-        $sarahEmployeeId = DB::table('employees')->where('user_id', 3)->value('id');
-        $adminEmployeeId = DB::table('employees')->where('user_id', 1)->value('id');
+        $loc1 = $this->getRandomLocation();
+        $loc2 = $this->getRandomLocation();
+        $loc3 = $this->getRandomLocation();
 
         DB::table('partners')->insert([
-                [
-                'user_id' => 1, // Admin User is also a partner
-                'business_id' => 1, // Admin's business
-                'employee_id' => $adminEmployeeId, // Admin as employee
-                'status' => 'active',
-                'assign_to' => 1, // Self-assigned or managed by admin
+            [
+                'is_host' => true,
+                'company_name' => 'Four Corner Funding',
+                'email' => 'craig@fourcornerfunding.com',
+                'phone_number' => '+1000000000',
+                'company_logo' => 'logo.png',
+                'full_name' => 'Host Admin',
+                'contact_person' => 'Host Contact',
+                'contact_person_email' => 'contact@fch.com',
+                'contact_person_phone_number' => '+1000000002',
+                'partner_type' => 'White-Label Partner (WL)',
+                'state' => $loc1['state'],
+                'city' => $loc1['city'],
+                'postal_code' => '94105',
+                'address_line_1' => '123 Main St',
+                'address_line_2' => null,
+                'country' => $loc1['country'],
+                'country_code' => '+1',
+                'status' => Partner::STATUS_ACTIVE,
+                'assign_to' => null, // No assignment needed in seed
+                'joining_date' => '2025-11-26',
+                'partner_image' => null,
+                'website' => 'https://fch.com',
+                'tax_id' => '123456789',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 2, // John Partner
-                'business_id' => 1, // Tech Solutions Inc
-                'employee_id' => $johnEmployeeId, // John Partner as employee
-                'status' => 'active',
-                'assign_to' => 1, // Assigned to Admin
+                'is_host' => false,
+                'company_name' => 'Tech Solutions Inc',
+                'email' => 'contact@techsolutions.com',
+                'phone_number' => '+1234567800',
+                'company_logo' => 'logo.png',
+                'full_name' => 'John Partner',
+                'contact_person' => 'John P.',
+                'contact_person_email' => 'john.p@example.com',
+                'contact_person_phone_number' => '+1234567892',
+                'partner_type' => 'White-Label Partner (WL)',
+                'state' => $loc2['state'],
+                'city' => $loc2['city'],
+                'postal_code' => '90001',
+                'address_line_1' => '456 Oak St',
+                'address_line_2' => null,
+                'country' => $loc2['country'],
+                'country_code' => '+1',
+                'status' => Partner::STATUS_ACTIVE,
+                'assign_to' => null,
+                'joining_date' => '2025-11-26',
+                'partner_image' => null,
+                'website' => 'https://fch.com',
+                'tax_id' => '123456789',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'user_id' => 3, // Sarah Wilson
-                'business_id' => 2, // Green Energy Solutions LLC
-                'employee_id' => $sarahEmployeeId, // Sarah Wilson as employee
-                'status' => 'active',
-                'assign_to' => 1, // Assigned to Admin
+                'is_host' => false,
+                'company_name' => 'Green Energy Solutions LLC',
+                'email' => 'info@greenenergy.com',
+                'phone_number' => '+1234567801',
+                'company_logo' => 'logo.png',
+                'full_name' => 'Sarah Wilson',
+                'contact_person' => 'Sarah W.',
+                'contact_person_email' => 'sarah.w@example.com',
+                'contact_person_phone_number' => '+1234567893',
+                'partner_type' => 'Certified Partner',
+                'state' => $loc3['state'],
+                'city' => $loc3['city'],
+                'postal_code' => '60601',
+                'address_line_1' => '789 Pine St',
+                'address_line_2' => null,
+                'country' => $loc3['country'],
+                'country_code' => '+1',
+                'status' => Partner::STATUS_ACTIVE,
+                'assign_to' => null,
+                'joining_date' => '2025-11-26',
+                'partner_image' => null,
+                'website' => 'https://fch.com',
+                'tax_id' => '123456789',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

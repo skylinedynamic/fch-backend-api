@@ -16,9 +16,23 @@ class FinancialInfoResource extends JsonResource
     {
         return [
             'currency' => $this->currency ?? null,
-            'years_in_business' => $this->years_in_business ?? null,
+            'years_in_business' => $this->business_start_date ? calculateTimeInBusiness($this->business_start_date) : null,
             'monthly_revenue' => $this->monthly_revenue ?? null,
             'annual_revenue' => $this->annual_revenue ?? null,
+            'annual_personal_income' => $this->annual_personal_income ?? null,
+            'average_monthly_deposits' => $this->average_monthly_deposits ?? null,
+            'monthly_deposit_count' => $this->monthly_deposit_count ?? null,
+            'avg_bank_balance' => $this->avg_bank_balance ?? null,
+            'current_business_debt' => $this->current_business_debt ?? null,
+            'nsf_count' => $this->nsf_count ?? null,
+            'negative_days' => $this->negative_days ?? null,
+            'bank_accounts' => $this->bankAccounts->map(fn($b) => [
+                'id' => $b->id,
+                'bank_name' => $b->bank_name,
+                'account_open_date' => $b->account_open_date
+                    ? $b->account_open_date->format('Y-m-d')
+                    : null,
+            ])->values()->toArray(),
         ];
     }
 }

@@ -2,20 +2,29 @@
 
 namespace App\Models\Borrower;
 
+use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
+use App\Models\CreditBuilder\Tier;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Partner\Partner;
-use App\Models\Business\Business;
-use App\Models\Employee\Employee;
-use App\Models\User\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Contracts\Activity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
+
 
 class Borrower extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected string $guard_name = 'api';
     /**
      * The table associated with the model.
      *
@@ -28,16 +37,7 @@ class Borrower extends Model
      *
      * @var array<int, string>
      */
-    protected $fillable = [
-        'user_id',
-        'partner_id',
-        'business_id',
-        'signup_id',
-        'employee_id',
-        'assign_to',
-        'status',
-        'notes',
-    ];
+    protected $guarded = [];
 
     /**
      * The attributes that should be cast.
@@ -48,53 +48,308 @@ class Borrower extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'partner_payment_for_me' => 'boolean',
+        'is_free_trail' => 'boolean',
+        'free_trail_end_date' => 'date',
+        'credit_profile_updated' => 'boolean',
+        'stripe_customer_id' => 'array',
     ];
 
     /**
-     * Get the user that owns the borrower profile.
+     * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
+     * Supports legacy plain string and new JSON {customer_id, name, card_no} format.
      */
-    public function user(): BelongsTo
+    public function getStripeCustomerIdRawAttribute(): ?string
     {
-        return $this->belongsTo(User::class);
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return $value['customer_id'] ?? null;
+        }
+        return is_string($value) ? $value : null;
     }
 
     /**
-     * Get the partner associated with this borrower.
+     * Get formatted Stripe card display info from the JSON stripe_customer_id field.
      */
-    public function partner(): BelongsTo
+    public function getStripeCardInfoAttribute(): array
     {
-        return $this->belongsTo(Partner::class);
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return [
+                'customer_id' => $value['customer_id'] ?? null,
+                'name'        => $value['name'] ?? null,
+                'card_no'     => $value['card_no'] ?? null,
+            ];
+        }
+        return ['customer_id' => $value, 'name' => null, 'card_no' => null];
+    }
+
+    const STATUS_ONBOARDING = 'OnBoarding';
+    const STATUS_ACTIVE = 'Active';
+    const STATUS_SUSPENDED = 'Suspended';
+    const STATUS_INACTIVE = 'Inactive';
+
+
+    /**
+     * Get the user that owns the borrower.
+     */
+    public function user(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(\App\Models\User\User::class, 'entity');
     }
 
     /**
-     * Get the business associated with this borrower.
+     * Get the partner that owns the borrower.
      */
-    public function business(): BelongsTo
+    public function partner(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Business::class);
+        return $this->belongsTo(\App\Models\Partner\Partner::class, 'partner_id');
     }
 
     /**
-     * Get the employee associated with this borrower.
+     * Get the borrower's full name.
      */
-    public function employee(): BelongsTo
+    public function getFullNameAttribute(): string
     {
-        return $this->belongsTo(Employee::class);
+        return trim("{$this->first_name} {$this->last_name}");
     }
 
     /**
-     * Get the user this borrower is assigned to.
+     * Get the assigned user for the borrower.
      */
-    public function assignedTo(): BelongsTo
+    public function assignedUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assign_to');
+        return $this->belongsTo(\App\Models\User\User::class, 'assign_id');
+    }
+
+    public function tier(): BelongsTo
+    {
+        return $this->belongsTo(Tier::class, 'current_tier');
+    }
+
+    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id');
     }
 
     /**
-     * Get pre-qualification requests for this borrower.
+     * Get the invoices for the borrower.
      */
-    public function preQualificationRequests(): HasMany
+    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(PreQualificationRequest::class);
+        return $this->hasMany(Invoice::class, 'borrower_id');
+    }
+
+    public function taskUnderReview(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BorrowerTaskVerificationRequest::class, 'borrower_id')->where('status', BorrowerTaskVerificationRequest::PROCESSING);
+    }
+
+    /**
+     * Get the latest invoice for the borrower.
+     */
+    public function latestInvoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Invoice::class, 'borrower_id')->latestOfMany();
+    }
+
+    /**
+     * Get the subscription for the borrower.
+     */
+    public function subscription(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(Subscription::class, 'entity');
+    }
+
+    public static function getStatuses(): array
+    {
+        return [
+            self::STATUS_ONBOARDING,
+            self::STATUS_ACTIVE,
+            self::STATUS_SUSPENDED,
+            self::STATUS_INACTIVE,
+        ];
+    }
+
+    public function latestSubscription()
+    {
+        return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
+    }
+
+    public function fundingApplications()
+    {
+        return $this->hasMany(FundingApplication::class, 'borrower_id');
+    }
+
+    public function fundingRequests()
+    {
+        return $this->hasMany(FundingRequest::class, 'borrower_id');
+    }
+
+    public function preQualificationRequests()
+    {
+        return $this->hasMany(PreQualificationRequest::class, 'borrower_id');
+    }
+
+    public function borrowerDocuments()
+    {
+        return $this->hasMany(BorrowerDocument::class, 'borrower_id');
+    }
+
+    /**
+     * Get the signed agreement for the borrower.
+     */
+    public function signedAgreement(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(\App\Models\Common\AgreementSign::class, 'entity');
+    }
+
+    /**
+     * Get all subscriptions for the borrower.
+     */
+    public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(Subscription::class, 'entity');
+    }
+
+    /**
+     * Check if the borrower is deletable based on invoice status.
+     */
+    public function isDeletable(): bool
+    {
+        // Check if there are any Paid or Successful invoices
+        return !$this->invoices()
+            ->whereIn('status', [Invoice::STATUS_PAID])
+            ->exists();
+    }
+
+    /**
+     * Delete borrower and all related data ONLY if no paid invoices exist.
+     */
+    public function safeDeleteWithRelations(): bool
+    {
+        if (!$this->isDeletable()) {
+            throw new \Exception("This record cannot be deleted. Please mark it as Suspended or Inactive instead.");
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $isAlreadyCascading = \App\Models\User\User::$isCascading;
+            \App\Models\User\User::$isCascading = true;
+
+            // 1. Delete associated User recursively (only if not already cascading)
+            if (!$isAlreadyCascading && $this->user) {
+                // Use safeDelete to clean up user's own relations if any
+                $this->user->safeDeleteWithRelations();
+            }
+
+            // 2. Delete Documents
+            BorrowerDocument::where('borrower_id', $this->id)->delete();
+
+            // 3. Delete Subscriptions & Phases
+            $this->subscriptions()->each(function ($sub) {
+                $sub->allPhases()->delete();
+                $sub->delete();
+            });
+
+            // 4. Delete Invoices (Unpaid only - double checked for safety)
+            $this->invoices()
+                ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_SUCCESS])
+                ->delete();
+
+            // 5. Delete other relations
+            $this->fundingApplications()->delete();
+            $this->preQualificationRequests()->delete();
+            $this->verificationRequests()->delete();
+
+            // 6. Finally Delete Borrower record
+            $this->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
+            return true;
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \App\Models\User\User::$isCascading = $isAlreadyCascading;
+            throw $e;
+        }
+    }
+
+    public function creditProfile()
+    {
+        return $this->hasOne(\App\Models\Borrower\BorrowerCreditProfile::class, 'borrower_id');
+    }
+
+    public function bankAccounts()
+    {
+        return $this->hasMany(\App\Models\Borrower\BorrowerBankAccount::class, 'borrower_id');
+    }
+
+    public function creditProfileRequests()
+    {
+        return $this->hasOne(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
+    }
+
+    public function scopeSearch($query, ?string $search)
+    {
+        if (!is_string($search) || trim($search) === '') {
+            return $query;
+        }
+
+        $search = trim($search);
+
+        return $query->where(function ($q) use ($search) {
+            $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.status', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.business_name', 'LIKE', "%{$search}%")
+                ->orWhereHas(
+                    'partner',
+                    function ($q) use ($search) {
+                        $q->where('full_name', 'LIKE', "%{$search}%");
+                    }
+                )
+                ->orWhereHas(
+                    'tier',
+                    function ($q) use ($search) {
+                        $q->where('name', 'LIKE', "%{$search}%");
+                    }
+                )
+                ->orWhereHas(
+                    'assignedUser',
+                    function ($q) use ($search) {
+                        $q->where('name', 'LIKE', "%{$search}%");
+                    }
+                )
+                ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+        });
+    }
+
+
+    public function getEntityImage(): string
+    {
+        return $this->image ?? asset('avatar/avatar-default.jpg');
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $value ? encodeUrl(asset("storage/{$value}")) : null;
+    }
+
+    public function getYearsInBusinessAttribute()
+    {
+        if ($this->business_start_date) {
+            $now = Carbon::now();
+            $start = Carbon::parse($this->business_start_date);
+
+            // Decimal years, rounded to 1 decimal place
+            $diffInDays = $start->diffInDays($now);
+            return round($diffInDays / 365.25, 1);
+        }
+
+        return 0;
     }
 }
+

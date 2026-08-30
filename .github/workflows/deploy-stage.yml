@@ -1,0 +1,135 @@
+name: Deploy to Stage
+
+on:
+  push:
+    branches:
+      - stage
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-dev --optimize-autoloader
+
+      - name: Deploy Files to EC2 via Rsync
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.STAGE_EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.STAGE_EC2_HOST }}
+          REMOTE_USER: ${{ secrets.STAGE_EC2_USER }}
+          SOURCE: "./"
+          TARGET: "/var/www/html/fch-api"
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/, /public/storage/"
+          ARGS: "-rltgoDzvO --delete"
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
+          SCRIPT_BEFORE: |
+            echo "Creating target directory if it doesn't exist..."
+            sudo mkdir -p /var/www/html/fch-api
+            echo "Temporarily giving SSH user permission to write to directory..."
+            sudo chown -R $(whoami):$(whoami) /var/www/html/fch-api
+
+      - name: Write .env File to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGE_EC2_HOST }}
+          username: ${{ secrets.STAGE_EC2_USER }}
+          key: ${{ secrets.STAGE_EC2_SSH_KEY }}
+          envs: STAGE_ENV_FILE
+          script: |
+            echo "$STAGE_ENV_FILE" > /var/www/html/fch-api/.env
+            echo ".env file written successfully."
+        env:
+          STAGE_ENV_FILE: ${{ secrets.STAGE_ENV_FILE }}
+
+      - name: Run Post-Deploy Commands on Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGE_EC2_HOST }}
+          username: ${{ secrets.STAGE_EC2_USER }}
+          key: ${{ secrets.STAGE_EC2_SSH_KEY }}
+          script: |
+            cd /var/www/html/fch-api
+
+            echo "CRITICAL: Cleaning out old cache files..."
+            sudo rm -rf bootstrap/cache/*.php || true
+            sudo rm -rf storage/framework/cache/data/* || true
+
+            echo "Ensuring storage directories exist..."
+            mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+
+            echo "Setting initial permissions to allow Artisan to run..."
+            sudo chown -R $(whoami):www-data /var/www/html/fch-api
+            sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
+
+            echo "Running Artisan Commands..."
+            # Clear old caches and build new optimal caches
+            php artisan optimize:clear
+            php artisan optimize
+            php artisan storage:link
+            php artisan log-viewer:publish
+
+            if [ ! -f storage/oauth-private.key ]; then
+                echo "Generating Passport keys..."
+                php artisan passport:keys --force
+            fi
+
+            php artisan migrate --force
+            php artisan queue:restart || true
+
+            echo "Ensuring final directory permissions..."
+            sudo chown -R www-data:www-data /var/www/html/fch-api
+            sudo chmod -R 775 /var/www/html/fch-api/storage /var/www/html/fch-api/bootstrap/cache || true
+            
+            echo "Fixing Passport key permissions..."
+            sudo chmod 600 /var/www/html/fch-api/storage/*.key || true
+
+            echo "Restarting PHP-FPM and Nginx..."
+            sudo systemctl restart php8.3-fpm || true
+            sudo systemctl restart nginx
+            echo "Deploy complete!"
+
+      - name: Smoke Test - Verify API is Responding
+        run: |
+          echo "Waiting for server to stabilise...."
+          sleep 5
+          API_URL="${{ secrets.STAGE_API_URL }}"
+          echo "Testing endpoint: $API_URL"
+          
+          # Use a temporary file to store the body and status code separately
+          curl -s -o body.txt -w "%{http_code}" --max-time 10 "$API_URL" > status.txt || echo "000" > status.txt
+          HTTP_STATUS=$(cat status.txt)
+          BODY=$(cat body.txt)
+
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 401 ] || [ "$HTTP_STATUS" -eq 301 ] || [ "$HTTP_STATUS" -eq 302 ]; then
+            echo "✅ Smoke test passed! API responded with HTTP $HTTP_STATUS."
+          else
+            echo "❌ Smoke test failed! API ($API_URL) responded with HTTP $HTTP_STATUS."
+            echo "--- Response Body ---"
+            cat body.txt
+            echo "--- End of Response Body ---"
+            exit 1
+          fi
+
+      - name: Check Server Logs on Failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGE_EC2_HOST }}
+          username: ${{ secrets.STAGE_EC2_USER }}
+          key: ${{ secrets.STAGE_EC2_SSH_KEY }}
+          script: |
+            echo "--- Latest 50 lines of Laravel Log ---"
+            sudo tail -n 50 /var/www/html/fch-api/storage/logs/laravel.log || echo "Laravel log not found."
+            echo "--- Latest 50 lines of Nginx Error Log ---"
+            sudo tail -n 50 /var/log/nginx/error.log || echo "Nginx error log not found."

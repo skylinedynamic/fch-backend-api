@@ -1,0 +1,37 @@
+<?php
+
+return [
+    'funding_requests_retrieved' => 'Funding requests retrieved successfully.',
+    'funding_request_not_found' => 'Funding request not found.',
+    'status_updated_successfully' => 'Status updated successfully.',
+    'error_retrieving_funding_requests' => 'Error retrieving funding requests.',
+    'error_retrieving_details' => 'Error retrieving funding request details.',
+    'error_updating_status' => 'Error updating funding request status.',
+    'reject_reason_required' => 'The rejection reason is required when status is Rejected.',
+
+    // Validation Messages
+    'funding_sequence_id_required' => 'The funding sequence ID is required.',
+    'funding_sequence_id_exists' => 'The selected funding sequence does not exist.',
+    'funding_type_string' => 'The funding type must be a string.',
+    'funding_type_max' => 'The funding type may not be greater than 255 characters.',
+    'use_of_funds_string' => 'The use of funds must be a string.',
+    'use_of_funds_max' => 'The use of funds may not be greater than 255 characters.',
+    'documents_uploaded_array' => 'The uploaded documents must be an array.',
+    'documents_uploaded_string' => 'Each uploaded document must be a string.',
+    'estimated_speed_string' => 'The estimated speed must be a string.',
+    'estimated_speed_max' => 'The estimated speed may not be greater than 255 characters.',
+    'per_page_integer' => 'The per page value must be an integer.',
+    'per_page_min' => 'The per page value must be at least 1.',
+    'page_integer' => 'The page value must be an integer.',
+    'page_min' => 'The page value must be at least 1.',
+    'search_string' => 'The search value must be a string.',
+    'filters_array' => 'The filters must be an array.',
+    'sort_field_string' => 'The sort field must be a string.',
+    'sort_order_in' => 'The sort order must be asc or desc.',
+    'status_string' => 'The status must be a string.',
+    'id_required' => 'The ID is required.',
+    'id_integer' => 'The ID must be an integer.',
+    'id_exists' => 'The selected ID does not exist.',
+    'status_required' => 'The status field is required.',
+    'status_in' => 'The status must be Pending, Approved, or Rejected.',
+];

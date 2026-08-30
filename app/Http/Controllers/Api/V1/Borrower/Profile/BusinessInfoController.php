@@ -28,7 +28,7 @@ class BusinessInfoController extends Controller
     {
         try {
             $businessInfo = $this->businessInfoService->getBusinessInfo(Auth::id());
-            
+
             if (!$businessInfo) {
                 return ApiResponse::error(__('borrower.business_info_not_found'), 404);
             }
@@ -38,18 +38,16 @@ class BusinessInfoController extends Controller
                 __('borrower.fetch_business_info')
             );
 
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return ApiResponse::error(__('borrower.fetch_business_info_failed'), 500);
         }
     }
 
     /**
      * Update Business Info.
-     *
-     * @param UpdateBusinessInfoRequest $request
-     * @return JsonResponse
      */
-    public function update(UpdateBusinessInfoRequest $request): JsonResponse
+    public function update(UpdateBusinessInfoRequest $request)
     {
         try {
             $businessInfo = $this->businessInfoService->updateBusinessInfo(Auth::id(), $request->validated());
@@ -58,7 +56,9 @@ class BusinessInfoController extends Controller
                 new BusinessInfoResource($businessInfo),
                 __('borrower.business_info_updated_successfully')
             );
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 500);
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
         }
     }

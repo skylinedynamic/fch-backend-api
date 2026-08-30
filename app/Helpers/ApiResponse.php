@@ -2,8 +2,8 @@
 
 namespace App\Helpers;
 
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class ApiResponse
 {
@@ -24,37 +24,33 @@ class ApiResponse
         ], $code);
     }
 
-    /**
-     * Return a successful response.
-     *
-     * @param LengthAwarePaginator $paginator
-     * @param string $message
-     * @param int $code
-     * @return JsonResponse
-     */
+    
 
-    public static function successWithPagination(LengthAwarePaginator $paginator, string $message = 'Success', int $code = 200): JsonResponse
+    public static function successWithPagination($data = [],$meta = [], string $message = 'Success', int $code = 200): JsonResponse
     {
         return response()->json([
             'status' => true,
             'message' => $message,
-            'data' => $paginator->items(),
-            // Standard pagination links
-            'links' => [
-                'first' => $paginator->url(1),
-                'last'  => $paginator->url($paginator->lastPage()),
-                'prev'  => $paginator->previousPageUrl(),
-                'next'  => $paginator->nextPageUrl(),
-            ],
-            // Standard pagination meta/info
-            'pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page'     => $paginator->perPage(),
-                'first_page'   => 1,
-                'last_page'    => $paginator->lastPage(),
-                'total'        => $paginator->total(),
-            ],
+            'data' => $data,
+            'meta' => $meta,
         ], $code);
+    }
+
+    public static function successWithPaginationAdditional($data = [], $meta = [], array $additionalData = [], string $message = 'Success', int $code = 200): JsonResponse
+    {
+        $response = [
+            'status' => true,
+            'message' => $message,
+            'data' => $data,
+            'meta' => $meta,
+        ];
+
+        // Merge any additional data (like statistics)
+        if (!empty($additionalData)) {
+            $response = array_merge($response, $additionalData);
+        }
+
+        return response()->json($response, $code);
     }
 
     /**

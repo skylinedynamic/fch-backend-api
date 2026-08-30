@@ -16,28 +16,33 @@ class PreQualificationRequest extends Model
     protected $table = 'pre_qualification_requests';
 
     protected $fillable = [
-        'user_id',
+        'borrower_id',
+        'partner_id',
+        'lead_id',
         'business_id',
-        'full_name',
+        'first_name',
+        'last_name',
         'business_website',
         'email',
-        'phone',
+        'phone_number',
         'state_of_incorporation',
         'business_name',
-        'industry',
+        'industry_type',
         'business_structure',
         'monthly_revenue',
         'annual_revenue',
-        'time_in_business',
+        'years_in_business',
         'funding_requested_amount',
         'funding_urgency',
         'purpose_of_funding',
+        'purpose_note',
         'personal_credit_score',
         'estimated_business_credit_score',
         'existing_business_debt',
         'debt_balance',
         'notes',
         'status',
+        'status_note',
         'assign_to',
     ];
 
@@ -49,17 +54,51 @@ class PreQualificationRequest extends Model
         'existing_business_debt' => 'boolean',
     ];
 
-    public const PENDING = 'pending';
-    public const APPROVED = 'approved';
-    public const PROCESSING = 'processing';
-    public const DECLINED = 'declined';
+    public const ON_HOLD = 'On Hold';
+    public const PENDING = 'Pending';
+    public const INTAKE_RECEIVED = 'Intake Received';
+    public const IN_REVIEW = 'In Review';
+    public const APPROVED = 'Approved';
+    public const DECLINED = 'Declined';
+    
+    public const ON_HOLD_CLASS = '';
+    public const PENDING_CLASS = 'warning';
+    public const INTAKE_RECEIVED_CLASS = 'info';
+    public const IN_REVIEW_CLASS = 'primary';
+    public const APPROVED_CLASS = 'success';
+    public const DECLINED_CLASS = 'danger';
+
+    public const STATUS_CLASS = [
+        self::ON_HOLD => self::ON_HOLD_CLASS,
+        self::PENDING => self::PENDING_CLASS,
+        self::INTAKE_RECEIVED => self::INTAKE_RECEIVED_CLASS,
+        self::IN_REVIEW => self::IN_REVIEW_CLASS,
+        self::APPROVED => self::APPROVED_CLASS,
+        self::DECLINED => self::DECLINED_CLASS,
+    ];
 
     public const STATUS = [
+        self::ON_HOLD => self::ON_HOLD,
         self::PENDING => self::PENDING,
+        self::INTAKE_RECEIVED => self::INTAKE_RECEIVED,
+        self::IN_REVIEW => self::IN_REVIEW,
         self::APPROVED => self::APPROVED,
-        self::PROCESSING => self::PROCESSING,
         self::DECLINED => self::DECLINED,
     ];
+
+      public const PURPOSE_OF_FUNDING_OPTIONS = [
+        'Working Capital' => 'Working Capital',
+        'Equipment'       => 'Equipment',
+        'Inventory'       => 'Inventory',
+        'Marketing'       => 'Marketing',
+        'Expansion'       => 'Expansion',
+        'Other'           => 'Other',
+    ];
+
+    public function getStatusClassAttribute(): string
+    {
+        return self::STATUS_CLASS[$this->status] ?? '';
+    }
 
     public function user()
     {
@@ -69,6 +108,22 @@ class PreQualificationRequest extends Model
     public function business()
     {
         return $this->belongsTo(Business::class);
+    }
+
+
+    public function borrower()
+    {
+        return $this->belongsTo(Borrower::class);
+    }
+
+    public function partner()
+    {
+        return $this->belongsTo(\App\Models\Partner\Partner::class);
+    }
+
+    public function lead()
+    {
+        return $this->belongsTo(\App\Models\Lead\Lead::class);
     }
 
     /**
@@ -83,10 +138,11 @@ class PreQualificationRequest extends Model
         $like = "%{$term}%";
 
         return $query->where(function (Builder $q) use ($like) {
-            $q->where('full_name', 'like', $like)
+            $q->where('first_name', 'like', $like)
+              ->orWhere('last_name', 'like', $like)
               ->orWhere('business_name', 'like', $like)
               ->orWhere('email', 'like', $like)
-              ->orWhere('phone', 'like', $like);
+              ->orWhere('phone_number', 'like', $like);
         });
     }
 }

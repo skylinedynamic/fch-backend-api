@@ -1,187 +1,397 @@
 <?php
+
 return [
     'validation_failed' => 'Validation failed',
+    'validation_success' => 'Validation successful',
 
     // Signup ID
     'signup_id_required' => 'Signup ID is required',
     'signup_id_string' => 'Signup ID must be a string',
     'signup_id_max' => 'Signup ID cannot exceed 255 characters',
     'signup_id_invalid' => 'Invalid signup ID provided',
+    'signup_id_unique' => 'The signup ID has already been taken',
+    'signup_id_exists' => 'The selected signup ID is invalid or does not match the partner',
 
-    // Validation Profile
+    // Name
     'first_name_required' => 'First name is required',
     'first_name_string' => 'First name must be a string',
     'first_name_max' => 'First name cannot exceed 255 characters',
-    
-    // Last Name
     'last_name_required' => 'Last name is required',
     'last_name_string' => 'Last name must be a string',
     'last_name_max' => 'Last name cannot exceed 255 characters',
-    
+    'full_name_required' => 'Full name is required',
+    'full_name_string' => 'Full name must be a string',
+    'full_name_max' => 'Full name cannot exceed 255 characters',
+
     // Email
     'email_required' => 'Email is required',
     'email_email' => 'Email must be a valid email address',
     'email_unique' => 'Email is already taken',
     'email_max' => 'Email cannot exceed 255 characters',
-    
-    // Home Address
+
+    // Physical Address
     'home_address_required' => 'Home address is required',
     'home_address_string' => 'Home address must be a string',
     'home_address_max' => 'Home address cannot exceed 500 characters',
-    
-    // City
-    'city_required' => 'City is required',
-    'city_string' => 'City must be a string',
-    'city_max' => 'City cannot exceed 255 characters',
-    
-    // State
-    'state_required' => 'State is required',
-    'state_string' => 'State must be a string',
-    'state_max' => 'State cannot exceed 255 characters',
-    
-    // Zip Code
+    'city_required' => 'City name is required',
+    'city_string' => 'City name must be a string',
+    'city_max' => 'City name cannot exceed 255 characters',
+    'state_required' => 'State name is required',
+    'state_string' => 'State name must be a string',
+    'state_max' => 'State name cannot exceed 255 characters',
+    'other_city_required' => 'Home other city is required',
     'zip_code_required' => 'Zip code is required',
     'zip_code_string' => 'Zip code must be a string',
     'zip_code_max' => 'Zip code cannot exceed 20 characters',
-    
-    // Country
-    'country_required' => 'Country is required',
-    'country_string' => 'Country must be a string',
-    'country_max' => 'Country cannot exceed 255 characters',
-    
-    // Home Phone (optional)
+    'postal_code_required' => 'Postal code is required',
+    'postal_code_string' => 'Postal code must be a string',
+    'postal_code_max' => 'Postal code cannot exceed 20 characters',
+    'country_required' => 'Country name is required',
+    'country_string' => 'Country name must be a string',
+    'country_max' => 'Country name cannot exceed 255 characters',
+    'country_code_required' => 'Country code is required',
+    'country_code_string' => 'Country code must be a string',
+    'country_code_max' => 'Country code cannot exceed 5 characters',
+
+    // Phone
+    'home_phone_required' => 'Home phone is required',
     'home_phone_string' => 'Home phone must be a string',
     'home_phone_max' => 'Home phone cannot exceed 20 characters',
-    
-    // Mobile Phone
-    'mobile_phone_required' => 'Mobile phone is required',
-    'mobile_phone_string' => 'Mobile phone must be a string',
-    'mobile_phone_max' => 'Mobile phone cannot exceed 20 characters',
-    
-    // Last 4 SSN
-    'last_4_ssn_required' => 'Last 4 digits of SSN is required',
-    'last_4_ssn_string' => 'Last 4 digits of SSN must be a string',
-    'last_4_ssn_size' => 'Last 4 digits of SSN must be exactly 4 characters',
-    'last_4_ssn_regex' => 'Last 4 digits of SSN must contain only numbers',
-    
-    // Date of Birth
-    'date_of_birth_required' => 'Date of birth is required',
-    'date_of_birth_date' => 'Date of birth must be a valid date',
-    'date_of_birth_before' => 'Date of birth must be before today',
-    'date_of_birth_date_format' => 'Date of birth must be in the format Y-m-d',
-    
-    
-    // Business Info Validation
-    'business_name_required' => 'Business name is required',
-    'business_name_string' => 'Business name must be a string',
-    'business_name_max' => 'Business name cannot exceed 255 characters',
-    
-    'business_ein_string' => 'Business EIN must be a string',
-    'business_ein_max' => 'Business EIN cannot exceed 255 characters',
-    
-    'business_phone_string' => 'Business phone must be a string',
-    'business_phone_max' => 'Business phone cannot exceed 20 characters',
-    
-    'business_address_required' => 'Business address is required',
-    'business_address_string' => 'Business address must be a string',
-    'business_address_max' => 'Business address cannot exceed 255 characters',
-    
-    'city_required' => 'City is required',
-    'city_string' => 'City must be a string',
-    'city_max' => 'City cannot exceed 255 characters',
-    
-    'state_required' => 'State is required',
-    'state_string' => 'State must be a string',
-    'state_max' => 'State cannot exceed 255 characters',
-    
-    'zip_code_required' => 'Zip code is required',
-    'zip_code_string' => 'Zip code must be a string',
-    'zip_code_max' => 'Zip code cannot exceed 20 characters',
-    
-    'entity_type_required' => 'Entity type is required',
-    'entity_type_string' => 'Entity type must be a string',
-    'entity_type_max' => 'Entity type cannot exceed 255 characters',
-    
-    'business_website_url' => 'Business website must be a valid URL',
-    'business_website_max' => 'Business website cannot exceed 255 characters',
-    
-    'industry_type_required' => 'Industry type is required',
-    'industry_type_string' => 'Industry type must be a string',
-    'industry_type_max' => 'Industry type cannot exceed 255 characters',
-    
-    // Financial Info Validation
-    'currency_required' => 'Currency is required',
-    'currency_string' => 'Currency must be a string',
-    'currency_max' => 'Currency cannot exceed 10 characters',
-    
-    'years_in_business_required' => 'Years in business is required',
-    'years_in_business_integer' => 'Years in business must be an integer',
-    'years_in_business_min' => 'Years in business cannot be negative',
-    'years_in_business_max' => 'Years in business cannot exceed 100 years',
-    
-    'monthly_revenue_required' => 'Monthly revenue is required',
-    'monthly_revenue_numeric' => 'Monthly revenue must be a number',
-    'monthly_revenue_min' => 'Monthly revenue cannot be negative',
-    'monthly_revenue_max' => 'Monthly revenue cannot exceed 999,999,999.99',
-    
-    'annual_revenue_numeric' => 'Annual revenue must be a number',
-    'annual_revenue_min' => 'Annual revenue cannot be negative',
-    'annual_revenue_max' => 'Annual revenue cannot exceed 999,999,999.99',
-
-    // Pre-Qualification Validation
-    'id_integer' => 'ID must be an integer',
-    'id_exists' => 'Pre-qualification request not found',
-    
-    'full_name_required' => 'Full name is required',
-    'full_name_string' => 'Full name must be a string',
-    'full_name_max' => 'Full name cannot exceed 255 characters',
-
-    'email_max' => 'Email cannot exceed 255 characters',
-
+    'home_phone_regex' => 'Home phone must be a valid phone number',
+    'phone_number_required' => 'Phone number is required',
+    'phone_number_string' => 'Phone number must be a string',
+    'phone_number_max' => 'Phone number cannot exceed 20 characters',
+    'phone_number_regex' => 'Phone number must be a valid phone number',
     'phone_required' => 'Phone is required',
     'phone_string' => 'Phone must be a string',
     'phone_max' => 'Phone cannot exceed 25 characters',
 
+    // Identity
+    'last_4_ssn_required' => 'Last 4 digits of SSN is required',
+    'last_4_ssn_string' => 'Last 4 digits of SSN must be a string',
+    'last_4_ssn_max' => 'Last 4 digits of SSN cannot exceed 4 characters',
+    'last_4_ssn_size' => 'Last 4 digits of SSN must be exactly 4 characters',
+    'last_4_ssn_regex' => 'Last 4 digits of SSN must contain only numbers',
+    'date_of_birth_required' => 'Date of birth is required',
+    'date_of_birth_date' => 'Date of birth must be a valid date',
+    'date_of_birth_before' => 'Date of birth must be before today',
+    'date_of_birth_date_format' => 'Date of birth must be in the format Y-m-d',
+
+    // Business Basic
+    'business_name_required' => 'Business name is required',
+    'business_name_string' => 'Business name must be a string',
+    'business_name_max' => 'Business name cannot exceed 255 characters',
+    'business_ein_required' => 'Business EIN is required',
+    'business_ein_string' => 'Business EIN must be a string',
+    'business_ein_max' => 'Business EIN cannot exceed 255 characters',
+    'business_ein_size' => 'Business EIN must be exactly 10 characters (XX-XXXXXXX)',
+    'business_phone_string' => 'Business phone must be a string',
+    'business_phone_max' => 'Business phone cannot exceed 20 characters',
+    'business_phone_regex' => 'Business phone must be a valid phone number',
+    'business_email_email' => 'Business email must be a valid email address',
+    'business_website_url' => 'Business website must be a valid URL',
+    'business_website_max' => 'Business website cannot exceed 255 characters',
+    'business_logo_mimes' => 'Business logo must be a file of type: jpg, jpeg, png, svg',
+    'business_logo_max' => 'Business logo size must not exceed 5MB',
+    'business_logo_file' => 'Business logo must be a file',
+
+    'business_description_string' => 'Business description must be a string',
+    'business_registration_number_string' => 'Business registration number must be a string',
+    'business_registration_number_max' => 'Business registration number cannot exceed 255 characters',
+    'tax_identification_number_string' => 'Tax identification number must be a string',
+    'tax_identification_number_max' => 'Tax identification number cannot exceed 255 characters',
+    'state_file_number_string' => 'State file number must be a string',
+    'state_file_number_max' => 'State file number cannot exceed 255 characters',
+    'business_start_date_date' => 'Business start date must be a valid date',
+
+    // Business Address
+    'business_address_required' => 'Business address is required',
+    'business_address_string' => 'Business address must be a string',
+    'business_address_max' => 'Business address cannot exceed 255 characters',
+    'business_city_required' => 'Business city is required',
+    'business_city_string' => 'Business city must be a string',
+    'business_city_max' => 'Business city cannot exceed 255 characters',
+    'business_state_required' => 'Business state is required',
+    'business_state_string' => 'Business state must be a string',
+    'business_state_max' => 'Business state cannot exceed 255 characters',
+    'business_other_city_required' => 'Business other city is required',
+    'business_zip_code_required' => 'Business zip code is required',
+    'business_zip_code_string' => 'Business zip code must be a string',
+    'business_zip_code_max' => 'Business zip code cannot exceed 20 characters',
+    'business_zip_code_size' => 'Business zip code must be exactly 5 characters',
+    'business_email_required' => 'Business email is required',
+    'business_email_max' => 'Business email cannot exceed 255 characters',
+    'duns_number_string' => 'DUNS number must be a string',
+    'duns_number_max' => 'DUNS number cannot exceed 255 characters',
+    'duns_number_size' => 'DUNS number must be exactly 9 numeric characters',
+
+    // Business Categorization
+    'business_entity_type_required' => 'Business entity type is required',
+    'business_entity_type_string' => 'Business entity type must be a string',
+    'business_entity_type_max' => 'Business entity type cannot exceed 255 characters',
+    'business_industry_type_required' => 'Business industry type is required',
+    'business_industry_type_string' => 'Business industry type must be a string',
+    'business_industry_type_max' => 'Business industry type cannot exceed 255 characters',
+    'business_entity_type_note_required_if' => 'Entity type details are required when entity type is Other.',
+    'business_industry_type_note_required_if' => 'Industry type details are required when industry type is Other.',
+    'industry_required' => 'Industry is required',
+    'industry_string' => 'Industry must be a string',
+    'industry_max' => 'Industry cannot exceed 255 characters',
+    'business_structure_required' => 'Business structure is required',
+    'business_structure_string' => 'Business structure must be a string',
+    'business_structure_max' => 'Business structure cannot exceed 255 characters',
     'state_of_incorporation_required' => 'State of incorporation is required',
     'state_of_incorporation_string' => 'State of incorporation must be a string',
     'state_of_incorporation_max' => 'State of incorporation cannot exceed 255 characters',
 
-    'industry_required' => 'Industry is required',
-    'industry_string' => 'Industry must be a string',
-    'industry_max' => 'Industry cannot exceed 255 characters',
+    // Business Performance
+    'annual_revenue_required' => 'Annual revenue is required',
+    'annual_revenue_numeric' => 'Annual revenue must be a number',
+    'annual_revenue_min' => 'Annual revenue cannot be negative',
+    'annual_revenue_max' => 'Annual revenue cannot exceed 999,999,999.99',
+    'annual_personal_income_required' => 'Annual personal income is required',
+    'annual_personal_income_numeric' => 'Annual personal income must be a number',
+    'annual_personal_income_min' => 'Annual personal income cannot be negative',
+    'annual_personal_income_max' => 'Annual personal income cannot exceed 999,999,999.99',
+    'monthly_revenue_required' => 'Monthly revenue is required',
+    'monthly_revenue_numeric' => 'Monthly revenue must be a number',
+    'monthly_revenue_min' => 'Monthly revenue cannot be negative',
+    'monthly_revenue_max' => 'Monthly revenue cannot exceed 999,999,999.99',
+    'currency_required' => 'Currency is required',
+    'currency_string' => 'Currency must be a string',
+    'currency_max' => 'Currency cannot exceed 10 characters',
+    'years_in_business_required' => 'Years in business is required',
+    'years_in_business_string' => 'Years in business must be a string',
+    'years_in_business_max' => 'Years in business cannot exceed 255 characters',
 
-    'business_structure_required' => 'Business structure is required',
-    'business_structure_string' => 'Business structure must be a string',
-    'business_structure_max' => 'Business structure cannot exceed 255 characters',
+    'avg_bank_balance_numeric' => 'Average bank balance must be a number',
+    'avg_bank_balance_min' => 'Average bank balance cannot be negative',
+    'profit_margin_numeric' => 'Profit margin must be a number',
+    'current_business_debt_numeric' => 'Current business debt must be a number',
+    'current_business_debt_min' => 'Current business debt cannot be negative',
+    'fico_score_integer' => 'FICO score must be an integer',
+    'fico_score_numeric' => 'FICO score must be a number',
+    'fico_score_min' => 'FICO score cannot be negative',
+    'paydex_score_integer' => 'Paydex score must be an integer',
+    'paydex_score_numeric' => 'Paydex score must be a number',
+    'paydex_score_min' => 'Paydex score cannot be negative',
+    'personal_credit_score_required' => 'Personal credit score is required',
+    'personal_credit_score_integer' => 'Personal credit score must be an integer',
+    'personal_credit_score_min' => 'Personal credit score must be at least 300',
+    'personal_credit_score_max' => 'Personal credit score cannot exceed 850',
+    'number_of_employees_integer' => 'Number of employees must be an integer',
+    'number_of_employees_min' => 'Number of employees cannot be negative',
+    'nsf_days_integer' => 'NSF days must be an integer',
+    'nsf_days_min' => 'NSF days cannot be negative',
 
-    'time_in_business_required' => 'Time in business is required',
-    'time_in_business_string' => 'Time in business must be a string',
-    'time_in_business_max' => 'Time in business cannot exceed 255 characters',
+    'nsf_count_required' => 'NSF Count is required',
+    'nsf_count_integer' => 'NSF Count must be an integer',
+    'nsf_count_min' => 'NSF Count cannot be negative',
+    'nsf_count_max' => 'NSF Count cannot exceed 99,999',
 
+    'negative_days_required' => 'Negative Days is required',
+    'negative_days_integer' => 'Negative Days must be an integer',
+    'negative_days_min' => 'Negative Days cannot be negative',
+    'negative_days_max' => 'Negative Days cannot exceed 99,999',
+
+    'funding_urgency_string' => 'Funding urgency must be a string',
+    'funding_urgency_max' => 'Funding urgency cannot exceed 255 characters',
+    'payment_amount_numeric' => 'Payment amount must be a number',
+    'payment_amount_min' => 'Payment amount cannot be negative',
+    'enrollment_payment_required' => 'Enrollment payment is required',
+    'enrollment_payment_numeric' => 'Enrollment payment must be a number',
+    'enrollment_payment_gt' => 'Enrollment payment must be greater than 0',
+
+    // Funding
     'funding_requested_amount_required' => 'Funding requested amount is required',
     'funding_requested_amount_numeric' => 'Funding requested amount must be a number',
-    'funding_requested_amount_min' => 'Funding requested amount cannot be negative',
-
+    'funding_requested_amount_gt' => 'Funding requested amount must be greater than 1',
+    'funding_amount_required' => 'Funding amount is required',
+    'funding_amount_numeric' => 'Funding amount must be a number',
+    'funding_amount_gt' => 'Funding amount must be greater than 1',
     'funding_urgency_required' => 'Funding urgency is required',
     'funding_urgency_string' => 'Funding urgency must be a string',
     'funding_urgency_max' => 'Funding urgency cannot exceed 255 characters',
-
     'purpose_of_funding_required' => 'Purpose of funding is required',
     'purpose_of_funding_string' => 'Purpose of funding must be a string',
     'purpose_of_funding_max' => 'Purpose of funding cannot exceed 255 characters',
+    'purpose_note_required' => 'Purpose note is required when "Other" is selected.',
+    'purpose_note_max' => 'Purpose note cannot exceed 1000 characters',
+    'funding_purpose_required' => 'Funding purpose is required',
+    'funding_purpose_string' => 'Funding purpose must be a string',
+    'funding_purpose_max' => 'Funding purpose cannot exceed 255 characters',
+    'funding_term_required' => 'Funding term is required',
+    'funding_term_string' => 'Funding term must be a string',
+    'funding_term_max' => 'Funding term cannot exceed 255 characters',
 
+    // Credit & Debt
     'personal_credit_score_required' => 'Personal credit score is required',
     'personal_credit_score_string' => 'Personal credit score must be a string',
     'personal_credit_score_max' => 'Personal credit score cannot exceed 255 characters',
-
     'estimated_business_credit_score_required' => 'Estimated business credit score is required',
     'estimated_business_credit_score_string' => 'Estimated business credit score must be a string',
     'estimated_business_credit_score_max' => 'Estimated business credit score cannot exceed 255 characters',
-
     'existing_business_debt_required' => 'Existing business debt is required',
     'existing_business_debt_boolean' => 'Existing business debt must be true or false',
-
     'debt_balance_required' => 'Debt balance is required when existing business debt is true',
     'debt_balance_numeric' => 'Debt balance must be a number',
+    'debt_balance_gt' => 'Debt balance must be greater than 1',
+
+    // Service & Admin
+    'partner_id_exists' => 'Selected partner does not exist',
+    'assign_id_exists' => 'Selected assigned user does not exist',
+    'notes_max' => 'Notes cannot exceed 1000 characters',
+    'id_integer' => 'ID must be an integer',
+    'id_exists' => 'Selected record not found',
+    'borrower_id_required' => 'The borrower ID is required.',
+    'borrower_id_exists' => 'The selected borrower ID is invalid.',
+    'status_string' => 'Status must be a string',
+    'status_max' => 'Status cannot exceed 255 characters',
+    'current_tier_string' => 'Current tier must be a string',
+    'current_tier_max' => 'Current tier cannot exceed 255 characters',
+    'plan_id_required' => 'Enrollment plan is required',
+    'plan_id_exists' => 'Selected enrollment plan does not exist',
+    'additional_data_json' => 'Additional data must be a valid JSON string',
+    'notes_string' => 'Notes must be a string',
+
+    // Pagination
+    'per_page_min' => 'The per page must be at least 1.',
+    'per_page_max' => 'The per page must be at most 100.',
+    'page_min' => 'The page must be at least 1.',
+
+    // Documents List
+    'invalid_borrower_doc_type' => 'Invalid borrower document type',
+    'files_required' => 'Files are required',
+    'files_array' => 'Files must be an array',
+    'files_min' => 'At least one file is required',
+    'upload_failed' => 'Failed to upload document',
+
+    // Task Verification
+    'task_ids_required' => 'Task IDs are required',
+    'task_ids_must_be_array' => 'Task IDs must be an array',
+    'task_ids_min' => 'At least one task ID is required',
+    'task_id_required' => 'Task ID is required',
+    'task_id_must_be_integer' => 'Task ID must be an integer',
+    'task_id_not_found' => 'The selected task ID does not exist',
+    'status_required' => 'The status field is required.',
+    'status_in' => 'The selected status is invalid.',
+    'rejection_reason_required' => 'The rejection reason is required when the status is Rejected.',
+    'rejection_reason_string' => 'The rejection reason must be a string.',
+
+    // Funding Application Business Info
+    'business_phone_no_required' => 'Business phone number is required',
+    'business_phone_no_string' => 'Business phone number must be a string',
+    'business_phone_no_max' => 'Business phone number cannot exceed 255 characters',
+    'business_country_required' => 'Business country is required',
+    'business_country_string' => 'Business country must be a string',
+    'business_country_max' => 'Business country cannot exceed 255 characters',
+    'business_country_code_required' => 'Business country code is required',
+    'business_country_code_string' => 'Business country code must be a string',
+    'business_country_code_max' => 'Business country code cannot exceed 10 characters',
+    'business_postal_code_required' => 'Business postal code is required',
+    'business_postal_code_string' => 'Business postal code must be a string',
+    'business_postal_code_max' => 'Business postal code cannot exceed 20 characters',
+    'industry_type_required' => 'Industry type is required',
+    'industry_type_string' => 'Industry type must be a string',
+    'industry_type_max' => 'Industry type cannot exceed 255 characters',
+    'entity_type_required' => 'Entity type is required',
+    'entity_type_string' => 'Entity type must be a string',
+    'entity_type_max' => 'Entity type cannot exceed 255 characters',
+    'number_of_employees_integer' => 'Number of employees must be an integer',
+    'funding_application_id_exists' => 'The selected funding application ID does not exist',
+
+    // Funding Application Ownership Info
+    'ssn_string' => 'SSN must be a string',
+    'ssn_digits' => 'SSN must be 9 digits',
+    'citizenship_status_string' => 'Citizenship status must be a string',
+    'citizenship_status_max' => 'Citizenship status cannot exceed 255 characters',
+    'ownership_numeric' => 'Ownership must be a number',
+    'has_co_borrower_boolean' => 'Has co-borrower must be true or false',
+
+    // Funding Application Financial Info
+    'business_bank_name_string' => 'Business bank name must be a string',
+    'business_bank_name_max' => 'Business bank name cannot exceed 255 characters',
+    'business_checking_start_date_date' => 'Business checking start date must be a valid date',
+    'self_reported_personal_credit_score_string' => 'Self reported personal credit score must be a string',
+    'self_reported_personal_credit_score_max' => 'Self reported personal credit score cannot exceed 255 characters',
+    'self_reported_business_credit_score_string' => 'Self reported business credit score must be a string',
+    'self_reported_business_credit_score_max' => 'Self reported business credit score cannot exceed 255 characters',
+    'has_business_debt_boolean' => 'Has business debt must be true or false',
+    'debt_balance_required_if' => 'Debt balance is required when has business debt is true',
     'debt_balance_min' => 'Debt balance cannot be negative',
+
+    // Funding Application Funding Request
+    'requested_amount_required' => 'Requested amount is required',
+    'requested_amount_numeric' => 'Requested amount must be a number',
+    'requested_amount_min' => 'Requested amount cannot be negative',
+    'purpose_of_funds_string' => 'Purpose of funds must be a string',
+    'purpose_of_funds_max' => 'Purpose of funds cannot exceed 500 characters',
+    'purpose_note_string' => 'Purpose note must be a string',
+    'purpose_note_max' => 'Purpose note cannot exceed 500 characters',
+    'preferred_funding_type_string' => 'Preferred funding type must be a string',
+    'preferred_funding_type_max' => 'Preferred funding type cannot exceed 255 characters',
+    'timeframe_needed_string' => 'Timeframe needed must be a string',
+    'timeframe_needed_max' => 'Timeframe needed cannot exceed 255 characters',
+    'collateral_available_string' => 'Collateral available must be a string',
+    'collateral_available_max' => 'Collateral available cannot exceed 500 characters',
+
+    // Disclosures & Consent
+    'credit_pull_authorization_accepted' => 'You must authorize the credit pull.',
+    'terms_conditions_acceptance_accepted' => 'You must accept the terms and conditions.',
+
+    // Federal Compliance
+    'filed_for_bankruptcy_boolean' => 'Filed for bankruptcy must be true or false',
+    'any_pending_lawsuits_boolean' => 'Any pending lawsuits must be true or false',
+    'has_federal_loan_boolean' => 'Has federal loan must be true or false',
+    'has_federal_debt_boolean' => 'Has federal debt must be true or false',
+    'has_criminal_offense_boolean' => 'Has criminal offense must be true or false',
+    'has_parole_or_probation_boolean' => 'Has parole or probation must be true or false',
+    'suspended_or_debarred_boolean' => 'Suspended or debarred must be true or false',
+    'any_outstanding_judgments_business_boolean' => 'Any outstanding judgments (business) must be true or false',
+    'any_outstanding_judgments_owner_boolean' => 'Any outstanding judgments (owner) must be true or false',
+    'federal_compliance_disclosures_explanation_string' => 'Explanation must be a string.',
+    'federal_compliance_disclosures_explanation_max' => 'Explanation cannot exceed 1000 characters.',
+    'federal_compliance_disclosures_explanation_required' => 'Explanation is required when any of the compliance questions are answered Yes.',
+
+    // Attestation & Authorization
+    'attestation_authorization_accepted' => 'You must check the box to certify.',
+
+    // Co-Borrower
+    'co_borrower_first_name_required' => 'First name is required.',
+    'co_borrower_last_name_required' => 'Last name is required.',
+    'co_borrower_title_role_required' => 'Title/Role is required.',
+    'co_borrower_ownership_required' => 'Ownership is required.',
+    'co_borrower_email_required' => 'Email is required.',
+    'co_borrower_email_email' => 'Email must be a valid email address.',
+    'co_borrower_mobile_phone_required' => 'Mobile phone is required.',
+    'co_borrower_dob_required' => 'Date of birth is required.',
+    'co_borrower_ssn_required' => 'Social Security Number (SSN) is required.',
+    'co_borrower_street_address_required' => 'Street address is required.',
+    'co_borrower_country_required' => 'Country is required.',
+    'co_borrower_state_required' => 'State is required.',
+    'co_borrower_city_required' => 'City is required.',
+    'co_borrower_zip_code_required' => 'Zip code is required.',
+    'co_borrower_validation_success' => 'Co-borrower validation successful.',
+
+    'tier_id_required' => 'Tier ID is required.',
+    'tier_id_must_be_integer' => 'Tier ID must be an integer.',
+    'tier_id_not_found' => 'The selected tier ID does not exist.',
+
+    'migrated_task_id_must_be_integer' => 'Migrated task ID must be an integer.',
+    'migrated_task_id_not_found' => 'The selected migrated task ID does not exist.',
+    'enrollment_payment_regex' => 'Enrollment payment must be a number greater than 0 and cannot be -0.',
+    
+    // Attestation & Authorization
+    'signature_name_required' => 'Electronic signature (full legal name) is required.',
+    'signature_name_min' => 'Electronic signature must be at least 3 characters.',
+    'signature_name_max' => 'Electronic signature may not be greater than 255 characters.',
+    'signature_name_invalid' => 'Electronic signature cannot be only spaces.',
+    'esign_consent_accepted' => 'You must certify your electronic signature under the ESIGN Act.',
+    'terms_consent_accepted' => 'You must agree to the Terms & Conditions.',
+    'privacy_consent_accepted' => 'You must agree to the Privacy Policy.',
+    'credit_consent_accepted' => 'You must consent to the Credit Authorization.',
+    'legal_binding_consent_accepted' => 'You must understand your electronic signature is legally binding.',
+    
+    // Bank Accounts
+    'bank_name_required' => 'Bank Name is required.',
 ];

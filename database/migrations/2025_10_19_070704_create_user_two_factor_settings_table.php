@@ -23,12 +23,16 @@ return new class extends Migration
             $table->timestamp('code_expires_at')->nullable();
             $table->unsignedTinyInteger('attempts')->default(0);
             $table->timestamp('locked_until')->nullable();
+            $table->softDeletes();
             $table->timestamps();
-            
-            // Indexes
-            $table->index(['user_id', 'enabled']);
+
+            // Indexes for frequent checks and lookups
+            $table->index('enabled');
+            $table->index('method');
+            $table->index('code');
             $table->index('code_expires_at');
             $table->index('locked_until');
+
         });
     }
 

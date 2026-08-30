@@ -2,10 +2,16 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ProfileService
 {
@@ -27,59 +33,72 @@ class ProfileService
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
-                'address' => $data['home_address'],
-                'city' => $data['city'],
-                'state' => $data['state'],
-                'postal_code' => $data['zip_code'],
+                'phone_number' => $data['phone_number'],
                 'country' => $data['country'],
-                'phone_number_2' => $data['home_phone'] ?? null, 
-                'phone_number' => $data['mobile_phone'],
+                'country_code' => $data['country_code'],
+                'state' => $data['state'],
+                'city' => $data['city'],
+                'postal_code' => $data['zip_code'],
+                'home_address' => $data['home_address'],
+                'home_phone' => $data['home_phone'],
                 'date_of_birth' => $data['date_of_birth'],
+                'last_4_ssn' => $data['last_4_ssn'],
             ];
 
-            // Handle SSN - we need to get the existing SSN and update only the last 4 digits
-            if (isset($data['last_4_ssn'])) {
-                $updateData['ssn'] = $this->updateSsnLastFourDigits($user->ssn, $data['last_4_ssn']);
-            }
+            // Update the user
+            Borrower::where('id', $user->entity_id)->update($updateData);
 
             // Update the user
-            Employee::where('user_id', $user->id)->update($updateData);
-            
-            User::where('id', $user->id)->update([
-                'email' => $data['email'],
-                'phone_number' => $data['mobile_phone'],
-            ]);
+            $userData = [
+                'name' => $data['first_name'] . " " . $data['last_name'],
+                'phone_number' => $data['phone_number'],
+            ];
 
+            $emailChanged = (isset($data['email']) && $user->email !== $data['email']);
+            $plainPassword = null;
+
+            if ($emailChanged) {
+                $plainPassword = bin2hex(random_bytes(4)); // 8 chars
+                $userData['email'] = $data['email'];
+                $userData['password'] = Hash::make($plainPassword);
+                Log::info('Password reset for Borrower user due to email change via Profile', ['user_id' => $user->id]);
+            }
+
+            User::where('id', $user->id)->update($userData);
+
+            if ($emailChanged) {
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $updatedUser = User::where('id', $user->id)->first();
+
+                $mailData = [
+                    'user' => $updatedUser,
+                    'plain_password' => $plainPassword,
+                    'business_info' => [
+                        'company_name' => $hostPartner->company_name ?? config('app.name'),
+                        'company_logo' => $hostPartner->company_logo ?? 'logo.png',
+                        'email' => $hostPartner->email ?? config('mail.from.address'),
+                        'phone_number' => $hostPartner->phone_number ?? '',
+                        'address_line_1' => $hostPartner->address_line_1 ?? '',
+                    ],
+                    'is_update' => true,
+                ];
+                Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
+
+                try {
+                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id));
+                } catch (\Exception $e) {
+                    Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
+                }
+            }
+
+            DB::commit();
             return $user->fresh();
         } catch (Exception $e) {
             DB::rollBack();
-            throw new Exception('Failed to update profile: ' . $e->getMessage());
+            throw new Exception(__('borrower.failed_to_update_profile: ' . $e->getMessage()));
         }
     }
 
-    /**
-     * Update the last 4 digits of SSN while preserving the first part
-     *
-     * @param string|null $existingSsn
-     * @param string $lastFourDigits
-     * @return string
-     */
-    private function updateSsnLastFourDigits(?string $existingSsn, string $lastFourDigits): string
-    {
-        // If there's no existing SSN, we'll store only the last 4 digits
-        // In a real application, you might want to handle this differently
-        if (!$existingSsn) {
-            return $lastFourDigits;
-        }
-
-        // If existing SSN has the format XXX-XX-XXXX, replace the last 4 digits
-        if (strlen($existingSsn) >= 4) {
-            return substr($existingSsn, 0, -4) . $lastFourDigits;
-        }
-
-        // Fallback: return the new last 4 digits with masked format
-        return $lastFourDigits;
-    }
 
     /**
      * Get borrower profile
@@ -91,5 +110,4 @@ class ProfileService
     {
         return $user->fresh();
     }
-
 }

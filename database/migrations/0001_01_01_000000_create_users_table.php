@@ -14,17 +14,30 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('partner_id')->nullable()->constrained('partners');
+            $table->string('entity_type')->nullable();
+            $table->unsignedBigInteger('entity_id')->nullable();
             $table->string('name')->nullable();
             $table->string('email')->unique();
-            $table->string('phone_number')->nullable()->index();
+            $table->string('phone_number')->nullable();
             $table->timestamp('phone_verified_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('user_type')->nullable();
             $table->string('password');
+            $table->string('is_refresh')->default(0);
             $table->string('status')->default(User::STATUS['active']);
             $table->rememberToken();
             $table->softDeletes();
             $table->timestamps();
+
+            // Indexes for common queries and polymorphic relations
+            $table->index(['entity_type', 'entity_id']);
+            $table->index('partner_id');
+            $table->index('user_type');
+            $table->index('phone_number');
+            $table->index('email');
+            $table->index('status');
+
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

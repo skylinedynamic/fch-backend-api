@@ -1,13 +1,24 @@
 <?php
-
 return [
-    'paths' => ['api/*'],
+    'paths' => ['api/*', 'resolve-custom-domain', 'caddy/domain-check'],
     'allowed_methods' => ['*'],
-    // Configure allowed origins via env; default to Vite dev server
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
-    'allowed_origins_patterns' => [],
+    'allowed_origins' => [
+        'https://fourcornerfunding.com',
+        'https://partner.fourcornerfunding.com',
+        'https://app.fourcornerfunding.com',
+        'https://admin.fourcornerfunding.com',
+    ],
+    'allowed_origins_patterns' => [
+        // Match all origins — supports any domain, subdomain, custom domain, HTTP or HTTPS
+        '#^https?://.*$#',
+    ],
     'allowed_headers' => ['*'],
-    'exposed_headers' => ['Authorization', 'Content-Type'],
-    'max_age' => 0,
-    'supports_credentials' => false,
+    'exposed_headers' => [
+        'Authorization',
+        'Content-Type',
+        'X-Tenant-Type',
+        'X-Partner-Id',
+    ],
+    'max_age' => 86400,
+    'supports_credentials' => true,
 ];

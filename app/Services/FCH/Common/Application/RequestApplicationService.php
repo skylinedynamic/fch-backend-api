@@ -1,0 +1,394 @@
+<?php
+
+namespace App\Services\FCH\Common\Application;
+
+use App\Helpers\ApiResponse;
+use App\Http\Resources\Borrower\MyApplication\FundingApplicationResource;
+use App\Http\Resources\Borrower\MyApplication\PreQualificationApplicationResource;
+use App\Http\Resources\FCH\Common\Application\FundingApplicationResource as ApplicationFundingApplicationResource;
+use App\Http\Resources\FCH\Common\Application\PreQualificationRequestResource;
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\DownloadHistory;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Commission\Commission;
+use App\Models\Common\AppConfiguration;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
+use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Application\SignatureCertificateService;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Services\Global\Datatable\QueryFilter;
+use App\Traits\PaginatesApi;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+
+class RequestApplicationService
+{
+    use PaginatesApi;
+
+    public function __construct(
+        protected ActivityLogService $activityLogService
+    ) {}
+
+    /**
+     * Get the authenticated user's partner ID
+     *
+     * @return int
+     */
+    private function getAuthenticatedPartnerId(): int
+    {
+        return Auth::user()->partner_id;
+    }
+
+    /**
+     * Get PreQualification Applications List
+     */
+    public function getPreQualificationList(array $filters)
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+        
+        $query = PreQualificationRequest::query()
+        ->where('status', '!=', PreQualificationRequest::ON_HOLD)
+        ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
+            $q->where('partner_id', $partnerId);
+        });
+
+        if(isset($filters['status']) && !empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if(isset($filters['start_date']) && !empty($filters['start_date'])) {
+            $query->where('created_at', '>=', $filters['start_date']);
+        }
+
+        if(isset($filters['end_date']) && !empty($filters['end_date'])) {
+            $query->where('created_at', '<=', $filters['end_date']);
+        }
+
+        if(isset($filters['funding_type']) && !empty($filters['funding_type'])) {
+            $query->where('purpose_of_funding', $filters['funding_type']);
+        }
+
+        // Apply Search
+        if (!empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->search($search);
+        }
+
+        // Apply Sorting & Advanced Filters using QueryFilter if available, or manual simple sorting
+        $sortField = $filters['sort_field'] ?? 'id';
+        $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        $advancedFilters = $filters['filters'] ?? [];
+
+
+        if($sortField == 'funding_type') {
+            $sortField = 'purpose_of_funding';
+        }elseif($sortField == 'requested_amount') {
+            $sortField = 'funding_requested_amount';
+        }elseif($sortField == 'date') {
+            $sortField = 'created_at';
+        }elseif($sortField == 'full_name') {
+            $sortField = 'first_name';
+        }
+
+
+        $query = QueryFilter::apply(
+            $query,
+            $sortField,
+            $sortOrder,
+            $advancedFilters,
+             [
+
+                'aliases' => [
+                    'purpose_of_funding' => 'funding_type',
+                    'funding_requested_amount' => 'requested_amount',
+                    'created_at' => 'date',
+                    'first_name' => 'full_name',
+                ],
+            ]
+        );
+
+        // Pagination
+        $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator, 
+            PreQualificationApplicationResource::class,
+            __('application.pre_qualification_retrieved')
+        );
+    }
+
+    /**
+     * Get Funding Applications List
+     */
+    public function getFundingApplicationList(array $filters)
+        {
+            $authUser = Auth::user();
+            
+            $query = FundingApplication::query()
+                ->with(['borrower', 'fundingSequence'])
+                ->where('status', '!=', FundingApplication::ON_HOLD)
+                ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                    $query->where('partner_id', $authUser->partner_id);
+                });
+
+            // Apply Search
+            if (!empty($filters['search'])) {
+                $search = trim((string) $filters['search']);
+                $query->search($search);
+            }
+
+            $sortField = $filters['sort_field'] ?? 'id';
+            $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+            $advancedFilters = $filters['filters'] ?? [];
+
+            $query = QueryFilter::apply(
+                $query,
+                $sortField,
+                $sortOrder,
+                $advancedFilters,
+                []
+            );
+
+            $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
+            $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+            $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+            return $this->respondWithPaginationResource(
+                $paginator,
+                FundingApplicationResource::class,
+                __('application.funding_application_retrieved')
+            );
+        }
+    /**
+     * Get Pre-Qualification Application By ID
+     */
+    public function getPreQualificationById($id)
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+        
+        $application = PreQualificationRequest::with('borrower')
+           ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
+            $q->where('partner_id', $partnerId);
+        })
+        ->where('id',$id)->first();
+
+        if($application == null){
+            return ApiResponse::error(__('application.pre_qualification_not_found'));
+        }
+        return ApiResponse::success(new PreQualificationRequestResource($application));
+    }
+
+    /**
+     * Get Funding Application By ID
+     */
+    public function getFundingApplicationById($id)
+    {
+        $authUser = Auth::user();
+
+        $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
+           ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+            $query->where('partner_id', $authUser->partner_id);
+           })
+        ->where('id',$id)->first();
+
+        if($application == null){
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+        //return ApiResponse::success($application);
+        return ApiResponse::success(new ApplicationFundingApplicationResource($application));
+    }
+
+    /**
+     * Get Funding Application Audit History
+     */
+    public function getAuditHistory($id, array $filters)
+    {
+        $perPage = $filters['per_page'] ?? 10;
+        if ($perPage == -1 || $perPage == 'All') {
+            $items = DownloadHistory::where('funding_application_id', $id)->get();
+            $perPage = $items->count() > 0 ? $items->count() : 10;
+        }
+        $perPage = isset($filters['per_page']) && is_numeric($filters['per_page']) ? max(1, (int) $filters['per_page']) : (is_numeric($perPage) ? max(1, (int) $perPage) : 1000000);
+        $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
+
+        $query = DownloadHistory::with('user:id,name,email,user_type')
+            ->where('funding_application_id', $id);
+
+        if (!empty($filters['search'])) {
+            $query->search($filters['search'], $filters['timezone'] ?? null);
+        }
+
+        if (!empty($filters['sort_by'])) {
+            $sortField = $filters['sort_by'];
+            $sortDir = (!empty($filters['sort_dir']) && strtolower($filters['sort_dir']) === 'asc') ? 'asc' : 'desc';
+            $query->orderBy($sortField, $sortDir);
+        } else {
+            $query->orderBy('downloaded_at', 'desc');
+        }
+
+        $paginator = $this->paginateBuilderWith($query, $perPage, $page);
+
+        return $this->respondWithPaginationResource(
+            $paginator,
+            \App\Http\Resources\FCH\Common\Application\DownloadHistoryResource::class,
+            __('application.audit_history_retrieved')
+        );
+    }
+
+    /**
+     * Update Pre-qualification Application Status
+     */
+    public function preQualificationStatusUpdate(array $data)
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $application = PreQualificationRequest::with('borrower')
+        ->where('id',$data['id'])->first();
+
+        if($application == null){
+            return ApiResponse::error(__('application.pre_qualification_not_found'));
+        }
+
+        $application->status = $data['status'];
+        if (isset($data['status_note'])) {
+            $application->status_note = $data['status_note'];
+        }
+        $application->save();
+
+        return ApiResponse::success(new PreQualificationRequestResource($application), __('application.status_updated'));
+    }
+
+    /**
+     * Update Funding Application Status
+     */
+    public function fundingApplicationStatusUpdate(array $data)
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $application = FundingApplication::with('borrower')
+        ->where('id',$data['funding_application_id'])->first();
+
+        if($application == null){
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
+        $oldStatus = $application->status;
+
+        if($data['status'] == FundingApplication::CLOSED_COMPLETED){
+            $application->total_funded_amount = $data['funded_amount'];
+            $application->funded_date = Carbon::now();
+        }
+
+        $application->status = $data['status'];
+        if (isset($data['status_note'])) {
+            $application->status_note = $data['status_note'];
+        }
+        $application->save();
+
+        if ($oldStatus !== $data['status'] || isset($data['status_note'])) {
+            $oldStatusFormatted = ucwords(str_replace('_', ' ', $oldStatus));
+            $newStatusFormatted = ucwords(str_replace('_', ' ', $data['status']));
+            
+            if ($oldStatus === $data['status']) {
+                $title = "Funding Application Note Updated";
+                $description = "Status note was updated.";
+            } else {
+                $title = "Funding Application Status Changed: {$oldStatusFormatted} → {$newStatusFormatted}";
+                $description = "Status updated to: " . $newStatusFormatted;
+            }
+
+            if (isset($data['status_note'])) {
+                $description .= "\nNote: " . $data['status_note'];
+            }
+
+            app(\App\Services\FCH\Common\ActivityLog\ActivityLogService::class)->logSystemEvent(
+                FundingApplication::class,
+                $application->id,
+                $application->partner_id,
+                $application->borrower_id,
+                $title,
+                $description,
+                'funding_application_status_update',
+                ['visible_to_borrower' => true, 'visible_to_partner' => true]
+            );
+        }
+
+        if ($application->status == FundingApplication::CLOSED_COMPLETED && $application->total_funded_amount > 0) {
+            $commission = Commission::where('funding_application_id', $application->id)->first();
+            if ($commission) {
+                // Ensure we use the correct base amount
+                $baseAmount = $application->total_funded_amount;
+                $totalCommissionAmount = ($baseAmount * $commission->total_commission) / 100;
+                
+                $adminCommissionAmount = $totalCommissionAmount;
+                $partnerCommissionAmount = 0;
+
+                if ($commission->partner_commission > 0) {
+                    $partnerCommissionAmount = ($totalCommissionAmount * $commission->partner_commission) / 100;
+                    $adminCommissionAmount = $totalCommissionAmount - $partnerCommissionAmount;
+                }
+
+                $commission->update([
+                    'total_commission_amount' => $totalCommissionAmount,
+                    'admin_commission_amount' => $adminCommissionAmount,
+                    'partner_commission_amount' => $partnerCommissionAmount,
+                    'commission_status' => Commission::STATUS_PROCESSING,
+                    'payment_status' => Commission::PAYMENT_STATUS_UNPAID,
+                ]);
+            }
+        }
+
+        return ApiResponse::success(new ApplicationFundingApplicationResource($application), __('application.status_updated'));
+    }
+    /**
+     * Get Pre-Qualification Card Summary
+     */
+    public function getPreQualificationCardSummary()
+    {
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $baseQuery = PreQualificationRequest::where('status', '!=', PreQualificationRequest::ON_HOLD)
+            ->when(Auth::user()->user_type == User::PARTNER, function ($q) use($partnerId) {
+                $q->where('partner_id', $partnerId);
+            });
+
+        return ApiResponse::success([
+            'total_applications' => (clone $baseQuery)->count(),
+            'approved' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->count(),
+            'pending' => (clone $baseQuery)->where('status', PreQualificationRequest::PENDING)->count(),
+            'approved_amount' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount'),
+        ]);
+    }
+
+    /**
+     * Get Funding Application Card Summary
+     */
+    public function getFundingApplicationCardSummary()
+    {
+        $authUser = Auth::user();
+
+        $baseQuery = FundingApplication::where('status', '!=', FundingApplication::ON_HOLD)
+            ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
+                $query->where('partner_id', $authUser->partner_id);
+            });
+
+        return ApiResponse::success([
+            'total_applications' => (clone $baseQuery)->count(),
+            'approved' => (clone $baseQuery)->where('status', FundingApplication::CLOSED_COMPLETED)->count(),
+            'pending' => (clone $baseQuery)->where('status', FundingApplication::PENDING)->count(),
+            'approved_amount' => currencyFormat((clone $baseQuery)->where('status', FundingApplication::CLOSED_COMPLETED)->sum('requested_amount')),
+        ]);
+    }
+
+}

@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Models\CreditBuilder;
+
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\MigratedTask;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class BorrowerTaskVerificationRequest extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    protected $fillable = [
+        'borrower_id',
+        'partner_id',
+        'tier_id',
+        'task_id',
+        'status',
+        'verified_by',
+        'verified_at',
+        'note',
+        'verified_with',
+        'migrated_task_id',
+        'microbilt_response',
+    ];
+
+    protected $casts = [
+        'verified_at' => 'datetime',
+        'note' => 'string',
+        'microbilt_response' => 'array',
+    ];
+
+    public const PENDING = 'pending';
+    public const PROCESSING = 'processing';
+    public const COMPLETED = 'verified';
+    public const REJECTED = 'rejected';
+
+    public const MANUALLY_VERIFIED = 'Manual';
+    public const MICROBILT_VERIFIED = 'MicroBilt';
+
+    // Task IDs
+    public const TASK_EIN_VERIFICATION      = 1;
+    public const TASK_IDENTITY_VERIFICATION = 7;
+
+    public const STATUS = [
+        self::PENDING => self::PENDING,
+        self::PROCESSING => self::PROCESSING,
+        self::COMPLETED => self::COMPLETED,
+        self::REJECTED => self::REJECTED,
+    ];
+
+    public function borrower(): BelongsTo
+    {
+        return $this->belongsTo(Borrower::class);
+    }
+
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
+    public function tier(): BelongsTo
+    {
+        return $this->belongsTo(Tier::class);
+    }
+
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(TierTask::class, 'task_id');
+    }
+
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function migratedTask(): BelongsTo
+    {
+        return $this->belongsTo(MigratedTask::class, 'migrated_task_id');
+    }
+}

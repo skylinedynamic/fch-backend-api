@@ -35,4 +35,30 @@ return [
         ],
     ],
 
+    // Microsoft Graph / SharePoint configuration
+    'microsoft' => [
+        'tenant_id' => env('MS_TENANT_ID'),
+        'client_id' => env('MS_CLIENT_ID'),
+        'client_secret' => env('MS_CLIENT_SECRET'),
+        'sharepoint_site_id' => env('MS_SHAREPOINT_SITE_ID'),
+        'calendar_service_email' => env('MS_CALENDAR_SERVICE_EMAIL'), // The internal account that hosts events
+        'login_endpoint' => env('MS_LOGIN_ENDPOINT', 'https://login.microsoftonline.com/'),
+        'graph_endpoint' => env('MS_GRAPH_ENDPOINT', 'https://graph.microsoft.com/v1.0'),
+        'default_scope'  => env('MS_DEFAULT_SCOPE', 'https://graph.microsoft.com/.default'),
+    ],
+
+    'microbilt' => [
+        'base_url' => env('MICROBILT_BASE_URL', 'https://api.microbilt.com/'), // Default to prod or sandbox URL
+        'client_id' => env('MICROBILT_CLIENT_ID'),
+        'client_secret' => env('MICROBILT_CLIENT_SECRET'),
+    ],
+
+    'opencorporates' => [
+        'api_token' => env('OPENCORPORATES_API_TOKEN'),
+    ],
+
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
+
 ];

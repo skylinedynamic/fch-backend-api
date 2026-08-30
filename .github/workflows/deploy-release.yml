@@ -1,0 +1,95 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-dev --optimize-autoloader
+
+      - name: Deploy Files to EC2 via Rsync
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PROD_EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.PROD_EC2_HOST }}
+          REMOTE_USER: ${{ secrets.PROD_EC2_USER }}
+          SOURCE: "./"
+          TARGET: "/var/www/html/api-portal"
+          EXCLUDE: "/.git/, /.github/, /tests/, /node_modules/, /.env, /.env.example, /storage/, /bootstrap/cache/, /public/storage/"
+          ARGS: "-rltgoDzvO --delete"
+          SSH_CMD_ARGS: "-o StrictHostKeyChecking=no"
+          SCRIPT_BEFORE: |
+            echo "Ensuring target directory exists..."
+            sudo mkdir -p /var/www/html/api-portal
+            echo "Granting SSH user write access..."
+            sudo chown -R $(whoami):$(whoami) /var/www/html/api-portal
+
+      - name: Write .env File to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ${{ secrets.PROD_EC2_USER }}
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          envs: PROD_ENV_FILE
+          script: |
+            echo "$PROD_ENV_FILE" > /var/www/html/api-portal/.env
+            echo ".env file written successfully."
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+
+      - name: Run Post-Deploy Commands on Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_EC2_HOST }}
+          username: ${{ secrets.PROD_EC2_USER }}
+          key: ${{ secrets.PROD_EC2_SSH_KEY }}
+          script: |
+            cd /var/www/html/api-portal
+
+            echo "Clearing old bootstrap cache to prevent dev package mismatch..."
+            sudo rm -f bootstrap/cache/*.php
+
+            echo "Running Production Artisan Commands..."
+            sudo php artisan optimize:clear
+            sudo php artisan optimize
+            sudo php artisan storage:link
+            sudo php artisan migrate --force
+            sudo php artisan queue:restart || true
+            php artisan log-viewer:publish
+
+            echo "Setting correct directory permissions for Nginx..."
+            sudo chown -R www-data:www-data /var/www/html/api-portal
+            sudo chmod -R 775 /var/www/html/api-portal/storage /var/www/html/api-portal/bootstrap/cache || true
+            
+            echo "Securing OAuth keys..."
+            sudo chmod 600 /var/www/html/api-portal/storage/*.key || true
+
+            echo "Restarting Nginx and PHP-FPM..."
+            sudo systemctl restart nginx
+            
+            # Dynamically restart PHP-FPM by finding its service name
+            FPM_SERVICE=$(sudo systemctl list-units --type=service | grep -i php | grep -i fpm | awk '{print $1}' | head -n 1)
+            if [ -n "$FPM_SERVICE" ]; then
+                echo "Restarting $FPM_SERVICE..."
+                sudo systemctl restart $FPM_SERVICE
+            else
+                echo "No PHP-FPM service found to restart. Skipped."
+            fi
+            
+            echo "Deployment complete!"
+

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
+use App\Services\Global\SharePoint\SharePointService;
 
 trait UploadsFiles
 {
@@ -72,8 +73,27 @@ trait UploadsFiles
         $disk = $this->resolveDisk($disk);
         $filename = $this->makeFilename($file, $filename);
         $dir = trim($directory, '/');
-        $this->ensureDirectory($dir, $disk);
 
+        // Unified: SharePoint branch
+        if ($disk === 'sharepoint') {
+            $sp = app(SharePointService::class);
+            $item = $sp->uploadFile($file, $dir, $filename, null);
+            $path = ($dir ? $dir . '/' : '') . $filename;
+            return [
+                'disk'          => 'sharepoint',
+                'directory'     => $dir,
+                'path'          => $path,
+                'url'           => $item['webUrl'] ?? $item['downloadUrl'] ?? null,
+                'sp_item_id'    => $item['id'] ?? null,
+                'original_name' => $file->getClientOriginalName(),
+                'extension'     => $file->getClientOriginalExtension(),
+                'mime'          => $file->getClientMimeType(),
+                'size'          => $file->getSize(),
+            ];
+        }
+
+        // Default: Local/S3 via Laravel Storage
+        $this->ensureDirectory($dir, $disk);
         $options = $public ? ['visibility' => 'public'] : [];
         $path = Storage::disk($disk)->putFileAs($dir, $file, $filename, $options);
 
@@ -96,6 +116,16 @@ trait UploadsFiles
     {
         $results = [];
         $dir = trim($directory, '/');
+
+        if ($this->resolveDisk($disk) === 'sharepoint') {
+            foreach ($files as $file) {
+                if ($file instanceof UploadedFile) {
+                    $results[] = $this->uploadFile($file, $dir, 'sharepoint', null, $public);
+                }
+            }
+            return $results;
+        }
+
         $this->ensureDirectory($dir, $disk);
         foreach ($files as $file) {
             if ($file instanceof UploadedFile) {
@@ -124,10 +154,56 @@ trait UploadsFiles
     }
 
     /**
+     * Upload a single file to Microsoft SharePoint via Graph API.
+     */
+    protected function uploadFileToSharePoint(UploadedFile $file, string $directory = 'uploads', ?string $siteId = null, ?string $filename = null): array
+    {
+        $sp = app(SharePointService::class);
+        return $sp->uploadFile($file, $directory, $filename, $siteId);
+    }
+
+    /**
+     * Upload multiple files to Microsoft SharePoint via Graph API.
+     */
+    protected function uploadFilesToSharePoint(array|Collection $files, string $directory = 'uploads', ?string $siteId = null): array
+    {
+        $results = [];
+        foreach ($files as $file) {
+            if ($file instanceof UploadedFile) {
+                $results[] = $this->uploadFileToSharePoint($file, $directory, $siteId);
+            }
+        }
+        return $results;
+    }
+
+    /**
      * Delete a file by storage path on selected disk.
      */
     protected function deleteFile(string $path, ?string $disk = null): bool
     {
-        return Storage::disk($this->resolveDisk($disk))->delete($path);
+        $disk = $this->resolveDisk($disk);
+        if ($disk === 'sharepoint') {
+            $sp = app(SharePointService::class);
+            return $sp->deleteItemByPath($path, null);
+        }
+        return Storage::disk($disk)->delete($path);
+    }
+
+    /**
+     * Delete a SharePoint file by drive item ID.
+     */
+    protected function deleteSharePointFileById(string $itemId, ?string $siteId = null): bool
+    {
+        $sp = app(SharePointService::class);
+        return $sp->deleteItemById($itemId, $siteId);
+    }
+
+    /**
+     * Delete a SharePoint file by path under drive root.
+     */
+    protected function deleteSharePointFileByPath(string $path, ?string $siteId = null): bool
+    {
+        $sp = app(SharePointService::class);
+        return $sp->deleteItemByPath($path, $siteId);
     }
 }

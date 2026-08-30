@@ -1,11 +1,42 @@
 <?php
+
 return [
     'fetch_personal_profile' => 'Fetch Borrower Profile',
     'update_personal_profile' => 'Update Borrower Profile',
     'update_personal_profile_failed' => 'Failed to update profile. Please try again.',
     'fetch_profile_completion' => 'Fetch Profile Completion Status',
+    'failed_to_update_profile' => 'Failed to update profile',
+    'signup_id_not_found' => 'Signup ID not found',
 
-    'signup_id_not_found' => 'BorrowerAuthService registerBorrower error: Signup ID not found',
+    // Funding Application
+    'ownership_info_not_found' => 'Ownership information not found',
+    'fetch_ownership_info' => 'Fetch Ownership Information',
+    'fetch_ownership_info_failed' => 'Failed to fetch ownership information. Please try again.',
+    'ownership_info_updated_successfully' => 'Ownership information updated successfully',
+    'ownership_info_update_failed' => 'Failed to update ownership information. Please try again.',
+
+    'fetch_financial_info' => 'Fetch Financial Information',
+    'fetch_financial_info_failed' => 'Failed to fetch financial information. Please try again.',
+
+    'funding_request_not_found' => 'Funding request information not found',
+    'fetch_funding_request' => 'Fetch Funding Request',
+    'fetch_funding_request_failed' => 'Failed to fetch funding request information. Please try again.',
+
+    'disclosures_and_consent_not_found' => 'Disclosures and consent information not found',
+    'fetch_disclosures_and_consent' => 'Fetch Disclosures and Consent',
+    'fetch_disclosures_and_consent_failed' => 'Failed to fetch disclosures and consent information. Please try again.',
+    'disclosures_and_consent_updated_successfully' => 'Disclosures and consent updated successfully',
+    'disclosures_and_consent_update_failed' => 'Failed to update disclosures and consent. Please try again.',
+    'fetch_federal_compliance_disclosures' => 'Fetch Federal Compliance Disclosures',
+    'fetch_federal_compliance_disclosures_failed' => 'Failed to fetch federal compliance disclosures. Please try again.',
+    'federal_compliance_not_found' => 'Federal compliance information not found',
+    'federal_compliance_disclosures_updated_successfully' => 'Federal compliance disclosures updated successfully',
+    'federal_compliance_disclosures_update_failed' => 'Failed to update federal compliance disclosures. Please try again.',
+    'attestation_and_authorization_updated_successfully' => 'Attestation and authorization updated successfully',
+    'attestation_and_authorization_update_failed' => 'Failed to update attestation and authorization. Please try again.',
+    'attestation_and_authorization_not_found' => 'Attestation and authorization information not found',
+    'fetch_attestation_and_authorization' => 'Fetch Attestation and Authorization',
+    'fetch_attestation_and_authorization_failed' => 'Failed to fetch attestation and authorization. Please try again.',
 
     // Business Info Messages
     'fetch_business_info' => 'Fetch Business Information',
@@ -19,7 +50,7 @@ return [
     'file_too_large' => 'File size is too large. Maximum allowed size is 2MB.',
     'unauthorized_access' => 'Unauthorized access to business information',
     'fetch_business_info_failed' => 'Failed to fetch business information. Please try again.',
-    
+
     // Financial Info Messages
     'financial_info_fetched_successfully' => 'Financial information fetched successfully',
     'financial_info_updated_successfully' => 'Financial information updated successfully',
@@ -27,9 +58,135 @@ return [
     'financial_info_update_failed' => 'Failed to update financial information. Please try again.',
     'financial_info_fetch_failed' => 'Failed to fetch financial information. Please try again.',
 
+    // Funding Request Messages
+    'funding_request_updated_successfully' => 'Funding request updated successfully',
+    'funding_request_update_failed' => 'Failed to update funding request. Please try again.',
+
     // Pre-Qualification Messages
     'pre_qualification_submitted_successfully' => 'Pre-qualification request submitted successfully',
     'pre_qualification_submission_failed' => 'Failed to submit pre-qualification request. Please try again.',
     'pre_qualification_list_success' => 'Pre-qualification requests fetched successfully',
     'pre_qualification_list_failed' => 'Failed to fetch pre-qualification requests. Please try again.',
+    'pre_qualification_request_success' => 'Pre-qualification request fetched successfully',
+    'pre_qualification_request_failed' => 'Failed to fetch pre-qualification request. Please try again.',
+    'pre_qualification_personal_info_successfully' => 'Pre-qualification personal information updated successfully',
+    'pre_qualification_personal_info_failed' => 'Failed to update pre-qualification personal information. Please try again.',
+    'pre_qualification_business_info_successfully' => 'Pre-qualification business information updated successfully',
+    'pre_qualification_business_info_failed' => 'Failed to update pre-qualification business information. Please try again.',
+    'pre_qualification_funding_info_successfully' => 'Pre-qualification funding information updated successfully',
+    'pre_qualification_funding_info_failed' => 'Failed to update pre-qualification funding information. Please try again.',
+    'pre_qualification_request_not_found' => 'Pre-qualification request not found',
+    'pre_qualification_not_found' => 'Pre-qualification application not found',
+    'pre_qualification_retrieved_successfully' => 'Pre-qualification application retrieved successfully',
+    'pre_qualification_retrieval_failed' => 'Failed to retrieve pre-qualification application. Please try again.',
+    'zapier_webhook_failed' => 'Failed to submit pre-qualification request to Zapier. Please try again.',
+    'get_pre_qualification_applications' => 'Pre-qualification applications fetched successfully',
+    'get_pre_qualification_applications_failed' => 'Failed to fetch pre-qualification applications. Please try again.',
+    'get_funding_applications' => 'Funding applications fetched successfully',
+    'get_funding_applications_failed' => 'Failed to fetch funding applications. Please try again.',
+
+    // Success Messages
+
+    'list' => 'Borrowers retrieved successfully.',
+    'retrieved' => 'Borrowers retrieved successfully.',
+    'retrieved_details' => 'Borrower details retrieved successfully.',
+    'created' => 'Borrower created successfully.',
+    'updated' => 'Borrower updated successfully.',
+    'deleted' => 'Borrower(s) deleted successfully.',
+    'users_retrieved' => 'Users retrieved successfully.',
+    'document_types_retrieved' => 'Document types retrieved successfully.',
+    'stats_retrieved' => 'Stats retrieved successfully.',
+    'tiers_retrieved' => 'Tiers retrieved successfully.',
+    'credit_builder_progress_retrieved' => 'Credit builder progress retrieved successfully.',
+    'task_overview_retrieved' => 'Task overview retrieved successfully.',
+    'tier_task_list_retrieved' => 'Tier task list retrieved successfully.',
+    'funding_data_retrieved' => 'Funding data retrieved successfully.',
+    'funding_option_retrieved' => 'Funding option details retrieved successfully.',
+    'upload_success' => 'Document uploaded successfully.',
+    'document_uploaded_successfully' => 'Document uploaded successfully.',
+    'document_deleted_successfully' => 'Document deleted successfully.',
+
+    // Error Messages
+
+    'list_failed' => 'Failed to retrieve borrowers.',
+    'not_found' => 'Borrower not found.',
+    'funding_data_failed' => 'Failed to load funding data.',
+    'funding_option_failed' => 'Funding option not found or failed to load.',
+    'create_failed' => 'Failed to create borrower.',
+    'update_failed' => 'Failed to update borrower.',
+    'delete_failed' => 'Failed to delete borrower(s).',
+    'fetch_failed' => 'Failed to fetch borrower details.',
+    'users_fetch_failed' => 'Failed to retrieve users.',
+    'document_types_fetch_failed' => 'Failed to fetch document types.',
+    'stats_retrieved_failed' => 'Failed to retrieve stats.',
+    'tiers_fetch_failed' => 'Failed to retrieve tiers.',
+    'upload_failed' => 'Failed to upload document.',
+    'document_delete_failed' => 'Failed to delete document.',
+    'document_not_found' => 'Document not found.',
+    'document_status_updated' => 'Document status updated successfully.',
+    'document_status_update_failed' => 'Failed to update document status.',
+    'documents_fetched_successfully' => 'Documents fetched successfully.',
+    'documents_fetched_failed' => 'Failed to fetch documents.',
+    'funding_application_id_required' => 'Funding application id is required',
+
+    // Miscellaneous
+    'user_id_required' => 'User ID is required.',
+    'user_not_found' => 'User not found.',
+    'invalid_borrower_doc_type' => 'Invalid borrower document type.',
+    'file_required' => 'File is required.',
+    'file_array' => 'File must be an array of files.',
+    'file_min' => 'At least one file must be provided.',
+    'assign_id_exists' => 'Selected assigned user does not exist.',
+    'advisor_not_assigned' => 'No advisor assigned.',
+    'advisor_not_found' => 'Advisor not found.',
+    'advisor_retrieved' => 'Advisor details retrieved successfully.',
+    'each_file_must_be_file' => 'Each item in files must be a valid file.',
+    'file_name_required_when_no_type' => 'File name is required when no type is provided.',
+    'name_required_when_no_type' => 'Name is required when no type is provided.',
+    'files_required' => 'Files are required.',
+    'files_array' => 'Files must be an array.',
+    'files_min' => 'At least one file must be provided.',
+    'each_file_invalid_type' => 'Each file must be of type jpg, jpeg, png, pdf, doc, or docx.',
+    'each_file_too_large' => 'Each file must be 2MB or smaller.',
+
+
+    // Credit Builder Messages
+    'task_verify_request_success' => 'Task verify request submitted successfully',
+    'task_verify_request_failed' => 'Failed to submit task verify request. Please try again.',
+    'file_path_not_found' => 'File path not found in record.',
+    'file_not_found_on_server' => 'File not found on server.',
+    'account_created_subject' => 'Welcome to :company_name',
+    'payment_link_subject' => ':company - Complete Your Payment to Activate Your Account',
+    'download_failed' => 'Failed to download document. Please try again.',
+
+
+    'borrower_not_found' => 'Borrower not found.',
+    'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Limited Access Edition</span> plan. Access time is for lifetime.',
+    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'default_enrollment_type' => 'Paid Enrollment',
+    'field_updated' => ':field was updated to :value',
+    'empty_value' => 'empty',
+
+    // Billing & Subscription Messages
+    'billing_details_retrieved' => 'Billing details retrieved successfully.',
+    'payment_providers_retrieved' => 'Payment providers retrieved successfully.',
+    'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'subscription_not_found' => 'No active subscription found.',
+    'subscription_already_cancelled' => 'Subscription is already cancelled.',
+    'subscription_cancelled' => 'Subscription cancelled successfully.',
+    'provider_name_required' => 'Provider name is required.',
+
+    // Change Request Messages & Defaults
+    'field_mapping_not_found' => 'Field mapping not found for: :field',
+    'change_request_submitted_subject' => 'New Profile Change Request Submitted',
+    'default_borrower_name' => 'Borrower',
+    'host_partner' => 'Host Partner',
+    'not_applicable' => 'N/A',
+
+    'mail' => [
+        'subject_account_created' => 'Welcome to :company - Your Borrower Account Details & Enrollment',
+        'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
+        'subject_account_created_trial' => 'Welcome to :company - Limited Free Edition',
+        'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
+    ],
 ];
