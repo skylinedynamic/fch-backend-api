@@ -97,7 +97,10 @@ class DatabaseSeeder extends Seeder
             FundingSequencingSeeder::class,
             LenderFundingPermissionSeeder::class,
             FundingRequestPermissionSeeder::class,
-            UpdateDomainConfigurationPermissionSeeder::class
+            UpdateDomainConfigurationPermissionSeeder::class,
         ]);
     }
 }
+
+
+//      EmbeddedLoanApplicationFormPermissionSeeder::class,
