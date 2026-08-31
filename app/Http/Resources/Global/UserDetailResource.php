@@ -29,7 +29,7 @@ class UserDetailResource extends JsonResource
             'total_free_users' => $this->partner?->total_free_users,
             'is_refresh' => (boolval($this->is_refresh)),
             'is_free_trail' => (bool) ($this->entity?->is_free_trail ?? $this->partner?->is_free_trail ?? false),
-            'free_trail_end_date' => ($this->entity?->free_trail_end_date ?? $this->partner?->free_trail_end_date ?? null)?->toDateString(),
+            'free_trail_end_date' => toTimezone($this->entity?->free_trail_end_date ?? $this->partner?->free_trail_end_date ?? null, null, 'Y-m-d'),
         ];
     }
 }

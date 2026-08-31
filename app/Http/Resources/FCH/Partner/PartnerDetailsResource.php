@@ -53,7 +53,7 @@ class PartnerDetailsResource extends JsonResource
             'monthly_platform_fee' => $this->subscription?->monthly_platform_fee ?? null,
             'has_sign' => $this->has_sign,
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->format('Y-m-d') : null,
+            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
             'created_at' => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,

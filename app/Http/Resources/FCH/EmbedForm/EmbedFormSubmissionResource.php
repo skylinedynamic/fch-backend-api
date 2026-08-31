@@ -71,9 +71,7 @@ class EmbedFormSubmissionResource extends JsonResource
                     'full_name' => trim("{$this->convertedBorrower->first_name} {$this->convertedBorrower->last_name}"),
                     'status' => $this->convertedBorrower->status,
                     'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
-                    'free_trail_end_date' => $this->convertedBorrower->free_trail_end_date
-                        ? $this->convertedBorrower->free_trail_end_date->toDateString()
-                        : null,
+                    'free_trail_end_date' => toTimezone($this->convertedBorrower->free_trail_end_date, null, 'Y-m-d'),
                 ] : null;
             }),
 

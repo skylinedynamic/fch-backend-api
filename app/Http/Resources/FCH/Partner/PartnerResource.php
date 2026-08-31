@@ -48,7 +48,7 @@ class PartnerResource extends JsonResource
             'total_paid_users' => $this->total_paid_users,
             'total_free_users' => $this->total_free_users,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->toDateString() : null,
+            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
             'created_at' => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,
