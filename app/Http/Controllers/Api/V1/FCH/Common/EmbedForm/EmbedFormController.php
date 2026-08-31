@@ -154,7 +154,7 @@ class EmbedFormController extends Controller
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $submission = EmbedFormSubmission::with('attachments', 'partner')->find($id);
+        $submission = EmbedFormSubmission::with('attachments', 'partner', 'convertedBorrower')->find($id);
 
         if (!$submission) {
             return ApiResponse::notFound(__('embed_form.submission_not_found'));

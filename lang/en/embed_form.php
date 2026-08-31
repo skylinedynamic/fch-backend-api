@@ -13,7 +13,7 @@ return [
     'submission_success' => 'Your application has been submitted successfully. We will be in touch soon!',
 
     // Conversion
-    'converted_to_borrower' => 'Submission successfully converted to Borrower.',
+    'converted_to_borrower' => 'Submission successfully converted to a Free Trial Borrower.',
     'conversion_failed' => 'Conversion failed.',
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
@@ -43,5 +43,5 @@ return [
     // Logs
     'log_store_failed' => 'EmbedFormService::storeSubmission failed',
     'log_notification_failed' => 'Failed to send embed form notification email',
-    'log_conversion_failed' => 'Embed form submission to borrower conversion failed',
+    'log_conversion_failed' => 'Embed form submission to free trial borrower conversion failed',
 ];

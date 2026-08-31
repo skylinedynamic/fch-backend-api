@@ -63,6 +63,20 @@ class EmbedFormSubmissionResource extends JsonResource
                 ];
             }),
 
+            // Free trial borrower created from this submission
+            'converted_borrower_id' => $this->converted_borrower_id,
+            'converted_borrower' => $this->whenLoaded('convertedBorrower', function () {
+                return $this->convertedBorrower ? [
+                    'id' => $this->convertedBorrower->id,
+                    'full_name' => trim("{$this->convertedBorrower->first_name} {$this->convertedBorrower->last_name}"),
+                    'status' => $this->convertedBorrower->status,
+                    'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
+                    'free_trail_end_date' => $this->convertedBorrower->free_trail_end_date
+                        ? $this->convertedBorrower->free_trail_end_date->toDateString()
+                        : null,
+                ] : null;
+            }),
+
             // Attachments
             'attachments' => EmbedFormAttachmentResource::collection($this->whenLoaded('attachments')),
 

@@ -199,7 +199,7 @@ class EmbedFormService
      */
     public function getSubmissions(int $partnerId, array $filters = []): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = EmbedFormSubmission::with('attachments')
+        $query = EmbedFormSubmission::with('attachments', 'convertedBorrower')
             ->where('partner_id', $partnerId);
 
         if (!empty($filters['search'])) {
@@ -235,11 +235,15 @@ class EmbedFormService
     public function updateStatus(EmbedFormSubmission $submission, string $status): EmbedFormSubmission
     {
         $submission->update(['status' => $status]);
-        return $submission->fresh(['attachments']);
+        return $submission->fresh(['attachments', 'convertedBorrower']);
     }
 
     /**
-     * Convert an EmbedFormSubmission to a Borrower.
+     * Convert an EmbedFormSubmission to a Free Trial Borrower.
+     *
+     * Embed form applicants are always enrolled on a free trial, so no plan or
+     * enrollment payment is involved — the borrower is created as active with no
+     * trial end date (unlimited access until manually upgraded or suspended).
      */
     public function convertToBorrower(EmbedFormSubmission $submission, array $data = []): array
     {
@@ -264,6 +268,7 @@ class EmbedFormService
                 }
             }
 
+            // Embed form conversions are always free trial enrollments with no expiry.
             $borrowerData = [
                 'first_name' => $submission->first_name,
                 'last_name' => $submission->last_name,
@@ -279,27 +284,30 @@ class EmbedFormService
                 'country' => 'United States',
                 'country_code' => 'US',
                 'last_4_ssn' => $ssnDecrypted ? substr($ssnDecrypted, -4) : null,
-                'status' => Borrower::STATUS_ONBOARDING,
+                'status' => Borrower::STATUS_ACTIVE,
                 'partner_id' => $submission->partner_id ?: (auth()->user()?->partner_id ?? null),
-                'plan_id' => $data['plan_id'] ?? null,
-                'enrollment_payment' => $data['enrollment_amount'] ?? ($data['payment_amount'] ?? null),
-                'is_free_trail' => $data['is_free_trail'] ?? null,
+                'plan_id' => null,
+                'enrollment_payment' => null,
+                'is_free_trail' => true,
+                'free_trail_end_date' => null,
                 'assign_id' => $data['salesperson_id'] ?? null,
             ];
 
             $result = $borrowerService->store($borrowerData);
             $borrower = $result['borrower'] ?? $result;
+            $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
 
             $submission->update([
                 'status' => EmbedFormSubmission::STATUS_CONVERTED,
+                'converted_borrower_id' => $borrowerId,
             ]);
 
             DB::commit();
             return [
                 'borrower' => $borrower,
-                'id' => is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null),
-                'invoice_id' => $result['invoice_id'] ?? null,
-                'payment_amount' => $result['payment_amount'] ?? ($data['enrollment_amount'] ?? 0),
+                'id' => $borrowerId,
+                'is_free_trail' => true,
+                'free_trail_end_date' => null,
             ];
         } catch (\Throwable $e) {
             DB::rollBack();

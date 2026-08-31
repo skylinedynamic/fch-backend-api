@@ -2,6 +2,7 @@
 
 namespace App\Models\EmbedForm;
 
+use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,6 +54,11 @@ class EmbedFormSubmission extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(EmbedFormAttachment::class, 'submission_id');
+    }
+
+    public function convertedBorrower(): BelongsTo
+    {
+        return $this->belongsTo(Borrower::class, 'converted_borrower_id');
     }
 
     public function getFullNameAttribute(): string
