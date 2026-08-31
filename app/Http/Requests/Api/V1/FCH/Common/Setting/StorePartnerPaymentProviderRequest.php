@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
-use App\Models\PaymentMethod\PaymentMethod;
 use App\Models\PaymentMethod\PaymentProvider;
 use Illuminate\Validation\Rule;
 

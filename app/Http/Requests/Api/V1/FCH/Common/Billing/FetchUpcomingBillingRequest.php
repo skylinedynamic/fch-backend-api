@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Billing;
 
+use App\Models\User\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FetchUpcomingBillingRequest extends FormRequest
@@ -29,6 +30,12 @@ class FetchUpcomingBillingRequest extends FormRequest
             'per_page'   => ['nullable', 'integer', 'min:1'],
             'sort_field' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'in:asc,desc'],
+            // Must be declared here — the controller passes validated() through, so
+            // anything missing from these rules is silently dropped before it ever
+            // reaches the service.
+            'view'       => ['nullable', 'in:all,paused,overdue,scheduled'],
+            // Same vocabulary the frontend uses (ENTITY_TYPE_* in appConfig.ts).
+            'entity_type' => ['nullable', 'in:' . User::PARTNER . ',' . User::BORROWER],
         ];
     }
 }

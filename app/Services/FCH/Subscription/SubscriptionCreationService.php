@@ -50,6 +50,7 @@ class SubscriptionCreationService
             'installment_count' => null,
             'subscription_start_date' => null,
             'subscription_end_date' => null,
+            'expected_end_date' => null,
             'status' => Subscription::STATUS_PENDING,
             'user_seats' => 1,
             'per_seat_amount' => $amount ?? $plan->total_amount,

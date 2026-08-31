@@ -7,7 +7,6 @@ use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Payment\Payment;
 use App\Models\Subscription\Subscription;
-use App\Models\Subscription\SubscriptionPhase;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use Illuminate\Database\Seeder;
@@ -72,17 +71,6 @@ class DemoSubscriberSeeder extends Seeder
             ]
         );
 
-        // 4. Create Phases
-        SubscriptionPhase::updateOrCreate(
-            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_ENROLLMENT],
-            ['installments_paid' => 1, 'next_installment_date' => '2026-11-27']
-        );
-
-        SubscriptionPhase::updateOrCreate(
-            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE],
-            ['installments_paid' => 0, 'next_platform_fee_date' => null]
-        );
-
         // 5. Create 1 Invoice and 1 Payment
         $this->createSinglePayment($partner, Partner::class, $user, $subscription);
     }
@@ -118,17 +106,6 @@ class DemoSubscriberSeeder extends Seeder
                 'subscription_end_date' => '2026-11-26',
                 'status' => Subscription::STATUS_ACTIVE,
             ]
-        );
-
-        // 4. Phase
-        SubscriptionPhase::updateOrCreate(
-            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_ENROLLMENT],
-            ['installments_paid' => 1, 'next_installment_date' => '2026-11-27']
-        );
-
-        SubscriptionPhase::updateOrCreate(
-            ['subscription_id' => $subscription->id, 'phase' => SubscriptionPhase::PHASE_PLATFORM_FEE],
-            ['installments_paid' => 0, 'next_platform_fee_date' => null]
         );
 
         // 5. Create 1 Invoice and 1 Payment

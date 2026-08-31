@@ -215,7 +215,7 @@ class UserService
                 'borrower',
                 'entity' => function ($morphTo) {
                     $morphTo->morphWith([
-                        Borrower::class => ['subscription.enrollmentPhase', 'subscription.platformFeePhase'],
+                        Borrower::class => ['subscription'],
                         Partner::class => ['subscription'],
                         Employee::class => [], // optional (add relations if needed)
                     ]);

@@ -83,7 +83,7 @@ class BorrowerDetailsResource extends JsonResource
                 'installment_remaining_balance' => (float) ($latestSub->payable_amount - $latestSub->down_payment),
                 'installment_remaining_balance_formatted' => currencyFormat($latestSub->payable_amount - $latestSub->down_payment),
                 'subscription_start_date' => toTimezone($latestSub->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date' => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'),
+                'subscription_end_date' => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'), // paid through
                 'status' => $latestSub->status,
             ] : null,
 

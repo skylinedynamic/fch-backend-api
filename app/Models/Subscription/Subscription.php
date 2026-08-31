@@ -12,6 +12,18 @@ use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+/**
+ * subscription_end_date vs expected_end_date:
+ *  - subscription_end_date: paid through this date. Only moves on an actual
+ *    successful payment (handleOneTimePayment / handleInstallmentPayment /
+ *    handleUserSeatPayment in SubscriptionService).
+ *  - expected_end_date: the scheduling field. generateDueInvoices() and
+ *    createInvoiceIfDue() key off THIS, not subscription_end_date. It advances
+ *    both on payment and on a missed-cycle rollover (invoice expired, next
+ *    cycle generated) — so it can run ahead of subscription_end_date.
+ *  The gap between the two is, by construction, how far behind a subscription
+ *  actually is on real payment.
+ */
 class Subscription extends Model
 {
     use HasFactory, SoftDeletes;
@@ -31,6 +43,7 @@ class Subscription extends Model
     const PHASE_INSTALLMENT = 'installment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
     const PHASE_USER_SEAT = 'user_seat';
+    const PHASE_COMPLETED = 'completed';
 
     protected $table = 'subscriptions';
 
@@ -51,6 +64,8 @@ class Subscription extends Model
         'installment_count',
         'subscription_start_date',
         'subscription_end_date',
+        'expected_end_date',
+        'billing_paused_at',
         'current_cycle_invoice_id',
         'status',
         'is_custom',
@@ -65,6 +80,8 @@ class Subscription extends Model
         'first_payment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'expected_end_date' => 'date',
+        'billing_paused_at' => 'datetime',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',
         'total_subscription_amount' => 'decimal:2',
@@ -115,24 +132,19 @@ class Subscription extends Model
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'current_cycle_invoice_id');
     }
 
-    public function allPhases()
+    public function invoices()
     {
-        return $this->hasMany(SubscriptionPhase::class);
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id');
     }
 
-    public function phases()
+    /**
+     * Invoices still owed. Excludes Expired — a rolled-past cycle is not a
+     * collectable debt, it is a record of a cycle that was missed.
+     */
+    public function unpaidInvoices()
     {
-        return $this->hasOne(SubscriptionPhase::class)->latestOfMany();
-    }
-
-    public function enrollmentPhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_ENROLLMENT);
-    }
-
-    public function platformFeePhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE);
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id')
+            ->where('status', \App\Models\Invoice\Invoice::STATUS_UNPAID);
     }
 
     /**
@@ -181,28 +193,6 @@ class Subscription extends Model
     }
 
     /**
-     * Scope: join enrollment phase.
-     */
-    public function scopeWithEnrollmentPhase($query)
-    {
-        return $query->leftJoin('subscription_phases as ep', function ($join) {
-            $join->on('subscriptions.id', '=', 'ep.subscription_id')
-                ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
-        })->addSelect('ep.next_installment_date');
-    }
-
-    /**
-     * Scope: join platform fee phase.
-     */
-    public function scopeWithPlatformFeePhase($query)
-    {
-        return $query->leftJoin('subscription_phases as pfp', function ($join) {
-            $join->on('subscriptions.id', '=', 'pfp.subscription_id')
-                ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
-        })->addSelect('pfp.next_platform_fee_date');
-    }
-
-    /**
      * Scope: join borrower table.
      */
     public function scopeWithBorrower($query)
@@ -215,6 +205,63 @@ class Subscription extends Model
                 'borrowers.last_name'
                 // We can resolve full name in concatenation or view
             );
+    }
+
+    /**
+     * Whether billing is currently stopped for this subscription.
+     *
+     * Checks the subscriber's LIVE status as well as billing_paused_at, because
+     * that flag is only stamped when the cron next processes the row — so between
+     * an admin suspending someone and the next cron run the flag is still null
+     * while billing is, in reality, already stopped. Reading the status directly
+     * keeps the screen honest in that window.
+     *
+     * Falls back to the flag alone when the relations are not loaded, so it is safe
+     * under Model::preventLazyLoading().
+     */
+    public function getIsBillingPausedAttribute(): bool
+    {
+        if ($this->billing_paused_at) {
+            return true;
+        }
+
+        return $this->billingPausedReason() !== null;
+    }
+
+    /**
+     * Why billing is stopped, or null. Only inspects relations already loaded.
+     */
+    public function billingPausedReason(): ?string
+    {
+        if ($this->entity_type === Partner::class && $this->relationLoaded('partner')) {
+            $partner = $this->partner;
+
+            return ($partner && $partner->status !== Partner::STATUS_ACTIVE)
+                ? 'Partner is ' . $partner->status
+                : null;
+        }
+
+        if ($this->entity_type === Borrower::class && $this->relationLoaded('borrower')) {
+            $borrower = $this->borrower;
+
+            if (!$borrower) {
+                return null;
+            }
+
+            if ($borrower->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower is ' . $borrower->status;
+            }
+
+            // A borrower reaches the platform through their partner, so a suspended
+            // partner stops the borrower's billing too.
+            if ($borrower->relationLoaded('partner') && $borrower->partner
+                && $borrower->partner->status !== Partner::STATUS_ACTIVE) {
+                return 'Partner ' . ($borrower->partner->company_name ?: $borrower->partner->full_name)
+                    . ' is ' . $borrower->partner->status;
+            }
+        }
+
+        return $this->billing_paused_at ? 'Billing paused' : null;
     }
 
     /**

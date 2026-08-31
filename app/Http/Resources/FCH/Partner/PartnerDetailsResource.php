@@ -71,7 +71,7 @@ class PartnerDetailsResource extends JsonResource
                     ? currencyFormat($this->subscription->payable_amount - $this->subscription->down_payment)
                     : currencyFormat(0),
                 'subscription_start_date' => toTimezone($this->subscription?->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date' => toTimezone($this->subscription?->subscription_end_date, null, 'Y-m-d'),
+                'subscription_end_date' => toTimezone($this->subscription?->subscription_end_date, null, 'Y-m-d'), // paid through
             ],
             'is_free_trail' => $this->is_free_trail ? true : false,
             'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
@@ -84,7 +84,7 @@ class PartnerDetailsResource extends JsonResource
                     'payable_amount' => currencyFormat($sub->payable_amount),
                     'monthly_platform_fee' => currencyFormat($sub->monthly_platform_fee),
                     'subscription_start_date' => toTimezone($sub->subscription_start_date, null, 'Y-m-d'),
-                    'subscription_end_date' => toTimezone($sub->subscription_end_date, null, 'Y-m-d'),
+                    'subscription_end_date' => toTimezone($sub->subscription_end_date, null, 'Y-m-d'), // paid through
                     'status' => $sub->status,
                 ];
             }),
