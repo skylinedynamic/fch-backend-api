@@ -49,7 +49,10 @@ use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaContr
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
 use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
+use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
+
+
 
 
 // Internal domain resolver — stateless, no session/cookies
@@ -386,6 +389,20 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [CommonResourceController::class, 'index']);
                 Route::get('/{id}', [CommonResourceController::class, 'show']);
                 Route::get('/download/{id}', [CommonResourceController::class, 'download']);
+            });
+
+            // 📝 Embedded Form Management (Internal / Authenticated)
+            Route::prefix('embed-forms')->group(function () {
+                Route::get('config', [EmbedFormController::class, 'getConfig']);
+                Route::put('config', [EmbedFormController::class, 'updateConfig']);
+                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey']);
+
+                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
+                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
+                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
+
+                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
             });
         });
 

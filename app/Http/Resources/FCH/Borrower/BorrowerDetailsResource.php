@@ -134,7 +134,11 @@ class BorrowerDetailsResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city' => $this->other_city,
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->format('Y-m-d') : null,
+            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
+            'invoice' => $this->latestInvoice ? [
+                'id' => $this->latestInvoice->id,
+                'invoice_id' => $this->latestInvoice->invoice_id,
+            ] : null,
             'has_sign' => (bool) $this->signedAgreement()->exists(),
         ];
     }
