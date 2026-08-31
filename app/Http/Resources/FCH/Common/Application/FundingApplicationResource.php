@@ -62,7 +62,10 @@ class FundingApplicationResource extends JsonResource
             'avg_bank_balance' => $this->borrower ? currencyFormat($this->borrower->avg_bank_balance) : null,
             'time_in_business' => $this->borrower && $this->borrower->business_start_date ? calculateTimeInBusiness($this->borrower->business_start_date) : null,
             'debt_balance' => $this->debt_balance ? currencyFormat($this->debt_balance) : null,
+            // Formatted for display (e.g. "$25,000.00"); *_original is the raw numeric
+            // value for calculations and form inputs, which cannot parse the formatted one.
             'requested_amount' => $this->requested_amount ? currencyFormat($this->requested_amount) : null,
+            'requested_amount_original' => $this->requested_amount !== null ? (float) $this->requested_amount : null,
             'purpose_of_funds' => $this->purpose_of_funds,
             'purpose_note' => $this->purpose_note,
             'preferred_funding_type' => $this->preferred_funding_type,
