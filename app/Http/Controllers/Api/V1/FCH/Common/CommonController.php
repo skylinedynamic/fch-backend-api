@@ -53,7 +53,8 @@ class CommonController extends Controller
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // See AuthService::login() for why '.phases' was dropped.
+            'partner.subscription',
         ];
 
         $user->load($relations);
