@@ -65,6 +65,7 @@ class Subscription extends Model
         'subscription_start_date',
         'subscription_end_date',
         'expected_end_date',
+        'billing_paused_at',
         'current_cycle_invoice_id',
         'status',
         'is_custom',
@@ -80,6 +81,7 @@ class Subscription extends Model
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
         'expected_end_date' => 'date',
+        'billing_paused_at' => 'datetime',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',
         'total_subscription_amount' => 'decimal:2',
@@ -128,6 +130,21 @@ class Subscription extends Model
     public function currentCycleInvoice()
     {
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'current_cycle_invoice_id');
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id');
+    }
+
+    /**
+     * Invoices still owed. Excludes Expired — a rolled-past cycle is not a
+     * collectable debt, it is a record of a cycle that was missed.
+     */
+    public function unpaidInvoices()
+    {
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id')
+            ->where('status', \App\Models\Invoice\Invoice::STATUS_UNPAID);
     }
 
     /**
@@ -188,6 +205,63 @@ class Subscription extends Model
                 'borrowers.last_name'
                 // We can resolve full name in concatenation or view
             );
+    }
+
+    /**
+     * Whether billing is currently stopped for this subscription.
+     *
+     * Checks the subscriber's LIVE status as well as billing_paused_at, because
+     * that flag is only stamped when the cron next processes the row — so between
+     * an admin suspending someone and the next cron run the flag is still null
+     * while billing is, in reality, already stopped. Reading the status directly
+     * keeps the screen honest in that window.
+     *
+     * Falls back to the flag alone when the relations are not loaded, so it is safe
+     * under Model::preventLazyLoading().
+     */
+    public function getIsBillingPausedAttribute(): bool
+    {
+        if ($this->billing_paused_at) {
+            return true;
+        }
+
+        return $this->billingPausedReason() !== null;
+    }
+
+    /**
+     * Why billing is stopped, or null. Only inspects relations already loaded.
+     */
+    public function billingPausedReason(): ?string
+    {
+        if ($this->entity_type === Partner::class && $this->relationLoaded('partner')) {
+            $partner = $this->partner;
+
+            return ($partner && $partner->status !== Partner::STATUS_ACTIVE)
+                ? 'Partner is ' . $partner->status
+                : null;
+        }
+
+        if ($this->entity_type === Borrower::class && $this->relationLoaded('borrower')) {
+            $borrower = $this->borrower;
+
+            if (!$borrower) {
+                return null;
+            }
+
+            if ($borrower->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower is ' . $borrower->status;
+            }
+
+            // A borrower reaches the platform through their partner, so a suspended
+            // partner stops the borrower's billing too.
+            if ($borrower->relationLoaded('partner') && $borrower->partner
+                && $borrower->partner->status !== Partner::STATUS_ACTIVE) {
+                return 'Partner ' . ($borrower->partner->company_name ?: $borrower->partner->full_name)
+                    . ' is ' . $borrower->partner->status;
+            }
+        }
+
+        return $this->billing_paused_at ? 'Billing paused' : null;
     }
 
     /**

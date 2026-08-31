@@ -51,6 +51,44 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
     /**
      * Execute the job.
      */
+    /**
+     * Why this payer must not be charged, or null if they may be.
+     *
+     * The payer is whoever's card is about to be debited — a Partner for partner
+     * fees, seats and borrower fees, or a Borrower paying their own enrollment. A
+     * borrower is also blocked when their partner is not Active, since the borrower
+     * reaches the platform through that partner.
+     *
+     * @param  mixed $payer
+     * @return string|null
+     */
+    protected function payerNotChargeable($payer): ?string
+    {
+        if ($payer instanceof Partner) {
+            return $payer->status !== Partner::STATUS_ACTIVE
+                ? 'Partner status is ' . $payer->status
+                : null;
+        }
+
+        if ($payer instanceof Borrower) {
+            if ($payer->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower status is ' . $payer->status;
+            }
+
+            $payer->loadMissing('partner');
+
+            if (!$payer->partner) {
+                return 'Borrower has no partner';
+            }
+
+            return $payer->partner->status !== Partner::STATUS_ACTIVE
+                ? "Borrower's partner status is " . $payer->partner->status
+                : null;
+        }
+
+        return null;
+    }
+
     public function handle(
         PaymentGatewayManager $gatewayManager,
         SubscriptionService $subscriptionService
@@ -62,6 +100,23 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         }
 
         $subscription = $invoice->subscription;
+
+        // Never take money off-session while billing is paused. The dispatcher
+        // already filters these out, but this is the point where money actually
+        // moves, so the guard belongs here too — it also covers a job dispatched by
+        // hand or one queued before the subscriber was suspended.
+        //
+        // The invoice is left Unpaid rather than failed: the debt stands and can
+        // still be settled manually, it just is not auto-charged while the
+        // subscriber's service is switched off.
+        if ($subscription?->billing_paused_at) {
+            Log::info('Skipped auto-charge: subscription billing is paused', [
+                'invoice_id' => $invoice->id,
+                'subscription_id' => $subscription->id,
+                'paused_at' => $subscription->billing_paused_at,
+            ]);
+            return;
+        }
 
         // 1. Resolve Payer Entity
         $payer = null;
@@ -77,6 +132,27 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
         if (!$payer) {
             $this->markFailed("Payer entity not found for invoice #{$invoice->invoice_id}");
+            return;
+        }
+
+        // Never charge a card belonging to someone who is not Active.
+        //
+        // This checks the PAYER directly rather than trusting subscription
+        // billing_paused_at, because that flag is only stamped by Step 1, which
+        // never sees a subscription whose expected_end_date is NULL (a finished
+        // borrower, or one still awaiting a first payment). Such a subscription can
+        // still carry an unpaid invoice — a borrower fee, say — and without this
+        // guard it would be auto-charged twice a day while the account is suspended.
+        //
+        // Left Unpaid rather than failed: the debt stands and can still be settled
+        // manually once they are Active again.
+        if ($blockedReason = $this->payerNotChargeable($payer)) {
+            Log::info('Skipped auto-charge: payer is not Active', [
+                'invoice_id' => $invoice->id,
+                'subscription_id' => $subscription?->id,
+                'payer' => class_basename($payer) . '#' . $payer->id,
+                'reason' => $blockedReason,
+            ]);
             return;
         }
 

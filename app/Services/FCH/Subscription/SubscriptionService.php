@@ -748,6 +748,141 @@ class SubscriptionService
      * @param string       $type  'enrollment' | 'platform_fee'
      * @return void
      */
+    /**
+     * Why this subscription cannot be billed right now, or null if it can.
+     *
+     * A borrower is also blocked when their partner is not Active — the borrower
+     * reaches the platform through that partner, so if the partner is switched off
+     * the borrower is not receiving the service either.
+     *
+     * @param  Subscription $subscription
+     * @param  mixed        $entity
+     * @return string|null  Human-readable reason, used for the pause log.
+     */
+    protected function billingBlockReason(Subscription $subscription, $entity): ?string
+    {
+        if ($subscription->entity_type === Borrower::class) {
+            if ($entity->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower status is ' . $entity->status;
+            }
+
+            $entity->loadMissing('partner');
+            $partner = $entity->partner;
+
+            if (!$partner) {
+                return 'Borrower has no partner';
+            }
+
+            if ($partner->status !== Partner::STATUS_ACTIVE) {
+                return "Borrower's partner status is " . $partner->status;
+            }
+
+            return null;
+        }
+
+        if ($subscription->entity_type === Partner::class) {
+            return $entity->status !== Partner::STATUS_ACTIVE
+                ? 'Partner status is ' . $entity->status
+                : null;
+        }
+
+        if ($subscription->entity_type === User::class) {
+            return $entity->status !== User::STATUS['active']
+                ? 'User status is ' . $entity->status
+                : null;
+        }
+
+        if ($subscription->entity_type === Employee::class) {
+            $userRecord = User::where('entity_type', Employee::class)
+                ->where('entity_id', $subscription->entity_id)
+                ->first();
+
+            if (!$userRecord) {
+                return 'Employee has no user account';
+            }
+
+            return $userRecord->status !== User::STATUS['active']
+                ? 'Employee user status is ' . $userRecord->status
+                : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Stop the billing clock for a subscriber who is no longer Active.
+     *
+     * Only stamps billing_paused_at the first time, so the pause start survives
+     * every subsequent cron run. Nothing already invoiced is affected — outstanding
+     * invoices stay outstanding and payable; this only stops NEW cycles accruing
+     * for a service the subscriber is not currently receiving.
+     */
+    protected function pauseBilling(Subscription $subscription, string $reason): void
+    {
+        if ($subscription->billing_paused_at) {
+            return; // already paused — keep the original timestamp
+        }
+
+        $subscription->update(['billing_paused_at' => now()]);
+
+        Log::info('Subscription billing paused', [
+            'subscription_id' => $subscription->id,
+            'entity' => class_basename($subscription->entity_type) . '#' . $subscription->entity_id,
+            'reason' => $reason,
+            'expected_end_date' => optional($subscription->expected_end_date)->toDateString(),
+        ]);
+    }
+
+    /**
+     * Restart the billing clock after a subscriber becomes Active again.
+     *
+     * Cycles that fell entirely inside the pause are skipped rather than billed:
+     * expected_end_date is walked forward until it is in the future, so the next
+     * cron run raises exactly ONE invoice for the next real cycle. Without this a
+     * six-month suspension produced six invoices in three days.
+     *
+     * subscription_end_date is untouched, so the gap between the two still shows
+     * how much was never collected.
+     *
+     * Resume is detected here, in the cron, rather than hooked onto every place
+     * that changes a status — the cron is the only thing that bills, which makes it
+     * the one choke point that cannot be bypassed by an admin screen or a seeder.
+     */
+    protected function resumeBillingIfPaused(Subscription $subscription): void
+    {
+        if (!$subscription->billing_paused_at) {
+            return;
+        }
+
+        $pausedAt = Carbon::parse($subscription->billing_paused_at);
+        $updates = ['billing_paused_at' => null];
+        $skipped = 0;
+
+        if ($subscription->expected_end_date) {
+            $expected = Carbon::parse($subscription->expected_end_date)->startOfDay();
+            $today = Carbon::today();
+
+            // Advance a whole month at a time so the billing day-of-month is kept.
+            while ($expected->lt($today) && $skipped < 240) {
+                $expected->addMonth();
+                $skipped++;
+            }
+
+            $updates['expected_end_date'] = $expected->toDateString();
+        }
+
+        $subscription->update($updates);
+
+        Log::info('Subscription billing resumed', [
+            'subscription_id' => $subscription->id,
+            'entity' => class_basename($subscription->entity_type) . '#' . $subscription->entity_id,
+            'paused_at' => $pausedAt->toDateTimeString(),
+            'paused_days' => $pausedAt->diffInDays(now()),
+            'cycles_skipped' => $skipped,
+            'next_expected_end_date' => $updates['expected_end_date'] ?? null,
+        ]);
+    }
+
     protected function createInvoiceForSubscription(Subscription $subscription): void
     {
         try {
@@ -759,25 +894,24 @@ class SubscriptionService
                     return;
                 }
 
-                // Status guard per entity type
-                if ($subscription->entity_type === Borrower::class) {
-                    if ($entity->status !== Borrower::STATUS_ACTIVE)
-                        return;
-                    $entity->loadMissing('partner');
-                    $partner = $entity->partner;
-                    if (!$partner || $partner->status !== Partner::STATUS_ACTIVE)
-                        return;
-                } elseif ($subscription->entity_type === Partner::class) {
-                    if ($entity->status !== Partner::STATUS_ACTIVE)
-                        return;
-                } elseif ($subscription->entity_type === User::class) {
-                    if ($entity->status !== User::STATUS['active'])
-                        return;
-                } elseif ($subscription->entity_type === Employee::class) {
-                    $userRecord = User::where('entity_type', Employee::class)->where('entity_id', $subscription->entity_id)->first();
-                    if (!$userRecord || $userRecord->status !== User::STATUS['active'])
-                        return;
+                // Status guard per entity type.
+                //
+                // A subscriber who is not Active is not receiving the service, so
+                // billing PAUSES rather than silently skipping. The distinction
+                // matters on the way back: expected_end_date used to stay frozen
+                // while suspended, and on reactivation the rollover logic met a
+                // months-old due date and generated one catch-up invoice per cron
+                // run — twice a day until it caught up, auto-charging each one.
+                $blockReason = $this->billingBlockReason($subscription, $entity);
+
+                if ($blockReason) {
+                    $this->pauseBilling($subscription, $blockReason);
+                    return;
                 }
+
+                // Active again: skip the cycles that elapsed while switched off, so
+                // exactly one upcoming cycle is scheduled instead of a backlog.
+                $this->resumeBillingIfPaused($subscription);
 
                 // Safety net: a Borrower should never be in the recurring platform-fee
                 // cycle — self-heal any stale/corrupted state instead of billing $0.

@@ -106,7 +106,16 @@ class ProcessAllSubscriptions extends Command
         $dueInvoices = Invoice::query()
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('payment_amount', '>', 0)
-            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
+            ->whereHas('subscription', function ($q) {
+                // billing_paused_at means the subscriber is not Active, so Step 1
+                // has stopped raising new cycles for them. Taking money off-session
+                // from a suspended customer's card while their service is switched
+                // off is what produces chargebacks, so collection pauses with it.
+                // The invoice stays Unpaid and payable — the debt is not forgiven,
+                // it just is not auto-charged until they are Active again.
+                $q->where('status', Subscription::STATUS_ACTIVE)
+                    ->whereNull('billing_paused_at');
+            })
             ->whereDate('created_at', '<=', now())
             ->get();
 
