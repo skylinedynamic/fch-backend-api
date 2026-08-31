@@ -122,4 +122,4 @@ class DatabaseSeeder extends Seeder
 // php artisan db:seed --class=UpdatePaymentInvoicePermissionSeeder
 // php artisan db:seed --class=UpcomingBillingsPermissionSeeder
 
-//      EmbeddedLoanApplicationFormPermissionSeeder::class,
+// php artisan db:seed --class=EmbeddedLoanApplicationFormPermissionSeeder
