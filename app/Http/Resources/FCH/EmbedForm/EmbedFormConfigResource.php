@@ -13,7 +13,7 @@ class EmbedFormConfigResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $baseUrl = config('app.url');
+        $baseUrl = getEmbedFormBaseUrl();
 
         return [
             'id' => $this->id,

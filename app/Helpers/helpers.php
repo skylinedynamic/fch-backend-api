@@ -196,6 +196,55 @@ if (!function_exists('getBorrowerDomain')) {
     }
 }
 
+if (!function_exists('getEmbedFormBaseUrl')) {
+    /**
+     * Resolve the base URL used for embedded loan application form links
+     * (the direct link and the iframe embed snippet), based on the
+     * authenticated user's partner:
+     *
+     * - Local environment: always the app base URL — custom/sub-domains
+     *   don't resolve locally.
+     * - Host partner: the app base URL.
+     * - White-Label partner: partner_domain when active_custom_url is
+     *   enabled (falling back to partner_subdomain if partner_domain is
+     *   empty), otherwise partner_subdomain.
+     * - Certified partner: partner_subdomain.
+     * - No partner / no domain configured: the app base URL.
+     */
+    function getEmbedFormBaseUrl(): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        if (app()->environment('local')) {
+            return $baseUrl;
+        }
+
+        $partner = auth()->user()?->partner;
+
+        if (!$partner || $partner->is_host) {
+            return $baseUrl;
+        }
+
+        $domain = null;
+
+        if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+            $domain = $partner->active_custom_url
+                ? ($partner->partner_domain ?: $partner->partner_subdomain)
+                : $partner->partner_subdomain;
+        } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            $domain = $partner->partner_subdomain;
+        }
+
+        if (empty($domain)) {
+            return $baseUrl;
+        }
+
+        $domain = preg_replace('/^https?:\/\//i', '', trim($domain));
+
+        return 'https://' . rtrim($domain, '/');
+    }
+}
+
 if (!function_exists('concatUrl')) {
     /**
      * Concatenate domain and path using HTTPS protocol.
