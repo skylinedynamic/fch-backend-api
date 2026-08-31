@@ -5,6 +5,7 @@ namespace App\Services\Borrower\Funding;
 use App\Models\Funding\FundingGroup;
 use App\Models\Funding\FundingSequencing;
 use App\Models\Lender\LenderProductCategory;
+use App\Services\Borrower\CapitalAccess\ReadinessScoreCalculationService;
 use Illuminate\Support\Facades\Log;
 
 class FundingService
@@ -64,33 +65,45 @@ class FundingService
     }
 
     /**
-     * Get dynamic dashboard stats derived from the filtered FundingSequencing catalog.
+     * Get dynamic dashboard stats derived from the filtered FundingSequencing catalog and Borrower profile.
      *
      * @param \Illuminate\Database\Eloquent\Collection $groups
+     * @param \App\Models\Borrower\Borrower $borrower
      * @return array
      */
-    public function getDashboardStats($groups): array
+    public function getDashboardStats($groups, $borrower = null): array
     {
-        $totalMin = 0.0;
-        $totalMax = 0.0;
-        $totalOptions = 0;
+        $fundingReadinessScore = 'N/A';
+        if ($borrower) {
+            $readinessService = app(ReadinessScoreCalculationService::class);
+            $readinessResult = $readinessService->calculate($borrower);
+            $fundingReadinessScore = $readinessResult['total_score'] ?? 'N/A';
+        }
 
-        foreach ($groups as $group) {
-            foreach ($group->sequencings as $seq) {
-                $totalOptions++;
-                if (!empty($seq->amount_range)) {
-                    [$min, $max] = $this->parseAmountRange($seq->amount_range);
-                    $totalMin += $min;
-                    $totalMax += $max;
-                }
+        $ficoScore = 'N/A';
+        if ($borrower) {
+            if ($borrower->creditProfile && $borrower->creditProfile->fico_score !== null) {
+                $ficoScore = $borrower->creditProfile->fico_score;
+            } elseif ($borrower->fico_score !== null) {
+                $ficoScore = $borrower->fico_score;
             }
         }
 
+        $monthlyRevenue = 'N/A';
+        if ($borrower && $borrower->monthly_revenue !== null) {
+            $monthlyRevenue = currencyFormat($borrower->monthly_revenue, 0);
+        }
+
+        $timeInBusiness = 'N/A';
+        if ($borrower && !empty($borrower->business_start_date)) {
+            $timeInBusiness = calculateTimeInBusiness($borrower->business_start_date);
+        }
+
         return [
-            'total_approved'  => $totalMax,
-            'total_funded'    => $totalMin,
-            'total_options'   => $totalOptions,
-            'total_groups'    => $groups->count(),
+            'funding_readiness_score' => $fundingReadinessScore,
+            'fico_score'              => $ficoScore,
+            'monthly_revenue'         => $monthlyRevenue,
+            'time_in_business'        => $timeInBusiness,
         ];
     }
 
