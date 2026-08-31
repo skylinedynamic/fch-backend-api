@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use App\Models\User\User;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -32,6 +33,18 @@ class AppServiceProvider extends ServiceProvider
         // per request and serves every tier/modifier lookup from memory.
         $this->app->singleton(
             \App\Services\Borrower\CapitalAccess\ScoreConfigurationCache::class
+        );
+
+        // All model factories in this project live flat under Database\Factories\
+        // (e.g. Database\Factories\UserFactory), but Laravel's default factory name
+        // resolver preserves the model's sub-namespace under App\Models\ (e.g. it
+        // looks for Database\Factories\User\UserFactory for App\Models\User\User),
+        // which does not exist here. Without this, `Model::factory()` throws
+        // "Class ... not found" for every domain-namespaced model. None of the
+        // models override newFactory(), so restore the flat, basename-only
+        // resolution Laravel used prior to namespaced factory discovery.
+        Factory::guessFactoryNamesUsing(
+            fn (string $modelName) => 'Database\\Factories\\' . class_basename($modelName) . 'Factory'
         );
     }
 

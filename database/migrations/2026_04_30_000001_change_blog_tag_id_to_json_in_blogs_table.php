@@ -13,8 +13,16 @@ return new class extends Migration
     {
         Schema::table('blogs', function (Blueprint $table) {
             $table->dropForeign(['blog_tag_id']);
-            $table->dropIndex('blogs_blog_tag_id_foreign');
         });
+
+        // On SQLite, dropForeign() rebuilds the table and already removes the
+        // associated index, so an explicit dropIndex() afterwards fails with
+        // "no such index". MySQL (the production driver) needs it explicitly.
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            Schema::table('blogs', function (Blueprint $table) {
+                $table->dropIndex('blogs_blog_tag_id_foreign');
+            });
+        }
 
         Schema::table('blogs', function (Blueprint $table) {
             $table->json('blog_tag_id')->nullable()->change();

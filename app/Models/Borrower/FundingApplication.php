@@ -8,13 +8,14 @@ use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FundingApplication extends Model
 {
-    use SoftDeletes;
-    
+    use HasFactory, SoftDeletes;
+
     /**
      * The "booted" method of the model.
      */
