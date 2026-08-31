@@ -3,7 +3,6 @@
 namespace App\Services\FCH\Common\Billing;
 
 use App\Models\Subscription\Subscription;
-use App\Models\Subscription\SubscriptionPhase;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
@@ -251,7 +250,7 @@ class BillingService
      */
     public function getDetails(int $id)
     {
-        $subscription = Subscription::with(['enrollmentPhase', 'platformFeePhase', 'partnerPlan', 'entity'])
+        $subscription = Subscription::with(['partnerPlan', 'entity'])
             ->find($id);
 
         if (!$subscription) {

@@ -130,26 +130,6 @@ class Subscription extends Model
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'current_cycle_invoice_id');
     }
 
-    public function allPhases()
-    {
-        return $this->hasMany(SubscriptionPhase::class);
-    }
-
-    public function phases()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->latestOfMany();
-    }
-
-    public function enrollmentPhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_ENROLLMENT);
-    }
-
-    public function platformFeePhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE);
-    }
-
     /**
      * Scope: apply text search across common subscription fields.
      */
@@ -193,28 +173,6 @@ class Subscription extends Model
             $join->on('subscriptions.entity_id', '=', 'partners.id')
                 ->where('subscriptions.entity_type', '=', Partner::class);
         })->addSelect('partners.full_name as partner_name');
-    }
-
-    /**
-     * Scope: join enrollment phase.
-     */
-    public function scopeWithEnrollmentPhase($query)
-    {
-        return $query->leftJoin('subscription_phases as ep', function ($join) {
-            $join->on('subscriptions.id', '=', 'ep.subscription_id')
-                ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
-        })->addSelect('ep.next_installment_date');
-    }
-
-    /**
-     * Scope: join platform fee phase.
-     */
-    public function scopeWithPlatformFeePhase($query)
-    {
-        return $query->leftJoin('subscription_phases as pfp', function ($join) {
-            $join->on('subscriptions.id', '=', 'pfp.subscription_id')
-                ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
-        })->addSelect('pfp.next_platform_fee_date');
     }
 
     /**

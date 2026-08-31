@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\CronJobFailureMail;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
-use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
@@ -108,8 +107,6 @@ class SubscriptionService
                 'borrower:id,first_name,last_name,email,partner_id',
                 'borrower.partner:id,full_name,company_name,email',
                 'user:id,name,email',
-                'enrollmentPhase',
-                'platformFeePhase'
             ])
             ->select('subscriptions.*');
 
@@ -179,27 +176,17 @@ class SubscriptionService
             }
         }
 
-        // Join Enrollment Phase for next_installment_date or enrollment_completed_at
-        if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date']) || $sortField === 'enrollment_completed_at' || isset($rawFilters['enrollment_completed_at'])) {
-            $query->withEnrollmentPhase();
-
-            if ($sortField === 'next_installment_date') {
-                $query->orderBy('ep.next_installment_date', $sortOrder);
-                $skipSorting = true;
-            } elseif ($sortField === 'enrollment_completed_at') {
-                $query->orderBy('ep.enrollment_completed_at', $sortOrder);
-                $skipSorting = true;
-            }
-        }
-
-        // Join Platform Fee Phase for next_platform_fee_date
-        if ($sortField === 'next_platform_fee_date' || isset($rawFilters['next_platform_fee_date'])) {
-            $query->withPlatformFeePhase();
-
-            if ($sortField === 'next_platform_fee_date') {
-                $query->orderBy('pfp.next_platform_fee_date', $sortOrder);
-                $skipSorting = true;
-            }
+        // next_installment_date / next_platform_fee_date used to live on the
+        // subscription_phases side table. Both are now the same thing — the next
+        // cycle the cron will bill — which is expected_end_date on the subscription
+        // itself, with current_phase saying whether that cycle is an installment or
+        // a platform fee. enrollment_completed_at is likewise a real column here now.
+        if ($sortField === 'next_installment_date' || $sortField === 'next_platform_fee_date') {
+            $query->orderBy('subscriptions.expected_end_date', $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'enrollment_completed_at') {
+            $query->orderBy('subscriptions.enrollment_completed_at', $sortOrder);
+            $skipSorting = true;
         }
 
         // Created At Filter (Format: Y-m-d h:i A)
@@ -310,8 +297,6 @@ class SubscriptionService
             'borrower.partner',
             'user',
             'partnerPlan',
-            'enrollmentPhase',
-            'platformFeePhase'
         ])->where('id', $id);
 
         $this->applyRbacScope($query);

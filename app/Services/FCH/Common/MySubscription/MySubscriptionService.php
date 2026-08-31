@@ -54,7 +54,7 @@ class MySubscriptionService
         }
 
         // Partner's latest subscription
-        $subscription = Subscription::with(['enrollmentPhase', 'platformFeePhase', 'partnerPlan', 'entity', 'partner', 'borrower'])
+        $subscription = Subscription::with(['partnerPlan', 'entity', 'partner', 'borrower'])
             ->where('entity_type', Partner::class)
             ->where('entity_id', $partner->id)
             ->orderBy('id', 'desc')
