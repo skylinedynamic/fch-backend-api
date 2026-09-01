@@ -123,3 +123,6 @@ class DatabaseSeeder extends Seeder
 // php artisan db:seed --class=UpcomingBillingsPermissionSeeder
 
 // php artisan db:seed --class=EmbeddedLoanApplicationFormPermissionSeeder
+
+// $env:SEED_DRY_RUN="false"; php artisan db:seed --class=RepairSubscriptionBillingDataSeeder
+// (bash equivalent: SEED_DRY_RUN=false php artisan db:seed --class=RepairSubscriptionBillingDataSeeder)
