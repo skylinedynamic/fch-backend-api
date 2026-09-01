@@ -72,8 +72,14 @@ class BorrowerBillingService
             ->get();
 
         // Calculate Upcoming Billing Details
-        $nextDate = toTimezone($subscription?->subscription_end_date);
-        $nextAmount = $subscription?->subscription_amount_per_month ?? $subscription?->payable_amount ?? 0;
+        // See Subscription::nextBilling() - shared with SubscriptionDetailsResource
+        // and MySubscriptionService. Previously fell back to payable_amount whenever
+        // subscription_amount_per_month was empty - for a borrower who already
+        // finished paying (enrollment_completed_at set, nothing recurs after that),
+        // this wrongly showed the full one-time enrollment amount as still due.
+        $nextBilling = $subscription?->nextBilling() ?? ['date' => null, 'type' => null, 'amount' => 0];
+        $nextDate = toTimezone($nextBilling['date']);
+        $nextAmount = $nextBilling['amount'] ?? 0;
 
         // Determine Subscription Completion Status
         $isCompleted = false;
@@ -150,9 +156,13 @@ class BorrowerBillingService
                 'created_at' => toTimezone($latestInvoice->created_at),
             ] : null,
             'upcoming_billing' => [
-                'next_date' => toTimezone($nextDate),
+                // $nextDate is already timezone-converted above - do not re-run it
+                // through toTimezone(), which would parse the resulting date-only
+                // string as midnight and could shift it a day again.
+                'next_date' => $nextDate,
                 'amount' => currencyFormat($nextAmount),
                 'raw_amount' => $nextAmount,
+                'type' => $nextBilling['type'] ?? 'N/A',
                 'enrollment_type' => $subscription?->enrollment_type ?? 'N/A',
                 'status' => $subscription?->status ?? Subscription::STATUS_ACTIVE,
             ],

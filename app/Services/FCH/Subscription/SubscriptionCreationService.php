@@ -13,6 +13,16 @@ use Log;
 class SubscriptionCreationService
 {
     /**
+     * Whether an enrollment type is One Time Payment. Subscription.enrollment_type
+     * is only ever stored as the label (SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT),
+     * never the slug.
+     */
+    public static function isOneTimePayment(?string $enrollmentType): bool
+    {
+        return $enrollmentType === SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT;
+    }
+
+    /**
      * Create a pending subscription for a paid user/employee seat.
      *
      * @param string $entityType
@@ -89,8 +99,11 @@ class SubscriptionCreationService
         $data['total_subscription_amount'] = $data['total_subscription_amount'] ?? $plan?->total_amount ?? 0;
 
 
-        // Calculate subscription_amount_per_month
-        if (!isset($data['subscription_amount_per_month'])) {
+        // Calculate subscription_amount_per_month.
+        // array_key_exists, not isset: callers such as EnrollmentService deliberately
+        // pass null here for one-time plans, and isset() is false for an explicit
+        // null — which silently overwrote that null with payable_amount.
+        if (!array_key_exists('subscription_amount_per_month', $data)) {
             $totalSubAmount = $data['total_subscription_amount'] ?? 0;
             $downPayment = $data['down_payment'] ?? 0;
             $installmentCount = $data['installment_count'] ?? 0;
@@ -99,9 +112,15 @@ class SubscriptionCreationService
             if ($installmentType == 1 && $installmentCount > 0) {
                 // Installment plan: spread the remaining balance over the installment months
                 $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
+            } elseif ($this->isOneTimePayment($data['enrollment_type'] ?? null)) {
+                // One Time Payment is settled in a single charge — there is no
+                // recurring monthly amount, so this stays null rather than echoing
+                // payable_amount (which reads as a monthly charge in billing views).
+                $data['subscription_amount_per_month'] = null;
             } else {
-                // One-time / non-installment plan: the per-month amount equals the payable amount.
-                // monthly_platform_fee is always 0 for borrowers, so fall back to payable_amount.
+                // Other non-installment plans (monthly / seat fee): the per-month
+                // amount equals the payable amount. monthly_platform_fee is always 0
+                // for borrowers, so fall back to payable_amount.
                 $data['subscription_amount_per_month'] = $data['payable_amount'] ?? ($data['monthly_platform_fee'] ?? 0);
             }
         }
