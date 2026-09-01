@@ -5,14 +5,15 @@ use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
-use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
@@ -22,13 +23,14 @@ use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
-use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
+use App\Http\Controllers\Api\V1\FCH\Common\Reminder\ReminderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -48,7 +50,6 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
-use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
 
@@ -415,6 +416,21 @@ Route::prefix('v1')->group(function () {
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });
+        });
+
+        // V1 Reminder routes
+        Route::prefix('reminders')->group(function () {
+            Route::get('/', [ReminderController::class, 'index']);
+            Route::get('/due', [ReminderController::class, 'getDue']);
+            Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+            Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+            Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+            Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+            Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+        });
+
+        Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
+        Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {
