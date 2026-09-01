@@ -71,10 +71,16 @@
             <a href="{{ $paymentLink }}" class="btn"
                 style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Pay
                 ${{ number_format($amount, 2) }} Now</a>
-        @else
+        @elseif (!empty($loginUrl))
             <a href="{{ $loginUrl }}" class="btn"
                 style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Login
                 to Dashboard</a>
+        @else
+            {{-- White-Label partner with no borrower_domain configured: there is no
+                 domain a borrower can log in through yet (see getBorrowerDomain()),
+                 so a login link would be broken — tell the partner what's missing
+                 instead of sending a dead button. --}}
+            <p style="color: #b91c1c; font-weight: 600; font-size: 13px; margin: 0;">Borrower domain not set</p>
         @endif
     </div>
 @endsection

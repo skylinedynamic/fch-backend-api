@@ -184,15 +184,40 @@ if (!function_exists('getPartnerDomain')) {
 }
 
 if (!function_exists('getBorrowerDomain')) {
+    /**
+     * Resolve the borrower-portal domain a borrower of this partner can actually
+     * log in through.
+     *
+     * Falling back to the reserved default borrower portal
+     * (config('app.frontend_borrower_url')) is only valid for the host and for a
+     * Certified partner with no domain of its own — see
+     * PortalIsolationService::isUserAllowedOnDomain(), which only lets those two
+     * onto that domain. A White-Label partner (or any other non-host type) with
+     * no borrower_domain has no domain a borrower can log in through at all;
+     * falling back to the reserved default there would hand out a login link the
+     * isolation check then rejects. Returns null in that case so callers (email
+     * templates in particular) can omit the login link instead of sending a
+     * broken one.
+     */
     function getBorrowerDomain(int $partnerId = null): ?string
     {
-        if ($partnerId) {
-            $partner = Partner::find($partnerId);
-            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        $partner = $partnerId
+            ? Partner::find($partnerId)
+            : (auth()->check() ? auth()->user()->partner : null);
+
+        if (!$partner) {
+            return null;
         }
-        $partner = auth()->check() ? auth()->user()->partner : null;
-        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
-        return $domain;
+
+        if (!empty($partner->borrower_domain)) {
+            return $partner->borrower_domain;
+        }
+
+        if ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url');
+        }
+
+        return null;
     }
 }
 
