@@ -405,6 +405,20 @@ Route::prefix('v1')->group(function () {
 
                 Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
             });
+
+
+                    // V1 Reminder routes
+                Route::prefix('reminders')->group(function () {
+                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::get('/due', [ReminderController::class, 'getDue']);
+                    Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+                    Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+                    Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+                    Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+                    Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+                });
+
+
         });
 
         Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
@@ -416,18 +430,6 @@ Route::prefix('v1')->group(function () {
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });
-
-        // V1 Reminder routes
-        Route::prefix('reminders')->group(function () {
-            Route::get('/', [ReminderController::class, 'index']);
-            Route::get('/due', [ReminderController::class, 'getDue']);
-            Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
-            Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
-            Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
-            Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
-            Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
-        });
-
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {

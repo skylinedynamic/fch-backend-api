@@ -56,12 +56,12 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        Schema::create('payment_methods', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('partner_id')->nullable();
-            $table->string('key');
-            $table->text('value')->nullable();
-            $table->timestamps();
-        });
+        // Schema::create('payment_methods', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->unsignedBigInteger('partner_id')->nullable();
+        //     $table->string('key');
+        //     $table->text('value')->nullable();
+        //     $table->timestamps();
+        // });
     }
 };
