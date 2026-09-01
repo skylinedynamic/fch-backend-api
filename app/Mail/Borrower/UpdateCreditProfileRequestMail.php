@@ -38,13 +38,19 @@ class UpdateCreditProfileRequestMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $baseUrl = rtrim(config('app.frontend_partner_url'), '/');
+        // See CreditProfileRequestMail::content() for why concatUrl() is required
+        // here instead of a raw rtrim() of the config value.
+        $requestUrl = concatUrl(
+            null,
+            'intake-review/credit-profile-requests/' . $this->creditRequest->id,
+            config('app.frontend_partner_url')
+        );
 
         return new Content(
             view: 'emails.borrower.update_credit_profile_request',
             with: [
                 'creditRequest' => $this->creditRequest,
-                'baseUrl' => $baseUrl,
+                'requestUrl' => $requestUrl,
                 'siteName' => $this->dynamicData['siteName'],
                 'logoUrl' => $this->dynamicData['logoUrl'],
             ],
