@@ -237,8 +237,12 @@
                     $subPath      = str_replace('storage/', '', $relativePath);
                     $publicPath = public_path($relativePath);
                     $storagePath = storage_path('app/public/' . $subPath);
-                    $diskPath = file_exists($publicPath) ? $publicPath : $storagePath;
-                    if (file_exists($diskPath)) {
+                    // is_file, not file_exists: file_exists() is also true for a
+                    // directory (e.g. the "storage" symlink itself, when the caller
+                    // built a URL with no filename), and file_get_contents() on a
+                    // directory fails.
+                    $diskPath = is_file($publicPath) ? $publicPath : $storagePath;
+                    if (is_file($diskPath)) {
                         $ext  = strtolower(pathinfo($diskPath, PATHINFO_EXTENSION));
                         $mime = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
                                  'png' => 'image/png',   'gif' => 'image/gif',

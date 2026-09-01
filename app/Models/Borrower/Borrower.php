@@ -52,7 +52,37 @@ class Borrower extends Model
         'is_free_trail' => 'boolean',
         'free_trail_end_date' => 'date',
         'credit_profile_updated' => 'boolean',
+        'stripe_customer_id' => 'array',
     ];
+
+    /**
+     * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
+     * Supports legacy plain string and new JSON {customer_id, name, card_no} format.
+     */
+    public function getStripeCustomerIdRawAttribute(): ?string
+    {
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return $value['customer_id'] ?? null;
+        }
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Get formatted Stripe card display info from the JSON stripe_customer_id field.
+     */
+    public function getStripeCardInfoAttribute(): array
+    {
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return [
+                'customer_id' => $value['customer_id'] ?? null,
+                'name'        => $value['name'] ?? null,
+                'card_no'     => $value['card_no'] ?? null,
+            ];
+        }
+        return ['customer_id' => $value, 'name' => null, 'card_no' => null];
+    }
 
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
@@ -313,12 +343,12 @@ class Borrower extends Model
         if ($this->business_start_date) {
             $now = Carbon::now();
             $start = Carbon::parse($this->business_start_date);
-            
+
             // Decimal years, rounded to 1 decimal place
             $diffInDays = $start->diffInDays($now);
             return round($diffInDays / 365.25, 1);
         }
-        
+
         return 0;
     }
 }

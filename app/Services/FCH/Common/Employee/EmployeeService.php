@@ -5,18 +5,20 @@ namespace App\Services\FCH\Common\Employee;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
+use App\Models\Partner\Partner;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
 use App\Models\Invoice\Invoice;
+use App\Models\Subscription\Subscription;
 use App\Models\Business\Business;
 use App\Models\Common\Permission;
 use App\Models\Employee\Employee;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
@@ -26,7 +28,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Mail\AccountCreateNotificationMail;
+use App\Services\FCH\Subscription\SubscriptionCreationService;
 use Illuminate\Support\Facades\Mail;
 
 class EmployeeService
@@ -36,6 +39,7 @@ class EmployeeService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
+        protected SubscriptionCreationService $subscriptionCreationService,
     ) {
     }
 
@@ -105,12 +109,39 @@ class EmployeeService
      */
     public function create(array $employeeData, ?array $userData = null, ?int $roleId = null): array
     {
+        $partnerId = auth()->user()->partner_id;
+
+        // A host partner is never billable, regardless of what the request sends —
+        // computed once here and used everywhere below instead of re-reading
+        // $employeeData['is_paid'] raw at each usage site.
+        $partner = Partner::find($partnerId);
+        $isPaid = ($partner && !$partner->is_host)
+            ? (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'])
+            : false;
+
+        // Check user limit if not host and creating a user account and not purchasing a paid seat
+        if ($partner && !$partner->is_host && $userData && !$isPaid) {
+            $currentCount = User::where('partner_id', $partnerId)
+                ->where(function ($query) {
+                    $query->whereIn('entity_type', [Partner::class, Employee::class])
+                        ->orWhereNull('entity_type');
+                })
+                ->count();
+
+            $partnerSub = $partner->subscription;
+            $allowedSeats = $partnerSub ? $partnerSub->user_seats : 3;
+
+            if ($currentCount >= $allowedSeats) {
+                throw new \Exception('User limit reached. Please purchase additional seats.');
+            }
+        }
+
         DB::beginTransaction();
 
         try {
 
             // 2️⃣ Create employee
-            $employeeData['partner_id'] = auth()->user()->partner_id;
+            $employeeData['partner_id'] = $partner->id;
 
             // Format dates if present
             if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
@@ -125,7 +156,7 @@ class EmployeeService
             if (!isset($employeeData['job_status']) || empty($employeeData['job_status'])) {
                 $employeeData['job_status'] = 'Active';
             }
-            $employeeData['employee_code'] = Employee::generateCode(auth()->user()->partner_id);
+            $employeeData['employee_code'] = Employee::generateCode($partner->id);
             // $employeeData = collect($employeeData)->except(['months', 'is_paid', 'amount'])->toArray();
             $employee = Employee::create($employeeData);
             Log::info('Employee created successfully', ['employee_id' => $employee->id]);
@@ -137,17 +168,14 @@ class EmployeeService
                 $user = User::create([
                     'name' => $userData['name'],
                     'email' => $userData['email'],
-                    'partner_id' => auth()->user()->partner_id,
+                    'partner_id' => $partner->id,
                     'entity_type' => Employee::class,
                     'entity_id' => $employee->id,
                     'phone_number' => $employeeData['phone_number_1'] ?? null,
                     'password' => Hash::make($plainPassword),
                     'user_type' => auth()->user()->user_type ?? '',
-                    'is_paid' => isset($employeeData['is_paid']) ? (bool) $employeeData['is_paid'] : false,
-                    'status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::STATUS['inactive'] : User::STATUS['active'],
-                    'start_date' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now() : null,
-                    'end_date' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? now()->addMonths((int) $employeeData['months']) : null,
-                    'payment_status' => isset($employeeData['is_paid']) && (bool) $employeeData['is_paid'] ? User::PAYMENT_STATUS_UNPAID : null,
+                    'is_paid' => $isPaid,
+                    'status' => $isPaid ? User::STATUS['inactive'] : User::STATUS['active'],
                 ]);
 
                 Log::info('User created successfully', ['user_id' => $user->id]);
@@ -157,21 +185,49 @@ class EmployeeService
                 }
             }
 
-            if (isset($employeeData['is_paid']) && (bool) $employeeData['is_paid']) {
+            if ($isPaid) {
+                $partner = Partner::find($partnerId);
+                $partnerSub = $partner ? $partner->subscription : null;
+                $months = (int) ($employeeData['months'] ?? 1);
+
+                // See UserService::store() for why the invoice amount is read back
+                // from the created subscription's payable_amount instead of trusting
+                // partner->subscription->per_seat_amount directly - it can be null,
+                // and null * $months = 0, which is why this invoice was being
+                // created with a $0 amount.
+                $requestedSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : null;
+
+                $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
+                    Employee::class,
+                    $employee->id,
+                    $partner,
+                    $requestedSeatAmount,
+                    $months
+                );
+
+                // payable_amount is already per_seat_amount * $months (see
+                // createPendingUserSeatSubscription()) - do not multiply by $months
+                // again here, that would charge for months^2.
+                $amount = (float) ($subscription->payable_amount ?? (49.00 * $months));
+
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
                     'invoice_id' => $invoiceId,
-                    'partner_id' => auth()->user()->partner_id,
-                    'entity_type' => Employee::class,
-                    'entity_id' => $employee->id,
-                    'customer_name' => $employee->first_name . ' ' . $employee->last_name,
-                    'email' => $employee->email,
-                    'payment_amount' => $employeeData['amount'],
+                    'partner_id' => $partner->id,
+                    'subscription_id' => $subscription->id,
+                    'entity_type' => Partner::class,
+                    'entity_id' => $partner->id,
+                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : ($employee->first_name . ' ' . $employee->last_name),
+                    'email' => $partner ? $partner->email : $employee->email,
+                    'payment_amount' => $amount,
                     'payment_date' => null,
+                    'month_count' => $months,
+                    'type' => Invoice::INVOICE_TYPE_USER_SEAT,
                     'status' => Invoice::STATUS_UNPAID,
                     'created_by' => Auth::id(),
                 ]);
                 $user->invoice_id = $invoice->id;
+                $subscription->update(['current_cycle_invoice_id' => $invoice->id]);
 
                 // Log Invoice Creation
                 $this->activityLogService->logModelEvent(
@@ -198,7 +254,6 @@ class EmployeeService
 
             // 📧 Send welcome mail if user account was created
             if ($user) {
-                $partner = \App\Models\Partner\Partner::find(auth()->user()->partner_id);
                 $this->sendAccountCreatedMail($user, $partner, $plainPassword);
             }
 

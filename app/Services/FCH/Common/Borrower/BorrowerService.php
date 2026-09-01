@@ -7,7 +7,6 @@ use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
 use App\Traits\PaginatesApi;
 use App\Traits\UploadsFiles;
-use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerBankAccount;
@@ -15,19 +14,17 @@ use Illuminate\Http\UploadedFile;
 use App\Models\CreditBuilder\Tier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Partner\SubscriptionPlan;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\ActivityLog\ActivityLog;
-use App\Mail\Borrower\BorrowerPaymentLinkMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
+use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
-use App\Mail\Borrower\BorrowerMigrationMail;
 
 
 
@@ -38,6 +35,7 @@ class BorrowerService
     public function __construct(
         protected InvoiceService $invoiceService,
         protected SubscriptionService $subscriptionService,
+        protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
     ) {
     }
@@ -58,6 +56,8 @@ class BorrowerService
         }
     }
 
+
+
     /**
      * List borrowers with pagination, search, filtering and sorting.
      */
@@ -67,7 +67,7 @@ class BorrowerService
         $authUser = auth()->user();
 
         $query = Borrower::query()
-            ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription:id,enrollment_type'])
+            ->with(['user:id,entity_type,entity_id', 'partner:id,full_name', 'assignedUser:id,name', 'tier:id,name', 'latestSubscription', 'bankAccounts:id,borrower_id,bank_name,account_open_date'])
             ->select('borrowers.*');
 
         // Filter based on authenticated user's partner and host status
@@ -290,166 +290,6 @@ class BorrowerService
     }
 
     /**
-     * Resolve a borrower subscription plan by plan ID; fall back to the one-time default plan.
-     * Returns [plan, planId].
-     */
-    private function resolveBorrowerPlan(?int $planId): array
-    {
-        $plan = null;
-        if ($planId) {
-            $plan = SubscriptionPlan::where('id', $planId)->where('entity_type', Borrower::class)->first();
-        }
-        if (!$plan) {
-            $plan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_ENROLMENT_TYPE_ONE_TIME)
-                ->where('entity_type', Borrower::class)
-                ->first();
-            $planId = $plan ? $plan->id : null;
-        }
-        return [$plan, $planId];
-    }
-
-    /**
-     * Calculate borrower subscription amounts, applying a custom enrollment payment where supplied.
-     * Returns ['amount', 'totalInstallments', 'total', 'isCustom'].
-     */
-    private function calculateBorrowerSubscriptionAmounts(?SubscriptionPlan $plan, array $data, float $fallbackAmount = 2497.00): array
-    {
-        $default = $plan ? (float) ($plan->payment_amount ?? $fallbackAmount) : $fallbackAmount;
-        $amount = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
-            ? (float) $data['enrollment_payment']
-            : $default;
-
-        $totalInstallments = $plan ? (int) ($plan->total_installments_count ?? 1) : 1;
-        $total = $plan ? (float) ($plan->total_amount ?? $amount) : $amount;
-
-        if (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '') {
-            $total = $amount * $totalInstallments;
-        }
-
-        $isCustom = false;
-        if ($plan) {
-            $isCustom = (abs($amount - (float) ($plan->payment_amount ?? 0)) > 0.01)
-                || (abs($total - (float) ($plan->total_amount ?? 0)) > 0.01);
-        }
-
-        return compact('amount', 'totalInstallments', 'total', 'isCustom');
-    }
-
-    /**
-     * Create partner + borrower invoices, start the subscription, and dispatch the appropriate email.
-     *
-     * This encapsulates the PAID / STANDARD billing path that is shared between store() and update().
-     *
-     * @param  Borrower  $borrower
-     * @param  Partner   $partner
-     * @param  object    $user
-     * @param  array     $data
-     * @param  array     $mailData  Base mail data (user, business_info, optionally plain_password)
-     * @param  bool      $isHostCreating
-     * @param  bool      $isMigration  When true, sends BorrowerMigrationMail instead of payment-link/account-created mail
-     */
-    private function buildBorrowerInvoicesAndSendEmail(
-        Borrower $borrower,
-        Partner $partner,
-        object $user,
-        array $data,
-        array $mailData,
-        bool $isHostCreating,
-        bool $isMigration = false
-    ): void {
-        $planId = isset($data['plan_id']) ? (int) $data['plan_id'] : null;
-        $partnerTypeChecking = in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
-
-        if ($partnerTypeChecking && !$isHostCreating) {
-            // WL / Certified partner path: partner pays a fixed fee, borrower pays enrollment
-            $borrower->update(['partner_payment_for_me' => false]);
-
-            $wlPartnerFeePlan = SubscriptionPlan::where('enrollment_type_slug', SubscriptionPlan::BORROWER_FIXED_ENROLLMENT)
-                ->where('entity_type', Borrower::class)
-                ->first();
-            $wlPartnerFeeAmount = $wlPartnerFeePlan ? (float) ($wlPartnerFeePlan->payment_amount ?? 800.00) : 800.00;
-
-            $partnerInvoice = $this->invoiceService->create([
-                'partner_id' => $borrower->partner_id,
-                'borrower_id' => $borrower->id,
-                'entity_type' => Partner::class,
-                'entity_id' => $borrower->partner_id,
-                'customer_name' => $partner->full_name,
-                'email' => $partner->email,
-                'country' => $partner->country,
-                'payment_amount' => $wlPartnerFeeAmount,
-                'status' => Invoice::STATUS_UNPAID,
-                'is_partner_paying' => true,
-                'is_platform_fee' => false,
-            ]);
-            $this->activityLogService->logModelEvent($partnerInvoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
-
-            [$plan] = $this->resolveBorrowerPlan($planId);
-            $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data);
-
-            $invoice = $this->invoiceService->create([
-                'partner_id' => $borrower->partner_id,
-                'borrower_id' => $borrower->id,
-                'entity_type' => Borrower::class,
-                'entity_id' => $borrower->id,
-                'customer_name' => $borrower->full_name,
-                'email' => $borrower->email,
-                'country' => $borrower->country,
-                'payment_amount' => $amounts['amount'],
-                'status' => Invoice::STATUS_UNPAID,
-                'is_partner_paying' => false,
-                'is_platform_fee' => false,
-            ]);
-            $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
-        } else {
-            // Host / Direct path
-            $plan = SubscriptionPlan::where('id', $planId)->where('entity_type', Borrower::class)->first();
-            $amounts = $this->calculateBorrowerSubscriptionAmounts($plan, $data, 0);
-
-            $invoice = $this->invoiceService->create([
-                'partner_id' => $borrower->partner_id,
-                'borrower_id' => $borrower->id,
-                'entity_type' => Borrower::class,
-                'entity_id' => $borrower->id,
-                'customer_name' => $borrower->full_name,
-                'email' => $borrower->email,
-                'country' => $borrower->country,
-                'payment_amount' => $amounts['amount'],
-                'status' => Invoice::STATUS_UNPAID,
-                'is_partner_paying' => $isHostCreating ? false : true,
-                'is_platform_fee' => false,
-            ]);
-            $this->activityLogService->logModelEvent($invoice, ActivityLog::LOG_TYPE_INVOICE_CREATE);
-        }
-
-        $this->subscriptionService->startSubscription($borrower, $plan, [
-            'monthly_platform_fee' => 0,
-            'total_subscription_amount' => $amounts['total'],
-            'payable_amount' => $amounts['amount'],
-            'is_custom' => $amounts['isCustom'],
-        ]);
-
-        if ($isMigration) {
-            // Free-trial → paid migration: only notify if there's an amount due
-            if ($amounts['amount'] > 0) {
-                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
-                $mailData['amount'] = $invoice->payment_amount;
-                $this->sendBorrowerMail($user->email, new BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id);
-            }
-        } elseif ($isHostCreating) {
-            if ($amounts['amount'] > 0) {
-                $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
-                $mailData['amount'] = $invoice->payment_amount;
-                $this->sendBorrowerMail($user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id);
-            } else {
-                $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
-            }
-        } else {
-            $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
-        }
-    }
-
-    /**
      * Store a new borrower.
      */
     public function store(array $data)
@@ -466,17 +306,27 @@ class BorrowerService
             }
 
             $data['current_tier'] = Tier::orderBy('order', 'asc')->first()?->id;
+
             $isFreeTrial = isset($data['is_free_trail']) && ($data['is_free_trail'] == 1 || $data['is_free_trail'] === true || $data['is_free_trail'] === 'true');
+
             $data['status'] = $isFreeTrial ? Borrower::STATUS_ACTIVE : Borrower::STATUS_ONBOARDING;
 
             // Filter out fields that are not columns in the borrowers table or are used for mapping
             $exceptFields = [
                 'plan_id',
+                'enrollment',
                 'enrollment_payment',
+                'enrollment_amount',
+                'enrollment_type',
                 'payment_amount',
                 'is_partner_paying',
                 'amount',
                 'business_other_city',
+                'installment_applied',
+                'installment_down_payment',
+                'installment_months',
+                'installment_monthly_amount',
+                'installment_remaining_balance',
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : null;
@@ -526,6 +376,7 @@ class BorrowerService
                 // ── FREE TRIAL PATH ───────────────────────────────────────────────────────
                 if (!empty($data['is_free_trail']) && $data['is_free_trail']) {
                     $trialEndDate = $data['free_trail_end_date'] ?? null;
+
                     $this->activityLogService->logModelEvent(
                         $borrower,
                         ActivityLog::LOG_TYPE_BORROWER_FREE_TRIAL,
@@ -540,20 +391,24 @@ class BorrowerService
                         $borrower->partner_id
                     );
 
+                    $isHostPartner = $partner && $partner->is_host == 1;
                     $partnerTypeChecking = $partner && in_array($partner->partner_type, [Partner::PARTNER_TYPE_WHITE_LABEL, Partner::PARTNER_TYPE_CERTIFIED]);
-                    if ($partnerTypeChecking && !$isHostCreating) {
+                    if (!$isHostPartner && $partnerTypeChecking && !$isHostCreating) {
                         $borrower->update(['partner_payment_for_me' => false]);
+                    } else {
+                        $borrower->update(['partner_payment_for_me' => true]);
                     }
                 }
                 // ── PAID / STANDARD PATH ─────────────────────────────────────────────────
                 else {
-                    $this->buildBorrowerInvoicesAndSendEmail(
+                    $this->enrollmentService->enrollBorrower(
                         $borrower,
                         $partner,
                         $user,
-                        $data,
-                        $mailData,
-                        $isHostCreating
+                        $data['enrollment'] ?? [],
+                        $isHostCreating,
+                        false,
+                        $plainPassword
                     );
                 }
             }
@@ -590,10 +445,20 @@ class BorrowerService
                 $data['business_logo'] = $upload['path'];
             }
             $exceptFields = [
+                'enrollment',
                 'enrollment_payment',
+                'enrollment_amount',
+                'enrollment_type',
                 'plan_id',
                 'is_partner_paying',
+                'amount',
+                'payment_amount',
                 'business_other_city',
+                'installment_applied',
+                'installment_down_payment',
+                'installment_months',
+                'installment_monthly_amount',
+                'installment_remaining_balance',
             ];
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
@@ -625,6 +490,10 @@ class BorrowerService
             $changes = $borrower->getChanges();
             unset($changes['updated_at']);
 
+            if (isset($changes['email']) && strtolower(trim((string) $borrower->getOriginal('email'))) === strtolower(trim((string) $changes['email']))) {
+                unset($changes['email']);
+            }
+
             if (!empty($changes)) {
                 $extraProps = [];
                 if (isset($changes['email'])) {
@@ -644,16 +513,32 @@ class BorrowerService
                     $logType = ActivityLog::LOG_TYPE_BORROWER_CONTACT_UPDATE;
                 }
 
+                $enrollmentType = $data['enrollment']['enrollment_type'] ?? null;
+                $defaultEnrollmentType = __('borrower.default_enrollment_type');
+                $transitionMsg = ($wasFreeTrial && !$isFreeTrialInput)
+                    ? __('borrower.free_trial_converted_log', ['enrollment_type' => $enrollmentType ? $enrollmentType : $defaultEnrollmentType])
+                    : null;
+
                 $changedFields = [];
                 foreach ($changes as $field => $newValue) {
+                    if ($transitionMsg && in_array($field, ['is_free_trail', 'free_trail_end_date', 'status'])) {
+                        continue;
+                    }
+
                     $name = ucwords(str_replace('_', ' ', $field));
                     $val = (string) $newValue;
-                    $val = $val === '' ? 'empty' : $val;
-                    $changedFields[] = "{$name} was updated to {$val}";
+                    $val = $val === '' ? __('borrower.empty_value') : $val;
+                    $changedFields[] = __('borrower.field_updated', ['field' => $name, 'value' => $val]);
                 }
-                $fieldsList = implode(', ', $changedFields);
 
-                $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+                if ($transitionMsg) {
+                    $customDescription = !empty($changedFields)
+                        ? "{$transitionMsg}. " . implode(', ', $changedFields) . "."
+                        : "{$transitionMsg}.";
+                } else {
+                    $fieldsList = implode(', ', $changedFields);
+                    $customDescription = $isEmailOnly ? null : "{$fieldsList}.";
+                }
 
                 $this->activityLogService->logModelEvent(
                     $borrower,
@@ -664,82 +549,17 @@ class BorrowerService
                 );
             }
 
-            // Update subscription if custom enrollment payment is provided
-            $subscription = $borrower->latestSubscription;
-            $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
-
-            if ($subscription) {
-                $plan = $subscription->subscriptionPlan;
-                $updateSubData = [];
-
-                // Determine final values to reassess is_custom status
-                $finalEnrollment = (isset($data['enrollment_payment']) && $data['enrollment_payment'] !== '')
-                    ? (float) $data['enrollment_payment']
-                    : (float) $subscription->payable_amount;
-
-                $totalInstallments = (int) ($plan->total_installments_count ?? 1);
-                $finalTotal = $finalEnrollment * $totalInstallments;
-
-                // Mark as custom if enrollment payment or total differs from the original plan
-                $isCustom = false;
-                if ($plan) {
-                    $isCustom = (abs($finalEnrollment - (float) ($plan->payment_amount ?? 0)) > 0.01) ||
-                        (abs($finalTotal - (float) ($plan->total_amount ?? 0)) > 0.01);
-                }
-
-                $updateSubData = [
-                    'payable_amount' => $finalEnrollment,
-                    'total_subscription_amount' => $finalTotal,
-                    'is_custom' => $isCustom,
-                ];
-
-                $subscription->update($updateSubData);
-                Log::info('Borrower subscription reassessed and updated', [
-                    'subscription_id' => $subscription->id,
-                    'is_custom' => $isCustom,
-                    'payable' => $finalEnrollment,
-                    'total' => $finalTotal
-                ]);
-            } elseif ($wasFreeTrial && !$isFreeTrialInput) {
-                // Transition off free trial
-                $clientPartner = Partner::where('id', $borrower->partner_id)->first();
-                $authUser = Auth::user();
-                $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
-
-                $mailData = [
-                    'user' => $user,
-                    'business_info' => [
-                        'company_name' => $clientPartner->company_name ?? 'Four Corner Funding',
-                        'company_logo' => $clientPartner->company_logo ?? 'logo.png',
-                        'email' => $clientPartner->email ?? config('mail.from.address'),
-                        'phone_number' => $clientPartner->phone_number ?? '',
-                        'address_line_1' => $clientPartner->address_line_1 ?? '',
-                    ],
-                ];
-
-                $partner = Partner::find($borrower->partner_id);
-                $this->buildBorrowerInvoicesAndSendEmail(
-                    $borrower,
-                    $partner,
-                    $user,
-                    $data,
-                    $mailData,
-                    $isHostCreating,
-                    isMigration: true
-                );
-            }
-
-            // 1. Update associated User if exists
+            // 1. Update associated User if exists or create if email provided
             $user = $borrower->user;
             if ($user) {
                 $userResult = $this->createOrUpdateUser($data, $borrower, $user);
-                $updatedUser = $userResult['user'];
+                $user = $userResult['user'];
                 $plainPassword = $userResult['plain_password'];
 
                 if ($plainPassword) {
                     $hostPartner = Partner::where('is_host', 1)->first();
                     $mailData = [
-                        'user' => $updatedUser,
+                        'user' => $user,
                         'plain_password' => $plainPassword,
                         'business_info' => [
                             'company_name' => $hostPartner->company_name ?? 'Four Corner Funding',
@@ -750,16 +570,37 @@ class BorrowerService
                         ],
                         'is_update' => true,
                     ];
-                    Log::info('📧 Sending account update email to borrower due to email change', ['email' => $updatedUser->email]);
-                    $this->sendBorrowerMail($updatedUser->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                    Log::info('📧 Sending account update email to borrower due to email change', ['email' => $user->email]);
+                    $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             } elseif (!empty($data['email'])) {
-                // Create user if email is provided and user doesn't exist
-                $this->createOrUpdateUser($data, $borrower);
+                $userResult = $this->createOrUpdateUser($data, $borrower);
+                $user = $userResult['user'];
             }
 
+            // Update subscription if custom enrollment payment is provided
+            $subscription = $borrower->latestSubscription;
+            $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
-            $user->update(['is_refresh' => true]);
+            if ($wasFreeTrial && !$isFreeTrialInput && $user) {
+                // Transition off free trial
+                $authUser = Auth::user();
+                $isHostCreating = $authUser && $authUser->partner && $authUser->partner->is_host;
+                $partner = Partner::find($borrower->partner_id);
+
+                $this->enrollmentService->enrollBorrower(
+                    $borrower,
+                    $partner,
+                    $user,
+                    $data['enrollment'] ?? [],
+                    $isHostCreating,
+                    isMigration: true
+                );
+            }
+
+            if ($user) {
+                $user->update(['is_refresh' => true]);
+            }
             DB::commit();
 
             // Return consistent format or just borrower? Controller expects resource.

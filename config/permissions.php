@@ -87,27 +87,28 @@ return [
     'payments' => [
         'permissions' => [
             ['name' => 'view payments', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create payments', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update payments', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete payments', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'can approve payment', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
     'invoices' => [
         'permissions' => [
             ['name' => 'view invoices', 'is_certified' => 1, 'is_host' => 0],
-            ['name' => 'create invoices', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'update invoices', 'is_certified' => 0, 'is_host' => 0],
-            ['name' => 'delete invoices', 'is_certified' => 0, 'is_host' => 0],
+        ],
+    ],
+
+    'upcoming billings' => [
+        'permissions' => [
+            ['name' => 'view billings', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
     'subscriptions' => [
         'permissions' => [
-            ['name' => 'view subscriptions', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'create subscriptions', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'update subscriptions', 'is_certified' => 0, 'is_host' => 1],
-            ['name' => 'delete subscriptions', 'is_certified' => 0, 'is_host' => 1],
+            ['name' => 'view subscriptions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create subscriptions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update subscriptions', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete subscriptions', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 
@@ -238,6 +239,15 @@ return [
             ['name' => 'update blogs', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'view seo settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update seo settings', 'is_certified' => 0, 'is_host' => 1],
+        ],
+    ],
+
+    'enbedded loan application form' => [
+        'permissions' => [
+            ['name' => 'view configuration', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update configuration', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'view application', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'convert application', 'is_certified' => 1, 'is_host' => 0],
         ],
     ],
 ];

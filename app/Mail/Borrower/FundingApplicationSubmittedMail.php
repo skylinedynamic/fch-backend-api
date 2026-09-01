@@ -38,26 +38,6 @@ class FundingApplicationSubmittedMail extends Mailable
         }
     }
 
-    protected function getBrandingData(): array
-    {
-        $partnerId = $this->mailPartnerId ?: getConfigPartner()->id;
-
-        $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
-            ->where('module', AppConfiguration::MODULE_BRANDING)
-            ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
-            ->pluck('value', 'key')
-            ->toArray();
-
-        $partner = $partnerId ? Partner::find($partnerId) : \App\Models\Partner\Partner::where('is_host', true)->first();
-
-        return [
-            'siteName' => $brandingConfig['site_name'] ?? ($partner ? $partner->company_name : config('app.name')),
-            'logoUrl' => (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null ) 
-                ? asset('storage/' . $brandingConfig['secondary_logo']) 
-                : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null),
-        ];
-    }
-
     /**
      * Get the message envelope.
      */
@@ -67,10 +47,10 @@ class FundingApplicationSubmittedMail extends Mailable
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
-        $this->dynamicData['applicationUrl'] = concatUrl(getPartnerDomain($this->mailPartnerId), 'intake-review/funding-request/' . $this->application->id, config('app.frontend_partner_url'));
+        $this->dynamicData['applicationUrl'] = concatUrl(getBorrowerDomain($this->mailPartnerId), 'fund-application/' . $this->application->funding_request_id, config('app.frontend_borrower_url'));
 
         return new Envelope(
-            subject: 'New Funding Application Submitted - ' . ($this->application->business_name ?? $this->application->borrower?->business_name ?? 'Client'),
+            subject: 'Funding Application Successfully Submitted',
         );
     }
 

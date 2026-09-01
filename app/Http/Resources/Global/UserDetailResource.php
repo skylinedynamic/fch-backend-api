@@ -13,23 +13,27 @@ class UserDetailResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $partner = $this->relationLoaded('partner') ? $this->partner : null;
+        $subscription = ($partner && $partner->relationLoaded('subscription')) ? $partner->subscription : null;
+
+        $entityIsFreeTrial = false;
+        $entityFreeTrialEndDate = null;
+        if ($this->relationLoaded('entity') && $this->entity) {
+            $entityIsFreeTrial = (bool) $this->entity->is_free_trail;
+            $entityFreeTrialEndDate = $this->entity->free_trail_end_date;
+        }
+
         return [
-            'is_host' => (boolval($this->partner?->is_host)),
-            'enrollment_type' => $this->partner?->subscription?->enrollment_type,
-            'subscription_status' => $this->partner?->subscription?->status,
-            'first_payment_date' => $this->partner?->subscription?->first_payment_date?->toDateString(),
-            'platform_fee_start_date' => $this->partner?->subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $this->partner?->subscription?->phases?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $this->partner?->subscription?->phases?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $this->partner?->subscription?->phases?->enrollment_completed_at?->toDateString(),
-            'subscription_start_date' => $this->partner?->subscription?->subscription_start_date?->toDateString(),
-            'subscription_end_date' => $this->partner?->subscription?->subscription_end_date?->toDateString(),
-            'phase' => $this->partner?->subscription?->enrollmentPhase?->phase,
-            'total_paid_users' => $this->partner?->total_paid_users,
-            'total_free_users' => $this->partner?->total_free_users,
+            'is_host' => $partner ? (boolval($partner->is_host)) : false,
+            'enrollment_type' => $subscription?->enrollment_type,
+            'subscription_status' => $subscription?->status,
+            'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
+            'subscription_end_date' => toTimezone($subscription?->subscription_end_date), // paid through
+            'first_payment_date' => toTimezone($subscription?->first_payment_date),
+            'phase' => $subscription?->current_phase,
             'is_refresh' => (boolval($this->is_refresh)),
-            'is_free_trail' => (bool) ($this->entity?->is_free_trail ?? $this->partner?->is_free_trail ?? false),
-            'free_trail_end_date' => ($this->entity?->free_trail_end_date ?? $this->partner?->free_trail_end_date ?? null)?->toDateString(),
+            'is_free_trail' => $entityIsFreeTrial || ($partner?->is_free_trail ?? false),
+            'free_trail_end_date' => toTimezone($entityFreeTrialEndDate ?? ($partner?->free_trail_end_date ?? null)),
         ];
     }
 }

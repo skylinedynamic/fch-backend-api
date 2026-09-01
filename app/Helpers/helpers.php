@@ -3,6 +3,7 @@
 use App\Models\Partner\Partner;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 if (!function_exists('encodeUrl')) {
     /**
@@ -112,9 +113,9 @@ if (!function_exists('normalizeDate')) {
                 return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
             }
 
-            return \Illuminate\Support\Carbon::parse($date)->format('Y-m-d');
+            return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
+            Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
             return null;
         }
     }
@@ -176,28 +177,102 @@ if (!function_exists('getPartnerDomain')) {
             $partner = Partner::find($partnerId);
             return $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         }
-        $partner = auth()->user()->partner;
+        $partner = auth()->check() ? auth()->user()->partner : null;
         $domain = $partner->partner_domain ?? $partner->partner_subdomain ?? config('app.frontend_partner_url');
         return $domain;
     }
 }
 
 if (!function_exists('getBorrowerDomain')) {
+    /**
+     * Resolve the borrower-portal domain a borrower of this partner can actually
+     * log in through.
+     *
+     * Falling back to the reserved default borrower portal
+     * (config('app.frontend_borrower_url')) is only valid for the host and for a
+     * Certified partner with no domain of its own — see
+     * PortalIsolationService::isUserAllowedOnDomain(), which only lets those two
+     * onto that domain. A White-Label partner (or any other non-host type) with
+     * no borrower_domain has no domain a borrower can log in through at all;
+     * falling back to the reserved default there would hand out a login link the
+     * isolation check then rejects. Returns null in that case so callers (email
+     * templates in particular) can omit the login link instead of sending a
+     * broken one.
+     */
     function getBorrowerDomain(int $partnerId = null): ?string
     {
-        if($partnerId){
-            $partner = Partner::find($partnerId);
-            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        $partner = $partnerId
+            ? Partner::find($partnerId)
+            : (auth()->check() ? auth()->user()->partner : null);
+
+        if (!$partner) {
+            return null;
         }
-        $partner = auth()->user()->partner;
-        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
-        return $domain;
+
+        if (!empty($partner->borrower_domain)) {
+            return $partner->borrower_domain;
+        }
+
+        if ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url');
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('getEmbedFormBaseUrl')) {
+    /**
+     * Resolve the base URL used for embedded loan application form links
+     * (the direct link and the iframe embed snippet), based on the
+     * authenticated user's partner:
+     *
+     * - Local environment: always the app base URL — custom/sub-domains
+     *   don't resolve locally.
+     * - Host partner: the app base URL.
+     * - White-Label partner: partner_domain when active_custom_url is
+     *   enabled (falling back to partner_subdomain if partner_domain is
+     *   empty), otherwise partner_subdomain.
+     * - Certified partner: partner_subdomain.
+     * - No partner / no domain configured: the app base URL.
+     */
+    function getEmbedFormBaseUrl(): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        if (app()->environment('local')) {
+            return $baseUrl;
+        }
+
+        $partner = auth()->user()?->partner;
+
+        if (!$partner || $partner->is_host) {
+            return $baseUrl;
+        }
+
+        $domain = null;
+
+        if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+            $domain = $partner->active_custom_url
+                ? ($partner->partner_domain ?: $partner->partner_subdomain)
+                : $partner->partner_subdomain;
+        } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            $domain = $partner->partner_subdomain;
+        }
+
+        if (empty($domain)) {
+            return $baseUrl;
+        }
+
+        $domain = preg_replace('/^https?:\/\//i', '', trim($domain));
+
+        return 'https://' . rtrim($domain, '/');
     }
 }
 
 if (!function_exists('concatUrl')) {
     /**
-     * Concatenate domain and path using HTTPS protocol.
+     * Concatenate domain and path using appropriate protocol.
      *
      * @param string|null $domain
      * @param string $path
@@ -212,13 +287,32 @@ if (!function_exists('concatUrl')) {
             return '';
         }
 
-        // Remove any existing protocol
-        $target = preg_replace('/^https?:\/\//i', '', trim($target));
+        $target = trim($target);
 
-        // Enforce HTTPS
-        $target = 'https://' . rtrim($target, '/');
+        // Check if domain explicitly specifies http:// or https://
+        $hasHttp = (bool) preg_match('/^http:\/\//i', $target);
+        $hasHttps = (bool) preg_match('/^https:\/\//i', $target);
 
-        return $target . '/' . ltrim($path, '/');
+        // Detect local environment (localhost, 127.0.0.1, .test, .local)
+        $isLocal = app()->isLocal()
+            || str_contains($target, 'localhost')
+            || str_contains($target, '127.0.0.1')
+            || str_ends_with(parse_url($target, PHP_URL_HOST) ?? $target, '.test')
+            || str_ends_with(parse_url($target, PHP_URL_HOST) ?? $target, '.local');
+
+        // Clean domain
+        $cleanDomain = preg_replace('/^https?:\/\//i', '', $target);
+        $cleanDomain = rtrim($cleanDomain, '/');
+
+        if ($hasHttps) {
+            $protocol = 'https://';
+        } elseif ($hasHttp) {
+            $protocol = 'http://';
+        } else {
+            $protocol = $isLocal ? 'http://' : 'https://';
+        }
+
+        return $protocol . $cleanDomain . '/' . ltrim($path, '/');
     }
 }
 
@@ -244,22 +338,54 @@ if (!function_exists('make_url')) {
     }
 }
 
+if (!function_exists('toTimezone')) {
+    /**
+     * Convert a date/time value to the specified timezone and format.
+     *
+     * @param mixed $datetime
+     * @param string|null $timezone
+     * @param string $format
+     * @return string|null
+     */
+    function toTimezone($datetime, ?string $timezone = null, string $format = 'Y-m-d'): ?string
+    {
+        if (empty($datetime)) {
+            return null;
+        }
+
+        $timezone ??= request()->header('x-timezone', config('app.timezone', 'UTC'));
+
+        try {
+            return Carbon::parse($datetime)
+                ->setTimezone($timezone)
+                ->format($format);
+        } catch (\Exception $e) {
+            Log::error('Timezone conversion failed', [
+                'datetime' => $datetime,
+                'timezone' => $timezone,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
+
 if (!function_exists('calculateTimeInBusiness')) {
     function calculateTimeInBusiness($startDate)
     {
         if (empty($startDate)) {
             return 'N/A';
         }
-        
+
         $start = Carbon::parse($startDate);
         $now = now();
-        
+
         if ($start->isFuture()) {
             return '0 Days';
         }
-        
+
         $diff = $start->diff($now);
-        
+
         $parts = [];
         if ($diff->y > 0) {
             $parts[] = $diff->y . ' Year' . ($diff->y > 1 ? 's' : '');
@@ -270,7 +396,7 @@ if (!function_exists('calculateTimeInBusiness')) {
         if ($diff->d > 0 || empty($parts)) {
             $parts[] = $diff->d . ' Day' . ($diff->d > 1 ? 's' : '');
         }
-        
+
         return implode(' ', $parts);
     }
 }

@@ -12,7 +12,7 @@ use App\Models\Payment\Payment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;

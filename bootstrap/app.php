@@ -9,6 +9,7 @@ use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
+        channels: __DIR__.'/../routes/channels.php',
         web: __DIR__ . '/../routes/web.php',
         api: [
             __DIR__ . '/../routes/common.php',
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             __DIR__ . '/../routes/filemanager.php',
             __DIR__ . '/../routes/website.php',
         ],
+
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )

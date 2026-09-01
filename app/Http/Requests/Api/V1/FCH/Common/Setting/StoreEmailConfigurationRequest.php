@@ -39,7 +39,7 @@ class StoreEmailConfigurationRequest extends BaseApiRequest
                 
                 // SMTP Settings
                 'smtp_host'       => 'required_if:email_provider,smtp|nullable|string',
-                'smtp_port'       => 'required_if:email_provider,smtp|nullable|string',
+                'smtp_port'       => 'required_if:email_provider,smtp|nullable|integer|between:1,65535',
                 'smtp_encryption' => 'required_if:email_provider,smtp|nullable|string|in:tls,ssl,none',
                 'smtp_username'   => 'required_if:email_provider,smtp|nullable|string',
                 'smtp_password'   => 'required_if:email_provider,smtp|nullable|string',
@@ -68,6 +68,8 @@ class StoreEmailConfigurationRequest extends BaseApiRequest
             // 'from_name.required'          => __('email_config.from_name_required'),
             'smtp_host.required_if'       => __('email_config.smtp_host_required_if'),
             'smtp_port.required_if'       => __('email_config.smtp_port_required_if'),
+            'smtp_port.integer'           => __('email_config.smtp_port_integer'),
+            'smtp_port.between'           => __('email_config.smtp_port_between'),
             'smtp_encryption.required_if' => __('email_config.smtp_encryption_required_if'),
             'smtp_username.required_if'   => __('email_config.smtp_username_required_if'),
             'smtp_password.required_if'   => __('email_config.smtp_password_required_if'),

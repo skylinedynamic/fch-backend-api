@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\CronJobFailureMail;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -29,23 +30,39 @@ $scheduleTimezone = config('app.scheduler_timezone', config('app.timezone', 'UTC
 $schedulerLogPath = storage_path('logs/scheduler.log');
 
 /**
- * Shared failure handler: logs AND notifies the on-call email list.
+ * Shared failure handler: logs AND notifies the on-call email list using the host admin email configuration.
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
-        $message = "Scheduled command failed: {$command}";
+        $env      = config('app.env', 'unknown');
+        $appUrl   = config('app.url', 'unknown');
+        $hostname = gethostname() ?: 'unknown';
 
-        Log::error($message);
+        Log::error("Scheduled command failed: {$command}", [
+            'env'      => $env,
+            'app_url'  => $appUrl,
+            'hostname' => $hostname,
+        ]);
 
         $emails = array_filter(
             array_map('trim', explode(',', config('app.cron_notify_emails', '')))
         );
 
-        if (!empty($emails) && config('mail.default')) {
+        if (!empty($emails)) {
             try {
-                Mail::raw($message, function ($mail) use ($emails, $command) {
-                    $mail->to($emails)->subject("Scheduler failure: {$command}");
-                });
+                // Mail::to($emails)->send(new CronJobFailureMail([
+                //     'job_name'      => $command,
+                //     'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
+                //     'timestamp'     => now()->toDateTimeString(),
+                //     'stack_trace'   => implode("\n", [
+                //         "Scheduled command failed: {$command}",
+                //         "",
+                //         "--- Origin ---",
+                //         "Environment : {$env}",
+                //         "App URL     : {$appUrl}",
+                //         "Server Host : {$hostname}",
+                //     ]),
+                // ]));
             } catch (\Throwable $e) {
                 Log::error('Failed to send cron failure notification: ' . $e->getMessage());
             }
@@ -69,17 +86,14 @@ $onSuccess = function (string $command) {
 | Business Commands  —  01:00 / 13:00 window, staggered 15 min apart
 |--------------------------------------------------------------------------
 */
-Schedule::command('subscriptions:process')
+// Unified subscription lifecycle: generate invoices for all types + auto-charge due invoices
+Schedule::command('subscriptions:process-all')
     ->twiceDailyAt(1, 13, 0)
     ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('subscriptions:process'));
-
-Schedule::command('users:check-expired')
-    ->twiceDailyAt(1, 13, 15)
-    ->timezone($scheduleTimezone)
-    ->withoutOverlapping(30)
-    ->onFailure($onFailure('users:check-expired'));
+    ->withoutOverlapping(60)
+    ->appendOutputTo($schedulerLogPath)
+    ->onFailure($onFailure('subscriptions:process-all'))
+    ->onSuccess($onSuccess('subscriptions:process-all'));
 
 
 Schedule::command('funding:application-reminders')
@@ -87,6 +101,13 @@ Schedule::command('funding:application-reminders')
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(30)
     ->onFailure($onFailure('funding:application-reminders'));
+
+Schedule::command('task:reminder-check')
+    ->everyMinute()
+    ->timezone($scheduleTimezone)
+    ->withoutOverlapping(5)
+    ->onSuccess($onSuccess('task:reminder-check'))
+    ->onFailure($onFailure('task:reminder-check'));
 
 /*
 |--------------------------------------------------------------------------

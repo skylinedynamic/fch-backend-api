@@ -40,6 +40,9 @@ class LeadService
             $lead = Lead::create($leadData);
 
             // Send Email to Host Partner (is_host == 1)
+            // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
+            // from a misconfigured mailer - is logged and bypassed here rather than
+            // reaching the outer catch below and rolling back the lead that was just created.
             if ($hostPartner && ($hostPartner->email || $hostPartner->contact_person_email)) {
                 try {
                     $details = [
@@ -47,13 +50,9 @@ class LeadService
                         'is_pre_qualification' => $isPreQualification,
                         'prequalification' => $preQualificationData
                     ];
-                    try {
-                        Mail::to($hostPartner->email ?: $hostPartner->contact_person_email)
-                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, (object) $details));
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);
-                    }
-                } catch (\Exception $e) {
+                    Mail::to($hostPartner->email ?: $hostPartner->contact_person_email)
+                        ->send(new \App\Mail\Lead\LeadNotificationMail($lead, (object) $details));
+                } catch (\Throwable $e) {
                     Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);
                 }
             }

@@ -78,10 +78,10 @@ class FundingRequestResource extends JsonResource
             'matched_lenders' => $this->matched_lenders,
             'lender_names' => $this->lender_names,
             'funding_sequence' => [
-                'id' => $this->fundingSequence->id ?? null,
-                'name' => $this->fundingSequence->name ?? null,
+                'id' => $this->fundingSequence?->id ?? null,
+                'name' => $this->fundingSequence?->name ?? null,
                 'amount_range' => (function () {
-                    $range = $this->fundingSequence->amount_range ?? null;
+                    $range = $this->fundingSequence?->amount_range ?? null;
                     if (!$range) return null;
                     $parts = explode('-', $range);
                     if (count($parts) === 2) {
@@ -91,10 +91,10 @@ class FundingRequestResource extends JsonResource
                 })(),
             ],
             'borrower' => [
-                'id' => $this->borrower->id ?? null,
-                'first_name' => $this->borrower->first_name ?? null,
-                'last_name' => $this->borrower->last_name ?? null,
-                'company_name' => $this->borrower->company_name ?? null,
+                'id' => $this->borrower?->id ?? null,
+                'first_name' => $this->borrower?->first_name ?? null,
+                'last_name' => $this->borrower?->last_name ?? null,
+                'company_name' => $this->borrower?->company_name ?? null,
             ],
             'reviewer' => $this->whenLoaded('reviewer', function () {
                 return [

@@ -3,7 +3,7 @@
 @section('title', 'Documents Uploaded Successfully')
 
 @section('content')
-    <h4 style="font-size: 18px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello,</h4>
 
     <p style="line-height: 1.5; margin-bottom: 16px;">
         Documents have been uploaded for the following client:
@@ -11,7 +11,7 @@
 
     <div class="box-light info-card-container" style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 8px; margin-bottom: 24px; text-align: left; overflow: hidden;">
         <div class="info-card-content" style="padding: 20px;">
-            <table class="info-table compact" style="width: 100%; border-collapse: collapse;">
+            <table class="info-table compact" style="width: 100%; border-collapse: collapse; table-layout: fixed; word-wrap: break-word;">
                 <tr>
                     <td class="label" style="padding: 4px; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%;">Client Name:</td>
                     <td class="value" style="padding: 4px; border-bottom: none; font-size: 14px; font-weight: 600; color: #0f172a; text-align: right;">{{ $user->name }}</td>

@@ -23,7 +23,9 @@ use App\Http\Requests\Api\V1\FCH\Common\Lead\ConvertLeadRequest;
 
 class LeadController extends Controller
 {
-    public function __construct(protected LeadService $leadService) {}
+    public function __construct(protected LeadService $leadService)
+    {
+    }
 
     /**
      * List Leads
@@ -145,14 +147,19 @@ class LeadController extends Controller
     public function convert(ConvertLeadRequest $request, $id)
     {
         $this->checkWhiteLabelConfiguration();
-        Log::info('Convert lead: ' . $id);
+
         try {
             $lead = Lead::findOrFail($id);
+
+            if ($lead->partner_id != auth()->user()->partner_id) {
+                return ApiResponse::error(__('lead.lead_not_belongs_to_partner'), 404);
+            }
+
             $result = $this->leadService->convert($lead, $request->validated());
 
             if ($result instanceof Borrower) {
                 return ApiResponse::success(new ConvertedBorrowerResource($result), __('lead.converted_to_borrower'));
-            } elseif ($result instanceof \App\Models\Partner\Partner) {
+            } elseif ($result instanceof Partner) {
                 return ApiResponse::success(new PartnerResource($result), __('lead.converted_to_partner'));
             }
 
@@ -162,16 +169,4 @@ class LeadController extends Controller
         }
     }
 
-    /**
-     * Dashboard Stats
-     */
-    public function stats()
-    {
-        try {
-            $stats = $this->leadService->getStats();
-            return ApiResponse::success($stats, __('lead.stats_retrieved'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('lead.stats_failed'));
-        }
-    }
 }

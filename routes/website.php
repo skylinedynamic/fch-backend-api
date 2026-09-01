@@ -6,8 +6,16 @@ use App\Http\Controllers\Api\V1\Global\Website\PreQualification\PreQualification
 use App\Http\Controllers\Api\V1\Global\Website\CMS\BlogController;
 use App\Http\Controllers\Api\V1\Global\Website\CMS\SeoController;
 use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingsController;
+use App\Http\Controllers\Api\V1\Global\Website\EmbedForm\PublicEmbedFormController;
+
+// 🌐 Public Embedded Form (outsider / iframe calls)
+Route::prefix('v1/embed')->group(function () {
+    Route::get('config/{key}', [PublicEmbedFormController::class, 'config']);
+    Route::post('submit/{key}', [PublicEmbedFormController::class, 'submit']);
+});
 
 Route::prefix('v1/website')->group(function () {
+
     Route::post('leads', [LeadController::class, 'store']);
     Route::post('pre-qualification', [PreQualificationController::class, 'store']);
 

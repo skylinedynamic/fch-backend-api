@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Partner\DemoRequestController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\TierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Partner\PartnerDocumentController;
-use App\Http\Controllers\Api\V1\FCH\Admin\Subscription\SubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditBuilderVendorController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\IntakeReview\ChangeRequest\ChangeRequestController;
@@ -24,6 +23,7 @@ use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingSequencingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Funding\FundingTypeController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Lender\LenderProductCategoryController;
+use App\Http\Controllers\Api\V1\FCH\Admin\PaymentMethod\PaymentMethodController;
 // ✅ Import Role & Permission Controllers
 
 /* |-------------------------------------------------------------------------- | Admin API Routes |-------------------------------------------------------------------------- | All admin API endpoints are loaded here. | Protected by Passport (auth:api) and Admin middleware. | We also include set.current.business for business-wise data scoping. |-------------------------------------------------------------------------- */
@@ -53,14 +53,9 @@ Route::prefix('v1/admin')
         Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
         Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
 
-        // 💳 Subscriptions
-        Route::post('partners/fetch-all-subscriptions', [SubscriptionController::class, 'fetchAll']);
-        Route::post('partners/fetch-subscriptions/{partnerId}', [SubscriptionController::class, 'index']);
-
-        Route::post('partners/subscription', [SubscriptionController::class, 'store']);
-        Route::post('partner-subscriptions/{partnerId}', [SubscriptionController::class, 'details']);
-
-        Route::post('partners/subscriptions-stats', [SubscriptionController::class, 'stats']);
+        // 💰 Plan & Fee (Admin/Host Partner only)
+        Route::post('plan-fee/fetch-subscription-plans', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'index']);
+        Route::put('plan-fee/update-subscription-plan/{id}', [\App\Http\Controllers\Api\V1\FCH\Admin\PlanFee\PlanFeeController::class, 'update']);
 
         // 📅 Demo requests
         Route::get('demo-requests', [DemoRequestController::class, 'index']);
@@ -230,6 +225,12 @@ Route::prefix('v1/admin')
         Route::prefix('credit-profile-requests')->group(function () {
             Route::post('/', [CreditProfileRequestAdminController::class, 'index']);
             Route::get('/{id}', [CreditProfileRequestAdminController::class, 'show']);
+        });
+
+        // Payment Provider Management Routes
+        Route::prefix('payment-methods')->group(function () {
+            Route::get('/', [PaymentMethodController::class, 'index']);
+            Route::post('{id}', [PaymentMethodController::class, 'update']);
         });
 
     });

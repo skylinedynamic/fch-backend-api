@@ -108,7 +108,15 @@ class AppConfigurationService
             $data['site_name'] = $hostSiteName === '' ? null : $hostSiteName;
         }
 
+        if (empty($data['primary_color']) || $data['primary_color'] === 'null') {
+            $hostPrimary = $hostSettings['primary_color'] ?? null;
+            $data['primary_color'] = $hostPrimary === '' ? null : $hostPrimary;
+        }
 
+        if (empty($data['secondary_color']) || $data['secondary_color'] === 'null') {
+            $hostSecondary = $hostSettings['secondary_color'] ?? null;
+            $data['secondary_color'] = $hostSecondary === '' ? null : $hostSecondary;
+        }
 
         return $data;
     }

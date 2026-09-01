@@ -16,7 +16,7 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\FetchPartner;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
-use App\Services\Global\Notification\Mail\AccountCreateNotificationMail;
+use App\Mail\AccountCreateNotificationMail;
 
 class PartnerController extends Controller
 {
@@ -109,7 +109,35 @@ class PartnerController extends Controller
         $updatedPartner = $this->partnerService->update($partner, $data);
 
         return ApiResponse::success(
-            new PartnerResource($updatedPartner),
+            [
+                'id' => $updatedPartner->id,
+                'full_name' => $updatedPartner->full_name,
+                'company_name' => $updatedPartner->company_name,
+                'email' => $updatedPartner->email,
+                'phone_number' => $updatedPartner->phone_number,
+                'state' => $updatedPartner->state,
+                'city' => $updatedPartner->city,
+                'country' => $updatedPartner->country,
+                'country_code' => $updatedPartner->country_code,
+                'postal_code' => $updatedPartner->postal_code,
+                'address_line_1' => $updatedPartner->address_line_1,
+                'address_line_2' => $updatedPartner->address_line_2,
+                'joining_date' => $updatedPartner->joining_date,
+                'tax_id' => $updatedPartner->tax_id,
+                'website' => $updatedPartner->website,
+                'partner_image' => $updatedPartner->partner_image,
+                'company_logo' => $updatedPartner->company_logo,
+                'assigned_user_id' => $updatedPartner->assign_to,
+                'contact_person' => $updatedPartner->contact_person,
+                'contact_person_email' => $updatedPartner->contact_person_email,
+                'contact_person_phone_number' => $updatedPartner->contact_person_phone_number,
+                'contact_person_relation' => $updatedPartner->contact_person_relation,
+                'partner_domain' => $updatedPartner->partner_domain,
+                'borrower_domain' => $updatedPartner->borrower_domain,
+                'status' => $updatedPartner->status,
+                'is_free_trail' => (bool) ($updatedPartner->is_free_trail ?? false),
+                'free_trail_end_date' => $updatedPartner->free_trail_end_date,
+            ],
             __('partner.success.updated'),
         );
     }

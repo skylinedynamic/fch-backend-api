@@ -72,10 +72,10 @@ class Partner extends Model
         'partner_domain',
         'borrower_domain',
         'partner_subdomain',
-        'total_free_users',
-        'total_paid_users',
         'is_free_trail',
         'free_trail_end_date',
+        'stripe_customer_id',
+        'default_payment_method',
     ];
 
     /**
@@ -92,7 +92,37 @@ class Partner extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'stripe_customer_id' => 'array',
     ];
+
+    /**
+     * Get raw Stripe Customer ID string from the JSON stripe_customer_id field.
+     * Supports legacy plain string and new JSON {customer_id, name, card_no} format.
+     */
+    public function getStripeCustomerIdRawAttribute(): ?string
+    {
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return $value['customer_id'] ?? null;
+        }
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Get formatted Stripe card display info from the JSON stripe_customer_id field.
+     */
+    public function getStripeCardInfoAttribute(): array
+    {
+        $value = $this->stripe_customer_id;
+        if (is_array($value)) {
+            return [
+                'customer_id' => $value['customer_id'] ?? null,
+                'name'        => $value['name'] ?? null,
+                'card_no'     => $value['card_no'] ?? null,
+            ];
+        }
+        return ['customer_id' => $value, 'name' => null, 'card_no' => null];
+    }
 
     public const STATUS = [
         'Active' => 'Active',
@@ -209,6 +239,8 @@ class Partner extends Model
     {
         return $this->morphOne(Subscription::class, 'entity')->latestOfMany();
     }
+
+
 
     /**
      * Get all subscriptions for the partner.
@@ -345,5 +377,24 @@ class Partner extends Model
     public function getEntityImage(): string
     {
         return $this->partner_image ?? asset('avatar/avatar-default.jpg');
+    }
+
+    public function partnerPaymentProviders()
+    {
+        return $this->hasMany(\App\Models\PaymentMethod\PartnerPaymentProvider::class, 'partner_id');
+    }
+
+    public function paymentProviders()
+    {
+        return $this->belongsToMany(\App\Models\PaymentMethod\PaymentProvider::class, 'partner_payment_providers', 'partner_id', 'payment_provider_id')
+            ->withPivot(['id', 'status', 'is_default', 'configuration'])
+            ->withTimestamps();
+    }
+
+    public function defaultPaymentProvider()
+    {
+        return $this->hasOne(\App\Models\PaymentMethod\PartnerPaymentProvider::class, 'partner_id')
+            ->where('is_default', true)
+            ->where('status', true);
     }
 }

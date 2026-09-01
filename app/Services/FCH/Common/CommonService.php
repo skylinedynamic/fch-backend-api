@@ -6,6 +6,7 @@ use App\Models\User\User;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
+use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Support\Facades\Auth;
 
 class CommonService
@@ -48,9 +49,20 @@ class CommonService
                 })
                 ->count();
 
+            $seatPlan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
+                ->where('partner_type', $user->partner->partner_type)
+                ->active()
+                ->first();
+
+            $partnerSubscription = $user->partner->subscription;
+            $perSeatPrice = $seatPlan ? (float) $seatPlan->total_amount : 49.00;
+            
+            $userSeats = $partnerSubscription ? ($partnerSubscription->user_seats ?? ($seatPlan?->total_seat_count ?? 3)) : ($seatPlan?->total_seat_count ?? 3);
+
             return [
                 'count' => $count,
-                'per_user_price' => config('app.per_user_price'),
+                'seat_limit' => $userSeats,
+                'per_user_price' => $perSeatPrice,
             ];
         }
 

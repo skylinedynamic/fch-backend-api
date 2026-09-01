@@ -7,6 +7,7 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Models\User\User;
 use App\Services\Global\Common\PortalIsolationService;
@@ -69,21 +70,32 @@ class AuthService
             return ApiResponse::loginError($portalIsolationService->getUnauthorizedMessage($user, $domain), 'email');
         }
 
-        if ($user->is_paid && $user->payment_status != User::PAYMENT_STATUS_PAID) {
-            $partner = $user->partner;
-            // Only block if partner is NOT a host
-            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
-                return ApiResponse::loginError(__('auth.payment_not_completed', ['partner' => $partnerName]), 'email');
+        $userSeatSubscription = Subscription::where(function ($q) use ($user) {
+            $q->where('entity_type', User::class)->where('entity_id', $user->id);
+            if ($user->entity_type === Employee::class && $user->entity_id) {
+                $q->orWhere(function ($eq) use ($user) {
+                    $eq->where('entity_type', Employee::class)->where('entity_id', $user->entity_id);
+                });
             }
-        }
+        })->first();
 
-        if ($user->is_paid && $user->end_date && Carbon::parse($user->end_date)->isPast()) {
-            $partner = $user->partner;
-            // Only block if partner is NOT a host
-            if ($partner && (int) ($partner->is_host ?? 0) === 0) {
-                $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
-                return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
+        if ($userSeatSubscription) {
+            if ($userSeatSubscription->status === Subscription::STATUS_PENDING) {
+                $partner = $user->partner;
+                // Only block if partner is NOT a host
+                if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                    $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                    return ApiResponse::loginError(__('auth.payment_not_completed', ['partner' => $partnerName]), 'email');
+                }
+            }
+
+            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->isPast()) {
+                $partner = $user->partner;
+                // Only block if partner is NOT a host
+                if ($partner && (int) ($partner->is_host ?? 0) === 0) {
+                    $partnerName = $partner->company_name ?? $partner->full_name ?? 'your partner';
+                    return ApiResponse::loginError(__('auth.subscription_expired', ['partner' => $partnerName]), 'email');
+                }
             }
         }
 
@@ -167,7 +179,11 @@ class AuthService
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // 'subscription_phases' table (and its Subscription::phases() relation) was
+            // dropped in 2026_08_31_120000_drop_subscription_phases_and_payment_methods_tables
+            // - the phase state it held now lives directly on the subscription row
+            // (current_phase, installments_paid, etc.), so there is nothing left to eager-load here.
+            'partner.subscription',
         ];
 
         $user->load($relations);

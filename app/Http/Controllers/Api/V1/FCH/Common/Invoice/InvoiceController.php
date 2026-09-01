@@ -6,7 +6,7 @@ use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
-use App\Services\FCH\InvoiceService;
+use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
 use App\Http\Resources\FCH\Invoice\InvoiceDetailResource;
 use App\Http\Requests\Api\V1\FCH\Common\Invoice\FetchInvoiceRequest;
@@ -31,20 +31,6 @@ class InvoiceController extends Controller
         $filters = $request->validated();
 
         return $this->invoiceService->getInvoices($filters);
-    }
-
-    /**
-     * Get invoice statistics.
-     *
-     * @param FetchInvoiceRequest $request
-     * @return JsonResponse
-     */
-    public function stats(FetchInvoiceRequest $request): JsonResponse
-    {
-        $filters = $request->validated();
-        $stats = $this->invoiceService->getStats($filters);
-
-        return ApiResponse::success($stats, __('invoice.stats_retrieved'));
     }
 
     /**

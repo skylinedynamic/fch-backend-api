@@ -3,7 +3,7 @@
 @section('title', $siteName . ' - Verification Status Update')
 
 @section('content')
-    <p>Dear {{ $borrowerName }},</p>
+    <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Dear {{ $borrowerName }},</h4>
 
     <p>
         Your verification request has been reviewed. Below is the detailed status summary for each of the submitted tasks.

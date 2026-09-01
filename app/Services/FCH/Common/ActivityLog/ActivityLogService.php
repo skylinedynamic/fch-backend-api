@@ -9,16 +9,18 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Common\AppConfiguration;
+use App\Models\Common\Reminder;
 use App\Models\Employee\Employee;
 use App\Models\FundingRequest\FundingRequest;
-use App\Models\Borrower\FundingApplication;
 use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\Partner\PartnerDocument;
 use App\Models\Payment\Payment;
 use App\Models\User\User;
+use App\Services\FCH\Common\Reminder\ReminderService;
 use App\Traits\PaginatesApi;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -237,6 +239,8 @@ class ActivityLogService
                     // Custom fields for Timeline icons
                     'reference' => $data['reference'] ?? null,
                     'category' => $data['category'] ?? null,
+                    'location' => $data['location'] ?? null,
+                    'duration' => $data['duration'] ?? null,
                     'activity_date' => $data['activity_date'] ?? null,
                     'assigned_to' => $data['assigned_to'] ?? null,
                     'to_emails' => $data['to_emails'] ?? null,
@@ -250,6 +254,16 @@ class ActivityLogService
             ];
 
             $log = ActivityLog::create($logData);
+
+            // Handle Reminders
+            app(ReminderService::class)->createFromActivity(
+                $data,
+                $subjectId,
+                $subjectType,
+                $targetBorrowerId,
+                $targetPartnerId,
+                $attachmentFiles
+            );
 
             // Handle Email Sending if log_type is email
             if ($logType === ActivityLog::TYPE_EMAIL) {

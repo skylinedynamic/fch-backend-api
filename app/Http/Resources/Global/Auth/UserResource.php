@@ -3,13 +3,14 @@
 namespace App\Http\Resources\Global\Auth;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
+use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
+use Log;
 
 /** @mixin \App\Models\User\User */
 class UserResource extends JsonResource
@@ -42,14 +43,11 @@ class UserResource extends JsonResource
             ->unique()
             ->values();
 
-        // Determine subscription based on user type
-        $subscription = null;
-        if ($this->entity_type === Borrower::class) {
-            $subscription = $this->entity?->subscription;
-        } else {
-            // For Partners, Employees, or users with null entity_type but valid partner_id
-            $subscription = $this->partner?->subscription;
-        }
+        $targetType = $this->entity_type ?: User::class;
+        $targetId = $this->entity_id ?: $this->id;
+        $subscription = Subscription::where('entity_type', $targetType)
+            ->where('entity_id', $targetId)
+            ->first();
 
         $partnerInvoiceStatus = null;
         if ($this->partner?->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
@@ -71,33 +69,26 @@ class UserResource extends JsonResource
             'entity_type' => $this->entity_name,
             'entity_id' => $this->entity_id,
             'current_tier' => $this->entity_type == Borrower::class ? $this->entity?->current_tier : null,
-            'is_host' => $this->partner?->is_host,
+            'is_host' => (bool) ($this->partner?->is_host ?? false),
             'partner_type' => $this->partner?->partner_type,
-            'partner_invoice_status' => $partnerInvoiceStatus,
             'partner_payment_for_me' => (bool) ($this->borrower?->partner_payment_for_me ?? true),
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
-            'first_payment_date' => $subscription?->first_payment_date?->toDateString(),
-            'platform_fee_start_date' => $subscription?->platform_fee_start_date?->toDateString(),
-            'next_installment_date' => $subscription?->phases?->next_installment_date?->toDateString(),
-            'next_platform_fee_date' => $subscription?->phases?->next_platform_fee_date?->toDateString(),
-            'enrollment_completed_at' => $subscription?->phases?->enrollment_completed_at?->toDateString(),
-            'subscription_start_date' => $subscription?->subscription_start_date?->toDateString(),
-            'subscription_end_date' => $subscription?->subscription_end_date?->toDateString(),
-            'total_paid_users' => $this->partner?->total_paid_users,
-            'total_free_users' => $this->partner?->total_free_users,
-            'credit_profile_updated' => $this->borrower?->credit_profile_updated,
-            'is_paid' => $this->is_paid,
-            'start_date' => $this->start_date ? $this->start_date->format('Y-m-d') : null,
-            'end_date' => $this->end_date ? $this->end_date->format('Y-m-d') : null,
-            'phase' => $subscription?->phases?->phase,
+            'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
+            'subscription_end_date' => toTimezone($subscription?->subscription_end_date), // paid through
+            'first_payment_date' => toTimezone($subscription?->first_payment_date),
+            'per_seat_amount' => $subscription?->per_seat_amount ?? 49,
+            'user_seats' => $subscription?->user_seats ?? 1,
+            'credit_profile_updated' => (bool) ($this->borrower?->credit_profile_updated ?? false),
+            'is_paid' => (bool) ($this->is_paid ?? false),
+            'phase' => $subscription?->current_phase,
             'status' => $this->status,
             'image' => $this->getEntityImage(),
             'role_id' => $roleId,
             'role_name' => $roleName,
-            'is_agreement_signed' => $this->entity?->has_sign ?? false,
+            'is_agreement_signed' => (bool) $this->entity?->has_sign ?? false,
             'is_free_trail' => (bool) ($this->entity->is_free_trail ?? false),
-            'free_trail_end_date' => ($this->entity->free_trail_end_date ?? null)?->toDateString(),
+            'free_trail_end_date' => toTimezone($this->entity->free_trail_end_date ?? null),
             'permissions' => $permissionNames,
         ];
     }

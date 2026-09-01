@@ -18,17 +18,21 @@ class BorrowerAccountCreatedMail extends Mailable
     public function __construct(array $mailData, ?int $partnerId = null)
     {
         $this->mailData = $mailData;
-        $this->setMailPartnerId();
+        $resolvedPartnerId = $partnerId
+            ?? ($mailData['partner_id'] ?? null)
+            ?? ($mailData['user']?->partner_id ?? null);
+
+        $this->setMailPartnerId($resolvedPartnerId);
     }
 
     public function envelope(): Envelope
     {
-        $branding = $this->getBrandingData();
+        $branding = $this->getBrandingData($this->mailPartnerId);
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
         $defaultSubject = !empty($this->mailData['is_update']) 
             ? __('common.email_changed_subject')
-            : "Welcome to " . $branding['siteName'];
+            : __('borrower.mail.subject_account_created', ['company' => $this->dynamicData['siteName']]);
         $subject = $this->mailData['subject'] ?? $defaultSubject;
 
         return new Envelope(
@@ -38,8 +42,17 @@ class BorrowerAccountCreatedMail extends Mailable
 
     public function content(): Content
     {
+        $branding = $this->getBrandingData($this->mailPartnerId);
+        $siteName = $branding['siteName'];
+        $logoUrl = $branding['logoUrl'];
+
         $user = $this->mailData['user'];
-        $loginUrl = concatUrl(getBorrowerDomain(), 'login', config('app.frontend_borrower_url'));
+        // No fallback passed here on purpose: when getBorrowerDomain() returns
+        // null (a non-host, non-Certified partner with no borrower_domain — see
+        // its docblock), the partner has no domain a borrower can actually log
+        // in through, so $loginUrl comes back empty and the template omits the
+        // button rather than link to a login the isolation check would reject.
+        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login');
 
         return new Content(
             view: 'emails.borrower.account_created',
@@ -47,10 +60,10 @@ class BorrowerAccountCreatedMail extends Mailable
                 'user' => $user,
                 'plainPassword' => $this->mailData['plain_password'] ?? null,
                 'loginUrl' => $loginUrl,
-                'siteName' => $this->dynamicData['siteName'],
-                'logoUrl' => $this->dynamicData['logoUrl'],
+                'siteName' => $siteName,
+                'logoUrl' => $logoUrl,
                 'business_info' => [
-                    'company_name' => $this->mailData['business_info']['company_name'] ?? '',
+                    'company_name' => $this->mailData['business_info']['company_name'] ?? $siteName,
                     'email' => $this->mailData['business_info']['email'] ?? '',
                     'phone_number' => $this->mailData['business_info']['phone_number'] ?? '',
                     'address_line_1' => $this->mailData['business_info']['address_line_1'] ?? '',

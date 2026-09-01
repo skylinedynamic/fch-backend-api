@@ -1,6 +1,6 @@
 <?php
 return [
-    'paths' => ['api/*', 'resolve-custom-domain', 'caddy/domain-check'],
+    'paths' => ['api/*', 'storage/*', 'resolve-custom-domain', 'caddy/domain-check'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'https://fourcornerfunding.com',
@@ -16,6 +16,8 @@ return [
     'exposed_headers' => [
         'Authorization',
         'Content-Type',
+        'Content-Disposition',
+        'Content-Length',
         'X-Tenant-Type',
         'X-Partner-Id',
     ],

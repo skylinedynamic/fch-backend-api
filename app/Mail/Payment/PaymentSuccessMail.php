@@ -3,6 +3,7 @@
 namespace App\Mail\Payment;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
 use App\Mail\Traits\MailableBranding;
@@ -11,7 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class PaymentSuccessMail extends Mailable
+class PaymentSuccessMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
@@ -19,10 +20,14 @@ class PaymentSuccessMail extends Mailable
 
     public function __construct(public array $paymentData, ?int $partnerId = null)
     {
-        $this->setMailPartnerId();
+        if ($partnerId) {
+            $this->mailPartnerId = $partnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
 
-        Log::info('PaymentSuccessMail: Constructed', [
-            'partner_id' => $partnerId,
+        Log::info(__('payment.log_mail_constructed', ['mail' => 'PaymentSuccessMail']), [
+            'partner_id' => $this->mailPartnerId,
             'transaction_id' => $this->paymentData['transaction_id'] ?? null,
             'amount' => $this->paymentData['amount'] ?? null,
         ]);
@@ -30,70 +35,53 @@ class PaymentSuccessMail extends Mailable
 
     public function envelope(): Envelope
     {
-        Log::info('PaymentSuccessMail: Envelope start');
-
         $branding = $this->getBrandingData();
 
-        Log::info('PaymentSuccessMail: Branding loaded', [
-            'siteName' => $branding['siteName'] ?? null,
-            'logoUrl' => $branding['logoUrl'] ?? null,
-        ]);
-
-        $this->dynamicData['siteName'] = $branding['siteName'] ?? 'Unknown Site';
+        $this->dynamicData['siteName'] = $branding['siteName'] ?? config('app.name');
         $this->dynamicData['logoUrl'] = $branding['logoUrl'] ?? null;
 
-        Log::info('PaymentSuccessMail: Envelope data set', [
-            'siteName' => $this->dynamicData['siteName'],
-        ]);
-
         $businessName = !empty($this->paymentData['business_name']) ? $this->paymentData['business_name'] : $this->dynamicData['siteName'];
+        $subject = $this->paymentData['subject'] ?? __('payment.mail_subject_default_receipt', ['company' => $businessName]);
 
         return new Envelope(
-            subject: $this->paymentData['subject'] ?? ($businessName . " Enrollment Payment Receipt"),
+            subject: $subject,
         );
     }
 
     public function content(): Content
     {
-        Log::info('PaymentSuccessMail: Content build started', [
-            'payment_data' => [
-                'transaction_id' => $this->paymentData['transaction_id'] ?? null,
-                'amount' => $this->paymentData['amount'] ?? null,
-                'currency' => $this->paymentData['currency'] ?? null,
-            ],
-        ]);
-
-        $userName = $this->paymentData['user_name'] ?? 'Valued Customer';
-        $firstName = explode(' ', trim($userName))[0] ?? 'Customer';
-
-        Log::info('PaymentSuccessMail: User parsed', [
-            'user_name' => $userName,
-            'first_name' => $firstName,
-        ]);
+        $isReceiver = !empty($this->paymentData['is_receiver']);
+        $userName = $this->paymentData['user_name'] ?? ($isReceiver ? __('payment.admin') : __('payment.valued_customer'));
+        $firstName = $userName;
 
         $businessInfo = [
             'company_name' => $this->dynamicData['siteName'],
             'company_logo' => $this->dynamicData['logoUrl'],
         ];
 
-        Log::info('PaymentSuccessMail: Business info prepared', $businessInfo);
+        $rawDate = $this->paymentData['date'] ?? now();
+        $formattedDate = ($rawDate instanceof \Carbon\Carbon || $rawDate instanceof \DateTimeInterface)
+            ? $rawDate->format('F j, Y, g:i a')
+            : (is_string($rawDate) ? $rawDate : now()->format('F j, Y, g:i a'));
 
         $contentData = [
             'siteName' => $this->dynamicData['siteName'],
             'logoUrl' => $this->dynamicData['logoUrl'],
-            'amount' => $this->paymentData['amount'],
-            'currency' => $this->paymentData['currency'],
-            'transaction_id' => $this->paymentData['transaction_id'],
-            'description' => $this->paymentData['description'] ?? 'Program Payment',
-            'date' => $this->paymentData['date']->format('F j, Y, g:i a'),
+            'amount' => $this->paymentData['amount'] ?? 0,
+            'currency' => $this->paymentData['currency'] ?? 'USD',
+            'transaction_id' => $this->paymentData['transaction_id'] ?? __('payment.na'),
+            'invoice_id' => $this->paymentData['invoice_id'] ?? null,
+            'payment_method' => $this->paymentData['payment_method'] ?? null,
+            'description' => $this->paymentData['description'] ?? __('payment.program_payment'),
+            'date' => $formattedDate,
             'user_name' => $userName,
             'first_name' => $firstName,
+            'is_receiver' => $isReceiver,
+            'payer_name' => $this->paymentData['payer_name'] ?? $userName,
+            'payer_email' => $this->paymentData['payer_email'] ?? null,
+            'payment_url' => $this->paymentData['payment_url'] ?? null,
             'business_info' => $businessInfo,
         ];
-
-        Log::info('PaymentSuccessMail: Final content data ready', [
-            'transaction_id' => $this->paymentData['transaction_id'] ?? null,
-        ]);
 
         return new Content(
             view: 'emails.payment.success',
@@ -103,8 +91,6 @@ class PaymentSuccessMail extends Mailable
 
     public function attachments(): array
     {
-        Log::info('PaymentSuccessMail: attachments called');
-
         return [];
     }
 }

@@ -63,27 +63,6 @@ class InvoiceController extends Controller
         }
     }
 
-    /**
-     * Get invoice statistics for borrower.
-     *
-     * @param FetchInvoiceRequest $request
-     * @return JsonResponse
-     */
-    public function stats(FetchInvoiceRequest $request): JsonResponse
-    {
-        try {
-            $user = Auth::user();
-            $borrowerId = $user->entity_id;
-            $partnerId = $user->partner_id ?? 0;
-            $filters = $request->validated();
-
-            $stats = $this->invoiceService->getStats((int)$borrowerId, (int)$partnerId, $filters);
-
-            return ApiResponse::success($stats, __('invoice.stats_retrieved'));
-        } catch (\Throwable $e) {
-            return ApiResponse::error($e->getMessage());
-        }
-    }
 
     /**
      * Display the specified invoice detail for the borrower.

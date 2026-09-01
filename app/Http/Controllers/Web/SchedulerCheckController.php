@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Mail;
 
 class SchedulerCheckController extends Controller
 {
-    private array $commands = ['subscriptions:process', 'users:check-expired'];
+    private array $commands = ['subscriptions:process-all'];
 
     public function __invoke()
     {

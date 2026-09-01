@@ -124,7 +124,7 @@ class DashboardService
 
         if ($activeApprovedRequests->isNotEmpty()) {
             $data['active_approved_funding_requests'] = $activeApprovedRequests->map(function ($req) {
-                $estimatedRange = formatAmountRange($req->fundingSequence->amount_range) 
+                $estimatedRange = formatAmountRange($req->fundingSequence?->amount_range) 
                     ?? ($req->requested_amount ? currencyFormat($req->requested_amount, 0) : null);
 
                 return [

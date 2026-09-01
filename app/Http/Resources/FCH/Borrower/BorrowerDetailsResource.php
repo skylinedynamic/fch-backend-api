@@ -15,6 +15,8 @@ class BorrowerDetailsResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $latestSub = $this->latestSubscription;
+
         return [
             'id' => $this->id,
             'user_id' => $this->user?->id,
@@ -57,11 +59,40 @@ class BorrowerDetailsResource extends JsonResource
             'duns_number' => $this->duns_number,
             'state_file_number' => $this->state_file_number,
             'business_start_date' => $this->business_start_date ? Carbon::parse($this->business_start_date)->format('m-d-Y') : null,
-            'enrollment_type'           => $this->latestSubscription?->enrollment_type,
+
+            // Enrollment details — mirrors PartnerDetailsResource::enrollment_details
+            'enrollment_details' => $latestSub ? [
+                'plan_id' => (int) $latestSub->subscription_plan_id,
+                'enrollment_type' => $latestSub->enrollment_type,
+                'payable_amount' => (float) $latestSub->payable_amount,
+                'borrower_fee_amount' => (float) $latestSub->borrower_fee_amount,
+                'borrower_fee_amount_formatted' => currencyFormat($latestSub->borrower_fee_amount),
+                'payable_amount_formatted' => currencyFormat($latestSub->payable_amount),
+                'total_subscription_amount' => (float) $latestSub->total_subscription_amount,
+                'total_subscription_amount_formatted' => currencyFormat($latestSub->total_subscription_amount),
+                'monthly_platform_fee' => (float) $latestSub->monthly_platform_fee,
+                'monthly_platform_fee_formatted' => currencyFormat($latestSub->monthly_platform_fee),
+                'enrollment_amount' => (float) $latestSub->payable_amount,
+                'enrollment_amount_formatted' => currencyFormat($latestSub->payable_amount),
+                'installment_applied' => $latestSub->installment_count > 0,
+                'installment_down_payment' => $latestSub->down_payment !== null ? (float) $latestSub->down_payment : 0.0,
+                'installment_down_payment_formatted' => currencyFormat($latestSub->down_payment),
+                'installment_months' => $latestSub->installment_count ?? 0,
+                'installment_monthly_amount' => $latestSub->subscription_amount_per_month !== null ? (float) $latestSub->subscription_amount_per_month : 0.0,
+                'installment_monthly_amount_formatted' => currencyFormat($latestSub->subscription_amount_per_month),
+                'installment_remaining_balance' => (float) ($latestSub->payable_amount - $latestSub->down_payment),
+                'installment_remaining_balance_formatted' => currencyFormat($latestSub->payable_amount - $latestSub->down_payment),
+                'subscription_start_date' => toTimezone($latestSub->subscription_start_date, null, 'Y-m-d'),
+                'subscription_end_date' => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'), // paid through
+                'status' => $latestSub->status,
+            ] : null,
+
+            // Status & Assignment
+            'enrollment_type' => $this->latestSubscription?->enrollment_type,
             // Cast to int so the frontend can match it against numeric plan IDs in the dropdown.
             // Returns null for free-trial borrowers (no subscription yet) — dropdown remains enabled.
-            'plan_id'                   => $this->latestSubscription ? (int) $this->latestSubscription->subscription_plan_id : null,
-            'payment_amount'            => $this->latestSubscription?->payable_amount,
+            'plan_id' => $this->latestSubscription ? (int) $this->latestSubscription->subscription_plan_id : null,
+            'payment_amount' => $this->latestSubscription?->payable_amount,
             'total_subscription_amount' => $this->latestSubscription?->total_subscription_amount,
 
             // Financial
@@ -103,7 +134,7 @@ class BorrowerDetailsResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city' => $this->other_city,
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->format('Y-m-d') : null,
+            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
             'invoice' => $this->latestInvoice ? [
                 'id' => $this->latestInvoice->id,
                 'invoice_id' => $this->latestInvoice->invoice_id,

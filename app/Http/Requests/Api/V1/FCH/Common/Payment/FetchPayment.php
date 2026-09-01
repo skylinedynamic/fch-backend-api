@@ -22,20 +22,23 @@ class FetchPayment extends FormRequest
     public function rules(): array
     {
         return [
-            'search'       => ['nullable', 'string'],
-            'status'       => ['nullable'],
-            'payee_id'     => ['nullable', 'integer'],
-            'partner_id'   => ['nullable', 'integer'],
-            'invoice_id'   => ['nullable'],
-            'date_from'    => ['nullable', 'date'],
-            'date_to'      => ['nullable', 'date'],
-            'date_range'   => ['nullable', 'array'],
-            'date_range.*' => ['nullable', 'date'],
-            'page'         => ['nullable', 'integer', 'min:1'],
-            'per_page'     => ['nullable', 'integer', 'min:1'],
-            'sort_field'   => ['nullable', 'string'],
-            'sort_order'   => ['nullable', 'in:asc,desc'],
-            'filters'      => ['nullable', 'array'],
+            'search'           => ['nullable', 'string'],
+            'status'           => ['nullable'],
+            'is_environment'   => ['nullable'],
+            'payment_from'     => ['nullable'],
+            'transaction_type' => ['nullable'],
+            'payee_id'         => ['nullable', 'integer'],
+            'partner_id'       => ['nullable', 'integer'],
+            'invoice_id'       => ['nullable'],
+            'date_from'        => ['nullable', 'date'],
+            'date_to'          => ['nullable', 'date'],
+            'date_range'       => ['nullable', 'array'],
+            'date_range.*'     => ['nullable', 'date'],
+            'page'             => ['nullable', 'integer', 'min:1'],
+            'per_page'         => ['nullable', 'integer', 'min:1'],
+            'sort_field'       => ['nullable', 'string'],
+            'sort_order'       => ['nullable', 'in:asc,desc'],
+            'filters'          => ['nullable', 'array'],
         ];
     }
 }

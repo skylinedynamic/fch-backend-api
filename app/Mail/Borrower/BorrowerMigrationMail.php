@@ -32,7 +32,7 @@ class BorrowerMigrationMail extends Mailable
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
-            subject: $this->mailData['subject'] ?? "Client Account Migrated from Limited Access Edition",
+            subject: $this->mailData['subject'] ?? __('borrower.mail.subject_account_migrated', ['company' => $this->dynamicData['siteName']]),
         );
     }
 

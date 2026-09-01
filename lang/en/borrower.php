@@ -156,11 +156,25 @@ return [
     'file_path_not_found' => 'File path not found in record.',
     'file_not_found_on_server' => 'File not found on server.',
     'account_created_subject' => 'Welcome to :company_name',
+    'payment_link_subject' => ':company - Complete Your Payment to Activate Your Account',
     'download_failed' => 'Failed to download document. Please try again.',
 
 
     'borrower_not_found' => 'Borrower not found.',
     'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Limited Access Edition</span> plan. Access time is for lifetime.',
+    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'default_enrollment_type' => 'Paid Enrollment',
+    'field_updated' => ':field was updated to :value',
+    'empty_value' => 'empty',
+
+    // Billing & Subscription Messages
+    'billing_details_retrieved' => 'Billing details retrieved successfully.',
+    'payment_providers_retrieved' => 'Payment providers retrieved successfully.',
+    'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'subscription_not_found' => 'No active subscription found.',
+    'subscription_already_cancelled' => 'Subscription is already cancelled.',
+    'subscription_cancelled' => 'Subscription cancelled successfully.',
+    'provider_name_required' => 'Provider name is required.',
 
     // Change Request Messages & Defaults
     'field_mapping_not_found' => 'Field mapping not found for: :field',
@@ -168,4 +182,11 @@ return [
     'default_borrower_name' => 'Borrower',
     'host_partner' => 'Host Partner',
     'not_applicable' => 'N/A',
+
+    'mail' => [
+        'subject_account_created' => 'Welcome to :company - Your Borrower Account Details & Enrollment',
+        'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
+        'subject_account_created_trial' => 'Welcome to :company - Limited Free Edition',
+        'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
+    ],
 ];

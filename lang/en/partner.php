@@ -165,9 +165,23 @@ return [
     'subscription_list' => 'Subscription list retrieved successfully.',
     'subscription_list_failed' => 'Failed to retrieve subscription list.',
     'partner_delete_failed' => 'Failed to delete partner.',
-    'subscription_details' => 'Subscription details retrieved successfully.',
     'subscription_not_found' => 'Subscription not found.',
     'subscription_fetch_failed' => 'Failed to fetch subscription details.',
+    'subscription_cancelled' => 'Subscription cancelled successfully.',
+    'subscription_already_cancelled' => 'Subscription is already cancelled.',
+    'borrower_fee_retrieved' => 'Borrower fee retrieved successfully.',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',
+    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'default_enrollment_type' => 'Paid Enrollment',
+    'assigned_user' => 'Assigned User',
+    'field_changed' => ':field was changed',
+    'field_updated' => ':field was updated to :value',
+    'empty_value' => 'empty',
+
+    'mail' => [
+        'subject_account_created_enrollment' => 'Welcome to :company - Your Partner Account Details & Enrollment',
+        'subject_account_created_trial' => 'Welcome to :company - Partner Portal Free Trial Access',
+        'subject_account_migrated' => 'Welcome to :company - Partner Account Migrated from Free Trial',
+    ],
 ];

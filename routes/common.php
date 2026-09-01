@@ -1,16 +1,19 @@
 <?php
 
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
+use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
+use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
-use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
@@ -20,13 +23,14 @@ use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
-use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
-use App\Http\Controllers\Api\V1\FCH\Common\PaymentMethod\PaymentMethodController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
+use App\Http\Controllers\Api\V1\FCH\Common\Reminder\ReminderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -36,6 +40,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
+use App\Http\Controllers\Api\V1\FCH\Common\Subscription\SubscriptionController as CommonSubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Common\Tier\TierController as CommonTierController;
 use App\Http\Controllers\Api\V1\FCH\Common\TierTask\TierTaskController as CommonTierTaskController;
 use App\Http\Controllers\Api\V1\FCH\Common\User\UserController;
@@ -43,10 +48,12 @@ use App\Http\Controllers\Api\V1\FCH\Global\UserDetailController;
 use App\Http\Controllers\Api\V1\Global\General\LocationController;
 use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1NotificationController;
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
-use App\Http\Controllers\Api\V1\GlobalPayment\GlobalPaymentController;
+use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
-use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
+use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
+
+
 
 
 // Internal domain resolver — stateless, no session/cookies
@@ -122,11 +129,7 @@ Route::prefix('v1')->group(function () {
             //Borrower document types
             Route::get('borrower-document-types', [BorrowerController::class, 'documentTypes']);
 
-            Route::post('borrowers/personal-details', [BorrowerController::class, 'updatePersonalDetails']);
-            Route::post('borrowers/business-financials', [BorrowerController::class, 'updateBusinessFinancials']);
-
-            // Separate API for Client Info and Business Financials
-            Route::get('borrowers/personal-details/{id}', [BorrowerController::class, 'getPersonalDetails']);
+            // Business Financials fetch — dedicated endpoint
             Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
@@ -280,7 +283,6 @@ Route::prefix('v1')->group(function () {
 
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
-            Route::get('leads-stats', [LeadController::class, 'stats']);
 
             // Explicitly define Leads Resource and separate split endpoints
             Route::get('leads', [LeadController::class, 'index']);
@@ -295,31 +297,49 @@ Route::prefix('v1')->group(function () {
 
             //  Invoices
             Route::post('invoices/fetch-invoices', [InvoiceController::class, 'index']);
-            Route::post('invoices/stats', [InvoiceController::class, 'stats']);
             Route::get('invoices/{id}', [InvoiceController::class, 'show']);
             Route::get('invoices/{id}/download', [InvoiceController::class, 'download']);
             Route::post('invoices/{id}/send', [InvoiceController::class, 'send']);
 
-            Route::post('payment-methods', [PaymentMethodController::class, 'store']);
-            Route::post('payment-methods-update', [PaymentMethodController::class, 'updatePaymentMethods']);
-            Route::get('payment-methods-fetch', [PaymentMethodController::class, 'fetchPaymentMethod']);
-            Route::get('payment-methods', [PaymentMethodController::class, 'show']);
+            // Partner Payment Providers Config
+            Route::get('partner-payment-providers', [PartnerPaymentProviderController::class, 'index']);
+            Route::get('partner-payment-providers/{id}', [PartnerPaymentProviderController::class, 'show']);
+            Route::post('partner-payment-providers', [PartnerPaymentProviderController::class, 'store']);
+            Route::post('partner-payment-providers/status', [PartnerPaymentProviderController::class, 'updateStatus']);
 
             // Partner Tenant Config (for authenticated WL partners)
             Route::get('partner/tenant-config', [TenantConfigController::class, 'show']);
             Route::post('partner/tenant-config', [TenantConfigController::class, 'update']);
 
+            // 💳 Billing
+            Route::post('billing/fetch-upcoming', [BillingController::class, 'fetchUpcoming']);
+            Route::get('billing/{id}', [BillingController::class, 'details']);
+
+            // 📋 Non-Host Partner My Subscription Module
+            Route::prefix('my-subscription')->group(function () {
+                Route::get('/', [MySubscriptionController::class, 'index']);
+                Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
+                Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
+            });
+
 
             //  Payments
             Route::post('payments/fetch-payments', [CommonPaymentController::class, 'index']);
-            Route::post('payments/stats', [CommonPaymentController::class, 'stats']);
+            Route::post('payments/{id}/approve', [CommonPaymentController::class, 'approve']);
+            Route::post('payments/{id}/reject', [CommonPaymentController::class, 'reject']);
             Route::get('payments/{id}', [CommonPaymentController::class, 'show']);
 
             // Partner Plans
             Route::get('partner-plans', [SubscriptionPlanController::class, 'index']);
             Route::get('borrower-plans', [SubscriptionPlanController::class, 'borrowerPlans']);
-            Route::get('non-host-borrower-plans', [SubscriptionPlanController::class, 'nonHostBorrowerPlans']);
             Route::get('partner-plans/{idOrSlug}', [SubscriptionPlanController::class, 'show']);
+
+            // 🔄 Subscriptions Module Menu Routes (accessible to host and non-host partners)
+            Route::prefix('subscriptions')->group(function () {
+                Route::post('fetch-all', [CommonSubscriptionController::class, 'index']);
+                Route::get('partner-borrower-fee', [CommonSubscriptionController::class, 'getPartnerBorrowerFee']);
+                Route::get('{id}', [CommonSubscriptionController::class, 'show']);
+            });
 
             // Commissions
             Route::prefix('commissions')->group(function () {
@@ -371,10 +391,45 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [CommonResourceController::class, 'show']);
                 Route::get('/download/{id}', [CommonResourceController::class, 'download']);
             });
+
+            // 📝 Embedded Form Management (Internal / Authenticated)
+            Route::prefix('embed-forms')->group(function () {
+                Route::get('config', [EmbedFormController::class, 'getConfig']);
+                Route::put('config', [EmbedFormController::class, 'updateConfig']);
+                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey']);
+
+                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
+                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
+                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
+
+                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
+            });
+
+
+                    // V1 Reminder routes
+                Route::prefix('reminders')->group(function () {
+                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::get('/due', [ReminderController::class, 'getDue']);
+                    Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+                    Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+                    Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+                    Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+                    Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+                });
+
+
         });
 
-        Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
-        Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
+        Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
+        Route::post('process-payment-for-users', [UnifiedPaymentController::class, 'processPayment']);
+
+        // Unified Multi-Gateway Payment Routes
+        Route::prefix('payment')->group(function () {
+            Route::post('process', [UnifiedPaymentController::class, 'processPayment']);
+            Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
+            Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
+        });
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {

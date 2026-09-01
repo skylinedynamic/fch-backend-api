@@ -34,12 +34,4 @@ class PaymentController extends Controller
         return ApiResponse::success($payment, __('payment.details_retrieved'));
     }
 
-    /**
-     * Get payment statistics for borrower.
-     */
-    public function stats(FetchPayment $request): JsonResponse
-    {
-        $stats = $this->paymentService->getStats($request->validated());
-        return ApiResponse::success($stats, __('payment.stats_retrieved'));
-    }
 }

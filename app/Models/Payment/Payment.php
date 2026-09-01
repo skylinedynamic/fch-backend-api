@@ -5,12 +5,12 @@ namespace App\Models\Payment;
 use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
-use App\Models\PaymentMethod\PaymentMethod;
+use App\Models\PaymentMethod\PartnerPaymentProvider;
+use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 
 class Payment extends Model
@@ -25,36 +25,129 @@ class Payment extends Model
         'transaction_date' => 'datetime',
         'details' => 'array',
         'is_environment' => 'boolean',
+        'is_manual' => 'boolean',
+        'is_partner_paying' => 'boolean',
     ];
 
     public const STATUS_SUCCEEDED = 'succeeded';
     public const STATUS_REQUIRES_CAPTURE = 'requires_capture';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_REJECTED = 'rejected';
     public const STATUS_PENDING = 'pending';
     public const STATUS_DISPUTED = 'disputed';
     public const STATUS_REFUNDED = 'refunded';
+    public const STATUS_PROCESSING = 'processing';
 
-    public const ENVIRONMENT_SANDBOX = 0;
-    public const ENVIRONMENT_PRODUCTION = 1;
+    public const TYPE_PAYOUT = 'payout';
 
-    public const MODE_SANDBOX = 'sandbox';
-    public const MODE_PRODUCTION = 'production';
+    public const TRANSACTION_TYPE_DEBIT = 'Debit';
+    public const TRANSACTION_TYPE_CREDIT = 'Credit';
 
-    public const PAYMENT_FROM_STRIPE = 'Stripe';
-    public const PAYMENT_TYPE_CARD = 'Card';
     public const CURRENCY_USD = 'USD';
     public const CURRENCY_SYMBOL_USD = '$';
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Payment $payment) {
+            if ($payment->status === self::STATUS_SUCCEEDED && ($payment->wasRecentlyCreated || $payment->wasChanged('status'))) {
+                $entityType = $payment->entity_type ?: $payment->invoice?->entity_type;
+                $entityId = $payment->entity_id ?: $payment->invoice?->entity_id;
+
+
+
+                if ($entityId) {
+                    if (!$entityType || $entityType === User::class) {
+                        User::where('id', $entityId)
+                            ->first()
+                                ?->markAsRefresh();
+                    } else {
+                        User::where('entity_type', $entityType)
+                            ->where('entity_id', $entityId)
+                            ->first()
+                                ?->markAsRefresh();
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Determine transaction type (Debit vs Credit) for a specific user role.
+     */
+    public function getTransactionTypeForUser(?User $authUser = null): string
+    {
+        $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
+        $status = strtolower((string) ($this->status ?? ''));
+        $paymentType = strtolower((string) ($this->payment_type ?? ''));
+
+        if ($status === self::STATUS_REFUNDED || $paymentType === self::TYPE_PAYOUT) {
+            if ($authUser && $authUser->entity_type === Borrower::class) {
+                return self::TRANSACTION_TYPE_CREDIT;
+            }
+            return self::TRANSACTION_TYPE_DEBIT;
+        }
+
+        if ($authUser && $authUser->entity_type === Borrower::class) {
+            return self::TRANSACTION_TYPE_DEBIT;
+        }
+
+        if (!empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0) {
+            return $isPartnerPaying ? self::TRANSACTION_TYPE_DEBIT : self::TRANSACTION_TYPE_CREDIT;
+        }
+
+        return self::TRANSACTION_TYPE_CREDIT;
+    }
+
+    /**
+     * Determine if an authenticated user can approve this payment.
+     */
+    public function canApproveForUser(?User $authUser = null): bool
+    {
+        if (!$authUser || $authUser->entity_type === Borrower::class) {
+            return false;
+        }
+
+        if (strtolower((string) ($this->status ?? '')) !== self::STATUS_PROCESSING) {
+            return false;
+        }
+
+        $authUserPartner = $authUser->partner;
+        $isHost = (bool) ($authUserPartner?->is_host ?? (bool) ($authUser->is_host ?? false));
+        $authUserPartnerId = $authUser->partner_id;
+
+        // Host partner: can approve partner payments to host, borrower fee invoices, or host's own borrower payments
+        if ($isHost) {
+            return true;
+        }
+
+        // Non-host partner: can only approve borrower payments under their own partner
+        return (int) $this->partner_id === (int) $authUserPartnerId
+            && ($this->entity_type === Borrower::class || !empty($this->borrower_id));
+    }
+
+    /**
+     * Alias helper for canApproveForUser.
+     */
+    public function canApprove(?User $authUser = null): bool
+    {
+        return $this->canApproveForUser($authUser ?? auth()->user());
+    }
 
     /**
      * Create a payment record dynamically.
      */
     public function createRecord(array $data): self
     {
-        $invoice = Invoice::find($data['invoice_id']);
-        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($invoice->partner_id ?? null);
+        $partnerId = $data['partner_id'] ?? null;
+        $isEnvironment = $data['is_environment'] ?? $this->getEnvironmentForPartner($partnerId);
+        $paymentFrom = $data['payment_from'] ?? PaymentProvider::STRIPE;
+        $paymentType = $data['payment_type'] ?? ($paymentFrom === PaymentProvider::STRIPE ? PaymentProvider::TYPE_CARD : $paymentFrom);
 
         return self::create([
-            'partner_id' => $invoice->partner_id ?? null,
+            'partner_id' => $partnerId,
             'borrower_id' => $data['borrower_id'] ?? null,
             'invoice_id' => $data['invoice_id'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
@@ -62,11 +155,11 @@ class Payment extends Model
             'transaction_id' => $data['transaction_id'] ?? null,
             'amount' => $data['amount'] ?? 0.00,
             'currency' => $data['currency'] ?? self::CURRENCY_USD,
-            'is_partner_paying' => (isset($data['entity_type']) && $data['entity_type'] == Partner::class) ? 1 : ($data['is_partner_paying'] ?? 0),
-            'payment_from' => $data['payment_from'] ?? self::PAYMENT_FROM_STRIPE,
-            'payment_type' => $data['payment_type'] ?? self::PAYMENT_TYPE_CARD,
+            'payment_from' => $paymentFrom,
+            'payment_type' => $paymentType,
             'status' => $data['status'] ?? self::STATUS_PENDING,
             'is_environment' => $isEnvironment,
+            'is_manual' => (bool) ($data['is_manual'] ?? false),
             'details' => $data['details'] ?? null,
             'transaction_date' => $data['transaction_date'] ?? now(),
             'created_by' => $data['created_by'] ?? auth()->id(),
@@ -78,22 +171,45 @@ class Payment extends Model
      */
     public function configureStripeForPartner(?int $partnerId): object
     {
-        $paymentMethodService = new \App\Services\FCH\Common\PaymentMethod\PaymentMethodService();
-        $setting = $paymentMethodService->getSettings($partnerId);
+        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
 
-        if (!$setting) {
-            throw new \Exception('Payment settings not found or inactive.');
+        if (!$stripeProvider) {
+            throw new \Exception(__('payment.stripe_provider_not_found'));
         }
 
-        $secretKey = ($setting->payment_mode === 'production')
-            ? $setting->stripe_secret_production
-            : $setting->stripe_secret_sandbox;
+        $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
+            ->where('payment_provider_id', $stripeProvider->id)
+            ->first();
+
+        if (!$linkage) {
+            throw new \Exception(__('payment.stripe_not_configured'));
+        }
+
+        $configuration = $linkage->configuration;
+        if (is_object($configuration)) {
+            $configuration = (array) $configuration;
+        }
+
+        $paymentMode = $linkage->payment_mode ?? $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+
+        $secretKey = null;
+        if (is_array($configuration)) {
+            $secretKey = $configuration[$paymentMode]['secret_key']
+                ?? $configuration['secret_key']
+                ?? $configuration['stripe_secret_' . $paymentMode]
+                ?? null;
+        }
 
         if (!$secretKey) {
-            throw new \Exception('Stripe secret key not configured for ' . $setting->payment_mode . ' mode.');
+            throw new \Exception(__('payment.stripe_secret_not_configured', ['mode' => $paymentMode]));
         }
 
         Stripe::setApiKey($secretKey);
+
+        // Return a compatible settings object for callers that use $setting->payment_mode, etc.
+        $setting = new \stdClass();
+        $setting->partner_id = $partnerId;
+        $setting->payment_mode = $paymentMode;
 
         return $setting;
     }
@@ -113,18 +229,26 @@ class Payment extends Model
             }
         }
 
-        $paymentMode = PaymentMethod::where('partner_id', $partnerId)
-            ->where('key', 'payment_mode')
-            ->first()?->value ?? self::MODE_SANDBOX;
+        $paymentMode = PaymentProvider::MODE_SANDBOX;
+
+        $stripeProvider = PaymentProvider::where('name', PaymentProvider::STRIPE)->first();
+        if ($stripeProvider) {
+            $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
+                ->where('payment_provider_id', $stripeProvider->id)
+                ->first();
+            if ($linkage && $linkage->payment_mode) {
+                $paymentMode = $linkage->payment_mode;
+            }
+        }
 
         return $this->environmentFromMode($paymentMode);
     }
 
     public function environmentFromMode(string $mode): int
     {
-        return $mode === self::MODE_PRODUCTION
-            ? self::ENVIRONMENT_PRODUCTION
-            : self::ENVIRONMENT_SANDBOX;
+        return $mode === PaymentProvider::MODE_PRODUCTION
+            ? PaymentProvider::ENVIRONMENT_PRODUCTION
+            : PaymentProvider::ENVIRONMENT_SANDBOX;
     }
 
     public function partner()
@@ -177,6 +301,7 @@ class Payment extends Model
             $statuses = [
                 self::STATUS_SUCCEEDED,
                 self::STATUS_FAILED,
+                self::STATUS_REJECTED,
                 self::STATUS_PENDING,
                 self::STATUS_DISPUTED,
                 self::STATUS_REFUNDED,
@@ -205,9 +330,9 @@ class Payment extends Model
 
             // Environment Search Accuracy: Map "Sandbox" and "Production" to boolean values
             if (str_contains(strtolower($search), 'sand')) {
-                $q->orWhere('payments.is_environment', self::ENVIRONMENT_SANDBOX);
+                $q->orWhere('payments.is_environment', PaymentProvider::ENVIRONMENT_SANDBOX);
             } elseif (str_contains(strtolower($search), 'prod')) {
-                $q->orWhere('payments.is_environment', self::ENVIRONMENT_PRODUCTION);
+                $q->orWhere('payments.is_environment', PaymentProvider::ENVIRONMENT_PRODUCTION);
             }
         });
     }

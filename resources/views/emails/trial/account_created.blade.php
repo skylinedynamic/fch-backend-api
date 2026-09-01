@@ -5,18 +5,33 @@
 @section('content')
 
     <div class="description-card" style="margin-bottom: 30px; text-align: left;">
-        <p style="line-height: 1.5; margin-bottom: 16px;">
-            Hello <strong>{{ $user->name }}</strong>,
-        </p>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Hello
+            <strong>{{ $user->name }}</strong>,
+        </h4>
 
         <p style="line-height: 1.5; margin-bottom: 16px;">
             Welcome to <strong>{{ $business_info['company_name'] }}</strong>.
         </p>
 
-        <p style="line-height: 1.5; margin-bottom: 32px; color: #64748b;">
+        <p style="line-height: 1.5; margin-bottom: 24px; color: #64748b;">
             Your partner free trial account has been successfully created, and you now have access to the
             <strong>{{ $business_info['company_name'] }} Partner Portal</strong>.
         </p>
+
+        {{-- Trial Notice --}}
+        <div
+            style="background-color: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #f97316; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+            <p
+                style="font-size: 13px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px;">
+                LIMITED FREE EDITION ACTIVE
+            </p>
+            <p style="color: #7c3d12; font-size: 13px; line-height: 1.6; margin: 0;">
+                You are on a <strong>Limited Free Edition</strong> plan. No payment is required at this time.
+                @if (!empty($trialEndDate))
+                    Your trial access expires on <strong>{{ \Carbon\Carbon::parse($trialEndDate)->format('F j, Y') }}</strong>.
+                @endif
+            </p>
+        </div>
 
         {{-- Next Steps --}}
         <div class="box-light"

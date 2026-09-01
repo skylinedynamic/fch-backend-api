@@ -22,7 +22,8 @@ class BorrowerUserDetailService
             return ApiResponse::unauthorized(__('auth.unauthenticated'));
         }
 
-        $user->load(['entity.subscription.phases']);
+        // See AuthService::login() for why '.phases' was dropped.
+        $user->load(['entity.subscription']);
 
         return ApiResponse::success([
             'user' => new BorrowerUserDetailResource($user),
