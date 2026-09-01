@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Common\Application;
 
+use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,15 @@ class PreQualificationRequestResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $borrower = ($this->resource instanceof \Illuminate\Database\Eloquent\Model && $this->resource->relationLoaded('borrower'))
+            ? $this->borrower 
+            : (!empty($this->borrower_id) ? Borrower::find($this->borrower_id) : (auth()->check() && auth()->user()->entity_id ? Borrower::find(auth()->user()->entity_id) : null));
+
+        $startDate = $this->business_start_date ?? $borrower?->business_start_date ?? null;
+        $yearsInBusiness = !empty($startDate) 
+            ? calculateTimeInBusiness($startDate) 
+            : ($this->years_in_business ?? ($borrower?->years_in_business ? $borrower->years_in_business . ' Years' : null));
+
         return [
             'id' => $this->id,
             'borrower_id' => $this->borrower_id,
@@ -28,7 +38,7 @@ class PreQualificationRequestResource extends JsonResource
             'business_structure' => $this->business_structure,
             'monthly_revenue' => currencyFormat($this->monthly_revenue),
             'annual_revenue' => currencyFormat($this->annual_revenue),
-            'years_in_business' => $this->years_in_business,
+            'years_in_business' => $yearsInBusiness,
             'funding_requested_amount' => currencyFormat($this->funding_requested_amount),
             'funding_urgency' => $this->funding_urgency,
             'purpose_of_funding' => $this->purpose_of_funding,

@@ -2,13 +2,23 @@
 
 namespace App\Http\Resources\Borrower\PreQualification;
 
-use Illuminate\Http\Resources\Json\JsonResource;
+use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class PreQualificationResource extends JsonResource
 {
     public function toArray($request): array
     {
+        $borrower = ($this->resource instanceof \Illuminate\Database\Eloquent\Model && $this->resource->relationLoaded('borrower'))
+            ? $this->borrower 
+            : (!empty($this->borrower_id) ? Borrower::find($this->borrower_id) : (auth()->check() && auth()->user()->entity_id ? Borrower::find(auth()->user()->entity_id) : null));
+
+        $startDate = $this->business_start_date ?? $borrower?->business_start_date ?? null;
+        $yearsInBusiness = !empty($startDate) 
+            ? calculateTimeInBusiness($startDate) 
+            : ($this->years_in_business ?? ($borrower?->years_in_business ? $borrower->years_in_business . ' Years' : null));
+
         return [
             'id' => $this->id,
 
@@ -24,7 +34,7 @@ class PreQualificationResource extends JsonResource
             'business_name' => $this->business_name,
             'industry_type' => $this->industry_type,
             'business_structure' => $this->business_structure,
-            'years_in_business' => $this->years_in_business,
+            'years_in_business' => $yearsInBusiness,
             'monthly_revenue' => $this->monthly_revenue ? currencyFormat($this->monthly_revenue) : null,
             'annual_revenue' => $this->annual_revenue ? currencyFormat($this->annual_revenue) : null,
 

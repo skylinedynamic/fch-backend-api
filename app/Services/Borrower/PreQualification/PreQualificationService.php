@@ -156,7 +156,7 @@ class PreQualificationService
                 'business_name' => $borrower->business_name,
                 'industry_type' => $borrower->business_industry_type,
                 'business_structure' => $borrower->business_entity_type,
-                'years_in_business' => $borrower->years_in_business,
+                'years_in_business' => $borrower->business_start_date ? calculateTimeInBusiness($borrower->business_start_date) : ($borrower->years_in_business ? $borrower->years_in_business . ' Years' : null),
                 'monthly_revenue' => $borrower->monthly_revenue,
                 'annual_revenue' => $borrower->annual_revenue,
 
