@@ -273,6 +273,31 @@
                 padding: 12px 15px !important;
                 font-size: 12px !important;
             }
+            
+            /* Responsive tables for mobile */
+            .info-table tr {
+                display: block !important;
+                padding-bottom: 10px !important;
+                border-bottom: 1px solid #f1f5f9 !important;
+            }
+            .info-table tr:last-child {
+                border-bottom: none !important;
+                padding-bottom: 0 !important;
+            }
+            .info-table td.label {
+                display: block !important;
+                width: 100% !important;
+                border-bottom: none !important;
+                padding-bottom: 2px !important;
+            }
+            .info-table td.value {
+                display: block !important;
+                width: 100% !important;
+                text-align: left !important;
+                padding-top: 0 !important;
+                border-bottom: none !important;
+                word-break: break-word !important;
+            }
         }
 
         /* Small mobile (max-width: 480px) */

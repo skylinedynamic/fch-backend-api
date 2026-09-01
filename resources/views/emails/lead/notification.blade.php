@@ -25,31 +25,31 @@
             @if($lead->contact_person)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Name</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">{{ $lead->contact_person }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->contact_person }}</td>
                 </tr>
             @endif
             @if($lead->email)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Email</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $lead->email }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->email }}</td>
                 </tr>
             @endif
             @if ($lead->phone_number)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Phone</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $lead->phone_number }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->phone_number }}</td>
                 </tr>
             @endif
             @if ($lead->company_name)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">{{ $lead->company_name }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->company_name }}</td>
                 </tr>
             @endif
             @if ($lead->domain)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Website</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $lead->domain }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #1e3a8a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->domain }}</td>
                 </tr>
             @endif
         </table>
@@ -61,19 +61,19 @@
                 @if(isset($prequalification->business_name))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Business Name</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">{{ $prequalification->business_name }}</td>
+                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->business_name }}</td>
                     </tr>
                 @endif
                 @if(isset($prequalification->industry_type))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Industry</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $prequalification->industry_type }}</td>
+                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->industry_type }}</td>
                     </tr>
                 @endif
                 @if(isset($prequalification->business_structure))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Structure</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $prequalification->business_structure }}</td>
+                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->business_structure }}</td>
                     </tr>
                 @endif
                 <tr>
@@ -89,7 +89,7 @@
                 @if(isset($prequalification->annual_revenue))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Annual Revenue</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
+                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">
                             @if (is_numeric($prequalification->annual_revenue))
                                 ${{ number_format($prequalification->annual_revenue, 2) }}
                             @else
@@ -111,17 +111,17 @@
                 @if(isset($prequalification->funding_urgency))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Urgency</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $prequalification->funding_urgency }}</td>
+                        <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->funding_urgency }}</td>
                     </tr>
                 @endif
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Credit Score</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #1e3a8a; background-color: #eff6ff; padding: 4px 8px; border-radius: 4px; font-family: monospace; text-align: right; padding-right: 10px;">{{ $prequalification->personal_credit_score }}</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #1e3a8a; background-color: #eff6ff; padding: 4px 8px; border-radius: 4px; font-family: monospace; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->personal_credit_score }}</td>
                 </tr>
                 @if(isset($prequalification->years_in_business))
                     <tr>
                         <td class="label" style="padding: 10px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Years in Business</td>
-                        <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">{{ $prequalification->years_in_business }}</td>
+                        <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $prequalification->years_in_business }}</td>
                     </tr>
                 @endif
             </table>
@@ -140,15 +140,15 @@
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
             <tr>
                 <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Lead ID</td>
-                <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0f172a; text-align: right; padding-right: 10px;"><strong>{{ $lead->lead_id }}</strong></td>
+                <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;"><strong>{{ $lead->lead_id }}</strong></td>
             </tr>
             <tr>
                 <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Submission Date</td>
-                <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px;">{{ $lead->created_at?->format('M d, Y h:i A') }}</td>
+                <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->created_at?->format('M d, Y h:i A') }}</td>
             </tr>
             <tr>
                 <td class="label" style="padding: 10px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Source</td>
-                <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px;">{{ $lead->lead_source }}</td>
+                <td class="value" style="padding: 10px 0; border-bottom: none; font-size: 13px; font-weight: 500; color: #495057; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->lead_source }}</td>
             </tr>
         </table>
 

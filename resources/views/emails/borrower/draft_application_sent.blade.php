@@ -22,82 +22,53 @@
     <div class="box-light info-card-container"
         style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0; border-radius: 8px; margin-bottom: 24px; text-align: left; overflow: hidden;">
         <div class="info-card-content" style="padding: 20px;">
-            <table class="info-table compact" style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+            <table class="info-table compact" style="width: 100%; border-collapse: collapse; table-layout: fixed; word-wrap: break-word; margin-bottom: 0;">
                 <tr>
-                    <td class="label"
-                        style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                        Client Name:</td>
-                    <td class="value"
-                        style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px;">
-                        {{ $application->full_name ?? $application->first_name . ' ' . $application->last_name }}
-                    </td>
+                    <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Client Name:</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">
+                        {{ $application->full_name ?? $application->first_name . ' ' . $application->last_name }}</td>
                 </tr>
                 @if ($application->business_name ?? $application->borrower?->business_name)
                     <tr>
-                        <td class="label"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                            Company:</td>
-                        <td class="value"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
-                            {{ $application->business_name ?? $application->borrower?->business_name }}</td>
+                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company:</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->business_name ?? $application->borrower?->business_name }}</td>
                     </tr>
                 @endif
                 @if ($application->partner)
                     <tr>
-                        <td class="label"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                            Prepared By:</td>
-                        <td class="value"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
-                            {{ $application->partner->company_name ?? $application->partner->first_name . ' ' . $application->partner->last_name }}
-                        </td>
+                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Prepared By:</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->partner->company_name ?? $application->partner->first_name . ' ' . $application->partner->last_name }}</td>
                     </tr>
                 @endif
                 @if ($application->fundingSequence)
                     <tr>
-                        <td class="label"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                            Funding Sequence:</td>
-                        <td class="value"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
-                            {{ $application->fundingSequence->name }}</td>
+                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Funding Sequence:</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->fundingSequence->name }}</td>
                     </tr>
                 @endif
                 @if ($application->fundingRequest && $application->fundingRequest->funding_type)
                     <tr>
-                        <td class="label"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                            Funding Type:</td>
-                        <td class="value"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px;">
-                            {{ $application->fundingRequest->funding_type }}</td>
+                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Funding Type:</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->fundingRequest->funding_type }}</td>
                     </tr>
                 @endif
                 @if ($application->fundingRequest && $application->fundingRequest->requested_amount)
                     <tr>
-                        <td class="label"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                            Requested Amount:</td>
-                        <td class="value"
-                            style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0f172a; text-align: right; padding-right: 10px;">
-                            ${{ number_format($application->fundingRequest->requested_amount, 2) }}</td>
+                        <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Requested Amount:</td>
+                        <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">${{ number_format($application->fundingRequest->requested_amount, 2) }}</td>
                     </tr>
                 @endif
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Application ID:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px;">{{ $application->application_number }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #1e3a8a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->application_number }}</td>
                 </tr>
                 <tr>
                     <td class="label" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Status:</td>
-                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #f59e0b; text-align: right; padding-right: 10px;">{{ $application->status ?? 'Draft' }}</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 700; color: #f59e0b; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $application->status ?? 'Draft' }}</td>
                 </tr>
                 <tr>
-                    <td class="label"
-                        style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">
-                        Date Prepared:</td>
-                    <td class="value"
-                        style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #495057; text-align: right; padding-right: 10px;">
-                        {{ \Carbon\Carbon::now()->format('F j, Y') }}</td>
+                    <td class="label" style="padding: 8px 0; border-bottom: none; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Date Prepared:</td>
+                    <td class="value" style="padding: 8px 0; border-bottom: none; font-size: 13px; font-weight: 700; color: #495057; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ \Carbon\Carbon::now()->format('F j, Y') }}</td>
                 </tr>
             </table>
         </div>
