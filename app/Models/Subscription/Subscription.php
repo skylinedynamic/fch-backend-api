@@ -77,10 +77,14 @@ class Subscription extends Model
     ];
 
     protected $casts = [
-        'first_payment_date' => 'date',
-        'subscription_start_date' => 'date',
-        'subscription_end_date' => 'date',
-        'expected_end_date' => 'date',
+        // Stored as datetime, not date: a date-only value reads back as midnight,
+        // and toTimezone() then renders it as the previous day for any timezone
+        // behind UTC. Keeping the time of day makes it land on the right calendar
+        // day. The API still emits these as date-only strings.
+        'first_payment_date' => 'datetime',
+        'subscription_start_date' => 'datetime',
+        'subscription_end_date' => 'datetime',
+        'expected_end_date' => 'datetime',
         'billing_paused_at' => 'datetime',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',
@@ -262,6 +266,81 @@ class Subscription extends Model
         }
 
         return $this->billing_paused_at ? 'Billing paused' : null;
+    }
+
+    /**
+     * The next amount due and when, given the subscription's current phase.
+     *
+     * Single source of truth for "what's the next bill" - used by both the
+     * Subscription Details page (SubscriptionDetailsResource) and My Subscription
+     * (MySubscriptionService), which previously computed this two different ways
+     * and disagreed: MySubscriptionService fell back to payable_amount whenever
+     * subscription_amount_per_month was empty, which is correct only during
+     * enrollment - once enrollment_completed_at is set, a partner owes the
+     * recurring monthly_platform_fee, not the (much larger) one-time enrollment
+     * total again.
+     *
+     * @return array{date: mixed, type: ?string, amount: float|null}
+     */
+    public function nextBilling(): array
+    {
+        $isPartner = $this->entity_type === Partner::class;
+        $isBorrower = $this->entity_type === Borrower::class;
+        $isEnrollmentCompleted = !empty($this->enrollment_completed_at);
+        $isInstallment = (int) $this->installment_type === 1;
+
+        $date = null;
+        $type = null;
+        $amount = null;
+
+        if ($isPartner) {
+            if (!$isInstallment) {
+                if ($isEnrollmentCompleted) {
+                    // Enrollment paid off -> recurring platform fee.
+                    $date = $this->subscription_end_date;
+                    $type = 'Platform Fee';
+                    $amount = $this->monthly_platform_fee;
+                } else {
+                    $date = $this->subscription_end_date ?? $this->first_payment_date;
+                    $type = 'One Time Enrollment';
+                    $amount = $this->payable_amount ?? $this->total_subscription_amount;
+                }
+            } else {
+                $date = $this->subscription_end_date;
+                if (!$isEnrollmentCompleted) {
+                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
+                        $type = 'Down Payment';
+                        $amount = $this->down_payment;
+                    } else {
+                        $type = 'Installment';
+                        $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+                    }
+                } else {
+                    $type = 'Platform Fee';
+                    $amount = $this->monthly_platform_fee;
+                }
+            }
+        } elseif ($isBorrower) {
+            // A borrower owes nothing further once enrollment_completed_at is set -
+            // there is no borrower platform fee.
+            if (!$isEnrollmentCompleted) {
+                $date = $this->subscription_end_date;
+                $type = 'Installment';
+                $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+            }
+        } else {
+            // Additional Seat Subscription.
+            $seatTotal = ($this->user_seats ?? 0) * ($this->per_seat_amount ?? 0);
+            $date = $this->subscription_end_date;
+            $type = 'Seat Fee';
+            $amount = $seatTotal > 0 ? $seatTotal : $this->payable_amount;
+        }
+
+        return [
+            'date' => $date,
+            'type' => $type,
+            'amount' => $amount !== null ? (float) $amount : null,
+        ];
     }
 
     /**

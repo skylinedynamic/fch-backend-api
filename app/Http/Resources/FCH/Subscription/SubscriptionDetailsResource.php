@@ -49,59 +49,13 @@ class SubscriptionDetailsResource extends JsonResource
 
         $isEnrollmentCompleted = !empty($this->enrollment_completed_at);
 
-        // Next billing calculations according to entity type & enrollment state
-        $nextBillingDate = null;
-        $nextBillingType = null;
-        $nextBillingAmount = null;
-
-        if ($isPartner) {
-            $isInstallment = (int) $this->installment_type === 1;
-
-            if (!$isInstallment) {
-                // Partner: One Time Payment
-                if ($isEnrollmentCompleted) {
-                    // Subscription payment complete -> pays Platform fee monthly according to subscription_end_date
-                    $nextBillingDate = toTimezone($this->subscription_end_date);
-                    $nextBillingType = 'Platform Fee';
-                    $nextBillingAmount = currencyFormat($this->monthly_platform_fee);
-                } else {
-                    $nextBillingDate = toTimezone($this->subscription_end_date ?? $this->first_payment_date);
-                    $nextBillingType = 'One Time Enrollment';
-                    $nextBillingAmount = currencyFormat($this->payable_amount ?? $this->total_subscription_amount);
-                }
-            } else {
-                // Partner: Installment
-                if (!$isEnrollmentCompleted) {
-                    // Until enrollment_completed_at is not null, next bill is installment (or down payment if applicable)
-                    $nextBillingDate = toTimezone($this->subscription_end_date);
-                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
-                        $nextBillingType = 'Down Payment';
-                        $nextBillingAmount = currencyFormat($this->down_payment);
-                    } else {
-                        $nextBillingType = 'Installment';
-                        $nextBillingAmount = currencyFormat($this->subscription_amount_per_month ?? $this->payable_amount);
-                    }
-                } else {
-                    // After enrollment_completed_at is not null, next bill is platform fee
-                    $nextBillingDate = toTimezone($this->subscription_end_date);
-                    $nextBillingType = 'Platform Fee';
-                    $nextBillingAmount = currencyFormat($this->monthly_platform_fee);
-                }
-            }
-        } elseif ($isBorrower) {
-            // Borrower: If enrollment is completed, all payments are complete (no platform fee for borrower)
-            if (!$isEnrollmentCompleted) {
-                $nextBillingDate = toTimezone($this->subscription_end_date);
-                $nextBillingType = 'Installment';
-                $nextBillingAmount = currencyFormat($this->subscription_amount_per_month ?? $this->payable_amount);
-            }
-        } else {
-            // Others (Additional Seat Subscription): payment according to subscription_end_date
-            $seatTotal = ($this->user_seats ?? 0) * ($this->per_seat_amount ?? 0);
-            $nextBillingDate = toTimezone($this->subscription_end_date);
-            $nextBillingType = 'Seat Fee';
-            $nextBillingAmount = currencyFormat($seatTotal > 0 ? $seatTotal : $this->payable_amount);
-        }
+        // Next billing calculations according to entity type & enrollment state.
+        // See Subscription::nextBilling() - shared with MySubscriptionService so
+        // both pages agree on what's due next.
+        $nextBilling = $this->resource->nextBilling();
+        $nextBillingDate = toTimezone($nextBilling['date']);
+        $nextBillingType = $nextBilling['type'];
+        $nextBillingAmount = currencyFormat($nextBilling['amount']);
 
         $totalSeatAmount = ($this->user_seats && $this->per_seat_amount)
             ? currencyFormat((float) $this->user_seats * (float) $this->per_seat_amount)

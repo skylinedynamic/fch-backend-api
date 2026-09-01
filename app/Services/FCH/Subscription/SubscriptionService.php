@@ -265,8 +265,10 @@ class SubscriptionService
             $data['installment_type'] = (Str::contains($data['enrollment_type'], [Subscription::ENROLLMENT_TYPE_PAYMENT_PLAN, Subscription::ENROLLMENT_TYPE_MONTHLY])) ? 1 : 0;
         }
 
-        // Calculate subscription_amount_per_month
-        if (!isset($data['subscription_amount_per_month'])) {
+        // Calculate subscription_amount_per_month.
+        // array_key_exists, not isset: an explicitly-passed null must be respected
+        // rather than silently replaced with payable_amount.
+        if (!array_key_exists('subscription_amount_per_month', $data)) {
             $totalSubAmount = $data['total_subscription_amount'] ?? 0;
             $downPayment = $data['down_payment'] ?? 0;
             $installmentCount = $data['installment_count'] ?? 0;
@@ -274,8 +276,12 @@ class SubscriptionService
 
             if ($installmentType == 1 && $installmentCount > 0) {
                 $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
+            } elseif (SubscriptionCreationService::isOneTimePayment($data['enrollment_type'] ?? null)) {
+                // One Time Payment is settled in a single charge — no recurring
+                // monthly amount exists, so this stays null.
+                $data['subscription_amount_per_month'] = null;
             } else {
-                // One-time / non-installment plan: use payable_amount, fall back to monthly_platform_fee.
+                // Other non-installment plans: use payable_amount, fall back to monthly_platform_fee.
                 $data['subscription_amount_per_month'] = $data['payable_amount'] ?? ($data['monthly_platform_fee'] ?? 0);
             }
         }
@@ -440,22 +446,31 @@ class SubscriptionService
             // cleared since nothing further is ever scheduled.
             $updateData['status'] = Subscription::STATUS_ACTIVE;
             $updateData['current_phase'] = Subscription::PHASE_COMPLETED;
-            $updateData['subscription_end_date'] = now()->toDateString();
+            $updateData['subscription_end_date'] = now();
             $updateData['expected_end_date'] = null;
         } else {
             // Partners transition into the recurring monthly platform-fee cycle.
             // Catch up subscription_end_date (paid through) to whatever cycle was
-            // scheduled — normally "now" on a first/on-time payment, or a past
-            // cycle date if this payment is catching up after a rollover — then
-            // schedule expected_end_date one cycle further out.
-            $caughtUpTo = $subscription->expected_end_date
-                ? Carbon::parse($subscription->expected_end_date)
-                : now();
+            // scheduled, then schedule expected_end_date one cycle further out.
+            if ($subscription->expected_end_date) {
+                $caughtUpTo = Carbon::parse($subscription->expected_end_date);
+                $nextCycle = $caughtUpTo->copy()->addMonth();
+            } else {
+                // First payment: there is no scheduled cycle to catch up to yet.
+                // The payment buys the first month, so the customer is paid through
+                // one cycle out — NOT through today, which would leave
+                // subscription_end_date equal to subscription_start_date (a
+                // zero-length subscription that immediately reads as delinquent in
+                // the "behind on payment" metric). Same shape as
+                // handleUserSeatPayment's first activation.
+                $caughtUpTo = now()->addMonth();
+                $nextCycle = $caughtUpTo->copy();
+            }
 
             $updateData['status'] = Subscription::STATUS_ACTIVE;
             $updateData['current_phase'] = Subscription::PHASE_PLATFORM_FEE;
-            $updateData['subscription_end_date'] = $caughtUpTo->toDateString();
-            $updateData['expected_end_date'] = $caughtUpTo->copy()->addMonth()->toDateString();
+            $updateData['subscription_end_date'] = $caughtUpTo;
+            $updateData['expected_end_date'] = $nextCycle;
         }
 
         $subscription->update($updateData);
@@ -487,14 +502,22 @@ class SubscriptionService
         // plan (current_phase starts at PHASE_INSTALLMENT). Either way it migrates
         // the subscription into PHASE_INSTALLMENT below.
         if (!$subscription->subscription_start_date) {
+            // On a first payment there is no scheduled cycle to catch up to, so
+            // $caughtUpTo fell back to "now". Paying buys the first cycle, so the
+            // customer is paid through one cycle out — NOT through today, which
+            // would leave subscription_end_date equal to subscription_start_date
+            // (a zero-length subscription that immediately reads as delinquent in
+            // the "behind on payment" metric). expected_end_date is unchanged.
+            $paidThrough = $subscription->expected_end_date ? $caughtUpTo : $nextExpected;
+
             $subscription->update([
                 'subscription_start_date' => now(),
                 'first_payment_date' => now(),
                 'installments_paid' => $invoice->type == Invoice::INVOICE_TYPE_DOWN_PAYMENT ? 0 : 1,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_INSTALLMENT,
-                'subscription_end_date' => $caughtUpTo->toDateString(),
-                'expected_end_date' => $nextExpected->toDateString(),
+                'subscription_end_date' => $paidThrough,
+                'expected_end_date' => $nextExpected,
                 'current_cycle_invoice_id' => null,
             ]);
 
@@ -507,7 +530,7 @@ class SubscriptionService
                 'installments_paid' => $subscription->installments_paid + 1,
                 'installment_end_date' => $nextExpected->toDateString(),
                 'enrollment_completed_at' => $isLastInstallment ? now() : null,
-                'subscription_end_date' => $caughtUpTo->toDateString(),
+                'subscription_end_date' => $caughtUpTo,
                 'current_cycle_invoice_id' => null,
             ];
 
@@ -520,7 +543,7 @@ class SubscriptionService
                 $updateData['expected_end_date'] = null;
             } else {
                 $updateData['status'] = Subscription::STATUS_ACTIVE;
-                $updateData['expected_end_date'] = $nextExpected->toDateString();
+                $updateData['expected_end_date'] = $nextExpected;
                 $updateData['current_phase'] = $isLastInstallment ? Subscription::PHASE_PLATFORM_FEE : Subscription::PHASE_INSTALLMENT;
             }
 
@@ -529,8 +552,8 @@ class SubscriptionService
             $subscription->update([
                 'status' => Subscription::STATUS_ACTIVE,
                 'installment_end_date' => $nextExpected->toDateString(),
-                'subscription_end_date' => $caughtUpTo->toDateString(),
-                'expected_end_date' => $nextExpected->toDateString(),
+                'subscription_end_date' => $caughtUpTo,
+                'expected_end_date' => $nextExpected,
                 'current_cycle_invoice_id' => null,
             ]);
         }
@@ -592,6 +615,11 @@ class SubscriptionService
             // User-seat subscriptions don't roll forward on a missed cycle (they still
             // freeze to Past Due, unchanged), so subscription_end_date and
             // expected_end_date never diverge for this phase — keep them in lockstep.
+            // current_cycle_invoice_id -> null: matches handleOneTimePayment() /
+            // handleInstallmentPayment() - this invoice is now paid, so it must stop
+            // being "the open invoice for this cycle", otherwise createInvoiceIfDue()
+            // keeps finding a (paid) invoice here and treats the cycle as already
+            // billed instead of generating the next one.
             $subscription->update([
                 'subscription_start_date' => now(),
                 'first_payment_date' => now(),
@@ -599,6 +627,7 @@ class SubscriptionService
                 'expected_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_USER_SEAT,
+                'current_cycle_invoice_id' => null,
             ]);
         } else {
             // Renewal: extend subscription_end_date (kept in sync with expected_end_date)
@@ -609,6 +638,7 @@ class SubscriptionService
                 'subscription_end_date' => $newEnd,
                 'expected_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
+                'current_cycle_invoice_id' => null,
             ]);
 
             if ($user) {
@@ -695,7 +725,7 @@ class SubscriptionService
                     // through) stays exactly where the last real payment left it.
                     // That gap is, by construction, how far behind they are.
                     $subscription->update([
-                        'expected_end_date' => $nextCycleDate->toDateString(),
+                        'expected_end_date' => $nextCycleDate,
                         'current_cycle_invoice_id' => null,
                     ]);
 
@@ -868,7 +898,7 @@ class SubscriptionService
                 $skipped++;
             }
 
-            $updates['expected_end_date'] = $expected->toDateString();
+            $updates['expected_end_date'] = $expected;
         }
 
         $subscription->update($updates);

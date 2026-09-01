@@ -11,6 +11,7 @@ use App\Models\Borrower\CreditProfileRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class BorrowerCreditProfileController extends Controller
@@ -20,24 +21,24 @@ class BorrowerCreditProfileController extends Controller
         try {
             $user = Auth::user();
             if (!$user || !$user->entity_id) {
-                return ApiResponse::error('Unauthorized', 401);
+                return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
             $borrower = $user->borrower;
             if (!$borrower) {
-                return ApiResponse::error('Borrower not found', 404);
+                return ApiResponse::error(__('credit_profile_request.borrower_not_found'), 404);
             }
 
             $creditProfile = $borrower->creditProfile;
-          
+
             if (!$creditProfile) {
                 $creditProfileRequest = $borrower->creditProfileRequests;
-                return ApiResponse::success($creditProfileRequest, 'No credit profile found');
+                return ApiResponse::success($creditProfileRequest, __('credit_profile_request.no_credit_profile_found'));
             }
 
             return ApiResponse::success(
                 new BorrowerCreditProfileResource($creditProfile),
-                'Credit profile fetched successfully.'
+                __('credit_profile_request.credit_profile_fetched')
             );
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
@@ -48,7 +49,7 @@ class BorrowerCreditProfileController extends Controller
         try {
             $user = Auth::user();
             if (!$user || !$user->entity_id) {
-                return ApiResponse::error('Unauthorized', 401);
+                return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
             $creditProfile = BorrowerCreditProfile::where('id', $id)
@@ -56,17 +57,26 @@ class BorrowerCreditProfileController extends Controller
                 ->first();
 
             if (!$creditProfile) {
-                return ApiResponse::error('Credit profile not found.', 404);
+                return ApiResponse::error(__('credit_profile_request.credit_profile_not_found'), 404);
             }
 
-            // Fetch host partner
+            // Fetch host partner and send them the update request email.
+            // Catch \Throwable (not \Exception - a \TypeError from a misconfigured
+            // mailer extends \Error, which \Exception does not catch) so a failed
+            // send cannot fail this whole request and mask that the update request
+            // itself succeeded. Previously this had no inner try/catch at all, so
+            // a mail failure surfaced as a 500 on the request-update action.
             $host = Partner::where('is_host', 1)->first();
             if ($host && $host->email) {
-                $creditProfileRequest = CreditProfileRequest::where('borrower_id', $user->entity_id)->first();
-                Mail::to($host->email)->send(new UpdateCreditProfileRequestMail($creditProfileRequest));
+                try {
+                    $creditProfileRequest = CreditProfileRequest::where('borrower_id', $user->entity_id)->first();
+                    Mail::to($host->email)->send(new UpdateCreditProfileRequestMail($creditProfileRequest));
+                } catch (\Throwable $mailException) {
+                    Log::error(__('credit_profile_request.log_update_email_failed', ['error' => $mailException->getMessage()]));
+                }
             }
 
-            return ApiResponse::success(null, 'Request to update iSoftPull data has been sent successfully.');
+            return ApiResponse::success(null, __('credit_profile_request.update_request_sent'));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
         }

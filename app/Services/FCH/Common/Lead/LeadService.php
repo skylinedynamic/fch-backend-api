@@ -190,6 +190,8 @@ class LeadService
 
             if (($isWebsiteLead && !Auth::check()) || (Auth::user()->partner->is_host)) {
                 // If it's a website lead, send to host partner (standard website logic)
+                // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
+                // from a misconfigured mailer - never blocks lead creation.
                 try {
                     $hostPartner = Partner::where('is_host', true)->first();
                     if ($hostPartner && ($hostPartner->email)) {
@@ -197,14 +199,10 @@ class LeadService
                             'type' => $isWebsiteLead ? 'website' : 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        try {
-                            Mail::to($hostPartner->email)
-                                ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
-                        } catch (\Exception $e) {
-                            Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
-                        }
+                        Mail::to($hostPartner->email)
+                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
                 }
             } else {
@@ -219,13 +217,9 @@ class LeadService
                             'type' => 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        try {
-                            Mail::to($recipients)
-                                ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
-                        } catch (\Exception $e) {
-                            Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
-                        }
-                    } catch (\Exception $e) {
+                        Mail::to($recipients)
+                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                    } catch (\Throwable $e) {
                         Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
                     }
                 }

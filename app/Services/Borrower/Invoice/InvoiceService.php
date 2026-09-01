@@ -321,7 +321,12 @@ class InvoiceService
             'postal_code' => $targetPartner->postal_code ?? '',
             'country' => $targetPartner->country ?? '',
             'website' => $targetPartner->website ?? '',
-            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
+            // !empty, not isset: an empty-string secondary_logo (a partner with no
+            // logo uploaded, e.g. partner_id 37/40) is isset() === true, which built
+            // a URL pointing at the bare "storage" folder with no filename - the
+            // download.blade.php view then tried to file_get_contents() that
+            // directory and failed.
+            'business_logo_path' => !empty($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
         ];
     }
 }

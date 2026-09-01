@@ -4,6 +4,7 @@ namespace App\Mail\Lead;
 
 use App\Models\Lead\Lead;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
@@ -12,7 +13,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Auth;
 
-class LeadNotificationMail extends Mailable
+class LeadNotificationMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

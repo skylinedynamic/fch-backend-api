@@ -188,16 +188,27 @@ class EmployeeService
             if ($isPaid) {
                 $partner = Partner::find($partnerId);
                 $partnerSub = $partner ? $partner->subscription : null;
-                $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;
                 $months = (int) ($employeeData['months'] ?? 1);
-                $amount = $perSeatAmount * $months;
+
+                // See UserService::store() for why the invoice amount is read back
+                // from the created subscription's payable_amount instead of trusting
+                // partner->subscription->per_seat_amount directly - it can be null,
+                // and null * $months = 0, which is why this invoice was being
+                // created with a $0 amount.
+                $requestedSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : null;
 
                 $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
                     Employee::class,
                     $employee->id,
                     $partner,
-                    $perSeatAmount
+                    $requestedSeatAmount,
+                    $months
                 );
+
+                // payable_amount is already per_seat_amount * $months (see
+                // createPendingUserSeatSubscription()) - do not multiply by $months
+                // again here, that would charge for months^2.
+                $amount = (float) ($subscription->payable_amount ?? (49.00 * $months));
 
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([

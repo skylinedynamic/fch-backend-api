@@ -179,7 +179,11 @@ class AuthService
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // 'subscription_phases' table (and its Subscription::phases() relation) was
+            // dropped in 2026_08_31_120000_drop_subscription_phases_and_payment_methods_tables
+            // - the phase state it held now lives directly on the subscription row
+            // (current_phase, installments_paid, etc.), so there is nothing left to eager-load here.
+            'partner.subscription',
         ];
 
         $user->load($relations);
