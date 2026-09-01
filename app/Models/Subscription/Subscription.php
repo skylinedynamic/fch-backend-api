@@ -121,6 +121,11 @@ class Subscription extends Model
         return $this->belongsTo(User::class, 'entity_id');
     }
 
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'entity_id');
+    }
+
     public function entity()
     {
         return $this->morphTo();

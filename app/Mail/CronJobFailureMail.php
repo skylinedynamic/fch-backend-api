@@ -9,9 +9,10 @@ use App\Mail\Traits\MailableBranding;
 use App\Models\Partner\Partner;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\SerializesModels;
 
-class CronJobFailureMail extends Mailable
+class CronJobFailureMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
@@ -21,7 +22,7 @@ class CronJobFailureMail extends Mailable
      * Create a new message instance.
      */
     public function __construct(public array $data) {
-        $this->mailPartnerId = Partner::where('is_host', 1)->first()->id;
+        $this->mailPartnerId = Partner::where('is_host', 1)->value('id');
     }
 
     /**

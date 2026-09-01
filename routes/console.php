@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\CronJobFailureMail;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -29,22 +30,13 @@ $scheduleTimezone = config('app.scheduler_timezone', config('app.timezone', 'UTC
 $schedulerLogPath = storage_path('logs/scheduler.log');
 
 /**
- * Shared failure handler: logs AND notifies the on-call email list.
+ * Shared failure handler: logs AND notifies the on-call email list using the host admin email configuration.
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
         $env      = config('app.env', 'unknown');
         $appUrl   = config('app.url', 'unknown');
         $hostname = gethostname() ?: 'unknown';
-
-        $message = implode("\n", [
-            "Scheduled command failed: {$command}",
-            "",
-            "--- Origin ---",
-            "Environment : {$env}",
-            "App URL     : {$appUrl}",
-            "Server Host : {$hostname}",
-        ]);
 
         Log::error("Scheduled command failed: {$command}", [
             'env'      => $env,
@@ -56,11 +48,21 @@ $onFailure = function (string $command) {
             array_map('trim', explode(',', config('app.cron_notify_emails', '')))
         );
 
-        if (!empty($emails) && config('mail.default')) {
+        if (!empty($emails)) {
             try {
-                Mail::raw($message, function ($mail) use ($emails, $command, $env) {
-                    $mail->to($emails)->subject("[{$env}] Scheduler failure: {$command}");
-                });
+                Mail::to($emails)->send(new CronJobFailureMail([
+                    'job_name'      => $command,
+                    'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
+                    'timestamp'     => now()->toDateTimeString(),
+                    'stack_trace'   => implode("\n", [
+                        "Scheduled command failed: {$command}",
+                        "",
+                        "--- Origin ---",
+                        "Environment : {$env}",
+                        "App URL     : {$appUrl}",
+                        "Server Host : {$hostname}",
+                    ]),
+                ]));
             } catch (\Throwable $e) {
                 Log::error('Failed to send cron failure notification: ' . $e->getMessage());
             }

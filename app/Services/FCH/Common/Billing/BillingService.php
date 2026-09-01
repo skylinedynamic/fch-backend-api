@@ -39,6 +39,10 @@ class BillingService
                 'partner:id,full_name,company_name,email,status',
                 'borrower:id,first_name,last_name,email,partner_id,status',
                 'borrower.partner:id,full_name,company_name,email,status',
+                // Seat subscriptions (User / Employee) — needed so BillingResource can
+                // show who the seat belongs to instead of a blank name.
+                'user:id,name,email,partner_id,status',
+                'employee:id,first_name,last_name,email,partner_id',
                 // Drives outstanding_amount on each row and the summary totals —
                 // eager loaded so the resource never lazy-loads per row.
                 'unpaidInvoices:id,subscription_id,payment_amount,status',
@@ -57,16 +61,23 @@ class BillingService
 
         // Host vs Non-Host Partner Scoping.
         //
-        // Seat subscriptions (User / Employee) are included on both sides: the cron
-        // bills them like any other cycle, and BillingResource already knows how to
-        // price and label them, so leaving them out silently hid a whole revenue
-        // stream from this screen.
+        // This screen shows money owed TO the viewer, not money the viewer owes.
+        // A partner's own subscription fee (Partner-type) and its own staff seat
+        // fees (User/Employee-type) are both payable BY that partner TO the host —
+        // that is receivable for the host, never for the partner itself, and it is
+        // not receivable for the host when the entity is the host's own partner
+        // record or the host's own staff (the host does not bill itself). Each
+        // side's own borrowers remain the one thing it collects from directly.
         if ($isHost && $userPartnerId) {
-            // Host bills every partner, plus its own borrowers and its own seats.
-            // Borrowers of a non-host partner pay that partner, not the host.
             $query->where(function ($q) use ($userPartnerId) {
-                $q->where('subscriptions.entity_type', Partner::class)
+                $q->where(function ($sub) use ($userPartnerId) {
+                    // Every other partner's subscription fee, never the host's own.
+                    $sub->where('subscriptions.entity_type', Partner::class)
+                        ->where('subscriptions.entity_id', '!=', $userPartnerId);
+                })
                     ->orWhere(function ($sub) use ($userPartnerId) {
+                        // The host's own direct borrowers only — a non-host partner's
+                        // borrowers pay that partner, not the host.
                         $sub->where('subscriptions.entity_type', Borrower::class)
                             ->whereExists(function ($inner) use ($userPartnerId) {
                                 $inner->selectRaw(1)
@@ -75,22 +86,22 @@ class BillingService
                                     ->where('borrowers.partner_id', $userPartnerId);
                             });
                     })
-                    ->orWhere(fn($sub) => $this->scopeSeatSubscriptions($sub, null));
+                    // Every other partner's paid seats (User/Employee), never the
+                    // host's own staff.
+                    ->orWhere(fn($sub) => $this->scopeSeatSubscriptions($sub, null, $userPartnerId));
             });
         } elseif (!$isHost && $userPartnerId) {
-            $query->where(function ($q) use ($userPartnerId) {
-                $q->where(function ($sub) use ($userPartnerId) {
-                    $sub->where('subscriptions.entity_type', Partner::class)
-                        ->where('subscriptions.entity_id', $userPartnerId);
-                })->orWhere(function ($sub) use ($userPartnerId) {
-                    $sub->where('subscriptions.entity_type', Borrower::class)
-                        ->whereExists(function ($inner) use ($userPartnerId) {
-                            $inner->selectRaw(1)
-                                ->from('borrowers')
-                                ->whereColumn('borrowers.id', 'subscriptions.entity_id')
-                                ->where('borrowers.partner_id', $userPartnerId);
-                        });
-                })->orWhere(fn($sub) => $this->scopeSeatSubscriptions($sub, $userPartnerId));
+            // A non-host partner's own subscription and its own staff seats are
+            // both money it owes the host, not money owed to it — neither belongs
+            // on this screen. Its borrowers are the only receivable it has.
+            $query->where(function ($sub) use ($userPartnerId) {
+                $sub->where('subscriptions.entity_type', Borrower::class)
+                    ->whereExists(function ($inner) use ($userPartnerId) {
+                        $inner->selectRaw(1)
+                            ->from('borrowers')
+                            ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                            ->where('borrowers.partner_id', $userPartnerId);
+                    });
             });
         }
 
@@ -131,6 +142,12 @@ class BillingService
             $query->where('subscriptions.entity_type', Partner::class);
         } elseif ($entityType === User::BORROWER) {
             $query->where('subscriptions.entity_type', Borrower::class);
+        } elseif ($entityType === User::USER) {
+            // Host-only filter option: seats billed to an admin/staff User.
+            $query->where('subscriptions.entity_type', User::class);
+        } elseif ($entityType === User::EMPLOYEE) {
+            // Host-only filter option: seats billed to a partner's Employee.
+            $query->where('subscriptions.entity_type', Employee::class);
         }
 
         // View filter: lets staff jump straight to the money that needs a decision
@@ -457,12 +474,17 @@ class BillingService
      * Constrain a query to User/Employee seat subscriptions.
      *
      * A seat is owned by the user or employee it was created for, and both tables
-     * carry partner_id, so the partner scope is applied there. Passing null means
-     * "every seat", which is what the host sees.
+     * carry partner_id, so the partner scope is applied there.
      *
      * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $query
+     * @param  ?int $partnerId Restrict to seats owned by this partner only. Null
+     *   means no restriction on this end (used by the host, who is scoped instead
+     *   by $excludePartnerId).
+     * @param  ?int $excludePartnerId Exclude seats owned by this partner. Used by
+     *   the host to see every OTHER partner's paid seats without seeing its own
+     *   staff's seats — the host does not bill itself.
      */
-    protected function scopeSeatSubscriptions($query, ?int $partnerId)
+    protected function scopeSeatSubscriptions($query, ?int $partnerId, ?int $excludePartnerId = null)
     {
         return $query->whereIn('subscriptions.entity_type', [User::class, Employee::class])
             ->when($partnerId, function ($q) use ($partnerId) {
@@ -482,6 +504,27 @@ class BillingService
                                     ->from('employees')
                                     ->whereColumn('employees.id', 'subscriptions.entity_id')
                                     ->where('employees.partner_id', $partnerId);
+                            });
+                    });
+                });
+            })
+            ->when($excludePartnerId, function ($q) use ($excludePartnerId) {
+                $q->where(function ($owner) use ($excludePartnerId) {
+                    $owner->where(function ($sub) use ($excludePartnerId) {
+                        $sub->where('subscriptions.entity_type', User::class)
+                            ->whereNotExists(function ($inner) use ($excludePartnerId) {
+                                $inner->selectRaw(1)
+                                    ->from('users')
+                                    ->whereColumn('users.id', 'subscriptions.entity_id')
+                                    ->where('users.partner_id', $excludePartnerId);
+                            });
+                    })->orWhere(function ($sub) use ($excludePartnerId) {
+                        $sub->where('subscriptions.entity_type', Employee::class)
+                            ->whereNotExists(function ($inner) use ($excludePartnerId) {
+                                $inner->selectRaw(1)
+                                    ->from('employees')
+                                    ->whereColumn('employees.id', 'subscriptions.entity_id')
+                                    ->where('employees.partner_id', $excludePartnerId);
                             });
                     });
                 });
@@ -539,9 +582,11 @@ class BillingService
     /**
      * Whether the current user may see this subscription.
      *
-     * Mirrors the scoping in fetchUpcoming(): the host sees every partner plus its
-     * own borrowers and seats; a non-host partner sees only itself, its borrowers
-     * and its seats. Anyone with no partner context sees nothing.
+     * Mirrors the scoping in fetchUpcoming(): the host sees every other partner's
+     * subscription and paid seats plus its own direct borrowers — never its own
+     * partner-level subscription or its own staff's seats, since it does not bill
+     * itself. A non-host partner sees only its own borrowers. Anyone with no
+     * partner context sees nothing.
      */
     protected function canViewSubscription(Subscription $subscription, bool $isHost, ?int $userPartnerId): bool
     {
@@ -550,10 +595,10 @@ class BillingService
         }
 
         return match ($subscription->entity_type) {
-            Partner::class => $isHost || (int) $subscription->entity_id === (int) $userPartnerId,
+            Partner::class => $isHost && (int) $subscription->entity_id !== (int) $userPartnerId,
             Borrower::class => (int) (Borrower::whereKey($subscription->entity_id)->value('partner_id')) === (int) $userPartnerId,
-            User::class => $isHost || (int) (User::whereKey($subscription->entity_id)->value('partner_id')) === (int) $userPartnerId,
-            Employee::class => $isHost || (int) (Employee::whereKey($subscription->entity_id)->value('partner_id')) === (int) $userPartnerId,
+            User::class => $isHost && (int) (User::whereKey($subscription->entity_id)->value('partner_id')) !== (int) $userPartnerId,
+            Employee::class => $isHost && (int) (Employee::whereKey($subscription->entity_id)->value('partner_id')) !== (int) $userPartnerId,
             default => false,
         };
     }

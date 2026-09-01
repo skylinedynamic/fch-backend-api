@@ -35,7 +35,15 @@ class FetchUpcomingBillingRequest extends FormRequest
             // reaches the service.
             'view'       => ['nullable', 'in:all,paused,overdue,scheduled'],
             // Same vocabulary the frontend uses (ENTITY_TYPE_* in appConfig.ts).
-            'entity_type' => ['nullable', 'in:' . User::PARTNER . ',' . User::BORROWER],
+            // User/Employee are host-only filter values (paid seats) — harmless to
+            // accept from a non-host partner since BillingService's own partner
+            // scoping excludes those rows for them regardless of this filter.
+            'entity_type' => ['nullable', 'in:' . implode(',', [
+                User::PARTNER,
+                User::BORROWER,
+                User::USER,
+                User::EMPLOYEE,
+            ])],
         ];
     }
 }

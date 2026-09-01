@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\User\User;
+use App\Models\Employee\Employee;
 use App\Models\Subscription\Subscription;
 
 class BillingResource extends JsonResource
@@ -17,12 +19,19 @@ class BillingResource extends JsonResource
     {
         $partner = null;
         $borrower = null;
+        $user = null;
+        $employee = null;
 
         if ($this->entity_type === Partner::class) {
             $partner = $this->partner;
         } elseif ($this->entity_type === Borrower::class) {
             $borrower = $this->borrower;
             $partner = $borrower?->partner;
+        } elseif ($this->entity_type === User::class) {
+            // A seat billed to an admin/staff User rather than a Partner or Borrower.
+            $user = $this->user;
+        } elseif ($this->entity_type === Employee::class) {
+            $employee = $this->employee;
         }
 
         // Amount mapping mirrors createInvoiceForSubscription() — this screen must
@@ -42,6 +51,8 @@ class BillingResource extends JsonResource
                 : ($this->subscription_amount_per_month ?: ($this->payable_amount ?: 0)),
         };
 
+        $borrowerName = $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null;
+
         // Human readable billing type for UI table
         $billingType = match ($this->current_phase) {
             Subscription::PHASE_PLATFORM_FEE => 'Platform Fee',
@@ -59,8 +70,38 @@ class BillingResource extends JsonResource
             'partner_name' => $partner?->full_name,
             'company_name' => $partner?->company_name,
             'partner_email' => $partner?->email,
-            'borrower_name' => $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null,
+            'borrower_name' => $borrowerName,
             'borrower_email' => $borrower?->email,
+            'user_id' => $user?->id,
+            'user_name' => $user?->name,
+            'user_email' => $user?->email,
+            'employee_id' => $employee?->id,
+            'employee_name' => $employee?->full_name,
+            'employee_email' => $employee?->email,
+            // Generic name/email/type the UI can read without knowing all four
+            // entity kinds — the per-type fields above are kept for anything that
+            // already reads them directly.
+            //
+            // Keyed on entity_type, NOT a ?? chain over $partner/$borrower/etc:
+            // $partner is populated for a Borrower row too (it holds the borrower's
+            // OWN partner, e.g. the host, for is_billing_paused / display elsewhere),
+            // so a ?? chain that checks $partner first would show the borrower's
+            // partner's name instead of the borrower's own name on every borrower row.
+            'subscriber_type' => class_basename($this->entity_type ?? ''),
+            'subscriber_name' => match ($this->entity_type) {
+                Partner::class => $partner?->full_name,
+                Borrower::class => $borrowerName,
+                User::class => $user?->name,
+                Employee::class => $employee?->full_name,
+                default => null,
+            },
+            'subscriber_email' => match ($this->entity_type) {
+                Partner::class => $partner?->email,
+                Borrower::class => $borrower?->email,
+                User::class => $user?->email,
+                Employee::class => $employee?->email,
+                default => null,
+            },
             // The date the cron will next bill, which is expected_end_date — NOT
             // subscription_end_date, which records what the customer has already
             // paid through and sits in the past once a cycle has been missed.
