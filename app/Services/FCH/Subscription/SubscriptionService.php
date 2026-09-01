@@ -615,6 +615,11 @@ class SubscriptionService
             // User-seat subscriptions don't roll forward on a missed cycle (they still
             // freeze to Past Due, unchanged), so subscription_end_date and
             // expected_end_date never diverge for this phase — keep them in lockstep.
+            // current_cycle_invoice_id -> null: matches handleOneTimePayment() /
+            // handleInstallmentPayment() - this invoice is now paid, so it must stop
+            // being "the open invoice for this cycle", otherwise createInvoiceIfDue()
+            // keeps finding a (paid) invoice here and treats the cycle as already
+            // billed instead of generating the next one.
             $subscription->update([
                 'subscription_start_date' => now(),
                 'first_payment_date' => now(),
@@ -622,6 +627,7 @@ class SubscriptionService
                 'expected_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_USER_SEAT,
+                'current_cycle_invoice_id' => null,
             ]);
         } else {
             // Renewal: extend subscription_end_date (kept in sync with expected_end_date)
@@ -632,6 +638,7 @@ class SubscriptionService
                 'subscription_end_date' => $newEnd,
                 'expected_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
+                'current_cycle_invoice_id' => null,
             ]);
 
             if ($user) {

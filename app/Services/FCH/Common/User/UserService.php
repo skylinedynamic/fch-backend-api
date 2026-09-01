@@ -100,16 +100,30 @@ class UserService
             if ($isPaid) {
                 $partner = Partner::find($authUser->partner_id);
                 $partnerSub = $partner ? $partner->subscription : null;
-                $perSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : 49.00;
                 $months = (int) ($data['months'] ?? 1);
-                $amount = $perSeatAmount * $months;
+
+                // partner->subscription->per_seat_amount can be null (never populated
+                // for some partner subscriptions - see SubscriptionCreationService::
+                // startSubscription()), and null * $months = 0, which is why this
+                // invoice was being created with a $0 amount. Pass the raw (possibly
+                // null) value through to createPendingUserSeatSubscription() as
+                // before - it already falls back to the seat plan's own total_amount
+                // when null - then read the invoice amount back FROM that resolved
+                // subscription's payable_amount instead of trusting the raw value here.
+                $requestedSeatAmount = $partnerSub ? $partnerSub->per_seat_amount : null;
 
                 $subscription = $this->subscriptionCreationService->createPendingUserSeatSubscription(
                     User::class,
                     $user->id,
                     $partner,
-                    $perSeatAmount
+                    $requestedSeatAmount,
+                    $months
                 );
+
+                // payable_amount is already per_seat_amount * $months (see
+                // createPendingUserSeatSubscription()) - do not multiply by $months
+                // again here, that would charge for months^2.
+                $amount = (float) ($subscription->payable_amount ?? (49.00 * $months));
 
                 $invoiceId = $this->invoiceService->generateInvoiceId();
                 $invoice = Invoice::create([
@@ -132,6 +146,14 @@ class UserService
                     $invoice,
                     ActivityLog::LOG_TYPE_INVOICE_CREATE
                 );
+
+                // Not a real column (users has no invoice_id) - this only carries the
+                // invoice id back to the create response for the frontend's post-create
+                // payment step, matching EmployeeService::create(). Without it, the
+                // frontend never learns which invoice to fetch, so InvoicePaymentModal
+                // never receives an invoice and the payment method selection inside it
+                // never appears - see UserController::store() for the response side.
+                $user->invoice_id = $invoice->id;
 
                 // Update current cycle invoice
                 $subscription->update([

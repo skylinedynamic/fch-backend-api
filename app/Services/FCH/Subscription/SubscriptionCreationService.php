@@ -28,10 +28,18 @@ class SubscriptionCreationService
      * @param string $entityType
      * @param int $entityId
      * @param Partner $partner
-     * @param float|null $amount
+     * @param float|null $amount Per-seat, per-month price. Null falls back to
+     *   the seat plan's own total_amount.
+     * @param int $months How many months this purchase covers. Multiplies
+     *   total_subscription_amount/payable_amount only - per_seat_amount and
+     *   monthly_platform_fee stay the single-month rate, since that's what the
+     *   cron's recurring per-cycle charge reads (SubscriptionService::
+     *   createInvoiceForSubscription() uses per_seat_amount, never
+     *   payable_amount, for PHASE_USER_SEAT) - multiplying those two would
+     *   have charged the whole multi-month total again on every renewal.
      * @return Subscription
      */
-    public function createPendingUserSeatSubscription(string $entityType, int $entityId, Partner $partner, float $amount = null): Subscription
+    public function createPendingUserSeatSubscription(string $entityType, int $entityId, Partner $partner, float $amount = null, int $months = 1): Subscription
     {
 
         $plan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT)
@@ -43,16 +51,19 @@ class SubscriptionCreationService
             throw new \Exception('User seat subscription plan not found');
         }
 
+        $monthlyAmount = $amount ?? $plan->total_amount;
+        $months = max(1, $months);
+
         return Subscription::create([
             'entity_type' => $entityType,
             'entity_id' => $entityId,
             'subscription_plan_id' => $plan->id,
             'partner_type' => $partner->partner_type,
             'enrollment_type' => Subscription::ENROLLMENT_TYPE_MONTHLY,
-            'monthly_platform_fee' => $amount ?? $plan->total_amount,
-            'total_subscription_amount' => $amount ?? $plan->total_amount,
-            'subscription_amount_per_month' => null,
-            'payable_amount' => $amount ?? $plan->total_amount,
+            'monthly_platform_fee' => $monthlyAmount,
+            'total_subscription_amount' => $monthlyAmount * $months,
+            'subscription_amount_per_month' => $monthlyAmount,
+            'payable_amount' => $monthlyAmount * $months,
             'down_payment' => 0.00,
             'first_payment_date' => null,
             'platform_fee_start_date' => null,
@@ -63,7 +74,7 @@ class SubscriptionCreationService
             'expected_end_date' => null,
             'status' => Subscription::STATUS_PENDING,
             'user_seats' => 1,
-            'per_seat_amount' => $amount ?? $plan->total_amount,
+            'per_seat_amount' => $monthlyAmount,
             'is_custom' => false,
             'current_phase' => Subscription::PHASE_USER_SEAT,
         ]);

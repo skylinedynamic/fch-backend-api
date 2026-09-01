@@ -85,10 +85,18 @@ class UserController extends Controller
         $this->checkWhiteLabelConfiguration();
         try {
             $user = $this->userService->create($request->validated(), $request->role_id);
-            return ApiResponse::success(
-                (new UserResource($user))->toArray($request), // convert resource to array
-                __('user.user_created')
-            );
+            $responseData = (new UserResource($user))->toArray($request); // convert resource to array
+
+            // invoice_id is not a real column and UserResource does not map it
+            // (it's the shared auth resource, reused by login/refresh-user - not
+            // appropriate to change for one endpoint's needs), so it is appended
+            // here instead. The frontend's post-create payment step reads it to
+            // fetch and display the invoice for payment - see UserService::create().
+            if (isset($user->invoice_id)) {
+                $responseData['invoice_id'] = $user->invoice_id;
+            }
+
+            return ApiResponse::success($responseData, __('user.user_created'));
         } catch (Throwable $e) {
             return ApiResponse::error(__($e->getMessage()), 400);
         }
