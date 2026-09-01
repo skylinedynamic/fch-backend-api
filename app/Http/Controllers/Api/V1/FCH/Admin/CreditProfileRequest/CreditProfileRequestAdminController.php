@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Borrower\CreditProfileRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class CreditProfileRequestAdminController extends Controller
 {
@@ -37,9 +38,10 @@ class CreditProfileRequestAdminController extends Controller
 
             $requests = $query->paginate($perPage);
 
-            return ApiResponse::success($requests, 'Credit profile requests retrieved successfully.');
+            return ApiResponse::success($requests, __('credit_profile_request.retrieved_successfully'));
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to fetch credit profile requests.');
+            Log::error(__('credit_profile_request.log_retrieval_failed', ['error' => $e->getMessage()]));
+            return ApiResponse::serverError(__('credit_profile_request.retrieval_failed'));
         }
     }
 
@@ -52,12 +54,13 @@ class CreditProfileRequestAdminController extends Controller
             $creditProfileRequest = CreditProfileRequest::with('borrower')->find($id);
 
             if (!$creditProfileRequest) {
-                return ApiResponse::notFound('Credit profile request not found.');
+                return ApiResponse::notFound(__('credit_profile_request.not_found'));
             }
 
-            return ApiResponse::success($creditProfileRequest, 'Credit profile request retrieved successfully.');
+            return ApiResponse::success($creditProfileRequest, __('credit_profile_request.details_retrieved_successfully'));
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to fetch credit profile request details.');
+            Log::error(__('credit_profile_request.log_details_retrieval_failed', ['error' => $e->getMessage()]));
+            return ApiResponse::serverError(__('credit_profile_request.details_retrieval_failed'));
         }
     }
 }

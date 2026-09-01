@@ -5,13 +5,14 @@ namespace App\Mail\Borrower;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Borrower\CreditProfileRequest;
 
-class CreditProfileRequestMail extends Mailable
+class CreditProfileRequestMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
