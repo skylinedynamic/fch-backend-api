@@ -416,7 +416,6 @@ Route::prefix('v1')->group(function () {
             Route::get('providers', [UnifiedPaymentController::class, 'getProviders']);
             Route::get('get-payment-methods', [UnifiedPaymentController::class, 'getPartnerPaymentMethods']);
         });
-        });
 
         // V1 Reminder routes
         Route::prefix('reminders')->group(function () {
@@ -429,8 +428,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
         });
 
-        Route::post('process-payment', [GlobalPaymentController::class, 'processPayment']);
-        Route::post('process-payment-for-users', [GlobalPaymentController::class, 'processPaymentForUsers']);
 
         // V1 Notification routes
         Route::prefix('notifications')->group(function () {
