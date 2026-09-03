@@ -125,10 +125,57 @@ class Reminder extends Model
         return $query->where('reference', $referenceType);
     }
 
+    // The activity date (set_date_time, falling back to send_at, falling back
+    // to reminder_date_time) has already passed. Mirrors the frontend's
+    // isReminderMissed date-source priority; used both to build the "missed"
+    // filter and to exclude missed rows from the plain "pending"/"sent"
+    // filters, so a row's badge (Missed vs Sent/Pending) always matches
+    // whichever filter surfaced it.
+    protected function scopeIsMissedDate($query)
+    {
+        return $query->where(function ($q) {
+            $q->where(function ($q2) {
+                $q2->whereNotNull('set_date_time')
+                   ->where('set_date_time', '<', now());
+            })->orWhere(function ($q2) {
+                $q2->whereNull('set_date_time')
+                   ->whereNotNull('send_at')
+                   ->where('send_at', '<', now());
+            })->orWhere(function ($q2) {
+                $q2->whereNull('set_date_time')
+                   ->whereNull('send_at')
+                   ->where('reminder_date_time', '<', now());
+            });
+        });
+    }
+
     public function scopeStatusFilter($query, ?string $status)
     {
         if (!$status) {
             return $query;
+        }
+
+        // "Missed" isn't a stored status — it's a pending/sent reminder whose
+        // activity date has already passed (a dismissed/cancelled reminder is
+        // just dismissed, never "missed").
+        if ($status === 'missed') {
+            return $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_SENT])
+                ->isMissedDate();
+        }
+
+        // "dismissable" or "actionable" includes all pending and sent reminders (both upcoming and missed)
+        if ($status === 'dismissable' || $status === 'actionable') {
+            return $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_SENT]);
+        }
+
+        // Excluding missed rows from the plain pending/sent filters keeps
+        // filter results consistent with the displayed badge — a row shown
+        // under "Sent" should never render as "Missed", and vice versa.
+        if ($status === self::STATUS_PENDING || $status === self::STATUS_SENT) {
+            return $query->where('status', $status)
+                ->whereNot(function ($q) {
+                    $q->isMissedDate();
+                });
         }
 
         return $query->where('status', $status);

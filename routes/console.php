@@ -102,8 +102,13 @@ Schedule::command('funding:application-reminders')
     ->withoutOverlapping(30)
     ->onFailure($onFailure('funding:application-reminders'));
 
+// Fallback sweep only — real-time delivery now happens via DispatchReminderDueJob,
+// a queued job scheduled for each reminder's exact due timestamp (see
+// ReminderService::createFromActivity / snoozeReminder). This just catches
+// reminders that job missed (e.g. a queue worker outage), so it doesn't need
+// minute-level resolution.
 Schedule::command('task:reminder-check')
-    ->everyMinute()
+    ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(5)
     ->onSuccess($onSuccess('task:reminder-check'))

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Reminder;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Support\Carbon;
 
 class SnoozeReminderRequest extends BaseApiRequest
 {
@@ -22,8 +23,29 @@ class SnoozeReminderRequest extends BaseApiRequest
      */
     public function rules(): array
     {
+        // The raw reschedule_at string is naive local time, interpreted using
+        // this same header in ReminderService::snoozeReminder() — comparing it
+        // to "now" here has to use the same timezone or a future local time
+        // near a UTC offset boundary could be wrongly rejected/accepted.
+        $timezone = $this->header('X-Timezone', config('app.timezone'));
+
         return [
-            'minutes' => 'required|integer|min:1',
+            'minutes' => 'required_without:reschedule_at|nullable|integer|min:1',
+            'reschedule_at' => [
+                'bail',
+                'required_without:minutes',
+                'nullable',
+                'date',
+                function ($attribute, $value, $fail) use ($timezone) {
+                    if ($value && Carbon::parse($value, $timezone)->isPast()) {
+                        $fail('The reschedule date/time must be in the future.');
+                    }
+                },
+            ],
+            // How long before reschedule_at to fire the alert (e.g. "15 minutes
+            // before"), matching the same dropdown activity creation uses. Only
+            // meaningful alongside reschedule_at; ignored for a plain minutes-snooze.
+            'lead_minutes' => 'nullable|integer|min:0',
         ];
     }
 
@@ -35,9 +57,11 @@ class SnoozeReminderRequest extends BaseApiRequest
     public function messages(): array
     {
         return [
-            'minutes.required' => 'The minutes field is required.',
+            'minutes.required_without' => 'Either minutes or a reschedule date/time is required.',
             'minutes.integer' => 'The minutes must be an integer.',
             'minutes.min' => 'The minutes must be at least 1.',
+            'reschedule_at.required_without' => 'Either minutes or a reschedule date/time is required.',
+            'reschedule_at.date' => 'The reschedule date/time is not valid.',
         ];
     }
 }

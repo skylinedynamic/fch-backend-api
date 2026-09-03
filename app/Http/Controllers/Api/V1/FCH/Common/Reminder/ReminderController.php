@@ -119,7 +119,13 @@ class ReminderController extends Controller
             return ApiResponse::unauthorized(__('auth.unauthorized'));
         }
 
-        $reminder = $this->reminderService->snoozeReminder($user, $id, $request->minutes);
+        $reminder = $this->reminderService->snoozeReminder(
+            $user,
+            $id,
+            $request->minutes,
+            $request->reschedule_at,
+            $request->lead_minutes
+        );
 
         if (!$reminder) {
             return ApiResponse::error(__('reminder.not_found'), 404);

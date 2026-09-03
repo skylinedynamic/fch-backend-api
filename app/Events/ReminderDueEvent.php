@@ -10,6 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Common\Reminder;
+use App\Models\User\User;
 
 class ReminderDueEvent implements ShouldBroadcast
 {
@@ -34,9 +35,16 @@ class ReminderDueEvent implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        return [
-            new PrivateChannel('App.Models.User.' . $this->reminder->created_by),
-        ];
+        // created_by/created_by_entity_type identify the owning entity (Partner,
+        // Borrower, Employee...), not a users.id — and multiple login accounts can
+        // share one entity — so resolve every matching user before broadcasting.
+        $userIds = User::where('entity_id', $this->reminder->created_by)
+            ->where('entity_type', $this->reminder->created_by_entity_type)
+            ->pluck('id');
+
+        return $userIds
+            ->map(fn ($id) => new PrivateChannel('App.Models.User.' . $id))
+            ->all();
     }
 
     /**
