@@ -92,7 +92,7 @@ class PartnerController extends Controller
         $partner = $this->partnerService->findById($id);
 
         if (!$partner) {
-            return ApiResponse::notFound('Partner not found');
+            return ApiResponse::notFound(__('partner.error.not_found'));
         }
 
         $data = $request->validated();
@@ -205,7 +205,7 @@ class PartnerController extends Controller
 
             return $this->partnerService->getBorrowers($filters);
         } catch (\Exception $e) {
-            return ApiResponse::serverError('Failed to fetch borrowers');
+            return ApiResponse::serverError(__('partner.borrowers_fetch_failed'));
         }
     }
 
@@ -230,7 +230,7 @@ class PartnerController extends Controller
         try {
             Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
         } catch (Throwable $e) {
-            Log::error('📧 AccountCreatedNotificationMail failed', [
+            Log::error(__('partner.log.account_create_notification_failed'), [
                 'error' => $e->getMessage(),
             ]);
         }
@@ -293,9 +293,9 @@ class PartnerController extends Controller
         try {
             $nextId = $this->partnerService->getNextPartnerId();
 
-            return ApiResponse::success(['next_id' => $nextId], 'Next partner ID retrieved');
+            return ApiResponse::success(['next_id' => $nextId], __('partner.next_id_retrieved'));
         } catch (\Throwable $e) {
-            return ApiResponse::serverError('Failed to retrieve next partner ID', 500);
+            return ApiResponse::serverError(__('partner.next_id_failed'), 500);
         }
     }
 

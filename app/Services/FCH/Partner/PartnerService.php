@@ -26,6 +26,7 @@ use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Mail\Partner\PartnerMigrationMail;
 use App\Mail\Trial\PartnerTrialMail;
+use App\Mail\Trial\PartnerTrialExpiryUpdatedMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
@@ -55,7 +56,7 @@ class PartnerService
         try {
             Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
-            Log::error('Partner trial welcome email failed', [
+            Log::error(__('partner.log.trial_welcome_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
@@ -70,8 +71,23 @@ class PartnerService
         try {
             Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
-            Log::error('Partner account update email failed', [
+            Log::error(__('partner.log.account_update_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Send free trial expiry date updated email using partner's own email config.
+     */
+    private function sendTrialExpiryUpdatedEmail(array $mailData, ?int $hostPartnerId = null): void
+    {
+        try {
+            Mail::to($mailData['user']->email)->queue(new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId));
+        } catch (\Throwable $e) {
+            Log::error(__('partner.log.trial_expiry_mail_failed'), [
+                'partner_id' => $mailData['partner_id'] ?? null,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -232,7 +248,7 @@ class PartnerService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Partner creation failed', ['error' => $e->getMessage()]);
+            Log::error(__('partner.log.partner_create_failed'), ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -370,6 +386,7 @@ class PartnerService
                 }
             }
 
+            $oldTrialEndDate = $partner->free_trail_end_date;
             $partner->update($partnerData);
 
             // Sync user status if partner status changed
@@ -420,7 +437,9 @@ class PartnerService
                         continue;
                     }
 
-                    $name = $field === 'assign_to' ? __('partner.assigned_user') : ucwords(str_replace('_', ' ', $field));
+                    $name = $field === 'assign_to'
+                        ? __('partner.assigned_user')
+                        : ($field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field)));
 
                     if ($field === 'assign_to') {
                         $changedFields[] = __('partner.field_changed', ['field' => $name]);
@@ -469,10 +488,45 @@ class PartnerService
             $user->update(['is_refresh' => true]);
             DB::commit();
 
+            // Send trial expiry updated email if free trial expiry date was updated
+            $isFreeTrialNow = (bool) ($partner->is_free_trail ?? false);
+            if ($isFreeTrialNow && array_key_exists('free_trail_end_date', $changes) && !empty($partner->free_trail_end_date)) {
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $mailUser = $partner->partnerUser ?? $user ?? User::where('email', $partner->email)->first();
+
+                if ($mailUser && !empty($mailUser->email)) {
+                    $mailData = [
+                        'partner_id' => $partner->id,
+                        'partner' => $partner,
+                        'user' => $mailUser,
+                        'trial_end_date' => $partner->free_trail_end_date,
+                        'old_trial_end_date' => $oldTrialEndDate,
+                        'business_info' => $this->getHostPartnerBusinessInfo($hostPartner),
+                    ];
+
+                    $authUser = Auth::user();
+                    $senderPartnerId = $authUser ? $authUser->partner_id : ($hostPartner ? $hostPartner->id : null);
+                    $this->sendTrialExpiryUpdatedEmail($mailData, $senderPartnerId);
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $partner,
+                    ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL,
+                    [
+                        'old_trial_end_date' => $oldTrialEndDate ? \Carbon\Carbon::parse($oldTrialEndDate)->format('Y-m-d') : null,
+                        'new_trial_end_date' => \Carbon\Carbon::parse($partner->free_trail_end_date)->format('Y-m-d'),
+                    ],
+                    null,
+                    __('partner.free_trial_expiry_updated_log', [
+                        'date' => \Carbon\Carbon::parse($partner->free_trail_end_date)->format('F j, Y'),
+                    ])
+                );
+            }
+
             return $partner->fresh();
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Partner update failed', [
+            Log::error(__('partner.log.partner_update_failed'), [
                 'partner_id' => $partner->id ?? null,
                 'error' => $e->getMessage(),
             ]);
