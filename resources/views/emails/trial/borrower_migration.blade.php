@@ -7,7 +7,7 @@
 
     <p style="line-height: 1.5; margin-bottom: 24px;">
         We are writing to inform you that your client account at <strong>{{ $siteName }}</strong> has been successfully
-        migrated from a <strong>Limited Free Edition</strong> to a paid subscription plan.
+        migrated from a <strong>Limited Free Plan</strong> to a paid subscription plan.
     </p>
 
     <p style="line-height: 1.5; margin-bottom: 24px;">

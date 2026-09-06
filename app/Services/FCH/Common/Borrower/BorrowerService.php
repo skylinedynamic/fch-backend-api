@@ -84,6 +84,11 @@ class BorrowerService
             }
         }
 
+        // Snapshot the query scoped only by partner authorization (before search/status/column
+        // filters are applied) so the summary cards always reflect true totals for the partner,
+        // not just the rows matching whatever search/filter the user currently has active.
+        $statsQuery = clone $query;
+
         // Filter by current_tier (supports ID or Name)
         $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
         if ($currentTier !== null && $currentTier !== '') {
@@ -246,12 +251,13 @@ class BorrowerService
             ]
         );
 
-        // Calculate statistics before pagination
+        // Calculate statistics from the partner-scoped (but otherwise unfiltered) query, so the
+        // summary cards show true totals rather than fluctuating with the table's search/filters.
         $statistics = [
-            'total_borrowers' => (clone $query)->count(),
-            'active_borrowers' => (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count(),
-            'inactive_borrowers' => (clone $query)->whereIn('status', [Borrower::STATUS_INACTIVE, Borrower::STATUS_SUSPENDED])->count(),
-            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'total_borrowers' => (clone $statsQuery)->count(),
+            'active_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_ACTIVE)->count(),
+            'inactive_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_INACTIVE)->count(),
+            'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;

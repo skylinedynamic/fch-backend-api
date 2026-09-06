@@ -109,7 +109,9 @@ class AuthService
         if ($isFreeTrail && $freeTrailEndDate && Carbon::parse($freeTrailEndDate)->isPast()) {
             $partner = $user->partner;
             $partnerName = $partner ? ($partner->company_name ?? $partner->full_name ?? 'your partner') : 'your partner';
-            return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+            // Borrowers see "Free Plan" wording; partner accounts keep the original "Free Trial" wording.
+            $messageKey = $user->entity_type === Borrower::class ? 'auth.free_plan_expired' : 'auth.free_trial_expired';
+            return ApiResponse::loginError(__($messageKey, ['partner' => $partnerName]), 'email');
         }
 
         $partner = $user->partner;
