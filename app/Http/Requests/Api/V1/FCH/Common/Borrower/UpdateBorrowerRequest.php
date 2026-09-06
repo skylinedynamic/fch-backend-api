@@ -51,6 +51,9 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'home_address' => ['nullable', 'string', 'max:255'],
             'date_of_birth'=> ['nullable'],
             'last_4_ssn'   => ['nullable', 'string', 'max:4'],
+            // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
+            // the stored value entirely — omit the field to leave it unchanged.
+            'ssn'          => ['nullable', 'string', 'regex:/^\d{3}-?\d{2}-?\d{4}$/'],
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'         => ['nullable', 'string', 'max:255'],
@@ -138,6 +141,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_logo.mimes'            => __('borrower_validation.business_logo_mimes'),
             'business_logo.max'              => __('borrower_validation.business_logo_max'),
             'business_phone.regex'           => __('borrower_validation.business_phone_regex'),
+            'ssn.regex'                      => 'Please enter a valid 9-digit Social Security Number.',
             'fico_score.numeric'             => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric'           => __('borrower_validation.paydex_score_numeric'),
             'assign_id.exists'               => __('borrower_validation.assign_id_exists'),
