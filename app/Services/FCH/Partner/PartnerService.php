@@ -825,6 +825,12 @@ class PartnerService
                 if ($partnerField === 'joining_date' && !empty($value)) {
                     $value = normalizeDate($value);
                 }
+                if ($partnerField === 'free_trail_end_date') {
+                    $value = !empty($value) ? $value : null;
+                }
+                if ($partnerField === 'is_free_trail') {
+                    $value = (bool) $value;
+                }
                 $partnerData[$partnerField] = $value;
             }
         }

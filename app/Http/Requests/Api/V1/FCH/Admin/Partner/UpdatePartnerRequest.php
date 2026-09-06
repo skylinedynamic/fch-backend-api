@@ -90,7 +90,7 @@ class UpdatePartnerRequest extends BaseApiRequest
 
         if ($isFreeTrialNew) {
             if ($this->has('is_free_trail') || $this->has('free_trail_end_date')) {
-                $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+                $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d'];
             } else {
                 $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
             }
