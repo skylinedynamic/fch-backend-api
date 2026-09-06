@@ -117,6 +117,12 @@ class BorrowerService
             }
         }
 
+        // Filter by Free Plan / Regular plan (is_free_trail)
+        $isFreeTrail = $filters['is_free_trail']['value'] ?? ($filters['is_free_trail'] ?? null);
+        if ($isFreeTrail !== null && $isFreeTrail !== '') {
+            $query->where('borrowers.is_free_trail', filter_var($isFreeTrail, FILTER_VALIDATE_BOOLEAN));
+        }
+
         // Apply Search
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
