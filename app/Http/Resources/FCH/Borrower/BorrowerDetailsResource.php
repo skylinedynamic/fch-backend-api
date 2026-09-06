@@ -35,10 +35,8 @@ class BorrowerDetailsResource extends JsonResource
             'home_phone' => $this->home_phone,
             'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->format('m-d-Y') : null,
             'last_4_ssn' => $this->last_4_ssn,
-            // Full SSN is never sent back down — only a display-safe mask.
-            // Submitting a new value in the edit form replaces it entirely.
-            'masked_ssn' => $this->masked_ssn,
-            'has_ssn' => (bool) $this->ssn_encrypted,
+            // Full SSN, decrypted — shown and editable as-is on the client edit form.
+            'ssn' => $this->ssn,
 
             // Business
             'business_name' => $this->business_name,

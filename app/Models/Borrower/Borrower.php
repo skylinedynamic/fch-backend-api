@@ -147,15 +147,6 @@ class Borrower extends Model
             : \Illuminate\Support\Facades\Crypt::encryptString($digits);
     }
 
-    /**
-     * Safe-to-display form: XXX-XX-1234.
-     */
-    public function getMaskedSsnAttribute(): ?string
-    {
-        $last4 = $this->last_4_ssn;
-        return $last4 ? "XXX-XX-{$last4}" : null;
-    }
-
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';

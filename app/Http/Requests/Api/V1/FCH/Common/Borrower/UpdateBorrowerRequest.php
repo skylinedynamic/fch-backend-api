@@ -44,7 +44,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             ],
             'country'      => ['nullable', 'string', 'max:255'],
             'country_code' => ['nullable', 'string', 'max:255'],
-            'state'        => ['nullable', 'string', 'max:255'],
+            'state'        => ['sometimes', 'required', 'string', 'max:255'],
             'city'         => ['sometimes', 'required_without:other_city', 'string', 'max:255'],
             'other_city'   => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'postal_code'  => ['nullable', 'string', 'max:255'],
