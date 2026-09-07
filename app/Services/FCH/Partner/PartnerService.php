@@ -373,6 +373,17 @@ class PartnerService
             // Update partner
             $oldStatus = $partner->status;
             $partnerData = $this->mapPartnerData($data);
+
+            // TEMPORARY CONTAINMENT - free trial expiry date is not updatable.
+            // free_trail_end_date is a DATE column, but it is serialised through
+            // toTimezone(), which converts midnight-UTC into the caller's zone and
+            // so renders a day early for any viewer behind UTC. The edit form then
+            // reposts that shifted value, so every save - including saves that only
+            // touched an unrelated field - moved the trial one day earlier and
+            // emailed the customer about the "change". Dropping the key here means
+            // updates can never touch the column; it is still set at creation.
+            // Remove once the date handling is reworked (see toDateOnly plan).
+            unset($partnerData['free_trail_end_date']);
             if ($wasFreeTrial && !$isFreeTrialInput) {
                 $partnerData['status'] = Partner::STATUS_ONBOARDING;
             }
@@ -506,7 +517,14 @@ class PartnerService
 
                     $authUser = Auth::user();
                     $senderPartnerId = $authUser ? $authUser->partner_id : ($hostPartner ? $hostPartner->id : null);
-                    $this->sendTrialExpiryUpdatedEmail($mailData, $senderPartnerId);
+                    // TEMPORARY CONTAINMENT - trial expiry "date changed" email disabled.
+                    // Every save used to shift the trial date by a day, so this fired on
+                    // edits that never touched the date and told the customer their trial
+                    // had moved. Updates can no longer change the date (see the unset in
+                    // update()), so this is already unreachable - disabled explicitly as
+                    // well so no wrong notification can go out. Restore together with the
+                    // date-handling fix.
+                    // $this->sendTrialExpiryUpdatedEmail($mailData, $senderPartnerId);
                 }
 
                 $this->activityLogService->logModelEvent(
