@@ -79,17 +79,22 @@ class AppConfigurationService
 
         $data = [];
 
+        $imageKeys = array_unique(array_merge(
+            AppConfiguration::IMAGE_KEYS,
+            AppConfiguration::BRANDING_IMAGE_KEYS
+        ));
+
         foreach ($settings as $key => $val) {
             $val = $val === '' ? null : $val;
             $data[$key] = $val;
 
-            if (in_array($key, AppConfiguration::IMAGE_KEYS)) {
+            if (in_array($key, $imageKeys)) {
                 $data[$key . '_full_url'] = $val ? encodeUrl(asset('storage/' . ltrim($val, '/'))) : null;
             }
         }
 
         // Fallback for image keys if null or missing
-        foreach (AppConfiguration::IMAGE_KEYS as $imageKey) {
+        foreach ($imageKeys as $imageKey) {
             if (($data[$imageKey] ?? null) === null) {
                 $hostVal = $hostSettings[$imageKey] ?? null;
                 $hostVal = $hostVal === '' ? null : $hostVal;
@@ -99,6 +104,26 @@ class AppConfigurationService
                 } else {
                     $data[$imageKey] = null;
                     $data[$imageKey . '_full_url'] = null;
+                }
+            }
+        }
+
+        // A partner who has not re-uploaded under the surface names keeps their
+        // logos: each key walks its fallback chain until one resolves. Applied in
+        // two passes so a chain that points at another surface key (mail borrowing
+        // the sidebar logo) still sees that key's own fallback filled in.
+        for ($pass = 0; $pass < 2; $pass++) {
+            foreach (AppConfiguration::BRANDING_LOGO_FALLBACKS as $newKey => $chain) {
+                if (($data[$newKey] ?? null) !== null) {
+                    continue;
+                }
+
+                foreach ((array) $chain as $fallbackKey) {
+                    if (($data[$fallbackKey] ?? null) !== null) {
+                        $data[$newKey] = $data[$fallbackKey];
+                        $data[$newKey . '_full_url'] = $data[$fallbackKey . '_full_url'] ?? null;
+                        break;
+                    }
                 }
             }
         }
@@ -117,6 +142,37 @@ class AppConfigurationService
             $hostSecondary = $hostSettings['secondary_color'] ?? null;
             $data['secondary_color'] = $hostSecondary === '' ? null : $hostSecondary;
         }
+
+        // Remaining brand text and colour settings. Each is left null when neither the
+        // partner nor the host set one, so the portals derive a readable value instead
+        // of falling back to a hard coded colour that may not suit the brand.
+        $inheritedKeys = [
+            'site_slogan',
+            'topbar_bg_color',
+            'topbar_text_color',
+            'sidebar_bg_color',
+            'sidebar_text_color',
+            'sidebar_icon_color',
+            'sidebar_hover_bg_color',
+            'sidebar_text_hover_color',
+            'sidebar_icon_hover_color',
+            'sidebar_active_bg_color',
+            'sidebar_active_text_color',
+            'sidebar_active_icon_color',
+        ];
+
+        foreach ($inheritedKeys as $inheritedKey) {
+            if (empty($data[$inheritedKey]) || $data[$inheritedKey] === 'null') {
+                $hostValue = $hostSettings[$inheritedKey] ?? null;
+                $data[$inheritedKey] = $hostValue === '' ? null : $hostValue;
+            }
+        }
+
+        // Whether this partner is white-labelled is a property of the partner, not an
+        // editable setting. The borrower portal reads it to decide whose name to show.
+        $data['is_white_label'] = $partner
+            ? ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
+            : false;
 
         return $data;
     }

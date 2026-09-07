@@ -1,3 +1,10 @@
+@php
+    // Supplied by App\Mail\Traits\MailableBranding. The defaults keep any mailable
+    // that does not use the trait rendering exactly as it did before.
+    $bandBg = $brandPrimary ?? '#001F3F';
+    $bandText = $brandOnPrimary ?? '#FFFFFF';
+    $bandLink = $brandPrimaryInk ?? '#001F3F';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 
@@ -70,10 +77,9 @@
         }
 
         .header-logo {
-            background-color: #ffffff;
-            padding: 20px;
+            background-color: {{ $bandBg }};
+            padding: 24px 20px;
             text-align: center;
-            border-bottom: 1px solid #e9ebec;
         }
 
         /* Logos are per-partner uploads with unrestricted aspect ratios
@@ -97,17 +103,17 @@
         }
 
         .bottom-footer {
-            background-color: #1a2e44;
+            background-color: {{ $bandBg }};
             padding: 16px 20px;
             text-align: center;
             font-size: 13px;
-            color: #ffffff;
+            color: {{ $bandText }};
             line-height: 1.6;
         }
 
         .bottom-footer p {
             margin: 0;
-            color: #ffffff;
+            color: {{ $bandText }};
         }
 
         /* Tablet (max-width: 768px) */
@@ -384,16 +390,28 @@
         <div class="container email-container"
             style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #ffffff; box-shadow: 0 1px 2px rgba(56, 65, 74, 0.15); border-radius: 0; overflow: hidden;">
 
-            <!-- Logo Section -->
-            <div class="header-logo"
-                style="background-color: #ffffff; padding: 20px; text-align: center; border-bottom: 1px solid #e9ebec; margin-top: 20px;margin-bottom:10px;">
-                @if(!empty($logoUrl))
-                    <img src="{{ $logoUrl }}" alt="{{ $siteName ?? null }}" class="logo"
-                        style="display: block; margin: 0 auto; width: auto; height: auto; max-width: 200px; max-height: 60px;">
-                @else
-                    <h2 style="margin: 0; color: #1a2e44;">{{ $siteName ?? config('app.name') }}</h2>
-                @endif
-            </div>
+            <!-- Logo Section: a brand-coloured band. Uses <table bgcolor> rather than a
+                 div background because Outlook drops background-color on block elements. -->
+            <table class="header-logo" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $bandBg }}"
+                style="width: 100%; background-color: {{ $bandBg }}; padding: 24px 20px; text-align: center;">
+                <tr>
+                    <td align="center" style="padding: 0; text-align: center;">
+                        @if(!empty($logoUrl))
+                            <img src="{{ $logoUrl }}" alt="{{ $siteName ?? null }}" class="logo"
+                                style="display: block; margin: 0 auto; width: auto; height: auto; max-width: 200px; max-height: 60px; border: 0;">
+                        @else
+                            <h2 style="margin: 0; color: {{ $bandText }}; font-size: 22px;">
+                                {{ $siteName ?? config('app.name') }}
+                            </h2>
+                        @endif
+                        @if(!empty($siteSlogan))
+                            <p style="margin: 8px 0 0; color: {{ $bandText }}; font-size: 12px; opacity: 0.85;">
+                                {{ $siteSlogan }}
+                            </p>
+                        @endif
+                    </td>
+                </tr>
+            </table>
 
             <!-- Content Area -->
             <div class="content email-content" style="padding: 0 30px; text-align: left;">
@@ -401,11 +419,11 @@
             </div>
 
             <!-- Bottom Footer -->
-            <table class="bottom-footer" width="100%" cellpadding="0" cellspacing="0" border="0"
-                style="width: 100%; background-color: #1a2e44; padding: 16px 20px; text-align: center; font-size: 13px; color: #ffffff; line-height: 1.6;">
+            <table class="bottom-footer" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $bandBg }}"
+                style="width: 100%; background-color: {{ $bandBg }}; padding: 16px 20px; text-align: center; font-size: 13px; color: {{ $bandText }}; line-height: 1.6;">
                 <tr>
                     <td style="padding: 0;">
-                        <p style="margin: 0; color: #ffffff; font-size: 13px;">&copy; {{ date('Y') }}
+                        <p style="margin: 0; color: {{ $bandText }}; font-size: 13px;">&copy; {{ date('Y') }}
                             {{ $siteName ?? config('app.name') }}. All rights reserved.
                         </p>
                     </td>
