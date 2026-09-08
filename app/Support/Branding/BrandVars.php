@@ -143,7 +143,14 @@ class BrandVars
         $onSecondary = BrandPalette::onColor($secondary, BrandPalette::ON_BRAND_LIGHT, BrandPalette::ON_BRAND_DARK);
 
         $primaryButton = self::buttonColors($primary);
+
+        // The secondary button's label is pinned to white rather than derived. The
+        // accent is the call-to-action colour and the design wants a white label on
+        // it in every state, so resting and hover both read from this one value.
+        // Kept in step with buildBrandVars() in the front ends: if this served the
+        // derived dark ink, a cold load would flash a dark label before JS ran.
         $secondaryButton = self::buttonColors($secondary);
+        $secondaryButton['text'] = BrandPalette::ON_BRAND_LIGHT;
         $topbar = self::topbarColors($branding);
 
         return [
