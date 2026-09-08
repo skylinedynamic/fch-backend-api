@@ -48,7 +48,7 @@ class PartnerResource extends JsonResource
             'user_seats' => $this->relationLoaded('subscription') ? ($this->subscription?->user_seats ?? 3) : 3,
             'per_seat_amount' => $this->relationLoaded('subscription') ? ($this->subscription?->per_seat_amount ?? 49.00) : 49.00,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
-            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'created_at' => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,

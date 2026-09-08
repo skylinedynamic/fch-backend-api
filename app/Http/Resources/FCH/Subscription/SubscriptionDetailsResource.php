@@ -53,7 +53,7 @@ class SubscriptionDetailsResource extends JsonResource
         // See Subscription::nextBilling() - shared with MySubscriptionService so
         // both pages agree on what's due next.
         $nextBilling = $this->resource->nextBilling();
-        $nextBillingDate = toTimezone($nextBilling['date']);
+        $nextBillingDate = toDateOnly($nextBilling['date']);
         $nextBillingType = $nextBilling['type'];
         $nextBillingAmount = currencyFormat($nextBilling['amount']);
 
@@ -74,9 +74,9 @@ class SubscriptionDetailsResource extends JsonResource
             'associated_partner_name' => $associatedPartnerName,
 
             // Verified Database Dates
-            'subscription_start_date' => toTimezone($this->subscription_start_date),
-            'subscription_end_date' => toTimezone($this->subscription_end_date),
-            'first_payment_date' => toTimezone($this->first_payment_date),
+            'subscription_start_date' => toDateOnly($this->subscription_start_date),
+            'subscription_end_date' => toDateOnly($this->subscription_end_date),
+            'first_payment_date' => toDateOnly($this->first_payment_date),
             'created_at' => toTimezone($this->created_at),
             'updated_at' => toTimezone($this->updated_at),
 

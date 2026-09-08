@@ -78,7 +78,7 @@ class BorrowerBillingService
         // finished paying (enrollment_completed_at set, nothing recurs after that),
         // this wrongly showed the full one-time enrollment amount as still due.
         $nextBilling = $subscription?->nextBilling() ?? ['date' => null, 'type' => null, 'amount' => 0];
-        $nextDate = toTimezone($nextBilling['date']);
+        $nextDate = toDateOnly($nextBilling['date']);
         $nextAmount = $nextBilling['amount'] ?? 0;
 
         // Determine Subscription Completion Status
@@ -140,9 +140,9 @@ class BorrowerBillingService
                 'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
                 'installment_count' => (int) $subscription->installment_count,
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
-                'subscription_start_date' => toTimezone($subscription->subscription_start_date),
-                'subscription_end_date' => toTimezone($subscription->subscription_end_date),
-                'expected_end_date' => toTimezone($subscription->expected_end_date),
+                'subscription_start_date' => toDateOnly($subscription->subscription_start_date),
+                'subscription_end_date' => toDateOnly($subscription->subscription_end_date),
+                'expected_end_date' => toDateOnly($subscription->expected_end_date),
                 'enrollment_completed_at' => toTimezone($subscription->enrollment_completed_at),
                 'is_completed' => $isCompleted,
             ] : null,
@@ -156,9 +156,9 @@ class BorrowerBillingService
                 'created_at' => toTimezone($latestInvoice->created_at),
             ] : null,
             'upcoming_billing' => [
-                // $nextDate is already timezone-converted above - do not re-run it
-                // through toTimezone(), which would parse the resulting date-only
-                // string as midnight and could shift it a day again.
+                // Already rendered by toDateOnly() above. It is a calendar date -
+                // never run it through toTimezone(), which would read the date-only
+                // string as midnight UTC and shift it a day for viewers behind UTC.
                 'next_date' => $nextDate,
                 'amount' => currencyFormat($nextAmount),
                 'raw_amount' => $nextAmount,

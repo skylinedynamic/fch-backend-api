@@ -89,7 +89,7 @@ class AuthService
                 }
             }
 
-            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->isPast()) {
+            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->lt(today())) {
                 $partner = $user->partner;
                 // Only block if partner is NOT a host
                 if ($partner && (int) ($partner->is_host ?? 0) === 0) {

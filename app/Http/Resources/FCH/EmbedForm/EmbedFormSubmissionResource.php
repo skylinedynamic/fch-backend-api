@@ -25,7 +25,7 @@ class EmbedFormSubmissionResource extends JsonResource
             'full_name' => "{$this->first_name} {$this->last_name}",
             'email' => $this->email,
             'phone' => $this->phone,
-            'birthday' => $this->birthday ? toTimezone($this->birthday, null, 'Y-m-d') : null,
+            'birthday' => toDateOnly($this->birthday),
             'credit_score' => $this->credit_score,
             'desired_funding_amount' => $this->desired_funding_amount,
             'desired_funding_amount_formatted' => $this->desired_funding_amount !== null ? currencyFormat($this->desired_funding_amount, 2) : null,
@@ -71,7 +71,7 @@ class EmbedFormSubmissionResource extends JsonResource
                     'full_name' => trim("{$this->convertedBorrower->first_name} {$this->convertedBorrower->last_name}"),
                     'status' => $this->convertedBorrower->status,
                     'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
-                    'free_trail_end_date' => toTimezone($this->convertedBorrower->free_trail_end_date, null, 'Y-m-d'),
+                    'free_trail_end_date' => toDateOnly($this->convertedBorrower->free_trail_end_date),
                 ] : null;
             }),
 

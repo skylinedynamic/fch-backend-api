@@ -435,8 +435,9 @@ class SubscriptionService
         ];
 
         if ($isFirstPayment) {
-            $updateData['subscription_start_date'] = now();
-            $updateData['first_payment_date'] = now();
+            // Date-only columns: store the calendar date, never a timestamp.
+            $updateData['subscription_start_date'] = today();
+            $updateData['first_payment_date'] = today();
         }
 
         if ($isBorrower) {
@@ -446,7 +447,7 @@ class SubscriptionService
             // cleared since nothing further is ever scheduled.
             $updateData['status'] = Subscription::STATUS_ACTIVE;
             $updateData['current_phase'] = Subscription::PHASE_COMPLETED;
-            $updateData['subscription_end_date'] = now();
+            $updateData['subscription_end_date'] = today();
             $updateData['expected_end_date'] = null;
         } else {
             // Partners transition into the recurring monthly platform-fee cycle.
@@ -511,8 +512,8 @@ class SubscriptionService
             $paidThrough = $subscription->expected_end_date ? $caughtUpTo : $nextExpected;
 
             $subscription->update([
-                'subscription_start_date' => now(),
-                'first_payment_date' => now(),
+                'subscription_start_date' => today(),
+                'first_payment_date' => today(),
                 'installments_paid' => $invoice->type == Invoice::INVOICE_TYPE_DOWN_PAYMENT ? 0 : 1,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_INSTALLMENT,
@@ -528,7 +529,6 @@ class SubscriptionService
 
             $updateData = [
                 'installments_paid' => $subscription->installments_paid + 1,
-                'installment_end_date' => $nextExpected->toDateString(),
                 'enrollment_completed_at' => $isLastInstallment ? now() : null,
                 'subscription_end_date' => $caughtUpTo,
                 'current_cycle_invoice_id' => null,
@@ -551,7 +551,6 @@ class SubscriptionService
         } else {
             $subscription->update([
                 'status' => Subscription::STATUS_ACTIVE,
-                'installment_end_date' => $nextExpected->toDateString(),
                 'subscription_end_date' => $caughtUpTo,
                 'expected_end_date' => $nextExpected,
                 'current_cycle_invoice_id' => null,
@@ -621,8 +620,8 @@ class SubscriptionService
             // keeps finding a (paid) invoice here and treats the cycle as already
             // billed instead of generating the next one.
             $subscription->update([
-                'subscription_start_date' => now(),
-                'first_payment_date' => now(),
+                'subscription_start_date' => today(),
+                'first_payment_date' => today(),
                 'subscription_end_date' => $newEnd,
                 'expected_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
@@ -1162,7 +1161,7 @@ class SubscriptionService
         // expected_end_date.
         $expiringSoon = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('subscriptions.expected_end_date')
-            ->whereBetween('subscriptions.expected_end_date', [now(), now()->addDays(5)])
+            ->whereBetween('subscriptions.expected_end_date', [today()->toDateString(), today()->addDays(5)->toDateString()])
             ->count();
 
         // Behind on payment — subscriptions whose subscription_end_date (paid
@@ -1170,7 +1169,7 @@ class SubscriptionService
         // no longer freeze at Past Due, so this is the one place that still
         // surfaces real payment delinquency for an admin to see.
         $expiredCount = (clone $cloned)->whereNotNull('subscriptions.subscription_end_date')
-            ->where('subscriptions.subscription_end_date', '<', now())
+            ->whereDate('subscriptions.subscription_end_date', '<', today()->toDateString())
             ->count();
 
         // Revenue this month (from paid invoices linked to scoped partner)

@@ -37,7 +37,7 @@ class PartnerDetailsResource extends JsonResource
             'address_line_2' => $this->address_line_2,
             'country' => $this->country,
             'country_code' => $this->country_code,
-            'joining_date' => toTimezone($this->joining_date, null, 'Y-m-d'),
+            'joining_date' => toDateOnly($this->joining_date),
             'company_logo' => $this->company_logo,
             'partner_image' => $this->partner_image,
             'partner_domain' => $this->partner_domain,
@@ -70,11 +70,11 @@ class PartnerDetailsResource extends JsonResource
                 'installment_remaining_balance_formatted' => $this->subscription
                     ? currencyFormat($this->subscription->payable_amount - $this->subscription->down_payment)
                     : currencyFormat(0),
-                'subscription_start_date' => toTimezone($this->subscription?->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date' => toTimezone($this->subscription?->subscription_end_date, null, 'Y-m-d'), // paid through
+                'subscription_start_date' => toDateOnly($this->subscription?->subscription_start_date),
+                'subscription_end_date' => toDateOnly($this->subscription?->subscription_end_date), // paid through
             ],
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'subscriptions' => $this->subscriptions->map(function ($sub) {
                 return [
                     'id' => $sub->id,
@@ -83,8 +83,8 @@ class PartnerDetailsResource extends JsonResource
                     'total_subscription_amount' => currencyFormat($sub->total_subscription_amount),
                     'payable_amount' => currencyFormat($sub->payable_amount),
                     'monthly_platform_fee' => currencyFormat($sub->monthly_platform_fee),
-                    'subscription_start_date' => toTimezone($sub->subscription_start_date, null, 'Y-m-d'),
-                    'subscription_end_date' => toTimezone($sub->subscription_end_date, null, 'Y-m-d'), // paid through
+                    'subscription_start_date' => toDateOnly($sub->subscription_start_date),
+                    'subscription_end_date' => toDateOnly($sub->subscription_end_date), // paid through
                     'status' => $sub->status,
                 ];
             }),

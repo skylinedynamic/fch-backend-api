@@ -77,14 +77,14 @@ class Subscription extends Model
     ];
 
     protected $casts = [
-        // Stored as datetime, not date: a date-only value reads back as midnight,
-        // and toTimezone() then renders it as the previous day for any timezone
-        // behind UTC. Keeping the time of day makes it land on the right calendar
-        // day. The API still emits these as date-only strings.
-        'first_payment_date' => 'datetime',
-        'subscription_start_date' => 'datetime',
-        'subscription_end_date' => 'datetime',
-        'expected_end_date' => 'datetime',
+        // Calendar dates, not instants: stored as DATE and emitted verbatim via
+        // toDateOnly(). Never run these through toTimezone() - shifting a
+        // date-only value into the viewer's zone reads it as midnight UTC and
+        // hands anyone behind UTC the previous day.
+        'first_payment_date' => 'date',
+        'subscription_start_date' => 'date',
+        'subscription_end_date' => 'date',
+        'expected_end_date' => 'date',
         'billing_paused_at' => 'datetime',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',

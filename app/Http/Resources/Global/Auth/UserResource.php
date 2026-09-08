@@ -74,9 +74,9 @@ class UserResource extends JsonResource
             'partner_payment_for_me' => (bool) ($this->borrower?->partner_payment_for_me ?? true),
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
-            'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
-            'subscription_end_date' => toTimezone($subscription?->subscription_end_date), // paid through
-            'first_payment_date' => toTimezone($subscription?->first_payment_date),
+            'subscription_start_date' => toDateOnly($subscription?->subscription_start_date),
+            'subscription_end_date' => toDateOnly($subscription?->subscription_end_date), // paid through
+            'first_payment_date' => toDateOnly($subscription?->first_payment_date),
             'per_seat_amount' => $subscription?->per_seat_amount ?? 49,
             'user_seats' => $subscription?->user_seats ?? 1,
             'credit_profile_updated' => (bool) ($this->borrower?->credit_profile_updated ?? false),
@@ -88,7 +88,7 @@ class UserResource extends JsonResource
             'role_name' => $roleName,
             'is_agreement_signed' => (bool) $this->entity?->has_sign ?? false,
             'is_free_trail' => (bool) ($this->entity->is_free_trail ?? false),
-            'free_trail_end_date' => toTimezone($this->entity->free_trail_end_date ?? null),
+            'free_trail_end_date' => toDateOnly($this->entity->free_trail_end_date ?? null),
             'permissions' => $permissionNames,
         ];
     }

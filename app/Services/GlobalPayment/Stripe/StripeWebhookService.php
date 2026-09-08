@@ -98,7 +98,8 @@ class StripeWebhookService
         DB::transaction(function () use ($invoice, $payment, $amountPaid, $intentId, $intent) {
             $invoice->update([
                 'status'       => Invoice::STATUS_PAID,
-                'payment_date' => now(),
+                // payment_date is a DATE column - store the calendar date.
+                'payment_date' => today(),
             ]);
 
             // Update payment record status if needed
