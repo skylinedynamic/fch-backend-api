@@ -116,7 +116,11 @@ class ProcessAllSubscriptions extends Command
                 $q->where('status', Subscription::STATUS_ACTIVE)
                     ->whereNull('billing_paused_at');
             })
-            ->whereDate('created_at', '<=', now())
+            // Deliberately unfiltered by date: every Unpaid invoice on an Active,
+            // unpaused subscription is due for a charge attempt, however old. An
+            // invoice can never be created in the future, so a created_at cutoff
+            // would match everything anyway - and wrapping the column in DATE()
+            // would cost a full scan by making its index unusable.
             ->get();
 
         $this->info(__('subscription.found_unpaid_invoices', ['count' => $dueInvoices->count()]));

@@ -105,8 +105,8 @@ class BillingResource extends JsonResource
             // The date the cron will next bill, which is expected_end_date — NOT
             // subscription_end_date, which records what the customer has already
             // paid through and sits in the past once a cycle has been missed.
-            'upcoming_billing_date' => toTimezone($this->expected_end_date, null, 'Y-m-d'),
-            'paid_through_date' => toTimezone($this->subscription_end_date, null, 'Y-m-d'),
+            'upcoming_billing_date' => toDateOnly($this->expected_end_date),
+            'paid_through_date' => toDateOnly($this->subscription_end_date),
             'upcoming_billing_amount' => (float) $billingAmount,
             'upcoming_billing_type' => $billingType,
             // Billing is paused while the subscriber (or a borrower's partner) is

@@ -338,6 +338,41 @@ if (!function_exists('make_url')) {
     }
 }
 
+if (!function_exists('toDateOnly')) {
+    /**
+     * Render a date-only value as a plain Y-m-d string.
+     *
+     * Counterpart to toTimezone(). A DATE column holds a calendar date with no
+     * time and no zone - "paid through 2026-08-31" is the same day everywhere -
+     * so it must NOT be shifted into the caller's timezone on the way out.
+     * Converting it would read the stored value as midnight UTC and hand any
+     * viewer behind UTC the previous day.
+     *
+     * Use this for DATE columns; use toTimezone() only for DATETIME/TIMESTAMP
+     * columns, which are real instants and do need converting.
+     *
+     * @param mixed $date
+     * @param string $format
+     * @return string|null
+     */
+    function toDateOnly($date, string $format = 'Y-m-d'): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->format($format);
+        } catch (\Exception $e) {
+            Log::error('Date formatting failed', [
+                'date' => $date,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
+
 if (!function_exists('toTimezone')) {
     /**
      * Convert a date/time value to the specified timezone and format.

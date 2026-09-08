@@ -455,7 +455,9 @@ class BillingService
                 default => (float) ($row->payable_amount ?: 0),
             };
 
-            if ($row->expected_end_date->isPast()) {
+            // expected_end_date is a DATE, so it reads back as midnight. Compare
+            // against today's date, not now(), or a cycle due today counts overdue.
+            if ($row->expected_end_date->lt(today())) {
                 $overdueCount++;
             }
         }

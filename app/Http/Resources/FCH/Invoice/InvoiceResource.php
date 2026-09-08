@@ -32,7 +32,7 @@ class InvoiceResource extends JsonResource
                 $this->currency_symbol ?? '$',
                 $this->conversion_rate ?? 1
             ),
-            'payment_date' => toTimezone($this->payment_date),
+            'payment_date' => toDateOnly($this->payment_date),
             'status' => $this->status,
             'payment_id' => $this->relationLoaded('latestPayment')
                 ? $this->latestPayment?->id

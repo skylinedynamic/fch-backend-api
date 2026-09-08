@@ -206,7 +206,8 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
                 $invoice->update([
                     'status' => Invoice::STATUS_PAID,
-                    'payment_date' => now(),
+                    // payment_date is a DATE column - store the calendar date.
+                    'payment_date' => today(),
                 ]);
 
                 $subscription = Subscription::find($invoice->subscription_id);

@@ -84,8 +84,8 @@ class BorrowerDetailsResource extends JsonResource
                 'installment_monthly_amount_formatted' => currencyFormat($latestSub->subscription_amount_per_month),
                 'installment_remaining_balance' => (float) ($latestSub->payable_amount - $latestSub->down_payment),
                 'installment_remaining_balance_formatted' => currencyFormat($latestSub->payable_amount - $latestSub->down_payment),
-                'subscription_start_date' => toTimezone($latestSub->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date' => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'), // paid through
+                'subscription_start_date' => toDateOnly($latestSub->subscription_start_date),
+                'subscription_end_date' => toDateOnly($latestSub->subscription_end_date), // paid through
                 'status' => $latestSub->status,
             ] : null,
 
@@ -136,7 +136,7 @@ class BorrowerDetailsResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city' => $this->other_city,
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => toTimezone($this->free_trail_end_date, null, 'Y-m-d'),
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'invoice' => $this->latestInvoice ? [
                 'id' => $this->latestInvoice->id,
                 'invoice_id' => $this->latestInvoice->invoice_id,

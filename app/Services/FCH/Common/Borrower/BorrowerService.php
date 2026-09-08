@@ -475,14 +475,11 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
-            // TEMPORARY CONTAINMENT - free trial expiry date is not updatable.
-            // Same defect as the partner path: the value is serialised through
-            // toTimezone() (a day early for any viewer behind UTC) and the client
-            // form reposts it verbatim, so every save walked the date backwards.
-            // The client edit screen has no trial-date field at all, so this was
-            // corrupting silently. Unset means update() never touches the column;
-            // it is still set at creation. Remove once date handling is reworked.
-            unset($borrowerData['free_trail_end_date']);
+            // free_trail_end_date is a DATE column and is now serialised verbatim
+            // through toDateOnly(), so a reposted value round-trips unchanged.
+            if (isset($borrowerData['free_trail_end_date'])) {
+                $borrowerData['free_trail_end_date'] = normalizeDate($borrowerData['free_trail_end_date']);
+            }
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
