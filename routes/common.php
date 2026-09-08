@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
@@ -60,6 +61,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve']);
 Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck']);
 
+// Tenant brand as a render-blocking stylesheet, linked from each portal's
+// index.html. Deliberately outside /v1 and unauthenticated: it has to load
+// before the app boots, on a cold visit with no token and no localStorage.
+Route::get('/branding.css', [BrandingController::class, 'css']);
+
 
 Route::prefix('v1')->group(function () {
 
@@ -80,6 +86,11 @@ Route::prefix('v1')->group(function () {
     Route::get('common/locations', [LocationController::class, 'index']);
 
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
+
+    // Branding only — skips the email-config and payment-provider queries that
+    // get-theme also runs, so the portals can paint the brand without waiting on
+    // them. Returns the precomputed CSS variable map alongside the raw values.
+    Route::get('common/branding', [BrandingController::class, 'show']);
 
     // 📊 Public Weekly Executive Summary (no auth required)
     Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);

@@ -14,8 +14,27 @@
             padding: 10px;
         }
 
-        .logo {
+        /* Partner logos come in every aspect ratio, so cap BOTH dimensions - a
+           width-only cap renders a square logo as a huge block. Same 200x60 box
+           the sidebar and both invoice previews use, so a logo looks the same
+           size everywhere.
+
+           The previews express this as `object-fit: contain` on a fixed 200x60
+           box. DomPDF does not implement object-fit, so setting width/height
+           here would STRETCH the logo rather than fit it. The max-width /
+           max-height pair below is the DomPDF-safe equivalent: it scales a logo
+           down into the same box and preserves its aspect ratio. The wrapper
+           reserves the full box so the header lays out identically either way. */
+        .logo-box {
             width: 200px;
+            height: 60px;
+        }
+
+        .logo {
+            width: auto;
+            height: auto;
+            max-width: 200px;
+            max-height: 60px;
         }
 
         table {
@@ -252,7 +271,9 @@
                         $logoSrc = $business_info['business_logo_path'];
                     }
                 @endphp
-                <img src="{{ $logoSrc }}" class="logo" alt="{{ $business_info['company_name'] ?? 'Logo' }}">
+                <div class="logo-box">
+                    <img src="{{ $logoSrc }}" class="logo" alt="{{ $business_info['company_name'] ?? 'Logo' }}">
+                </div>
             </td>
             <td class="company-info-text">
                 <p><strong>Invoice No:</strong> #{{ $invoice->invoice_id }}</p>

@@ -206,7 +206,7 @@
 
 @if($logoBase64)
     <div class="watermark">
-        <img src="{{ $logoBase64 }}" width="550" alt="Watermark">
+        <img src="{{ $logoBase64 }}" alt="Watermark" style="width:auto; height:auto; max-width:550px; max-height:170px;">
     </div>
 @endif
 
