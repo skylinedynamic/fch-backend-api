@@ -9,6 +9,7 @@ use App\Models\Common\AppConfiguration;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 
 
 class PublicEmbedFormController extends Controller
@@ -34,21 +35,20 @@ class PublicEmbedFormController extends Controller
 
         $branding = [];
         if ($partnerId) {
-            $branding = AppConfiguration::where('partner_id', $partnerId)
-                ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo', 'header_logo', 'favicon', 'primary_color', 'secondary_color'])
-                ->pluck('value', 'key')
-                ->toArray();
+            // getBrandingSettings() resolves each surface through its fallback
+            // chain and inherits from the host, which reading raw rows did not -
+            // a partner with only some logos uploaded got no logo at all here.
+            $branding = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
         }
 
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name')));
 
         $logoUrl = null;
-        $logoPath = $branding['secondary_logo']
-            ?? ($branding['primary_logo']
-            ?? ($branding['header_logo']
-            ?? $partner?->company_logo));
+        // The embed form renders on white, so the document logo is the right one.
+        $logoPath = $branding['logo_document']
+            ?? ($branding['logo_mail']
+            ?? $partner?->company_logo);
 
         if ($logoPath) {
             $logoUrl = asset('storage/' . $logoPath);

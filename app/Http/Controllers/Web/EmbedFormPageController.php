@@ -6,6 +6,7 @@ use App\Models\Common\AppConfiguration;
 use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 
 class EmbedFormPageController extends Controller
 {
@@ -26,23 +27,21 @@ class EmbedFormPageController extends Controller
         // Retrieve branding configurations from app_configurations table
         $branding = [];
         if ($partnerId) {
-            $branding = AppConfiguration::where('partner_id', $partnerId)
-                ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo', 'header_logo', 'favicon', 'primary_color', 'secondary_color'])
-                ->pluck('value', 'key')
-                ->toArray();
+            // getBrandingSettings() resolves each surface through its fallback
+            // chain and inherits from the host, which reading raw rows did not -
+            // a partner with only some logos uploaded got no logo at all here.
+            $branding = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
         }
 
         // Resolved site/company name
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
-        // Resolved logo URL (priority: secondary_logo -> primary_logo -> header_logo -> partner->company_logo)
         $logoUrl = null;
-        $logoPath = $branding['secondary_logo']
-            ?? ($branding['primary_logo']
-            ?? ($branding['header_logo']
-            ?? $partner?->company_logo));
+        // The embed form renders on white, so the document logo is the right one.
+        $logoPath = $branding['logo_document']
+            ?? ($branding['logo_mail']
+            ?? $partner?->company_logo);
 
         if ($logoPath) {
             $logoUrl = asset('storage/' . $logoPath);

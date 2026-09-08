@@ -139,10 +139,11 @@ class AppConfigurationService
 
         $data = [];
 
-        $imageKeys = array_unique(array_merge(
-            AppConfiguration::IMAGE_KEYS,
-            AppConfiguration::BRANDING_IMAGE_KEYS
-        ));
+        // Branding resolves its OWN keys only. IMAGE_KEYS belongs to the website
+        // module and was merged in here while the branding keys were mid-rename;
+        // including it now would resurrect the legacy names this module has
+        // dropped, and pull website CMS values into tenant branding.
+        $imageKeys = AppConfiguration::BRANDING_IMAGE_KEYS;
 
         foreach ($settings as $key => $val) {
             $data[$key] = $val === '' ? null : $val;

@@ -43,10 +43,6 @@ trait MailableBranding
             'logo_sidebar',
             'logo_document',
             'logo_mobile',
-            'logo_on_dark',
-            'logo_on_light',
-            'primary_logo',
-            'secondary_logo',
         ];
 
         $brandingConfig = [];
@@ -89,7 +85,7 @@ trait MailableBranding
         // The mail header is white, so the light-background lineage comes first -
         // a white logo on a white header would be invisible. The partner's own
         // keys are exhausted before falling back to the host's.
-        $logoPreference = ['logo_mail', 'logo_document', 'logo_on_light', 'secondary_logo', 'logo_mobile', 'logo_sidebar', 'logo_on_dark', 'primary_logo'];
+        $logoPreference = ['logo_mail', 'logo_document', 'logo_mobile', 'logo_sidebar'];
 
         $pickLogo = static function (array $config) use ($logoPreference): ?string {
             foreach ($logoPreference as $key) {

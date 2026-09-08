@@ -335,8 +335,8 @@ class InvoiceService
             'website' => $targetPartner?->website ?? '',
             // Invoice paper is white, so the document logo comes first. Resolved
             // through AppConfigurationService, which walks the whole fallback
-            // chain (logo_document -> logo_on_light -> secondary_logo) and applies
-            // host inheritance - reading secondary_logo directly missed every
+            // chain (logo_document -> logo_mail -> logo_mobile) and applies
+            // host inheritance - reading a single key directly missed every
             // partner who had only uploaded under the newer surface names.
             //
             // Empty stays empty on purpose: no logo means no logo, rather than

@@ -233,17 +233,22 @@
         <tr>
             <td style="width: 30%; vertical-align: middle;">
                 @if($logoBase64)
-                     <img
-            src="{{ $logoBase64 }}"
-            alt="Four Corner Funding"
-            style="
-                width:auto;
-                height:auto;
-                max-width:200px;
-                max-height:60px;
-                display:block;
-            "
-        >
+                    {{-- Sized in PHP to fit a 200x60 box: dompdf ignores object-fit,
+                         so explicit width/height are what actually constrain it. --}}
+                    <img
+                        src="{{ $logoBase64 }}"
+                        alt="{{ $companyName }}"
+                        width="{{ $logoWidth }}"
+                        height="{{ $logoHeight }}"
+                        style="
+                            width:{{ $logoWidth }}px;
+                            height:{{ $logoHeight }}px;
+                            max-width:200px;
+                            max-height:60px;
+                            object-fit:contain;
+                            display:block;
+                        "
+                    >
                 @else
                     <div style="font-size: 16px; font-weight: bold; color: {{ $primaryColor }};">{{ $companyName }}</div>
                 @endif

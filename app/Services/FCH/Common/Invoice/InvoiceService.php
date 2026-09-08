@@ -544,8 +544,8 @@ class InvoiceService
         // Invoice paper is white, so the document logo comes first, falling back
         // to the sidebar logo when this tenant uploaded no document one. Resolved
         // through AppConfigurationService, which walks the whole fallback chain
-        // (logo_document -> logo_on_light -> secondary_logo) - reading
-        // secondary_logo directly missed every partner who had only uploaded
+        // (logo_document -> logo_mail -> logo_mobile) - reading a single
+        // key directly missed every partner who had only uploaded
         // under the newer surface names.
         //
         // Empty stays empty on purpose: no logo means no logo, rather than

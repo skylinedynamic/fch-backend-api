@@ -41,6 +41,11 @@ class AppConfiguration extends Model
         static::deleted($bust);
     }
 
+    /**
+     * Image keys owned by the `website` module - the public marketing site's CMS.
+     * Unrelated to partner branding despite the overlapping names; see
+     * BRANDING_IMAGE_KEYS for the per-tenant logos.
+     */
     public const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
@@ -48,49 +53,58 @@ class AppConfiguration extends Model
         'secondary_logo',
         'favicon',
         'website_favicon',
-        ];
+    ];
 
     /**
-     * Logo keys owned by the branding module, named for the surface they appear on.
+     * Logo keys owned by the branding module - one per surface, and nothing else.
      *
-     * The legacy names carried no such meaning - `primary_logo` was "the white text
-     * one" by convention only, which is how it ended up rendered on white invoices.
-     * Naming by surface removes the guesswork: the key says where the file is used,
-     * so a consumer cannot pick the wrong one. The older names stay listed so a
-     * partner who has not re-uploaded still resolves.
+     * These used to number ten: five real uploads plus five derived mirrors
+     * (logo_on_light / logo_on_dark / primary_logo / secondary_logo, and favicon
+     * duplicated as logo_mark) that the settings form wrote automatically for
+     * consumers not yet moved off the older names. Half the keys were copies of
+     * the other half, which is why nobody could tell which one a surface used.
+     *
+     * Naming by surface removes the guesswork: the key says where the file is
+     * used, so a consumer cannot pick the wrong one.
+     *
+     * NOTE: the `website` module has its own `primary_logo` / `secondary_logo` /
+     * `favicon` keys for the public marketing site. Same names, different module,
+     * unrelated to these - see SiteSettingsService.
      */
     public const BRANDING_IMAGE_KEYS = [
         'logo_sidebar',
         'logo_document',
         'logo_mail',
         'logo_mobile',
-        'logo_mark',
-        // Superseded, read-only fallbacks.
-        'logo_on_light',
-        'logo_on_dark',
-        'primary_logo',
-        'secondary_logo',
         'favicon',
+    ];
+
+    /**
+     * Keys whose presence means a tenant has actually configured their branding.
+     *
+     * Used by the "please finish your setup" guard. It asks whether a name and a
+     * logo exist at all, so it names the sidebar logo - the one the settings form
+     * requires first - rather than the retired primary_logo.
+     */
+    public const BRANDING_FRESHNESS_KEYS = [
+        'site_name',
+        'logo_sidebar',
     ];
 
     /**
      * Fallback chain for each surface logo, tried in order until one resolves.
      *
-     * The sidebar is the only dark surface, so it alone prefers the dark-background
-     * lineage. Mail, documents and mobile all render on white and inherit the
-     * light one - a white logo on a white header is the failure this prevents.
+     * The sidebar is the only dark surface, so it is the last resort for the
+     * light ones rather than their first choice. Mail, documents and mobile all
+     * render on white and share each other first - a white logo on a white
+     * header is the failure this ordering prevents.
      */
     public const BRANDING_LOGO_FALLBACKS = [
-        'logo_sidebar'  => ['logo_on_dark', 'primary_logo', 'logo_document', 'logo_mail'],
-        'logo_mail'     => ['logo_on_light', 'secondary_logo', 'logo_document', 'logo_mobile', 'logo_sidebar'],
-        'logo_document' => ['logo_on_light', 'secondary_logo', 'logo_sidebar', 'logo_mail'],
-        // The mobile bar is the top bar, which is light by default, so the mobile
-        // logo inherits the document lineage before the dark-background one.
-        'logo_mobile'   => ['logo_on_light', 'secondary_logo', 'logo_document', 'logo_mark', 'logo_sidebar'],
-        'logo_mark'     => ['favicon'],
-        // Kept populated for consumers not yet migrated off the older names.
-        'logo_on_dark'  => ['logo_sidebar', 'primary_logo'],
-        'logo_on_light' => ['logo_document', 'secondary_logo'],
+        'logo_sidebar'  => ['logo_document', 'logo_mail'],
+        'logo_document' => ['logo_mail', 'logo_mobile', 'logo_sidebar'],
+        'logo_mail'     => ['logo_document', 'logo_mobile', 'logo_sidebar'],
+        'logo_mobile'   => ['logo_document', 'logo_mail', 'logo_sidebar'],
+        'favicon'       => [],
     ];
 
     /**
