@@ -42,6 +42,7 @@ trait MailableBranding
             'logo_mail',
             'logo_sidebar',
             'logo_document',
+            'logo_mobile',
             'logo_on_dark',
             'logo_on_light',
             'primary_logo',
@@ -85,10 +86,10 @@ trait MailableBranding
             ?? (!empty($hostBrandingConfig['site_name']) ? $hostBrandingConfig['site_name'] : null)
             ?? ($isHost ? config('app.name') : ($partner?->name ?? config('app.name')));
 
-        // The header band is the primary colour, not white, so the mail logo is
-        // preferred and the dark-background lineage comes before the light one.
-        // The partner's own keys are exhausted before falling back to the host's.
-        $logoPreference = ['logo_mail', 'logo_sidebar', 'logo_on_dark', 'primary_logo', 'logo_document', 'logo_on_light', 'secondary_logo'];
+        // The mail header is white, so the light-background lineage comes first -
+        // a white logo on a white header would be invisible. The partner's own
+        // keys are exhausted before falling back to the host's.
+        $logoPreference = ['logo_mail', 'logo_document', 'logo_on_light', 'secondary_logo', 'logo_mobile', 'logo_sidebar', 'logo_on_dark', 'primary_logo'];
 
         $pickLogo = static function (array $config) use ($logoPreference): ?string {
             foreach ($logoPreference as $key) {

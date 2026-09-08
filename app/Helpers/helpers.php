@@ -400,3 +400,50 @@ if (!function_exists('calculateTimeInBusiness')) {
         return implode(' ', $parts);
     }
 }
+
+if (!function_exists('invoiceBranding')) {
+    /**
+     * Resolve the branding an invoice should be rendered with.
+     *
+     * An invoice carries the brand of WHOEVER IS BEING PAID - the owner of the
+     * money - not of whoever happens to be looking at it. Two cases, nothing else:
+     *
+     *   entity_type = Partner    the host is billing the partner
+     *                            -> HOST branding
+     *   entity_type = Borrower   the partner is billing its own client
+     *                            -> invoices.partner_id's branding
+     *
+     * Partner type is deliberately NOT inspected here. getBrandingSettings()
+     * already falls back to the host for anything a partner has not set, so a
+     * certified partner - who sets nothing of their own - resolves to the host's
+     * values naturally, without a second rule to keep in sync.
+     *
+     * Within one tenant's values the logo falls back document -> sidebar.
+     *
+     * Returns ['partner' => ?Partner, 'branding' => array, 'logo' => string].
+     */
+    function invoiceBranding(?string $entityType, ?int $partnerId): array
+    {
+        $partner = $entityType === Partner::class
+            ? Partner::host()
+            : ($partnerId ? Partner::find($partnerId) : null);
+
+        // An invoice with no partner on it at all still has to render something.
+        $partner ??= Partner::host();
+
+        $branding = $partner
+            ? app(\App\Services\FCH\Common\Setting\AppConfigurationService::class)
+                ->getBrandingSettings($partner->id)
+            : [];
+
+        $logo = ($branding['logo_document_full_url'] ?? null)
+            ?: ($branding['logo_sidebar_full_url'] ?? null)
+            ?: '';
+
+        return [
+            'partner' => $partner,
+            'branding' => $branding,
+            'logo' => (string) $logo,
+        ];
+    }
+}

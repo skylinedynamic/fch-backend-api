@@ -22,6 +22,25 @@ class AppConfiguration extends Model
         'value'
     ];
 
+    /**
+     * Drop the cached branding whenever a branding row is written.
+     *
+     * Hooked on the model rather than only on AppConfigurationService::set() so
+     * that direct updateOrCreate()/delete() calls - which several settings
+     * screens use - cannot leave a stale brand cached behind them.
+     */
+    protected static function booted(): void
+    {
+        $bust = static function (self $config): void {
+            if ($config->module === self::MODULE_BRANDING) {
+                \App\Services\FCH\Common\Setting\AppConfigurationService::bustBrandingCache();
+            }
+        };
+
+        static::saved($bust);
+        static::deleted($bust);
+    }
+
     public const IMAGE_KEYS = [
         'header_logo',
         'footer_logo',
@@ -57,12 +76,13 @@ class AppConfiguration extends Model
     /**
      * Fallback chain for each surface logo, tried in order until one resolves.
      *
-     * Sidebar and mail both sit on a dark band, so they share the same ancestry;
-     * documents are printed on white and inherit the light-background lineage.
+     * The sidebar is the only dark surface, so it alone prefers the dark-background
+     * lineage. Mail, documents and mobile all render on white and inherit the
+     * light one - a white logo on a white header is the failure this prevents.
      */
     public const BRANDING_LOGO_FALLBACKS = [
-        'logo_sidebar'  => ['logo_on_dark', 'primary_logo', 'logo_mail', 'logo_document'],
-        'logo_mail'     => ['logo_on_dark', 'primary_logo', 'logo_sidebar', 'logo_document'],
+        'logo_sidebar'  => ['logo_on_dark', 'primary_logo', 'logo_document', 'logo_mail'],
+        'logo_mail'     => ['logo_on_light', 'secondary_logo', 'logo_document', 'logo_mobile', 'logo_sidebar'],
         'logo_document' => ['logo_on_light', 'secondary_logo', 'logo_sidebar', 'logo_mail'],
         // The mobile bar is the top bar, which is light by default, so the mobile
         // logo inherits the document lineage before the dark-background one.

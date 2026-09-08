@@ -217,7 +217,7 @@
             <tr>
                 <td style="text-align: center; vertical-align: middle;">
                     @if($logoBase64)
-                        <img src="{{ $logoBase64 }}" width="500" style="vertical-align: middle;">
+                        <img src="{{ $logoBase64 }}" style="width:auto; height:auto; max-width:500px; max-height:160px; vertical-align: middle;">
                     @endif
                 </td>
             </tr>
@@ -237,10 +237,11 @@
             src="{{ $logoBase64 }}"
             alt="Four Corner Funding"
             style="
-                width:220px;
+                width:auto;
                 height:auto;
+                max-width:200px;
+                max-height:60px;
                 display:block;
-                filter: brightness(0);
             "
         >
                 @else

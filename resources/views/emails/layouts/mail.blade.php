@@ -1,8 +1,13 @@
 @php
-    // Supplied by App\Mail\Traits\MailableBranding. The defaults keep any mailable
-    // that does not use the trait rendering exactly as it did before.
-    $bandBg = $brandPrimary ?? '#001F3F';
-    $bandText = $brandOnPrimary ?? '#FFFFFF';
+    // Header and footer are plain white, separated from the body by a hairline
+    // rule rather than a block of brand colour. Only the accents carry the brand.
+    $headerBg = '#ffffff';
+    $rule = '#f0f0f0';
+    $footerText = '#605d5d';
+
+    // Supplied by App\Mail\Traits\MailableBranding. Used for text and accents,
+    // which sit on white and so need the darkened ink rather than the raw brand
+    // colour - a light brand would otherwise be unreadable here.
     $bandLink = $brandPrimaryInk ?? '#001F3F';
 @endphp
 <!DOCTYPE html>
@@ -77,9 +82,10 @@
         }
 
         .header-logo {
-            background-color: {{ $bandBg }};
+            background-color: {{ $headerBg }};
             padding: 24px 20px;
             text-align: center;
+            border-bottom: 1px solid {{ $rule }};
         }
 
         /* Logos are per-partner uploads with unrestricted aspect ratios
@@ -96,6 +102,7 @@
 
         .email-content {
             padding: 0 30px;
+            margin-top: 28px;
             text-align: left;
             font-size: 14px;
             line-height: 1.6;
@@ -103,17 +110,19 @@
         }
 
         .bottom-footer {
-            background-color: {{ $bandBg }};
+            background-color: {{ $headerBg }};
             padding: 16px 20px;
+            margin-top: 28px;
+            border-top: 1px solid {{ $rule }};
             text-align: center;
             font-size: 13px;
-            color: {{ $bandText }};
+            color: {{ $footerText }};
             line-height: 1.6;
         }
 
         .bottom-footer p {
             margin: 0;
-            color: {{ $bandText }};
+            color: {{ $footerText }};
         }
 
         /* Tablet (max-width: 768px) */
@@ -133,6 +142,7 @@
 
             .email-content {
                 padding: 0 25px !important;
+                margin-top: 24px !important;
                 font-size: 14px !important;
             }
 
@@ -169,6 +179,7 @@
 
             .email-content {
                 padding: 0 16px !important;
+                margin-top: 20px !important;
                 font-size: 14px !important;
             }
 
@@ -326,6 +337,7 @@
 
             .email-content {
                 padding: 0 14px !important;
+                margin-top: 18px !important;
                 font-size: 13px !important;
             }
 
@@ -392,20 +404,20 @@
 
             <!-- Logo Section: a brand-coloured band. Uses <table bgcolor> rather than a
                  div background because Outlook drops background-color on block elements. -->
-            <table class="header-logo" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $bandBg }}"
-                style="width: 100%; background-color: {{ $bandBg }}; padding: 24px 20px; text-align: center;">
+            <table class="header-logo" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $headerBg }}"
+                style="width: 100%; background-color: {{ $headerBg }}; padding: 24px 20px; text-align: center; border-bottom: 1px solid {{ $rule }};">
                 <tr>
                     <td align="center" style="padding: 0; text-align: center;">
                         @if(!empty($logoUrl))
                             <img src="{{ $logoUrl }}" alt="{{ $siteName ?? null }}" class="logo"
                                 style="display: block; margin: 0 auto; width: auto; height: auto; max-width: 200px; max-height: 60px; border: 0;">
                         @else
-                            <h2 style="margin: 0; color: {{ $bandText }}; font-size: 22px;">
+                            <h2 style="margin: 0; color: {{ $bandLink }}; font-size: 22px;">
                                 {{ $siteName ?? config('app.name') }}
                             </h2>
                         @endif
                         @if(!empty($siteSlogan))
-                            <p style="margin: 8px 0 0; color: {{ $bandText }}; font-size: 12px; opacity: 0.85;">
+                            <p style="margin: 8px 0 0; color: {{ $footerText }}; font-size: 12px;">
                                 {{ $siteSlogan }}
                             </p>
                         @endif
@@ -414,16 +426,16 @@
             </table>
 
             <!-- Content Area -->
-            <div class="content email-content" style="padding: 0 30px; text-align: left;">
+            <div class="content email-content" style="padding: 0 30px; margin-top: 28px; text-align: left;">
                 @yield('content')
             </div>
 
             <!-- Bottom Footer -->
-            <table class="bottom-footer" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $bandBg }}"
-                style="width: 100%; background-color: {{ $bandBg }}; padding: 16px 20px; text-align: center; font-size: 13px; color: {{ $bandText }}; line-height: 1.6;">
+            <table class="bottom-footer" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{{ $headerBg }}"
+                style="width: 100%; background-color: {{ $headerBg }}; padding: 16px 20px; margin-top: 28px; border-top: 1px solid {{ $rule }}; text-align: center; font-size: 13px; color: {{ $footerText }}; line-height: 1.6;">
                 <tr>
                     <td style="padding: 0;">
-                        <p style="margin: 0; color: {{ $bandText }}; font-size: 13px;">&copy; {{ date('Y') }}
+                        <p style="margin: 0; color: {{ $footerText }}; font-size: 13px;">&copy; {{ date('Y') }}
                             {{ $siteName ?? config('app.name') }}. All rights reserved.
                         </p>
                     </td>
