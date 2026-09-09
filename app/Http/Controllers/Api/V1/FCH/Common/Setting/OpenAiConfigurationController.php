@@ -6,8 +6,10 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\Setting\StoreOpenAiConfigurationRequest;
 use App\Models\Common\AppConfiguration;
+use App\Models\User\User;
 use App\Services\Global\OpenAI\OpenAiResponsesService;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use Illuminate\Http\JsonResponse;
 
 class OpenAiConfigurationController extends Controller
 {
@@ -22,6 +24,27 @@ class OpenAiConfigurationController extends Controller
 
 
     /**
+     * Host-partner guard for every endpoint here.
+     *
+     * These endpoints read and write a live OpenAI credential, so hiding the tab
+     * in the admin UI is not enough — a tenant could still call the URL with its
+     * own token. Mirrors the UI's PartnerHostRoute check (is_host, and an entity
+     * type of Partner) so the screen and the API agree on who is a host user.
+     *
+     * @return JsonResponse|null  A 403 response when the caller is not a host user.
+     */
+    protected function denyIfNotHostPartner(): ?JsonResponse
+    {
+        $user = auth()->user();
+
+        if (! $user || $user->entity_name !== User::PARTNER || ! $user->partner?->is_host) {
+            return ApiResponse::forbidden(__('auth.access_denied'));
+        }
+
+        return null;
+    }
+
+    /**
      * Save the host-level OpenAI configuration.
      *
      * Uses a dedicated endpoint rather than the generic key/value save so these
@@ -30,6 +53,10 @@ class OpenAiConfigurationController extends Controller
      */
     public function store(StoreOpenAiConfigurationRequest $request)
     {
+        if ($denied = $this->denyIfNotHostPartner()) {
+            return $denied;
+        }
+
         try {
             $validated = $request->validated();
             $partnerId = auth()->user()->partner_id;
@@ -64,6 +91,10 @@ class OpenAiConfigurationController extends Controller
      */
     public function show()
     {
+        if ($denied = $this->denyIfNotHostPartner()) {
+            return $denied;
+        }
+
         $partnerId = auth()->user()->partner_id;
 
         $storedKey = $this->configService->get('openai_api_key', null, AppConfiguration::MODULE_OPENAI, $partnerId);
@@ -85,6 +116,10 @@ class OpenAiConfigurationController extends Controller
      */
     public function models()
     {
+        if ($denied = $this->denyIfNotHostPartner()) {
+            return $denied;
+        }
+
         $result = $this->client->listModels();
 
         // Always return a usable list: when the live lookup fails the service

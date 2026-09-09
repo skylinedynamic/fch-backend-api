@@ -375,10 +375,9 @@ Route::prefix('v1')->group(function () {
             });
 
             // OpenAI configuration (host-only settings screen)
-            // The guard must be named explicitly: these permissions are stored with
-            // guard_name "api" while the application's default guard is "web", and
-            // Spatie resolves against the default guard when none is given.
-            Route::middleware('permission:update openai settings,api')->prefix('openai')->group(function () {
+            // Access is decided in the admin UI by PartnerHostRoute (is_host and
+            // an entity type of Partner); no per-role permission is required here.
+            Route::prefix('openai')->group(function () {
                 Route::get('config', [OpenAiConfigurationController::class, 'show']);
                 Route::get('models', [OpenAiConfigurationController::class, 'models']);
                 Route::post('config', [OpenAiConfigurationController::class, 'store']);
