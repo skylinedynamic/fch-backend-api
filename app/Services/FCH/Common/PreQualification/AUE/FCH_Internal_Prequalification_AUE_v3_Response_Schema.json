@@ -1,0 +1,57 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "aus_model": {
+      "type": "string",
+      "enum": ["REGULAR_AUS", "MCA_AUS"]
+    },
+    "qualified_programs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Generic program-category names only, never lender brand names."
+    },
+    "document_checklist": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Specific documents FCH must collect to underwrite the recommended programs, e.g. '6 months business bank statements (all pages)', 'Government-issued Photo ID', 'Voided business check', 'EIN Confirmation Letter (CP 575 or 147C)', 'Year-to-Date Profit & Loss Statement', 'Previous year business tax returns'. Never return an empty list."
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "lender_routing_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "lender_name": {
+            "type": "string",
+            "description": "Must exactly match a name present in active_lender_matrix."
+          },
+          "product_category": { "type": "string" },
+          "rationale": { "type": "string" }
+        },
+        "required": ["lender_name", "product_category", "rationale"]
+      }
+    },
+    "internal_summary": {
+      "type": "string",
+      "description": "Full internal underwriting memo for FCH staff."
+    },
+    "admin_status_note": {
+      "type": "string",
+      "description": "A concise note for the application's Status Notes field: at most 700 characters, plain prose, no lender names and no internal thresholds or routing terms. Summarises the outcome and the immediate next action for the reviewer."
+    }
+  },
+  "required": [
+    "aus_model",
+    "qualified_programs",
+    "document_checklist",
+    "risk_flags",
+    "lender_routing_recommendations",
+    "internal_summary",
+    "admin_status_note"
+  ]
+}

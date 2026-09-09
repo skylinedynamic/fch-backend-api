@@ -61,6 +61,9 @@ Route::prefix('v1/borrower')->group(function () {
             Route::post('/pre-qualification/business-info', [PreQualificationController::class, 'businessInfo']);
             Route::post('/pre-qualification/funding-info', [PreQualificationController::class, 'fundingInfo']);
             Route::post('/pre-qualification/submit', [PreQualificationController::class, 'submit']);
+            // Re-run an underwriting review that did not complete, without the
+            // borrower having to re-enter or re-submit the application.
+            Route::post('/pre-qualification/retry-underwriting', [PreQualificationController::class, 'retryUnderwriting']);
 
 
             Route::group(
