@@ -29,7 +29,7 @@ return new class extends Migration
         Schema::table('pre_qualification_requests', function (Blueprint $table) {
             // Data integrity validator outcome, recorded before any underwriting.
             if (!Schema::hasColumn('pre_qualification_requests', 'validation_status')) {
-                $table->string('validation_status')->nullable()->after('consents');
+                $table->string('validation_status')->nullable()->after('notes');
             }
             if (!Schema::hasColumn('pre_qualification_requests', 'validation_version')) {
                 $table->string('validation_version')->nullable()->after('validation_status');
