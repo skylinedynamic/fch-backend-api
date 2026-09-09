@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "borrower_summary": {
+      "type": "string",
+      "description": "Encouraging, borrower-facing prequalification message. No lender names, rates, thresholds, or internal terminology."
+    },
+    "qualified_programs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Echo of the generic program categories provided in the input, phrased for a borrower audience."
+    },
+    "document_checklist": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Echo of the document checklist provided in the input, phrased for a borrower audience."
+    },
+    "next_steps": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["borrower_summary", "qualified_programs", "document_checklist", "next_steps"]
+}

@@ -61,4 +61,8 @@ return [
         'key' => env('GEMINI_API_KEY'),
     ],
 
+    // OpenAI is configured in the database (app_configurations, module "openai")
+    // via Settings > OpenAI Configuration — API key, model and reasoning effort.
+    // See config/openai.php for defaults and the model list.
+
 ];

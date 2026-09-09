@@ -14,6 +14,7 @@ class AppConfiguration extends Model
     public const MODULE_MICROBILT = 'microbilt';
     public const MODULE_WEBSITE = 'website';
     public const MODULE_CREDIT_PROFILE = 'credit_profile';
+    public const MODULE_OPENAI = 'openai';
 
     protected $fillable = [
         'partner_id',

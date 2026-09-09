@@ -3,6 +3,9 @@
 namespace App\Http\Resources\FCH\Common\Application;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\PreQualificationGptResult;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Services\FCH\Common\Application\PreQualificationAiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,6 +26,34 @@ class PreQualificationRequestResource extends JsonResource
         $yearsInBusiness = !empty($startDate) 
             ? calculateTimeInBusiness($startDate) 
             : ($this->years_in_business ?? ($borrower?->years_in_business ? $borrower->years_in_business . ' Years' : null));
+
+        $latestInternalAue = PreQualificationGptResult::query()
+            ->forApplication((int) $this->id)
+            ->internal()
+            ->latest('id')
+            ->first();
+
+        $latestClientAue = PreQualificationGptResult::query()
+            ->forApplication((int) $this->id)
+            ->client()
+            ->latest('id')
+            ->first();
+
+        $aiResult = PreQualificationAiService::fromStoredRows(
+            $latestInternalAue,
+            $latestClientAue,
+            $this->resource instanceof PreQualificationRequest ? $this->resource : null
+        );
+
+        // The AUE output is FCH-internal: the memo, risk flags and lender routing
+        // name lenders and expose internal thresholds. A partner is a third party,
+        // not FCH staff, so none of it is returned to them — enforced here rather
+        // than only hidden in the UI.
+        $isHost = (bool) (auth()->user()?->partner?->is_host ?? false);
+
+        if (!$isHost) {
+            $aiResult = null;
+        }
 
         return [
             'id' => $this->id,
@@ -51,8 +82,17 @@ class PreQualificationRequestResource extends JsonResource
             'status' => $this->status,
             'status_note' => $this->status_note,
             'status_class' => $this->status_class,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            // Validator findings carry internal_message / suggested_action written
+            // for FCH staff, so they follow the same host-only rule as the AUE.
+            'validation_status' => $isHost ? $this->validation_status : null,
+            'validation_summary' => $isHost ? $this->validation_summary : null,
+            'validation_issues' => $isHost ? $this->validation_issues : null,
+            'validated_at' => $isHost && $this->validated_at ? ($this->validated_at) : null,
+            'gpt_status' => $isHost ? $this->gpt_status : null,
+            'gpt_generated_at' => $isHost && $this->gpt_generated_at ? toTimezone($this->gpt_generated_at) : null,
+            'ai_result' => $aiResult,
+            'created_at' => toTimezone($this->created_at),
+            'updated_at' => toTimezone($this->updated_at),
         ];
     }
 }
