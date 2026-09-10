@@ -2,56 +2,248 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "aus_model": {
+    "prompt_version": {
       "type": "string",
-      "enum": ["REGULAR_AUS", "MCA_AUS"]
+      "enum": ["FCH_Internal_Prequalification_AUE_v3"]
     },
-    "qualified_programs": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Generic program-category names only, never lender brand names."
+    "submission_id": { "type": "string" },
+    "matrix_version": { "type": ["string", "null"] },
+    "classification": {
+      "type": "string",
+      "enum": ["INTERNAL_USE_ONLY_CONFIDENTIAL"]
     },
-    "document_checklist": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Specific documents FCH must collect to underwrite the recommended programs, e.g. '6 months business bank statements (all pages)', 'Government-issued Photo ID', 'Voided business check', 'EIN Confirmation Letter (CP 575 or 147C)', 'Year-to-Date Profit & Loss Statement', 'Previous year business tax returns'. Never return an empty list."
+    "data_status": {
+      "type": "string",
+      "enum": ["COMPLETE", "PARTIAL", "CONFLICTING", "INSUFFICIENT"]
     },
-    "risk_flags": {
-      "type": "array",
-      "items": { "type": "string" }
+    "overall_stance": {
+      "type": "string",
+      "enum": ["READY_FOR_ROUTING", "CONDITIONAL_REVIEW", "MANUAL_REVIEW", "FOUNDATION_REQUIRED", "INSUFFICIENT_DATA", "NO_ACTIVE_FIT"]
     },
-    "lender_routing_recommendations": {
+    "aus_model_determination": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "lender_name": {
+          "product_path": { "type": "string" },
+          "model": {
             "type": "string",
-            "description": "Must exactly match a name present in active_lender_matrix."
+            "enum": ["REGULAR_AUS", "MCA_AUS", "REAL_ESTATE_INVESTOR_MODEL", "NOT_COMPUTABLE"]
           },
-          "product_category": { "type": "string" },
           "rationale": { "type": "string" }
         },
-        "required": ["lender_name", "product_category", "rationale"]
+        "required": ["product_path", "model", "rationale"]
       }
     },
-    "internal_summary": {
-      "type": "string",
-      "description": "Full internal underwriting memo for FCH staff."
+    "executive_underwriting_conclusion": { "type": "string" },
+    "borrower_request_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string" },
+          "value": { "type": ["string", "number", "boolean", "null"] },
+          "source_status": {
+            "type": "string",
+            "enum": ["VERIFIED", "DOCUMENTED", "BORROWER_REPORTED", "DERIVED_FROM_SUPPLIED_DATA", "CONFLICTING", "NOT_PROVIDED"]
+          }
+        },
+        "required": ["field", "value", "source_status"]
+      }
     },
-    "admin_status_note": {
+    "underwriting_analysis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "section": { "type": "string" },
+          "finding": { "type": "string" },
+          "evidence_fields": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["section", "finding", "evidence_fields"]
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "conditions_and_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "category": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["BLOCKING", "MATERIAL", "CONDITIONAL", "INFORMATIONAL"]
+          },
+          "finding": { "type": "string" },
+          "evidence_fields": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "required_action": { "type": "string" }
+        },
+        "required": ["category", "severity", "finding", "evidence_fields", "required_action"]
+      }
+    },
+    "recommended_funding_paths": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "priority": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "product_category": { "type": "string" },
+          "aus_model": {
+            "type": "string",
+            "enum": ["REGULAR_AUS", "MCA_AUS", "REAL_ESTATE_INVESTOR_MODEL", "NOT_COMPUTABLE"]
+          },
+          "fit_status": {
+            "type": "string",
+            "enum": ["POTENTIAL_FIT", "CONDITIONAL", "HOLD", "NOT_FIT", "NOT_COMPUTABLE"]
+          },
+          "fit_rationale": { "type": "string" },
+          "why_not_higher_priority": { "type": ["string", "null"] },
+          "amount_min": { "type": ["number", "null"] },
+          "amount_max": { "type": ["number", "null"] },
+          "amount_basis": { "type": "string" },
+          "calculations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "value": { "type": ["number", "null"] },
+                "unit": { "type": ["string", "null"] },
+                "basis": { "type": "string" },
+                "missing_inputs": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["name", "value", "unit", "basis", "missing_inputs"]
+            }
+          },
+          "conditions": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "required_documents": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "execution_action": {
+            "type": "string",
+            "enum": ["SUBMIT", "PREFLIGHT", "REFER_TO_LENDER", "HOLD_FOR_DOCUMENTS", "HOLD_FOR_MATRIX", "DO_NOT_SUBMIT", "EXECUTIVE_LENDER_OUTREACH"]
+          },
+          "missing_inputs": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["priority", "product_category", "aus_model", "fit_status", "fit_rationale", "why_not_higher_priority", "amount_min", "amount_max", "amount_basis", "calculations", "conditions", "required_documents", "execution_action", "missing_inputs"]
+      }
+    },
+    "active_lender_matches": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "priority": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "lender_name": { "type": "string" },
+          "lender_status": { "type": "string", "enum": ["ACTIVE"] },
+          "fit_status": {
+            "type": "string",
+            "enum": ["POTENTIAL_FIT", "CONDITIONAL", "NOT_FIT"]
+          },
+          "rationale": { "type": "string" },
+          "eligibility_checks": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "restrictions_or_conditions": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["priority", "lender_name", "lender_status", "fit_status", "rationale", "eligibility_checks", "restrictions_or_conditions"]
+      }
+    },
+    "required_documentation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path_or_lender": { "type": "string" },
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["path_or_lender", "items"]
+      }
+    },
+    "routing_recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary_product": { "type": ["string", "null"] },
+        "primary_lender": { "type": ["string", "null"] },
+        "aus_model": {
+          "type": "string",
+          "enum": ["REGULAR_AUS", "MCA_AUS", "REAL_ESTATE_INVESTOR_MODEL", "NOT_COMPUTABLE"]
+        },
+        "stance": {
+          "type": "string",
+          "enum": ["READY_FOR_ROUTING", "CONDITIONAL_REVIEW", "MANUAL_REVIEW", "FOUNDATION_REQUIRED", "INSUFFICIENT_DATA", "NO_ACTIVE_FIT"]
+        },
+        "next_action": {
+          "type": "string",
+          "enum": ["SUBMIT", "PREFLIGHT", "REFER_TO_LENDER", "HOLD_FOR_DOCUMENTS", "HOLD_FOR_MATRIX", "DO_NOT_SUBMIT", "EXECUTIVE_LENDER_OUTREACH"]
+        },
+        "fallback_path": { "type": ["string", "null"] },
+        "reason": { "type": "string" }
+      },
+      "required": ["primary_product", "primary_lender", "aus_model", "stance", "next_action", "fallback_path", "reason"]
+    },
+    "credit_building_pathway": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "manual_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["required", "reasons"]
+    },
+    "final_internal_disposition": { "type": "string" },
+    "closing_tag": {
       "type": "string",
-      "description": "A concise note for the application's Status Notes field: at most 700 characters, plain prose, no lender names and no internal thresholds or routing terms. Summarises the outcome and the immediate next action for the reviewer."
+      "enum": ["[Four Corner Holdings – Internal Use Only – Do Not Distribute to Borrower]"]
+    },
+    "disclaimer": {
+      "type": "string",
+      "enum": ["This evaluation is for internal informational and decision-support purposes only. It is not a commitment to lend, guarantee of approval, or final underwriting decision."]
     }
   },
-  "required": [
-    "aus_model",
-    "qualified_programs",
-    "document_checklist",
-    "risk_flags",
-    "lender_routing_recommendations",
-    "internal_summary",
-    "admin_status_note"
-  ]
+  "required": ["prompt_version", "submission_id", "matrix_version", "classification", "data_status", "overall_stance", "aus_model_determination", "executive_underwriting_conclusion", "borrower_request_snapshot", "underwriting_analysis", "strengths", "conditions_and_flags", "recommended_funding_paths", "active_lender_matches", "required_documentation", "routing_recommendation", "credit_building_pathway", "manual_review", "final_internal_disposition", "closing_tag", "disclaimer"]
 }

@@ -29,6 +29,9 @@ class PreQualificationInternalAueService
     /** Correlates this run's internal and client rows. */
     protected ?string $runId = null;
 
+    /** OpenAI's identifiers for the call behind the row about to be written. */
+    protected ?string $requestId = null;
+
     public function __construct(OpenAiResponsesService $client)
     {
         $this->client = $client;
@@ -50,7 +53,12 @@ class PreQualificationInternalAueService
         $instructions = file_get_contents(__DIR__ . '/FCH_Internal_Prequalification_AUE_v3_Responses_Instructions.txt');
         $schema = json_decode(file_get_contents(__DIR__ . '/FCH_Internal_Prequalification_AUE_v3_Response_Schema.json'), true);
 
+        // submission_id and matrix_version are required by the v3 schema and are
+        // ours to state, not the model's to infer, so they are supplied as input
+        // and checked against the response below.
         $input = [
+            'submission_id' => (string) $application->id,
+            'matrix_version' => $matrixVersion,
             'borrower' => $this->buildBorrowerPayload($application),
             'active_lender_matrix' => $lenderMatrix,
             'fch_rule_package' => $this->buildRulePackage(),
@@ -75,12 +83,31 @@ class PreQualificationInternalAueService
             return $this->failed($result['error']);
         }
 
+        // Carried to persist() so the stored row points at the exact OpenAI call.
+        $this->requestId = $result['request_id'] ?? null;
+
         $data = $result['data'];
+
+        // A lender the model named but that is not in the active, ISO-eligible
+        // matrix is dropped rather than shown to staff as routable.
         $activeLenderNames = collect($lenderMatrix)->pluck('lender_name')->unique()->all();
-        $data['lender_routing_recommendations'] = collect((array) ($data['lender_routing_recommendations'] ?? []))
-            ->filter(fn ($rec) => in_array($rec['lender_name'] ?? null, $activeLenderNames, true))
+        $data['active_lender_matches'] = collect((array) ($data['active_lender_matches'] ?? []))
+            ->filter(fn ($match) => in_array($match['lender_name'] ?? null, $activeLenderNames, true))
             ->values()
             ->all();
+
+        // The routing recommendation names one of those lenders, so it is scrubbed
+        // on the same rule — otherwise dropping the match above would leave the
+        // recommendation pointing at a lender no longer offered.
+        $primaryLender = $data['routing_recommendation']['primary_lender'] ?? null;
+        if ($primaryLender !== null && !in_array($primaryLender, $activeLenderNames, true)) {
+            $data['routing_recommendation']['primary_lender'] = null;
+        }
+
+        // Ours to state, not the model's: keep the identifiers authoritative even
+        // if the response echoed them back changed.
+        $data['submission_id'] = (string) $application->id;
+        $data['matrix_version'] = $matrixVersion;
 
         $this->persist($application, $data, self::PROMPT_VERSION, $matrixVersion, $result['model'], 'medium', $result['latency_ms'], false, $userId);
 
@@ -128,6 +155,7 @@ class PreQualificationInternalAueService
             'prompt_version' => $promptVersion,
             'matrix_version' => $matrixVersion,
             'model' => $model,
+            'openai_request_id' => $this->requestId,
             'reasoning_effort' => $reasoningEffort,
             'payload' => $data,
             'is_placeholder' => $isPlaceholder,

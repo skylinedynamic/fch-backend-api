@@ -27,6 +27,9 @@ class PreQualificationGptResult extends Model
         'prompt_version',
         'matrix_version',
         'model',
+        // OpenAI's id for the call that produced this row, kept so it can be
+        // traced back to that exact request in OpenAI's own logs.
+        'openai_request_id',
         'reasoning_effort',
         'payload',
         'is_placeholder',

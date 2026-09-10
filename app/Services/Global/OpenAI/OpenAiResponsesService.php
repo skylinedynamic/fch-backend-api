@@ -299,7 +299,7 @@ class OpenAiResponsesService
         if (!$response->successful()) {
             $errorBody = $response->json();
             $errorMessage = $errorBody['error']['message'] ?? $response->body();
-            $this->logOutcome($logContext, $model, 'API_ERROR', $latencyMs, null, $response->status());
+            $this->logOutcome($logContext, $model, 'API_ERROR', $latencyMs, null, $response->status(), $response->header('x-request-id') ?: null);
 
             return [
                 'ok' => false,
@@ -319,7 +319,7 @@ class OpenAiResponsesService
         $decoded = $text !== null ? json_decode($text, true) : null;
 
         if (!is_array($decoded)) {
-            $this->logOutcome($logContext, $model, 'INVALID_JSON', $latencyMs, $usage);
+            $this->logOutcome($logContext, $model, 'INVALID_JSON', $latencyMs, $usage, $response->status(), $response->header('x-request-id') ?: null);
 
             return [
                 'ok' => false,
@@ -338,7 +338,7 @@ class OpenAiResponsesService
         // schema we asked for. Re-check locally before anything is persisted.
         $schemaErrors = $this->validateAgainstSchema($decoded, $schema);
         if (!empty($schemaErrors)) {
-            $this->logOutcome($logContext, $model, 'SCHEMA_VALIDATION_FAILED', $latencyMs, $usage);
+            $this->logOutcome($logContext, $model, 'SCHEMA_VALIDATION_FAILED', $latencyMs, $usage, $response->status(), $response->header('x-request-id') ?: null);
 
             return [
                 'ok' => false,
@@ -352,7 +352,12 @@ class OpenAiResponsesService
             ];
         }
 
-        $this->logOutcome($logContext, $model, 'SUCCESS', $latencyMs, $usage);
+        // OpenAI's id for this call, carried only in the response header. Kept so a
+        // stored result can be traced back to the exact request in OpenAI's logs
+        // when an evaluation is later queried or disputed.
+        $requestId = $response->header('x-request-id') ?: null;
+
+        $this->logOutcome($logContext, $model, 'SUCCESS', $latencyMs, $usage, $response->status(), $requestId);
 
         return [
             'ok' => true,
@@ -360,6 +365,7 @@ class OpenAiResponsesService
             'model' => $json['model'] ?? $model,
             'latency_ms' => $latencyMs,
             'usage' => $usage,
+            'request_id' => $requestId,
             'error' => null,
         ];
     }
@@ -448,8 +454,15 @@ class OpenAiResponsesService
         return null;
     }
 
-    protected function logOutcome(array $context, string $model, string $outcome, int $latencyMs, ?array $usage, ?int $httpStatus = null): void
-    {
+    protected function logOutcome(
+        array $context,
+        string $model,
+        string $outcome,
+        int $latencyMs,
+        ?array $usage,
+        ?int $httpStatus = null,
+        ?string $requestId = null
+    ): void {
         Log::info('FCH Responses API call', array_merge($context, [
             'model' => $model,
             'outcome' => $outcome,
@@ -457,6 +470,8 @@ class OpenAiResponsesService
             'input_tokens' => $usage['input_tokens'] ?? null,
             'output_tokens' => $usage['output_tokens'] ?? null,
             'http_status' => $httpStatus,
+            // Quotable back to OpenAI support, and to the client, for one call.
+            'openai_request_id' => $requestId,
         ]));
     }
 }

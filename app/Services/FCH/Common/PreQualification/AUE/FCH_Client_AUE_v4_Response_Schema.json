@@ -2,24 +2,84 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "borrower_summary": {
+    "prompt_version": {
       "type": "string",
-      "description": "Encouraging, borrower-facing prequalification message. No lender names, rates, thresholds, or internal terminology."
+      "enum": ["FCH_Client_AUE_v4"]
     },
-    "qualified_programs": {
+    "submission_id": { "type": "string" },
+    "assessment_title": {
+      "type": "string",
+      "enum": ["Funding Readiness Assessment"]
+    },
+    "funding_readiness_summary": { "type": "string" },
+    "readiness_snapshot": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Echo of the generic program categories provided in the input, phrased for a borrower audience."
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "area": { "type": "string" },
+          "assessment": { "type": "string" },
+          "source_status": {
+            "type": "string",
+            "enum": ["VERIFIED", "DOCUMENTED", "BORROWER_REPORTED", "DERIVED_FROM_SUPPLIED_DATA", "CONFLICTING", "NOT_PROVIDED"]
+          }
+        },
+        "required": ["area", "assessment", "source_status"]
+      }
     },
-    "document_checklist": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Echo of the document checklist provided in the input, phrased for a borrower audience."
+    "estimated_funding_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "available": { "type": "boolean" },
+        "minimum": { "type": ["number", "null"] },
+        "maximum": { "type": ["number", "null"] },
+        "basis": { "type": "string" }
+      },
+      "required": ["available", "minimum", "maximum", "basis"]
     },
-    "next_steps": {
+    "strengths": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "areas_requiring_attention": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "structuring_considerations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "submission_positioning_overview": { "type": "string" },
+    "required_next_steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "complete_assessment": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "underwriting_review": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "submission_readiness": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["complete_assessment", "underwriting_review", "submission_readiness"]
+    },
+    "important_notice": { "type": "string" },
+    "final_disclosure": {
+      "type": "string",
+      "enum": ["Final funding terms are subject to full underwriting review and verification of submitted documentation."]
+    },
+    "disclaimer": {
+      "type": "string",
+      "enum": ["This assessment is not an approval, commitment, or guarantee of financing. Final eligibility, amount, pricing, repayment structure, documentation, and conditions are determined after complete underwriting."]
     }
   },
-  "required": ["borrower_summary", "qualified_programs", "document_checklist", "next_steps"]
+  "required": ["prompt_version", "submission_id", "assessment_title", "funding_readiness_summary", "readiness_snapshot", "estimated_funding_range", "strengths", "areas_requiring_attention", "structuring_considerations", "submission_positioning_overview", "required_next_steps", "important_notice", "final_disclosure", "disclaimer"]
 }
