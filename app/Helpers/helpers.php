@@ -225,22 +225,32 @@ if (!function_exists('getEmbedFormBaseUrl')) {
     /**
      * Resolve the base URL used for embedded loan application form links
      * (the direct link and the iframe embed snippet), based on the
-     * authenticated user's partner:
+     * authenticated user's partner.
      *
-     * - Local environment: always the app base URL — custom/sub-domains
-     *   don't resolve locally.
-     * - Host partner: the app base URL.
-     * - White-Label partner: partner_domain when active_custom_url is
-     *   enabled (falling back to partner_subdomain if partner_domain is
-     *   empty), otherwise partner_subdomain.
-     * - Certified partner: partner_subdomain.
-     * - No partner / no domain configured: the app base URL.
+     * The link is a BORROWER-facing one: whoever fills the embedded form becomes
+     * a borrower of the partner, so it is handed out on the borrower portal's
+     * domain. This used to resolve partner_domain / partner_subdomain, which put
+     * a prospective borrower on the partner's own staff portal.
+     *
+     * - Outside production: always the app base URL — neither a custom borrower
+     *   domain nor the reserved borrower portal resolves on local or staging.
+     * - White-Label partner: their own `borrower_domain`, the domain their
+     *   borrowers actually log in through — but only while `active_custom_url`
+     *   is on. DomainResolverController and PortalIsolationService both gate
+     *   borrower_domain behind that flag, so with it off the domain resolves
+     *   nowhere and the link would 404.
+     * - Certified partner: the reserved base borrower portal
+     *   (BASE_BORROWER_PORTAL). A Certified partner never gets a borrower domain
+     *   of its own — its borrowers share the base portal.
+     * - Host partner, no partner, or no domain configured: the app base URL.
+     *   The host keeps the API's own host because `/form/{key}` is served from
+     *   there, so it is the one value guaranteed to resolve.
      */
     function getEmbedFormBaseUrl(): string
     {
         $baseUrl = rtrim(config('app.url'), '/');
 
-        if (app()->environment('local')) {
+        if (!app()->environment('production')) {
             return $baseUrl;
         }
 
@@ -253,20 +263,19 @@ if (!function_exists('getEmbedFormBaseUrl')) {
         $domain = null;
 
         if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-            $domain = $partner->active_custom_url
-                ? ($partner->partner_domain ?: $partner->partner_subdomain)
-                : $partner->partner_subdomain;
+            $domain = $partner->active_custom_url ? $partner->borrower_domain : null;
         } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
-            $domain = $partner->partner_subdomain;
+            $domain = config('app.frontend_borrower_url');
         }
 
         if (empty($domain)) {
             return $baseUrl;
         }
 
-        $domain = preg_replace('/^https?:\/\//i', '', trim($domain));
-
-        return 'https://' . rtrim($domain, '/');
+        // BASE_BORROWER_PORTAL and borrower_domain are both stored bare
+        // (app.fourcornerfunding.com), so the scheme is added here rather than
+        // assumed to be present.
+        return rtrim(concatUrl($domain, ''), '/');
     }
 }
 
