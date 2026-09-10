@@ -5,6 +5,7 @@ namespace App\Http\Resources\Borrower\PreQualification;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationGptResult;
 use App\Models\Borrower\PreQualificationRequest;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -60,7 +61,7 @@ class PreQualificationResource extends JsonResource
             'validation_status' => $this->validation_status ?? null,
             'validation_summary' => $this->validation_summary ?? null,
             'gpt_status' => $this->gpt_status ?? null,
-            'gpt_generated_at' => !empty($this->gpt_generated_at) ? toTimezone($this->gpt_generated_at) : null,
+            'gpt_generated_at' => !empty($this->gpt_generated_at) ? Carbon::parse($this->gpt_generated_at)->format('Y-m-d') : null,
             'underwriting_result' => $this->clientAueResult(),
         ];
     }

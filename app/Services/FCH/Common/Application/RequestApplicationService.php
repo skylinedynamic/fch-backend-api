@@ -410,7 +410,7 @@ class RequestApplicationService
             'total_applications' => (clone $baseQuery)->count(),
             'approved' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->count(),
             'pending' => (clone $baseQuery)->where('status', PreQualificationRequest::PENDING)->count(),
-            'approved_amount' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount'),
+            'approved_amount' => currencyFormat((clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount')),
         ]);
     }
 

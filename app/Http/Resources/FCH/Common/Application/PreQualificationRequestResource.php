@@ -9,6 +9,8 @@ use App\Services\FCH\Common\Application\PreQualificationAiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+use Carbon\Carbon;
+
 class PreQualificationRequestResource extends JsonResource
 {
     /**
@@ -18,6 +20,8 @@ class PreQualificationRequestResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
+
         $borrower = ($this->resource instanceof \Illuminate\Database\Eloquent\Model && $this->resource->relationLoaded('borrower'))
             ? $this->borrower 
             : (!empty($this->borrower_id) ? Borrower::find($this->borrower_id) : (auth()->check() && auth()->user()->entity_id ? Borrower::find(auth()->user()->entity_id) : null));
@@ -87,12 +91,12 @@ class PreQualificationRequestResource extends JsonResource
             'validation_status' => $isHost ? $this->validation_status : null,
             'validation_summary' => $isHost ? $this->validation_summary : null,
             'validation_issues' => $isHost ? $this->validation_issues : null,
-            'validated_at' => $isHost && $this->validated_at ? ($this->validated_at) : null,
+            'validated_at' => ($isHost && $this->validated_at) ? Carbon::parse($this->validated_at)->timezone($timezone)->format('Y-m-d h:i A') : null,
             'gpt_status' => $isHost ? $this->gpt_status : null,
-            'gpt_generated_at' => $isHost && $this->gpt_generated_at ? toTimezone($this->gpt_generated_at) : null,
+            'gpt_generated_at' => ($isHost && $this->gpt_generated_at) ? Carbon::parse($this->gpt_generated_at)->timezone($timezone)->format('Y-m-d h:i A') : null,
             'ai_result' => $aiResult,
-            'created_at' => toTimezone($this->created_at),
-            'updated_at' => toTimezone($this->updated_at),
+            'created_at' => $this->created_at?->timezone($timezone)->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->timezone($timezone)->format('Y-m-d H:i:s'),
         ];
     }
 }
