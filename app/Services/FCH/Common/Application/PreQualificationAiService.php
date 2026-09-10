@@ -54,10 +54,9 @@ class PreQualificationAiService
                 'blocked' => true,
                 'validation_status' => $validation['status'],
                 'borrower_message' => $validation['borrower_message'],
-                'qualified_programs' => [],
-                'document_checklist' => [],
-                'borrower_summary' => $validation['borrower_message'],
-                'internal_summary' => null,
+                // The validator blocked before either evaluation ran.
+                'internal' => null,
+                'client' => null,
                 'source' => 'fch_data_integrity_validator',
                 'model' => null,
                 'latency_ms' => 0,
@@ -87,22 +86,21 @@ class PreQualificationAiService
 
         $latencyMs = $internal['latency_ms'] + $client['latency_ms'];
 
+        // The two payloads are kept whole and separate rather than flattened into
+        // one another. Their field sets are defined by the v3 and v4 schemas and
+        // overlap only by coincidence, so merging them would blur which half a
+        // value came from — and it is exactly that boundary the resource layer
+        // relies on when it withholds the internal half from a partner.
         $aiResult = [
             'incorrect' => false,
             'blocked' => false,
             'failed' => false,
             'validation_status' => $validation['status'],
-            // Prefer the client-safe wording, but fall back on anything the client call
-            // returned empty: "??" only catches null, so an empty array from the client
-            // would otherwise blank out a list the internal call had populated.
-            'qualified_programs' => self::preferNonEmpty($client['data']['qualified_programs'] ?? [], $internal['data']['qualified_programs'] ?? []),
-            'document_checklist' => self::preferNonEmpty($client['data']['document_checklist'] ?? [], $internal['data']['document_checklist'] ?? []),
-            'borrower_summary' => $client['data']['borrower_summary'] ?? '',
-            'internal_summary' => $internal['data']['internal_summary'] ?? '',
-            // Short, lender-free note intended for the Status Notes field.
-            'admin_status_note' => $internal['data']['admin_status_note'] ?? '',
-            'risk_flags' => $internal['data']['risk_flags'] ?? [],
-            'lender_routing_recommendations' => $internal['data']['lender_routing_recommendations'] ?? [],
+            'internal' => $internal['data'],
+            'client' => $client['data'],
+            // Offered to staff as a one-click Status Notes insert. Composed from
+            // the enum fields only, so it is safe for the partners who see it.
+            'admin_status_note' => self::statusNoteFor($internal['data']),
             'source' => 'openai_responses_api',
             'model' => $internal['model'],
             'latency_ms' => $latencyMs,
@@ -112,7 +110,7 @@ class PreQualificationAiService
         // Status Notes is a short field (validated at 1000 characters) and is visible
         // to partners, so it gets the concise, lender-free note — never the full
         // internal memo, which lives in the AI Underwriting Result tab.
-        $statusNote = (string) ($internal['data']['admin_status_note'] ?? '');
+        $statusNote = self::statusNoteFor($internal['data']);
         if (filled($statusNote)) {
             $application->status_note = Str::limit($statusNote, 990, '');
         }
@@ -140,7 +138,7 @@ class PreQualificationAiService
     ): array {
         // The internal note is model-generated, so it is still worth surfacing to
         // the reviewer who now has to pick this file up by hand.
-        $statusNote = (string) ($internal['data']['admin_status_note'] ?? '');
+        $statusNote = $internal ? self::statusNoteFor($internal['data']) : '';
         if (filled($statusNote)) {
             $application->status_note = Str::limit($statusNote, 990, '');
         }
@@ -161,14 +159,11 @@ class PreQualificationAiService
             'failed' => true,
             'failure_reason' => $reason,
             'validation_status' => $validation['status'],
-            'qualified_programs' => $internal['data']['qualified_programs'] ?? [],
-            'document_checklist' => $internal['data']['document_checklist'] ?? [],
-            // Nothing borrower-facing was generated, so nothing is offered.
-            'borrower_summary' => '',
-            'internal_summary' => $internal['data']['internal_summary'] ?? '',
-            'admin_status_note' => $statusNote,
-            'risk_flags' => $internal['data']['risk_flags'] ?? [],
-            'lender_routing_recommendations' => $internal['data']['lender_routing_recommendations'] ?? [],
+            // The internal half survives when the run got that far, so staff still
+            // have the evaluation. Nothing borrower-facing was generated, so the
+            // client half is null rather than a locally composed stand-in.
+            'internal' => $internal['data'] ?? null,
+            'client' => null,
             'source' => 'openai_responses_api',
             'model' => $internal['model'] ?? null,
             'latency_ms' => (int) ($internal['latency_ms'] ?? 0),
@@ -177,12 +172,24 @@ class PreQualificationAiService
     }
 
     /**
-     * @param array $preferred The client-safe value, used when it has content.
-     * @param array $fallback The internal value, used when the preferred one is empty.
+     * The short note written to Status Notes.
+     *
+     * Status Notes is visible to partners, and the v3 schema has no field written
+     * for that audience — every free-text field in it is internal and may name a
+     * lender or quote a threshold. So the note is composed here from the two
+     * enum fields alone, which can only ever hold one of their declared values.
      */
-    private static function preferNonEmpty(array $preferred, array $fallback): array
+    private static function statusNoteFor(array $internal): string
     {
-        return !empty($preferred) ? $preferred : $fallback;
+        $stance = (string) ($internal['overall_stance'] ?? '');
+        $nextAction = (string) ($internal['routing_recommendation']['next_action'] ?? '');
+
+        $parts = array_filter([
+            $stance !== '' ? 'AUE stance: ' . str_replace('_', ' ', $stance) : null,
+            $nextAction !== '' ? 'Next action: ' . str_replace('_', ' ', $nextAction) : null,
+        ]);
+
+        return implode('. ', $parts);
     }
 
     /**
@@ -204,10 +211,9 @@ class PreQualificationAiService
                 'blocked' => true,
                 'validation_status' => $application->validation_status,
                 'borrower_message' => $borrowerMessage,
-                'qualified_programs' => [],
-                'document_checklist' => [],
-                'borrower_summary' => $borrowerMessage,
-                'internal_summary' => null,
+                // Stale rows from an earlier run are deliberately not surfaced.
+                'internal' => null,
+                'client' => null,
                 'source' => 'fch_data_integrity_validator',
                 'model' => null,
                 'latency_ms' => 0,
@@ -224,10 +230,8 @@ class PreQualificationAiService
                 'failed' => true,
                 'failure_reason' => null,
                 'validation_status' => $application->validation_status,
-                'qualified_programs' => [],
-                'document_checklist' => [],
-                'borrower_summary' => '',
-                'internal_summary' => null,
+                'internal' => null,
+                'client' => null,
                 'source' => 'openai_responses_api',
                 'model' => null,
                 'latency_ms' => 0,
@@ -254,14 +258,12 @@ class PreQualificationAiService
         $isFallback = (bool) ($internalRow->is_placeholder ?? false);
         $latencyMs = (int) ($internalRow->latency_ms ?? 0) + (int) ($clientRow->latency_ms ?? 0);
 
+        // Same shape evaluate() returns, so a plain GET and a fresh run are
+        // indistinguishable to the caller.
         $aiResult = [
-            'qualified_programs' => self::preferNonEmpty($clientPayload['qualified_programs'] ?? [], $internalPayload['qualified_programs'] ?? []),
-            'document_checklist' => self::preferNonEmpty($clientPayload['document_checklist'] ?? [], $internalPayload['document_checklist'] ?? []),
-            'borrower_summary' => $clientPayload['borrower_summary'] ?? '',
-            'internal_summary' => $internalPayload['internal_summary'] ?? '',
-            'admin_status_note' => $internalPayload['admin_status_note'] ?? '',
-            'risk_flags' => $internalPayload['risk_flags'] ?? [],
-            'lender_routing_recommendations' => $internalPayload['lender_routing_recommendations'] ?? [],
+            'internal' => $internalPayload,
+            'client' => $clientPayload ?: null,
+            'admin_status_note' => self::statusNoteFor($internalPayload),
             'source' => $isFallback ? 'fch_underwriting_engine' : 'openai_responses_api',
             'model' => $internalRow->model ?? null,
             'latency_ms' => $latencyMs,

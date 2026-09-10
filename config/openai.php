@@ -121,8 +121,8 @@ return [
     |
     */
 
-    'max_attempts' => (int) env('OPENAI_MAX_ATTEMPTS', 3),
-    'retry_delay_ms' => (int) env('OPENAI_RETRY_DELAY_MS', 2000),
+    'max_attempts' => 3,
+    'retry_delay_ms' => 2000,
     'retryable_statuses' => [408, 409, 425, 429, 500, 502, 503, 504],
 
 ];
