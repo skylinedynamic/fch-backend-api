@@ -661,6 +661,7 @@ class BorrowerService
             }
 
             foreach ($bankAccountsData as $row) {
+                $accountOpenDate = !empty($row['account_open_date']) ? normalizeDate($row['account_open_date']) : null;
                 if (!empty($row['id'])) {
                     $bba = BorrowerBankAccount::where('id', $row['id'])
                         ->where('borrower_id', $borrower->id)
@@ -668,7 +669,7 @@ class BorrowerService
                     if ($bba) {
                         $bba->fill([
                             'bank_name' => $row['bank_name'],
-                            'account_open_date' => $row['account_open_date'] ?? null,
+                            'account_open_date' => $accountOpenDate,
                         ]);
                         if ($bba->isDirty()) {
                             $bba->save();
@@ -679,7 +680,7 @@ class BorrowerService
                     BorrowerBankAccount::create([
                         'borrower_id' => $borrower->id,
                         'bank_name' => $row['bank_name'],
-                        'account_open_date' => $row['account_open_date'] ?? null,
+                        'account_open_date' => $accountOpenDate,
                     ]);
                     $bankAccountsChanged = true;
                 }
@@ -709,7 +710,7 @@ class BorrowerService
             );
         }
 
-        return $borrower->load('bankAccounts')->fresh();
+        return $borrower->fresh(['bankAccounts']);
     }
 
     /**
@@ -720,7 +721,7 @@ class BorrowerService
         return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
             $query->where('partner_id', auth()->user()->partner_id);
         })
-            ->with('partner', 'latestSubscription')
+            ->with('partner', 'latestSubscription', 'bankAccounts')
             ->find($id);
     }
 

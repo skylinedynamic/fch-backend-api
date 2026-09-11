@@ -35,7 +35,7 @@ class BorrowerBusinessFinancialsResource extends JsonResource
             'bank_accounts'             => $this->bankAccounts ? $this->bankAccounts->map(fn($b) => [
                 'id' => $b->id,
                 'bank_name' => $b->bank_name,
-                'account_open_date' => $b->account_open_date,
+                'account_open_date' => $b->account_open_date ? \Carbon\Carbon::parse($b->account_open_date)->format('Y-m-d') : null,
             ]) : [],
         ];
     }

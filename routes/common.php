@@ -142,6 +142,7 @@ Route::prefix('v1')->group(function () {
 
             // Business Financials fetch — dedicated endpoint
             Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
+            Route::get('borrowers/{id}/business-financials', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
             Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
