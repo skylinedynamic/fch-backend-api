@@ -154,6 +154,20 @@ class Partner extends Model
     const STATUS_SUSPENDED = 'Suspended';
     const STATUS_INACTIVE = 'Inactive';
 
+    /**
+     * The statuses allowed to sign in to the partner portal.
+     *
+     * An allowlist rather than a list of banned statuses. OnBoarding is where a
+     * partner starts - PartnerService sets it for anyone not on a free trial -
+     * so it belongs here; anything added to STATUS later is denied until it is
+     * added here deliberately, and a null status is refused rather than let
+     * through by a comparison that quietly returns false.
+     */
+    const LOGIN_ALLOWED_STATUSES = [
+        self::STATUS_ONBOARDING,
+        self::STATUS_ACTIVE,
+    ];
+
     const PARTNER_TYPE_CERTIFIED = 'Certified Partner';
     const PARTNER_TYPE_WHITE_LABEL = 'White-Label Partner (WL)';
 

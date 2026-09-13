@@ -152,6 +152,19 @@ class Borrower extends Model
     const STATUS_SUSPENDED = 'Suspended';
     const STATUS_INACTIVE = 'Inactive';
 
+    /**
+     * The statuses allowed to sign in to the borrower portal.
+     *
+     * An allowlist rather than a list of banned statuses. OnBoarding is the
+     * default for a newly created borrower - BorrowerService and the lead
+     * conversion both set it - so it has to be here; anything added to
+     * getStatuses() later is denied until it is added here deliberately.
+     */
+    const LOGIN_ALLOWED_STATUSES = [
+        self::STATUS_ONBOARDING,
+        self::STATUS_ACTIVE,
+    ];
+
 
     /**
      * Get the user that owns the borrower.
