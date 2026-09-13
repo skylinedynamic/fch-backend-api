@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\Locations;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -11,16 +12,15 @@ use App\Models\Partner\Partner;
 
 class PartnerSeeder extends Seeder
 {
-    use LocationHelper;
 
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $loc1 = $this->getRandomLocation();
-        $loc2 = $this->getRandomLocation();
-        $loc3 = $this->getRandomLocation();
+        $loc1 = Locations::randomLocation();
+        $loc2 = Locations::randomLocation();
+        $loc3 = Locations::randomLocation();
 
         DB::table('partners')->insert([
             [

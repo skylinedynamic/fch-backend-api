@@ -279,6 +279,97 @@ if (!function_exists('getEmbedFormBaseUrl')) {
     }
 }
 
+if (!function_exists('normalizePhoneE164')) {
+    /**
+     * Normalise a US phone number to E.164 (+15551234567).
+     *
+     * Stored form. Applicants type whatever they like - (555) 123-4567,
+     * 555.123.4567, 5551234567, 1-555-123-4567 - and every one of those is the
+     * same number, which is why the raw string is no good as a stored value: it
+     * cannot be matched, deduplicated or dialled.
+     *
+     * Returns null when the digits do not make a valid US number, so a caller
+     * can tell "could not normalise" from "normalised to something".
+     */
+    function normalizePhoneE164(?string $phone, string $countryCode = '+1'): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        // A US number is 10 digits, or 11 with the country code already on it.
+        if ($countryCode === '+1') {
+            if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+                $digits = substr($digits, 1);
+            }
+
+            if (strlen($digits) !== 10) {
+                return null;
+            }
+
+            // NANP: neither the area code nor the exchange may start with 0 or 1.
+            if (in_array($digits[0], ['0', '1'], true) || in_array($digits[3], ['0', '1'], true)) {
+                return null;
+            }
+
+            return '+1' . $digits;
+        }
+
+        // Non-US: keep the digits behind the caller's country code rather than
+        // guessing at a national numbering plan we do not model.
+        $prefix = '+' . ltrim($countryCode, '+');
+        $bare = ltrim($countryCode, '+');
+
+        if (str_starts_with($digits, $bare)) {
+            $digits = substr($digits, strlen($bare));
+        }
+
+        // Drop the national trunk prefix. Most countries that use one - the UK,
+        // Germany, France, Australia among them - write a domestic number with a
+        // leading 0 that is omitted in E.164, so keeping it produces a number
+        // that cannot be dialled. (Italy is the notable exception and would need
+        // its own rule; nothing in this application dials Italian numbers.)
+        if (strlen($digits) > 1 && str_starts_with($digits, '0')) {
+            $digits = ltrim($digits, '0');
+        }
+
+        return $digits === '' ? null : $prefix . $digits;
+    }
+}
+
+if (!function_exists('formatPhoneDisplay')) {
+    /**
+     * Render a stored phone number the way people read it: (555) 123-4567.
+     *
+     * Display form only - never store this. A non-US or unparseable number is
+     * returned unchanged rather than mangled into a US shape.
+     */
+    function formatPhoneDisplay(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+            $digits = substr($digits, 1);
+        }
+
+        if (strlen($digits) !== 10) {
+            return $phone;
+        }
+
+        return sprintf('(%s) %s-%s', substr($digits, 0, 3), substr($digits, 3, 3), substr($digits, 6));
+    }
+}
+
 if (!function_exists('concatUrl')) {
     /**
      * Concatenate domain and path using appropriate protocol.

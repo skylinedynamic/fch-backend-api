@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Web;
 
-use App\Models\Common\AppConfiguration;
+use App\Models\Borrower\BorrowerDocType;
+use App\Models\User\User;
+use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -66,6 +68,28 @@ class EmbedFormPageController extends Controller
             'secondaryColor' => $secondaryColor,
             'publicKey' => $key,
             'apiBase' => config('app.url') . '/api',
+
+            // The funding application's own dropdowns and document buckets, so
+            // the public form asks for exactly what the portal's wizard does.
+            'options' => config('funding_application.options'),
+            'locations' => config('locations'),
+            'docTypes' => BorrowerDocType::query()
+                ->orderBy('sort_order')
+                ->get(['id', 'name'])
+                ->toArray(),
+
+            // Sales reps are picked from this partner's own active users, never
+            // typed, and never sourced from another tenant.
+            'salesReps' => User::salesRepresentatives($partnerId)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->toArray(),
+
+            'referralSources' => config('funding_application.embed_form.referral_sources', []),
+            'referralSourceOther' => config('funding_application.embed_form.referral_source_other', 'Other'),
+            'creditScore' => app(CreditScoreService::class)->toArray(),
+            'minimumAge' => (int) config('funding_application.embed_form.minimum_age', 18),
+            'postalCodeLength' => (int) config('funding_application.embed_form.postal_code_length', 5),
         ]);
     }
 }

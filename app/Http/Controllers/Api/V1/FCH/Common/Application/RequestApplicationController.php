@@ -70,6 +70,7 @@ class RequestApplicationController extends Controller
                 'sort_field'    => $input['sort_field'] ?? null,
                 'sort_order'    => $input['sort_order'] ?? null,
                 'status'        => $input['status'] ?? null,
+                'borrower_id'   => $input['borrower_id'] ?? null,
             ];
 
             return $this->requestApplicationService->getFundingApplicationList($filters);

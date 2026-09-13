@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\Locations;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -11,27 +12,26 @@ use App\Models\Borrower\Borrower;
 
 class BorrowerSeeder extends Seeder
 {
-    use LocationHelper;
 
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $loc1 = $this->getRandomLocation();
-        $loc1Business = $this->getRandomLocation();
+        $loc1 = Locations::randomLocation();
+        $loc1Business = Locations::randomLocation();
 
-        $loc2 = $this->getRandomLocation();
-        $loc2Business = $this->getRandomLocation();
+        $loc2 = Locations::randomLocation();
+        $loc2Business = Locations::randomLocation();
 
-        $loc3 = $this->getRandomLocation();
-        $loc3Business = $this->getRandomLocation();
+        $loc3 = Locations::randomLocation();
+        $loc3Business = Locations::randomLocation();
 
-        $loc4 = $this->getRandomLocation();
-        $loc4Business = $this->getRandomLocation();
+        $loc4 = Locations::randomLocation();
+        $loc4Business = Locations::randomLocation();
 
-        $loc5 = $this->getRandomLocation();
-        $loc5Business = $this->getRandomLocation();
+        $loc5 = Locations::randomLocation();
+        $loc5Business = Locations::randomLocation();
 
         DB::table('borrowers')->insert([
             [
