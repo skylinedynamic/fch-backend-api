@@ -430,7 +430,9 @@ class SubscriptionService
 
         $updateData = [
             'installments_paid' => 1,
-            'enrollment_completed_at' => $subscription->enrollment_completed_at ?: now(),
+            // A calendar date. The column is DATE and would truncate a time
+            // anyway; saying so here keeps the intent visible.
+            'enrollment_completed_at' => $subscription->enrollment_completed_at ?: now()->startOfDay(),
             'current_cycle_invoice_id' => null,
         ];
 
@@ -529,7 +531,7 @@ class SubscriptionService
 
             $updateData = [
                 'installments_paid' => $subscription->installments_paid + 1,
-                'enrollment_completed_at' => $isLastInstallment ? now() : null,
+                'enrollment_completed_at' => $isLastInstallment ? now()->startOfDay() : null,
                 'subscription_end_date' => $caughtUpTo,
                 'current_cycle_invoice_id' => null,
             ];

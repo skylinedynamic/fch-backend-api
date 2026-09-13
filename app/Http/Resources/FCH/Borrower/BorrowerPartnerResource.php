@@ -22,7 +22,7 @@ class BorrowerPartnerResource extends JsonResource
             'email'               => $this->email,
             'phone_number'        => $this->phone_number,
             'business_name'       => $this->business_name,
-            'business_start_date' => $this->business_start_date,
+            'business_start_date' => toDateOnly($this->business_start_date),
         ];
     }
 }

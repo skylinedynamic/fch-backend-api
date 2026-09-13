@@ -16,7 +16,9 @@ class BorrowerCreditProfileResource extends JsonResource
             'id' => $this->id,
             'personal_info' => $this->personal_info ?? [
                 'name' => $this->borrower?->first_name . ' ' . $this->borrower?->last_name,
-                'dob' => $this->borrower?->date_of_birth ? Carbon::parse($this->borrower?->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,
+                // A date of birth is a calendar date, not a moment: converting it to a
+                // viewer's timezone moves it back a day for anyone behind UTC.
+                'dob' => toDateOnly($this->borrower?->date_of_birth),
                 'ssn' => $this->borrower?->last_4_ssn,
                 'email' => $this->borrower?->email,
                 'phone' => $this->borrower?->phone_number,

@@ -23,7 +23,7 @@ class CoBorrowerResource extends JsonResource
             'email' => $this->email,
             'mobile_phone' => $this->mobile_phone,
             'home_phone' => $this->home_phone,
-            'date_of_birth' => $this->date_of_birth,
+            'date_of_birth' => toDateOnly($this->date_of_birth),
             'ssn' => $this->ssn,
             'street_address' => $this->street_address,
             'city' => $this->city,

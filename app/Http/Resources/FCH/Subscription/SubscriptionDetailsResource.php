@@ -82,7 +82,7 @@ class SubscriptionDetailsResource extends JsonResource
 
             // Enrollment / Billing Status
             'is_enrollment_completed' => $isEnrollmentCompleted,
-            'enrollment_completed_at' => toTimezone($this->enrollment_completed_at),
+            'enrollment_completed_at' => toDateOnly($this->enrollment_completed_at),
             'next_billing_date' => $nextBillingDate,
             'next_billing_type' => $nextBillingType,
             'next_billing_amount' => $nextBillingAmount,

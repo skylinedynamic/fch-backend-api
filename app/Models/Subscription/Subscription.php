@@ -98,7 +98,9 @@ class Subscription extends Model
         'is_custom' => 'boolean',
         'current_phase' => 'string',
         'installments_paid' => 'integer',
-        'enrollment_completed_at' => 'datetime',
+        // A calendar date: the day enrollment finished. Never a moment -
+        // see the migration that narrowed the column.
+        'enrollment_completed_at' => 'date',
         'user_seats' => 'integer',
         'per_seat_amount' => 'decimal:2',
     ];

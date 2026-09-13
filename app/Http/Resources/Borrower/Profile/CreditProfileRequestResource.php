@@ -32,7 +32,8 @@ class CreditProfileRequestResource extends JsonResource
             'state' => $this->state,
             'zip' => $this->zip,
             'ssn' => $this->ssn,
-            'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,
+            // A calendar date, never timezone-converted - see toDateOnly().
+            'date_of_birth' => toDateOnly($this->date_of_birth),
             'phone' => $this->phone,
             'email' => $this->email,
             'created_at' => $this->created_at,

@@ -30,7 +30,7 @@ class BorrowerProfileResource extends JsonResource
             'postal_code'   => $this->postal_code,
             'home_address'  => $this->home_address,
             'home_phone'    => $this->home_phone,
-            'date_of_birth' => $this->date_of_birth,
+            'date_of_birth' => toDateOnly($this->date_of_birth),
             'last_4_ssn'    => $this->last_4_ssn,
             
             // Business
@@ -53,7 +53,7 @@ class BorrowerProfileResource extends JsonResource
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,
             'state_file_number'         => $this->state_file_number,
-            'business_start_date'       => $this->business_start_date,
+            'business_start_date'       => toDateOnly($this->business_start_date),
 
             // Financial
             'currency'                  => $this->currency,
@@ -113,7 +113,7 @@ class BorrowerProfileResource extends JsonResource
                 ],
                 'personal_info' => [
                     'name' => $this->first_name . ' ' . $this->last_name,
-                    'dob' => $this->date_of_birth,
+                    'dob' => toDateOnly($this->date_of_birth),
                     'ssn' => $this->last_4_ssn,
                     'email' => $this->email,
                     'phone' => $this->phone_number,
