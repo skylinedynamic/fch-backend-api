@@ -685,8 +685,8 @@
                         <input type="text" class="form-control" id="business_other_city" placeholder="Enter city">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold small mb-1">Postal Code <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="business_postal_code" id="business_postal_code" data-req
+                        <label class="form-label fw-semibold small mb-1">Postal Code</label>
+                        <input type="text" class="form-control" name="business_postal_code" id="business_postal_code"
                                data-type="postal" inputmode="numeric" maxlength="{{ $postalCodeLength }}" placeholder="10001">
                     </div>
                     <div class="col-md-6">
@@ -800,8 +800,8 @@
                         <input type="text" class="form-control" id="other_city" placeholder="Enter city">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold small mb-1">ZIP Code <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="zip_code" id="zip_code" data-req
+                        <label class="form-label fw-semibold small mb-1">ZIP Code</label>
+                        <input type="text" class="form-control" name="zip_code" id="zip_code"
                                data-type="postal" inputmode="numeric" maxlength="{{ $postalCodeLength }}" placeholder="10001">
                     </div>
                 </div>
@@ -1632,6 +1632,24 @@
                 clearInvalid(score);
             }
         }
+
+        // Business and ownership: the zip code is optional, but a partial one
+        // is a typo rather than a choice, so it is checked once typed. Same
+        // reasoning as the credit score above - data-req would make it
+        // mandatory, so the check lives here instead.
+        [
+            ['business_postal_code', 1],
+            ['zip_code', 2],
+        ].forEach(([id, zipStep]) => {
+            if (step !== zipStep) return;
+            const zip = document.getElementById(id);
+            if (zip.value.trim() && !fieldIsValid(zip)) {
+                markInvalid(zip);
+                valid = false;
+            } else {
+                clearInvalid(zip);
+            }
+        });
 
         // Financial: a debt balance is required alongside a Yes.
         if (step === 3 && tab.querySelector('input[name="has_business_debt"][value="1"]:checked')) {

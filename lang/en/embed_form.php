@@ -53,7 +53,6 @@ return [
 
     // Ownership
     'ownership_max' => 'Ownership percentage cannot exceed 100%.',
-    'postal_code_digits' => 'Enter a 5-digit ZIP code.',
 
     // Financial
     'monthly_revenue_required' => 'Average monthly revenue is required.',

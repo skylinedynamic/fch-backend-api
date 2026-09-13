@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPostalCode;
 
 class StoreCreditProfileRequestRequest extends BaseApiRequest
 {
@@ -27,7 +28,7 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
             'apt_suite_other' => 'nullable|string|max:255',
             'city' => 'required|string|max:255',
             'state' => 'required|string|max:255',
-            'zip' => 'required|string|max:255',
+            'zip' => ['required', 'string', new UsPostalCode()],
             'ssn' => 'required|string|max:255',
             'date_of_birth' => 'required|date',
             'phone' => 'required|string|max:255',

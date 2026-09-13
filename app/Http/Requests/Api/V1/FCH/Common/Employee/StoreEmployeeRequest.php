@@ -8,6 +8,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Rules\UsPostalCode;
 
 class StoreEmployeeRequest extends BaseApiRequest
 {
@@ -46,7 +47,7 @@ class StoreEmployeeRequest extends BaseApiRequest
             'gender'         => ['nullable'],
             'city'           => ['required', 'string', 'max:255'],
             'state'          => ['required', 'string', 'max:255'],
-            'postal_code'    => ['nullable', 'string', 'max:50'],
+            'postal_code'    => ['nullable', 'string', new UsPostalCode()],
             'country'        => ['required', 'string', 'max:255'],
             'country_code'   => ['nullable'],
             'image'          => ['nullable'],

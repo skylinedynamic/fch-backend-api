@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdatePartnerRequest extends BaseApiRequest
 {
@@ -59,7 +60,7 @@ class UpdatePartnerRequest extends BaseApiRequest
             'state'                      => ['sometimes', 'nullable', 'string', 'max:100'],
             'city'                       => ['sometimes', 'nullable', 'string', 'max:100'],
             'country'                    => ['sometimes', 'required', 'string', 'max:100'],
-            'postal_code'                => ['nullable', 'string', 'max:20'],
+            'postal_code'                => ['nullable', 'string', new UsPostalCode()],
             'address_line_1'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'address_line_2'             => ['nullable', 'string', 'max:255'],
             'tax_id'                     => ['nullable', 'string', 'max:100'],

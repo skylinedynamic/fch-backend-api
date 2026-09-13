@@ -245,10 +245,20 @@ return [
     |
     */
 
-    'embed_form' => [
+    /*
+    |--------------------------------------------------------------------------
+    | Postal Code
+    |--------------------------------------------------------------------------
+    |
+    | How many digits a US ZIP code has. Sits at the top level rather than under
+    | embed_form because App\Rules\UsPostalCode reads it for every zip field in
+    | both portals, not just the public form.
+    |
+    */
 
-        // US ZIP: exactly five digits.
-        'postal_code_length' => 5,
+    'postal_code_length' => 5,
+
+    'embed_form' => [
 
         // Currency bounds. A submission outside these is refused rather than
         // passed to a partner as a serious enquiry.

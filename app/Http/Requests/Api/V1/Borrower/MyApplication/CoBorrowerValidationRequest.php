@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\MyApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPostalCode;
 
 class CoBorrowerValidationRequest extends BaseApiRequest
 {
@@ -35,7 +36,7 @@ class CoBorrowerValidationRequest extends BaseApiRequest
             'country' => 'required|string|max:255',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['required', 'string', new UsPostalCode()],
             'driver_license_number' => 'nullable|string|max:255',
             'driver_license_state' => 'nullable|string|max:255',
         ];

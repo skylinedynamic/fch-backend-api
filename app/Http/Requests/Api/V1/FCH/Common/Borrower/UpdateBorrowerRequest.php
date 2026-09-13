@@ -7,6 +7,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -47,7 +48,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'state'        => ['sometimes', 'nullable', 'string', 'max:255'],
             'city'         => ['sometimes', 'nullable', 'string', 'max:255'],
             'other_city'   => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
-            'postal_code'  => ['nullable', 'string', 'max:255'],
+            'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
             'date_of_birth'=> ['nullable'],
             'last_4_ssn'   => ['nullable', 'string', 'max:4'],

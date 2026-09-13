@@ -3,6 +3,7 @@
 namespace Tests\Unit\EmbeddedForm;
 
 use App\Rules\UsPhoneNumber;
+use App\Rules\UsPostalCode;
 use Illuminate\Support\Facades\Validator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -28,9 +29,10 @@ class SubmitEmbedFormRequestTest extends TestCase
 
     private function postalRules(): array
     {
-        $length = (int) config('funding_application.embed_form.postal_code_length');
-
-        return ['zip_code' => ['required', 'string', "digits:{$length}"]];
+        // The shared rule itself, not a hand-built copy of it, so this test
+        // still describes what the form actually validates against. Optional,
+        // because the form no longer demands a zip - only a well-formed one.
+        return ['zip_code' => ['nullable', 'string', new UsPostalCode()]];
     }
 
     public static function badPostalCodes(): array
@@ -41,7 +43,6 @@ class SubmitEmbedFormRequestTest extends TestCase
             'contains a letter' => ['1000A'],
             'ZIP+4' => ['75201-1234'],
             'padded with a space' => [' 12345'],
-            'empty' => [''],
         ];
     }
 
@@ -53,10 +54,19 @@ class SubmitEmbedFormRequestTest extends TestCase
     }
 
     #[Test]
+    public function a_postal_code_may_be_left_blank(): void
+    {
+        // Optional, but not a licence to submit half of one - the cases above
+        // are still rejected.
+        $this->assertFalse($this->fails($this->postalRules(), ['zip_code' => '']));
+        $this->assertFalse($this->fails($this->postalRules(), []));
+    }
+
+    #[Test]
     public function a_five_digit_postal_code_passes(): void
     {
         $this->assertFalse($this->fails($this->postalRules(), ['zip_code' => '75201']));
-        // A leading zero must survive - digits: treats it as a string, so 01234
+        // A leading zero must survive - the rule matches the string, so 01234
         // is five digits and not the number 1234.
         $this->assertFalse($this->fails($this->postalRules(), ['zip_code' => '01234']));
     }

@@ -9,6 +9,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Rules\UsPostalCode;
 
 class EmbedFormPageController extends Controller
 {
@@ -89,7 +90,7 @@ class EmbedFormPageController extends Controller
             'referralSourceOther' => config('funding_application.embed_form.referral_source_other', 'Other'),
             'creditScore' => app(CreditScoreService::class)->toArray(),
             'minimumAge' => (int) config('funding_application.embed_form.minimum_age', 18),
-            'postalCodeLength' => (int) config('funding_application.embed_form.postal_code_length', 5),
+            'postalCodeLength' => UsPostalCode::length(),
         ]);
     }
 }

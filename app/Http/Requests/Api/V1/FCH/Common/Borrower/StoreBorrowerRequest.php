@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class StoreBorrowerRequest extends BaseApiRequest
 {
@@ -30,7 +31,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'city'                 => ['nullable', 'string', 'max:255'],
             'other_city'           => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'country_code'         => ['nullable', 'string', 'max:5'],
-            'postal_code'          => ['nullable', 'string', 'max:20'],
+            'postal_code'          => ['nullable', 'string', new UsPostalCode()],
             'home_address'         => ['nullable', 'string', 'max:255'],
             'date_of_birth'        => ['nullable'],
             'last_4_ssn'           => ['nullable', 'string', 'max:4'],

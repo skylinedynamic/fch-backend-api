@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPostalCode;
 
 class StoreOwnershipInfoRequest extends BaseApiRequest
 {
@@ -33,7 +34,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'street_address' => 'required|string|max:255',
             'city' => 'required|string|max:255',
             'state' => 'required|string|max:255',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'ownership' => 'required|numeric',
             'has_co_borrower' => 'nullable|boolean',
             'co_borrowers' => 'nullable|array',
@@ -67,7 +68,6 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
             'state.string' => __('borrower_validation.state_string'),
             'state.max' => __('borrower_validation.state_max'),
             'zip_code.string' => __('borrower_validation.zip_code_string'),
-            'zip_code.max' => __('borrower_validation.zip_code_max'),
             'ownership.numeric' => __('borrower_validation.ownership_numeric'),
             'has_co_borrower.boolean' => __('borrower_validation.has_co_borrower_boolean'),
         ];

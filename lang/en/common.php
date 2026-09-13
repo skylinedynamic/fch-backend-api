@@ -16,4 +16,5 @@ return [
     'error_global_configurations_retrieved' => 'Failed to retrieve global configurations.',
     'email_changed_subject' => 'Your Email has been changed',
     'password_updated_subject' => 'Your Password has been updated',
+    'postal_code_invalid' => 'Enter a 5-digit ZIP code, e.g. 10001.',
 ];

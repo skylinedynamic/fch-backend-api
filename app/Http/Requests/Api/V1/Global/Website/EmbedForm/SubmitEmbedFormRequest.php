@@ -11,6 +11,7 @@ use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 /**
  * Validation for the public embedded funding application.
@@ -140,7 +141,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'business_address' => ['required', 'string', 'max:255'],
             'business_city' => ['required', 'string', 'max:255'],
             'business_state' => ['required', 'string', 'max:255'],
-            'business_postal_code' => array_merge(['required'], $this->postalCodeRules()),
+            'business_postal_code' => array_merge(['nullable'], $this->postalCodeRules()),
             'industry_type' => ['required', 'string', 'max:255'],
             'entity_type' => ['required', 'string', 'max:255'],
             'years_in_business' => ['required', 'string', 'max:255'],
@@ -174,7 +175,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'country' => ['nullable', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],
-            'zip_code' => array_merge(['required'], $this->postalCodeRules()),
+            'zip_code' => array_merge(['nullable'], $this->postalCodeRules()),
             'ownership' => ['required', 'numeric', 'min:0', 'max:100'],
             'has_co_borrower' => ['nullable', 'boolean'],
         ];
@@ -252,17 +253,13 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     }
 
     /**
-     * A US ZIP code: exactly five digits.
-     *
-     * `digits` rather than `size`, so "1234x" and " 12345" are rejected rather
-     * than counted as five characters.
+     * A US ZIP code, validated by the same rule every other zip field in both
+     * portals uses, so the public form cannot accept something the portals
+     * would reject.
      */
     protected function postalCodeRules(): array
     {
-        return [
-            'string',
-            'digits:' . (int) config('funding_application.embed_form.postal_code_length', 5),
-        ];
+        return ['string', new UsPostalCode()];
     }
 
     /**
@@ -480,9 +477,6 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'ssn.digits' => __('embed_form.ssn_format'),
             'co_borrowers.*.ssn.digits' => __('embed_form.ssn_format'),
             'ownership.max' => __('embed_form.ownership_max'),
-            'business_postal_code.digits' => __('embed_form.postal_code_digits'),
-            'zip_code.digits' => __('embed_form.postal_code_digits'),
-            'co_borrowers.*.zip_code.digits' => __('embed_form.postal_code_digits'),
             'monthly_revenue.required' => __('embed_form.monthly_revenue_required'),
             'phone.required' => __('embed_form.phone_required'),
             'date_of_birth.before_or_equal' => __('embed_form.minimum_age', ['age' => config('funding_application.embed_form.minimum_age', 18)]),

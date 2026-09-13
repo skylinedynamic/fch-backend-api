@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdateBusinessInfoRequest extends BaseApiRequest
 {
@@ -33,7 +34,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_country_code' => 'required|string|max:5',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
-            'business_zip_code' => 'required|string|size:5',
+            'business_zip_code' => ['required', 'string', new UsPostalCode()],
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_entity_type_note' => 'required_if:business_entity_type,' . config('borrower.entity_type_other') . '|nullable|string|max:255',
@@ -77,8 +78,6 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_state.max' => __('borrower_validation.business_state_max'),
             'business_zip_code.required' => __('borrower_validation.business_zip_code_required'),
             'business_zip_code.string' => __('borrower_validation.business_zip_code_string'),
-            'business_zip_code.max' => __('borrower_validation.business_zip_code_max'),
-            'business_zip_code.size' => __('borrower_validation.business_zip_code_size'),
             'business_entity_type.required' => __('borrower_validation.business_entity_type_required'),
             'business_entity_type.string' => __('borrower_validation.business_entity_type_string'),
             'business_entity_type.max' => __('borrower_validation.business_entity_type_max'),
