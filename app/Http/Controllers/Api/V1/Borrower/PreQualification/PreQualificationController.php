@@ -134,7 +134,7 @@ class PreQualificationController extends Controller
         } catch (ModelNotFoundException $e) {
             return ApiResponse::notFound($e->getMessage());
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Pre-qualification underwriting retry failed', [
                 'user_id' => Auth::id(),
                 'pre_qualification_request_id' => $request->validated()['id'] ?? null,
@@ -159,7 +159,7 @@ class PreQualificationController extends Controller
             // it answers 404 with the reason instead of a blank server error.
             return ApiResponse::notFound($e->getMessage());
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Anything else is a genuine failure and must leave a trace — this
             // previously returned a generic 500 and logged nothing at all.
             Log::error('Pre-qualification submission failed', [

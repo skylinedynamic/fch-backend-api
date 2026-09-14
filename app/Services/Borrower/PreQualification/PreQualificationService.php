@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use App\Mail\PreQualificationSubmitted;
 use Illuminate\Support\Facades\Mail;
 
@@ -50,8 +49,11 @@ class PreQualificationService
         if ($record->partner && $record->partner->email) {
             try {
                 Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
-            } catch (\Exception $e) {
-                Log::error('Failed to send pre-qualification email to partner', ['error' => $e->getMessage()]);
+            } catch (\Throwable $e) {
+                Log::error('Failed to send pre-qualification email to partner', [
+                    'record_id' => $record->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
