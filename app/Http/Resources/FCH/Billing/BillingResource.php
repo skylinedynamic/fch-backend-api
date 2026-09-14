@@ -102,11 +102,13 @@ class BillingResource extends JsonResource
                 Employee::class => $employee?->email,
                 default => null,
             },
-            // The date the cron will next bill, which is expected_end_date — NOT
-            // subscription_end_date, which records what the customer has already
-            // paid through and sits in the past once a cycle has been missed.
-            'upcoming_billing_date' => toDateOnly($this->expected_end_date),
-            'paid_through_date' => toDateOnly($this->subscription_end_date),
+            // One cycle date now: it is both what the customer is paid through and
+            // when the cron next bills them. NULL means nothing is scheduled -
+            // either a borrower who has paid in full (current_phase 'completed') or
+            // a subscriber whose first payment has not landed. There used to be a
+            // separate paid_through_date; it would now carry the identical value, so
+            // the UI was showing every row its own billing date twice.
+            'upcoming_billing_date' => toDateOnly($this->subscription_end_date),
             'upcoming_billing_amount' => (float) $billingAmount,
             'upcoming_billing_type' => $billingType,
             // Billing is paused while the subscriber (or a borrower's partner) is
@@ -119,7 +121,6 @@ class BillingResource extends JsonResource
             'outstanding_amount' => (float) ($this->relationLoaded('unpaidInvoices')
                 ? $this->unpaidInvoices->sum('payment_amount')
                 : 0),
-            'billing_paused_at' => toTimezone($this->billing_paused_at, null, 'Y-m-d'),
             'current_phase' => $this->current_phase,
             'enrollment_type' => $this->enrollment_type,
             'status' => $this->status ?? Subscription::STATUS_ACTIVE,

@@ -89,12 +89,42 @@ use Illuminate\Support\Facades\DB;
  * ---------------------------------------------------------------------------
  * 2b. SUBSCRIPTIONS BUILT FROM A NON-ENROLLMENT PLAN
  * ---------------------------------------------------------------------------
- * A subscription created from a borrower_fee or user_seat plan is a mis-creation:
- * those are one-off / seat charges, not enrollments, so no subscription should
- * exist for them. Such a row is SOFT-DELETED. Its invoices are kept, typed,
- * re-addressed to the partner and detached (subscription_id -> NULL) first, so the
- * money stays on the books and nothing points at a deleted parent. Pin the row in
- * PLAN_OVERRIDES instead if it really is a genuine enrollment on the wrong plan.
+ * A subscription created from a user_seat plan is a mis-creation: a seat is a
+ * recurring per-head charge, not an enrollment, so no subscription should exist for
+ * it. Such a row is SOFT-DELETED. Its invoices are kept, typed, re-addressed to the
+ * partner and detached (subscription_id -> NULL) first, so the money stays on the
+ * books and nothing points at a deleted parent. Pin the row in PLAN_OVERRIDES
+ * instead if it really is a genuine enrollment on the wrong plan.
+ *
+ * A borrower_fee row - enrollment_type "Fixed Enrollment" - is NOT deleted. It used
+ * to be, on the same reasoning. It is now CONVERTED to a One Time Payment
+ * enrollment, because the money was collected and the customer is enrolled:
+ *
+ *   subscription_plan_id   the entity's active One Time Payment enrollment plan
+ *                          (Borrower -> borrower_enrollment, Partner -> its type)
+ *   enrollment_type        One Time Payment
+ *   installment_count      1
+ *   installments_paid      1 when any invoice of its own was paid, else 0
+ *   current_phase          completed
+ *   subscription_end_date  NULL
+ *   subscription_end_date  NULL
+ *   deleted_at             NULL - a row deleted by an earlier run is restored
+ *
+ * The amount stays what was actually invoiced (the borrower fee), not the list
+ * price of the One Time Payment plan it now points at - the seeder's rule
+ * everywhere else. Pin MONTHLY_AMOUNT_OVERRIDES / PLAN_OVERRIDES to disagree.
+ *
+ * ---------------------------------------------------------------------------
+ * 2c. THE CYCLE DATE IS NOT REPAIRED
+ * ---------------------------------------------------------------------------
+ * subscription_end_date says when a customer is next charged. That is live billing
+ * data, not something this seeder can reconstruct from history, so an existing
+ * value is left exactly as it is.
+ *
+ * The single exception is clearing it. A subscription with nothing left to bill
+ * must carry NULL: both portals lock a profile once today is past
+ * subscription_end_date, so a date left on a borrower who has paid in full locks
+ * them out of their own account.
  *
  * ---------------------------------------------------------------------------
  * 3. SUBSCRIPTION COLUMNS
@@ -131,13 +161,11 @@ use Illuminate\Support\Facades\DB;
  *                          arrived. Never set to Completed (PHASE_COMPLETED is what
  *                          records "nothing left to bill"), and a deliberate
  *                          Cancelled / Expired / Past Due is left untouched.
- *   subscription_end_date  paid through — the date of the last real payment
- *   expected_end_date      the next cycle the cron should bill, rolled forward to a
- *                          FUTURE date so repairing a long-broken row does not fire
- *                          a backlog of catch-up invoices. NULL when nothing is
- *                          scheduled: a finished borrower plan, or a customer who
- *                          has never paid (their signup invoice is already open and
- *                          the cron does not schedule until the first payment).
+ *   subscription_end_date  the one cycle date — what the customer is paid through
+ *                          AND when the cron next bills them.
+ *                          Left untouched when one is already set. Cleared to
+ *                          NULL when nothing is left to bill: a borrower who has
+ *                          paid in full, or a fee-settled row.
  *   enrollment_completed_at
  *                          the date enrollment finished, when it has
  *
@@ -204,6 +232,7 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
 
     protected int $subscriptionsRepaired = 0;
     protected int $subscriptionsDeleted = 0;
+    protected int $subscriptionsRestored = 0;
     protected int $invoicesRepaired = 0;
     protected int $paymentsRepaired = 0;
     protected int $usersFlagged = 0;
@@ -235,7 +264,22 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
         try {
             // entity is eager loaded because the app runs with
             // Model::preventLazyLoading() in non-production environments.
-            $subscriptions = Subscription::with('entity')->orderBy('id')->get();
+            // Soft-deleted Fixed Enrollment rows are pulled back in: an earlier
+            // run dissolved them as mis-creations, and they are now converted to a
+            // One Time Payment enrollment instead, so they have to be reachable
+            // again. Every other deleted row stays deleted.
+            $fixedEnrollmentPlanIds = SubscriptionPlan::withTrashed()
+                ->where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE)
+                ->pluck('id');
+
+            $subscriptions = Subscription::with('entity')
+                ->withTrashed()
+                ->where(function ($q) use ($fixedEnrollmentPlanIds) {
+                    $q->whereNull('deleted_at')
+                        ->orWhereIn('subscription_plan_id', $fixedEnrollmentPlanIds);
+                })
+                ->orderBy('id')
+                ->get();
 
             $this->line(sprintf(' %d subscription(s) to inspect', $subscriptions->count()));
 
@@ -295,13 +339,22 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
             ? SubscriptionPlan::withTrashed()->find($subscription->subscription_plan_id)
             : null;
 
-        if ($currentPlan && in_array($currentPlan->group, [
-            SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE,
-            SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT,
-        ], true) && !isset(self::PLAN_OVERRIDES[$subscription->id])) {
+        if ($currentPlan
+            && $currentPlan->group === SubscriptionPlan::SUBSCRIPTION_PLAN_USER_SEAT
+            && !isset(self::PLAN_OVERRIDES[$subscription->id])) {
             $this->dissolveNonEnrollmentSubscription($subscription, $currentPlan);
             return;
         }
+
+        // A borrower_fee row is the "Fixed Enrollment" case. It used to be
+        // dissolved alongside the seat rows, on the reasoning that the borrower fee
+        // is a one-off charge the partner owes and never an enrollment. It is now
+        // kept and converted instead: the money was collected and the customer is
+        // enrolled, so the row is remapped onto the entity's One Time Payment plan
+        // below, settled in full, and taken off the billing schedule.
+        $wasFixedEnrollment = $currentPlan
+            && $currentPlan->group === SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_FEE
+            && !isset(self::PLAN_OVERRIDES[$subscription->id]);
 
         $resolved = $this->resolvePlan($subscription, $entity, $isBorrower);
 
@@ -330,12 +383,41 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
             ->where('status', Invoice::STATUS_PAID)
             ->where('type', Invoice::INVOICE_TYPE_DOWN_PAYMENT);
 
+        // A row whose only settled charge is the borrower fee - the "Fixed
+        // Enrollment" case. Recognised from its invoices and its amount rather than
+        // from its plan, because the plan is exactly what the conversion changes:
+        // keying on the plan made the row report itself unpaid again the second
+        // time the seeder ran, undoing its own repair. The amount has to match too,
+        // so a fee collected alongside a genuinely unpaid enrollment is never
+        // mistaken for payment of it.
+        $feePaid = $invoices
+            ->where('status', Invoice::STATUS_PAID)
+            ->where('type', Invoice::INVOICE_TYPE_BORROWER_FEE)
+            ->sortBy(fn($i) => $this->invoicePaidAt($i));
+
+        $settledByFeeOnly = !$isInstallment
+            && $paidCycle->isEmpty()
+            && $paidDown->isEmpty()
+            && $feePaid->isNotEmpty()
+            && abs((float) $feePaid->sum('payment_amount') - (float) ($subscription->payable_amount ?? 0)) < 0.01;
+
         $allPaid = $paidCycle->merge($paidDown)
             ->sortBy(fn($i) => $this->invoicePaidAt($i));
 
         $hasAnyPayment = $allPaid->isNotEmpty();
         $firstPaidAt   = $allPaid->isNotEmpty() ? $this->invoicePaidAt($allPaid->first()) : null;
         $lastPaidAt    = $allPaid->isNotEmpty() ? $this->invoicePaidAt($allPaid->last()) : null;
+
+        // The counters above only read enrollment / installment / down payment
+        // invoices, so a fee-settled row looks unpaid to them. The fee is the
+        // payment, and its dates are the payment dates - without them "enrollment
+        // completed" has nothing to point at and falls back to now(), stamping
+        // today onto an enrollment settled months ago.
+        if ($settledByFeeOnly) {
+            $hasAnyPayment = true;
+            $firstPaidAt   = $this->invoicePaidAt($feePaid->first());
+            $lastPaidAt    = $this->invoicePaidAt($feePaid->last());
+        }
 
         if ($isInstallment) {
             $monthly    = $this->resolveMonthlyAmount($subscription, $invoices, $plan, $term);
@@ -365,6 +447,13 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
             $phase = Subscription::PHASE_ENROLLMENT;
         }
 
+        // A fee-settled row is done: one payment, nothing left. Stated outright
+        // rather than left to the branch above, which would put a Partner into
+        // platform_fee.
+        if ($settledByFeeOnly && $isComplete) {
+            $phase = Subscription::PHASE_COMPLETED;
+        }
+
         // Only ever promote Pending -> Active. A deliberate Cancelled / Expired /
         // Past Due is left as the business set it — this seeder cannot know why.
         $status = $subscription->status;
@@ -372,22 +461,59 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
             $status = Subscription::STATUS_ACTIVE;
         }
 
-        $paidThrough = $lastPaidAt ? Carbon::parse($lastPaidAt)->startOfDay() : null;
-
         // A borrower that finished paying owes nothing further. A partner rolls into
         // the recurring platform fee and must keep a live schedule.
         $nothingLeftToBill = $isComplete && $isBorrower;
 
-        $expectedEnd = null;
-        if (!$nothingLeftToBill && $paidThrough) {
-            $expectedEnd = $paidThrough->copy()->addMonth();
+        // The cycle date a row already carries is real billing data - it says when
+        // the customer is next charged - so the repair leaves it exactly as it is.
+        // It is recomputed in one case only: a subscription with nothing left to
+        // bill must carry NULL, because both portals lock a profile once today is
+        // past subscription_end_date, so a date left on a finished borrower locks
+        // them out of their own account.
+        $cycleDate = $subscription->subscription_end_date
+            ? Carbon::parse($subscription->subscription_end_date)->startOfDay()
+            : null;
 
-            // Walk past cycles missed while the row was broken, as createInvoiceIfDue()
-            // would have, so the cron resumes on a future date instead of firing a
-            // backlog of catch-up invoices on the next run.
-            $guard = 0;
-            while ($expectedEnd->isPast() && $guard++ < 240) {
-                $expectedEnd->addMonth();
+        if ($nothingLeftToBill || $settledByFeeOnly) {
+            $cycleDate = null;
+        }
+
+        // A cycle date equal to the start date is a zero-length billing period.
+        // Rows like this were written as "paid through the day they paid", so they
+        // read as overdue from the instant they were settled, and both portals lock
+        // a profile once today is past subscription_end_date - so the customer was
+        // locked out for the act of paying.
+        //
+        // A payment buys a month, so the date the row should carry is one month past
+        // the cycle payment that set it. This is the ONLY case where an existing
+        // date is recomputed: everywhere else it is left exactly as it is.
+        if ($cycleDate && $subscription->subscription_start_date) {
+            $startDate = Carbon::parse($subscription->subscription_start_date)->startOfDay();
+
+            if ($cycleDate->equalTo($startDate)) {
+                $lastCyclePaidAt = $invoices
+                    ->where('status', Invoice::STATUS_PAID)
+                    ->filter(fn($i) => in_array($i->type, Invoice::CYCLE_INVOICE_TYPES, true) || !$i->type)
+                    ->map(fn($i) => $this->invoicePaidAt($i))
+                    ->filter()
+                    ->sort()
+                    ->last();
+
+                if ($lastCyclePaidAt) {
+                    $cycleDate = Carbon::parse($lastCyclePaidAt)->startOfDay()->addMonth();
+
+                    $this->flagManual($subscription, sprintf(
+                        'cycle date equalled the start date (%s) - rebuilt as one month past the '
+                            . 'last cycle payment, %s. %s',
+                        $startDate->toDateString(),
+                        $cycleDate->toDateString(),
+                        $cycleDate->isPast()
+                            ? 'Still in the past, so they are genuinely behind: one invoice will be '
+                                . 'raised on the next cron run and they stay locked out until it is paid.'
+                            : 'Now in the future.'
+                    ));
+                }
             }
         }
 
@@ -419,8 +545,7 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
                 ?: ($firstPaidAt ? Carbon::parse($firstPaidAt)->toDateString() : null),
             'first_payment_date'            => $subscription->first_payment_date
                 ?: ($firstPaidAt ? Carbon::parse($firstPaidAt)->toDateString() : null),
-            'subscription_end_date'         => $paidThrough?->toDateString(),
-            'expected_end_date'             => $expectedEnd?->toDateString(),
+            'subscription_end_date'         => $cycleDate?->toDateString(),
             'enrollment_completed_at'       => $isComplete
                 ? ($subscription->enrollment_completed_at ?: ($lastPaidAt ? Carbon::parse($lastPaidAt) : now()))
                 : null,
@@ -429,6 +554,13 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
 
         if ($borrowerFeeInvoice) {
             $changes['borrower_fee_amount'] = (float) $borrowerFeeInvoice->payment_amount;
+        }
+
+        // Undo the earlier run's deletion. Converting a row that stays soft-deleted
+        // would change nothing a user can see.
+        if ($wasFixedEnrollment && $subscription->trashed()) {
+            $changes['deleted_at'] = null;
+            $this->subscriptionsRestored++;
         }
 
         if ($isPartner) {
@@ -448,7 +580,7 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
             }
         }
 
-        $this->recordBillingImpact($subscription, $expectedEnd);
+        $this->recordBillingImpact($subscription, $cycleDate);
 
         $diff = $this->diff($subscription, $changes);
 
@@ -1194,7 +1326,9 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
      */
     protected function recordBillingImpact(Subscription $subscription, ?Carbon $newExpectedEnd): void
     {
-        $old = $subscription->expected_end_date ? Carbon::parse($subscription->expected_end_date) : null;
+        $old = $subscription->subscription_end_date
+            ? Carbon::parse($subscription->subscription_end_date)
+            : null;
 
         if (!$newExpectedEnd || !$old || !$newExpectedEnd->lt($old)) {
             return;
@@ -1307,6 +1441,7 @@ class RepairSubscriptionBillingDataSeeder extends Seeder
         $this->line('--------------------------------------------------------------');
         $this->line(sprintf(' subscriptions repaired : %d', $this->subscriptionsRepaired));
         $this->line(sprintf(' subscriptions deleted  : %d (soft)', $this->subscriptionsDeleted));
+        $this->line(sprintf(' subscriptions restored : %d (Fixed Enrollment -> One Time Payment)', $this->subscriptionsRestored));
         $this->line(sprintf(' plans remapped         : %d', $this->plansRemapped));
         $this->line(sprintf(' invoices repaired      : %d', $this->invoicesRepaired));
         $this->line(sprintf(' payments repaired      : %d', $this->paymentsRepaired));

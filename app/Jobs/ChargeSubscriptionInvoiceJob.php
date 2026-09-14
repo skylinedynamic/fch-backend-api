@@ -109,15 +109,6 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         // The invoice is left Unpaid rather than failed: the debt stands and can
         // still be settled manually, it just is not auto-charged while the
         // subscriber's service is switched off.
-        if ($subscription?->billing_paused_at) {
-            Log::info('Skipped auto-charge: subscription billing is paused', [
-                'invoice_id' => $invoice->id,
-                'subscription_id' => $subscription->id,
-                'paused_at' => $subscription->billing_paused_at,
-            ]);
-            return;
-        }
-
         // 1. Resolve Payer Entity
         $payer = null;
         if ($invoice->is_partner_paying || in_array($invoice->entity_type, [User::class, Employee::class]) || in_array($subscription?->entity_type, [User::class, Employee::class])) {
@@ -137,12 +128,11 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
         // Never charge a card belonging to someone who is not Active.
         //
-        // This checks the PAYER directly rather than trusting subscription
-        // billing_paused_at, because that flag is only stamped by Step 1, which
-        // never sees a subscription whose expected_end_date is NULL (a finished
-        // borrower, or one still awaiting a first payment). Such a subscription can
-        // still carry an unpaid invoice — a borrower fee, say — and without this
-        // guard it would be auto-charged twice a day while the account is suspended.
+        // This checks the PAYER directly, not the subscription. Step 1 never sees a
+        // subscription whose subscription_end_date is NULL (a finished borrower, or
+        // one still awaiting a first payment), yet such a row can still carry an
+        // unpaid invoice — a borrower fee, say — and without this guard it would be
+        // auto-charged twice a day while the account is suspended.
         //
         // Left Unpaid rather than failed: the debt stands and can still be settled
         // manually once they are Active again.

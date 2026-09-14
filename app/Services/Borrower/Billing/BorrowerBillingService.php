@@ -142,7 +142,6 @@ class BorrowerBillingService
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
                 'subscription_start_date' => toDateOnly($subscription->subscription_start_date),
                 'subscription_end_date' => toDateOnly($subscription->subscription_end_date),
-                'expected_end_date' => toDateOnly($subscription->expected_end_date),
                 'enrollment_completed_at' => toTimezone($subscription->enrollment_completed_at),
                 'is_completed' => $isCompleted,
             ] : null,

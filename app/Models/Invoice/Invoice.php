@@ -73,6 +73,28 @@ class Invoice extends Model
     const INVOICE_TYPE_USER_SEAT = 'user_seat';
     const INVOICE_TYPE_COMMISSION_PAYOUT = 'commission_payout';
 
+    /**
+     * The invoice types that ARE this subscription's own billing cycle.
+     *
+     * Billing raises no new invoice while one of these is unpaid, so the list
+     * decides whose debt can hold a subscription's billing back. borrower_fee and
+     * commission_payout are deliberately absent: a borrower fee is owed by the
+     * PARTNER to the host and is only attached to the borrower's subscription for
+     * traceability, and a payout is money going the other way. Neither is the
+     * subscriber's own debt, so neither may stop them being billed.
+     *
+     * A NULL type counts as a cycle invoice. Legacy rows predate this column and
+     * are overwhelmingly enrollment or installment charges, so the safe reading of
+     * an untyped debt is "they owe us for this subscription".
+     */
+    const CYCLE_INVOICE_TYPES = [
+        self::INVOICE_TYPE_ENROLLMENT,
+        self::INVOICE_TYPE_DOWN_PAYMENT,
+        self::INVOICE_TYPE_INSTALLMENT,
+        self::INVOICE_TYPE_PLATFORM_FEE,
+        self::INVOICE_TYPE_USER_SEAT,
+    ];
+
 
 
     protected $casts = [
