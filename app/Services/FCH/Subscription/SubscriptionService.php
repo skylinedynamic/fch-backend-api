@@ -21,12 +21,10 @@ use App\Models\Subscription\Subscription;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
-use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
 use App\Http\Resources\FCH\Subscription\PartnerBorrowerFeeResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
-use App\Models\ActivityLog\ActivityLog;
 use App\Models\Partner\SubscriptionPlan;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
@@ -470,7 +468,6 @@ class SubscriptionService
     private function handleInstallmentPayment(Subscription $subscription, Invoice $invoice): void
     {
         $nextCycle = $this->nextCycleFrom($subscription);
-        $plan = $subscription->partnerPlan;
 
         // Set start date on first payment. subscription_start_date is only ever
         // written by this branch, so its absence alone reliably means "this is the
@@ -563,11 +560,10 @@ class SubscriptionService
      */
     private function nextCycleFrom(Subscription $subscription): Carbon
     {
-        $end = $subscription->subscription_end_date;
+        // subscription_end_date is cast to a date, so it arrives as Carbon already.
+        $end = $subscription->subscription_end_date?->copy()->startOfDay();
 
-        $anchor = $end && Carbon::parse($end)->startOfDay()->gt(today())
-            ? Carbon::parse($end)->startOfDay()
-            : today();
+        $anchor = $end && $end->gt(today()) ? $end : today();
 
         return $anchor->copy()->addMonth();
     }
@@ -677,54 +673,33 @@ class SubscriptionService
     {
         $dueDate = $subscription->subscription_end_date;
 
-        // No cycle date means nothing is scheduled: a borrower who has paid in
-        // full, or a subscription whose first invoice is raised at enrollment
-        // rather than by this cron.
+        // Nothing scheduled: a borrower who has paid in full, or a subscription
+        // whose first invoice is raised at enrollment rather than by this cron.
         if (!$dueDate) {
             return false;
         }
 
-        // One open invoice at a time. Until the customer pays what they already
-        // owe, no further invoice is raised for them - nothing is expired, nothing
-        // is rolled forward, and a debt can never stack into several invoices.
-        // This replaces the old grace-window / missed-cycle rollover entirely.
-        //
-        // Only the subscription's OWN cycle invoices count. A non-host partner's
-        // borrower fee is attached to the borrower's subscription for traceability
-        // but is the partner's debt, so an unpaid one must not stop the borrower
-        // being billed for their own installments.
-        $hasOpenInvoice = Invoice::where('subscription_id', $subscription->id)
-            ->where('status', Invoice::STATUS_UNPAID)
-            ->where(function ($q) {
-                $q->whereIn('type', Invoice::CYCLE_INVOICE_TYPES)
-                    ->orWhereNull('type');
-            })
-            ->exists();
-
-        if ($hasOpenInvoice) {
+        // One open invoice at a time. Until the customer pays what they already owe,
+        // no further invoice is raised - nothing is expired, nothing is rolled
+        // forward, and a debt can never stack into several invoices. Only the
+        // subscription's own cycle counts, so a borrower fee the PARTNER owes cannot
+        // hold the borrower's billing hostage.
+        if (Invoice::where('subscription_id', $subscription->id)->openCycle()->exists()) {
             return false;
         }
 
-        $parsedDueDate = Carbon::parse($dueDate)->startOfDay();
-        $generateBeforeDays = (int) config('subscription.generate_before_days', 5);
-        $earliestGenerateDate = $parsedDueDate->copy()->subDays($generateBeforeDays)->startOfDay();
+        // Raised generate_before_days ahead of the due date, so the invoice is
+        // waiting when the cycle lands.
+        $generateFrom = $dueDate->copy()
+            ->startOfDay()
+            ->subDays((int) config('subscription.generate_before_days', 5));
 
-        // Too early to raise this cycle yet.
-        if (Carbon::today()->lt($earliestGenerateDate)) {
-            return false;
-        }
-
-        // No further guard is needed, and an extra one did harm. There used to be a
-        // "was an invoice already raised for this subscription recently" check here,
-        // which matched invoices that had since been PAID and so refused to bill a
-        // subscription on any day it had already seen one - including the ordinary
-        // case of enrolling, paying, and reaching the next cycle.
-        //
-        // The two checks above are already airtight against duplicates. Run the cron
-        // twice in a day and the second run finds the first run's invoice open, so it
-        // raises nothing. Pay that invoice in between and subscription_end_date has
-        // moved a month out, so the cycle is no longer due. There is no third path.
-        return true;
+        // Those two checks are together airtight against duplicates, so there is no
+        // third guard: run the cron twice in a day and the second run finds the
+        // first run's invoice open; pay it in between and the cycle date has moved a
+        // month out. A "was one raised recently" check used to sit here and did harm,
+        // matching invoices that had since been PAID.
+        return today()->gte($generateFrom);
     }
 
     /**
@@ -886,16 +861,37 @@ class SubscriptionService
                     $amount = $subscription->per_seat_amount;
                 } else {
                     // enrollment or installment
-                    $invoiceCount = Invoice::where('subscription_id', $subscription->id)
-                        ->whereNotIn('type', [Invoice::INVOICE_TYPE_PLATFORM_FEE])
-                        ->count();
-                    $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
                     if ($subscription->installment_type == 1 && $subscription->installment_count > 0) {
-                        if ($invoiceCount == 0 && $hasDownPayment) {
-                            $amount = $subscription->down_payment;
-                        } else {
-                            $amount = ($subscription->total_subscription_amount - $subscription->down_payment) / $subscription->installment_count;
-                        }
+                        // Has the first cycle been billed yet? Counted over the
+                        // subscription's OWN cycle invoices: a borrower fee is the
+                        // partner's separate charge, and counting it made the row
+                        // look already-billed so the down payment was never raised.
+                        $isFirstCycle = !Invoice::where('subscription_id', $subscription->id)
+                            ->whereIn('type', [
+                                Invoice::INVOICE_TYPE_ENROLLMENT,
+                                Invoice::INVOICE_TYPE_DOWN_PAYMENT,
+                                Invoice::INVOICE_TYPE_INSTALLMENT,
+                            ])
+                            ->exists();
+
+                        $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
+
+                        // The monthly figure as EnrollmentService calculated it at
+                        // signup. Read, never recomputed: an installment plan always
+                        // carries subscription_amount_per_month, so a missing one is
+                        // a broken row, and billing something derived would paper
+                        // over it with a number nobody agreed to.
+                        //
+                        // This used to be (total_subscription_amount - down_payment)
+                        // / installment_count, which subtracted the down payment a
+                        // SECOND time: total_subscription_amount is already the
+                        // remaining balance after it. A 7696 plan with 1000 down over
+                        // 12 months was billed 474.67 a month instead of 558.00, so
+                        // the customer was undercharged every cycle and the plan
+                        // could never settle.
+                        $amount = $isFirstCycle && $hasDownPayment
+                            ? $subscription->down_payment
+                            : $subscription->subscription_amount_per_month;
                     } else {
                         $amount = $subscription->payable_amount;
                     }
@@ -915,10 +911,21 @@ class SubscriptionService
                 // Never generate a zero/invalid-amount invoice — a $0 charge attempt on
                 // Stripe fails and spams the admin failure-notification mailbox every cycle.
                 if ($amount === null || (float) $amount <= 0) {
+                    // Name the column the phase should have billed from, so a broken
+                    // row is identifiable from the log line alone rather than being
+                    // reported every cycle as a nameless "zero amount".
+                    $source = match ($phase) {
+                        Subscription::PHASE_PLATFORM_FEE => 'monthly_platform_fee',
+                        Subscription::PHASE_USER_SEAT => 'per_seat_amount',
+                        Subscription::PHASE_INSTALLMENT => 'subscription_amount_per_month',
+                        default => 'payable_amount',
+                    };
+
                     Log::warning('Skipped invoice generation: zero/invalid amount', [
                         'subscription_id' => $subscription->id,
                         'phase' => $phase,
                         'amount' => $amount,
+                        'expected_from' => $source,
                     ]);
                     return;
                 }
@@ -1009,23 +1016,28 @@ class SubscriptionService
      */
     public function generateDueInvoices(): void
     {
-        $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
+        $targetDate = today()
+            ->addDays((int) config('subscription.generate_before_days', 5))
+            ->toDateString();
 
         // Keyed on subscription_end_date, the only cycle date left. Rows with an
-        // invoice still open are skipped here as well as inside createInvoiceIfDue()
-        // - doing it in the query keeps the chunk small when many customers are
+        // invoice still open are excluded here as well as inside
+        // createInvoiceIfDue(), which keeps each chunk small when many customers are
         // behind.
-        Subscription::with(['entity', 'partnerPlan'])
+        //
+        // A plain comparison, not whereDate(): the column is already a DATE, so
+        // wrapping it in DATE() bought nothing and made its index unusable.
+        // The borrower's partner is eager loaded because billingBlockReason() reads
+        // it for every borrower — without it the cron ran a query per row.
+        Subscription::query()
+            ->with([
+                'entity' => fn($morphTo) => $morphTo->morphWith([Borrower::class => ['partner']]),
+                'partnerPlan',
+            ])
             ->where('status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('subscription_end_date')
-            ->whereDate('subscription_end_date', '<=', $targetDate)
-            ->whereDoesntHave('invoices', function ($q) {
-                $q->where('status', Invoice::STATUS_UNPAID)
-                    ->where(function ($inner) {
-                        $inner->whereIn('type', Invoice::CYCLE_INVOICE_TYPES)
-                            ->orWhereNull('type');
-                    });
-            })
+            ->where('subscription_end_date', '<=', $targetDate)
+            ->whereDoesntHave('invoices', fn($q) => $q->openCycle())
             ->chunkById(100, function ($subscriptions) {
                 foreach ($subscriptions as $subscription) {
                     $this->createInvoiceForSubscription($subscription);

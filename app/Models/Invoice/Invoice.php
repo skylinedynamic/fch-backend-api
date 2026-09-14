@@ -95,6 +95,21 @@ class Invoice extends Model
         self::INVOICE_TYPE_USER_SEAT,
     ];
 
+    /**
+     * An unpaid invoice that is the subscription's own billing cycle.
+     *
+     * The single definition of "this subscriber still owes us for their plan", used
+     * both to decide whether to raise the next invoice and to exclude such rows in
+     * bulk. Written once so the two can never drift apart.
+     */
+    public function scopeOpenCycle($query)
+    {
+        return $query->where('status', self::STATUS_UNPAID)
+            ->where(function ($q) {
+                $q->whereIn('type', self::CYCLE_INVOICE_TYPES)->orWhereNull('type');
+            });
+    }
+
 
 
     protected $casts = [

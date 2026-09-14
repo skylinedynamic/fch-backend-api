@@ -200,19 +200,30 @@ class SubscriptionBillingCycleTest extends TestCase
         $this->artisan('subscriptions:process-all')->assertSuccessful();
     }
 
+    /**
+     * The subscription's own enrollment / installment / platform-fee invoices.
+     *
+     * Spelled out rather than read from Invoice::CYCLE_INVOICE_TYPES on purpose:
+     * a test that counts using the same constant the code under test consults
+     * would keep passing if that constant were wrong.
+     */
     private function cycleInvoices(Subscription $subscription)
     {
         return Invoice::where('subscription_id', $subscription->id)
-            ->whereIn('type', Invoice::CYCLE_INVOICE_TYPES)
+            ->whereIn('type', [
+                Invoice::INVOICE_TYPE_ENROLLMENT,
+                Invoice::INVOICE_TYPE_DOWN_PAYMENT,
+                Invoice::INVOICE_TYPE_INSTALLMENT,
+                Invoice::INVOICE_TYPE_PLATFORM_FEE,
+            ])
             ->get();
     }
 
     private function openInvoice(Subscription $subscription): ?Invoice
     {
-        return Invoice::where('subscription_id', $subscription->id)
+        return $this->cycleInvoices($subscription)
             ->where('status', Invoice::STATUS_UNPAID)
-            ->whereIn('type', Invoice::CYCLE_INVOICE_TYPES)
-            ->latest('id')
+            ->sortByDesc('id')
             ->first();
     }
 
@@ -466,6 +477,213 @@ class SubscriptionBillingCycleTest extends TestCase
         $this->runCron();
 
         $this->assertCount(1, $this->cycleInvoices($subscription));
+    }
+
+    #[Test]
+    public function the_open_invoice_guard_holds_even_when_the_query_filter_is_bypassed(): void
+    {
+        // generateDueInvoices() already excludes rows with an open cycle invoice in
+        // SQL, so the cron never reaches the same check inside createInvoiceIfDue().
+        // That check is the second line of defence for any other caller, and without
+        // exercising it directly nothing would notice if it broke.
+        $reseller = $this->partner(isHost: false);
+        $subscription = $this->enrol($this->borrower($reseller, 'Direct'), $this->borrowerInstallment);
+
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+        $this->expire($subscription->fresh());
+
+        // Due, and nothing open yet: it would bill.
+        $this->assertTrue($this->callGuard($subscription->fresh()));
+
+        // Now leave a cycle invoice open.
+        $this->invoice($subscription->fresh(), Invoice::INVOICE_TYPE_INSTALLMENT);
+        $this->assertFalse($this->callGuard($subscription->fresh()), 'an open cycle invoice must block the next one');
+
+        // A borrower fee is the partner's debt and must not block anything.
+        Invoice::where('subscription_id', $subscription->id)
+            ->where('type', Invoice::INVOICE_TYPE_INSTALLMENT)
+            ->update(['status' => Invoice::STATUS_PAID]);
+        $this->invoice($subscription->fresh(), Invoice::INVOICE_TYPE_BORROWER_FEE, 800.00);
+
+        $this->assertTrue($this->callGuard($subscription->fresh()), 'a borrower fee must not block the cycle');
+    }
+
+    private function callGuard(Subscription $subscription): bool
+    {
+        $method = new \ReflectionMethod($this->service, 'createInvoiceIfDue');
+        $method->setAccessible(true);
+
+        return $method->invoke($this->service, $subscription);
+    }
+
+    // ── Invoice amounts ───────────────────────────────────────────────
+
+    #[Test]
+    public function an_installment_is_billed_at_the_agreed_monthly_figure_not_a_recomputed_one(): void
+    {
+        // The real numbers from a 7,696 partner plan: 1,000 down, 12 months, so the
+        // remaining 6,696 is 558.00 a month. total_subscription_amount ALREADY has
+        // the down payment removed, so recomputing the monthly figure by subtracting
+        // it again billed 474.67 - the customer underpaid every cycle and the plan
+        // could never settle.
+        $reseller = $this->partner(isHost: false);
+
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'installments_paid' => 1,
+            'down_payment' => 1000.00,
+            'payable_amount' => 7696.00,
+            'total_subscription_amount' => 6696.00,
+            'subscription_amount_per_month' => 558.00,
+            'current_phase' => Subscription::PHASE_INSTALLMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+            'subscription_start_date' => today()->copy()->subMonth(),
+        ]);
+
+        // The enrollment invoice enrol() opens would block the next cycle.
+        Invoice::where('subscription_id', $subscription->id)->update(['status' => Invoice::STATUS_PAID]);
+
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $raised = Invoice::where('subscription_id', $subscription->id)
+            ->where('type', Invoice::INVOICE_TYPE_INSTALLMENT)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($raised, 'the due cycle should have been billed');
+        $this->assertEquals(558.00, (float) $raised->payment_amount);
+        $this->assertNotEquals(474.67, round((float) $raised->payment_amount, 2), 'the down payment must not be subtracted twice');
+    }
+
+    #[Test]
+    public function a_borrower_fee_does_not_make_the_first_cycle_look_already_billed(): void
+    {
+        // The down payment is billed on the FIRST cycle. That used to be decided by
+        // counting every non-platform-fee invoice on the subscription, so a borrower
+        // fee - the partner's separate charge - made the row look already billed and
+        // the borrower was charged an installment instead of their down payment.
+        $reseller = $this->partner(isHost: false);
+        $borrower = $this->borrower($reseller, 'Downpayer');
+
+        $subscription = Subscription::create([
+            'entity_type' => Borrower::class,
+            'entity_id' => $borrower->id,
+            'subscription_plan_id' => $this->borrowerInstallment->id,
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'installments_paid' => 0,
+            'down_payment' => 100.00,
+            'payable_amount' => 3000.00,
+            'total_subscription_amount' => 2900.00,
+            'subscription_amount_per_month' => 241.67,
+            'monthly_platform_fee' => 0,
+            'current_phase' => Subscription::PHASE_INSTALLMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+            'subscription_start_date' => today()->copy()->subMonth(),
+            'subscription_end_date' => today()->copy()->subDay(),
+        ]);
+
+        // The partner's fee for bringing this borrower on, already settled.
+        $fee = $this->invoice($subscription, Invoice::INVOICE_TYPE_BORROWER_FEE, 800.00);
+        $fee->update(['status' => Invoice::STATUS_PAID]);
+
+        $this->runCron();
+
+        $raised = Invoice::where('subscription_id', $subscription->id)
+            ->whereIn('type', [Invoice::INVOICE_TYPE_DOWN_PAYMENT, Invoice::INVOICE_TYPE_INSTALLMENT])
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($raised);
+        $this->assertEquals(100.00, (float) $raised->payment_amount, 'the first cycle bills the down payment');
+    }
+
+    #[Test]
+    public function an_installment_row_with_no_monthly_figure_is_refused_rather_than_guessed(): void
+    {
+        // An installment plan always carries subscription_amount_per_month -
+        // EnrollmentService writes it at signup and the repair seeder rebuilds it.
+        // A row without one is broken, so nothing is billed: deriving an amount
+        // would invoice the customer a figure nobody agreed to, and would hide the
+        // defect behind a plausible-looking invoice.
+        $reseller = $this->partner(isHost: false);
+
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'installments_paid' => 1,
+            'down_payment' => 1000.00,
+            'payable_amount' => 7696.00,
+            'total_subscription_amount' => 6696.00,
+            'subscription_amount_per_month' => null,
+            'current_phase' => Subscription::PHASE_INSTALLMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+            'subscription_start_date' => today()->copy()->subMonth(),
+        ]);
+
+        Invoice::where('subscription_id', $subscription->id)->update(['status' => Invoice::STATUS_PAID]);
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $this->assertNull(
+            Invoice::where('subscription_id', $subscription->id)
+                ->where('type', Invoice::INVOICE_TYPE_INSTALLMENT)
+                ->first(),
+            'a broken row must not be billed a derived amount'
+        );
+    }
+
+    #[Test]
+    public function each_phase_bills_from_its_own_column(): void
+    {
+        // Two different figures on one subscription, deliberately unequal so neither
+        // assertion can pass by reading the wrong column:
+        //   installment  -> subscription_amount_per_month (558.00)
+        //   platform_fee -> monthly_platform_fee          (399.00)
+        $reseller = $this->partner(isHost: false);
+
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_INSTALLMENT,
+            'installment_type' => 1,
+            'installment_count' => 12,
+            'installments_paid' => 1,
+            'down_payment' => 1000.00,
+            'payable_amount' => 7696.00,
+            'total_subscription_amount' => 6696.00,
+            'subscription_amount_per_month' => 558.00,
+            'monthly_platform_fee' => 399.00,
+            'current_phase' => Subscription::PHASE_INSTALLMENT,
+            'status' => Subscription::STATUS_ACTIVE,
+            'subscription_start_date' => today()->copy()->subMonth(),
+        ]);
+
+        Invoice::where('subscription_id', $subscription->id)->update(['status' => Invoice::STATUS_PAID]);
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $installment = Invoice::where('subscription_id', $subscription->id)
+            ->where('type', Invoice::INVOICE_TYPE_INSTALLMENT)->latest('id')->first();
+
+        $this->assertNotNull($installment, 'the installment cycle should have billed');
+        $this->assertEquals(558.00, (float) $installment->payment_amount, 'installments come from subscription_amount_per_month');
+
+        // Now the same subscription in its platform-fee phase.
+        Invoice::where('subscription_id', $subscription->id)->update(['status' => Invoice::STATUS_PAID]);
+        $subscription->forceFill(['current_phase' => Subscription::PHASE_PLATFORM_FEE])->save();
+        $this->expire($subscription->fresh());
+        $this->runCron();
+
+        $platformFee = Invoice::where('subscription_id', $subscription->id)
+            ->where('type', Invoice::INVOICE_TYPE_PLATFORM_FEE)->latest('id')->first();
+
+        $this->assertNotNull($platformFee, 'the platform-fee cycle should have billed');
+        $this->assertEquals(399.00, (float) $platformFee->payment_amount, 'the platform fee comes from monthly_platform_fee');
+        $this->assertNotEquals(558.00, (float) $platformFee->payment_amount, 'never the installment figure');
     }
 
     // ── Collection ────────────────────────────────────────────────────
