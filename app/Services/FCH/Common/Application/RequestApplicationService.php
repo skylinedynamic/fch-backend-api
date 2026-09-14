@@ -199,14 +199,18 @@ class RequestApplicationService
         // memo, risk flags and lender routing, which a partner may never see.
         // (The automatic run on borrower submit is a queued system job and is not
         // subject to this check.)
-        if (!Auth::user()?->partner?->is_host) {
+        $user = Auth::user();
+        $isHost = (bool) ($user?->partner?->is_host ?? false);
+        $isPartner = ($user?->entity_name === User::PARTNER || $user?->entity_type === Partner::class || $user?->user_type == User::PARTNER || $user?->user_type === 'Admin');
+
+        if (!$isHost || !$isPartner) {
             return ApiResponse::error(__('application.pre_qualification_not_found'), 403);
         }
 
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = PreQualificationRequest::with('borrower')
-            ->when(Auth::user()->user_type == User::PARTNER, function ($q) use ($partnerId) {
+            ->when(!$isHost, function ($q) use ($partnerId) {
                 $q->where('partner_id', $partnerId);
             })
             ->where('id', $id)->first();
