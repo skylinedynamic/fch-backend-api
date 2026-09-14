@@ -45,6 +45,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Store Request in OpenAI Dashboard Logs
+    |--------------------------------------------------------------------------
+    |
+    | When true, OpenAI saves requests in the platform.openai.com project logs.
+    | Set to false if Zero Data Retention is required.
+    |
+    */
+
+    'store' => env('OPENAI_STORE_LOGS', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Lender Matrix Version Label
     |--------------------------------------------------------------------------
     |

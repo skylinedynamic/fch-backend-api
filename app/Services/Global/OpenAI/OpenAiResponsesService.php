@@ -246,10 +246,11 @@ class OpenAiResponsesService
         array $logContext = []
     ): array {
         $startTime = microtime(true);
+        $store = (bool) config('openai.store', true);
 
         $body = [
             'model'     => $model,
-            'store'     => false,
+            'store'     => $store,
             'instructions' => $instructions,
             'input'     => json_encode($input),
             'text'      => [
