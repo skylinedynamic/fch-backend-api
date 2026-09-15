@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ActivityLog;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
@@ -70,6 +71,39 @@ class ActivityLogController extends Controller
         } catch (\Exception $e) {
             $errorKey = $request->log_type === 'email' ? 'activity_log.email_send_failed' : 'activity_log.activity_create_failed';
             return ApiResponse::serverError(__($errorKey));
+        }
+    }
+
+    /**
+     * Update an activity log entry (only manual 'activity' type)
+     */
+    public function update(UpdateActivityLogRequest $request, $id)
+    {
+        try {
+            $data = $request->validated();
+            $log = $this->activityLogService->update((int) $id, $data);
+            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.activity_updated'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            Log::error('ActivityLog update error:', ['id' => $id, 'error' => $e->getMessage()]);
+            return ApiResponse::serverError(__('activity_log.activity_update_failed'));
+        }
+    }
+
+    /**
+     * Delete an activity log entry (only manual 'activity' type)
+     */
+    public function destroy($id)
+    {
+        try {
+            $this->activityLogService->delete((int) $id);
+            return ApiResponse::success([], __('activity_log.activity_deleted'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            Log::error('ActivityLog delete error:', ['id' => $id, 'error' => $e->getMessage()]);
+            return ApiResponse::serverError(__('activity_log.activity_delete_failed'));
         }
     }
 

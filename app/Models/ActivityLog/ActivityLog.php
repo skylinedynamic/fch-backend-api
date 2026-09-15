@@ -2,7 +2,6 @@
 
 namespace App\Models\ActivityLog;
 
-use App\Models\Common\Reminder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Spatie\Activitylog\Models\Activity;
 
@@ -17,10 +16,6 @@ class ActivityLog extends Activity
             // For now, if the activity is updated, we might need to cascade updates.
             // Since there is no formal edit UI yet, we add this for future-proofing.
             // A more complex implementation could diff the properties['activity_date'].
-        });
-
-        static::deleted(function ($activity) {
-            $activity->reminders()->where('status', Reminder::STATUS_PENDING)->update(['status' => Reminder::STATUS_CANCELLED]);
         });
 
         static::creating(function ($activity) {
@@ -229,10 +224,5 @@ class ActivityLog extends Activity
                 ->orWhere('properties->to_emails', 'like', "%{$search}%")
                 ->orWhere('properties->description', 'like', "%{$search}%");
         });
-    }
-
-    public function reminders(): \Illuminate\Database\Eloquent\Relations\MorphMany
-    {
-        return $this->morphMany(\App\Models\Common\Reminder::class, 'remindable');
     }
 }
