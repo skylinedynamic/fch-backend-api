@@ -75,6 +75,20 @@ class BrandingController extends Controller
     }
 
     /**
+     * Whether this tenant may show the host's logo when it has none of its own.
+     *
+     * Only the host may. resolvePartner() has already folded every partner that
+     * trades under the host's brand into the host itself, so anything still
+     * non-host here is branded as itself - and a login screen showing the host's
+     * logo above that tenant's own colours is the mismatch this prevents. Those
+     * tenants get a placeholder carrying their company name instead.
+     */
+    private function inheritsHostLogos(Partner $partner): bool
+    {
+        return (bool) $partner->is_host;
+    }
+
+    /**
      * The tenant's brand as a stylesheet.
      *
      * Linked from index.html, so it is render-blocking by nature: the browser
@@ -87,7 +101,7 @@ class BrandingController extends Controller
         $partner = $this->resolvePartner($request);
 
         $branding = $partner
-            ? $this->config->getBrandingSettings($partner->id)
+            ? $this->config->getBrandingSettings($partner->id, $this->inheritsHostLogos($partner))
             : [];
 
         $css = BrandVars::toCss($branding);
@@ -120,7 +134,7 @@ class BrandingController extends Controller
         $partner = $this->resolvePartner($request);
 
         $branding = $partner
-            ? $this->config->getBrandingSettings($partner->id)
+            ? $this->config->getBrandingSettings($partner->id, $this->inheritsHostLogos($partner))
             : [];
 
         return response()->json([
