@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use App\Models\Lead\Lead;
+use App\Models\Common\Reminder;
 use Carbon\Carbon;
 
 /** @mixin \App\Models\ActivityLog\ActivityLog */
@@ -48,6 +49,26 @@ class ActivityLogResource extends JsonResource
              $leadImage = asset('avatar/avatar-default.jpg'); 
         }
 
+        $remindMe = (bool) ($this->properties['remind_me'] ?? false);
+        $remindAt = $this->properties['remind_at'] ?? null;
+        $reminderPreset = $this->properties['reminder_preset'] ?? '30_minutes';
+        $reminderTimeValue = $this->properties['reminder_time_value'] ?? '30';
+        $reminderTimeUnit = $this->properties['reminder_time_unit'] ?? 'Minutes';
+
+        if (!$remindMe && !empty($this->properties['reminder_id'])) {
+            $remindMe = true;
+        } elseif (!$remindMe && $this->subject_id && $this->subject_type) {
+            $linkedReminder = Reminder::where('entity_id', $this->subject_id)
+                ->where('entity_type', $this->subject_type)
+                ->where('status', Reminder::STATUS_PENDING)
+                ->where('summary', $this->properties['subject'] ?? '')
+                ->first();
+            if ($linkedReminder) {
+                $remindMe = true;
+                $remindAt = $linkedReminder->reminder_date_time ? toTimezone($linkedReminder->reminder_date_time, null, 'Y-m-d H:i:s') : null;
+            }
+        }
+
         return [
             'id'            => $this->id,
             'log_type_raw'  => $this->log_type,
@@ -60,7 +81,7 @@ class ActivityLogResource extends JsonResource
             // Activity fields
             'reference'     => $this->properties['reference'] ?? null,
             'category'      => $this->properties['category'] ?? null,
-            'activity_date' => !empty($this->properties['activity_date']) ? Carbon::parse($this->properties['activity_date'])->format('Y-m-d') : null,
+            'activity_date' => !empty($this->properties['activity_date']) ? toTimezone($this->properties['activity_date'], null, 'Y-m-d H:i:s') : null,
             'assigned_to'   => $this->properties['assigned_to'] ?? null,
             'assigned_user' => $this->whenLoaded('assignedUser', fn() => $this->assignedUser ? [
                 'id'   => $this->assignedUser->id,
@@ -73,6 +94,12 @@ class ActivityLogResource extends JsonResource
             'attachments'       => $this->properties['attachments']['files'] ?? [],
             'attachments_count' => $this->properties['attachments']['count'] ?? 0,
             'status'            => $this->status,
+            // Reminder fields
+            'remind_me'         => $remindMe,
+            'remind_at'         => !empty($remindAt) ? toTimezone($remindAt, null, 'Y-m-d H:i:s') : null,
+            'reminder_preset'   => $reminderPreset,
+            'reminder_time_value'=> $reminderTimeValue,
+            'reminder_time_unit' => $reminderTimeUnit,
             // Timeline specific
             'causer_name'   => ($this->relationLoaded('causer') && $this->causer) 
                                 ? ($this->causer->name ?? 'System') 
@@ -88,8 +115,8 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->causer->id,
                 'name' => $this->causer->name,
             ] : null),
-            'created_at'    => $this->created_at?->timezone($timezone)->format('Y-m-d H:i:s'),
-            'updated_at'    => $this->updated_at?->timezone($timezone)->format('Y-m-d H:i:s'),
+            'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
+            'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
     }
 

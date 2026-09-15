@@ -74,6 +74,40 @@ class ActivityLogController extends Controller
     }
 
     /**
+     * Update an activity log entry (only manual 'activity' type)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $data = $request->all();
+            if ($request->hasFile('attachments')) {
+                $data['attachments'] = $request->file('attachments');
+            }
+            $log = $this->activityLogService->update((int) $id, $data);
+            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.activity_updated'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            return ApiResponse::serverError(__('activity_log.activity_update_failed'));
+        }
+    }
+
+    /**
+     * Delete an activity log entry (only manual 'activity' type)
+     */
+    public function destroy($id)
+    {
+        try {
+            $this->activityLogService->delete((int) $id);
+            return ApiResponse::success([], __('activity_log.activity_deleted'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            return ApiResponse::serverError(__('activity_log.activity_delete_failed'));
+        }
+    }
+
+    /**
      * Download activity log attachment
      */
     public function downloadAttachment(Request $request)
