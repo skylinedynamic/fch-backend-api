@@ -284,7 +284,7 @@ class PaymentMailService
 
         if ($payer instanceof Borrower) {
             $email = $payer->email ?: $invoice?->email;
-            $name  = trim(($payer->first_name ?? '') . ' ' . ($payer->last_name ?? '')) ?: $payer->name;
+            $name  = personName($payer->first_name ?? null, $payer->middle_name ?? null, $payer->last_name ?? null) ?: $payer->name;
         } elseif ($payer instanceof Partner) {
             $email = $payer->email ?: $payer->contact_person_email ?: $invoice?->email;
             $name  = $payer->full_name ?: $payer->company_name ?: $payer->name;

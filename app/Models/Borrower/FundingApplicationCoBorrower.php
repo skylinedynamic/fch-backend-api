@@ -4,14 +4,18 @@ namespace App\Models\Borrower;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasPersonName;
 
 class FundingApplicationCoBorrower extends Model
 {
+    use HasPersonName;
+
     use SoftDeletes;
 
     protected $fillable = [
         'funding_application_id',
         'first_name',
+        'middle_name',
         'last_name',
         'title_role',
         'ownership_percentage',

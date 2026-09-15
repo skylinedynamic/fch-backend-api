@@ -474,6 +474,39 @@ class User extends Authenticatable implements OAuthenticatable
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
     }
 
+    /**
+     * Entity types that can act as a sales representative.
+     *
+     * Deliberately excludes Borrower. A borrower is a client, not staff, and
+     * they are linked to the same partner_id - so a plain "users of this
+     * partner" query returns the partner's whole client list.
+     *
+     * A null entity_type is a plain portal user, which counts.
+     */
+    public const SALES_REP_ENTITY_TYPES = [
+        Partner::class,
+        Employee::class,
+    ];
+
+    /**
+     * Active staff of one partner, eligible to be named as a sales rep.
+     *
+     * Used by the public embedded form both to build the dropdown and to
+     * validate what comes back, so the two can never disagree about who is
+     * offerable. Scoped to a single partner: one partner's staff must never be
+     * listed - or assignable - through another partner's public form.
+     */
+    public function scopeSalesRepresentatives($query, ?int $partnerId)
+    {
+        return $query
+            ->where('partner_id', $partnerId)
+            ->where('status', self::STATUS['active'])
+            ->where(function ($q) {
+                $q->whereNull('entity_type')
+                    ->orWhereIn('entity_type', self::SALES_REP_ENTITY_TYPES);
+            });
+    }
+
     public function scopeSearch($query, ?string $search)
     {
         if (!is_string($search) || trim($search) === '') {

@@ -27,7 +27,7 @@ class SubscriptionListResource extends JsonResource
         if ($isPartner) {
             $subscriberName = $partner?->full_name ?? $this->partner_name ?? null;
         } elseif ($isBorrower) {
-            $subscriberName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : ($this->borrower_name ?? null);
+            $subscriberName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : ($this->borrower_name ?? null);
         } else {
             $subscriberName = $user?->name ?? $user?->full_name ?? $this->partner_name ?? $this->borrower_name ?? null;
         }
@@ -40,7 +40,7 @@ class SubscriptionListResource extends JsonResource
             'payable_amount' => currencyFormat($this->payable_amount),
             'subscription_start_date' => toDateOnly($this->subscription_start_date),
             'subscription_end_date' => toDateOnly($this->subscription_end_date), // paid through
-            'enrollment_completed_at' => toTimezone($this->enrollment_completed_at),
+            'enrollment_completed_at' => toDateOnly($this->enrollment_completed_at),
             'status' => $this->status,
             'created_at' => toTimezone($this->created_at),
         ];

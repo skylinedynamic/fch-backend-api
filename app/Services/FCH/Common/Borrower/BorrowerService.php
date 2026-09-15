@@ -89,6 +89,10 @@ class BorrowerService
         // not just the rows matching whatever search/filter the user currently has active.
         $statsQuery = clone $query;
 
+        // Archived borrowers are not active business, so they never count toward
+        // the summary cards - whatever the list below is currently showing.
+        $statsQuery->notArchived();
+
         // Filter by current_tier (supports ID or Name)
         $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
         if ($currentTier !== null && $currentTier !== '') {
@@ -127,6 +131,21 @@ class BorrowerService
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
+
+        // 🗄 Archived borrowers leave the working list but stay findable. A search
+        // reaches them by default; `archived` narrows to them, `archived=all`
+        // ignores the distinction entirely.
+        // '' and null both mean "no archive filter chosen" - the UI sends an empty
+        // string, not null, so both have to be treated the same or a search would
+        // never reach archived records.
+        $archived = $filters['archived'] ?? null;
+        $archived = ($archived === '' ? null : $archived);
+
+        if ($archived === null && !empty($filters['search'])) {
+            $archived = Borrower::ARCHIVE_FILTER_ALL;
+        }
+
+        $query->archiveFilter($archived);
 
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
@@ -728,6 +747,72 @@ class BorrowerService
     /**
      * Delete borrowers.
      */
+
+    /**
+     * Archive records so they leave the working list without being deleted.
+     *
+     * Presentation only: `status` is untouched, so archiving changes nothing about
+     * login, billing or permissions. Already-archived rows are skipped rather than
+     * re-stamped, so the original "who filed this away" survives a repeat action.
+     */
+    public function archive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $archived = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->archive()) {
+                    $archived++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['archived' => $archived],
+                __('borrower.archived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower archive failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.archive_failed'), 400);
+        }
+    }
+
+    /**
+     * Return archived records to the working list. Nothing else about them changes -
+     * archiving never altered the record, so restoring has nothing to rebuild.
+     */
+    public function unarchive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $restored = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->unarchive()) {
+                    $restored++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['restored' => $restored],
+                __('borrower.unarchived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower restore failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.unarchive_failed'), 400);
+        }
+    }
+
     public function delete(array $ids)
     {
 
@@ -743,7 +828,7 @@ class BorrowerService
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Borrower deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
-            return ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error(__('borrower.delete_failed'), 400);
         }
     }
 

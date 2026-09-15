@@ -2,6 +2,7 @@
 
 namespace App\Models\EmbedForm;
 
+use App\Models\Borrower\BorrowerDocType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
@@ -19,6 +20,17 @@ class EmbedFormAttachment extends Model
     public function submission(): BelongsTo
     {
         return $this->belongsTo(EmbedFormSubmission::class, 'submission_id');
+    }
+
+    /**
+     * The borrower document type this file was filed under.
+     *
+     * Null for uploads taken before the funding application rewrite, which only
+     * recorded a `field_name` string.
+     */
+    public function docType(): BelongsTo
+    {
+        return $this->belongsTo(BorrowerDocType::class, 'borrower_doc_type_id');
     }
 
     public function getFileUrlAttribute(): ?string

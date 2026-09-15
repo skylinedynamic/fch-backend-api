@@ -151,6 +151,17 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
 
             // Borrower routes
+            // MUST stay above the wildcard `borrowers/{id}` below: routes match in
+            // declaration order, so the wildcard would swallow /borrowers/archive
+            // and run update() with id = "archive".
+            // Same reason as archive below: a literal path must precede the wildcard.
+            Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
+
+            Route::post('borrowers/archive', [BorrowerController::class, 'archive'])
+                ->middleware('permission:update clients');
+            Route::post('borrowers/unarchive', [BorrowerController::class, 'unarchive'])
+                ->middleware('permission:update clients');
+
             Route::post('borrowers/fetch-all-borrowers', [BorrowerController::class, 'index']);
             Route::post('borrowers', [BorrowerController::class, 'store']);
             Route::post('borrowers/{id}', [BorrowerController::class, 'update']);
@@ -159,7 +170,7 @@ Route::prefix('v1')->group(function () {
             Route::get('borrowers/{id}/capital-access-overview', [BorrowerCapitalAccessController::class, 'getOverview']);
             Route::get('borrowers/{id}/capital-access-strategies', [BorrowerCapitalAccessController::class, 'strategiesForClient']);
             Route::post('borrowers-multiple-delete', [BorrowerController::class, 'multipleDelete']);
-            Route::post('borrowers/check-deletable', [BorrowerController::class, 'checkDeletable']);
+
             Route::post('borrowers-get-all-users', [BorrowerController::class, 'getAllUsers']);
             Route::post('borrowers-profile-states-details-count/{borrowerId}', [BorrowerController::class, 'profileStatsCount']);
             Route::post('borrowers-documents/upload', [BorrowerController::class, 'uploadDocument']);

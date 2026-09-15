@@ -460,7 +460,7 @@ class VerificationCenterService
                 return;
             }
 
-            $borrowerName = trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower';
+            $borrowerName = personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) ?: 'Borrower';
 
             $statusLabel = match ($status) {
                 BorrowerTaskVerificationRequest::COMPLETED => __('verification_center.verified'),

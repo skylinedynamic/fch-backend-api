@@ -78,6 +78,9 @@ class PublicEmbedFormController extends Controller
             return ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'));
         }
 
+        // The domain allow-list is enforced in SubmitEmbedFormRequest::authorize(),
+        // which runs before validation - see the note there.
+
         // Honeypot: reject if filled
         if ($request->filled('_hp_company')) {
             return ApiResponse::success([], __('embed_form.submission_received'));

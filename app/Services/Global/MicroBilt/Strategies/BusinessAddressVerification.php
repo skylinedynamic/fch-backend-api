@@ -2,13 +2,12 @@
 
 namespace App\Services\Global\MicroBilt\Strategies;
 
+use App\Support\Locations;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Models\Borrower\Borrower;
-use Database\Seeders\LocationHelper;
 
 class BusinessAddressVerification implements VerificationStrategyInterface
 {
-    use LocationHelper;
     /**
      * Execute the verification strategy.
      *
@@ -22,7 +21,7 @@ class BusinessAddressVerification implements VerificationStrategyInterface
             $borrower->business_name ?? '',
             $borrower->business_address ?? '',
             $borrower->business_city ?? '',
-            $this->getStateCode($borrower->business_state) ?? '',
+            Locations::stateCode($borrower->business_state) ?? '',
             $borrower->business_postal_code ?? ''
         );
     }

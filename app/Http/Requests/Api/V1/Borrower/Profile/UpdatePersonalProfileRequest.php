@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\UsPostalCode;
 
 class UpdatePersonalProfileRequest extends BaseApiRequest
 {
@@ -37,7 +38,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'country_code' => 'required|string|max:5',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
             'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'last_4_ssn' => 'required|string|size:4',
@@ -73,7 +74,6 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'state.max' => __('borrower_validation.state_max'),
             'zip_code.required' => __('borrower_validation.zip_code_required'),
             'zip_code.string' => __('borrower_validation.zip_code_string'),
-            'zip_code.max' => __('borrower_validation.zip_code_max'),
             'country.required' => __('borrower_validation.country_required'),
             'country.string' => __('borrower_validation.country_string'),
             'country.max' => __('borrower_validation.country_max'),

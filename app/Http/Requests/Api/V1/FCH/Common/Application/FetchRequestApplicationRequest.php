@@ -25,6 +25,8 @@ class FetchRequestApplicationRequest extends FormRequest
             'start_date'    => ['nullable', 'date'],
             'end_date'      => ['nullable', 'date'],
             'funding_type'  => ['nullable', 'string'],
+            // Scopes the list to one client, for the client record's tab.
+            'borrower_id'   => ['nullable', 'integer'],
         ];
     }
 }

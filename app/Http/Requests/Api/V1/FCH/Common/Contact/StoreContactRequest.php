@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Contact;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class StoreContactRequest extends BaseApiRequest
 {
@@ -39,7 +40,7 @@ class StoreContactRequest extends BaseApiRequest
             'state' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
+            'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'website' => ['nullable'],
             'notes' => ['nullable', 'string'],
             'image' => ['nullable'],

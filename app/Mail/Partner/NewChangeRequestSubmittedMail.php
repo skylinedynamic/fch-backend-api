@@ -50,7 +50,7 @@ class NewChangeRequestSubmittedMail extends Mailable
     public function content(): Content
     {
         $borrower = $this->changeRequest->borrower;
-        $borrowerName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : '';
+        $borrowerName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : '';
         $businessName = $borrower ? ($borrower->business_name ?? '') : '';
 
         return new Content(

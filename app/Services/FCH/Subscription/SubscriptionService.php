@@ -427,7 +427,9 @@ class SubscriptionService
 
         $updateData = [
             'installments_paid' => 1,
-            'enrollment_completed_at' => $subscription->enrollment_completed_at ?: now(),
+            // A calendar date. The column is DATE and would truncate a time
+            // anyway; saying so here keeps the intent visible.
+            'enrollment_completed_at' => $subscription->enrollment_completed_at ?: now()->startOfDay(),
             'current_cycle_invoice_id' => null,
         ];
 
@@ -518,8 +520,10 @@ class SubscriptionService
             // fee invoice, say) must not revive their schedule - that would re-arm
             // the cron for someone with nothing left to bill, and lock them out once
             // the date passed.
-            if ($subscription->entity_type === Borrower::class
-                && $subscription->current_phase === Subscription::PHASE_COMPLETED) {
+            if (
+                $subscription->entity_type === Borrower::class
+                && $subscription->current_phase === Subscription::PHASE_COMPLETED
+            ) {
                 $subscription->update([
                     'status' => Subscription::STATUS_ACTIVE,
                     'current_cycle_invoice_id' => null,
@@ -898,7 +902,7 @@ class SubscriptionService
                 }
 
                 // Entity display info
-                $customerName = $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? ''));
+                $customerName = $entity->full_name ?? personName($entity->first_name ?? null, $entity->middle_name ?? null, $entity->last_name ?? null);
                 $email = $entity->email;
 
                 // For user seat: bill the partner

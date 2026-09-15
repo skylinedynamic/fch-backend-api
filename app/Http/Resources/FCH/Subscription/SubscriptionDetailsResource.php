@@ -36,7 +36,7 @@ class SubscriptionDetailsResource extends JsonResource
         } elseif ($isBorrower) {
             $borrowerPartner = ($borrower && $borrower->relationLoaded('partner')) ? $borrower->getRelation('partner') : null;
             $subscriptionTitle = 'Borrower Subscription';
-            $subscriberName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : null;
+            $subscriberName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : null;
             $subscriberEmail = $borrower?->email ?? null;
             $companyName = $borrowerPartner?->company_name ?? null;
             $associatedPartnerName = $borrowerPartner?->full_name ?? null;
@@ -82,7 +82,7 @@ class SubscriptionDetailsResource extends JsonResource
 
             // Enrollment / Billing Status
             'is_enrollment_completed' => $isEnrollmentCompleted,
-            'enrollment_completed_at' => toTimezone($this->enrollment_completed_at),
+            'enrollment_completed_at' => toDateOnly($this->enrollment_completed_at),
             'next_billing_date' => $nextBillingDate,
             'next_billing_type' => $nextBillingType,
             'next_billing_amount' => $nextBillingAmount,

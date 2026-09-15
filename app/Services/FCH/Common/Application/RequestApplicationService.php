@@ -142,6 +142,14 @@ class RequestApplicationService
                     $query->where('partner_id', $authUser->partner_id);
                 });
 
+            // Scope to one client, for the Funding Applications tab on the
+            // client record. The funding request list already supported this;
+            // applications did not, so a client's own applications could only be
+            // found by searching the global list.
+            if (!empty($filters['borrower_id'])) {
+                $query->where('borrower_id', $filters['borrower_id']);
+            }
+
             // Apply Search
             if (!empty($filters['search'])) {
                 $search = trim((string) $filters['search']);

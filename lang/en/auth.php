@@ -21,8 +21,6 @@ return [
     'partner_suspended' => 'Your account has been suspended. Please contact :partner for more information.',
     'partner_inactive' => 'Your account is currently inactive. Please contact :partner for activation.',
     'user_inactive' => 'Your account is currently inactive. Please contact administrator.',
-    'employee_inactive' => 'Your account is currently inactive. Please contact administrator.',
-    'employee_suspended' => 'Your account has been suspended. Please contact administrator.',
     'borrower_inactive' => 'Your account is currently inactive. Please contact administrator.',
     'borrower_suspended' => 'Your account has been suspended. Please contact administrator.',
     'unauthorized_portal' => 'Unauthorized portal access.',

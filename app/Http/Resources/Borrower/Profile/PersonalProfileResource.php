@@ -29,7 +29,8 @@ class PersonalProfileResource extends JsonResource
             'home_address' => $this->entity->home_address,
             'home_phone' => $this->entity->home_phone,
             'last_4_ssn' => $this->entity->last_4_ssn,
-            'date_of_birth' => $this->entity->date_of_birth ? \Carbon\Carbon::parse($this->entity->date_of_birth)->timezone($timezone)->format('Y-m-d') : null,
+            // A calendar date, never timezone-converted - see toDateOnly().
+            'date_of_birth' => toDateOnly($this->entity->date_of_birth),
         ];
     }
 }

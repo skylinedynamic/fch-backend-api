@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\FetchEmbedFormSubmissionsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormConfigRequest;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormSubmissionStatusRequest;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
@@ -41,19 +44,13 @@ class EmbedFormController extends Controller
      * Update config settings.
      * PUT /api/v1/common/embed-forms/config
      */
-    public function updateConfig(Request $request): JsonResponse
+    public function updateConfig(UpdateEmbedFormConfigRequest $request): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
 
-        $request->validate([
-            'form_title' => ['nullable', 'string', 'max:255'],
-            'allowed_domains' => ['nullable', 'array'],
-            'allowed_domains.*' => ['string', 'url'],
-            'notification_email' => ['nullable', 'email', 'max:255'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        $config = $this->embedFormService->updateConfig($partnerId, $request->all());
+        // validated(), not all(): only the fields the request class knows about
+        // reach the service, so an unexpected key cannot be written through.
+        $config = $this->embedFormService->updateConfig($partnerId, $request->validated());
 
         return ApiResponse::success(new EmbedFormConfigResource($config), __('embed_form.config_updated'));
     }
@@ -76,7 +73,7 @@ class EmbedFormController extends Controller
      * DataTable — fetch submissions.
      * POST /api/v1/common/embed-forms/submissions/fetch
      */
-    public function fetchSubmissions(Request $request): JsonResponse
+    public function fetchSubmissions(FetchEmbedFormSubmissionsRequest $request): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) auth()->user()?->partner?->is_host;
@@ -91,7 +88,7 @@ class EmbedFormController extends Controller
         $filters = $request->only(['search', 'status', 'date_from', 'date_to', 'per_page']);
 
         // Build query manually for host to see all
-        $query = EmbedFormSubmission::with('attachments', 'partner');
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner');
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
         }
@@ -154,7 +151,7 @@ class EmbedFormController extends Controller
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $submission = EmbedFormSubmission::with('attachments', 'partner', 'convertedBorrower')->find($id);
+        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower', 'convertedFundingApplication', 'salesRepUser')->find($id);
 
         if (!$submission) {
             return ApiResponse::notFound(__('embed_form.submission_not_found'));
@@ -171,12 +168,8 @@ class EmbedFormController extends Controller
      * Update submission status.
      * PUT /api/v1/common/embed-forms/submissions/{id}/status
      */
-    public function updateStatus(Request $request, int $id): JsonResponse
+    public function updateStatus(UpdateEmbedFormSubmissionStatusRequest $request, int $id): JsonResponse
     {
-        $request->validate([
-            'status' => ['required', 'string', 'in:new,reviewing,converted,rejected'],
-        ]);
-
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
