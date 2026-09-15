@@ -4,8 +4,12 @@ namespace App\Services\FCH\Common\PreQualification\AUE;
 
 use App\Models\Borrower\PreQualificationGptResult;
 use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Funding\FundingSequencing;
+use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
+use App\Models\Lender\LenderProductCategory;
 use App\Services\Global\OpenAI\OpenAiResponsesService;
+use Illuminate\Support\Carbon;
 
 /**
  * FCH_Internal_Prequalification_AUE_v3 — internal-only underwriting evaluation.
@@ -23,6 +27,34 @@ use App\Services\Global\OpenAI\OpenAiResponsesService;
 class PreQualificationInternalAueService
 {
     public const PROMPT_VERSION = 'FCH_Internal_Prequalification_AUE_v3';
+
+    /**
+     * The rules that can be evaluated from prequalification data alone. The
+     * bank-statement-derived rules (NSF, average balance, deposit counts) are
+     * omitted — that data does not exist yet at this stage.
+     */
+    protected const PREQUAL_EVALUABLE_RULES = [
+        'personal_credit',
+        'business_credit',
+        'revenue',
+        'time_in_business',
+        'allowed_states',
+        'restricted_states',
+        'allowed_industries',
+        'restricted_industries',
+    ];
+
+    /** The lender-side criteria those rules compare against. */
+    protected const PREQUAL_EVALUABLE_CRITERIA = [
+        'min_fico',
+        'min_business_credit_score',
+        'min_tib_months',
+        'min_monthly_revenue',
+        'allowed_states',
+        'restricted_states',
+        'allowed_industries',
+        'restricted_industries',
+    ];
 
     protected OpenAiResponsesService $client;
 
@@ -166,39 +198,135 @@ class PreQualificationInternalAueService
 
     /**
      * Pull the current active, ISO-eligible lender matrix as runtime data.
-     * Inactive lenders and lenders without an active ISO status are excluded here,
-     * so they can never reach the model as eligible options.
+     *
+     * Every entry carries the four status fields the prompt requires before a
+     * lender may be routed to at all (ACTIVE LENDER MATRIX GOVERNANCE: recommend
+     * "only to lenders explicitly marked active, approved, usable, and
+     * ISO-compatible"). They used to be applied as a query filter and then
+     * dropped from the entry, which is why the model — correctly — refused to
+     * route and returned an empty match list and a null primary_lender.
+     *
+     * Entries are keyed by lender + product category + AUS model + criteria
+     * rather than by lender_visibilities row. A lender offers the same product
+     * on identical criteria across several funding sequences, and one entry per
+     * row made those byte-identical in the payload (141 of 282 rows were
+     * duplicates). The sequences that share an entry are listed under
+     * funding_programs instead, so the collapse loses nothing.
      */
     protected function buildActiveLenderMatrix(): array
     {
         $lenders = Lender::query()
             ->where('status', Lender::STATUS_ACTIVE)
             ->where('iso_status', Lender::STATUS_ACTIVE)
-            ->with(['visibilities.productCategory'])
+            ->with([
+                'visibilities.productCategory',
+                'visibilities.fundingSequencing.type',
+                'visibilities.fundingSequencing.group',
+            ])
             ->get();
 
-        $matrix = [];
+        $entries = [];
 
         foreach ($lenders as $lender) {
             foreach ($lender->visibilities as $visibility) {
-                $entry = array_filter([
-                    'lender_name' => $lender->name,
-                    'product_category' => $visibility->productCategory->name ?? 'General',
-                    'min_fico' => $visibility->min_fico,
-                    'min_business_credit_score' => $visibility->min_business_credit_score,
-                    'min_tib_months' => $visibility->min_tib_months,
-                    'min_monthly_revenue' => $visibility->min_monthly_revenue,
-                    'allowed_states' => array_values(array_filter((array) $visibility->allowed_states)) ?: null,
-                    'restricted_states' => array_values(array_filter((array) $visibility->restricted_states)) ?: null,
-                    'allowed_industries' => array_values(array_filter((array) $visibility->allowed_industries)) ?: null,
-                    'restricted_industries' => array_values(array_filter((array) $visibility->restricted_industries)) ?: null,
-                ], fn ($value) => $value !== null);
+                $category = $visibility->productCategory;
+                $program = $visibility->fundingSequencing;
 
-                $matrix[] = $entry;
+                $approved = ($category === null || $category->status === LenderProductCategory::STATUS_ACTIVE)
+                    && ($program === null || $program->status === FundingSequencing::STATUS_ACTIVE);
+
+                // A switched-off category or funding program is not routable, so
+                // it is dropped rather than offered with approved:false — the
+                // same reason inactive lenders never reach the model at all.
+                if (!$approved) {
+                    continue;
+                }
+
+                $criteria = $this->programCriteria($visibility);
+                $ausModel = $this->ausModelFor($category, $program);
+                $categoryName = $category->name ?? 'General';
+
+                $key = implode('|', [$lender->id, $categoryName, $ausModel, md5(json_encode($criteria))]);
+
+                if (!isset($entries[$key])) {
+                    $entries[$key] = [
+                        'lender_name' => $lender->name,
+                        'product_category' => $categoryName,
+                        'aus_model' => $ausModel,
+                        'active' => $lender->status === Lender::STATUS_ACTIVE,
+                        'approved' => $approved,
+                        // Not routable on criteria nobody configured: an entry
+                        // with no prequalification-evaluable threshold would
+                        // match every borrower vacuously.
+                        'usable' => $this->hasPrequalEvaluableCriteria($criteria),
+                        'iso_compatible' => $lender->iso_status === Lender::STATUS_ACTIVE,
+                        'funding_programs' => [],
+                        'program_criteria' => $criteria,
+                    ];
+                }
+
+                if ($program?->name && !in_array($program->name, $entries[$key]['funding_programs'], true)) {
+                    $entries[$key]['funding_programs'][] = $program->name;
+                }
             }
         }
 
-        return $matrix;
+        return array_values($entries);
+    }
+
+    /**
+     * One lender program's underwriting criteria, cast to the types they are
+     * compared as. They were previously emitted as the raw column strings
+     * ("420", "4200.00"), leaving the model to compare a string threshold
+     * against a numeric borrower value.
+     */
+    protected function programCriteria(LenderVisibility $visibility): array
+    {
+        $int = static fn ($value) => $value === null || $value === '' ? null : (int) $value;
+        $numeric = static fn ($value) => $value === null || $value === '' ? null : (float) $value;
+        $list = static fn ($value) => array_values(array_filter((array) $value)) ?: null;
+
+        return array_filter([
+            'min_fico' => $int($visibility->min_fico),
+            'min_business_credit_score' => $int($visibility->min_business_credit_score),
+            'min_tib_months' => $int($visibility->min_tib_months),
+            'min_monthly_revenue' => $numeric($visibility->min_monthly_revenue),
+            'min_monthly_deposits' => $numeric($visibility->min_monthly_deposits),
+            'min_avg_deposits' => $numeric($visibility->min_avg_deposits),
+            'min_deposit_count' => $int($visibility->min_deposit_count),
+            'min_average_daily_balance' => $numeric($visibility->min_average_daily_balance),
+            'max_nsf_count' => $int($visibility->max_nsf_count),
+            'max_negative_days' => $int($visibility->max_negative_days),
+            'min_dscr' => $numeric($visibility->min_dscr),
+            'allowed_states' => $list($visibility->allowed_states),
+            'restricted_states' => $list($visibility->restricted_states),
+            'allowed_industries' => $list($visibility->allowed_industries),
+            'restricted_industries' => $list($visibility->restricted_industries),
+        ], fn ($value) => $value !== null);
+    }
+
+    /** Whether any criterion here can actually be tested against prequalification data. */
+    protected function hasPrequalEvaluableCriteria(array $criteria): bool
+    {
+        return array_intersect_key($criteria, array_flip(self::PREQUAL_EVALUABLE_CRITERIA)) !== [];
+    }
+
+    /**
+     * Which of the three AUS models in the prompt governs this program.
+     * Config-driven (prequalification_aue.aus_models) so the mapping stays an
+     * FCH business rule rather than something this service decides.
+     */
+    protected function ausModelFor(?LenderProductCategory $category, ?FundingSequencing $program): string
+    {
+        $map = config('prequalification_aue.aus_models', []);
+        $default = $map['default'] ?? 'REGULAR_AUS';
+        $unmapped = '_unmapped_';
+
+        return $map['by_product_category'][$category->name ?? $unmapped]
+            ?? $map['by_funding_sequence'][$program->name ?? $unmapped]
+            ?? $map['by_funding_type'][$program?->type->name ?? $unmapped]
+            ?? $map['by_funding_group'][$program?->group->name ?? $unmapped]
+            ?? $default;
     }
 
     /**
@@ -207,24 +335,33 @@ class PreQualificationInternalAueService
      * data (personal/business credit, revenue, time in business, state/industry
      * eligibility). The bank-statement-derived rules (NSF, average balance, deposit
      * counts) are omitted — that data does not exist yet at this stage.
+     *
+     * The data dictionary travels with the rules because two borrower fields are
+     * not what their lender-side counterpart implies: the personal credit answer
+     * is a band rather than a score, and the business credit answer is a
+     * qualitative bucket with no Paydex equivalent at all.
      */
     protected function buildRulePackage(): array
     {
-        $rules = config('funding_qualification.rules', []);
-        $prequalEvaluableKeys = [
-            'personal_credit',
-            'business_credit',
-            'revenue',
-            'time_in_business',
-            'allowed_states',
-            'restricted_states',
-            'allowed_industries',
-            'restricted_industries',
-        ];
-
-        return collect($rules)
-            ->only($prequalEvaluableKeys)
+        $rules = collect(config('funding_qualification.rules', []))
+            ->only(self::PREQUAL_EVALUABLE_RULES)
             ->toArray();
+
+        return [
+            'rules' => $rules,
+            // The rules address borrower values as "borrowers.<field>"; those
+            // names resolve against the borrower object in this payload.
+            'borrower_field_namespace' => 'borrowers.<field> resolves to borrower.<field> in this payload.',
+            'data_dictionary' => [
+                'fico_score' => 'Bureau score from the borrower credit profile. Null means no bureau pull exists for this borrower — not a zero, and not a substitute for the self-reported band.',
+                'personal_credit_band' => 'Borrower-selected band from the prequalification wizard, e.g. "Good (670-739)". Always borrower-reported. Compare personal_credit_band_min and personal_credit_band_max against min_fico. Never treat it as a verified score and never reduce it to a single point value.',
+                'paydex_score' => 'Bureau business credit score from the borrower credit profile. Null means none exists.',
+                'business_credit_self_assessment' => 'Qualitative borrower self-assessment (No Business Credit | Low | Medium | High). It has no numeric equivalent and must not be compared to min_business_credit_score. Treat min_business_credit_score as not evaluable while paydex_score is null.',
+                'business_start_date' => 'Resolved start date for the time_in_business date_compare rule. Compare time_in_business_months against min_tib_months.',
+                'business_state' => 'The state the business operates in — the value the allowed_states and restricted_states rules test. state_of_incorporation is a separate fact and is not a substitute for it.',
+                'aus_model' => 'The AUS model governing each lender matrix entry, set by FCH from the product category. Prequalification does not collect property occupancy, so a REAL_ESTATE_INVESTOR_MODEL entry is not yet confirmed non-owner-occupied: treat occupancy as a required condition on any real-estate path rather than assuming it.',
+            ],
+        ];
     }
 
     /**
@@ -235,26 +372,73 @@ class PreQualificationInternalAueService
      * indistinguishable from a real answer, so the model would underwrite against
      * a figure nobody provided. null says "not provided", and the model raises it
      * as a risk flag instead of quietly assuming it.
+     *
+     * Field names match the borrower_field identifiers in the rule package
+     * (config/funding_qualification.php) so the supplied rules resolve against
+     * this object. They previously did not: the rules address
+     * borrowers.fico_score, business_state, business_industry_type and
+     * business_start_date, none of which this payload contained.
      */
     protected function buildBorrowerPayload(PreQualificationRequest $application): array
     {
         $fullName = trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
         $numeric = static fn ($value) => $value === null || $value === '' ? null : (float) $value;
 
+        // Loaded explicitly rather than relied on from the caller: callers eager-load
+        // borrower inconsistently, and the credit profile is not eager-loaded
+        // anywhere. Lazy loading is blocked outside production for models read as a
+        // collection, so an evaluate() call made over one would fail here otherwise.
+        $application->loadMissing('borrower.creditProfile');
+
+        $borrower = $application->borrower;
+        $creditProfile = $borrower?->creditProfile;
+
+        $band = $this->personalCreditBand($application->personal_credit_score);
+        $startDate = $application->resolvedBusinessStartDate();
+        $startDate = $startDate ? Carbon::parse($startDate) : null;
+
         return [
             'full_name' => $fullName ?: null,
-            'email' => $application->email ?: ($application->borrower?->email ?: null),
+            'email' => $application->email ?: ($borrower?->email ?: null),
             'business_name' => $application->business_name ?: null,
             'entity_type' => $application->business_structure ?: null,
-            'industry' => $application->industry_type ?: null,
-            'state' => $application->state_of_incorporation ?: null,
-            'time_in_business' => $application->resolvedYearsInBusiness() ?: null,
+            'business_industry_type' => $application->industry_type ?: null,
+
+            // The operating state is what the state-eligibility rules test.
+            // state_of_incorporation was being sent in its place, and the two
+            // differ often enough to route a borrower to a lender that does not
+            // lend where the business actually operates.
+            'business_state' => $borrower?->business_state ?: null,
+            'state_of_incorporation' => $application->state_of_incorporation ?: null,
+
+            // min_tib_months is a month count, so a month count is what goes
+            // across. The display string ("2 Years 3 Months") comes from a view
+            // helper and was previously the only time-in-business value in the
+            // payload, leaving the model to parse prose into a threshold.
+            'business_start_date' => $startDate?->toDateString(),
+            'time_in_business_months' => $startDate ? (int) $startDate->diffInMonths(now()) : null,
+            'time_in_business_display' => $application->resolvedYearsInBusiness() ?: null,
+
             'monthly_revenue' => $numeric($application->monthly_revenue),
             'annual_revenue' => $numeric($application->annual_revenue),
-            'credit_score' => $application->personal_credit_score ?: null,
-            'credit_score_source' => $application->credit_score_source ?: null,
-            'business_credit_score' => $application->estimated_business_credit_score ?: null,
+
+            // fico_score is the bureau value and stays null unless one was
+            // actually pulled. The wizard collects a band, never a score, so the
+            // band travels separately with its own bounds and its own source —
+            // comparable against min_fico, but not mistakable for a verified
+            // score the way a single "credit_score" field was.
+            'fico_score' => $creditProfile?->fico_score !== null ? (int) $creditProfile->fico_score : null,
+            'fico_score_source' => $creditProfile?->fico_score !== null ? 'Verified Credit Profile' : null,
+            'personal_credit_band' => $application->personal_credit_score ?: null,
+            'personal_credit_band_min' => $band['min'],
+            'personal_credit_band_max' => $band['max'],
+            'personal_credit_band_source' => $application->credit_score_source ?: null,
+
+            'paydex_score' => $creditProfile?->paydex_score !== null ? (int) $creditProfile->paydex_score : null,
+            'business_credit_self_assessment' => $application->estimated_business_credit_score ?: null,
+
             'funding_purpose' => $application->purpose_of_funding ?: null,
+            'funding_urgency' => $application->funding_urgency ?: null,
             'amount_requested' => $numeric($application->funding_requested_amount),
             // Left null rather than defaulted to false: "no debt disclosed" and
             // "the question was never answered" are different underwriting facts.
@@ -268,6 +452,20 @@ class PreQualificationInternalAueService
                 ->pluck('internal_message')
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * The numeric bounds of a borrower-selected credit band. An unrecognised or
+     * absent band yields nulls rather than a guessed range.
+     */
+    protected function personalCreditBand(?string $band): array
+    {
+        $bounds = config('prequalification_aue.personal_credit_bands', [])[$band] ?? null;
+
+        return [
+            'min' => $bounds['min'] ?? null,
+            'max' => $bounds['max'] ?? null,
         ];
     }
 }

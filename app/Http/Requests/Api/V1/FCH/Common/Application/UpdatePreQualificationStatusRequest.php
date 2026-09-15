@@ -18,7 +18,7 @@ class UpdatePreQualificationStatusRequest extends BaseApiRequest
         return [
             'id'            => ['required', 'integer', 'exists:pre_qualification_requests,id'],
             'status'        => ['required', Rule::in(PreQualificationRequest::STATUS)],
-            'status_note'   => ['nullable', 'string', 'max:1000'],
+            'status_note'   => ['nullable', 'string', 'max:' . PreQualificationRequest::STATUS_NOTE_MAX_LENGTH],
         ];
     }
 

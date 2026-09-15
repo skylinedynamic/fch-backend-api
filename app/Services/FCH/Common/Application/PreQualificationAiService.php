@@ -107,12 +107,14 @@ class PreQualificationAiService
             'is_fallback' => false,
         ];
 
-        // Status Notes is a short field (validated at 1000 characters) and is visible
-        // to partners, so it gets the concise, lender-free note — never the full
-        // internal memo, which lives in the AI Underwriting Result tab.
+        // Status Notes is a short field and is visible to partners, so it gets the
+        // concise, lender-free note — never the full internal memo, which lives in
+        // the AI Underwriting Result tab. Truncated to the same limit the update
+        // endpoint enforces, so a note written here is one a reviewer can still
+        // save back from the form.
         $statusNote = self::statusNoteFor($internal['data']);
         if (filled($statusNote)) {
-            $application->status_note = Str::limit($statusNote, 990, '');
+            $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
         $application->gpt_status = PreQualificationRequest::GPT_COMPLETED;
         $application->gpt_generated_at = now();
@@ -140,7 +142,7 @@ class PreQualificationAiService
         // the reviewer who now has to pick this file up by hand.
         $statusNote = $internal ? self::statusNoteFor($internal['data']) : '';
         if (filled($statusNote)) {
-            $application->status_note = Str::limit($statusNote, 990, '');
+            $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
 
         $application->gpt_status = PreQualificationRequest::GPT_FAILED;

@@ -10,7 +10,7 @@ return [
     'status_in' => 'The selected status is invalid.',
 
     'status_note_string' => 'The status note must be a string.',
-    'status_note_max' => 'The status note may not be greater than 1000 characters.',
+    'status_note_max' => 'The status note may not be greater than :max characters.',
 
     // Service Messages
     'pre_qualification_retrieved' => 'Applications retrieved successfully.',
