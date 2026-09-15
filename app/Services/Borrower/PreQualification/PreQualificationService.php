@@ -238,16 +238,15 @@ class PreQualificationService
 
         // Funding Needs must never be populated with previous/saved data on GET.
         // It must always start fresh and blank for the borrower.
-       /*  $mergedData['funding_requested_amount'] = null;
-            $mergedData['funding_urgency'] = null;
-            $mergedData['purpose_of_funding'] = null;
-            $mergedData['purpose_note'] = null;
-            $mergedData['personal_credit_score'] = null;
-            $mergedData['estimated_business_credit_score'] = null;
-            $mergedData['existing_business_debt'] = false;
-            $mergedData['debt_balance'] = null;
-            $mergedData['notes'] = null;
-        */
+        $mergedData['funding_requested_amount'] = null;
+        $mergedData['funding_urgency'] = null;
+        $mergedData['purpose_of_funding'] = null;
+        $mergedData['purpose_note'] = null;
+        $mergedData['personal_credit_score'] = null;
+        $mergedData['estimated_business_credit_score'] = null;
+        $mergedData['existing_business_debt'] = false;
+        $mergedData['debt_balance'] = null;
+        $mergedData['notes'] = null;
 
         $mergedData['country'] = $borrower->country;
         $mergedData['country_code'] = $borrower->country_code;
