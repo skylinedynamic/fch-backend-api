@@ -404,11 +404,25 @@ class PreQualificationService
      * credit profile on file has a score corroborated by a pulled report; otherwise
      * the figure is whatever they selected in the wizard.
      */
+    /**
+     * The provenance of pre_qualification_requests.personal_credit_score.
+     *
+     * That column only ever holds the band the borrower picks in the wizard
+     * ("Good (670-739)"); it is explicitly nulled out of every prefill and is
+     * never populated from a bureau pull. So its source is borrower-reported,
+     * always.
+     *
+     * This used to answer with the borrower's credit profile instead — labelling
+     * the band "Verified Credit Profile" whenever a fico_score row happened to
+     * exist, which described a different number than the one being stored. The
+     * Internal AUE ranks verified data above borrower-reported data, so the
+     * mislabel promoted a self-selected band to verified evidence. The bureau
+     * score still reaches underwriting, but as its own field from its own
+     * source (see PreQualificationInternalAueService::buildBorrowerPayload).
+     */
     private function creditScoreSourceFor(?Borrower $borrower): string
     {
-        return $borrower?->creditProfile?->fico_score
-            ? 'Verified Credit Profile'
-            : 'Self-Reported';
+        return 'Borrower-Reported';
     }
 
     /**

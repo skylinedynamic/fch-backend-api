@@ -113,6 +113,22 @@ class PreQualificationRequest extends Model
         self::DECLINED => self::DECLINED,
     ];
 
+    /**
+     * How long a status note may be.
+     *
+     * Status Notes is a short reviewer note, not a memo — the full underwriting
+     * write-up lives in the AI Underwriting Result tab. The generated note
+     * ("AUE stance: … Next action: …") tops out around 70 characters, so this
+     * leaves room for a reviewer to add context without the field becoming a
+     * second place to store the memo.
+     *
+     * Single source of truth for the limit: the request rule, the generated-note
+     * truncation and the admin form's counter all derive from it. If it changes,
+     * STATUS_NOTE_MAX_LENGTH in the admin front-end's PreQualificationDetails
+     * must change with it.
+     */
+    public const STATUS_NOTE_MAX_LENGTH = 200;
+
       public const PURPOSE_OF_FUNDING_OPTIONS = [
         'Working Capital' => 'Working Capital',
         'Equipment'       => 'Equipment',
