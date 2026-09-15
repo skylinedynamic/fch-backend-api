@@ -31,6 +31,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
         $rules = [
             // ── Personal Info ───────────────────────────────────────────────
             'first_name'   => ['sometimes', 'required', 'string', 'max:255'],
+            'middle_name'   => ['nullable', 'string', 'max:255'],
             'last_name'    => ['sometimes', 'required', 'string', 'max:255'],
             'phone_number' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'email' => [

@@ -27,7 +27,7 @@ class SubscriptionListResource extends JsonResource
         if ($isPartner) {
             $subscriberName = $partner?->full_name ?? $this->partner_name ?? null;
         } elseif ($isBorrower) {
-            $subscriberName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : ($this->borrower_name ?? null);
+            $subscriberName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : ($this->borrower_name ?? null);
         } else {
             $subscriberName = $user?->name ?? $user?->full_name ?? $this->partner_name ?? $this->borrower_name ?? null;
         }

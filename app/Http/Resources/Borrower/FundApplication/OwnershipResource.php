@@ -68,6 +68,7 @@ class OwnershipResource extends JsonResource
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
             'first_name' => $firstName,
+            'middle_name' => $firstName,
             'last_name' => $lastName,
             'email' => $email,
             'phone_number' => $mobilePhone ?? $homePhone,

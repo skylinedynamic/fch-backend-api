@@ -36,7 +36,7 @@ class SubscriptionDetailsResource extends JsonResource
         } elseif ($isBorrower) {
             $borrowerPartner = ($borrower && $borrower->relationLoaded('partner')) ? $borrower->getRelation('partner') : null;
             $subscriptionTitle = 'Borrower Subscription';
-            $subscriberName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : null;
+            $subscriberName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : null;
             $subscriberEmail = $borrower?->email ?? null;
             $companyName = $borrowerPartner?->company_name ?? null;
             $associatedPartnerName = $borrowerPartner?->full_name ?? null;

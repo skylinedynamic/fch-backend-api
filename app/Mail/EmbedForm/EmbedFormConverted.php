@@ -44,7 +44,7 @@ class EmbedFormConverted extends Mailable
         return new Envelope(
             subject: $this->forStaff
                 ? __('embed_form.converted_staff_mail_subject', [
-                    'name' => trim("{$this->submission->first_name} {$this->submission->last_name}"),
+                    'name' => personName($this->submission->first_name ?? null, $this->submission->middle_name ?? null, $this->submission->last_name ?? null),
                 ])
                 : __('embed_form.converted_mail_subject', [
                     'site' => $this->dynamicData['siteName'],

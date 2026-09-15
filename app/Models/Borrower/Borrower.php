@@ -19,10 +19,13 @@ use Spatie\Activitylog\Contracts\Activity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 use App\Models\Concerns\Archivable;
+use App\Models\Concerns\HasPersonName;
 
 
 class Borrower extends Model
 {
+    use HasPersonName;
+
     use HasFactory, SoftDeletes, Archivable;
 
     protected string $guard_name = 'api';
@@ -185,11 +188,14 @@ class Borrower extends Model
     }
 
     /**
-     * Get the borrower's full name.
+     * The borrower's full name, middle name included when they have one.
+     *
+     * borrowers has no full_name column, so this accessor is safe to keep under
+     * that name - it is what the rest of the system already reads.
      */
     public function getFullNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->last_name}");
+        return $this->person_name;
     }
 
     /**
@@ -378,6 +384,7 @@ class Borrower extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.middle_name', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
@@ -401,7 +408,14 @@ class Borrower extends Model
                         $q->where('name', 'LIKE', "%{$search}%");
                     }
                 )
-                ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+                // The whole name as displayed, so "John Quincy Smith" is found by
+                // searching any run of it. CONCAT_WS skips a null middle name
+                // instead of collapsing the whole expression to NULL, which is what
+                // plain CONCAT would do.
+                ->orWhereRaw(
+                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ?",
+                    ["%{$search}%"]
+                );
         });
     }
 

@@ -10,9 +10,12 @@ use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasPersonName;
 
 class FundingApplication extends Model
 {
+    use HasPersonName;
+
     use SoftDeletes;
     
     /**
@@ -54,6 +57,7 @@ class FundingApplication extends Model
         'years_in_business',
         'number_of_employees',
         'first_name',
+        'middle_name',
         'last_name',
         'date_of_birth',
         'ssn',

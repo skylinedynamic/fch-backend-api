@@ -17,7 +17,7 @@ class BusinessResource extends JsonResource
         $borrower = $this->borrower ?? ($this->resource instanceof \App\Models\Borrower\Borrower ? $this->resource : null);
 
         $fullName = $this->full_name 
-            ?? ($borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : null);
+            ?? ($borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : null);
 
         $businessName = $this->business_name ?? $borrower?->business_name ?? null;
         $businessEmail = $this->business_email ?? $borrower?->business_email ?? $borrower?->email ?? null;

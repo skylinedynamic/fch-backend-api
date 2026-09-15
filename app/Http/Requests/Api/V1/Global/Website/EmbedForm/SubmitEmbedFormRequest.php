@@ -159,6 +159,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     {
         return [
             'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
@@ -192,6 +193,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
         return [
             'co_borrowers' => ['nullable', 'array', 'max:10'],
             'co_borrowers.*.first_name' => ['required', 'string', 'max:255'],
+            'co_borrowers.*.middle_name' => ['nullable', 'string', 'max:255'],
             'co_borrowers.*.last_name' => ['required', 'string', 'max:255'],
             'co_borrowers.*.title_role' => ['nullable', 'string', 'max:255'],
             'co_borrowers.*.ownership_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],

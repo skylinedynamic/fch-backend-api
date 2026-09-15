@@ -5,6 +5,29 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
+if (!function_exists('personName')) {
+    /**
+     * A person's name from its parts, skipping whatever is missing.
+     *
+     * The single implementation of "what is this person called". The same
+     * trim(first . ' ' . last) used to be written out at sixteen call sites, which
+     * is why adding a middle name meant hunting for all of them.
+     *
+     * Works for any subject, model or not - some callers hold a polymorphic payer
+     * that may be a Borrower, a Partner or a User, and only some of those carry
+     * name parts at all.
+     */
+    function personName($first, $middle = null, $last = null): string
+    {
+        $parts = array_filter(
+            array_map(fn($part) => trim((string) $part), [$first, $middle, $last]),
+            fn($part) => $part !== ''
+        );
+
+        return implode(' ', $parts);
+    }
+}
+
 if (!function_exists('encodeUrl')) {
     /**
      * Encode URL by replacing spaces with %20

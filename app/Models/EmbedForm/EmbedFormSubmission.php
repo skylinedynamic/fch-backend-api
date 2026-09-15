@@ -9,9 +9,12 @@ use App\Models\User\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\HasPersonName;
 
 class EmbedFormSubmission extends Model
 {
+    use HasPersonName;
+
     protected $table = 'embedded_form_submissions';
 
     protected $guarded = [];
@@ -158,7 +161,7 @@ class EmbedFormSubmission extends Model
      */
     public function getApplicantNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->last_name}");
+        return $this->person_name;
     }
 
     /**

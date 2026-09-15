@@ -438,7 +438,7 @@ class WeeklySummaryService
 
             $rows = $records->map(fn($c) => [
                 'client_name'       => $c->borrower
-                                        ? trim(($c->borrower->first_name ?? '') . ' ' . ($c->borrower->last_name ?? ''))
+                                        ? personName($c->borrower->first_name ?? null, $c->borrower->middle_name ?? null, $c->borrower->last_name ?? null)
                                         : '—',
                 'commission_amount' => (float) $c->partner_commission_amount,
                 'commission_rate'   => (float) $c->partner_commission,

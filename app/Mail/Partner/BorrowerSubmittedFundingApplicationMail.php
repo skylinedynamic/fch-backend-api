@@ -43,7 +43,7 @@ class BorrowerSubmittedFundingApplicationMail extends Mailable
 
         $this->dynamicData['applicationUrl'] = concatUrl(getPartnerDomain($this->mailPartnerId), 'intake-review/funding-application/' . $this->application->id, config('app.frontend_partner_url'));
 
-        $borrowerName = $this->application->borrower ? trim("{$this->application->borrower->first_name} {$this->application->borrower->last_name}") : null;
+        $borrowerName = $this->application->borrower ? personName($this->application->borrower->first_name ?? null, $this->application->borrower->middle_name ?? null, $this->application->borrower->last_name ?? null) : null;
         $clientName = $this->application->full_name ?: ($borrowerName ?: 'Client');
 
         return new Envelope(

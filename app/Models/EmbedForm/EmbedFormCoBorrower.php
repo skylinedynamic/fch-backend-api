@@ -5,6 +5,7 @@ namespace App\Models\EmbedForm;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasPersonName;
 
 /**
  * A co-borrower captured by the public embedded form.
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class EmbedFormCoBorrower extends Model
 {
+    use HasPersonName;
+
     use SoftDeletes;
 
     protected $table = 'embedded_form_co_borrowers';
@@ -35,6 +38,6 @@ class EmbedFormCoBorrower extends Model
 
     public function getFullNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->last_name}");
+        return $this->person_name;
     }
 }

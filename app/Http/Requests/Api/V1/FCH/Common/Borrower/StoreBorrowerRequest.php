@@ -23,6 +23,7 @@ class StoreBorrowerRequest extends BaseApiRequest
         $rules = [
             // ── Personal Info ───────────────────────────────────────────────
             'first_name'           => ['required', 'string', 'max:255'],
+            'middle_name'           => ['nullable', 'string', 'max:255'],
             'last_name'            => ['required', 'string', 'max:255'],
             'email'                => ['required', Rule::unique('borrowers', 'email')->whereNull('deleted_at'), 'email', 'max:255'],
             'phone_number'         => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],

@@ -25,7 +25,7 @@ class SignatureCertificateService
         if (!is_array($sigData)) $sigData = [];
         
         $appId = $application->application_number ?? ('FUND-'.str_pad($application->id, 6, '0', STR_PAD_LEFT));
-        $borrowerName = trim(($application->first_name ?? '') . ' ' . ($application->last_name ?? ''));
+        $borrowerName = personName($application->first_name ?? null, $application->middle_name ?? null, $application->last_name ?? null);
         $businessName = $application->business_name ?? 'N/A';
         $rawStatus = $application->status ?? FundingApplication::PENDING;
         $status = FundingApplication::STATUS[$rawStatus] ?? ucfirst(str_replace('_', ' ', $rawStatus));

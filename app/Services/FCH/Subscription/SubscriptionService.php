@@ -1019,7 +1019,7 @@ class SubscriptionService
                 }
 
                 // Entity display info
-                $customerName = $entity->full_name ?? trim(($entity->first_name ?? '') . ' ' . ($entity->last_name ?? ''));
+                $customerName = $entity->full_name ?? personName($entity->first_name ?? null, $entity->middle_name ?? null, $entity->last_name ?? null);
                 $email = $entity->email;
 
                 // For user seat: bill the partner

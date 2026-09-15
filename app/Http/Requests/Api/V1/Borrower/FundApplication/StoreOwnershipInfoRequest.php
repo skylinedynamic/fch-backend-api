@@ -25,6 +25,7 @@ class StoreOwnershipInfoRequest extends BaseApiRequest
         return [
             'id' => 'nullable|exists:funding_applications,id',
             'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'date_of_birth' => 'required|date',
             'ssn' => 'required|string|digits:9',

@@ -214,7 +214,7 @@ class EmbedFormSubmissionResource extends JsonResource
             'converted_borrower' => $this->whenLoaded('convertedBorrower', function () {
                 return $this->convertedBorrower ? [
                     'id' => $this->convertedBorrower->id,
-                    'full_name' => trim("{$this->convertedBorrower->first_name} {$this->convertedBorrower->last_name}"),
+                    'full_name' => personName($this->convertedBorrower->first_name ?? null, $this->convertedBorrower->middle_name ?? null, $this->convertedBorrower->last_name ?? null),
                     'status' => $this->convertedBorrower->status,
                     'is_free_trail' => (bool) $this->convertedBorrower->is_free_trail,
                     'free_trail_end_date' => toDateOnly($this->convertedBorrower->free_trail_end_date),
