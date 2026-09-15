@@ -213,7 +213,7 @@ class ReminderService
             'send_at' => $remindAtUtc,
         ]);
 
-        DispatchReminderDueJob::dispatch($reminder->id, $remindAtUtc)->delay($remindAtUtc);
+        DispatchReminderDueJob::dispatch($reminder->id, $remindAtUtc)->delay($remindAtUtc)->afterCommit();
 
         return $reminder;
     }

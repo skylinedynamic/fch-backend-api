@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\ActivityLog;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
@@ -76,18 +77,16 @@ class ActivityLogController extends Controller
     /**
      * Update an activity log entry (only manual 'activity' type)
      */
-    public function update(Request $request, $id)
+    public function update(UpdateActivityLogRequest $request, $id)
     {
         try {
-            $data = $request->all();
-            if ($request->hasFile('attachments')) {
-                $data['attachments'] = $request->file('attachments');
-            }
+            $data = $request->validated();
             $log = $this->activityLogService->update((int) $id, $data);
             return ApiResponse::success(new ActivityLogResource($log), __('activity_log.activity_updated'));
         } catch (\Exception $e) {
             $code = $e->getCode();
             if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            Log::error('ActivityLog update error:', ['id' => $id, 'error' => $e->getMessage()]);
             return ApiResponse::serverError(__('activity_log.activity_update_failed'));
         }
     }
@@ -103,6 +102,7 @@ class ActivityLogController extends Controller
         } catch (\Exception $e) {
             $code = $e->getCode();
             if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            Log::error('ActivityLog delete error:', ['id' => $id, 'error' => $e->getMessage()]);
             return ApiResponse::serverError(__('activity_log.activity_delete_failed'));
         }
     }

@@ -242,7 +242,7 @@ class ActivityLogService
                     'category' => $data['category'] ?? null,
                     'location' => $data['location'] ?? null,
                     'duration' => $data['duration'] ?? null,
-                    'activity_date' => $data['activity_date'] ?? null,
+                    'activity_date' => $this->localToUtc($data['activity_date'] ?? null),
                     'assigned_to' => $data['assigned_to'] ?? null,
                     'to_emails' => $data['to_emails'] ?? null,
                     'partner_id' => $targetPartnerId,
@@ -252,10 +252,14 @@ class ActivityLogService
                     'visible_to_host' => $data['visible_to_host'] ?? null,
                     'visible_to_borrower' => $data['visible_to_borrower'] ?? null,
                     'remind_me' => filter_var($data['remind_me'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                    'remind_at' => $data['remind_at'] ?? null,
+                    'remind_at' => filter_var($data['remind_me'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                        ? $this->localToUtc($data['remind_at'] ?? null)
+                        : null,
                     'reminder_preset' => $data['reminder_preset'] ?? '30_minutes',
                     'reminder_time_value' => $data['reminder_time_value'] ?? '30',
                     'reminder_time_unit' => $data['reminder_time_unit'] ?? 'Minutes',
+                    // activity_date / remind_at above are UTC; rows without this flag hold local wall-clock values
+                    'dates_utc' => true,
                 ],
             ];
 
@@ -596,7 +600,12 @@ class ActivityLogService
      */
     public function update(int $id, array $data): ActivityLog
     {
-        $log = ActivityLog::findOrFail($id);
+        return DB::transaction(fn () => $this->performUpdate($id, $data));
+    }
+
+    private function performUpdate(int $id, array $data): ActivityLog
+    {
+        $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
         $logType = strtolower($log->log_name ?? '');
         if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
@@ -609,6 +618,9 @@ class ActivityLogService
         } elseif (!is_array($props)) {
             $props = [];
         }
+
+        // Resolve before the subject is overwritten — the legacy fallback matches on it
+        $existingReminder = $this->findLinkedReminder($log, $props);
 
         if (isset($data['subject'])) {
             $props['subject'] = $data['subject'];
@@ -624,8 +636,15 @@ class ActivityLogService
             $props['reference'] = $data['reference'];
         }
 
-        if (isset($data['activity_date'])) {
-            $props['activity_date'] = $data['activity_date'];
+        // Older rows stored the wall-clock value as entered — normalise them to UTC once
+        if (empty($props['dates_utc'])) {
+            $props['activity_date'] = $this->localToUtc($props['activity_date'] ?? null);
+            $props['remind_at'] = $this->localToUtc($props['remind_at'] ?? null);
+            $props['dates_utc'] = true;
+        }
+
+        if (!empty($data['activity_date'])) {
+            $props['activity_date'] = $this->localToUtc($data['activity_date']);
         }
 
         // --- Attachments Handling ---
@@ -668,19 +687,6 @@ class ActivityLogService
         }
 
         // --- Reminder Handling ---
-        $existingReminderId = $props['reminder_id'] ?? null;
-        $existingReminder = null;
-        if ($existingReminderId) {
-            $existingReminder = Reminder::find($existingReminderId);
-        }
-        if (!$existingReminder && $log->subject_id && $log->subject_type) {
-            $existingReminder = Reminder::where('entity_id', $log->subject_id)
-                ->where('entity_type', $log->subject_type)
-                ->where('status', Reminder::STATUS_PENDING)
-                ->latest()
-                ->first();
-        }
-
         if (array_key_exists('remind_me', $data)) {
             $remindMe = filter_var($data['remind_me'], FILTER_VALIDATE_BOOLEAN);
             $props['remind_me'] = $remindMe;
@@ -689,11 +695,10 @@ class ActivityLogService
             $props['reminder_time_unit'] = $data['reminder_time_unit'] ?? ($props['reminder_time_unit'] ?? 'Minutes');
 
             if ($remindMe && !empty($data['remind_at'])) {
-                $props['remind_at'] = $data['remind_at'];
-                $timezone = request()->header('X-Timezone', config('app.timezone'));
-                $remindAtUtc = Carbon::parse($data['remind_at'], $timezone)->setTimezone('UTC');
+                $remindAtUtc = Carbon::parse($data['remind_at'], $this->requestTimezone())->utc();
+                $props['remind_at'] = $remindAtUtc->format('Y-m-d H:i:s');
                 $referenceDateUtc = !empty($props['activity_date'])
-                    ? Carbon::parse($props['activity_date'], $timezone)->setTimezone('UTC')
+                    ? Carbon::parse($props['activity_date'], 'UTC')
                     : null;
                 $reminderAttachments = $props['attachments']['files'] ?? [];
 
@@ -708,14 +713,17 @@ class ActivityLogService
                         'status' => Reminder::STATUS_PENDING,
                         'attachments' => $reminderAttachments,
                     ]);
-                    \App\Jobs\Reminder\DispatchReminderDueJob::dispatch($existingReminder->id, $remindAtUtc)->delay($remindAtUtc);
+                    \App\Jobs\Reminder\DispatchReminderDueJob::dispatch($existingReminder->id, $remindAtUtc)
+                        ->delay($remindAtUtc)
+                        ->afterCommit();
                     $props['reminder_id'] = $existingReminder->id;
                 } else {
                     $newReminder = app(ReminderService::class)->createFromActivity(
                         [
                             'remind_me' => true,
                             'remind_at' => $data['remind_at'],
-                            'activity_date' => $props['activity_date'] ?? null,
+                            // createFromActivity expects the user's local time
+                            'activity_date' => $this->utcToLocal($props['activity_date'] ?? null),
                             'reference' => $props['reference'] ?? null,
                             'subject' => $props['subject'] ?? null,
                             'description' => $props['description'] ?? null,
@@ -732,15 +740,14 @@ class ActivityLogService
                     }
                 }
             } else {
+                // Reminder switched off — drop it so it no longer shows in the reminders list
                 $props['remind_at'] = null;
-                if ($existingReminder && $existingReminder->status === Reminder::STATUS_PENDING) {
-                    $existingReminder->update(['status' => Reminder::STATUS_CANCELLED]);
-                }
+                $existingReminder?->delete();
                 $props['reminder_id'] = null;
             }
         } elseif ($existingReminder && $existingReminder->status === Reminder::STATUS_PENDING) {
             $referenceDateUtc = !empty($props['activity_date'])
-                ? Carbon::parse($props['activity_date'], request()->header('X-Timezone', config('app.timezone')))->setTimezone('UTC')
+                ? Carbon::parse($props['activity_date'], 'UTC')
                 : null;
             $existingReminder->update([
                 'reference' => $props['reference'] ?? $existingReminder->reference,
@@ -762,22 +769,68 @@ class ActivityLogService
      */
     public function delete(int $id): void
     {
-        $log = ActivityLog::findOrFail($id);
+        DB::transaction(function () use ($id) {
+            $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-        $logType = strtolower($log->log_name ?? '');
-        if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
-            throw new \Exception('Only manual activity entries can be deleted.', 403);
-        }
+            $logType = strtolower($log->log_name ?? '');
+            if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+                throw new \Exception('Only manual activity entries can be deleted.', 403);
+            }
 
-        $props = $log->properties;
-        if ($props instanceof \Illuminate\Support\Collection) {
-            $props = $props->toArray();
-        }
+            $props = $log->properties;
+            if ($props instanceof \Illuminate\Support\Collection) {
+                $props = $props->toArray();
+            }
+
+            $this->findLinkedReminder($log, is_array($props) ? $props : [])?->delete();
+
+            $log->delete();
+        });
+    }
+
+    private function requestTimezone(): string
+    {
+        return request()->header('X-Timezone') ?: config('app.timezone');
+    }
+
+    /**
+     * The frontend sends date/times as wall-clock values in the viewer's timezone.
+     */
+    private function localToUtc(?string $value): ?string
+    {
+        return empty($value)
+            ? null
+            : Carbon::parse($value, $this->requestTimezone())->utc()->format('Y-m-d H:i:s');
+    }
+
+    private function utcToLocal(?string $value): ?string
+    {
+        return empty($value)
+            ? null
+            : Carbon::parse($value, 'UTC')->setTimezone($this->requestTimezone())->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Reminder belonging to a manual activity: by the stored reminder_id, or —
+     * for activities created before reminder_id was stored — the reminder on the
+     * same subject with the same summary (same match ActivityLogResource uses).
+     */
+    private function findLinkedReminder(ActivityLog $log, array $props): ?Reminder
+    {
         if (!empty($props['reminder_id'])) {
-            Reminder::where('id', $props['reminder_id'])->where('status', Reminder::STATUS_PENDING)->update(['status' => Reminder::STATUS_CANCELLED]);
+            return Reminder::find($props['reminder_id']);
         }
 
-        $log->delete();
+        if (!$log->subject_id || !$log->subject_type || empty($props['subject'])) {
+            return null;
+        }
+
+        return Reminder::where('entity_id', $log->subject_id)
+            ->where('entity_type', $log->subject_type)
+            ->where('summary', $props['subject'])
+            ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
+            ->latest()
+            ->first();
     }
 
     /**

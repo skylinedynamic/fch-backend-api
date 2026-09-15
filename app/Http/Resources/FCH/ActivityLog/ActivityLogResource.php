@@ -49,24 +49,45 @@ class ActivityLogResource extends JsonResource
              $leadImage = asset('avatar/avatar-default.jpg'); 
         }
 
-        $remindMe = (bool) ($this->properties['remind_me'] ?? false);
-        $remindAt = $this->properties['remind_at'] ?? null;
-        $reminderPreset = $this->properties['reminder_preset'] ?? '30_minutes';
-        $reminderTimeValue = $this->properties['reminder_time_value'] ?? '30';
-        $reminderTimeUnit = $this->properties['reminder_time_unit'] ?? 'Minutes';
+        $props = $this->properties ?? [];
 
-        if (!$remindMe && !empty($this->properties['reminder_id'])) {
-            $remindMe = true;
-        } elseif (!$remindMe && $this->subject_id && $this->subject_type) {
+        // Rows flagged dates_utc store UTC; older rows hold the wall-clock value as the user entered it
+        $toDisplay = fn ($value) => empty($value)
+            ? null
+            : (!empty($props['dates_utc'])
+                ? toTimezone($value, null, 'Y-m-d H:i:s')
+                : Carbon::parse($value)->format('Y-m-d H:i:s'));
+
+        $remindMe = (bool) ($props['remind_me'] ?? false);
+        $reminderPreset = $props['reminder_preset'] ?? '30_minutes';
+        $reminderTimeValue = $props['reminder_time_value'] ?? '30';
+        $reminderTimeUnit = $props['reminder_time_unit'] ?? 'Minutes';
+
+        $linkedReminder = !empty($props['reminder_id']) ? Reminder::find($props['reminder_id']) : null;
+        if (!$linkedReminder && !$remindMe && empty($props['reminder_id']) && $this->subject_id && $this->subject_type) {
             $linkedReminder = Reminder::where('entity_id', $this->subject_id)
                 ->where('entity_type', $this->subject_type)
                 ->where('status', Reminder::STATUS_PENDING)
-                ->where('summary', $this->properties['subject'] ?? '')
+                ->where('summary', $props['subject'] ?? '')
                 ->first();
-            if ($linkedReminder) {
-                $remindMe = true;
-                $remindAt = $linkedReminder->reminder_date_time ? toTimezone($linkedReminder->reminder_date_time, null, 'Y-m-d H:i:s') : null;
+        }
+
+        if ($linkedReminder) {
+            // The reminder row is the source of truth for when it actually fires
+            $remindMe = true;
+            $remindAt = $linkedReminder->reminder_date_time
+                ? toTimezone($linkedReminder->reminder_date_time, null, 'Y-m-d H:i:s')
+                : null;
+
+            if ($reminderPreset !== 'custom_date_time' && $linkedReminder->set_date_time && $linkedReminder->reminder_date_time) {
+                $leadMinutes = (int) round(
+                    ($linkedReminder->set_date_time->getTimestamp() - $linkedReminder->reminder_date_time->getTimestamp()) / 60
+                );
+                [$reminderPreset, $reminderTimeValue, $reminderTimeUnit] =
+                    $this->resolveReminderPreset($leadMinutes, $reminderPreset, $reminderTimeValue, $reminderTimeUnit);
             }
+        } else {
+            $remindAt = $toDisplay($props['remind_at'] ?? null);
         }
 
         return [
@@ -81,7 +102,7 @@ class ActivityLogResource extends JsonResource
             // Activity fields
             'reference'     => $this->properties['reference'] ?? null,
             'category'      => $this->properties['category'] ?? null,
-            'activity_date' => !empty($this->properties['activity_date']) ? toTimezone($this->properties['activity_date'], null, 'Y-m-d H:i:s') : null,
+            'activity_date' => $toDisplay($props['activity_date'] ?? null),
             'assigned_to'   => $this->properties['assigned_to'] ?? null,
             'assigned_user' => $this->whenLoaded('assignedUser', fn() => $this->assignedUser ? [
                 'id'   => $this->assignedUser->id,
@@ -96,7 +117,7 @@ class ActivityLogResource extends JsonResource
             'status'            => $this->status,
             // Reminder fields
             'remind_me'         => $remindMe,
-            'remind_at'         => !empty($remindAt) ? toTimezone($remindAt, null, 'Y-m-d H:i:s') : null,
+            'remind_at'         => $remindAt,
             'reminder_preset'   => $reminderPreset,
             'reminder_time_value'=> $reminderTimeValue,
             'reminder_time_unit' => $reminderTimeUnit,
@@ -118,6 +139,42 @@ class ActivityLogResource extends JsonResource
             'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * Keep the saved "Reminder Time" option when it matches how far ahead the
+     * reminder really fires; otherwise derive it from that lead time (older
+     * activities were saved with the default 30_minutes regardless of choice).
+     * Mirrors REMINDER_PRESETS / getReminderMsToSubtract in the admin frontend.
+     */
+    private function resolveReminderPreset(int $leadMinutes, string $preset, $value, $unit): array
+    {
+        $presetMinutes = [
+            '5_minutes' => 5, '10_minutes' => 10, '15_minutes' => 15, '30_minutes' => 30,
+            '1_hour' => 60, '1_day' => 1440, '2_days' => 2880, '3_days' => 4320,
+            '1_week' => 10080, '2_weeks' => 20160, '3_weeks' => 30240, '1_month' => 43200,
+        ];
+        $unitMinutes = ['Minutes' => 1, 'Hours' => 60, 'Days' => 1440, 'Weeks' => 10080, 'Months' => 43200];
+
+        if ($leadMinutes < 0) {
+            return [$preset, $value, $unit];
+        }
+        if (($presetMinutes[$preset] ?? null) === $leadMinutes) {
+            return [$preset, $value, $unit];
+        }
+        if ($preset === 'custom_time_before' && (int) $value * ($unitMinutes[$unit] ?? 0) === $leadMinutes) {
+            return [$preset, $value, $unit];
+        }
+        if ($match = array_search($leadMinutes, $presetMinutes, true)) {
+            return [$match, $value, $unit];
+        }
+        foreach (['Weeks' => 10080, 'Days' => 1440, 'Hours' => 60] as $u => $m) {
+            if ($leadMinutes > 0 && $leadMinutes % $m === 0) {
+                return ['custom_time_before', (string) intdiv($leadMinutes, $m), $u];
+            }
+        }
+
+        return ['custom_time_before', (string) $leadMinutes, 'Minutes'];
     }
 
     private function getEventLabel(): string
