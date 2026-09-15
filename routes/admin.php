@@ -40,6 +40,13 @@ Route::prefix('v1/admin')
         Route::post('partners/fetch-borrowers', [PartnerController::class, 'getBorrowers']);
         Route::post('partners/multiple-delete', [PartnerController::class, 'partnerDelete']);
         Route::post('partners/check-deletable', [PartnerController::class, 'checkDeletable']);
+
+        // Archiving is an edit to the partner record, not a deletion, so it sits
+        // behind the same permission as any other partner edit.
+        Route::post('partners/archive', [PartnerController::class, 'archive'])
+            ->middleware('permission:update partners');
+        Route::post('partners/unarchive', [PartnerController::class, 'unarchive'])
+            ->middleware('permission:update partners');
         Route::get('partners/tenant-config/{id}', [PartnerController::class, 'getTenantConfig']);
         Route::post('partners/tenant-config/{id}', [PartnerController::class, 'updateTenantConfig']);
 

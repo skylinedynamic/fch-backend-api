@@ -18,11 +18,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Contracts\Activity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use App\Models\Concerns\Archivable;
 
 
 class Borrower extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Archivable;
 
     protected string $guard_name = 'api';
     /**
@@ -46,6 +47,7 @@ class Borrower extends Model
      */
     protected $casts = [
         'created_at' => 'datetime',
+        'archived_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'partner_payment_for_me' => 'boolean',

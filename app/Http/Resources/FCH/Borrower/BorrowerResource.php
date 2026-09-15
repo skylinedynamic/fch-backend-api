@@ -74,6 +74,10 @@ class BorrowerResource extends JsonResource
             'funding_urgency'           => $this->funding_urgency,
 
             'status'        => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'notes'         => $this->notes,
             'assign_id'     => $this->assign_id,
             'assign_name'   => $this->assignedUser?->name,

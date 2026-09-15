@@ -17,6 +17,7 @@ use App\Http\Requests\Api\V1\FCH\Admin\Partner\StorePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdatePartnerRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Partner\UpdateTenantConfigRequest;
 use App\Mail\AccountCreateNotificationMail;
+use App\Http\Requests\Api\V1\FCH\Admin\Partner\ArchivePartnerRequest;
 
 class PartnerController extends Controller
 {
@@ -46,6 +47,11 @@ class PartnerController extends Controller
                 'partner_id' => $this->normalizeFilterValue($input['partner_id'] ?? null),
                 'assigned_user_id' => $this->normalizeFilterValue($input['assigned_user_id'] ?? null),
                 'is_free_trail' => $this->normalizeFilterValue($input['is_free_trail'] ?? null),
+                // The list below is a whitelist: a filter missing from it is
+                // silently dropped however well it validates, which is exactly how
+                // archived and user_status went nowhere.
+                'archived' => $input['archived'] ?? null,
+                'status' => $this->normalizeFilterValue($input['status'] ?? null),
                 'filters' => $input['filters'] ?? null, // array expected per request rules
                 'sort_field' => $input['sort_field'] ?? null,
                 'sort_order' => $input['sort_order'] ?? null,
@@ -182,7 +188,9 @@ class PartnerController extends Controller
             $updatedPartner = $this->partnerService->updateTenantConfig($id, $request->validated());
             return ApiResponse::success((new TenantConfigResource($updatedPartner))->resolve(), __('partner.success.tenant_config_updated'));
         } catch (\Exception $e) {
-            return ApiResponse::error($e->getMessage(), 400);
+            Log::error('Tenant config update failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.tenant_config_update_failed'), 400);
         }
     }
 
@@ -244,7 +252,38 @@ class PartnerController extends Controller
         try {
             return $this->partnerService->delete($request->ids);
         } catch (\Throwable $e) {
-            return ApiResponse::error($e->getMessage(), 400);
+            Log::error('Partner delete failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.delete_failed'), 400);
+        }
+    }
+
+    /**
+     * Archive partners: take them out of the working list without deleting them.
+     *
+     * Presentation only - `status` is untouched, so an archived partner keeps
+     * whatever access and billing they had.
+     */
+    public function archive(ArchivePartnerRequest $request)
+    {
+        try {
+            return $this->partnerService->archive($request->validated()['ids']);
+        } catch (\Throwable $e) {
+            Log::error('Partner archive failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.archive_failed'), 400);
+        }
+    }
+
+    /** Restore archived partners to the working list. */
+    public function unarchive(ArchivePartnerRequest $request)
+    {
+        try {
+            return $this->partnerService->unarchive($request->validated()['ids']);
+        } catch (\Throwable $e) {
+            Log::error('Partner restore failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.unarchive_failed'), 400);
         }
     }
 
@@ -257,7 +296,9 @@ class PartnerController extends Controller
             $results = $this->partnerService->checkDeletable($request->ids);
             return ApiResponse::success($results, __('partner.success.retrieved'));
         } catch (\Throwable $e) {
-            return ApiResponse::error($e->getMessage(), 400);
+            Log::error('Deletable check failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.deletable_check_failed'), 400);
         }
     }
 

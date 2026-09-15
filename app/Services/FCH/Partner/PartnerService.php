@@ -642,6 +642,12 @@ class PartnerService
                 'subscription'
             ]);
 
+        // Snapshot the query before any user-facing filter is applied, so the
+        // summary cards keep showing true totals instead of recounting whatever the
+        // table is currently filtered to. Archived partners are excluded: they are
+        // not active business.
+        $statsQuery = (clone $query)->notArchived();
+
         // Filter based on authenticated user's host status
         // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
         //     // If logged-in user is a host, show only non-host partners
@@ -661,6 +667,13 @@ class PartnerService
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
 
+        // 🔍 Filter by the partner's own status — the value the Status column
+        // shows. Partner::STATUS is the full set: Active, Inactive, Suspended and
+        // OnBoarding.
+        if (!empty($filters['status'])) {
+            $query->where('partners.status', $filters['status']);
+        }
+
         // 🔍 Filter by is_free_trail (directly on partners table)
         if (isset($filters['is_free_trail']) && $filters['is_free_trail'] !== '') {
             $query->where('partners.is_free_trail', $filters['is_free_trail']);
@@ -670,6 +683,21 @@ class PartnerService
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
+
+        // 🗄 Archived records leave the working list but stay findable. A search
+        // reaches them by default; `archived` narrows to them, `archived=all`
+        // ignores the distinction entirely.
+        // '' and null both mean "no archive filter chosen" - the UI sends an empty
+        // string, not null, so both have to be treated the same or a search would
+        // never reach archived records.
+        $archived = $filters['archived'] ?? null;
+        $archived = ($archived === '' ? null : $archived);
+
+        if ($archived === null && !empty($filters['search'])) {
+            $archived = Partner::ARCHIVE_FILTER_ALL;
+        }
+
+        $query->archiveFilter($archived);
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
@@ -743,12 +771,14 @@ class PartnerService
             ]
         );
 
-        // Calculate statistics before pagination
+        // Statistics come from the pre-filter snapshot, not from $query: these are
+        // headline totals for the whole book, and recomputing them per filter made
+        // the cards move every time someone narrowed the table.
         $statistics = [
-            'total_partners' => (clone $query)->count(),
-            'active_partners' => (clone $query)->where('status', Partner::STATUS_ACTIVE)->count(),
-            'inactive_partners' => (clone $query)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
-            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'total_partners' => (clone $statsQuery)->count(),
+            'active_partners' => (clone $statsQuery)->where('status', Partner::STATUS_ACTIVE)->count(),
+            'inactive_partners' => (clone $statsQuery)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
+            'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -973,6 +1003,72 @@ class PartnerService
     /**
      * Delete Partner
      */
+
+    /**
+     * Archive records so they leave the working list without being deleted.
+     *
+     * Presentation only: `status` is untouched, so archiving changes nothing about
+     * login, billing or permissions. Already-archived rows are skipped rather than
+     * re-stamped, so the original "who filed this away" survives a repeat action.
+     */
+    public function archive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $archived = 0;
+
+            foreach (Partner::whereIn('id', $ids)->get() as $record) {
+                if ($record->archive()) {
+                    $archived++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['archived' => $archived],
+                __('partner.success.archived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Partner archive failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.archive_failed'), 400);
+        }
+    }
+
+    /**
+     * Return archived records to the working list. Nothing else about them changes -
+     * archiving never altered the record, so restoring has nothing to rebuild.
+     */
+    public function unarchive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $restored = 0;
+
+            foreach (Partner::whereIn('id', $ids)->get() as $record) {
+                if ($record->unarchive()) {
+                    $restored++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['restored' => $restored],
+                __('partner.success.unarchived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Partner restore failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.unarchive_failed'), 400);
+        }
+    }
+
     public function delete(array $ids)
     {
         try {
@@ -990,7 +1086,7 @@ class PartnerService
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Partner deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
-            return ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error(__('partner.error.delete_failed'), 400);
         }
     }
 
