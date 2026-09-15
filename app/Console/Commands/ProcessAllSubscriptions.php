@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Mail;
  *  STEP 1 — Invoice Generation
  *   a) Partner/Client installment invoices (enrollment phase)
  *   b) Partner/Client platform fee invoices (platform_fee phase)
- *   c) User/Employee seat renewal invoices (expected_end_date approaching)
+ *   c) User/Employee seat renewal invoices (subscription_end_date approaching)
  *
  *  STEP 2 — Auto-Charge
  *   - Query all Unpaid invoices linked to active subscriptions
@@ -107,14 +107,14 @@ class ProcessAllSubscriptions extends Command
             ->where('status', Invoice::STATUS_UNPAID)
             ->where('payment_amount', '>', 0)
             ->whereHas('subscription', function ($q) {
-                // billing_paused_at means the subscriber is not Active, so Step 1
-                // has stopped raising new cycles for them. Taking money off-session
+                // A subscriber who is not Active is not receiving the service, so
+                // Step 1 raises no new cycles for them. Taking money off-session
                 // from a suspended customer's card while their service is switched
-                // off is what produces chargebacks, so collection pauses with it.
+                // off is what produces chargebacks, so collection stops with it.
                 // The invoice stays Unpaid and payable — the debt is not forgiven,
                 // it just is not auto-charged until they are Active again.
                 $q->where('status', Subscription::STATUS_ACTIVE)
-                    ->whereNull('billing_paused_at');
+                    ->whereNot(fn($blocked) => $blocked->billingBlocked());
             })
             // Deliberately unfiltered by date: every Unpaid invoice on an Active,
             // unpaused subscription is due for a charge attempt, however old. An

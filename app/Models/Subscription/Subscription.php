@@ -13,16 +13,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
- * subscription_end_date vs expected_end_date:
- *  - subscription_end_date: paid through this date. Only moves on an actual
- *    successful payment (handleOneTimePayment / handleInstallmentPayment /
- *    handleUserSeatPayment in SubscriptionService).
- *  - expected_end_date: the scheduling field. generateDueInvoices() and
- *    createInvoiceIfDue() key off THIS, not subscription_end_date. It advances
- *    both on payment and on a missed-cycle rollover (invoice expired, next
- *    cycle generated) — so it can run ahead of subscription_end_date.
- *  The gap between the two is, by construction, how far behind a subscription
- *  actually is on real payment.
+ * subscription_end_date is the one cycle date: what the customer is paid through
+ * AND when the cron next bills them. It only moves on a real payment
+ * (handleOneTimePayment / handleInstallmentPayment / handleUserSeatPayment in
+ * SubscriptionService), and generateDueInvoices() / createInvoiceIfDue() key off it.
+ *
+ * NULL means nothing is scheduled: a borrower who has paid in full, or a
+ * subscription whose first invoice has not been settled yet.
+ *
+ * There is no second scheduling date. Only one invoice may be open at a time, so a
+ * cycle is never rolled forward without payment and the two can never diverge.
+ * Both portals also lock a profile once today is past this date, which is why a
+ * finished borrower must carry NULL rather than a date in the past.
  */
 class Subscription extends Model
 {
@@ -64,8 +66,6 @@ class Subscription extends Model
         'installment_count',
         'subscription_start_date',
         'subscription_end_date',
-        'expected_end_date',
-        'billing_paused_at',
         'current_cycle_invoice_id',
         'status',
         'is_custom',
@@ -84,8 +84,6 @@ class Subscription extends Model
         'first_payment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
-        'expected_end_date' => 'date',
-        'billing_paused_at' => 'datetime',
         'current_cycle_invoice_id' => 'integer',
         'monthly_platform_fee' => 'decimal:2',
         'total_subscription_amount' => 'decimal:2',
@@ -219,21 +217,15 @@ class Subscription extends Model
     /**
      * Whether billing is currently stopped for this subscription.
      *
-     * Checks the subscriber's LIVE status as well as billing_paused_at, because
-     * that flag is only stamped when the cron next processes the row — so between
-     * an admin suspending someone and the next cron run the flag is still null
-     * while billing is, in reality, already stopped. Reading the status directly
-     * keeps the screen honest in that window.
-     *
-     * Falls back to the flag alone when the relations are not loaded, so it is safe
-     * under Model::preventLazyLoading().
+     * Derived from the subscriber's live status every time it is asked, never from
+     * a stored flag. There used to be a billing_paused_at column caching this, but
+     * it was only stamped when the cron next processed the row — so between an
+     * admin suspending someone and the next cron run it said "not paused" while
+     * billing had in reality already stopped, and every reader had to check the
+     * live status anyway to cover the gap.
      */
     public function getIsBillingPausedAttribute(): bool
     {
-        if ($this->billing_paused_at) {
-            return true;
-        }
-
         return $this->billingPausedReason() !== null;
     }
 
@@ -270,7 +262,59 @@ class Subscription extends Model
             }
         }
 
-        return $this->billing_paused_at ? 'Billing paused' : null;
+        // Seat subscriptions: the seat holder's own user account decides.
+        if (in_array($this->entity_type, [User::class, Employee::class], true)
+            && $this->relationLoaded('entity') && $this->entity) {
+            $seatStatus = $this->entity_type === User::class
+                ? $this->entity->status
+                : $this->entity->job_status;
+
+            if ($seatStatus !== null && $seatStatus !== User::STATUS['active']
+                && $seatStatus !== Employee::STATUS_ACTIVE) {
+                return class_basename($this->entity_type) . ' is ' . $seatStatus;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Constrain to subscriptions whose billing is stopped, in SQL.
+     *
+     * The query-side twin of billingPausedReason(). Shared by the billing screens
+     * and by the auto-charge dispatcher so the two can never disagree about who is
+     * collectable.
+     */
+    public function scopeBillingBlocked($query)
+    {
+        return $query->where(function ($outer) {
+            $outer->where(function ($q) {
+                $q->where('subscriptions.entity_type', Partner::class)
+                    ->whereExists(function ($inner) {
+                        $inner->selectRaw(1)
+                            ->from('partners')
+                            ->whereColumn('partners.id', 'subscriptions.entity_id')
+                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
+                    });
+            })->orWhere(function ($q) {
+                // Borrower blocked by their own status, or by their partner's.
+                $q->where('subscriptions.entity_type', Borrower::class)
+                    ->whereExists(function ($inner) {
+                        $inner->selectRaw(1)
+                            ->from('borrowers')
+                            ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                            ->where(function ($w) {
+                                $w->where('borrowers.status', '!=', Borrower::STATUS_ACTIVE)
+                                    ->orWhereExists(function ($p) {
+                                        $p->selectRaw(1)
+                                            ->from('partners')
+                                            ->whereColumn('partners.id', 'borrowers.partner_id')
+                                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
+                                    });
+                            });
+                    });
+            });
+        });
     }
 
     /**

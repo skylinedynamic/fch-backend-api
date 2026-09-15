@@ -107,30 +107,29 @@ class BillingService
 
         // Which cycles are "upcoming".
         //
-        // Keyed on expected_end_date because that is the field generateDueInvoices()
-        // reads — this screen exists to predict what the cron will do, so the two
-        // must select on the same column. subscription_end_date is "paid through"
-        // and sits in the past for anyone who has missed a cycle, which made every
-        // such row show a stale date and claim it was upcoming.
+        // Which cycles are "upcoming".
         //
-        // A NULL expected_end_date means nothing is scheduled, which also excludes
-        // finished borrowers (PHASE_COMPLETED clears it) — they would otherwise show
-        // up here forever as $0.00 rows, since status stays Active on completion.
+        // Keyed on subscription_end_date because that is the field
+        // generateDueInvoices() reads — this screen exists to predict what the cron
+        // will do, so the two must select on the same column.
+        //
+        // A NULL subscription_end_date means nothing is scheduled, which also
+        // excludes finished borrowers (PHASE_COMPLETED clears it) — they would
+        // otherwise show up here forever as $0.00 rows, since status stays Active
+        // on completion.
         $query->where(function ($q) use ($targetDate) {
             $q->where(function ($sub) use ($targetDate) {
-                $sub->whereNotNull('subscriptions.expected_end_date')
-                    ->whereDate('subscriptions.expected_end_date', '<=', $targetDate);
+                $sub->whereNotNull('subscriptions.subscription_end_date')
+                    ->whereDate('subscriptions.subscription_end_date', '<=', $targetDate);
             })->orWhere(function ($sub) {
                 // Enrolled but never paid: no cycle is scheduled yet and their signup
                 // invoice is already open. Kept on the list so staff can chase them.
-                $sub->whereNull('subscriptions.expected_end_date')
-                    ->whereNull('subscriptions.subscription_end_date')
+                $sub->whereNull('subscriptions.subscription_end_date')
                     ->whereNull('subscriptions.enrollment_completed_at');
             })->orWhereHas('unpaidInvoices');
             // Anything with money still owed, whatever its dates say. Without this
-            // branch a debt could hide from every screen: a paused subscriber's
-            // expected_end_date freezes, and a finished borrower's is NULL, so an
-            // outstanding borrower fee on either would never be listed anywhere.
+            // branch a debt could hide from every screen: a finished borrower's
+            // date is NULL, so an outstanding borrower fee would never be listed.
         });
 
         // Entity type filter. The API speaks the same vocabulary as the frontend
@@ -161,12 +160,12 @@ class BillingService
             $query->where(fn($q) => $this->wherePaused($q));
         } elseif ($view === 'overdue') {
             $query->whereNot(fn($q) => $this->wherePaused($q))
-                ->whereNotNull('subscriptions.expected_end_date')
-                ->whereDate('subscriptions.expected_end_date', '<', now()->toDateString());
+                ->whereNotNull('subscriptions.subscription_end_date')
+                ->whereDate('subscriptions.subscription_end_date', '<', now()->toDateString());
         } elseif ($view === 'scheduled') {
             $query->whereNot(fn($q) => $this->wherePaused($q))
-                ->whereNotNull('subscriptions.expected_end_date')
-                ->whereDate('subscriptions.expected_end_date', '>=', now()->toDateString());
+                ->whereNotNull('subscriptions.subscription_end_date')
+                ->whereDate('subscriptions.subscription_end_date', '>=', now()->toDateString());
         }
 
         // Global Search
@@ -230,9 +229,10 @@ class BillingService
             $val = $rawFilters['upcoming_billing_date']['constraints'][0]['value'] ?? null;
             if ($val) {
                 // Plain LIKE on the column rather than whereDate(): wrapping the
-                // column in DATE() makes the index unusable, and expected_end_date
-                // is already a date column so the cast bought nothing.
-                $query->where('subscriptions.expected_end_date', 'like', "%{$val}%");
+                // column in DATE() makes the index unusable, and
+                // subscription_end_date is already a date column so the cast bought
+                // nothing.
+                $query->where('subscriptions.subscription_end_date', 'like', "%{$val}%");
             }
             unset($rawFilters['upcoming_billing_date']);
         }
@@ -251,12 +251,11 @@ class BillingService
         $skipSorting = false;
 
         switch ($sortField) {
+            // All four name the same column now that there is one cycle date.
+            // paid_through_date is no longer sent to the client; the case stays so
+            // a saved sort preference from before the change still works.
             case 'upcoming_billing_date':
             case 'next_billing_date':
-                $query->orderBy('subscriptions.expected_end_date', $sortOrder);
-                $skipSorting = true;
-                break;
-
             case 'paid_through_date':
             case 'subscription_end_date':
                 $query->orderBy('subscriptions.subscription_end_date', $sortOrder);
@@ -349,43 +348,14 @@ class BillingService
     /**
      * Constrain to subscriptions whose billing is stopped.
      *
-     * Mirrors Subscription::getIsBillingPausedAttribute() in SQL: the stamped flag
-     * OR the subscriber's live status. Both are needed — the flag alone misses
-     * anyone suspended since the last cron run, and the status alone misses a row
-     * the cron paused for a reason that has since been cleared.
+     * Delegates to the model scope so this screen and the auto-charge dispatcher
+     * can never disagree about who is collectable.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder $query
      */
     protected function wherePaused($query)
     {
-        return $query->whereNotNull('subscriptions.billing_paused_at')
-            ->orWhere(function ($q) {
-                $q->where('subscriptions.entity_type', Partner::class)
-                    ->whereExists(function ($inner) {
-                        $inner->selectRaw(1)
-                            ->from('partners')
-                            ->whereColumn('partners.id', 'subscriptions.entity_id')
-                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
-                    });
-            })
-            ->orWhere(function ($q) {
-                // Borrower blocked by their own status, or by their partner's.
-                $q->where('subscriptions.entity_type', Borrower::class)
-                    ->whereExists(function ($inner) {
-                        $inner->selectRaw(1)
-                            ->from('borrowers')
-                            ->whereColumn('borrowers.id', 'subscriptions.entity_id')
-                            ->where(function ($w) {
-                                $w->where('borrowers.status', '!=', Borrower::STATUS_ACTIVE)
-                                    ->orWhereExists(function ($p) {
-                                        $p->selectRaw(1)
-                                            ->from('partners')
-                                            ->whereColumn('partners.id', 'borrowers.partner_id')
-                                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
-                                    });
-                            });
-                    });
-            });
+        return $query->billingBlocked();
     }
 
     /**
@@ -401,8 +371,8 @@ class BillingService
         $rows = (clone $query)
             ->with([
                 'unpaidInvoices:id,subscription_id,payment_amount,status',
-                // Needed by is_billing_paused, which reads the subscriber's live
-                // status and not just the stamped flag.
+                // Needed by is_billing_paused, which is derived entirely from the
+                // subscriber's live status.
                 'partner:id,status',
                 'borrower:id,partner_id,status',
                 'borrower.partner:id,status',
@@ -413,12 +383,10 @@ class BillingService
                 'subscriptions.entity_id',
                 'subscriptions.status',
                 'subscriptions.current_phase',
-                'subscriptions.billing_paused_at',
                 'subscriptions.subscription_amount_per_month',
                 'subscriptions.monthly_platform_fee',
                 'subscriptions.per_seat_amount',
                 'subscriptions.payable_amount',
-                'subscriptions.expected_end_date',
             ]);
 
         $scheduledTotal = 0.0;
@@ -443,7 +411,7 @@ class BillingService
             // never-paid Pending subscriber has nothing scheduled — their money is
             // already counted as outstanding above, and counting it here too would
             // double it.
-            if (!$row->expected_end_date) {
+            if (!$row->subscription_end_date) {
                 continue;
             }
 
@@ -455,9 +423,10 @@ class BillingService
                 default => (float) ($row->payable_amount ?: 0),
             };
 
-            // expected_end_date is a DATE, so it reads back as midnight. Compare
-            // against today's date, not now(), or a cycle due today counts overdue.
-            if ($row->expected_end_date->lt(today())) {
+            // subscription_end_date is a DATE, so it reads back as midnight.
+            // Compare against today's date, not now(), or a cycle due today counts
+            // overdue.
+            if ($row->subscription_end_date->lt(today())) {
                 $overdueCount++;
             }
         }
@@ -575,7 +544,7 @@ class BillingService
             'subscriber' => $subscriber,
             'subscription' => new SubscriptionDetailsResource($subscription),
             // Sourced the same way as the list so both screens agree on the next
-            // charge, without exposing expected_end_date through the shared
+            // charge, without duplicating the derivation in the shared
             // subscription resource.
             'upcoming_billing' => (new BillingResource($subscription))->toArray(request()),
         ];
