@@ -65,9 +65,23 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+         * Daily logs, filed under a folder named for the current month.
+         *
+         * The path is deliberately NOT built here. `date('F')` in this file is
+         * evaluated when the config is read, and `artisan config:cache` writes
+         * that result into bootstrap/cache/config.php as a literal - which
+         * freezes the month at deploy time, so October's entries keep landing in
+         * September's folder until someone rebuilds the cache. Nothing reports
+         * it; the logs are simply in the wrong place.
+         *
+         * App\Logging\MonthlyDailyLogger resolves it at runtime instead, then
+         * hands off to Laravel's own daily driver, so rotation and formatting
+         * are unchanged.
+         */
         'daily' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/'.date('F').'/laravel.log'),
+            'driver' => 'custom',
+            'via' => \App\Logging\MonthlyDailyLogger::class,
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 180),
             'replace_placeholders' => true,

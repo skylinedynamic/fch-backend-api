@@ -22,10 +22,17 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    /*
+     * The SES MAILER's credentials, and so tenant data like the SMTP block in
+     * config/mail.php - not deployment configuration. Resolved per message from
+     * `email_configurations` by EmailConfigurationService::resolveFor().
+     *
+     * Unrelated to the S3 filesystem disk, which reads its own AWS_* values.
+     */
     'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+        'key' => null,
+        'secret' => null,
+        'region' => null,
     ],
 
     'slack' => [

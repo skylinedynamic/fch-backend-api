@@ -114,7 +114,19 @@ return [
     | Global Email Queue Settings
     |--------------------------------------------------------------------------
     */
-    'mail_tries' => env('QUEUE_MAIL_TRIES', 3),
+    /*
+     * How long a queued message keeps being retried, in seconds.
+     *
+     * Replaces 'mail_tries', which was never read: SendQueuedMailable looks for
+     * a `tries` PROPERTY on the mailable, so the MailConfig trait's tries()
+     * METHOD was silently ignored and jobs ran with the worker's --tries default
+     * of 1. retryUntil() is read, and a deadline overrides that default.
+     *
+     * With mail_backoff at 60s, 300s is roughly five attempts - enough to ride
+     * out a rate limit or a brief outage, short enough that a genuinely broken
+     * configuration reaches failed_jobs promptly instead of retrying all day.
+     */
+    'mail_retry_window' => env('QUEUE_MAIL_RETRY_WINDOW', 300),
     'mail_backoff' => env('QUEUE_MAIL_BACKOFF', 60),
 
 ];

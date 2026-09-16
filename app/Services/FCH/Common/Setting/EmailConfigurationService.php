@@ -115,6 +115,65 @@ class EmailConfigurationService
         return $this->getConfigurations($partnerId)->first();
     }
 
+    /**
+     * The mail credentials a partner actually sends with.
+     *
+     * Credentials are DATABASE-ONLY. config/mail.php no longer carries SMTP or
+     * SES credentials from the environment, so there is no silent .env fallback
+     * behind this: whatever this returns is what gets used, and null means the
+     * mail cannot be sent at all.
+     *
+     * Two steps, in order:
+     *
+     *   1. The partner's own row, if they have switched custom configuration on.
+     *   2. The host's row - the platform's own mailbox. A partner who has not
+     *      configured a mail server sends through the platform's, which is what
+     *      used to come from .env and is the same host-as-fallback rule branding
+     *      already follows.
+     *
+     * The host is not required to have the flag on: its row IS the platform
+     * configuration, so a usable row is enough.
+     */
+    public function resolveFor(int|string|null $partnerId): ?\stdClass
+    {
+        $own = $this->getConfigurations($partnerId)->first();
+
+        if ($own && !empty($own->enable_custom_configuration) && $this->isUsable($own)) {
+            return $own;
+        }
+
+        $hostId = Partner::where('is_host', true)->value('id');
+
+        // Already tried above, and trying it again would loop on the same row.
+        if ($hostId === null || (string) $hostId === (string) $partnerId) {
+            return null;
+        }
+
+        $host = $this->getConfigurations($hostId)->first();
+
+        return ($host && $this->isUsable($host)) ? $host : null;
+    }
+
+    /**
+     * Whether a configuration carries enough to actually connect.
+     *
+     * A row can exist with every field blank - the settings screen creates keys
+     * as soon as it is opened - and handing that to Symfony produces an obscure
+     * transport error rather than a usable message.
+     */
+    public function isUsable(?\stdClass $config): bool
+    {
+        if (!$config) {
+            return false;
+        }
+
+        if (($config->email_provider ?? 'smtp') === 'aws_ses') {
+            return !empty($config->aws_access_key) && !empty($config->aws_secret_key);
+        }
+
+        return !empty($config->smtp_host) && !empty($config->smtp_username);
+    }
+
     private function isHostPartner(int|string|null $partnerId): bool
     {
         if ($partnerId === null)
