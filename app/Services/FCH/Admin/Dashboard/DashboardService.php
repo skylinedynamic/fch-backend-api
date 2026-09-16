@@ -68,6 +68,7 @@ class DashboardService
 
         $data['upcoming_tasks_reminders'] = \App\Http\Resources\FCH\Reminder\ReminderResource::collection(
             (clone $pendingRemindersQuery)
+                ->withClient()
                 ->orderBy('created_at', 'desc')
                 ->take(5)
                 ->get()

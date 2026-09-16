@@ -276,6 +276,8 @@ class ActivityLogService
             );
 
             if ($reminder) {
+                $reminder->update(['activity_log_id' => $log->id]);
+
                 $props = $log->properties;
                 if ($props instanceof \Illuminate\Support\Collection) {
                     $props = $props->toArray();
@@ -712,6 +714,7 @@ class ActivityLogService
                         'send_at' => $remindAtUtc,
                         'status' => Reminder::STATUS_PENDING,
                         'attachments' => $reminderAttachments,
+                        'activity_log_id' => $log->id,
                     ]);
                     \App\Jobs\Reminder\DispatchReminderDueJob::dispatch($existingReminder->id, $remindAtUtc)
                         ->delay($remindAtUtc)
@@ -736,6 +739,7 @@ class ActivityLogService
                         $reminderAttachments
                     );
                     if ($newReminder) {
+                        $newReminder->update(['activity_log_id' => $log->id]);
                         $props['reminder_id'] = $newReminder->id;
                     }
                 }
@@ -755,6 +759,7 @@ class ActivityLogService
                 'summary' => $props['subject'] ?? $existingReminder->summary,
                 'message' => $props['description'] ?? $existingReminder->message,
                 'attachments' => $props['attachments']['files'] ?? $existingReminder->attachments,
+                'activity_log_id' => $log->id,
             ]);
         }
 

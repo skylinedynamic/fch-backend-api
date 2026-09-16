@@ -33,7 +33,8 @@ class ReminderService
             $sortBy = 'set_date_time'; // Default to the Activity Date & Time
         }
         
-        $query = Reminder::where('created_by', $user->entity_id)
+        $query = Reminder::withClient()
+                         ->where('created_by', $user->entity_id)
                          ->where('created_by_entity_type', $user->entity_type)
                          ->dateBetween($startDate, $endDate)
                          ->referenceType($referenceType)
@@ -48,7 +49,8 @@ class ReminderService
      */
     public function getDueReminders(User $user): Collection
     {
-        return Reminder::where('created_by', $user->entity_id)
+        return Reminder::withClient()
+            ->where('created_by', $user->entity_id)
             ->where('created_by_entity_type', $user->entity_type)
             ->where(function ($query) {
                 $query->where(function ($q) {
@@ -114,7 +116,7 @@ class ReminderService
      * Snooze a reminder by a relative number of minutes, or reschedule it to
      * an exact date/time (interpreted in the caller's timezone).
      */
-    public function snoozeReminder(User $user, int $id, ?int $minutes = null, ?string $rescheduleAt = null, ?int $leadMinutes = null): ?Reminder
+    public function snoozeReminder(User $user, int $id, ?int $minutes = null, ?string $rescheduleAt = null, ?int $leadMinutes = null, ?string $note = null): ?Reminder
     {
         $reminder = Reminder::where('id', $id)
             ->where('created_by', $user->entity_id)
@@ -160,13 +162,25 @@ class ReminderService
             $reminder->send_at = $newReminderTime;
         }
 
+        $note = is_string($note) ? trim($note) : null;
+        $history = $reminder->snooze_history ?? [];
+        $history[] = [
+            'action' => $rescheduleAt ? 'rescheduled' : 'snoozed',
+            'minutes' => $rescheduleAt ? null : $minutes,
+            'note' => $note !== '' ? $note : null,
+            'snoozed_at' => now()->utc()->toIso8601String(),
+            'snoozed_until' => $newReminderTime->copy()->utc()->toIso8601String(),
+            'snoozed_by' => $user->name,
+        ];
+
+        $reminder->snooze_history = $history;
         $reminder->is_reminder = true;
         $reminder->status = Reminder::STATUS_PENDING;
         $reminder->save();
 
         DispatchReminderDueJob::dispatch($reminder->id, $newReminderTime)->delay($newReminderTime);
 
-        return $reminder;
+        return $reminder->loadClient();
     }
 
     /**
