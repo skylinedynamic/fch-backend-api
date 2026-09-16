@@ -215,6 +215,7 @@ return [
     'purpose_of_funding_max' => 'Purpose of funding cannot exceed 255 characters',
     'purpose_note_required' => 'Purpose note is required when "Other" is selected.',
     'prequalification_purpose_note_max' => 'Purpose note cannot exceed 255 characters',
+    'prequalification_notes_max' => 'Note cannot exceed 200 characters',
     'prequalification_personal_credit_score_in' => 'Please select a valid personal credit score',
     'purpose_note_max' => 'Purpose note cannot exceed 1000 characters',
     'funding_purpose_required' => 'Funding purpose is required',
