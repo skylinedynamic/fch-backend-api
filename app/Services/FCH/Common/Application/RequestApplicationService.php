@@ -26,11 +26,19 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class RequestApplicationService
 {
     use PaginatesApi;
+
+    /**
+     * How long a PENDING evaluation may go without touching the application
+     * before it is treated as abandoned. Worst case for a live run (three calls,
+     * each with retries at the client timeout) stays well inside this.
+     */
+    private const AI_RUN_STALE_MINUTES = 15;
 
     public function __construct(
         protected ActivityLogService $activityLogService,
@@ -227,21 +235,53 @@ class RequestApplicationService
             return ApiResponse::error(__('application.pre_qualification_not_found'));
         }
 
-        $result = $this->preQualificationAiService->evaluate($application, Auth::id());
+        // Claimed atomically so two clicks (or two staff) cannot start the same
+        // evaluation twice. A PENDING run is only taken over once it has gone quiet
+        // for longer than any live run can take — the process running it was killed
+        // — so a stuck file can still be re-run instead of staying PENDING forever.
+        $claimed = PreQualificationRequest::where('id', $application->id)
+            ->where(function ($q) {
+                $q->whereNull('gpt_status')
+                    ->orWhere('gpt_status', '!=', PreQualificationRequest::GPT_PENDING)
+                    ->orWhere('updated_at', '<', now()->subMinutes(self::AI_RUN_STALE_MINUTES));
+            })
+            ->update([
+                'gpt_status' => PreQualificationRequest::GPT_PENDING,
+                'gpt_generated_at' => null,
+                'updated_at' => now(),
+            ]);
 
-        $application->refresh();
-
-        if ($result['blocked'] ?? false) {
-            return ApiResponse::success([
-                'application' => new PreQualificationRequestResource($application),
-                'ai_result'   => $result,
-            ], __('Data integrity check found corrections that must be resolved before AI underwriting can run.'));
+        if ($claimed === 0) {
+            return ApiResponse::error(__('application.pre_qualification_ai_already_running'), 409);
         }
 
+        // The evaluation makes up to three OpenAI calls, which regularly runs past
+        // the gateway timeout in front of the API; run inline, the browser got a
+        // network error with no response. So the response is sent first (status
+        // PENDING) and the evaluation runs once it has been delivered — the same
+        // approach as the borrower submit. The details page polls until it settles.
+        $userId = Auth::id();
+        app()->terminating(function () use ($application, $userId) {
+            @set_time_limit(0);
+
+            try {
+                $this->preQualificationAiService->evaluate($application->fresh('borrower'), $userId);
+            } catch (\Throwable $e) {
+                PreQualificationRequest::where('id', $application->id)->update([
+                    'gpt_status' => PreQualificationRequest::GPT_FAILED,
+                    'gpt_generated_at' => now(),
+                ]);
+
+                Log::error('Pre-qualification AUE re-run failed', [
+                    'pre_qualification_request_id' => $application->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
+
         return ApiResponse::success([
-            'application' => new PreQualificationRequestResource($application),
-            'ai_result'   => $result,
-        ], __('Pre-qualification AI evaluation completed successfully.'));
+            'application' => new PreQualificationRequestResource($application->fresh('borrower')),
+        ], __('application.pre_qualification_ai_started'));
     }
 
     /**
