@@ -34,7 +34,7 @@ class FundingInfoRequest extends BaseApiRequest
             'estimated_business_credit_score' => ['required','string','max:255'],
             'existing_business_debt' => ['required','boolean'],
             'debt_balance' => ['nullable','numeric','gt:0','max:9999999999999','required_if:existing_business_debt,true'],
-            'notes' => ['nullable','string','max:1000'],
+            'notes' => ['nullable','string','max:200'],
         ];
     }
 
@@ -73,7 +73,7 @@ class FundingInfoRequest extends BaseApiRequest
             'debt_balance.gt' => __('borrower_validation.debt_balance_gt'),
             'debt_balance.max' => __('borrower_validation.debt_balance_max'),
 
-            'notes.max' => __('borrower_validation.notes_max'), 
+            'notes.max' => __('borrower_validation.prequalification_notes_max'),
         ];
     }
 }
