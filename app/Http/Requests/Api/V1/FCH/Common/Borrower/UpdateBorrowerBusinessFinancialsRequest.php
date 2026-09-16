@@ -30,6 +30,22 @@ class UpdateBorrowerBusinessFinancialsRequest extends BaseApiRequest
                 ]);
             }
         }
+
+        if ($this->has('bank_accounts') && is_array($this->input('bank_accounts'))) {
+            $bankAccounts = array_map(function ($account) {
+                if (is_array($account)) {
+                    if (isset($account['account_open_date']) && ($account['account_open_date'] === '' || $account['account_open_date'] === 'null')) {
+                        $account['account_open_date'] = null;
+                    }
+                    if (isset($account['id']) && (empty($account['id']) || $account['id'] === '')) {
+                        unset($account['id']);
+                    }
+                }
+                return $account;
+            }, $this->input('bank_accounts'));
+
+            $this->merge(['bank_accounts' => $bankAccounts]);
+        }
     }
 
     public function rules(): array

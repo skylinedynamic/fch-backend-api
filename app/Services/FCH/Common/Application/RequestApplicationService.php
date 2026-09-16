@@ -33,7 +33,8 @@ class RequestApplicationService
     use PaginatesApi;
 
     public function __construct(
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected PreQualificationAiService $preQualificationAiService
     ) {}
 
     /**
@@ -195,6 +196,52 @@ class RequestApplicationService
             return ApiResponse::error(__('application.pre_qualification_not_found'));
         }
         return ApiResponse::success(new PreQualificationRequestResource($application));
+    }
+
+    /**
+     * Run AI Pre-Qualification Underwriting Analysis By ID
+     */
+    public function runAiPreQualification($id)
+    {
+        // Manually triggering an evaluation is host-only: it produces the internal
+        // memo, risk flags and lender routing, which a partner may never see.
+        // (The automatic run on borrower submit is a queued system job and is not
+        // subject to this check.)
+        $user = Auth::user();
+        $isHost = (bool) ($user?->partner?->is_host ?? false);
+        $isPartner = ($user?->entity_name === User::PARTNER || $user?->entity_type === Partner::class || $user?->user_type == User::PARTNER || $user?->user_type === 'Admin');
+
+        if (!$isHost || !$isPartner) {
+            return ApiResponse::error(__('application.pre_qualification_not_found'), 403);
+        }
+
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $application = PreQualificationRequest::with('borrower')
+            ->when(!$isHost, function ($q) use ($partnerId) {
+                $q->where('partner_id', $partnerId);
+            })
+            ->where('id', $id)->first();
+
+        if ($application == null) {
+            return ApiResponse::error(__('application.pre_qualification_not_found'));
+        }
+
+        $result = $this->preQualificationAiService->evaluate($application, Auth::id());
+
+        $application->refresh();
+
+        if ($result['blocked'] ?? false) {
+            return ApiResponse::success([
+                'application' => new PreQualificationRequestResource($application),
+                'ai_result'   => $result,
+            ], __('Data integrity check found corrections that must be resolved before AI underwriting can run.'));
+        }
+
+        return ApiResponse::success([
+            'application' => new PreQualificationRequestResource($application),
+            'ai_result'   => $result,
+        ], __('Pre-qualification AI evaluation completed successfully.'));
     }
 
     /**
@@ -375,7 +422,7 @@ class RequestApplicationService
             'total_applications' => (clone $baseQuery)->count(),
             'approved' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->count(),
             'pending' => (clone $baseQuery)->where('status', PreQualificationRequest::PENDING)->count(),
-            'approved_amount' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount'),
+            'approved_amount' => currencyFormat((clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount')),
         ]);
     }
 

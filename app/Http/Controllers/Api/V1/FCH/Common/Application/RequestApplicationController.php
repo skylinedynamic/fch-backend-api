@@ -91,6 +91,18 @@ class RequestApplicationController extends Controller
         }
     }
 
+    /**
+     * Run AI Pre-Qualification Underwriting Analysis By ID
+     */
+    public function runAiPreQualification($id): JsonResponse
+    {
+        try {
+            return $this->requestApplicationService->runAiPreQualification($id);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage() ?: __('Failed to run pre-qualification AI evaluation.'));
+        }
+    }
+
 
     /**
      * Get Funding Application By ID

@@ -34,13 +34,13 @@ $schedulerLogPath = storage_path('logs/scheduler.log');
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
-        $env      = config('app.env', 'unknown');
-        $appUrl   = config('app.url', 'unknown');
+        $env = config('app.env', 'unknown');
+        $appUrl = config('app.url', 'unknown');
         $hostname = gethostname() ?: 'unknown';
 
         Log::error("Scheduled command failed: {$command}", [
-            'env'      => $env,
-            'app_url'  => $appUrl,
+            'env' => $env,
+            'app_url' => $appUrl,
             'hostname' => $hostname,
         ]);
 
@@ -50,19 +50,19 @@ $onFailure = function (string $command) {
 
         if (!empty($emails)) {
             try {
-                // Mail::to($emails)->send(new CronJobFailureMail([
-                //     'job_name'      => $command,
-                //     'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
-                //     'timestamp'     => now()->toDateTimeString(),
-                //     'stack_trace'   => implode("\n", [
-                //         "Scheduled command failed: {$command}",
-                //         "",
-                //         "--- Origin ---",
-                //         "Environment : {$env}",
-                //         "App URL     : {$appUrl}",
-                //         "Server Host : {$hostname}",
-                //     ]),
-                // ]));
+                Mail::to($emails)->send(new CronJobFailureMail([
+                    'job_name' => $command,
+                    'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
+                    'timestamp' => now()->toDateTimeString(),
+                    'stack_trace' => implode("\n", [
+                        "Scheduled command failed: {$command}",
+                        "",
+                        "--- Origin ---",
+                        "Environment : {$env}",
+                        "App URL     : {$appUrl}",
+                        "Server Host : {$hostname}",
+                    ]),
+                ]));
             } catch (\Throwable $e) {
                 Log::error('Failed to send cron failure notification: ' . $e->getMessage());
             }
