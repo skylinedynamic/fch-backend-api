@@ -16,6 +16,8 @@ return [
     'pre_qualification_retrieved' => 'Applications retrieved successfully.',
     'funding_application_retrieved' => 'Funding applications retrieved successfully.',
     'pre_qualification_not_found' => 'Pre-qualification application not found.',
+    'pre_qualification_ai_started' => 'Pre-qualification AI evaluation started. The result will appear when it completes.',
+    'pre_qualification_ai_already_running' => 'An AI evaluation is already running for this application. Please wait for it to finish.',
     'funding_application_not_found' => 'Funding application not found.',
     'status_updated' => 'Status updated successfully.',
     'audit_history_retrieved' => 'Audit history retrieved successfully.',
