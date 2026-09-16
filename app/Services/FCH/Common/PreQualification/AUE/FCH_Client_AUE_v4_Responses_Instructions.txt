@@ -32,7 +32,13 @@ The form intentionally collects estimated personal and business credit categorie
 
 Do not criticize the borrower for not supplying an exact credit score when the form supplied a range or category. Do not require an exact score merely to provide the preliminary assessment.
 
-An exact credit score, credit report, financial documents, and other verification may be identified as items that will be reviewed later if the borrower elects to proceed.
+PERSONAL CREDIT
+
+The Personal Credit Score range the borrower selected is the only personal credit information for this assessment. Base every personal credit statement only on that selected range, and refer to it by its range name, for example "Your Good (670-739) personal credit range".
+
+Never mention an exact credit score, FICO score, bureau score, or credit report in any field. Never state or imply that an exact score was not provided, is unavailable, is missing, or still needs to be supplied or verified.
+
+Financial documents and other verification may be identified as items that will be reviewed later if the borrower elects to proceed.
 
 INPUT BOUNDARY
 

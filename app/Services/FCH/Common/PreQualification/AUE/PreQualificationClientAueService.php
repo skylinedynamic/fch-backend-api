@@ -115,12 +115,17 @@ class PreQualificationClientAueService
             // assessment can commit to, and is about their data, not FCH policy.
             'data_status' => $internal['data_status'] ?? 'INSUFFICIENT',
 
-            // The borrower's own submitted values and how each was sourced.
+            // The borrower's own submitted values and how each was sourced. Exact
+            // FICO and score-source rows are dropped: prequalification personal
+            // credit is the borrower-selected band only.
             'borrower_request_snapshot' => array_values(array_map(fn ($row) => [
                 'field' => (string) ($row['field'] ?? ''),
                 'value' => $row['value'] ?? null,
                 'source_status' => (string) ($row['source_status'] ?? 'NOT_PROVIDED'),
-            ], (array) ($internal['borrower_request_snapshot'] ?? []))),
+            ], array_filter(
+                (array) ($internal['borrower_request_snapshot'] ?? []),
+                fn ($row) => !preg_match('/fico|score[ _]source|band[ _]source/i', (string) ($row['field'] ?? ''))
+            ))),
 
             'strengths' => array_values(array_filter((array) ($internal['strengths'] ?? []), 'is_string')),
 

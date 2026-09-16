@@ -122,7 +122,6 @@ class PreQualificationDataIntegrityValidatorService
             'annual_revenue' => $application->annual_revenue,
             'personal_credit_score' => $application->personal_credit_score,
             'estimated_business_credit_score' => $application->estimated_business_credit_score,
-            'credit_score_source' => $application->credit_score_source,
             'funding_requested_amount' => $application->funding_requested_amount,
             'funding_urgency' => $application->funding_urgency,
             'purpose_of_funding' => $application->purpose_of_funding,

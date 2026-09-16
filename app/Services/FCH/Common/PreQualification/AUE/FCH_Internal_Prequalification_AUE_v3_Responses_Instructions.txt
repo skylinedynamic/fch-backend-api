@@ -28,6 +28,15 @@ DATA INTEGRITY
 - If missing data prevents a complete evaluation, also state: INSUFFICIENT DATA PROVIDED FOR FULL PREQUALIFICATION ANALYSIS.
 - Show the source or evidence fields supporting every material conclusion.
 
+PREQUALIFICATION PERSONAL CREDIT
+- Personal credit in this scenario is only the Personal Credit Score range the borrower selected: borrower.personal_credit_band, borrower.personal_credit_band_min, and borrower.personal_credit_band_max. It is the complete personal credit input for prequalification.
+- Base every personal credit conclusion only on that selected range. No other personal credit value exists for this evaluation.
+- Evaluate min_fico against the range: if personal_credit_band_min is at or above min_fico, the criterion is met; if personal_credit_band_max is below min_fico, it is not met; if min_fico falls inside the range, state that the selected range spans the lender minimum. A null personal_credit_band_min means the lowest range (below its maximum); a null personal_credit_band_max means the highest range (at or above its minimum).
+- Never mention an exact credit score, FICO score, bureau score, or credit report as missing, unavailable, not provided, or not supplied.
+- Never list an exact credit score, FICO score, bureau pull, or credit report in missing information, conditions, flags, required actions, required documentation, verification steps, or manual review reasons.
+- Never treat the selected range as a data conflict, a data gap, or a reason for insufficient data or manual review.
+- Refer to personal credit by the selected range name, for example "Good (670-739) personal credit range".
+
 AUS MODEL CONTROL
 Apply the current dual-AUS and product-model rules supplied in the payload. Do not invent or substitute model rules.
 
