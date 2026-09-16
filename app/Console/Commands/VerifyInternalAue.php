@@ -38,7 +38,9 @@ class VerifyInternalAue extends Command
 
     /** Borrower fields the trimmed rule package addresses as borrowers.<field>. */
     private const REQUIRED_BORROWER_FIELDS = [
-        'fico_score',
+        'personal_credit_band',
+        'personal_credit_band_min',
+        'personal_credit_band_max',
         'paydex_score',
         'monthly_revenue',
         'business_start_date',
@@ -265,31 +267,27 @@ class VerifyInternalAue extends Command
             'not an integer month count',
         );
 
+        // Prequalification credit is the borrower-selected band only; the exact
+        // profile FICO and score provenance fields must never reach the AUE.
+        $forbidden = array_values(array_intersect(
+            ['fico_score', 'fico_score_source', 'personal_credit_band_source'],
+            array_keys($borrower),
+        ));
         $ok &= $this->check(
-            'credit band is separate from bureau score',
-            array_key_exists('personal_credit_band', $borrower) && array_key_exists('fico_score', $borrower),
-            'band and bureau score are not distinct fields',
+            'no exact FICO or score provenance fields',
+            $forbidden === [],
+            'present: ' . implode(', ', $forbidden),
         );
 
-        $bandSource = $borrower['personal_credit_band_source'] ?? null;
-        $ok &= $this->check(
-            'self-reported band is not labelled verified',
-            $bandSource === null || !str_contains(strtolower((string) $bandSource), 'verified'),
-            "band source reads \"{$bandSource}\"",
+        $exactScoreWarnings = array_filter(
+            (array) ($borrower['validator_warnings'] ?? []),
+            fn ($message) => PreQualificationInternalAueService::isExactCreditScoreWarning($message),
         );
-
-        if (($borrower['fico_score'] ?? null) !== null && ($borrower['personal_credit_band_max'] ?? null) !== null) {
-            $fico = $borrower['fico_score'];
-            $min = $borrower['personal_credit_band_min'];
-            $max = $borrower['personal_credit_band_max'];
-
-            if ($fico < $min || $fico > $max) {
-                $this->components->warn(
-                    "Bureau score {$fico} falls outside the borrower-reported band {$min}-{$max}. " .
-                    'That conflict is real and is now visible to the AUE rather than collapsed into one field.'
-                );
-            }
-        }
+        $ok &= $this->check(
+            'no exact FICO validator warnings',
+            $exactScoreWarnings === [],
+            count($exactScoreWarnings) . ' exact-score warning(s) still in payload',
+        );
 
         return (bool) $ok;
     }

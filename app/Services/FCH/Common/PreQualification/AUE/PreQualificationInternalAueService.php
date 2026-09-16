@@ -347,14 +347,22 @@ class PreQualificationInternalAueService
             ->only(self::PREQUAL_EVALUABLE_RULES)
             ->toArray();
 
+        // Prequalification underwrites personal credit on the band the borrower
+        // selected, never on the exact bureau score from their profile: sending
+        // both gave the model two conflicting credit values. The shared rule
+        // addresses borrowers.fico_score, so it is re-pointed here for this
+        // scenario only; the stored profile score and the shared config are untouched.
+        if (isset($rules['personal_credit'])) {
+            $rules['personal_credit']['borrower_field'] = 'borrowers.personal_credit_band';
+        }
+
         return [
             'rules' => $rules,
             // The rules address borrower values as "borrowers.<field>"; those
             // names resolve against the borrower object in this payload.
             'borrower_field_namespace' => 'borrowers.<field> resolves to borrower.<field> in this payload.',
             'data_dictionary' => [
-                'fico_score' => 'Bureau score from the borrower credit profile. Null means no bureau pull exists for this borrower — not a zero, and not a substitute for the self-reported band.',
-                'personal_credit_band' => 'Borrower-selected band from the prequalification wizard, e.g. "Good (670-739)". Always borrower-reported. Compare personal_credit_band_min and personal_credit_band_max against min_fico. Never treat it as a verified score and never reduce it to a single point value.',
+                'personal_credit_band' => 'Borrower-selected band from the prequalification wizard, e.g. "Good (670-739)". It is the only personal credit value in this payload; no exact score is supplied. Evaluate the personal_credit rule by comparing personal_credit_band_min and personal_credit_band_max against min_fico. Never reduce the band to a single point value, and never flag the absence of an exact score.',
                 'paydex_score' => 'Bureau business credit score from the borrower credit profile. Null means none exists.',
                 'business_credit_self_assessment' => 'Qualitative borrower self-assessment (No Business Credit | Low | Medium | High). It has no numeric equivalent and must not be compared to min_business_credit_score. Treat min_business_credit_score as not evaluable while paydex_score is null.',
                 'business_start_date' => 'Resolved start date for the time_in_business date_compare rule. Compare time_in_business_months against min_tib_months.',
@@ -422,17 +430,14 @@ class PreQualificationInternalAueService
             'monthly_revenue' => $numeric($application->monthly_revenue),
             'annual_revenue' => $numeric($application->annual_revenue),
 
-            // fico_score is the bureau value and stays null unless one was
-            // actually pulled. The wizard collects a band, never a score, so the
-            // band travels separately with its own bounds and its own source —
-            // comparable against min_fico, but not mistakable for a verified
-            // score the way a single "credit_score" field was.
-            'fico_score' => $creditProfile?->fico_score !== null ? (int) $creditProfile->fico_score : null,
-            'fico_score_source' => $creditProfile?->fico_score !== null ? 'Verified Credit Profile' : null,
+            // Personal credit is the band the borrower selected in the wizard, and
+            // only that. The profile's exact fico_score and all score provenance
+            // fields are deliberately not sent: alongside the band they gave the
+            // model two conflicting credit values. The band's bounds are what
+            // min_fico is compared against.
             'personal_credit_band' => $application->personal_credit_score ?: null,
             'personal_credit_band_min' => $band['min'],
             'personal_credit_band_max' => $band['max'],
-            'personal_credit_band_source' => $application->credit_score_source ?: null,
 
             'paydex_score' => $creditProfile?->paydex_score !== null ? (int) $creditProfile->paydex_score : null,
             'business_credit_self_assessment' => $application->estimated_business_credit_score ?: null,
@@ -450,9 +455,23 @@ class PreQualificationInternalAueService
             'validator_warnings' => collect((array) $application->validation_issues)
                 ->where('severity', '!=', 'INFO')
                 ->pluck('internal_message')
+                ->reject(fn ($message) => self::isExactCreditScoreWarning($message))
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * Whether a validator warning concerns the exact FICO score or credit score
+     * provenance. Those are dropped from the prequalification payload so they
+     * cannot reintroduce the exact-score conflict the band replaces.
+     */
+    public static function isExactCreditScoreWarning(mixed $message): bool
+    {
+        return (bool) preg_match(
+            '/fico|bureau|exact (personal )?(credit )?score|credit[ _]score[ _]source|verified credit|(?<!business )credit score.{0,60}(source|provenance|verified)/i',
+            (string) $message
+        );
     }
 
     /**

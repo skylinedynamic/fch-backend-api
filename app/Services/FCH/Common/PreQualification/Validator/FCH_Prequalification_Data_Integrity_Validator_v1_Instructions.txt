@@ -18,15 +18,15 @@ The payload includes "as_of_date", the server's current date. Use it as "today" 
 date calculation. Never assume today's date from your own training data — doing so produces
 false findings about how long a business has been operating.
 
-Two fields are computed by the FCH backend, not entered by the borrower, and are therefore
-authoritative — never flag them as inconsistent with each other or ask the borrower to
-"correct" them:
-- "years_in_business" is derived server-side from "business_start_date". By construction
-  the two always agree; if your own arithmetic seems to disagree, your arithmetic is wrong.
-- "credit_score_source" records where the score came from ("Verified Credit Profile" when a
-  pulled credit report is on file, "Self-Reported" otherwise). "Self-Reported" is a valid,
-  fully-populated value — treat it as a provenance caveat for downstream underwriting, not
-  as a missing field, and do not ask the borrower to supply a source.
+"years_in_business" is computed by the FCH backend, not entered by the borrower, and is
+therefore authoritative — never flag it as inconsistent with "business_start_date" or ask
+the borrower to "correct" it. It is derived server-side from "business_start_date", so the
+two always agree; if your own arithmetic seems to disagree, your arithmetic is wrong.
+
+"personal_credit_score" is the Personal Credit Score range the borrower selected in the
+form (e.g. "Good (670-739)"). A range is the complete, expected answer. Never flag it for
+not being an exact score, never ask for an exact FICO score, and never raise a warning
+about its source, verification, or provenance.
 
 WHAT YOU CHECK
 1. Completeness — required fields for underwriting are present (business name, industry,
@@ -47,9 +47,9 @@ WHAT YOU CHECK
      — this is the expected, normal pairing for a borrower with no existing debt.
    - existing_business_debt = false AND debt_balance > 0    -> WARNING only (not BLOCKING):
      a balance was given despite no debt being disclosed; ask the borrower to clarify.
-3. Data provenance — a credit score or business credit score provided without a clear
-   source is a WARNING (not automatically blocking): downstream systems must not treat an
-   unsourced score as verified.
+3. Data provenance — a business credit score provided without a clear source is a WARNING
+   (not automatically blocking): downstream systems must not treat an unsourced score as
+   verified. This does not apply to the personal credit score range (see above).
 4. Placeholder / low-confidence input — obviously fake or filler text (e.g. "asdf", "test",
    repeated characters) in a field that materially affects underwriting should be flagged.
 5. You do NOT evaluate creditworthiness, recommend qualified programs, or mention any
