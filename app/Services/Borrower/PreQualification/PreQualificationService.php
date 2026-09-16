@@ -40,25 +40,36 @@ class PreQualificationService
 
         // $zapierResponse = $this->sendToZapier($record);
 
-        $record->update(['status' => PreQualificationRequest::PENDING]);
+        $record->update([
+            'status' => PreQualificationRequest::PENDING,
+            'gpt_status' => PreQualificationRequest::GPT_PENDING,
+            'gpt_generated_at' => null,
+        ]);
 
-        $this->runUnderwriting($record);
+        // The evaluation makes up to three OpenAI calls (roughly 1-2.5 minutes),
+        // longer than the gateway in front of the API holds a request open. Run
+        // inline, the borrower got a network error while the submit still
+        // completed server-side, and a second click then failed as "not found".
+        // So the response is sent first (status PENDING) and the evaluation runs
+        // once it has been delivered; the result screen polls until it settles.
+        $userId = Auth::id();
+        app()->terminating(function () use ($record, $userId) {
+            $this->runUnderwriting($record, $userId);
 
-        // Send Email to Partner
-        $record->load('partner');
-        if ($record->partner && $record->partner->email) {
-            try {
-                Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
-            } catch (\Throwable $e) {
-                Log::error('Failed to send pre-qualification email to partner', [
-                    'record_id' => $record->id,
-                    'error' => $e->getMessage(),
-                ]);
+            // Send Email to Partner
+            $record->load('partner');
+            if ($record->partner && $record->partner->email) {
+                try {
+                    Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
+                } catch (\Throwable $e) {
+                    Log::error('Failed to send pre-qualification email to partner', [
+                        'record_id' => $record->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
-        }
+        });
 
-        // Re-read so the response carries the terminal gpt_status and the stored
-        // underwriting result the evaluation above just produced.
         return ApiResponse::success(
             new PreQualificationResource($record->fresh()),
             __('borrower.pre_qualification_submitted_successfully')
@@ -90,7 +101,16 @@ class PreQualificationService
             throw new ModelNotFoundException(__('borrower.pre_qualification_retry_not_available'));
         }
 
-        $this->runUnderwriting($record);
+        // Same as submit: answer first, evaluate after the response is delivered.
+        $record->update([
+            'gpt_status' => PreQualificationRequest::GPT_PENDING,
+            'gpt_generated_at' => null,
+        ]);
+
+        $userId = Auth::id();
+        app()->terminating(function () use ($record, $userId) {
+            $this->runUnderwriting($record, $userId);
+        });
 
         return ApiResponse::success(
             new PreQualificationResource($record->fresh()),
@@ -101,24 +121,21 @@ class PreQualificationService
     /**
      * Run the validator -> internal AUE -> client AUE pipeline for one request.
      *
-     * Runs inline so the caller's response already carries the result. This holds
-     * the request open for up to three OpenAI calls (roughly 25-45 seconds, more
-     * if any of them retry), so the web server and PHP execution timeouts must
-     * both allow for it.
+     * Called after the HTTP response has been sent (see submit), so it takes the
+     * acting user id explicitly rather than reading it from the request.
      *
      * A failure here must never fail the caller: the request itself is already
      * saved, so the evaluation is recorded as GPT_FAILED and the borrower is
      * offered a retry rather than being shown an error on a successful submit.
      */
-    private function runUnderwriting(PreQualificationRequest $record): void
+    private function runUnderwriting(PreQualificationRequest $record, ?int $userId): void
     {
-        $record->update([
-            'gpt_status' => PreQualificationRequest::GPT_PENDING,
-            'gpt_generated_at' => null,
-        ]);
+        // The evaluation may run for minutes after the response was sent; lift
+        // the PHP execution limit so it cannot be cut off part-way and left PENDING.
+        @set_time_limit(0);
 
         try {
-            app(PreQualificationAiService::class)->evaluate($record, Auth::id());
+            app(PreQualificationAiService::class)->evaluate($record, $userId);
         } catch (\Throwable $e) {
             $record->update(['gpt_status' => PreQualificationRequest::GPT_FAILED]);
 
