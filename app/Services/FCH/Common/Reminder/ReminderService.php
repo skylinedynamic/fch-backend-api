@@ -233,12 +233,12 @@ class ReminderService
     }
 
     /**
-     * Download a reminder attachment file by path.
+     * Stream a reminder attachment back to the browser.
      *
-     * @param  int    $reminderId
-     * @param  string $path  The stored attachment path
-     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
-     * @throws \Exception
+     * Attachment paths were written by different code paths over time
+     * ("storage/attachments/x.pdf", "attachments/x.pdf", or a full URL), and a
+     * reminder created from an activity log can also hold a stale copy of that
+     * log's file list — so resolve the file against every shape before giving up.
      */
     public function downloadAttachment(int $reminderId, string $path)
     {
@@ -248,34 +248,83 @@ class ReminderService
             throw new \Exception('Reminder not found', 404);
         }
 
-        $attachments = $reminder->attachments ?? [];
-
-        // Find matching attachment by exact path or by basename
-        $attachment = collect($attachments)->first(function ($att) use ($path) {
-            return ($att['path'] ?? '') === $path
-                || basename($att['path'] ?? '') === basename($path);
-        });
+        $attachment = $this->findAttachment($reminder, $path);
 
         if (!$attachment) {
             throw new \Exception('Attachment not found in this reminder', 404);
         }
 
-        $filePath = $attachment['path'];
+        $filePath = (string) ($attachment['path'] ?? '');
         $fileName = $attachment['name'] ?? basename($filePath);
+        $absPath = $this->resolveAttachmentFile($filePath);
 
-        // Strip leading "storage/" prefix to get the relative path
-        $cleanPath = ltrim(preg_replace('#^storage/#', '', $filePath), '/');
-
-        // Try public storage symlink path first, then actual storage path
-        $absPath = public_path('storage/' . $cleanPath);
-        if (!file_exists($absPath)) {
-            $absPath = storage_path('app/public/' . $cleanPath);
-        }
-
-        if (!file_exists($absPath)) {
-            throw new \Exception("File does not exist on server: {$cleanPath}", 404);
+        if (!$absPath) {
+            throw new \Exception("File is no longer available on the server: {$fileName}", 404);
         }
 
         return response()->download($absPath, $fileName);
+    }
+
+    /**
+     * Match the requested path against the reminder's own attachments, then
+     * against the linked activity log's files (a reminder edited through the
+     * activity form can lag behind the log's current file list).
+     */
+    private function findAttachment(Reminder $reminder, string $path): ?array
+    {
+        $sources = [
+            $reminder->attachments ?? [],
+            $reminder->activityLog->properties['attachments']['files'] ?? [],
+        ];
+
+        foreach ($sources as $attachments) {
+            $match = collect($attachments)->first(function ($att) use ($path) {
+                $attPath = $att['path'] ?? '';
+
+                return $attPath === $path
+                    || basename($attPath) === basename($path)
+                    || ltrim(preg_replace('#^storage/#', '', $attPath), '/')
+                        === ltrim(preg_replace('#^storage/#', '', $path), '/');
+            });
+
+            if ($match) {
+                return (array) $match;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Absolute path of a stored attachment, or null when the file is gone.
+     */
+    private function resolveAttachmentFile(string $filePath): ?string
+    {
+        if ($filePath === '') {
+            return null;
+        }
+
+        // A path saved as a full URL still points at this app's public disk.
+        if (preg_match('#^https?://#i', $filePath)) {
+            $filePath = ltrim((string) parse_url($filePath, PHP_URL_PATH), '/');
+        }
+
+        $relative = ltrim(preg_replace('#^storage/#', '', $filePath), '/');
+
+        $candidates = [
+            public_path('storage/' . $relative),
+            storage_path('app/public/' . $relative),
+            storage_path('app/' . $relative),
+            // Older records kept only the file name.
+            storage_path('app/public/attachments/' . basename($relative)),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 }

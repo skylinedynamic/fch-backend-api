@@ -47,7 +47,7 @@ class SnoozeReminderRequest extends BaseApiRequest
             // meaningful alongside reschedule_at; ignored for a plain minutes-snooze.
             'lead_minutes' => 'nullable|integer|min:0',
             // Optional reason for snoozing, kept in the reminder's snooze history.
-            'note' => 'nullable|string|max:1000',
+            'note' => 'nullable|string|max:200',
         ];
     }
 
@@ -63,7 +63,7 @@ class SnoozeReminderRequest extends BaseApiRequest
             'minutes.integer' => 'The minutes must be an integer.',
             'minutes.min' => 'The minutes must be at least 1.',
             'minutes.max' => 'The snooze may not be longer than 1440 minutes (24 hours).',
-            'note.max' => 'The snooze note may not be greater than 1000 characters.',
+            'note.max' => 'The snooze note may not be greater than 200 characters.',
             'reschedule_at.required_without' => 'Either minutes or a reschedule date/time is required.',
             'reschedule_at.date' => 'The reschedule date/time is not valid.',
         ];

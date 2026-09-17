@@ -82,7 +82,7 @@ class Reminder extends Model
 
     private static function clientRelations(): array
     {
-        return ['entity' => function (MorphTo $morphTo) {
+        return ['activityLog', 'entity' => function (MorphTo $morphTo) {
             $morphTo->morphWith([
                 FundingRequest::class => ['borrower'],
                 FundingApplication::class => ['borrower'],

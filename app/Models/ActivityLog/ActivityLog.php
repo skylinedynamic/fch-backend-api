@@ -193,6 +193,40 @@ class ActivityLog extends Activity
         return $this->morphTo();
     }
 
+    /**
+     * Only manual "activity" entries can be edited or deleted at all — the
+     * automatic audit trail is never touched.
+     */
+    public function isManualActivity(): bool
+    {
+        $logType = strtolower($this->log_name ?? '');
+
+        return $logType === 'activity' || $logType === self::TYPE_ACTIVITY;
+    }
+
+    /**
+     * Whether $user is the person who created this entry. Activities are
+     * written with the authenticated user as the causer, so only that user may
+     * edit or delete it — everyone else sees it read-only.
+     */
+    public function isOwnedBy($user): bool
+    {
+        if (!$user || !$this->causer_id || !$this->causer_type) {
+            return false;
+        }
+
+        return (int) $this->causer_id === (int) $user->getKey()
+            && ltrim($this->causer_type, '\\') === ltrim(get_class($user), '\\');
+    }
+
+    /**
+     * Edit and delete follow the same rule: your own manual activity only.
+     */
+    public function isEditableBy($user): bool
+    {
+        return $this->isManualActivity() && $this->isOwnedBy($user);
+    }
+
     public function subject(): \Illuminate\Database\Eloquent\Relations\MorphTo
     {
         return $this->morphTo();

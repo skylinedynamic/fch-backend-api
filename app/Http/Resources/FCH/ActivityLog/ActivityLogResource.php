@@ -51,12 +51,14 @@ class ActivityLogResource extends JsonResource
 
         $props = $this->properties ?? [];
 
-        // Rows flagged dates_utc store UTC; older rows hold the wall-clock value as the user entered it
+        // Rows flagged dates_utc store UTC and are converted to the viewer's timezone.
+        // Older rows already hold the wall-clock value the user entered, so they go
+        // through toTimezone() in the app timezone — formatted, but not shifted.
         $toDisplay = fn ($value) => empty($value)
             ? null
             : (!empty($props['dates_utc'])
                 ? toTimezone($value, null, 'Y-m-d H:i:s')
-                : Carbon::parse($value)->format('Y-m-d H:i:s'));
+                : toTimezone($value, config('app.timezone'), 'Y-m-d H:i:s'));
 
         $remindMe = (bool) ($props['remind_me'] ?? false);
         $reminderPreset = $props['reminder_preset'] ?? '30_minutes';
@@ -136,6 +138,10 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->causer->id,
                 'name' => $this->causer->name,
             ] : null),
+            // Edit/delete are offered only on your own manual activity entries;
+            // the API enforces the same rule.
+            'can_edit'      => $this->resource->isEditableBy($request->user()),
+            'can_delete'    => $this->resource->isEditableBy($request->user()),
             'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];

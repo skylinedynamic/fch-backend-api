@@ -614,6 +614,12 @@ class ActivityLogService
             throw new \Exception('Only manual activity entries can be edited.', 403);
         }
 
+        // You may only change what you logged yourself — another user's entry
+        // stays read-only, however it is reached.
+        if (!$log->isOwnedBy(Auth::user())) {
+            throw new \Exception('You can only edit activities you created.', 403);
+        }
+
         $props = $log->properties;
         if ($props instanceof \Illuminate\Support\Collection) {
             $props = $props->toArray();
@@ -780,6 +786,10 @@ class ActivityLogService
             $logType = strtolower($log->log_name ?? '');
             if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
                 throw new \Exception('Only manual activity entries can be deleted.', 403);
+            }
+
+            if (!$log->isOwnedBy(Auth::user())) {
+                throw new \Exception('You can only delete activities you created.', 403);
             }
 
             $props = $log->properties;
