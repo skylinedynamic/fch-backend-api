@@ -276,6 +276,8 @@ class ActivityLogService
             );
 
             if ($reminder) {
+                $reminder->update(['activity_log_id' => $log->id]);
+
                 $props = $log->properties;
                 if ($props instanceof \Illuminate\Support\Collection) {
                     $props = $props->toArray();
@@ -612,6 +614,12 @@ class ActivityLogService
             throw new \Exception('Only manual activity entries can be edited.', 403);
         }
 
+        // You may only change what you logged yourself — another user's entry
+        // stays read-only, however it is reached.
+        if (!$log->isOwnedBy(Auth::user())) {
+            throw new \Exception('You can only edit activities you created.', 403);
+        }
+
         $props = $log->properties;
         if ($props instanceof \Illuminate\Support\Collection) {
             $props = $props->toArray();
@@ -712,6 +720,7 @@ class ActivityLogService
                         'send_at' => $remindAtUtc,
                         'status' => Reminder::STATUS_PENDING,
                         'attachments' => $reminderAttachments,
+                        'activity_log_id' => $log->id,
                     ]);
                     \App\Jobs\Reminder\DispatchReminderDueJob::dispatch($existingReminder->id, $remindAtUtc)
                         ->delay($remindAtUtc)
@@ -736,6 +745,7 @@ class ActivityLogService
                         $reminderAttachments
                     );
                     if ($newReminder) {
+                        $newReminder->update(['activity_log_id' => $log->id]);
                         $props['reminder_id'] = $newReminder->id;
                     }
                 }
@@ -755,6 +765,7 @@ class ActivityLogService
                 'summary' => $props['subject'] ?? $existingReminder->summary,
                 'message' => $props['description'] ?? $existingReminder->message,
                 'attachments' => $props['attachments']['files'] ?? $existingReminder->attachments,
+                'activity_log_id' => $log->id,
             ]);
         }
 
@@ -775,6 +786,10 @@ class ActivityLogService
             $logType = strtolower($log->log_name ?? '');
             if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
                 throw new \Exception('Only manual activity entries can be deleted.', 403);
+            }
+
+            if (!$log->isOwnedBy(Auth::user())) {
+                throw new \Exception('You can only delete activities you created.', 403);
             }
 
             $props = $log->properties;

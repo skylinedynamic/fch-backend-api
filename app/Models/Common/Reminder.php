@@ -2,6 +2,13 @@
 
 namespace App\Models\Common;
 
+use App\Models\ActivityLog\ActivityLog;
+use App\Models\Borrower\Borrower;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Employee\Employee;
+use App\Models\FundingRequest\FundingRequest;
+use App\Models\Lead\Lead;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +25,7 @@ class Reminder extends Model
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
+        'activity_log_id',
         'entity_id',
         'entity_type',
         'created_by',
@@ -29,6 +37,7 @@ class Reminder extends Model
         'is_reminder',
         'reminder_date_time',
         'attachments',
+        'snooze_history',
         'status',
         'send_at',
     ];
@@ -39,6 +48,7 @@ class Reminder extends Model
         'send_at' => 'datetime',
         'is_reminder' => 'boolean',
         'attachments' => 'array',
+        'snooze_history' => 'array',
     ];
 
     public function entity(): MorphTo
@@ -49,6 +59,150 @@ class Reminder extends Model
     public function creator(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'created_by_entity_type', 'created_by');
+    }
+
+    public function activityLog(): BelongsTo
+    {
+        return $this->belongsTo(ActivityLog::class, 'activity_log_id');
+    }
+
+    /**
+     * Eager-load the entity (plus the borrower behind a funding request /
+     * application) so clientSummary() doesn't query once per reminder.
+     */
+    public function scopeWithClient($query)
+    {
+        return $query->with(self::clientRelations());
+    }
+
+    public function loadClient(): static
+    {
+        return $this->load(self::clientRelations());
+    }
+
+    private static function clientRelations(): array
+    {
+        return ['activityLog', 'entity' => function (MorphTo $morphTo) {
+            $morphTo->morphWith([
+                FundingRequest::class => ['borrower'],
+                FundingApplication::class => ['borrower'],
+            ]);
+        }];
+    }
+
+    /**
+     * Who this reminder is for. Funding requests/applications resolve to
+     * their borrower so "Go to Client" lands on the client's own file; the
+     * request/application itself is returned as `related`.
+     *
+     * @return array{client: ?array, related: ?array}
+     */
+    public function clientSummary(): array
+    {
+        $entity = $this->entity;
+        $related = null;
+
+        if ($entity instanceof FundingRequest) {
+            $related = [
+                'type' => 'funding_request',
+                'id' => $entity->id,
+                'label' => 'Funding Request #' . $entity->id,
+            ];
+            $entity = $entity->borrower;
+        } elseif ($entity instanceof FundingApplication) {
+            $related = [
+                'type' => 'funding_application',
+                'id' => $entity->id,
+                'label' => 'Funding Application ' . ($entity->application_number ?: '#' . $entity->id),
+            ];
+
+            // An application can exist before a borrower account is linked —
+            // fall back to the applicant details captured on the application.
+            if (!$entity->borrower) {
+                return [
+                    'client' => [
+                        'type' => null,
+                        'type_label' => 'Applicant',
+                        'id' => null,
+                        'name' => $entity->full_name ?: $entity->business_name,
+                        'business_name' => $entity->business_name,
+                        'email' => $entity->business_email,
+                        'phone' => $entity->business_phone_no,
+                    ],
+                    'related' => $related,
+                ];
+            }
+
+            $entity = $entity->borrower;
+        }
+
+        $client = match (true) {
+            $entity instanceof Borrower => [
+                'type' => 'borrower',
+                'type_label' => 'Client',
+                'id' => $entity->id,
+                'name' => $entity->full_name ?: $entity->business_name,
+                'business_name' => $entity->business_name,
+                'email' => $entity->email ?: $entity->business_email,
+                'phone' => $entity->phone_number ?: $entity->business_phone,
+            ],
+            $entity instanceof Lead => [
+                'type' => 'lead',
+                'type_label' => 'Lead',
+                'id' => $entity->id,
+                'name' => $entity->contact_person ?: ($entity->company_name ?: $entity->legal_business_name),
+                'business_name' => $entity->company_name ?: $entity->legal_business_name,
+                'email' => $entity->email,
+                'phone' => $entity->phone_number ?: $entity->business_phone,
+            ],
+            $entity instanceof Partner => [
+                'type' => 'partner',
+                'type_label' => 'Partner',
+                'id' => $entity->id,
+                'name' => $entity->full_name ?: $entity->company_name,
+                'business_name' => $entity->company_name,
+                'email' => $entity->email,
+                'phone' => $entity->phone_number,
+            ],
+            $entity instanceof Employee => [
+                'type' => 'employee',
+                'type_label' => 'Employee',
+                'id' => $entity->id,
+                'name' => $entity->full_name,
+                'business_name' => $entity->designation,
+                'email' => $entity->email,
+                'phone' => $entity->phone_number_1 ?: $entity->phone_number_2,
+            ],
+            $entity instanceof User => $this->userClientSummary($entity),
+            default => null,
+        };
+
+        return ['client' => $client, 'related' => $related];
+    }
+
+    /**
+     * A login account (Admin, User, Employee...). When it belongs to an
+     * employee/partner/borrower record, link to that record's page since
+     * user accounts themselves have no details page.
+     */
+    private function userClientSummary(User $user): array
+    {
+        $linkTypes = [
+            Employee::class => 'employee',
+            Partner::class => 'partner',
+            Borrower::class => 'borrower',
+        ];
+        $linkedType = $linkTypes[$user->entity_type] ?? null;
+
+        return [
+            'type' => $linkedType ?? ($user->user_type === User::ADMIN ? 'admin' : 'user'),
+            'type_label' => $user->user_type ?: 'User',
+            'id' => $linkedType ? $user->entity_id : $user->id,
+            'name' => $user->name,
+            'business_name' => null,
+            'email' => $user->email,
+            'phone' => $user->phone_number,
+        ];
     }
 
     public function scopeDue($query)
@@ -93,11 +247,35 @@ class Reminder extends Model
 
         $search = trim($search);
 
-        return $query->where(function ($q) use ($search) {
+        // Client names are matched word by word so "John Smith" finds a
+        // borrower stored as first_name/last_name without a DB-specific CONCAT.
+        $words = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
+        $matchWords = function ($q, array $columns) use ($words) {
+            foreach ($words as $word) {
+                $q->where(function ($wq) use ($columns, $word) {
+                    foreach ($columns as $column) {
+                        $wq->orWhere($column, 'like', "%{$word}%");
+                    }
+                });
+            }
+        };
+        $borrowerColumns = ['first_name', 'last_name', 'business_name', 'email'];
+
+        return $query->where(function ($q) use ($search, $matchWords, $borrowerColumns) {
             $q->where('summary', 'like', "%{$search}%")
               ->orWhere('message', 'like', "%{$search}%")
               ->orWhere('reference', 'like', "%{$search}%")
-              ->orWhere('status', 'like', "%{$search}%");
+              ->orWhere('status', 'like', "%{$search}%")
+              ->orWhereHasMorph('entity', [Borrower::class], fn ($eq) => $matchWords($eq, $borrowerColumns))
+              ->orWhereHasMorph('entity', [Lead::class], fn ($eq) => $matchWords($eq, ['contact_person', 'company_name', 'legal_business_name', 'email']))
+              ->orWhereHasMorph('entity', [Partner::class], fn ($eq) => $matchWords($eq, ['full_name', 'company_name', 'email']))
+              ->orWhereHasMorph('entity', [Employee::class], fn ($eq) => $matchWords($eq, ['first_name', 'last_name', 'email']))
+              ->orWhereHasMorph('entity', [User::class], fn ($eq) => $matchWords($eq, ['name', 'email']))
+              ->orWhereHasMorph(
+                  'entity',
+                  [FundingRequest::class, FundingApplication::class],
+                  fn ($eq) => $eq->whereHas('borrower', fn ($bq) => $matchWords($bq, $borrowerColumns))
+              );
         });
     }
 

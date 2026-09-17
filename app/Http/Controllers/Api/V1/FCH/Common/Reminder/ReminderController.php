@@ -124,7 +124,8 @@ class ReminderController extends Controller
             $id,
             $request->minutes,
             $request->reschedule_at,
-            $request->lead_minutes
+            $request->lead_minutes,
+            $request->note
         );
 
         if (!$reminder) {
