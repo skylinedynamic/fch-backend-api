@@ -244,64 +244,6 @@ if (!function_exists('getBorrowerDomain')) {
     }
 }
 
-if (!function_exists('getEmbedFormBaseUrl')) {
-    /**
-     * Resolve the base URL used for embedded loan application form links
-     * (the direct link and the iframe embed snippet), based on the
-     * authenticated user's partner.
-     *
-     * The link is a BORROWER-facing one: whoever fills the embedded form becomes
-     * a borrower of the partner, so it is handed out on the borrower portal's
-     * domain. This used to resolve partner_domain / partner_subdomain, which put
-     * a prospective borrower on the partner's own staff portal.
-     *
-     * - Outside production: always the app base URL — neither a custom borrower
-     *   domain nor the reserved borrower portal resolves on local or staging.
-     * - White-Label partner: their own `borrower_domain`, the domain their
-     *   borrowers actually log in through — but only while `active_custom_url`
-     *   is on. DomainResolverController and PortalIsolationService both gate
-     *   borrower_domain behind that flag, so with it off the domain resolves
-     *   nowhere and the link would 404.
-     * - Certified partner: the reserved base borrower portal
-     *   (BASE_BORROWER_PORTAL). A Certified partner never gets a borrower domain
-     *   of its own — its borrowers share the base portal.
-     * - Host partner, no partner, or no domain configured: the app base URL.
-     *   The host keeps the API's own host because `/form/{key}` is served from
-     *   there, so it is the one value guaranteed to resolve.
-     */
-    function getEmbedFormBaseUrl(): string
-    {
-        $baseUrl = rtrim(config('app.url'), '/');
-
-        if (!app()->environment('production')) {
-            return $baseUrl;
-        }
-
-        $partner = auth()->user()?->partner;
-
-        if (!$partner || $partner->is_host) {
-            return $baseUrl;
-        }
-
-        $domain = null;
-
-        if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
-            $domain = $partner->active_custom_url ? $partner->borrower_domain : null;
-        } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
-            $domain = config('app.frontend_borrower_url');
-        }
-
-        if (empty($domain)) {
-            return $baseUrl;
-        }
-
-        // BASE_BORROWER_PORTAL and borrower_domain are both stored bare
-        // (app.fourcornerfunding.com), so the scheme is added here rather than
-        // assumed to be present.
-        return rtrim(concatUrl($domain, ''), '/');
-    }
-}
-
 if (!function_exists('normalizePhoneE164')) {
     /**
      * Normalise a US phone number to E.164 (+15551234567).

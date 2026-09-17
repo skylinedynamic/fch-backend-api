@@ -11,6 +11,7 @@ use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormSubmissionStatu
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Support\EmbedForm\EmbedFormLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -35,9 +36,51 @@ class EmbedFormController extends Controller
             $partnerId = $request->integer('partner_id');
         }
 
-        $config = $this->embedFormService->getOrCreateConfig($partnerId);
+        $location = $this->embedFormService->locationFor($partnerId);
+
+        // Deliberately does NOT create one when the partner has nowhere to
+        // publish. This endpoint is what the settings screen loads, and creating
+        // a form here would be a side effect of merely opening the page -
+        // handing out a key whose link resolves nowhere. The screen shows the
+        // warning instead, and the form is created once a domain is set.
+        $config = $location->isAvailable()
+            ? $this->embedFormService->getOrCreateConfig($partnerId)
+            : $this->embedFormService->findConfig($partnerId);
+
+        if (!$config) {
+            return ApiResponse::success(
+                $this->unpublishableConfig($partnerId, $location),
+                $location->warning() ?? __('embed_form.form_not_found_or_inactive')
+            );
+        }
 
         return ApiResponse::success(new EmbedFormConfigResource($config));
+    }
+
+    /**
+     * The shape the settings screen expects when no form exists yet.
+     *
+     * Same keys as the resource so the screen can bind to them unconditionally;
+     * the two `form_url_*` fields are what it renders the warning from.
+     */
+    private function unpublishableConfig(?int $partnerId, EmbedFormLocation $location): array
+    {
+        return [
+            'id' => null,
+            'partner_id' => $partnerId,
+            'public_key' => null,
+            'form_title' => null,
+            'allowed_domains' => [],
+            'notification_email' => null,
+            'is_active' => false,
+            'embed_snippet' => null,
+            'direct_url' => null,
+            'form_url_available' => $location->isAvailable(),
+            'form_url_warning' => $location->warning(),
+            'submissions_count' => 0,
+            'created_at' => null,
+            'updated_at' => null,
+        ];
     }
 
     /**
@@ -48,9 +91,15 @@ class EmbedFormController extends Controller
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
 
-        // validated(), not all(): only the fields the request class knows about
-        // reach the service, so an unexpected key cannot be written through.
-        $config = $this->embedFormService->updateConfig($partnerId, $request->validated());
+        try {
+            // validated(), not all(): only the fields the request class knows
+            // about reach the service, so an unexpected key cannot be written
+            // through.
+            $config = $this->embedFormService->updateConfig($partnerId, $request->validated());
+        } catch (\DomainException $e) {
+            // No domain, so there is no form to configure yet.
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success(new EmbedFormConfigResource($config), __('embed_form.config_updated'));
     }
@@ -62,7 +111,12 @@ class EmbedFormController extends Controller
     public function regenerateKey(): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
-        $config = $this->embedFormService->regenerateKey($partnerId);
+
+        try {
+            $config = $this->embedFormService->regenerateKey($partnerId);
+        } catch (\DomainException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success([
             'public_key' => $config->public_key,
