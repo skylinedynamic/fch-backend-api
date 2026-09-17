@@ -61,7 +61,7 @@ class PreQualificationResource extends JsonResource
             'validation_status' => $this->validation_status ?? null,
             'validation_summary' => $this->validation_summary ?? null,
             'gpt_status' => $this->gpt_status ?? null,
-            'gpt_generated_at' => !empty($this->gpt_generated_at) ? Carbon::parse($this->gpt_generated_at)->format('Y-m-d') : null,
+            'gpt_generated_at' => !empty($this->gpt_generated_at) ? Carbon::parse($this->gpt_generated_at)->format('Y-m-d h:i A') : null,
             'underwriting_result' => $this->clientAueResult(),
         ];
     }
