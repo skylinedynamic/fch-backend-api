@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -179,6 +180,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
                 Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
+                Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
@@ -373,6 +375,15 @@ Route::prefix('v1')->group(function () {
             Route::prefix('app-configurations')->group(function () {
                 Route::post('/', [CommonAppConfigurationController::class, 'index']);
                 Route::post('/save', [CommonAppConfigurationController::class, 'store']);
+            });
+
+            // OpenAI configuration (host-only settings screen)
+            // Access is decided in the admin UI by PartnerHostRoute (is_host and
+            // an entity type of Partner); no per-role permission is required here.
+            Route::prefix('openai')->group(function () {
+                Route::get('config', [OpenAiConfigurationController::class, 'show']);
+                Route::get('models', [OpenAiConfigurationController::class, 'models']);
+                Route::post('config', [OpenAiConfigurationController::class, 'store']);
             });
 
             // 📧 Email Configurations

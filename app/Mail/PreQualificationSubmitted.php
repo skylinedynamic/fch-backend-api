@@ -15,7 +15,7 @@ class PreQualificationSubmitted extends Mailable
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
-    public $preQualification;
+    public PreQualificationRequest $preQualification;
     protected array $dynamicData = [];
 
     /**
@@ -24,7 +24,7 @@ class PreQualificationSubmitted extends Mailable
     public function __construct(PreQualificationRequest $preQualification)
     {
         $this->preQualification = $preQualification;
-        $this->setMailPartnerId();
+        $this->setMailPartnerId($preQualification->partner_id);
     }
 
     /**
@@ -32,7 +32,7 @@ class PreQualificationSubmitted extends Mailable
      */
     public function envelope(): Envelope
     {
-        $branding = $this->getBrandingData();
+        $branding = $this->getBrandingData($this->preQualification->partner_id);
         $this->dynamicData['siteName'] = $branding['siteName'];
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 

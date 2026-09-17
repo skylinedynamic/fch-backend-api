@@ -20,7 +20,7 @@ class PreQualificationApplicationResource extends JsonResource
             'funding_type' => $this->purpose_of_funding,
             'business_name' => $this->business_name,
             'industry' => $this->industry_type,
-            'date' => $this->created_at->format('d M Y'),
+            'date' => ($this->updated_at ?? $this->created_at)?->format('d M Y'),
             'requested_amount' => currencyFormat($this->funding_requested_amount),
             'status' => $this->status,
         ];

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Borrower\PreQualification;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Borrower\PreQualificationRequest;
+use Illuminate\Validation\Rule;
 
 class FundingInfoRequest extends BaseApiRequest
 {
@@ -24,15 +25,16 @@ class FundingInfoRequest extends BaseApiRequest
     {
         return [
             'id' => ['nullable','exists:pre_qualification_requests,id'],
-            'funding_requested_amount' => ['required','numeric','gt:0'],
+            'funding_requested_amount' => ['required','numeric','gt:0','max:9999999999999'],
             'funding_urgency' => ['required','string','max:255'],
             'purpose_of_funding' => ['required','string','max:255'],
-            'purpose_note' => ['required_if:purpose_of_funding,' . PreQualificationRequest::PURPOSE_OF_FUNDING_OPTIONS['Other'],'nullable','string','max:1000'],
-            'personal_credit_score' => ['required','string','max:255'],
+            'purpose_note' => ['required_if:purpose_of_funding,' . PreQualificationRequest::PURPOSE_OF_FUNDING_OPTIONS['Other'],'nullable','string','max:255'],
+            // Only the wizard's bands: the AUE derives min/max from these keys.
+            'personal_credit_score' => ['required','string','max:255', Rule::in(array_keys(config('prequalification_aue.personal_credit_bands', [])))],
             'estimated_business_credit_score' => ['required','string','max:255'],
             'existing_business_debt' => ['required','boolean'],
-            'debt_balance' => ['nullable','numeric','gt:0','required_if:existing_business_debt,true'],
-            'notes' => ['nullable','string','max:1000'],
+            'debt_balance' => ['nullable','numeric','gt:0','max:9999999999999','required_if:existing_business_debt,true'],
+            'notes' => ['nullable','string','max:200'],
         ];
     }
 
@@ -43,6 +45,7 @@ class FundingInfoRequest extends BaseApiRequest
             'funding_requested_amount.required' => __('borrower_validation.funding_requested_amount_required'),
             'funding_requested_amount.numeric' => __('borrower_validation.funding_requested_amount_numeric'),
             'funding_requested_amount.gt' => __('borrower_validation.funding_requested_amount_gt'),
+            'funding_requested_amount.max' => __('borrower_validation.funding_requested_amount_max'),
 
             'funding_urgency.required' => __('borrower_validation.funding_urgency_required'),
             'funding_urgency.string' => __('borrower_validation.funding_urgency_string'),
@@ -52,11 +55,12 @@ class FundingInfoRequest extends BaseApiRequest
             'purpose_of_funding.string' => __('borrower_validation.purpose_of_funding_string'),
             'purpose_of_funding.max' => __('borrower_validation.purpose_of_funding_max'),
             'purpose_note.required_if' => __('borrower_validation.purpose_note_required'),
-            'purpose_note.max' => __('borrower_validation.purpose_note_max'),
+            'purpose_note.max' => __('borrower_validation.prequalification_purpose_note_max'),
 
             'personal_credit_score.required' => __('borrower_validation.personal_credit_score_required'),
             'personal_credit_score.string' => __('borrower_validation.personal_credit_score_string'),
             'personal_credit_score.max' => __('borrower_validation.personal_credit_score_max'),
+            'personal_credit_score.in' => __('borrower_validation.prequalification_personal_credit_score_in'),
 
             'estimated_business_credit_score.required' => __('borrower_validation.estimated_business_credit_score_required'),
             'estimated_business_credit_score.string' => __('borrower_validation.estimated_business_credit_score_string'),
@@ -67,8 +71,9 @@ class FundingInfoRequest extends BaseApiRequest
 
             'debt_balance.numeric' => __('borrower_validation.debt_balance_numeric'),
             'debt_balance.gt' => __('borrower_validation.debt_balance_gt'),
+            'debt_balance.max' => __('borrower_validation.debt_balance_max'),
 
-            'notes.max' => __('borrower_validation.notes_max'), 
+            'notes.max' => __('borrower_validation.prequalification_notes_max'),
         ];
     }
 }

@@ -18,7 +18,8 @@ class MyApplicationService
         $user = Auth::user();
         $query = PreQualificationRequest::where('status', '!=', PreQualificationRequest::ON_HOLD)
                 ->where('borrower_id', $user->entity_id)
-                ->latest();
+                ->orderByRaw('COALESCE(updated_at, created_at) DESC')
+                ->orderBy('id', 'desc');
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
