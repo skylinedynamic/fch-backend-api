@@ -70,6 +70,7 @@ class RequestApplicationController extends Controller
                 'sort_field'    => $input['sort_field'] ?? null,
                 'sort_order'    => $input['sort_order'] ?? null,
                 'status'        => $input['status'] ?? null,
+                'borrower_id'   => $input['borrower_id'] ?? null,
             ];
 
             return $this->requestApplicationService->getFundingApplicationList($filters);
@@ -87,6 +88,18 @@ class RequestApplicationController extends Controller
             return $this->requestApplicationService->getPreQualificationById($id);
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('application.error_retrieving_pre_qualification'));
+        }
+    }
+
+    /**
+     * Run AI Pre-Qualification Underwriting Analysis By ID
+     */
+    public function runAiPreQualification($id): JsonResponse
+    {
+        try {
+            return $this->requestApplicationService->runAiPreQualification($id);
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage() ?: __('Failed to run pre-qualification AI evaluation.'));
         }
     }
 

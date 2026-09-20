@@ -24,6 +24,7 @@ class BorrowerPersonalDetailsResource extends JsonResource
             'user_id'       => $this->user?->id,
             'signup_id'     => $this->signup_id,
             'first_name'    => $this->first_name,
+            'middle_name'    => $this->middle_name,
             'last_name'     => $this->last_name,
             'full_name'     => $this->full_name,
             'email'         => $this->email,
@@ -84,8 +85,8 @@ class BorrowerPersonalDetailsResource extends JsonResource
                 'installment_monthly_amount_formatted'  => currencyFormat($latestSub->subscription_amount_per_month),
                 'installment_remaining_balance'         => (float) ($latestSub->payable_amount - $latestSub->down_payment),
                 'installment_remaining_balance_formatted' => currencyFormat($latestSub->payable_amount - $latestSub->down_payment),
-                'subscription_start_date'               => toTimezone($latestSub->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date'                 => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'),
+                'subscription_start_date'               => toDateOnly($latestSub->subscription_start_date),
+                'subscription_end_date'                 => toDateOnly($latestSub->subscription_end_date), // paid through
                 'status'                                => $latestSub->status,
             ] : null,
 

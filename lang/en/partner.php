@@ -144,6 +144,8 @@ return [
         'created' => 'Partner created successfully.',
         'updated' => 'Partner updated successfully.',
         'deleted' => 'Partner deleted successfully.',
+        'archived' => 'Partner(s) archived successfully.',
+        'unarchived' => 'Partner(s) restored to the active list.',
         'document_uploaded' => 'Document uploaded successfully.',
         'document_updated' => 'Document updated successfully.',
         'documents_retrieved' => 'Documents retrieved successfully.',
@@ -154,11 +156,29 @@ return [
 
     'error' => [
         'not_found' => 'Partner not found.',
+        'list_failed' => 'Failed to retrieve partners.',
+        'archive_failed' => 'Could not archive the selected partner(s). Please try again.',
+        'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
+        'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
+        'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
+        'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
+    ],
+
+    'log' => [
+        'partner_create_failed' => 'Partner creation failed',
+        'partner_update_failed' => 'Partner update failed',
+        'trial_welcome_mail_failed' => 'Partner trial welcome email failed',
+        'account_update_mail_failed' => 'Partner account update email failed',
+        'trial_expiry_mail_failed' => 'Partner trial expiry date update email failed',
+        'account_create_notification_failed' => 'Account creation notification email failed',
     ],
 
     'partner_stats_retrieved' => 'Partner statistics retrieved successfully.',
     'partner_stats_retrieved_failed' => 'Failed to retrieve partner statistics.',
     'borrowers_retrieved_data' => 'Borrowers retrieved successfully.',
+    'borrowers_fetch_failed' => 'Failed to fetch borrowers.',
+    'next_id_retrieved' => 'Next partner ID retrieved successfully.',
+    'next_id_failed' => 'Failed to retrieve next partner ID.',
 
     'subscription_saved' => 'Subscription saved successfully.',
     'subscription_save_failed' => 'Failed to save subscription.',
@@ -172,8 +192,10 @@ return [
     'borrower_fee_retrieved' => 'Borrower fee retrieved successfully.',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',
+    'free_trial_expiry_updated_log' => 'Partner free trial expiration date updated to <strong>:date</strong>.',
     'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
     'default_enrollment_type' => 'Paid Enrollment',
+    'trial_end_date' => 'Trial End Date',
     'assigned_user' => 'Assigned User',
     'field_changed' => ':field was changed',
     'field_updated' => ':field was updated to :value',
@@ -183,5 +205,6 @@ return [
         'subject_account_created_enrollment' => 'Welcome to :company - Your Partner Account Details & Enrollment',
         'subject_account_created_trial' => 'Welcome to :company - Partner Portal Free Trial Access',
         'subject_account_migrated' => 'Welcome to :company - Partner Account Migrated from Free Trial',
+        'subject_trial_expiry_updated' => ':company - Partner Portal Free Trial Expiry Date Updated',
     ],
 ];

@@ -84,6 +84,15 @@ class BorrowerService
             }
         }
 
+        // Snapshot the query scoped only by partner authorization (before search/status/column
+        // filters are applied) so the summary cards always reflect true totals for the partner,
+        // not just the rows matching whatever search/filter the user currently has active.
+        $statsQuery = clone $query;
+
+        // Archived borrowers are not active business, so they never count toward
+        // the summary cards - whatever the list below is currently showing.
+        $statsQuery->notArchived();
+
         // Filter by current_tier (supports ID or Name)
         $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
         if ($currentTier !== null && $currentTier !== '') {
@@ -112,10 +121,31 @@ class BorrowerService
             }
         }
 
+        // Filter by Free Plan / Regular plan (is_free_trail)
+        $isFreeTrail = $filters['is_free_trail']['value'] ?? ($filters['is_free_trail'] ?? null);
+        if ($isFreeTrail !== null && $isFreeTrail !== '') {
+            $query->where('borrowers.is_free_trail', filter_var($isFreeTrail, FILTER_VALIDATE_BOOLEAN));
+        }
+
         // Apply Search
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
+
+        // 🗄 Archived borrowers leave the working list but stay findable. A search
+        // reaches them by default; `archived` narrows to them, `archived=all`
+        // ignores the distinction entirely.
+        // '' and null both mean "no archive filter chosen" - the UI sends an empty
+        // string, not null, so both have to be treated the same or a search would
+        // never reach archived records.
+        $archived = $filters['archived'] ?? null;
+        $archived = ($archived === '' ? null : $archived);
+
+        if ($archived === null && !empty($filters['search'])) {
+            $archived = Borrower::ARCHIVE_FILTER_ALL;
+        }
+
+        $query->archiveFilter($archived);
 
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
@@ -246,12 +276,13 @@ class BorrowerService
             ]
         );
 
-        // Calculate statistics before pagination
+        // Calculate statistics from the partner-scoped (but otherwise unfiltered) query, so the
+        // summary cards show true totals rather than fluctuating with the table's search/filters.
         $statistics = [
-            'total_borrowers' => (clone $query)->count(),
-            'active_borrowers' => (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count(),
-            'inactive_borrowers' => (clone $query)->whereIn('status', [Borrower::STATUS_INACTIVE, Borrower::STATUS_SUSPENDED])->count(),
-            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'total_borrowers' => (clone $statsQuery)->count(),
+            'active_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_ACTIVE)->count(),
+            'inactive_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_INACTIVE)->count(),
+            'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -463,7 +494,11 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
-            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : $borrower->free_trail_end_date;
+            // free_trail_end_date is a DATE column and is now serialised verbatim
+            // through toDateOnly(), so a reposted value round-trips unchanged.
+            if (isset($borrowerData['free_trail_end_date'])) {
+                $borrowerData['free_trail_end_date'] = normalizeDate($borrowerData['free_trail_end_date']);
+            }
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -645,6 +680,7 @@ class BorrowerService
             }
 
             foreach ($bankAccountsData as $row) {
+                $accountOpenDate = !empty($row['account_open_date']) ? normalizeDate($row['account_open_date']) : null;
                 if (!empty($row['id'])) {
                     $bba = BorrowerBankAccount::where('id', $row['id'])
                         ->where('borrower_id', $borrower->id)
@@ -652,7 +688,7 @@ class BorrowerService
                     if ($bba) {
                         $bba->fill([
                             'bank_name' => $row['bank_name'],
-                            'account_open_date' => $row['account_open_date'] ?? null,
+                            'account_open_date' => $accountOpenDate,
                         ]);
                         if ($bba->isDirty()) {
                             $bba->save();
@@ -663,7 +699,7 @@ class BorrowerService
                     BorrowerBankAccount::create([
                         'borrower_id' => $borrower->id,
                         'bank_name' => $row['bank_name'],
-                        'account_open_date' => $row['account_open_date'] ?? null,
+                        'account_open_date' => $accountOpenDate,
                     ]);
                     $bankAccountsChanged = true;
                 }
@@ -693,7 +729,7 @@ class BorrowerService
             );
         }
 
-        return $borrower->load('bankAccounts')->fresh();
+        return $borrower->fresh(['bankAccounts']);
     }
 
     /**
@@ -704,13 +740,79 @@ class BorrowerService
         return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
             $query->where('partner_id', auth()->user()->partner_id);
         })
-            ->with('partner', 'latestSubscription')
+            ->with('partner', 'latestSubscription', 'bankAccounts')
             ->find($id);
     }
 
     /**
      * Delete borrowers.
      */
+
+    /**
+     * Archive records so they leave the working list without being deleted.
+     *
+     * Presentation only: `status` is untouched, so archiving changes nothing about
+     * login, billing or permissions. Already-archived rows are skipped rather than
+     * re-stamped, so the original "who filed this away" survives a repeat action.
+     */
+    public function archive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $archived = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->archive()) {
+                    $archived++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['archived' => $archived],
+                __('borrower.archived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower archive failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.archive_failed'), 400);
+        }
+    }
+
+    /**
+     * Return archived records to the working list. Nothing else about them changes -
+     * archiving never altered the record, so restoring has nothing to rebuild.
+     */
+    public function unarchive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $restored = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->unarchive()) {
+                    $restored++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['restored' => $restored],
+                __('borrower.unarchived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower restore failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.unarchive_failed'), 400);
+        }
+    }
+
     public function delete(array $ids)
     {
 
@@ -726,7 +828,7 @@ class BorrowerService
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Borrower deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
-            return ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error(__('borrower.delete_failed'), 400);
         }
     }
 

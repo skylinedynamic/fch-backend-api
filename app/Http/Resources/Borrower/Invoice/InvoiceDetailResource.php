@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Borrower\Invoice;
 
-use App\Models\Common\AppConfiguration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -31,7 +30,7 @@ class InvoiceDetailResource extends JsonResource
             'payment_amount' => (float) $this->payment_amount,
             'displayable_payment_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
             'displayable_amount' => currencyFormat($this->payment_amount, 2, $this->currency_symbol ?? '$', $this->conversion_rate ?? 1),
-            'payment_date' => toTimezone($this->payment_date),
+            'payment_date' => toDateOnly($this->payment_date),
             'status' => $this->status,
             'type' => $this->getFormattedType(),
             'note' => $this->note,
@@ -83,18 +82,39 @@ class InvoiceDetailResource extends JsonResource
 
     private function resolveBrandingData()
     {
-        $partner = getConfigPartner();
-        $branding = AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->pluck('value', 'key')->toArray();
+        // Resolved from the INVOICE rather than getConfigPartner(): the request
+        // tenant is the portal the borrower happens to be on, which is not
+        // necessarily who is being paid. invoiceBranding() applies the shared
+        // rule - the recipient's brand: the host on a Partner invoice, and
+        // invoices.partner_id on a Borrower one - and resolves the whole fallback
+        // chain through AppConfigurationService, so a partner who only uploaded
+        // under the older surface names is still matched.
+        $resolved = invoiceBranding(
+            $this->entity_type,
+            $this->partner_id ? (int) $this->partner_id : null
+        );
+        $partner = $resolved['partner'];
+        $branding = $resolved['branding'];
+
+        // Invoice paper is white, so this is the document logo, falling back to
+        // the sidebar logo when this tenant uploaded no document one.
+        // `primary_logo` and `logo` are kept as aliases for consumers not yet
+        // migrated, but they now point at the document logo too - they used to
+        // carry the white-on-transparent one, invisible on white paper.
+        $documentLogo = $resolved['logo'];
+        $sidebarLogo = $branding['logo_sidebar_full_url'] ?? '';
 
         return [
             'site_name' => $branding['site_name'] ?? '',
-            'primary_logo' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
-            'logo' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
-            'address' => $partner->address_line_1 ?? '',
-            'city' => $partner->city ?? '',
-            'state' => $partner->state ?? '',
-            'postal_code' => $partner->postal_code ?? '',
-            'country' => $partner->country ?? '',
+            'logo_document_full_url' => $documentLogo,
+            'logo_sidebar_full_url' => $sidebarLogo,
+            'primary_logo' => $documentLogo,
+            'logo' => $documentLogo,
+            'address' => $partner?->address_line_1 ?? '',
+            'city' => $partner?->city ?? '',
+            'state' => $partner?->state ?? '',
+            'postal_code' => $partner?->postal_code ?? '',
+            'country' => $partner?->country ?? '',
         ];
     }
 }

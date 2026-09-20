@@ -11,6 +11,7 @@ use App\Traits\PaginatesApi;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 
 class InvoiceService
 {
@@ -292,7 +293,7 @@ class InvoiceService
         if (!$invoice)
             throw new \Exception(__('invoice.not_found'));
 
-        $business_info = $this->getBusinessInfo();
+        $business_info = $this->getBusinessInfo($invoice);
 
         Log::info('Invoice business info for borrower', ['invoice_id' => $id, 'business_info' => $business_info]);
 
@@ -306,22 +307,41 @@ class InvoiceService
     /**
      * Helper to get business info for templates with white-label support.
      */
-    private function getBusinessInfo(): array
+    private function getBusinessInfo(?Invoice $invoice = null): array
     {
-        $targetPartner = getConfigPartner();
-        $branding = AppConfiguration::where('partner_id', $targetPartner->id)->where('module', AppConfiguration::MODULE_BRANDING)->pluck('value', 'key')->toArray();
+        // Branded from the INVOICE, not getConfigPartner(): the request tenant is
+        // the portal the borrower is browsing, which is not necessarily who is
+        // being paid. invoiceBranding() applies the shared rule - the brand
+        // belongs to the recipient: the host on a Partner invoice, and
+        // invoices.partner_id on a Borrower one - falling back document ->
+        // sidebar within that tenant's logos.
+        $resolved = invoiceBranding(
+            $invoice?->entity_type,
+            $invoice?->partner_id ? (int) $invoice->partner_id : null
+        );
+        $targetPartner = $resolved['partner'];
+        $branding = $resolved['branding'];
+        $logoPath = $resolved['logo'];
 
         return [
             'company_name' => $branding['site_name'] ?? '',
-            'email' => $targetPartner->email ?? '',
-            'phone_number' => $targetPartner->phone_number ?? '',
-            'address_line_1' => $targetPartner->address_line_1 ?? '',
-            'city' => $targetPartner->city ?? '',
-            'state' => $targetPartner->state ?? '',
-            'postal_code' => $targetPartner->postal_code ?? '',
-            'country' => $targetPartner->country ?? '',
-            'website' => $targetPartner->website ?? '',
-            'business_logo_path' => isset($branding['secondary_logo']) ? encodeUrl(asset('storage/' . $branding['secondary_logo'])) : '',
+            'email' => $targetPartner?->email ?? '',
+            'phone_number' => $targetPartner?->phone_number ?? '',
+            'address_line_1' => $targetPartner?->address_line_1 ?? '',
+            'city' => $targetPartner?->city ?? '',
+            'state' => $targetPartner?->state ?? '',
+            'postal_code' => $targetPartner?->postal_code ?? '',
+            'country' => $targetPartner?->country ?? '',
+            'website' => $targetPartner?->website ?? '',
+            // Invoice paper is white, so the document logo comes first. Resolved
+            // through AppConfigurationService, which walks the whole fallback
+            // chain (logo_document -> logo_mail -> logo_mobile) and applies
+            // host inheritance - reading a single key directly missed every
+            // partner who had only uploaded under the newer surface names.
+            //
+            // Empty stays empty on purpose: no logo means no logo, rather than
+            // another tenant's mark on this tenant's invoice.
+            'business_logo_path' => $logoPath,
         ];
     }
 }

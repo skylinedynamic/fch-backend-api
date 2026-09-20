@@ -19,12 +19,17 @@ class FetchBorrowerRequest extends FormRequest
             'assign_id'         => ['nullable', 'integer'],
             'assigned_user_id'  => ['nullable'],
             'search'            => ['nullable', 'string'],
+            // 'all' keeps archived rows alongside active ones; anything truthy
+            // narrows to archived only. Absent means the working list, except
+            // during a search, which reaches archived records by design.
+            'archived'          => ['nullable'],
             'filters'           => ['nullable', 'array'],
             'page'              => ['nullable', 'integer', 'min:1'],
             'per_page'          => ['nullable', 'integer', 'min:1'],
             'sort_field'        => ['nullable', 'string'],
             'sort_order'        => ['nullable', 'in:asc,desc'],
             'status'            => ['nullable'],
+            'is_free_trail'     => ['nullable'],
         ];
     }
 }

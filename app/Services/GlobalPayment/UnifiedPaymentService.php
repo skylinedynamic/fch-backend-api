@@ -206,7 +206,8 @@ class UnifiedPaymentService
             // 3. Update the invoice status
             $invoice->update([
                 'status' => $invoiceStatus,
-                'payment_date' => $isManual ? null : now(),
+                // payment_date is a DATE column - store the calendar date.
+                'payment_date' => $isManual ? null : today(),
             ]);
 
             // 4. If payment is successful (Paid/Success), make partner or borrower status Active
@@ -392,7 +393,8 @@ class UnifiedPaymentService
             // ── Step 4: Mark the partner invoice as paid
             $invoice->update([
                 'status' => Invoice::STATUS_PAID,
-                'payment_date' => now(),
+                // payment_date is a DATE column - store the calendar date.
+                'payment_date' => today(),
             ]);
 
             if ($borrower) {

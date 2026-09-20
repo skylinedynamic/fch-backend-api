@@ -241,4 +241,13 @@ return [
             ['name' => 'update seo settings', 'is_certified' => 0, 'is_host' => 1],
         ],
     ],
+
+    'enbedded loan application form' => [
+        'permissions' => [
+            ['name' => 'view configuration', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update configuration', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'view application', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'convert application', 'is_certified' => 1, 'is_host' => 0],
+        ],
+    ],
 ];

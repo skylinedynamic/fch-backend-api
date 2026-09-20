@@ -5,7 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\View;
+use App\Support\Branding\MailBrandContext;
 use App\Models\User\User;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -34,18 +35,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \App\Services\Borrower\CapitalAccess\ScoreConfigurationCache::class
         );
-
-        // All model factories in this project live flat under Database\Factories\
-        // (e.g. Database\Factories\UserFactory), but Laravel's default factory name
-        // resolver preserves the model's sub-namespace under App\Models\ (e.g. it
-        // looks for Database\Factories\User\UserFactory for App\Models\User\User),
-        // which does not exist here. Without this, `Model::factory()` throws
-        // "Class ... not found" for every domain-namespaced model. None of the
-        // models override newFactory(), so restore the flat, basename-only
-        // resolution Laravel used prior to namespaced factory discovery.
-        Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'Database\\Factories\\' . class_basename($modelName) . 'Factory'
-        );
     }
 
     /**
@@ -58,6 +47,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Model::preventLazyLoading(!app()->isProduction());
+
+        // The mail layout paints its header band and footer in the tenant's brand
+        // colours. Every mailable copies only the keys it names into its own view
+        // data, so the palette is injected here instead of in 40-odd mailables.
+        // Values already present in the view win, so a mailable can still override.
+        View::composer('emails.layouts.mail', function ($view) {
+            $data = $view->getData();
+            foreach (MailBrandContext::forView() as $key => $value) {
+                if (!array_key_exists($key, $data)) {
+                    $view->with($key, $value);
+                }
+            }
+        });
 
         $checks = [
             DatabaseCheck::new (),

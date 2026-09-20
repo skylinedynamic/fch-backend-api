@@ -17,30 +17,10 @@ class DeletePartnersAndBorrowersSeeder extends Seeder
      * @var array<string>
      */
     protected array $partnerNames = [
-        'Fisher and Pratt Co',
-        'Byers and Marks Associates',
-        'Good and Richmond Traders',
-        'Mcmahon and Harrington Trading',
-        'Jenkins and Mejia Associates',
-        'Ortiz Whitaker Associates',
-        'Brock Burt Co',
-        'Giles Ellis Associates',
-        'Cannon and Gay Associates',
-        'The partner',
-        'Tasty Treat',
-        'Twistee Treat',
-        'Exodiass',
-        'teast, inc',
-        'Hardin and Holloway Associates',
-        'Bullock Ward Associates',
-        'Dean and Roberson Plc',
-        'Thornton Slater Traders',
-        'Nguyen Romero Co',
-        'Testing Co Name',
-        'Exodias',
-        'Arafat Group Limited',
         'The fake one, llc',
-        'Fake Partners Co.',
+        'The fake one',
+        'Fake Partner Co.',
+        'Fake Partner',
     ];
 
     /**
@@ -50,25 +30,19 @@ class DeletePartnersAndBorrowersSeeder extends Seeder
      * @var array<string>
      */
     protected array $borrowerNames = [
-        'Kirsten Carter',
-        'Lunea Conner',
-        'Amy Davenport',
-        'WL Client Client',
-        'The lead',
-        'The test',
-        'Nicole Haas',
-        'Yvette Mcgee',
-        'Philip - NOT ACTIVE Berenbaum NOT ACTIVE',
+        'Client 1 Test',
+        'ABC Test, Inc.',
+        'Test Test',
+        'Test, Inc',
         'Jimmy Salisbury',
         'JJ Bomb Test',
-        'Jason Bomb',
-        'Demo Client 100',
-        'Awlad Hossain',
-        'Testing Fake',
+        'testtest1 Co',
         'Dave the Fake',
+        'Fake Company 123, LLC',
         'Test Partner Client',
+        'Fake Company, Inc',
         'John Doe',
-        'Sandy Fake',
+        'Demo Company, LLC',
         'George Fake',
     ];
 

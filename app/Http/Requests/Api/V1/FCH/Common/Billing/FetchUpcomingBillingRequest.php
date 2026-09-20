@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\FCH\Common\Billing;
 
+use App\Models\User\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FetchUpcomingBillingRequest extends FormRequest
@@ -29,6 +30,20 @@ class FetchUpcomingBillingRequest extends FormRequest
             'per_page'   => ['nullable', 'integer', 'min:1'],
             'sort_field' => ['nullable', 'string'],
             'sort_order' => ['nullable', 'in:asc,desc'],
+            // Must be declared here — the controller passes validated() through, so
+            // anything missing from these rules is silently dropped before it ever
+            // reaches the service.
+            'view'       => ['nullable', 'in:all,paused,overdue,scheduled'],
+            // Same vocabulary the frontend uses (ENTITY_TYPE_* in appConfig.ts).
+            // User/Employee are host-only filter values (paid seats) — harmless to
+            // accept from a non-host partner since BillingService's own partner
+            // scoping excludes those rows for them regardless of this filter.
+            'entity_type' => ['nullable', 'in:' . implode(',', [
+                User::PARTNER,
+                User::BORROWER,
+                User::USER,
+                User::EMPLOYEE,
+            ])],
         ];
     }
 }

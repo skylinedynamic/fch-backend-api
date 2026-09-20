@@ -4,6 +4,8 @@ namespace App\Mail\Traits;
 
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
+use App\Support\Branding\BrandPalette;
+use App\Support\Branding\MailBrandContext;
 use Illuminate\Support\Facades\Log;
 
 trait MailableBranding
@@ -30,11 +32,24 @@ trait MailableBranding
         $resolvedPartnerId = $partner ? $partner->id : null;
         $isHost = (bool) ($partner?->is_host ?? false);
 
+        // Colours and the surface-named logos are read alongside the legacy keys so
+        // the email can be branded rather than shipping a fixed white header band.
+        $wantedKeys = [
+            'site_name',
+            'site_slogan',
+            'primary_color',
+            'secondary_color',
+            'logo_mail',
+            'logo_sidebar',
+            'logo_document',
+            'logo_mobile',
+        ];
+
         $brandingConfig = [];
         if ($resolvedPartnerId) {
             $configs = AppConfiguration::where('partner_id', $resolvedPartnerId)
                 ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
+                ->whereIn('key', $wantedKeys)
                 ->get();
 
             foreach ($configs as $cfg) {
@@ -51,7 +66,7 @@ trait MailableBranding
         if ($hostPartner && $hostPartner->id !== $resolvedPartnerId) {
             $hostConfigs = AppConfiguration::where('partner_id', $hostPartner->id)
                 ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
+                ->whereIn('key', $wantedKeys)
                 ->get();
 
             foreach ($hostConfigs as $cfg) {
@@ -67,23 +82,36 @@ trait MailableBranding
             ?? (!empty($hostBrandingConfig['site_name']) ? $hostBrandingConfig['site_name'] : null)
             ?? ($isHost ? config('app.name') : ($partner?->name ?? config('app.name')));
 
-        // Secondary logo first, if not exists or null/empty get primary logo
-        $rawLogo = null;
-        if (!empty($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] !== 'null') {
-            $rawLogo = $brandingConfig['secondary_logo'];
-        } elseif (!empty($brandingConfig['primary_logo']) && $brandingConfig['primary_logo'] !== 'null') {
-            $rawLogo = $brandingConfig['primary_logo'];
-        } elseif (!empty($partner?->company_logo) && $partner->company_logo !== 'null') {
+        // The mail header is white, so the light-background lineage comes first -
+        // a white logo on a white header would be invisible. The partner's own
+        // keys are exhausted before falling back to the host's.
+        $logoPreference = ['logo_mail', 'logo_document', 'logo_mobile', 'logo_sidebar'];
+
+        $pickLogo = static function (array $config) use ($logoPreference): ?string {
+            foreach ($logoPreference as $key) {
+                if (!empty($config[$key]) && $config[$key] !== 'null') {
+                    return $config[$key];
+                }
+            }
+
+            return null;
+        };
+
+        $rawLogo = $pickLogo($brandingConfig);
+
+        if (!$rawLogo && !empty($partner?->company_logo) && $partner->company_logo !== 'null') {
             $rawLogo = $partner->company_logo;
-        } elseif (!empty($partner?->partner_image) && $partner->partner_image !== 'null') {
+        }
+        if (!$rawLogo && !empty($partner?->partner_image) && $partner->partner_image !== 'null') {
             $rawLogo = $partner->partner_image;
-        } elseif (!empty($hostBrandingConfig['secondary_logo']) && $hostBrandingConfig['secondary_logo'] !== 'null') {
-            $rawLogo = $hostBrandingConfig['secondary_logo'];
-        } elseif (!empty($hostBrandingConfig['primary_logo']) && $hostBrandingConfig['primary_logo'] !== 'null') {
-            $rawLogo = $hostBrandingConfig['primary_logo'];
-        } elseif (!empty($hostPartner?->company_logo) && $hostPartner->company_logo !== 'null') {
+        }
+        if (!$rawLogo) {
+            $rawLogo = $pickLogo($hostBrandingConfig);
+        }
+        if (!$rawLogo && !empty($hostPartner?->company_logo) && $hostPartner->company_logo !== 'null') {
             $rawLogo = $hostPartner->company_logo;
-        } elseif (!empty($hostPartner?->partner_image) && $hostPartner->partner_image !== 'null') {
+        }
+        if (!$rawLogo && !empty($hostPartner?->partner_image) && $hostPartner->partner_image !== 'null') {
             $rawLogo = $hostPartner->partner_image;
         }
 
@@ -114,10 +142,39 @@ trait MailableBranding
             }
         }
 
-        return [
+        // Colours, inherited partner -> host -> product default, then derived the
+        // same way the portals derive them so an email matches the dashboard.
+        $primary = BrandPalette::firstUsable(
+            $brandingConfig['primary_color'] ?? null,
+            $hostBrandingConfig['primary_color'] ?? null,
+            BrandPalette::DEFAULT_PRIMARY
+        );
+        $secondary = BrandPalette::firstUsable(
+            $brandingConfig['secondary_color'] ?? null,
+            $hostBrandingConfig['secondary_color'] ?? null,
+            BrandPalette::DEFAULT_SECONDARY
+        );
+        $slogan = $brandingConfig['site_slogan'] ?? $hostBrandingConfig['site_slogan'] ?? null;
+
+        $branding = [
             'siteName' => $siteName,
             'logoUrl' => $logoUrl,
+            'siteSlogan' => BrandPalette::usable($slogan) ? \trim((string) $slogan) : null,
+
+            // Consumed by resources/views/emails/layouts/mail.blade.php
+            'brandPrimary' => $primary,
+            'brandSecondary' => $secondary,
+            'brandOnPrimary' => BrandPalette::onColor($primary),
+            'brandOnSecondary' => BrandPalette::onColor($secondary),
+            'brandPrimaryInk' => BrandPalette::ink($primary),
+            'brandPrimarySubtle' => BrandPalette::subtle($primary),
         ];
+
+        // Mailables copy individual keys into their own view data, so the layout
+        // would never see the colours. Record them for the view composer instead.
+        MailBrandContext::set($branding);
+
+        return $branding;
     }
 
     /**

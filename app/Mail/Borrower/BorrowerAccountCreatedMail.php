@@ -47,7 +47,12 @@ class BorrowerAccountCreatedMail extends Mailable
         $logoUrl = $branding['logoUrl'];
 
         $user = $this->mailData['user'];
-        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login', config('app.frontend_borrower_url'));
+        // No fallback passed here on purpose: when getBorrowerDomain() returns
+        // null (a non-host, non-Certified partner with no borrower_domain — see
+        // its docblock), the partner has no domain a borrower can actually log
+        // in through, so $loginUrl comes back empty and the template omits the
+        // button rather than link to a login the isolation check would reject.
+        $loginUrl = concatUrl(getBorrowerDomain($this->mailPartnerId), 'login');
 
         return new Content(
             view: 'emails.borrower.account_created',

@@ -16,7 +16,7 @@
             Change Request Summary
         </div>
         <div class="info-card-content" style="padding: 20px;">
-            <table class="info-table compact" style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+            <table class="info-table compact" style="width: 100%; border-collapse: collapse; table-layout: fixed; word-wrap: break-word; margin-bottom: 0;">
                 <tr>
                     <td class="label"
                         style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">

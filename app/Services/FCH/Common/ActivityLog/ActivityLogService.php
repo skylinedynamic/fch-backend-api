@@ -9,17 +9,20 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocument;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Common\AppConfiguration;
+use App\Models\Common\Reminder;
 use App\Models\Employee\Employee;
 use App\Models\FundingRequest\FundingRequest;
-use App\Models\Borrower\FundingApplication;
 use App\Models\Invoice\Invoice;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\Partner\PartnerDocument;
 use App\Models\Payment\Payment;
 use App\Models\User\User;
+use App\Services\FCH\Common\Reminder\ReminderService;
 use App\Traits\PaginatesApi;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -50,7 +53,10 @@ class ActivityLogService
         if ($isHost) {
             // Host Admin sees everything, no scope applied
         } elseif (isset($user->partner)) {
-            // Partner
+            // Partner. partner_id says whose timeline a row belongs to, not who
+            // may read it — on its own it would hand the partner the host's
+            // private notes and the host's emails to the borrower. Beyond their
+            // own entries they see only what was explicitly addressed to them.
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
                     ->orWhere(function ($subQ) use ($user) {
@@ -59,6 +65,10 @@ class ActivityLogService
                                  $q2->whereNull('properties->is_internal')
                                     ->orWhere('properties->is_internal', false)
                                     ->orWhere('properties->is_internal', '0');
+                             })
+                             ->where(function ($q3) {
+                                 $q3->where('properties->send_to_host', '1')
+                                    ->orWhere('properties->visible_to_host', '1');
                              });
                     });
             });
@@ -193,10 +203,14 @@ class ActivityLogService
             }
 
             // Sync targets
-            $targetPartnerId = $data['partner_id'] ?? Auth::user()->partner_id ?? null;
+            $targetPartnerId = $data['partner_id'] ?? null;
             $targetBorrowerId = $data['borrower_id'] ?? null;
 
-            // If logging for a lead/borrower, try to find the partner it belongs to for the timeline
+            // partner_id is the timeline this entry belongs to — the partner who
+            // owns the record — not whoever happens to be writing it. Reading it
+            // off the caller first meant a host acting on a partner's request
+            // stamped its own partner id, so the owning partner never saw the
+            // entry (its own emails, status changes and notifications included).
             if (!$targetPartnerId) {
                 if ($subjectType === Lead::class) {
                     $lead = Lead::find($subjectId);
@@ -206,6 +220,12 @@ class ActivityLogService
                     $borrower = Borrower::find($subjectId);
                     if ($borrower && $borrower->partner_id)
                         $targetPartnerId = $borrower->partner_id;
+                } elseif ($subjectType === FundingRequest::class) {
+                    $fundingRequest = FundingRequest::find($subjectId);
+                    if ($fundingRequest) {
+                        if ($fundingRequest->partner_id) $targetPartnerId = $fundingRequest->partner_id;
+                        if ($fundingRequest->borrower_id && !$targetBorrowerId) $targetBorrowerId = $fundingRequest->borrower_id;
+                    }
                 } elseif ($subjectType === FundingApplication::class) {
                     $app = FundingApplication::find($subjectId);
                     if ($app) {
@@ -214,6 +234,10 @@ class ActivityLogService
                     }
                 }
             }
+
+            // Only when the subject has no partner of its own does the caller's
+            // partner apply (e.g. a host-only record with nobody else attached).
+            $targetPartnerId = $targetPartnerId ?? Auth::user()?->partner_id;
 
 
             $logData = [
@@ -237,7 +261,9 @@ class ActivityLogService
                     // Custom fields for Timeline icons
                     'reference' => $data['reference'] ?? null,
                     'category' => $data['category'] ?? null,
-                    'activity_date' => $data['activity_date'] ?? null,
+                    'location' => $data['location'] ?? null,
+                    'duration' => $data['duration'] ?? null,
+                    'activity_date' => $this->localToUtc($data['activity_date'] ?? null),
                     'assigned_to' => $data['assigned_to'] ?? null,
                     'to_emails' => $data['to_emails'] ?? null,
                     'partner_id' => $targetPartnerId,
@@ -246,10 +272,41 @@ class ActivityLogService
                     'send_to_borrower' => $data['send_to_borrower'] ?? null,
                     'visible_to_host' => $data['visible_to_host'] ?? null,
                     'visible_to_borrower' => $data['visible_to_borrower'] ?? null,
+                    'remind_me' => filter_var($data['remind_me'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'remind_at' => filter_var($data['remind_me'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                        ? $this->localToUtc($data['remind_at'] ?? null)
+                        : null,
+                    'reminder_preset' => $data['reminder_preset'] ?? '30_minutes',
+                    'reminder_time_value' => $data['reminder_time_value'] ?? '30',
+                    'reminder_time_unit' => $data['reminder_time_unit'] ?? 'Minutes',
+                    // activity_date / remind_at above are UTC; rows without this flag hold local wall-clock values
+                    'dates_utc' => true,
                 ],
             ];
 
             $log = ActivityLog::create($logData);
+
+            // Handle Reminders
+            $reminder = app(ReminderService::class)->createFromActivity(
+                $data,
+                $subjectId,
+                $subjectType,
+                $targetBorrowerId,
+                $targetPartnerId,
+                $attachmentFiles
+            );
+
+            if ($reminder) {
+                $reminder->update(['activity_log_id' => $log->id]);
+
+                $props = $log->properties;
+                if ($props instanceof \Illuminate\Support\Collection) {
+                    $props = $props->toArray();
+                }
+                $props['reminder_id'] = $reminder->id;
+                $log->properties = $props;
+                $log->save();
+            }
 
             // Handle Email Sending if log_type is email
             if ($logType === ActivityLog::TYPE_EMAIL) {
@@ -559,6 +616,257 @@ class ActivityLogService
         }
 
         return $query->findOrFail($id);
+    }
+
+    /**
+     * Update a manually-created activity log (log_name = 'activity' only).
+     */
+    public function update(int $id, array $data): ActivityLog
+    {
+        return DB::transaction(fn () => $this->performUpdate($id, $data));
+    }
+
+    private function performUpdate(int $id, array $data): ActivityLog
+    {
+        $log = ActivityLog::lockForUpdate()->findOrFail($id);
+
+        $logType = strtolower($log->log_name ?? '');
+        if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+            throw new \Exception('Only manual activity entries can be edited.', 403);
+        }
+
+        // You may only change what you logged yourself — another user's entry
+        // stays read-only, however it is reached.
+        if (!$log->isOwnedBy(Auth::user())) {
+            throw new \Exception('You can only edit activities you created.', 403);
+        }
+
+        $props = $log->properties;
+        if ($props instanceof \Illuminate\Support\Collection) {
+            $props = $props->toArray();
+        } elseif (!is_array($props)) {
+            $props = [];
+        }
+
+        // Resolve before the subject is overwritten — the legacy fallback matches on it
+        $existingReminder = $this->findLinkedReminder($log, $props);
+
+        if (isset($data['subject'])) {
+            $props['subject'] = $data['subject'];
+            $log->event = $data['subject'];
+        }
+
+        if (isset($data['description'])) {
+            $props['description'] = $data['description'];
+            $log->description = $data['description'];
+        }
+
+        if (isset($data['reference'])) {
+            $props['reference'] = $data['reference'];
+        }
+
+        // Older rows stored the wall-clock value as entered — normalise them to UTC once
+        if (empty($props['dates_utc'])) {
+            $props['activity_date'] = $this->localToUtc($props['activity_date'] ?? null);
+            $props['remind_at'] = $this->localToUtc($props['remind_at'] ?? null);
+            $props['dates_utc'] = true;
+        }
+
+        if (!empty($data['activity_date'])) {
+            $props['activity_date'] = $this->localToUtc($data['activity_date']);
+        }
+
+        // --- Attachments Handling ---
+        $hasAttachmentChanges = false;
+        $retainedFiles = [];
+
+        if (array_key_exists('existing_attachments', $data)) {
+            $hasAttachmentChanges = true;
+            $existing = $data['existing_attachments'];
+            if (is_string($existing)) {
+                $existing = json_decode($existing, true) ?: [];
+            }
+            if (is_array($existing)) {
+                $retainedFiles = $existing;
+            }
+        } else {
+            $retainedFiles = $props['attachments']['files'] ?? [];
+        }
+
+        $newAttachmentFiles = [];
+        if (isset($data['attachments']) && is_array($data['attachments'])) {
+            foreach ($data['attachments'] as $file) {
+                if ($file instanceof \Illuminate\Http\UploadedFile) {
+                    $hasAttachmentChanges = true;
+                    $path = $file->store('attachments', 'public');
+                    $newAttachmentFiles[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'path' => 'storage/' . $path,
+                    ];
+                }
+            }
+        }
+
+        if ($hasAttachmentChanges) {
+            $allFiles = array_merge($retainedFiles, $newAttachmentFiles);
+            $props['attachments'] = [
+                'count' => count($allFiles),
+                'files' => $allFiles,
+            ];
+        }
+
+        // --- Reminder Handling ---
+        if (array_key_exists('remind_me', $data)) {
+            $remindMe = filter_var($data['remind_me'], FILTER_VALIDATE_BOOLEAN);
+            $props['remind_me'] = $remindMe;
+            $props['reminder_preset'] = $data['reminder_preset'] ?? ($props['reminder_preset'] ?? '30_minutes');
+            $props['reminder_time_value'] = $data['reminder_time_value'] ?? ($props['reminder_time_value'] ?? '30');
+            $props['reminder_time_unit'] = $data['reminder_time_unit'] ?? ($props['reminder_time_unit'] ?? 'Minutes');
+
+            if ($remindMe && !empty($data['remind_at'])) {
+                $remindAtUtc = Carbon::parse($data['remind_at'], $this->requestTimezone())->utc();
+                $props['remind_at'] = $remindAtUtc->format('Y-m-d H:i:s');
+                $referenceDateUtc = !empty($props['activity_date'])
+                    ? Carbon::parse($props['activity_date'], 'UTC')
+                    : null;
+                $reminderAttachments = $props['attachments']['files'] ?? [];
+
+                if ($existingReminder) {
+                    $existingReminder->update([
+                        'reference' => $props['reference'] ?? $existingReminder->reference,
+                        'set_date_time' => $referenceDateUtc ?? $existingReminder->set_date_time,
+                        'summary' => $props['subject'] ?? $existingReminder->summary,
+                        'message' => $props['description'] ?? $existingReminder->message,
+                        'reminder_date_time' => $remindAtUtc,
+                        'send_at' => $remindAtUtc,
+                        'status' => Reminder::STATUS_PENDING,
+                        'attachments' => $reminderAttachments,
+                        'activity_log_id' => $log->id,
+                    ]);
+                    \App\Jobs\Reminder\DispatchReminderDueJob::dispatch($existingReminder->id, $remindAtUtc)
+                        ->delay($remindAtUtc)
+                        ->afterCommit();
+                    $props['reminder_id'] = $existingReminder->id;
+                } else {
+                    $newReminder = app(ReminderService::class)->createFromActivity(
+                        [
+                            'remind_me' => true,
+                            'remind_at' => $data['remind_at'],
+                            // createFromActivity expects the user's local time
+                            'activity_date' => $this->utcToLocal($props['activity_date'] ?? null),
+                            'reference' => $props['reference'] ?? null,
+                            'subject' => $props['subject'] ?? null,
+                            'description' => $props['description'] ?? null,
+                            'is_reminder' => true,
+                        ],
+                        $log->subject_id,
+                        $log->subject_type,
+                        $log->borrower_id,
+                        $log->partner_id,
+                        $reminderAttachments
+                    );
+                    if ($newReminder) {
+                        $newReminder->update(['activity_log_id' => $log->id]);
+                        $props['reminder_id'] = $newReminder->id;
+                    }
+                }
+            } else {
+                // Reminder switched off — drop it so it no longer shows in the reminders list
+                $props['remind_at'] = null;
+                $existingReminder?->delete();
+                $props['reminder_id'] = null;
+            }
+        } elseif ($existingReminder && $existingReminder->status === Reminder::STATUS_PENDING) {
+            $referenceDateUtc = !empty($props['activity_date'])
+                ? Carbon::parse($props['activity_date'], 'UTC')
+                : null;
+            $existingReminder->update([
+                'reference' => $props['reference'] ?? $existingReminder->reference,
+                'set_date_time' => $referenceDateUtc ?? $existingReminder->set_date_time,
+                'summary' => $props['subject'] ?? $existingReminder->summary,
+                'message' => $props['description'] ?? $existingReminder->message,
+                'attachments' => $props['attachments']['files'] ?? $existingReminder->attachments,
+                'activity_log_id' => $log->id,
+            ]);
+        }
+
+        $log->properties = $props;
+        $log->save();
+
+        return $log->fresh(['causer', 'subject']);
+    }
+
+    /**
+     * Delete a manually-created activity log (log_name = 'activity' only).
+     */
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $log = ActivityLog::lockForUpdate()->findOrFail($id);
+
+            $logType = strtolower($log->log_name ?? '');
+            if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+                throw new \Exception('Only manual activity entries can be deleted.', 403);
+            }
+
+            if (!$log->isOwnedBy(Auth::user())) {
+                throw new \Exception('You can only delete activities you created.', 403);
+            }
+
+            $props = $log->properties;
+            if ($props instanceof \Illuminate\Support\Collection) {
+                $props = $props->toArray();
+            }
+
+            $this->findLinkedReminder($log, is_array($props) ? $props : [])?->delete();
+
+            $log->delete();
+        });
+    }
+
+    private function requestTimezone(): string
+    {
+        return request()->header('X-Timezone') ?: config('app.timezone');
+    }
+
+    /**
+     * The frontend sends date/times as wall-clock values in the viewer's timezone.
+     */
+    private function localToUtc(?string $value): ?string
+    {
+        return empty($value)
+            ? null
+            : Carbon::parse($value, $this->requestTimezone())->utc()->format('Y-m-d H:i:s');
+    }
+
+    private function utcToLocal(?string $value): ?string
+    {
+        return empty($value)
+            ? null
+            : Carbon::parse($value, 'UTC')->setTimezone($this->requestTimezone())->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Reminder belonging to a manual activity: by the stored reminder_id, or —
+     * for activities created before reminder_id was stored — the reminder on the
+     * same subject with the same summary (same match ActivityLogResource uses).
+     */
+    private function findLinkedReminder(ActivityLog $log, array $props): ?Reminder
+    {
+        if (!empty($props['reminder_id'])) {
+            return Reminder::find($props['reminder_id']);
+        }
+
+        if (!$log->subject_id || !$log->subject_type || empty($props['subject'])) {
+            return null;
+        }
+
+        return Reminder::where('entity_id', $log->subject_id)
+            ->where('entity_type', $log->subject_type)
+            ->where('summary', $props['subject'])
+            ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
+            ->latest()
+            ->first();
     }
 
     /**

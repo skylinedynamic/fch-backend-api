@@ -16,6 +16,8 @@ return [
     // SMTP
     'smtp_host_required_if'      => 'The SMTP host is required.',
     'smtp_port_required_if'      => 'The SMTP port is required.',
+    'smtp_port_integer'          => 'The SMTP port must be a number.',
+    'smtp_port_between'          => 'The SMTP port must be between 1 and 65535.',
     'smtp_encryption_required_if' => 'The SMTP encryption is required.',
     'smtp_encryption_in'         => 'The encryption must be one of: tls, ssl, none.',
     'smtp_username_required_if'  => 'The SMTP username is required.',

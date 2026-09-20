@@ -3,11 +3,14 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
->
+         cacheDirectory=".phpunit.cache"
+         displayDetailsOnTestsThatTriggerWarnings="true">
     <testsuites>
+        <!-- Unit: no database, no HTTP. Pure logic, safe to run anywhere. -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
+        <!-- Feature: boots the framework and may touch the database. -->
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
@@ -22,6 +25,9 @@
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- An in-memory database, so a test can never reach the developer's
+             own MySQL data. The unit suite does not query at all; this is the
+             backstop for anything added to the Feature suite later. -->
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>

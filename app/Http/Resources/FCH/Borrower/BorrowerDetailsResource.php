@@ -22,6 +22,7 @@ class BorrowerDetailsResource extends JsonResource
             'user_id' => $this->user?->id,
             'signup_id' => $this->signup_id,
             'first_name' => $this->first_name,
+            'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
             'full_name' => $this->full_name,
             'email' => $this->email,
@@ -35,6 +36,8 @@ class BorrowerDetailsResource extends JsonResource
             'home_phone' => $this->home_phone,
             'date_of_birth' => $this->date_of_birth ? Carbon::parse($this->date_of_birth)->format('m-d-Y') : null,
             'last_4_ssn' => $this->last_4_ssn,
+            // Full SSN, decrypted — shown and editable as-is on the client edit form.
+            'ssn' => $this->ssn,
 
             // Business
             'business_name' => $this->business_name,
@@ -82,8 +85,8 @@ class BorrowerDetailsResource extends JsonResource
                 'installment_monthly_amount_formatted' => currencyFormat($latestSub->subscription_amount_per_month),
                 'installment_remaining_balance' => (float) ($latestSub->payable_amount - $latestSub->down_payment),
                 'installment_remaining_balance_formatted' => currencyFormat($latestSub->payable_amount - $latestSub->down_payment),
-                'subscription_start_date' => toTimezone($latestSub->subscription_start_date, null, 'Y-m-d'),
-                'subscription_end_date' => toTimezone($latestSub->subscription_end_date, null, 'Y-m-d'),
+                'subscription_start_date' => toDateOnly($latestSub->subscription_start_date),
+                'subscription_end_date' => toDateOnly($latestSub->subscription_end_date), // paid through
                 'status' => $latestSub->status,
             ] : null,
 
@@ -119,6 +122,10 @@ class BorrowerDetailsResource extends JsonResource
             ]) : [],
 
             'status' => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'notes' => $this->notes,
             'assign_id' => $this->assign_id,
             'assign_name' => $this->assignedUser?->name,
@@ -134,7 +141,11 @@ class BorrowerDetailsResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city' => $this->other_city,
             'is_free_trail' => $this->is_free_trail ? true : false,
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->format('Y-m-d') : null,
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
+            'invoice' => $this->latestInvoice ? [
+                'id' => $this->latestInvoice->id,
+                'invoice_id' => $this->latestInvoice->invoice_id,
+            ] : null,
             'has_sign' => (bool) $this->signedAgreement()->exists(),
         ];
     }

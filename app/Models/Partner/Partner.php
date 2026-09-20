@@ -23,10 +23,11 @@ use App\Models\Subscription\Subscription;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Contracts\Activity;
+use App\Models\Concerns\Archivable;
 
 class Partner extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Archivable;
 
 
 
@@ -85,6 +86,7 @@ class Partner extends Model
      */
     protected $casts = [
         'is_host' => 'boolean',
+        'archived_at' => 'datetime',
         'has_sign' => 'boolean',
         'active_custom_url' => 'boolean',
         'is_free_trail' => 'boolean',
@@ -93,6 +95,19 @@ class Partner extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'stripe_customer_id' => 'array',
+    ];
+
+    public const STATUS_ONBOARDING = 'OnBoarding';
+    public const STATUS_ACTIVE = 'Active';
+    public const STATUS_SUSPENDED = 'Suspended';
+    public const STATUS_INACTIVE = 'Inactive';
+
+
+    public const STATUS = [
+        self::STATUS_ACTIVE => self::STATUS_ACTIVE,
+        self::STATUS_INACTIVE => self::STATUS_INACTIVE,
+        self::STATUS_SUSPENDED => self::STATUS_SUSPENDED,
+        self::STATUS_ONBOARDING => self::STATUS_ONBOARDING,
     ];
 
     /**
@@ -117,19 +132,14 @@ class Partner extends Model
         if (is_array($value)) {
             return [
                 'customer_id' => $value['customer_id'] ?? null,
-                'name'        => $value['name'] ?? null,
-                'card_no'     => $value['card_no'] ?? null,
+                'name' => $value['name'] ?? null,
+                'card_no' => $value['card_no'] ?? null,
             ];
         }
         return ['customer_id' => $value, 'name' => null, 'card_no' => null];
     }
 
-    public const STATUS = [
-        'Active' => 'Active',
-        'Inactive' => 'Inactive',
-        'Suspended' => 'Suspended',
-        'OnBoarding' => 'OnBoarding',
-    ];
+
 
     public const RESTRICTED_DOMAINS = [
         'localhost',
@@ -149,10 +159,21 @@ class Partner extends Model
         'client'
     ];
 
-    const STATUS_ONBOARDING = 'OnBoarding';
-    const STATUS_ACTIVE = 'Active';
-    const STATUS_SUSPENDED = 'Suspended';
-    const STATUS_INACTIVE = 'Inactive';
+
+
+    /**
+     * The statuses allowed to sign in to the partner portal.
+     *
+     * An allowlist rather than a list of banned statuses. OnBoarding is where a
+     * partner starts - PartnerService sets it for anyone not on a free trial -
+     * so it belongs here; anything added to STATUS later is denied until it is
+     * added here deliberately, and a null status is refused rather than let
+     * through by a comparison that quietly returns false.
+     */
+    const LOGIN_ALLOWED_STATUSES = [
+        self::STATUS_ONBOARDING,
+        self::STATUS_ACTIVE,
+    ];
 
     const PARTNER_TYPE_CERTIFIED = 'Certified Partner';
     const PARTNER_TYPE_WHITE_LABEL = 'White-Label Partner (WL)';

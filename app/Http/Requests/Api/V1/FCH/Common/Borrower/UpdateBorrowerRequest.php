@@ -7,6 +7,7 @@ use App\Models\Borrower\Borrower;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdateBorrowerRequest extends BaseApiRequest
 {
@@ -30,6 +31,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
         $rules = [
             // ── Personal Info ───────────────────────────────────────────────
             'first_name'   => ['sometimes', 'required', 'string', 'max:255'],
+            'middle_name'   => ['nullable', 'string', 'max:255'],
             'last_name'    => ['sometimes', 'required', 'string', 'max:255'],
             'phone_number' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'email' => [
@@ -44,24 +46,27 @@ class UpdateBorrowerRequest extends BaseApiRequest
             ],
             'country'      => ['nullable', 'string', 'max:255'],
             'country_code' => ['nullable', 'string', 'max:255'],
-            'state'        => ['nullable', 'string', 'max:255'],
-            'city'         => ['sometimes', 'required_without:other_city', 'string', 'max:255'],
+            'state'        => ['sometimes', 'nullable', 'string', 'max:255'],
+            'city'         => ['sometimes', 'nullable', 'string', 'max:255'],
             'other_city'   => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
-            'postal_code'  => ['nullable', 'string', 'max:255'],
+            'postal_code'  => ['nullable', 'string', new UsPostalCode()],
             'home_address' => ['nullable', 'string', 'max:255'],
             'date_of_birth'=> ['nullable'],
             'last_4_ssn'   => ['nullable', 'string', 'max:4'],
+            // Full SSN, digits only or dashed (123456789 / 123-45-6789). Replaces
+            // the stored value entirely — omit the field to leave it unchanged.
+            'ssn'          => ['nullable', 'string', 'regex:/^\d{3}-?\d{2}-?\d{4}$/'],
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'         => ['nullable', 'string', 'max:255'],
             'business_ein'          => ['nullable', 'string', 'max:255'],
             'business_phone'        => ['nullable', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'business_address'      => ['nullable', 'string', 'max:255'],
-            'business_city'         => ['sometimes', 'required_without:business_other_city', 'string', 'max:255'],
+            'business_city'         => ['sometimes', 'nullable', 'string', 'max:255'],
             'business_country'      => ['sometimes', 'required', 'string', 'max:255'],
             'business_country_code' => ['nullable'],
             'business_other_city'   => ['required_if:business_city,Others', 'nullable', 'string', 'max:255'],
-            'business_state'        => ['sometimes', 'required', 'string', 'max:255'],
+            'business_state'        => ['sometimes', 'nullable', 'string', 'max:255'],
             'business_postal_code'  => ['nullable', 'string', 'max:255'],
             'business_email'        => ['nullable', 'email', 'max:255'],
             'business_website'      => ['nullable', 'max:255'],
@@ -138,6 +143,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_logo.mimes'            => __('borrower_validation.business_logo_mimes'),
             'business_logo.max'              => __('borrower_validation.business_logo_max'),
             'business_phone.regex'           => __('borrower_validation.business_phone_regex'),
+            'ssn.regex'                      => 'Please enter a valid 9-digit Social Security Number.',
             'fico_score.numeric'             => __('borrower_validation.fico_score_numeric'),
             'paydex_score.numeric'           => __('borrower_validation.paydex_score_numeric'),
             'assign_id.exists'               => __('borrower_validation.assign_id_exists'),

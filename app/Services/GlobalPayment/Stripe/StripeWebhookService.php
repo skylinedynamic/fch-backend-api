@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Subscription\Subscription;
-use App\Models\Subscription\SubscriptionPhase;
 use App\Models\Invoice\Invoice;
 use App\Models\Payment\Payment;
 use App\Models\Partner\Partner;
@@ -99,7 +98,8 @@ class StripeWebhookService
         DB::transaction(function () use ($invoice, $payment, $amountPaid, $intentId, $intent) {
             $invoice->update([
                 'status'       => Invoice::STATUS_PAID,
-                'payment_date' => now(),
+                // payment_date is a DATE column - store the calendar date.
+                'payment_date' => today(),
             ]);
 
             // Update payment record status if needed

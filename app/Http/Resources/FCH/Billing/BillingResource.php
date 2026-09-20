@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
+use App\Models\User\User;
+use App\Models\Employee\Employee;
 use App\Models\Subscription\Subscription;
 
 class BillingResource extends JsonResource
@@ -17,30 +19,46 @@ class BillingResource extends JsonResource
     {
         $partner = null;
         $borrower = null;
+        $user = null;
+        $employee = null;
 
         if ($this->entity_type === Partner::class) {
             $partner = $this->partner;
         } elseif ($this->entity_type === Borrower::class) {
             $borrower = $this->borrower;
             $partner = $borrower?->partner;
+        } elseif ($this->entity_type === User::class) {
+            // A seat billed to an admin/staff User rather than a Partner or Borrower.
+            $user = $this->user;
+        } elseif ($this->entity_type === Employee::class) {
+            $employee = $this->employee;
         }
 
-        // Amount mapping based on current_phase:
-        // - PHASE_INSTALLMENT: subscription_amount_per_month
-        // - PHASE_PLATFORM_FEE: monthly_platform_fee
-        // - PHASE_USER_SEAT: per_seat_amount
+        // Amount mapping mirrors createInvoiceForSubscription() — this screen must
+        // predict what the cron will actually charge, so the two have to agree.
+        // ?: rather than ?? throughout, because a 0.00 column should fall through to
+        // the next source rather than being reported as a real $0 charge.
         $billingAmount = match ($this->current_phase) {
-            Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?? 0,
-            Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?? 0,
-            Subscription::PHASE_USER_SEAT => $this->per_seat_amount ?? 0,
-            default => $this->subscription_amount_per_month ?? $this->payable_amount ?? $this->down_payment ?? 0,
+            Subscription::PHASE_INSTALLMENT => $this->subscription_amount_per_month ?: 0,
+            Subscription::PHASE_PLATFORM_FEE => $this->monthly_platform_fee ?: 0,
+            Subscription::PHASE_USER_SEAT => $this->per_seat_amount ?: 0,
+            // Nothing recurs after a borrower finishes enrollment.
+            Subscription::PHASE_COMPLETED => 0,
+            // Enrollment phase: the cron bills the down payment first when the plan
+            // has one, and only then falls to the per-cycle/one-off amount.
+            default => ($this->down_payment > 0 && !$this->installments_paid)
+                ? $this->down_payment
+                : ($this->subscription_amount_per_month ?: ($this->payable_amount ?: 0)),
         };
+
+        $borrowerName = $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null;
 
         // Human readable billing type for UI table
         $billingType = match ($this->current_phase) {
             Subscription::PHASE_PLATFORM_FEE => 'Platform Fee',
             Subscription::PHASE_USER_SEAT => 'User Seat',
             Subscription::PHASE_INSTALLMENT => 'Installment',
+            Subscription::PHASE_COMPLETED => 'Completed',
             default => ucfirst(str_replace('_', ' ', $this->current_phase ?? 'Installment')),
         };
 
@@ -52,11 +70,57 @@ class BillingResource extends JsonResource
             'partner_name' => $partner?->full_name,
             'company_name' => $partner?->company_name,
             'partner_email' => $partner?->email,
-            'borrower_name' => $borrower ? trim($borrower->first_name . ' ' . $borrower->last_name) : null,
+            'borrower_name' => $borrowerName,
             'borrower_email' => $borrower?->email,
-            'upcoming_billing_date' => toTimezone($this->subscription_end_date, null, 'Y-m-d'),
+            'user_id' => $user?->id,
+            'user_name' => $user?->name,
+            'user_email' => $user?->email,
+            'employee_id' => $employee?->id,
+            'employee_name' => $employee?->full_name,
+            'employee_email' => $employee?->email,
+            // Generic name/email/type the UI can read without knowing all four
+            // entity kinds — the per-type fields above are kept for anything that
+            // already reads them directly.
+            //
+            // Keyed on entity_type, NOT a ?? chain over $partner/$borrower/etc:
+            // $partner is populated for a Borrower row too (it holds the borrower's
+            // OWN partner, e.g. the host, for is_billing_paused / display elsewhere),
+            // so a ?? chain that checks $partner first would show the borrower's
+            // partner's name instead of the borrower's own name on every borrower row.
+            'subscriber_type' => class_basename($this->entity_type ?? ''),
+            'subscriber_name' => match ($this->entity_type) {
+                Partner::class => $partner?->full_name,
+                Borrower::class => $borrowerName,
+                User::class => $user?->name,
+                Employee::class => $employee?->full_name,
+                default => null,
+            },
+            'subscriber_email' => match ($this->entity_type) {
+                Partner::class => $partner?->email,
+                Borrower::class => $borrower?->email,
+                User::class => $user?->email,
+                Employee::class => $employee?->email,
+                default => null,
+            },
+            // One cycle date now: it is both what the customer is paid through and
+            // when the cron next bills them. NULL means nothing is scheduled -
+            // either a borrower who has paid in full (current_phase 'completed') or
+            // a subscriber whose first payment has not landed. There used to be a
+            // separate paid_through_date; it would now carry the identical value, so
+            // the UI was showing every row its own billing date twice.
+            'upcoming_billing_date' => toDateOnly($this->subscription_end_date),
             'upcoming_billing_amount' => (float) $billingAmount,
             'upcoming_billing_type' => $billingType,
+            // Billing is paused while the subscriber (or a borrower's partner) is
+            // not Active. Surfaced so the list stops showing a confident next-charge
+            // date for someone the cron will not actually bill.
+            'is_billing_paused' => (bool) $this->is_billing_paused,
+            'billing_paused_reason' => $this->billingPausedReason(),
+            // Money already invoiced and still owed. On a paused row this is the
+            // amount nothing will collect until someone acts on it.
+            'outstanding_amount' => (float) ($this->relationLoaded('unpaidInvoices')
+                ? $this->unpaidInvoices->sum('payment_amount')
+                : 0),
             'current_phase' => $this->current_phase,
             'enrollment_type' => $this->enrollment_type,
             'status' => $this->status ?? Subscription::STATUS_ACTIVE,

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\UsPostalCode;
 
 class StoreChangeRequest extends BaseApiRequest
 {
@@ -39,7 +40,7 @@ class StoreChangeRequest extends BaseApiRequest
             'business_country_code' => 'required|string|max:5',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
-            'business_zip_code' => 'required|string|size:5',
+            'business_zip_code' => ['required', 'string', new UsPostalCode()],
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_industry_type' => 'required|string|max:255',
@@ -72,7 +73,7 @@ class StoreChangeRequest extends BaseApiRequest
             'country_code' => 'required|string|max:5',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
             'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'last_4_ssn' => 'required|string|size:4',

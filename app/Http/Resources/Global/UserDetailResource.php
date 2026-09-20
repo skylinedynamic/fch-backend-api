@@ -27,13 +27,13 @@ class UserDetailResource extends JsonResource
             'is_host' => $partner ? (boolval($partner->is_host)) : false,
             'enrollment_type' => $subscription?->enrollment_type,
             'subscription_status' => $subscription?->status,
-            'subscription_start_date' => toTimezone($subscription?->subscription_start_date),
-            'subscription_end_date' => toTimezone($subscription?->subscription_end_date),
-            'first_payment_date' => toTimezone($subscription?->first_payment_date),
+            'subscription_start_date' => toDateOnly($subscription?->subscription_start_date),
+            'subscription_end_date' => toDateOnly($subscription?->subscription_end_date), // paid through
+            'first_payment_date' => toDateOnly($subscription?->first_payment_date),
             'phase' => $subscription?->current_phase,
             'is_refresh' => (boolval($this->is_refresh)),
             'is_free_trail' => $entityIsFreeTrial || ($partner?->is_free_trail ?? false),
-            'free_trail_end_date' => toTimezone($entityFreeTrialEndDate ?? ($partner?->free_trail_end_date ?? null)),
+            'free_trail_end_date' => toDateOnly($entityFreeTrialEndDate ?? ($partner?->free_trail_end_date ?? null)),
         ];
     }
 }

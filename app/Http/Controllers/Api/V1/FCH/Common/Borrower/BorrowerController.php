@@ -25,6 +25,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\ArchiveBorrowerRequest;
 
 class BorrowerController extends Controller
 {
@@ -155,6 +156,27 @@ class BorrowerController extends Controller
         ]);
 
         return $this->borrowerService->delete($request->ids);
+    }
+
+    /**
+     * Archive borrowers: take them out of the working list without deleting them.
+     *
+     * Presentation only - `status` is untouched, so an archived borrower keeps
+     * whatever access and billing they had.
+     */
+    public function archive(ArchiveBorrowerRequest $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+
+        return $this->borrowerService->archive($request->validated()['ids']);
+    }
+
+    /** Restore archived borrowers to the working list. */
+    public function unarchive(ArchiveBorrowerRequest $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+
+        return $this->borrowerService->unarchive($request->validated()['ids']);
     }
 
     /**

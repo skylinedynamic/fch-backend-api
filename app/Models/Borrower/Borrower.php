@@ -18,11 +18,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Contracts\Activity;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use App\Models\Concerns\Archivable;
+use App\Models\Concerns\HasPersonName;
 
 
 class Borrower extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasPersonName;
+
+    use HasFactory, SoftDeletes, Archivable;
 
     protected string $guard_name = 'api';
     /**
@@ -46,6 +50,7 @@ class Borrower extends Model
      */
     protected $casts = [
         'created_at' => 'datetime',
+        'archived_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
         'partner_payment_for_me' => 'boolean',
@@ -84,10 +89,86 @@ class Borrower extends Model
         return ['customer_id' => $value, 'name' => null, 'card_no' => null];
     }
 
+    /**
+     * `last_4_ssn` was renamed to `ssn_encrypted` (now holds the full SSN,
+     * encrypted). These accessors/mutators keep every existing `->last_4_ssn`
+     * read AND write (there are ~15 of them — resources, services, change
+     * requests) working unmodified: Eloquent calls these for any attribute
+     * access on a model instance, real column or not.
+     *
+     * The one thing this can't cover is a bulk `Borrower::where(...)->update()`
+     * call, which bypasses the model entirely — those call sites were updated
+     * to fetch an instance first (see ProfileService::updateProfile).
+     */
+
+    /**
+     * Decrypt the stored full SSN. Not part of $appends — a resource must ask
+     * for it explicitly, so the full number never gets serialized by default.
+     */
+    public function getSsnAttribute(): ?string
+    {
+        if (!$this->ssn_encrypted) {
+            return null;
+        }
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($this->ssn_encrypted);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Accepts a full 9-digit SSN (with or without dashes) and encrypts it into
+     * ssn_encrypted — the only place the value is stored.
+     */
+    public function setSsnAttribute(?string $value): void
+    {
+        $digits = preg_replace('/\D/', '', (string) $value);
+
+        $this->attributes['ssn_encrypted'] = $digits === ''
+            ? null
+            : \Illuminate\Support\Facades\Crypt::encryptString($digits);
+    }
+
+    /**
+     * Legacy accessor: last 4 digits, derived from the decrypted full SSN.
+     */
+    public function getLast4SsnAttribute(): ?string
+    {
+        $ssn = $this->ssn;
+        return $ssn ? substr($ssn, -4) : null;
+    }
+
+    /**
+     * Legacy mutator: callers that only ever send the last 4 digits (the
+     * borrower's own self-service profile form still does) still work —
+     * encrypted the same way, just without the leading 5 digits.
+     */
+    public function setLast4SsnAttribute(?string $value): void
+    {
+        $digits = preg_replace('/\D/', '', (string) $value);
+        $this->attributes['ssn_encrypted'] = $digits === ''
+            ? null
+            : \Illuminate\Support\Facades\Crypt::encryptString($digits);
+    }
+
     const STATUS_ONBOARDING = 'OnBoarding';
     const STATUS_ACTIVE = 'Active';
     const STATUS_SUSPENDED = 'Suspended';
     const STATUS_INACTIVE = 'Inactive';
+
+    /**
+     * The statuses allowed to sign in to the borrower portal.
+     *
+     * An allowlist rather than a list of banned statuses. OnBoarding is the
+     * default for a newly created borrower - BorrowerService and the lead
+     * conversion both set it - so it has to be here; anything added to
+     * getStatuses() later is denied until it is added here deliberately.
+     */
+    const LOGIN_ALLOWED_STATUSES = [
+        self::STATUS_ONBOARDING,
+        self::STATUS_ACTIVE,
+    ];
 
 
     /**
@@ -107,11 +188,14 @@ class Borrower extends Model
     }
 
     /**
-     * Get the borrower's full name.
+     * The borrower's full name, middle name included when they have one.
+     *
+     * borrowers has no full_name column, so this accessor is safe to keep under
+     * that name - it is what the rest of the system already reads.
      */
     public function getFullNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->last_name}");
+        return $this->person_name;
     }
 
     /**
@@ -300,6 +384,7 @@ class Borrower extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('borrowers.first_name', 'LIKE', "%{$search}%")
+                ->orWhere('borrowers.middle_name', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.last_name', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.email', 'LIKE', "%{$search}%")
                 ->orWhere('borrowers.phone_number', 'LIKE', "%{$search}%")
@@ -323,7 +408,14 @@ class Borrower extends Model
                         $q->where('name', 'LIKE', "%{$search}%");
                     }
                 )
-                ->orWhereRaw("CONCAT(borrowers.first_name, ' ', borrowers.last_name) LIKE ?", ["%{$search}%"]);
+                // The whole name as displayed, so "John Quincy Smith" is found by
+                // searching any run of it. CONCAT_WS skips a null middle name
+                // instead of collapsing the whole expression to NULL, which is what
+                // plain CONCAT would do.
+                ->orWhereRaw(
+                    "CONCAT_WS(' ', borrowers.first_name, borrowers.middle_name, borrowers.last_name) LIKE ?",
+                    ["%{$search}%"]
+                );
         });
     }
 

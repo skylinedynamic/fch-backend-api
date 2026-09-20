@@ -3,6 +3,30 @@
 use App\Models\Partner\Partner;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+
+if (!function_exists('personName')) {
+    /**
+     * A person's name from its parts, skipping whatever is missing.
+     *
+     * The single implementation of "what is this person called". The same
+     * trim(first . ' ' . last) used to be written out at sixteen call sites, which
+     * is why adding a middle name meant hunting for all of them.
+     *
+     * Works for any subject, model or not - some callers hold a polymorphic payer
+     * that may be a Borrower, a Partner or a User, and only some of those carry
+     * name parts at all.
+     */
+    function personName($first, $middle = null, $last = null): string
+    {
+        $parts = array_filter(
+            array_map(fn($part) => trim((string) $part), [$first, $middle, $last]),
+            fn($part) => $part !== ''
+        );
+
+        return implode(' ', $parts);
+    }
+}
 
 if (!function_exists('encodeUrl')) {
     /**
@@ -112,9 +136,9 @@ if (!function_exists('normalizeDate')) {
                 return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
             }
 
-            return \Illuminate\Support\Carbon::parse($date)->format('Y-m-d');
+            return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
+            Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
             return null;
         }
     }
@@ -183,15 +207,189 @@ if (!function_exists('getPartnerDomain')) {
 }
 
 if (!function_exists('getBorrowerDomain')) {
+    /**
+     * Resolve the borrower-portal domain a borrower of this partner can actually
+     * log in through.
+     *
+     * Falling back to the reserved default borrower portal
+     * (config('app.frontend_borrower_url')) is only valid for the host and for a
+     * Certified partner with no domain of its own — see
+     * PortalIsolationService::isUserAllowedOnDomain(), which only lets those two
+     * onto that domain. A White-Label partner (or any other non-host type) with
+     * no borrower_domain has no domain a borrower can log in through at all;
+     * falling back to the reserved default there would hand out a login link the
+     * isolation check then rejects. Returns null in that case so callers (email
+     * templates in particular) can omit the login link instead of sending a
+     * broken one.
+     */
     function getBorrowerDomain(int $partnerId = null): ?string
     {
-        if ($partnerId) {
-            $partner = Partner::find($partnerId);
-            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        $partner = $partnerId
+            ? Partner::find($partnerId)
+            : (auth()->check() ? auth()->user()->partner : null);
+
+        if (!$partner) {
+            return null;
         }
-        $partner = auth()->check() ? auth()->user()->partner : null;
-        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
-        return $domain;
+
+        if (!empty($partner->borrower_domain)) {
+            return $partner->borrower_domain;
+        }
+
+        if ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url');
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('getEmbedFormBaseUrl')) {
+    /**
+     * Resolve the base URL used for embedded loan application form links
+     * (the direct link and the iframe embed snippet), based on the
+     * authenticated user's partner.
+     *
+     * The link is a BORROWER-facing one: whoever fills the embedded form becomes
+     * a borrower of the partner, so it is handed out on the borrower portal's
+     * domain. This used to resolve partner_domain / partner_subdomain, which put
+     * a prospective borrower on the partner's own staff portal.
+     *
+     * - Outside production: always the app base URL — neither a custom borrower
+     *   domain nor the reserved borrower portal resolves on local or staging.
+     * - White-Label partner: their own `borrower_domain`, the domain their
+     *   borrowers actually log in through — but only while `active_custom_url`
+     *   is on. DomainResolverController and PortalIsolationService both gate
+     *   borrower_domain behind that flag, so with it off the domain resolves
+     *   nowhere and the link would 404.
+     * - Certified partner: the reserved base borrower portal
+     *   (BASE_BORROWER_PORTAL). A Certified partner never gets a borrower domain
+     *   of its own — its borrowers share the base portal.
+     * - Host partner, no partner, or no domain configured: the app base URL.
+     *   The host keeps the API's own host because `/form/{key}` is served from
+     *   there, so it is the one value guaranteed to resolve.
+     */
+    function getEmbedFormBaseUrl(): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        if (!app()->environment('production')) {
+            return $baseUrl;
+        }
+
+        $partner = auth()->user()?->partner;
+
+        if (!$partner || $partner->is_host) {
+            return $baseUrl;
+        }
+
+        $domain = null;
+
+        if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+            $domain = $partner->active_custom_url ? $partner->borrower_domain : null;
+        } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            $domain = config('app.frontend_borrower_url');
+        }
+
+        if (empty($domain)) {
+            return $baseUrl;
+        }
+
+        // BASE_BORROWER_PORTAL and borrower_domain are both stored bare
+        // (app.fourcornerfunding.com), so the scheme is added here rather than
+        // assumed to be present.
+        return rtrim(concatUrl($domain, ''), '/');
+    }
+}
+
+if (!function_exists('normalizePhoneE164')) {
+    /**
+     * Normalise a US phone number to E.164 (+15551234567).
+     *
+     * Stored form. Applicants type whatever they like - (555) 123-4567,
+     * 555.123.4567, 5551234567, 1-555-123-4567 - and every one of those is the
+     * same number, which is why the raw string is no good as a stored value: it
+     * cannot be matched, deduplicated or dialled.
+     *
+     * Returns null when the digits do not make a valid US number, so a caller
+     * can tell "could not normalise" from "normalised to something".
+     */
+    function normalizePhoneE164(?string $phone, string $countryCode = '+1'): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        // A US number is 10 digits, or 11 with the country code already on it.
+        if ($countryCode === '+1') {
+            if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+                $digits = substr($digits, 1);
+            }
+
+            if (strlen($digits) !== 10) {
+                return null;
+            }
+
+            // NANP: neither the area code nor the exchange may start with 0 or 1.
+            if (in_array($digits[0], ['0', '1'], true) || in_array($digits[3], ['0', '1'], true)) {
+                return null;
+            }
+
+            return '+1' . $digits;
+        }
+
+        // Non-US: keep the digits behind the caller's country code rather than
+        // guessing at a national numbering plan we do not model.
+        $prefix = '+' . ltrim($countryCode, '+');
+        $bare = ltrim($countryCode, '+');
+
+        if (str_starts_with($digits, $bare)) {
+            $digits = substr($digits, strlen($bare));
+        }
+
+        // Drop the national trunk prefix. Most countries that use one - the UK,
+        // Germany, France, Australia among them - write a domestic number with a
+        // leading 0 that is omitted in E.164, so keeping it produces a number
+        // that cannot be dialled. (Italy is the notable exception and would need
+        // its own rule; nothing in this application dials Italian numbers.)
+        if (strlen($digits) > 1 && str_starts_with($digits, '0')) {
+            $digits = ltrim($digits, '0');
+        }
+
+        return $digits === '' ? null : $prefix . $digits;
+    }
+}
+
+if (!function_exists('formatPhoneDisplay')) {
+    /**
+     * Render a stored phone number the way people read it: (555) 123-4567.
+     *
+     * Display form only - never store this. A non-US or unparseable number is
+     * returned unchanged rather than mangled into a US shape.
+     */
+    function formatPhoneDisplay(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (strlen($digits) === 11 && str_starts_with($digits, '1')) {
+            $digits = substr($digits, 1);
+        }
+
+        if (strlen($digits) !== 10) {
+            return $phone;
+        }
+
+        return sprintf('(%s) %s-%s', substr($digits, 0, 3), substr($digits, 3, 3), substr($digits, 6));
     }
 }
 
@@ -263,6 +461,41 @@ if (!function_exists('make_url')) {
     }
 }
 
+if (!function_exists('toDateOnly')) {
+    /**
+     * Render a date-only value as a plain Y-m-d string.
+     *
+     * Counterpart to toTimezone(). A DATE column holds a calendar date with no
+     * time and no zone - "paid through 2026-08-31" is the same day everywhere -
+     * so it must NOT be shifted into the caller's timezone on the way out.
+     * Converting it would read the stored value as midnight UTC and hand any
+     * viewer behind UTC the previous day.
+     *
+     * Use this for DATE columns; use toTimezone() only for DATETIME/TIMESTAMP
+     * columns, which are real instants and do need converting.
+     *
+     * @param mixed $date
+     * @param string $format
+     * @return string|null
+     */
+    function toDateOnly($date, string $format = 'Y-m-d'): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->format($format);
+        } catch (\Exception $e) {
+            Log::error('Date formatting failed', [
+                'date' => $date,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
+
 if (!function_exists('toTimezone')) {
     /**
      * Convert a date/time value to the specified timezone and format.
@@ -285,7 +518,7 @@ if (!function_exists('toTimezone')) {
                 ->setTimezone($timezone)
                 ->format($format);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Timezone conversion failed', [
+            Log::error('Timezone conversion failed', [
                 'datetime' => $datetime,
                 'timezone' => $timezone,
                 'error' => $e->getMessage(),
@@ -323,5 +556,52 @@ if (!function_exists('calculateTimeInBusiness')) {
         }
 
         return implode(' ', $parts);
+    }
+}
+
+if (!function_exists('invoiceBranding')) {
+    /**
+     * Resolve the branding an invoice should be rendered with.
+     *
+     * An invoice carries the brand of WHOEVER IS BEING PAID - the owner of the
+     * money - not of whoever happens to be looking at it. Two cases, nothing else:
+     *
+     *   entity_type = Partner    the host is billing the partner
+     *                            -> HOST branding
+     *   entity_type = Borrower   the partner is billing its own client
+     *                            -> invoices.partner_id's branding
+     *
+     * Partner type is deliberately NOT inspected here. getBrandingSettings()
+     * already falls back to the host for anything a partner has not set, so a
+     * certified partner - who sets nothing of their own - resolves to the host's
+     * values naturally, without a second rule to keep in sync.
+     *
+     * Within one tenant's values the logo falls back document -> sidebar.
+     *
+     * Returns ['partner' => ?Partner, 'branding' => array, 'logo' => string].
+     */
+    function invoiceBranding(?string $entityType, ?int $partnerId): array
+    {
+        $partner = $entityType === Partner::class
+            ? Partner::host()
+            : ($partnerId ? Partner::find($partnerId) : null);
+
+        // An invoice with no partner on it at all still has to render something.
+        $partner ??= Partner::host();
+
+        $branding = $partner
+            ? app(\App\Services\FCH\Common\Setting\AppConfigurationService::class)
+                ->getBrandingSettings($partner->id)
+            : [];
+
+        $logo = ($branding['logo_document_full_url'] ?? null)
+            ?: ($branding['logo_sidebar_full_url'] ?? null)
+            ?: '';
+
+        return [
+            'partner' => $partner,
+            'branding' => $branding,
+            'logo' => (string) $logo,
+        ];
     }
 }

@@ -22,7 +22,7 @@ class SubscriptionSeatsSeeder extends Seeder
             })
             ->update([
                 'user_seats' => DB::raw('COALESCE(user_seats, 3)'),
-                'per_seat_amount' => DB::raw('COALESCE(per_seat_amount, 49.00)'),
+                'per_seat_amount' => null,
             ]);
     }
 }

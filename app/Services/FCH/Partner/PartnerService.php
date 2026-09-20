@@ -2,7 +2,6 @@
 
 namespace App\Services\FCH\Partner;
 
-use App\Models\Subscription\SubscriptionPhase;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use Illuminate\Support\Str;
@@ -27,6 +26,7 @@ use Spatie\Permission\PermissionRegistrar;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Mail\Partner\PartnerMigrationMail;
 use App\Mail\Trial\PartnerTrialMail;
+use App\Mail\Trial\PartnerTrialExpiryUpdatedMail;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Http\Resources\FCH\Partner\PartnerResource;
@@ -56,7 +56,7 @@ class PartnerService
         try {
             Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
-            Log::error('Partner trial welcome email failed', [
+            Log::error(__('partner.log.trial_welcome_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
                 'error' => $e->getMessage(),
             ]);
@@ -71,8 +71,23 @@ class PartnerService
         try {
             Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
         } catch (\Exception $e) {
-            Log::error('Partner account update email failed', [
+            Log::error(__('partner.log.account_update_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Send free trial expiry date updated email using partner's own email config.
+     */
+    private function sendTrialExpiryUpdatedEmail(array $mailData, ?int $hostPartnerId = null): void
+    {
+        try {
+            Mail::to($mailData['user']->email)->queue(new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId));
+        } catch (\Throwable $e) {
+            Log::error(__('partner.log.trial_expiry_mail_failed'), [
+                'partner_id' => $mailData['partner_id'] ?? null,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -233,7 +248,7 @@ class PartnerService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Partner creation failed', ['error' => $e->getMessage()]);
+            Log::error(__('partner.log.partner_create_failed'), ['error' => $e->getMessage()]);
             throw $e;
         }
     }
@@ -358,6 +373,10 @@ class PartnerService
             // Update partner
             $oldStatus = $partner->status;
             $partnerData = $this->mapPartnerData($data);
+
+            // free_trail_end_date is a DATE column and is now serialised verbatim
+            // through toDateOnly(), so the value the edit form reposts is the same
+            // date that was stored. It is safe to update again.
             if ($wasFreeTrial && !$isFreeTrialInput) {
                 $partnerData['status'] = Partner::STATUS_ONBOARDING;
             }
@@ -371,6 +390,7 @@ class PartnerService
                 }
             }
 
+            $oldTrialEndDate = $partner->free_trail_end_date;
             $partner->update($partnerData);
 
             // Sync user status if partner status changed
@@ -421,7 +441,9 @@ class PartnerService
                         continue;
                     }
 
-                    $name = $field === 'assign_to' ? __('partner.assigned_user') : ucwords(str_replace('_', ' ', $field));
+                    $name = $field === 'assign_to'
+                        ? __('partner.assigned_user')
+                        : ($field === 'free_trail_end_date' ? __('partner.trial_end_date') : ucwords(str_replace('_', ' ', $field)));
 
                     if ($field === 'assign_to') {
                         $changedFields[] = __('partner.field_changed', ['field' => $name]);
@@ -470,10 +492,52 @@ class PartnerService
             $user->update(['is_refresh' => true]);
             DB::commit();
 
+            // Send trial expiry updated email if free trial expiry date was updated
+            $isFreeTrialNow = (bool) ($partner->is_free_trail ?? false);
+            if ($isFreeTrialNow && array_key_exists('free_trail_end_date', $changes) && !empty($partner->free_trail_end_date)) {
+                $hostPartner = Partner::where('is_host', 1)->first();
+                $mailUser = $partner->partnerUser ?? $user ?? User::where('email', $partner->email)->first();
+
+                if ($mailUser && !empty($mailUser->email)) {
+                    $mailData = [
+                        'partner_id' => $partner->id,
+                        'partner' => $partner,
+                        'user' => $mailUser,
+                        'trial_end_date' => $partner->free_trail_end_date,
+                        'old_trial_end_date' => $oldTrialEndDate,
+                        'business_info' => $this->getHostPartnerBusinessInfo($hostPartner),
+                    ];
+
+                    $authUser = Auth::user();
+                    $senderPartnerId = $authUser ? $authUser->partner_id : ($hostPartner ? $hostPartner->id : null);
+                    // TEMPORARY CONTAINMENT - trial expiry "date changed" email disabled.
+                    // Every save used to shift the trial date by a day, so this fired on
+                    // edits that never touched the date and told the customer their trial
+                    // had moved. Updates can no longer change the date (see the unset in
+                    // update()), so this is already unreachable - disabled explicitly as
+                    // well so no wrong notification can go out. Restore together with the
+                    // date-handling fix.
+                    // $this->sendTrialExpiryUpdatedEmail($mailData, $senderPartnerId);
+                }
+
+                $this->activityLogService->logModelEvent(
+                    $partner,
+                    ActivityLog::LOG_TYPE_PARTNER_FREE_TRIAL,
+                    [
+                        'old_trial_end_date' => $oldTrialEndDate ? \Carbon\Carbon::parse($oldTrialEndDate)->format('Y-m-d') : null,
+                        'new_trial_end_date' => \Carbon\Carbon::parse($partner->free_trail_end_date)->format('Y-m-d'),
+                    ],
+                    null,
+                    __('partner.free_trial_expiry_updated_log', [
+                        'date' => \Carbon\Carbon::parse($partner->free_trail_end_date)->format('F j, Y'),
+                    ])
+                );
+            }
+
             return $partner->fresh();
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Partner update failed', [
+            Log::error(__('partner.log.partner_update_failed'), [
                 'partner_id' => $partner->id ?? null,
                 'error' => $e->getMessage(),
             ]);
@@ -578,6 +642,12 @@ class PartnerService
                 'subscription'
             ]);
 
+        // Snapshot the query before any user-facing filter is applied, so the
+        // summary cards keep showing true totals instead of recounting whatever the
+        // table is currently filtered to. Archived partners are excluded: they are
+        // not active business.
+        $statsQuery = (clone $query)->notArchived();
+
         // Filter based on authenticated user's host status
         // if ($authUser && $authUser->partner && $authUser->partner->is_host == 1) {
         //     // If logged-in user is a host, show only non-host partners
@@ -597,6 +667,13 @@ class PartnerService
             $query->where('partners.assign_to', $filters['assigned_user_id']);
         }
 
+        // 🔍 Filter by the partner's own status — the value the Status column
+        // shows. Partner::STATUS is the full set: Active, Inactive, Suspended and
+        // OnBoarding.
+        if (!empty($filters['status'])) {
+            $query->where('partners.status', $filters['status']);
+        }
+
         // 🔍 Filter by is_free_trail (directly on partners table)
         if (isset($filters['is_free_trail']) && $filters['is_free_trail'] !== '') {
             $query->where('partners.is_free_trail', $filters['is_free_trail']);
@@ -606,6 +683,21 @@ class PartnerService
         if (!empty($filters['search'])) {
             $query->search(trim((string) $filters['search']));
         }
+
+        // 🗄 Archived records leave the working list but stay findable. A search
+        // reaches them by default; `archived` narrows to them, `archived=all`
+        // ignores the distinction entirely.
+        // '' and null both mean "no archive filter chosen" - the UI sends an empty
+        // string, not null, so both have to be treated the same or a search would
+        // never reach archived records.
+        $archived = $filters['archived'] ?? null;
+        $archived = ($archived === '' ? null : $archived);
+
+        if ($archived === null && !empty($filters['search'])) {
+            $archived = Partner::ARCHIVE_FILTER_ALL;
+        }
+
+        $query->archiveFilter($archived);
 
         // Sorting
         $sortField = $filters['sort_field'] ?? 'id';
@@ -679,12 +771,14 @@ class PartnerService
             ]
         );
 
-        // Calculate statistics before pagination
+        // Statistics come from the pre-filter snapshot, not from $query: these are
+        // headline totals for the whole book, and recomputing them per filter made
+        // the cards move every time someone narrowed the table.
         $statistics = [
-            'total_partners' => (clone $query)->count(),
-            'active_partners' => (clone $query)->where('status', Partner::STATUS_ACTIVE)->count(),
-            'inactive_partners' => (clone $query)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
-            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'total_partners' => (clone $statsQuery)->count(),
+            'active_partners' => (clone $statsQuery)->where('status', Partner::STATUS_ACTIVE)->count(),
+            'inactive_partners' => (clone $statsQuery)->whereIn('status', [Partner::STATUS_INACTIVE, Partner::STATUS_SUSPENDED])->count(),
+            'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -826,6 +920,12 @@ class PartnerService
                 if ($partnerField === 'joining_date' && !empty($value)) {
                     $value = normalizeDate($value);
                 }
+                if ($partnerField === 'free_trail_end_date') {
+                    $value = !empty($value) ? $value : null;
+                }
+                if ($partnerField === 'is_free_trail') {
+                    $value = (bool) $value;
+                }
                 $partnerData[$partnerField] = $value;
             }
         }
@@ -903,6 +1003,72 @@ class PartnerService
     /**
      * Delete Partner
      */
+
+    /**
+     * Archive records so they leave the working list without being deleted.
+     *
+     * Presentation only: `status` is untouched, so archiving changes nothing about
+     * login, billing or permissions. Already-archived rows are skipped rather than
+     * re-stamped, so the original "who filed this away" survives a repeat action.
+     */
+    public function archive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $archived = 0;
+
+            foreach (Partner::whereIn('id', $ids)->get() as $record) {
+                if ($record->archive()) {
+                    $archived++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['archived' => $archived],
+                __('partner.success.archived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Partner archive failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.archive_failed'), 400);
+        }
+    }
+
+    /**
+     * Return archived records to the working list. Nothing else about them changes -
+     * archiving never altered the record, so restoring has nothing to rebuild.
+     */
+    public function unarchive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $restored = 0;
+
+            foreach (Partner::whereIn('id', $ids)->get() as $record) {
+                if ($record->unarchive()) {
+                    $restored++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['restored' => $restored],
+                __('partner.success.unarchived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Partner restore failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('partner.error.unarchive_failed'), 400);
+        }
+    }
+
     public function delete(array $ids)
     {
         try {
@@ -920,7 +1086,7 @@ class PartnerService
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Partner deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
-            return ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error(__('partner.error.delete_failed'), 400);
         }
     }
 

@@ -8,14 +8,16 @@ use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasPersonName;
 
 class FundingApplication extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasPersonName;
 
+    use SoftDeletes;
+    
     /**
      * The "booted" method of the model.
      */
@@ -55,6 +57,7 @@ class FundingApplication extends Model
         'years_in_business',
         'number_of_employees',
         'first_name',
+        'middle_name',
         'last_name',
         'date_of_birth',
         'ssn',

@@ -36,7 +36,7 @@ class StoreUpdateSubscriptionRequest extends BaseApiRequest
             'platform_fee_start_date' => 'nullable|date',
             'total_paid_amount' => 'nullable|numeric|min:0',
             'subscription_start_date' => 'nullable|date',
-            'subscription_end_date' => 'nullable|date|after_or_equal:subscription_start_date',
+            'subscription_end_date' => 'nullable|date|after_or_equal:subscription_start_date', // paid through
             'expiry_date' => 'nullable|date',
             'termination_date' => 'nullable|date',
             'status' => 'nullable|string',

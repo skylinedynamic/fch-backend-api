@@ -22,44 +22,55 @@ class AgreementService
     public function checkSignNeed(User $user): array
     {
         try {
+            // templateOwnerId is whose AgreementTemplate row governs this signing
+            // check - getActiveTemplate() below looks ONLY at that partner_id, no
+            // fallback to the host's template. The "partner" agreement is always
+            // the host's (a partner signs it WITH the host, so only the host may
+            // turn it off); the "borrower" agreement is each borrower's own
+            // (non-host) partner's, since that partner builds and maintains it for
+            // their own borrowers and must be able to disable it for them - a
+            // partner with no template of their own means no signing is required
+            // for their borrowers, by design (not "falls back to the host's").
             if ($user->entity_type === Partner::class) {
                 $entity = $user->partner;
                 if (!$entity) {
-                    return $this->noSignNeeded('Partner profile not found for this user.');
+                    return $this->noSignNeeded(__('agreement.partner_profile_not_found'));
                 }
                 if ($entity->is_host) {
-                    return $this->noSignNeeded('Host partners (Platform Owners) are exempt from signing.');
+                    return $this->noSignNeeded(__('agreement.host_exempt'));
                 }
                 $slug = 'partner';
+                $templateOwnerId = null; // resolved to the host partner below
             } elseif ($user->entity_type === Borrower::class) {
                 $entity = $user->borrower;
                 if (!$entity) {
-                    return $this->noSignNeeded('Borrower profile not found for this user.');
+                    return $this->noSignNeeded(__('agreement.borrower_profile_not_found'));
                 }
                 $slug = 'borrower';
+                $templateOwnerId = $entity->partner_id;
             } else {
-                return $this->noSignNeeded('User entity type is not eligible for agreement signing.');
+                return $this->noSignNeeded(__('agreement.not_allowed'));
             }
 
             if ($entity->has_sign) {
-                return $this->noSignNeeded('Agreement has already been successfully signed.');
+                return $this->noSignNeeded(__('agreement.already_signed'));
             }
 
             $hostPartner = $this->getHostPartner();
             if (!$hostPartner) {
-                return $this->noSignNeeded('Configuration error: System owner not identified.');
+                return $this->noSignNeeded(__('agreement.system_owner_not_found'));
             }
 
             // 3. Check Global Signed Feature Flag
             $signingEnabled = AppConfiguration::get('agreement_signing_enabled', '0', AppConfiguration::MODULE_AGREEMENT, $hostPartner->id);
 
             if (!filter_var($signingEnabled, FILTER_VALIDATE_BOOLEAN)) {
-                return $this->noSignNeeded('The agreement signing feature is currently disabled globally.');
+                return $this->noSignNeeded(__('agreement.globally_disabled'));
             }
 
-            $template = $this->getActiveTemplate($hostPartner->id, $slug);
+            $template = $this->getActiveTemplate($templateOwnerId ?? $hostPartner->id, $slug);
             if (!$template) {
-                return $this->noSignNeeded("No active {$slug} agreement template is currently available for signing.");
+                return $this->noSignNeeded(__('agreement.no_active_template', ['slug' => $slug]));
             }
 
             return [
@@ -71,8 +82,8 @@ class AgreementService
                 ],
             ];
         } catch (Exception $e) {
-            Log::error("AgreementService@checkSignNeed: " . $e->getMessage());
-            return $this->noSignNeeded('An error occurred during verification: ' . $e->getMessage());
+            Log::error(__('agreement.log_check_sign_need_error', ['error' => $e->getMessage()]));
+            return $this->noSignNeeded(__('agreement.verification_error', ['error' => $e->getMessage()]));
         }
     }
 
@@ -271,12 +282,12 @@ class AgreementService
             ->first();
     }
 
-    private function noSignNeeded(string $message = 'No signature required at this time.'): array
+    private function noSignNeeded(?string $message = null): array
     {
         return [
             'needs_sign' => false,
             'template'   => null,
-            'message'    => $message
+            'message'    => $message ?? __('agreement.no_sign_needed'),
         ];
     }
 

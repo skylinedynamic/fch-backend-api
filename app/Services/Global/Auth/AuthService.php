@@ -89,7 +89,7 @@ class AuthService
                 }
             }
 
-            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->isPast()) {
+            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->lt(today())) {
                 $partner = $user->partner;
                 // Only block if partner is NOT a host
                 if ($partner && (int) ($partner->is_host ?? 0) === 0) {
@@ -109,37 +109,63 @@ class AuthService
         if ($isFreeTrail && $freeTrailEndDate && Carbon::parse($freeTrailEndDate)->isPast()) {
             $partner = $user->partner;
             $partnerName = $partner ? ($partner->company_name ?? $partner->full_name ?? 'your partner') : 'your partner';
-            return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+            // Borrowers see "Free Plan" wording; partner accounts keep the original "Free Trial" wording.
+            $messageKey = $user->entity_type === Borrower::class ? 'auth.free_plan_expired' : 'auth.free_trial_expired';
+            return ApiResponse::loginError(__($messageKey, ['partner' => $partnerName]), 'email');
         }
 
         $partner = $user->partner;
 
         // 1. Check User Account Status
-        if (in_array($user->status, [User::STATUS['inactive']])) {
+        //
+        // Every account has to be active, whatever it is attached to. Stated as
+        // an allowlist rather than a list of banned values so a status added to
+        // User::STATUS later cannot grant access by omission.
+        if ($user->status !== User::STATUS['active']) {
             $message = __('auth.user_inactive');
             return ApiResponse::loginError($message, 'email');
         }
 
-        // 2. Check Associated Entity Status (Partner, Employee, Borrower)
-        $checks = [];
+        // 2. Check Associated Entity Status (Partner, Borrower)
+        //
+        // entity_type is the morph column, so it holds a fully-qualified class
+        // name. It was compared against User::BORROWER / User::PARTNER, which
+        // are the short labels the *user_type* column uses -
+        // 'App\Models\Borrower\Borrower' never equalled 'Borrower', so every
+        // branch below was unreachable and a suspended account could sign in.
+        // Comparing against the class itself is what makes it run.
+        //
+        // Employees are deliberately not checked here: job_status describes
+        // employment, not access, and users.status above is the single gate on
+        // whether an account may sign in. Note that suspending an employee
+        // revokes their tokens but does not touch users.status, so an employee
+        // set to Suspended can sign in again unless their user is deactivated
+        // too - see EmployeeService::revokeEmployeeTokens().
+        if ($user->entity_type === Partner::class) {
+            $status = $partner?->status;
 
-        if ($user->entity_type == User::PARTNER) {
-            $checks[] = [$partner?->status, Partner::STATUS_SUSPENDED, 'auth.partner_suspended', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']];
-            $checks[] = [$partner?->status, Partner::STATUS_INACTIVE, 'auth.partner_inactive', ['partner' => $partner?->company_name ?? $partner?->full_name ?? 'your partner']];
-        } elseif ($user->entity_type == User::EMPLOYEE) {
-            $checks[] = [$user->employee?->job_status, Employee::STATUS_INACTIVE, 'auth.employee_inactive', []];
-            $checks[] = [$user->employee?->job_status, Employee::STATUS_SUSPENDED, 'auth.employee_suspended', []];
-        } elseif ($user->entity_type == User::BORROWER) {
-            $checks[] = [$user->borrower?->status, Borrower::STATUS_INACTIVE, 'auth.borrower_inactive', []];
-            $checks[] = [$user->borrower?->status, Borrower::STATUS_SUSPENDED, 'auth.borrower_suspended', []];
-        }
+            if (!in_array($status, Partner::LOGIN_ALLOWED_STATUSES, true)) {
+                $name = $partner?->company_name ?? $partner?->full_name ?? 'your partner';
 
-        foreach ($checks as [$value, $disallowed, $message, $params]) {
-            if ($value == $disallowed) {
-                return ApiResponse::loginError(__($message, $params ?? []), 'email');
+                // Keep the specific wording where there is some, so a suspended
+                // partner is not told their account is merely inactive.
+                $message = $status === Partner::STATUS_SUSPENDED
+                    ? 'auth.partner_suspended'
+                    : 'auth.partner_inactive';
+
+                return ApiResponse::loginError(__($message, ['partner' => $name]), 'email');
+            }
+        } elseif ($user->entity_type === Borrower::class) {
+            $status = $user->borrower?->status;
+
+            if (!in_array($status, Borrower::LOGIN_ALLOWED_STATUSES, true)) {
+                $message = $status === Borrower::STATUS_SUSPENDED
+                    ? 'auth.borrower_suspended'
+                    : 'auth.borrower_inactive';
+
+                return ApiResponse::loginError(__($message), 'email');
             }
         }
-
 
         if (!Auth::attempt($authCredentials)) {
             RateLimiter::hit($key, $decayMinutes * 60);
@@ -179,7 +205,11 @@ class AuthService
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // 'subscription_phases' table (and its Subscription::phases() relation) was
+            // dropped in 2026_08_31_120000_drop_subscription_phases_and_payment_methods_tables
+            // - the phase state it held now lives directly on the subscription row
+            // (current_phase, installments_paid, etc.), so there is nothing left to eager-load here.
+            'partner.subscription',
         ];
 
         $user->load($relations);

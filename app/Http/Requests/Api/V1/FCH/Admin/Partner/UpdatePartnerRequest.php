@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdatePartnerRequest extends BaseApiRequest
 {
@@ -56,11 +57,11 @@ class UpdatePartnerRequest extends BaseApiRequest
             'contact_person_email'       => ['nullable', 'email', 'max:255'],
             'contact_person_relation'    => ['nullable', 'string', 'max:255'],
             'partner_type'               => ['sometimes', 'required', 'string', 'max:255'],
-            'state'                      => ['sometimes', 'required', 'string', 'max:100'],
-            'city'                       => ['sometimes', 'required', 'string', 'max:100'],
+            'state'                      => ['sometimes', 'nullable', 'string', 'max:100'],
+            'city'                       => ['sometimes', 'nullable', 'string', 'max:100'],
             'country'                    => ['sometimes', 'required', 'string', 'max:100'],
-            'postal_code'                => ['nullable', 'string', 'max:20'],
-            'address_line_1'             => ['sometimes', 'required', 'string', 'max:255'],
+            'postal_code'                => ['nullable', 'string', new UsPostalCode()],
+            'address_line_1'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'address_line_2'             => ['nullable', 'string', 'max:255'],
             'tax_id'                     => ['nullable', 'string', 'max:100'],
             'website'                    => ['nullable', 'string'],
@@ -90,7 +91,7 @@ class UpdatePartnerRequest extends BaseApiRequest
 
         if ($isFreeTrialNew) {
             if ($this->has('is_free_trail') || $this->has('free_trail_end_date')) {
-                $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d', 'after_or_equal:today'];
+                $rules['free_trail_end_date'] = ['required', 'date_format:Y-m-d'];
             } else {
                 $rules['free_trail_end_date'] = ['nullable', 'date_format:Y-m-d'];
             }

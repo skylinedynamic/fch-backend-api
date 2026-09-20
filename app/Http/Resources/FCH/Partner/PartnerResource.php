@@ -29,6 +29,10 @@ class PartnerResource extends JsonResource
             'contact_person_relation' => $this->contact_person_relation,
             'partner_type' => $this->partner_type,
             'status' => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'state' => $this->state,
             'city' => $this->city,
             'postal_code' => $this->postal_code,
@@ -48,7 +52,7 @@ class PartnerResource extends JsonResource
             'user_seats' => $this->relationLoaded('subscription') ? ($this->subscription?->user_seats ?? 3) : 3,
             'per_seat_amount' => $this->relationLoaded('subscription') ? ($this->subscription?->per_seat_amount ?? 49.00) : 49.00,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
-            'free_trail_end_date' => $this->free_trail_end_date ? Carbon::parse($this->free_trail_end_date)->toDateString() : null,
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'created_at' => $this->created_at
                 ? Carbon::parse($this->created_at)->format('M j, Y')
                 : null,

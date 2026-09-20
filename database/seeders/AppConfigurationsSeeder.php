@@ -19,6 +19,15 @@ class AppConfigurationsSeeder extends Seeder
             'header_logo' => 'site-settings/logo-white.png',
             'footer_logo' => 'site-settings/black-logo.png',
             'website_favicon' => 'site-settings/Favicon.png',
+            // Logos named for the surface they appear on. The older keys are kept
+            // in step so anything still reading them resolves to the same file.
+            'logo_sidebar' => 'site-settings/logo-white.png',
+            'logo_mail' => 'site-settings/logo-white.png',
+            'logo_document' => 'site-settings/black-logo.png',
+            'logo_mobile' => 'site-settings/black-logo.png',
+            'logo_mark' => 'site-settings/Favicon.png',
+            'logo_on_dark' => 'site-settings/logo-white.png',
+            'logo_on_light' => 'site-settings/black-logo.png',
             'primary_logo' => 'site-settings/logo-white.png',
             'secondary_logo' => 'site-settings/black-logo.png',
             'favicon' => 'site-settings/Favicon.png',
@@ -41,6 +50,22 @@ class AppConfigurationsSeeder extends Seeder
             'recaptcha_secret_key' => '6LejTe8rAAAAABavYv_MvOWLDeYkGJXtm9V9p3KT',
             'primary_color' => '#001F3F', // Default Dark Blue
             'secondary_color' => '#D4AF37', // Default Golden
+            // Sidebar labels and icons, readable on the dark blue primary colour
+            // Sidebar canvas and its text/icon colours are left unset on purpose:
+            // empty means "follow the primary colour and derive readable text",
+            // which stays correct if the brand colour later changes.
+            'sidebar_bg_color' => '',
+            // Blank keeps the white top bar the theme ships with.
+            'topbar_bg_color' => '',
+            'topbar_text_color' => '',
+            'sidebar_text_color' => '',
+            'sidebar_icon_color' => '',
+            'sidebar_hover_bg_color' => '',
+            'sidebar_text_hover_color' => '',
+            'sidebar_icon_hover_color' => '',
+            'sidebar_active_bg_color' => '',
+            'sidebar_active_text_color' => '',
+            'sidebar_active_icon_color' => '',
             'agreement_signing_enabled' => '1',
         ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Models\Funding;
 
+use App\Support\Locations;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
@@ -96,23 +97,20 @@ class LenderVisibility extends Model
         });
     }
 
+    /**
+     * A state name reduced to its code, for matching lender restrictions.
+     *
+     * An unrecognised value is upper-cased and returned as-is rather than
+     * dropped, so a restriction written against a place this application does
+     * not model still has something to compare against.
+     */
     private function getStateCode($stateName)
     {
-        if (!$stateName) return null;
-        
-        $locations = config('locations');
-        if (is_array($locations)) {
-            foreach ($locations as $country) {
-                if (isset($country['states']) && is_array($country['states'])) {
-                    foreach ($country['states'] as $state) {
-                        if (strtolower($state['name']) === strtolower(trim($stateName)) || strtolower($state['code']) === strtolower(trim($stateName))) {
-                            return strtoupper($state['code']);
-                        }
-                    }
-                }
-            }
+        if (!$stateName) {
+            return null;
         }
-        return strtoupper(trim($stateName));
+
+        return Locations::stateCode($stateName) ?? strtoupper(trim($stateName));
     }
 
     public function getEngineStatusForBorrower($borrower)

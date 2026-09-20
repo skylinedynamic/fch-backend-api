@@ -26,14 +26,23 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class RequestApplicationService
 {
     use PaginatesApi;
 
+    /**
+     * How long a PENDING evaluation may go without touching the application
+     * before it is treated as abandoned. Worst case for a live run (three calls,
+     * each with retries at the client timeout) stays well inside this.
+     */
+    private const AI_RUN_STALE_MINUTES = 15;
+
     public function __construct(
-        protected ActivityLogService $activityLogService
+        protected ActivityLogService $activityLogService,
+        protected PreQualificationAiService $preQualificationAiService
     ) {}
 
     /**
@@ -64,11 +73,11 @@ class RequestApplicationService
         }
 
         if(isset($filters['start_date']) && !empty($filters['start_date'])) {
-            $query->where('created_at', '>=', $filters['start_date']);
+            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) >= ?', [$filters['start_date']]);
         }
 
         if(isset($filters['end_date']) && !empty($filters['end_date'])) {
-            $query->where('created_at', '<=', $filters['end_date']);
+            $query->whereRaw('DATE(COALESCE(updated_at, created_at)) <= ?', [$filters['end_date']]);
         }
 
         if(isset($filters['funding_type']) && !empty($filters['funding_type'])) {
@@ -82,7 +91,9 @@ class RequestApplicationService
         }
 
         // Apply Sorting & Advanced Filters using QueryFilter if available, or manual simple sorting
-        $sortField = $filters['sort_field'] ?? 'id';
+        // Most recently updated first by default, so an older draft that is
+        // submitted or edited today shows at the top rather than by its old id.
+        $sortField = $filters['sort_field'] ?? 'updated_at';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $advancedFilters = $filters['filters'] ?? [];
 
@@ -91,12 +102,19 @@ class RequestApplicationService
             $sortField = 'purpose_of_funding';
         }elseif($sortField == 'requested_amount') {
             $sortField = 'funding_requested_amount';
-        }elseif($sortField == 'date') {
-            $sortField = 'created_at';
+        }elseif($sortField == 'date' || $sortField == 'id') {
+            $sortField = 'updated_at';
         }elseif($sortField == 'full_name') {
             $sortField = 'first_name';
         }
 
+
+        // updated_at is nullable, so fall back to created_at rather than letting a
+        // row with no updated_at sink to the end of the list.
+        $sortByUpdatedAt = $sortField == 'updated_at';
+        if ($sortByUpdatedAt) {
+            $query->orderByRaw("COALESCE(updated_at, created_at) {$sortOrder}");
+        }
 
         $query = QueryFilter::apply(
             $query,
@@ -104,15 +122,15 @@ class RequestApplicationService
             $sortOrder,
             $advancedFilters,
              [
-
+                'skip_sorting' => $sortByUpdatedAt,
                 'aliases' => [
                     'purpose_of_funding' => 'funding_type',
                     'funding_requested_amount' => 'requested_amount',
-                    'created_at' => 'date',
+                    'updated_at' => 'date',
                     'first_name' => 'full_name',
                 ],
             ]
-        );
+        )->orderBy('id', 'desc');
 
         // Pagination
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -140,6 +158,14 @@ class RequestApplicationService
                 ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
                     $query->where('partner_id', $authUser->partner_id);
                 });
+
+            // Scope to one client, for the Funding Applications tab on the
+            // client record. The funding request list already supported this;
+            // applications did not, so a client's own applications could only be
+            // found by searching the global list.
+            if (!empty($filters['borrower_id'])) {
+                $query->where('borrower_id', $filters['borrower_id']);
+            }
 
             // Apply Search
             if (!empty($filters['search'])) {
@@ -187,6 +213,84 @@ class RequestApplicationService
             return ApiResponse::error(__('application.pre_qualification_not_found'));
         }
         return ApiResponse::success(new PreQualificationRequestResource($application));
+    }
+
+    /**
+     * Run AI Pre-Qualification Underwriting Analysis By ID
+     */
+    public function runAiPreQualification($id)
+    {
+        // Manually triggering an evaluation is host-only: it produces the internal
+        // memo, risk flags and lender routing, which a partner may never see.
+        // (The automatic run on borrower submit is a queued system job and is not
+        // subject to this check.)
+        $user = Auth::user();
+        $isHost = (bool) ($user?->partner?->is_host ?? false);
+        $isPartner = ($user?->entity_name === User::PARTNER || $user?->entity_type === Partner::class || $user?->user_type == User::PARTNER || $user?->user_type === 'Admin');
+
+        if (!$isHost || !$isPartner) {
+            return ApiResponse::error(__('application.pre_qualification_not_found'), 403);
+        }
+
+        $partnerId = $this->getAuthenticatedPartnerId();
+
+        $application = PreQualificationRequest::with('borrower')
+            ->when(!$isHost, function ($q) use ($partnerId) {
+                $q->where('partner_id', $partnerId);
+            })
+            ->where('id', $id)->first();
+
+        if ($application == null) {
+            return ApiResponse::error(__('application.pre_qualification_not_found'));
+        }
+
+        // Claimed atomically so two clicks (or two staff) cannot start the same
+        // evaluation twice. A PENDING run is only taken over once it has gone quiet
+        // for longer than any live run can take — the process running it was killed
+        // — so a stuck file can still be re-run instead of staying PENDING forever.
+        $claimed = PreQualificationRequest::where('id', $application->id)
+            ->where(function ($q) {
+                $q->whereNull('gpt_status')
+                    ->orWhere('gpt_status', '!=', PreQualificationRequest::GPT_PENDING)
+                    ->orWhere('updated_at', '<', now()->subMinutes(self::AI_RUN_STALE_MINUTES));
+            })
+            ->update([
+                'gpt_status' => PreQualificationRequest::GPT_PENDING,
+                'gpt_generated_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed === 0) {
+            return ApiResponse::error(__('application.pre_qualification_ai_already_running'), 409);
+        }
+
+        // The evaluation makes up to three OpenAI calls, which regularly runs past
+        // the gateway timeout in front of the API; run inline, the browser got a
+        // network error with no response. So the response is sent first (status
+        // PENDING) and the evaluation runs once it has been delivered — the same
+        // approach as the borrower submit. The details page polls until it settles.
+        $userId = Auth::id();
+        app()->terminating(function () use ($application, $userId) {
+            @set_time_limit(0);
+
+            try {
+                $this->preQualificationAiService->evaluate($application->fresh('borrower'), $userId);
+            } catch (\Throwable $e) {
+                PreQualificationRequest::where('id', $application->id)->update([
+                    'gpt_status' => PreQualificationRequest::GPT_FAILED,
+                    'gpt_generated_at' => now(),
+                ]);
+
+                Log::error('Pre-qualification AUE re-run failed', [
+                    'pre_qualification_request_id' => $application->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
+
+        return ApiResponse::success([
+            'application' => new PreQualificationRequestResource($application->fresh('borrower')),
+        ], __('application.pre_qualification_ai_started'));
     }
 
     /**
@@ -367,7 +471,7 @@ class RequestApplicationService
             'total_applications' => (clone $baseQuery)->count(),
             'approved' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->count(),
             'pending' => (clone $baseQuery)->where('status', PreQualificationRequest::PENDING)->count(),
-            'approved_amount' => (clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount'),
+            'approved_amount' => currencyFormat((clone $baseQuery)->where('status', PreQualificationRequest::APPROVED)->sum('funding_requested_amount')),
         ]);
     }
 

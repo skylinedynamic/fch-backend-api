@@ -18,6 +18,7 @@ class BorrowerResource extends JsonResource
             'id'            => $this->id,
             'signup_id'     => $this->signup_id,
             'first_name'    => $this->first_name,
+            'middle_name'    => $this->middle_name,
             'last_name'     => $this->last_name,
             'full_name'     => $this->full_name,
             'email'         => $this->email,
@@ -29,7 +30,7 @@ class BorrowerResource extends JsonResource
             'postal_code'   => $this->postal_code,
             'home_address'  => $this->home_address,
             'home_phone'    => $this->home_phone,
-            'date_of_birth' => $this->date_of_birth,
+            'date_of_birth' => toDateOnly($this->date_of_birth),
             'last_4_ssn'    => $this->last_4_ssn,
 
             // Business
@@ -54,7 +55,7 @@ class BorrowerResource extends JsonResource
             'tax_identification_number' => $this->tax_identification_number,
             'duns_number'               => $this->duns_number,
             'state_file_number'         => $this->state_file_number,
-            'business_start_date'       => $this->business_start_date,
+            'business_start_date'       => toDateOnly($this->business_start_date),
 
             // Financial
             'currency'                  => $this->currency,
@@ -74,6 +75,10 @@ class BorrowerResource extends JsonResource
             'funding_urgency'           => $this->funding_urgency,
 
             'status'        => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'notes'         => $this->notes,
             'assign_id'     => $this->assign_id,
             'assign_name'   => $this->assignedUser?->name,
@@ -84,7 +89,7 @@ class BorrowerResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city'    => $this->other_city,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
-            'free_trail_end_date' => $this->free_trail_end_date ? $this->free_trail_end_date->toDateString() : null,
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'bank_accounts' => $this->relationLoaded('bankAccounts') ? $this->bankAccounts->map(fn($b) => [
                 'id' => $b->id,
                 'bank_name' => $b->bank_name,

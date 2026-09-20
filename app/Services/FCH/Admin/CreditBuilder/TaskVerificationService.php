@@ -232,7 +232,7 @@ class TaskVerificationService
             try {
                 Mail::to($email)->send(new BorrowerVerificationStatusMail([
                     'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
-                    'borrower_name' => trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower',
+                    'borrower_name' => personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) ?: 'Borrower',
                     'status' => $status,
                     'note' => $note,
                     'task_results' => $filteredResults,

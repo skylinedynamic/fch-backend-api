@@ -24,7 +24,8 @@ abstract class Controller
                 ->where('key', 'is_active')->where('value', '1')->exists();
 
             $isBrandingFresh = AppConfiguration::where('partner_id', $partnerId)
-                ->whereIn('key', ['site_name', 'primary_logo'])->exists();
+                ->where('module', AppConfiguration::MODULE_BRANDING)
+                ->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists();
 
             if (!$isEmailFresh || !$isBrandingFresh) {
                 $response = response()->json([
