@@ -33,6 +33,9 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+          # storage/ is gitignored, so a fresh checkout has no Passport keys and
+          # every Passport::actingAs() test dies with "Invalid key supplied".
+          php artisan passport:keys --force
 
       # Run as two steps so the log shows plainly that both suites ran.
       - name: Run Unit Tests
