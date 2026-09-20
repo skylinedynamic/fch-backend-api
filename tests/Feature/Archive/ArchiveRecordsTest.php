@@ -5,6 +5,7 @@ namespace Tests\Feature\Archive;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -33,6 +34,18 @@ class ArchiveRecordsTest extends TestCase
             'company_name' => $company,
             'full_name' => 'Owner of ' . $company,
             'email' => $email,
+        ]);
+    }
+
+    /** A staff account to act as the one who archived a record. */
+    private function admin(string $email): int
+    {
+        return DB::table('users')->insertGetId([
+            'name' => 'Archivist',
+            'email' => $email,
+            'password' => bcrypt('secret'),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 
@@ -133,14 +146,19 @@ class ArchiveRecordsTest extends TestCase
     {
         $partner = $this->partner('Audited Co', 'audit@example.test');
 
-        $this->assertTrue($partner->archive(userId: 7));
+        // archived_by is a real foreign key onto users, so the actor has to be a
+        // real account - an invented id would only prove the key is not enforced.
+        $filedBy = $this->admin('filed-by@example.test');
+        $someoneElse = $this->admin('someone-else@example.test');
+
+        $this->assertTrue($partner->archive(userId: $filedBy));
         $stampedAt = $partner->fresh()->archived_at;
 
-        $this->assertSame(7, (int) $partner->fresh()->archived_by);
+        $this->assertSame($filedBy, (int) $partner->fresh()->archived_by);
 
         // A second archive is a no-op: it must not rewrite who filed it away.
-        $this->assertFalse($partner->fresh()->archive(userId: 99));
-        $this->assertSame(7, (int) $partner->fresh()->archived_by);
+        $this->assertFalse($partner->fresh()->archive(userId: $someoneElse));
+        $this->assertSame($filedBy, (int) $partner->fresh()->archived_by);
         $this->assertEquals($stampedAt, $partner->fresh()->archived_at);
     }
 

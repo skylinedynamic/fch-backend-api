@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - stage
+      - release
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    # Safety: the suite runs here on the GitHub runner only, and phpunit.xml
+    # pins it to an in-memory SQLite database. Nothing connects to the stage or
+    # production MySQL server, so a test run cannot read, write or drop real data.
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, intl, zip, gd, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # No .env is needed: phpunit.xml supplies APP_KEY and the rest of the
+      # test config. All a fresh checkout lacks is storage/, which is gitignored
+      # in full, so the directories and the Passport keys have to be made here -
+      # without them every Passport::actingAs() test dies on "Invalid key supplied".
+      - name: Prepare Test Environment
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
+          php artisan passport:keys --force
+
+      # Run as two steps so the log shows plainly that both suites ran.
+      - name: Run Unit Tests
+        run: php artisan test --testsuite=Unit
+
+      - name: Run Feature Tests
+        run: php artisan test --testsuite=Feature

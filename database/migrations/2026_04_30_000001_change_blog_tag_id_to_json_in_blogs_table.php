@@ -13,8 +13,17 @@ return new class extends Migration
     {
         Schema::table('blogs', function (Blueprint $table) {
             $table->dropForeign(['blog_tag_id']);
-            $table->dropIndex('blogs_blog_tag_id_foreign');
         });
+
+        // MySQL keeps the index that backed the foreign key, so it must be
+        // dropped before the column can change type. SQLite rebuilds the table
+        // when the key is dropped and takes the index with it, so only drop the
+        // index when it is actually still there. No change on MySQL.
+        if (Schema::hasIndex('blogs', 'blogs_blog_tag_id_foreign')) {
+            Schema::table('blogs', function (Blueprint $table) {
+                $table->dropIndex('blogs_blog_tag_id_foreign');
+            });
+        }
 
         Schema::table('blogs', function (Blueprint $table) {
             $table->json('blog_tag_id')->nullable()->change();
