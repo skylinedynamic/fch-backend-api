@@ -53,7 +53,10 @@ class ActivityLogService
         if ($isHost) {
             // Host Admin sees everything, no scope applied
         } elseif (isset($user->partner)) {
-            // Partner
+            // Partner. partner_id says whose timeline a row belongs to, not who
+            // may read it — on its own it would hand the partner the host's
+            // private notes and the host's emails to the borrower. Beyond their
+            // own entries they see only what was explicitly addressed to them.
             $query->where(function ($q) use ($user) {
                 $q->where('causer_id', $user->id)
                     ->orWhere(function ($subQ) use ($user) {
@@ -62,6 +65,10 @@ class ActivityLogService
                                  $q2->whereNull('properties->is_internal')
                                     ->orWhere('properties->is_internal', false)
                                     ->orWhere('properties->is_internal', '0');
+                             })
+                             ->where(function ($q3) {
+                                 $q3->where('properties->send_to_host', '1')
+                                    ->orWhere('properties->visible_to_host', '1');
                              });
                     });
             });
@@ -196,10 +203,14 @@ class ActivityLogService
             }
 
             // Sync targets
-            $targetPartnerId = $data['partner_id'] ?? Auth::user()->partner_id ?? null;
+            $targetPartnerId = $data['partner_id'] ?? null;
             $targetBorrowerId = $data['borrower_id'] ?? null;
 
-            // If logging for a lead/borrower, try to find the partner it belongs to for the timeline
+            // partner_id is the timeline this entry belongs to — the partner who
+            // owns the record — not whoever happens to be writing it. Reading it
+            // off the caller first meant a host acting on a partner's request
+            // stamped its own partner id, so the owning partner never saw the
+            // entry (its own emails, status changes and notifications included).
             if (!$targetPartnerId) {
                 if ($subjectType === Lead::class) {
                     $lead = Lead::find($subjectId);
@@ -209,6 +220,12 @@ class ActivityLogService
                     $borrower = Borrower::find($subjectId);
                     if ($borrower && $borrower->partner_id)
                         $targetPartnerId = $borrower->partner_id;
+                } elseif ($subjectType === FundingRequest::class) {
+                    $fundingRequest = FundingRequest::find($subjectId);
+                    if ($fundingRequest) {
+                        if ($fundingRequest->partner_id) $targetPartnerId = $fundingRequest->partner_id;
+                        if ($fundingRequest->borrower_id && !$targetBorrowerId) $targetBorrowerId = $fundingRequest->borrower_id;
+                    }
                 } elseif ($subjectType === FundingApplication::class) {
                     $app = FundingApplication::find($subjectId);
                     if ($app) {
@@ -217,6 +234,10 @@ class ActivityLogService
                     }
                 }
             }
+
+            // Only when the subject has no partner of its own does the caller's
+            // partner apply (e.g. a host-only record with nobody else attached).
+            $targetPartnerId = $targetPartnerId ?? Auth::user()?->partner_id;
 
 
             $logData = [

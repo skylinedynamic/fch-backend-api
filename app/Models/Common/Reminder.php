@@ -51,6 +51,27 @@ class Reminder extends Model
         'snooze_history' => 'array',
     ];
 
+    /**
+     * A reminder belongs to the user who created it. created_by used to hold
+     * the creator's *entity* id, and every host admin shares the one host
+     * partner entity, so filtering on it showed each of them the whole
+     * organisation's reminders. The column pair is polymorphic, so new rows
+     * point it at the User instead. Rows written the old way carry no user
+     * attribution and stay visible entity-wide rather than vanishing.
+     */
+    public function scopeCreatedByUser($query, User $user)
+    {
+        return $query->where(function ($q) use ($user) {
+            $q->where(function ($own) use ($user) {
+                $own->where('created_by_entity_type', User::class)
+                    ->where('created_by', $user->id);
+            })->orWhere(function ($legacy) use ($user) {
+                $legacy->where('created_by_entity_type', $user->entity_type)
+                    ->where('created_by', $user->entity_id);
+            });
+        });
+    }
+
     public function entity(): MorphTo
     {
         return $this->morphTo();
