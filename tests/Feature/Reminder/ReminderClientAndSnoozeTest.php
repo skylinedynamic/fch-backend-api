@@ -8,7 +8,7 @@ use App\Models\Common\Reminder;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Passport\Passport;
@@ -17,7 +17,7 @@ use Tests\TestCase;
 
 class ReminderClientAndSnoozeTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     private User $user;
     private int $partnerId;
@@ -199,9 +199,9 @@ class ReminderClientAndSnoozeTest extends TestCase
         $reminder = $this->makeReminder(Borrower::class, $this->borrowerId);
         $url = "/api/v1/common/reminders/{$reminder->id}/snooze";
 
-        $this->postJson($url, ['minutes' => 10, 'note' => str_repeat('a', 1001)])
+        $this->postJson($url, ['minutes' => 10, 'note' => str_repeat('a', 201)])
             ->assertStatus(422)
-            ->assertJsonPath('errors.note', 'The snooze note may not be greater than 1000 characters.');
+            ->assertJsonPath('errors.note', 'The snooze note may not be greater than 200 characters.');
 
         $this->postJson($url, ['minutes' => 10, 'note' => ['not', 'a', 'string']])
             ->assertStatus(422)
@@ -226,8 +226,9 @@ class ReminderClientAndSnoozeTest extends TestCase
         // Nothing was recorded by the rejected requests
         $this->assertNull($reminder->refresh()->snooze_history);
 
-        $this->postJson($url, ['minutes' => 1440, 'note' => str_repeat('a', 1000)])->assertOk();
-        $this->assertSame(1000, strlen($reminder->refresh()->snooze_history[0]['note']));
+        // A note right on the 200-character limit is accepted and kept whole.
+        $this->postJson($url, ['minutes' => 1440, 'note' => str_repeat('a', 200)])->assertOk();
+        $this->assertSame(200, strlen($reminder->refresh()->snooze_history[0]['note']));
     }
 
     #[Test]
