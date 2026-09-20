@@ -60,8 +60,7 @@ class DashboardService
                 ->get()
         );
 
-        $pendingRemindersQuery = \App\Models\Common\Reminder::where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+        $pendingRemindersQuery = \App\Models\Common\Reminder::createdByUser($user)
             ->where('status', \App\Models\Common\Reminder::STATUS_PENDING);
 
         $totalPendingReminders = (clone $pendingRemindersQuery)->count();

@@ -34,8 +34,7 @@ class ReminderService
         }
         
         $query = Reminder::withClient()
-                         ->where('created_by', $user->entity_id)
-                         ->where('created_by_entity_type', $user->entity_type)
+                         ->createdByUser($user)
                          ->dateBetween($startDate, $endDate)
                          ->referenceType($referenceType)
                          ->statusFilter($status)
@@ -50,8 +49,7 @@ class ReminderService
     public function getDueReminders(User $user): Collection
     {
         return Reminder::withClient()
-            ->where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+            ->createdByUser($user)
             ->where(function ($query) {
                 $query->where(function ($q) {
                     $q->due();
@@ -67,8 +65,7 @@ class ReminderService
     public function dismissReminder(User $user, int $id): ?Reminder
     {
         $reminder = Reminder::where('id', $id)
-            ->where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+            ->createdByUser($user)
             ->first();
 
         if (!$reminder) {
@@ -88,8 +85,7 @@ class ReminderService
     public function bulkDismissReminders(User $user, array $ids): int
     {
         return Reminder::whereIn('id', $ids)
-            ->where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+            ->createdByUser($user)
             ->update([
                 'status' => Reminder::STATUS_CANCELLED
             ]);
@@ -104,8 +100,7 @@ class ReminderService
      */
     public function dismissAllReminders(User $user): int
     {
-        return Reminder::where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+        return Reminder::createdByUser($user)
             ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
             ->update([
                 'status' => Reminder::STATUS_CANCELLED
@@ -119,8 +114,7 @@ class ReminderService
     public function snoozeReminder(User $user, int $id, ?int $minutes = null, ?string $rescheduleAt = null, ?int $leadMinutes = null, ?string $note = null): ?Reminder
     {
         $reminder = Reminder::where('id', $id)
-            ->where('created_by', $user->entity_id)
-            ->where('created_by_entity_type', $user->entity_type)
+            ->createdByUser($user)
             ->first();
 
         if (!$reminder) {
@@ -211,11 +205,19 @@ class ReminderService
             $referenceDateUtc = Carbon::parse($data['activity_date'], $timezone)->setTimezone('UTC');
         }
 
+        // File the reminder against the client it concerns, so the due popup and
+        // the reminders list link straight to that client's file. A funding
+        // request or application carries its borrower, so the reminder follows
+        // the borrower rather than the request. Only when nobody is attached
+        // (a partner- or lead-level activity) does it stay on the subject.
+        $reminderEntityId = $targetBorrowerId ?: $subjectId;
+        $reminderEntityType = $targetBorrowerId ? Borrower::class : $subjectType;
+
         $reminder = Reminder::create([
-            'entity_id' => $subjectId,
-            'entity_type' => $subjectType,
-            'created_by' => $currentUser ? $currentUser->entity_id : null,
-            'created_by_entity_type' => $currentUser ? $currentUser->entity_type : null,
+            'entity_id' => $reminderEntityId,
+            'entity_type' => $reminderEntityType,
+            'created_by' => $currentUser ? $currentUser->id : null,
+            'created_by_entity_type' => $currentUser ? User::class : null,
             'reference' => $data['reference'] ?? null,
             'set_date_time' => $referenceDateUtc,
             'summary' => $data['subject'] ?? $data['event'] ?? null,
@@ -240,9 +242,11 @@ class ReminderService
      * reminder created from an activity log can also hold a stale copy of that
      * log's file list — so resolve the file against every shape before giving up.
      */
-    public function downloadAttachment(int $reminderId, string $path)
+    public function downloadAttachment(User $user, int $reminderId, string $path)
     {
-        $reminder = Reminder::find($reminderId);
+        $reminder = Reminder::where('id', $reminderId)
+            ->createdByUser($user)
+            ->first();
 
         if (!$reminder) {
             throw new \Exception('Reminder not found', 404);
