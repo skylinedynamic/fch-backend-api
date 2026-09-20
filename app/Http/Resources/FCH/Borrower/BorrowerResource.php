@@ -84,7 +84,7 @@ class BorrowerResource extends JsonResource
             'additional_data' => $this->additional_data,
             'other_city'    => $this->other_city,
             'is_free_trail' => (bool) ($this->is_free_trail ?? false),
-            'free_trail_end_date' => $this->free_trail_end_date ? $this->free_trail_end_date->toDateString() : null,
+            'free_trail_end_date' => toDateOnly($this->free_trail_end_date),
             'bank_accounts' => $this->relationLoaded('bankAccounts') ? $this->bankAccounts->map(fn($b) => [
                 'id' => $b->id,
                 'bank_name' => $b->bank_name,

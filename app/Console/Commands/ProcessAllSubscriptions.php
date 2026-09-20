@@ -105,8 +105,22 @@ class ProcessAllSubscriptions extends Command
     {
         $dueInvoices = Invoice::query()
             ->where('status', Invoice::STATUS_UNPAID)
-            ->whereHas('subscription', fn($q) => $q->where('status', Subscription::STATUS_ACTIVE))
-            ->whereDate('created_at', '<=', now())
+            ->where('payment_amount', '>', 0)
+            ->whereHas('subscription', function ($q) {
+                // A subscriber who is not Active is not receiving the service, so
+                // Step 1 raises no new cycles for them. Taking money off-session
+                // from a suspended customer's card while their service is switched
+                // off is what produces chargebacks, so collection stops with it.
+                // The invoice stays Unpaid and payable — the debt is not forgiven,
+                // it just is not auto-charged until they are Active again.
+                $q->where('status', Subscription::STATUS_ACTIVE)
+                    ->whereNot(fn($blocked) => $blocked->billingBlocked());
+            })
+            // Deliberately unfiltered by date: every Unpaid invoice on an Active,
+            // unpaused subscription is due for a charge attempt, however old. An
+            // invoice can never be created in the future, so a created_at cutoff
+            // would match everything anyway - and wrapping the column in DATE()
+            // would cost a full scan by making its index unusable.
             ->get();
 
         $this->info(__('subscription.found_unpaid_invoices', ['count' => $dueInvoices->count()]));

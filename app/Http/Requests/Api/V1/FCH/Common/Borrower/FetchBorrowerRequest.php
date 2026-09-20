@@ -25,6 +25,7 @@ class FetchBorrowerRequest extends FormRequest
             'sort_field'        => ['nullable', 'string'],
             'sort_order'        => ['nullable', 'in:asc,desc'],
             'status'            => ['nullable'],
+            'is_free_trail'     => ['nullable'],
         ];
     }
 }

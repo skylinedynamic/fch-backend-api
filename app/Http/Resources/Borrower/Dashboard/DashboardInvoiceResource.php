@@ -19,7 +19,7 @@ class DashboardInvoiceResource extends JsonResource
             'invoice_id' => $this->invoice_id,
             'status' => $this->status,
             'payment_amount' => $this->payment_amount,
-            'payment_date' => $this->payment_date,
+            'payment_date' => toDateOnly($this->payment_date),
             'currency' => $this->currency,
             'currency_symbol' => $this->currency_symbol,
             'conversion_rate' => $this->conversion_rate,

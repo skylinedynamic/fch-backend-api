@@ -31,24 +31,28 @@ class CreditProfileRequestController extends Controller
         try {
             $user = Auth::user();
             if (!$user || !$user->entity_id) {
-                return ApiResponse::error('Unauthorized', 401);
+                return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
             $creditProfileRequest = $this->service->store($user, $request->validated());
 
-            // Fetch the host partner (is_host = 1) and send them the upload request email
+            // Fetch the host partner (is_host = 1) and send them the upload request email.
+            // Catch \Throwable, not \Exception - a bad/misconfigured mailer setting
+            // surfaces as a \TypeError (extends \Error, not \Exception), which
+            // \Exception does not catch. A failed/queued-and-later-failed send must
+            // never fail the borrower's request submission itself.
             $host = Partner::where('is_host', 1)->first();
             if ($host && $host->email) {
                 try {
                     Mail::to($host->email)->send(new CreditProfileRequestMail($creditProfileRequest));
-                } catch (\Exception $mailException) {
-                    Log::error("Failed to send credit profile upload email to host: " . $mailException->getMessage());
+                } catch (\Throwable $mailException) {
+                    Log::error(__('credit_profile_request.log_upload_email_failed', ['error' => $mailException->getMessage()]));
                 }
             }
 
             return ApiResponse::success(
                 new CreditProfileRequestResource($creditProfileRequest),
-                'Credit profile request submitted successfully.'
+                __('credit_profile_request.submitted_successfully')
             );
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
@@ -63,14 +67,14 @@ class CreditProfileRequestController extends Controller
         try {
             $user = Auth::user();
             if (!$user || !$user->entity_id) {
-                return ApiResponse::error('Unauthorized', 401);
+                return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
             $creditProfileRequest = $this->service->getLatestRequest($user->entity_id);
 
             return ApiResponse::success(
                 new CreditProfileRequestResource($creditProfileRequest),
-                'Credit profile request fetched successfully.'
+                __('credit_profile_request.fetched_successfully')
             );
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);

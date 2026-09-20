@@ -3,6 +3,7 @@
 use App\Models\Partner\Partner;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 if (!function_exists('encodeUrl')) {
     /**
@@ -112,9 +113,9 @@ if (!function_exists('normalizeDate')) {
                 return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
             }
 
-            return \Illuminate\Support\Carbon::parse($date)->format('Y-m-d');
+            return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
+            Log::error('Date parsing failed', ['date' => $date, 'error' => $e->getMessage()]);
             return null;
         }
     }
@@ -183,15 +184,89 @@ if (!function_exists('getPartnerDomain')) {
 }
 
 if (!function_exists('getBorrowerDomain')) {
+    /**
+     * Resolve the borrower-portal domain a borrower of this partner can actually
+     * log in through.
+     *
+     * Falling back to the reserved default borrower portal
+     * (config('app.frontend_borrower_url')) is only valid for the host and for a
+     * Certified partner with no domain of its own — see
+     * PortalIsolationService::isUserAllowedOnDomain(), which only lets those two
+     * onto that domain. A White-Label partner (or any other non-host type) with
+     * no borrower_domain has no domain a borrower can log in through at all;
+     * falling back to the reserved default there would hand out a login link the
+     * isolation check then rejects. Returns null in that case so callers (email
+     * templates in particular) can omit the login link instead of sending a
+     * broken one.
+     */
     function getBorrowerDomain(int $partnerId = null): ?string
     {
-        if ($partnerId) {
-            $partner = Partner::find($partnerId);
-            return $partner->borrower_domain ?? config('app.frontend_borrower_url');
+        $partner = $partnerId
+            ? Partner::find($partnerId)
+            : (auth()->check() ? auth()->user()->partner : null);
+
+        if (!$partner) {
+            return null;
         }
-        $partner = auth()->check() ? auth()->user()->partner : null;
-        $domain = $partner->borrower_domain ?? config('app.frontend_borrower_url');
-        return $domain;
+
+        if (!empty($partner->borrower_domain)) {
+            return $partner->borrower_domain;
+        }
+
+        if ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            return config('app.frontend_borrower_url');
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('getEmbedFormBaseUrl')) {
+    /**
+     * Resolve the base URL used for embedded loan application form links
+     * (the direct link and the iframe embed snippet), based on the
+     * authenticated user's partner:
+     *
+     * - Local environment: always the app base URL — custom/sub-domains
+     *   don't resolve locally.
+     * - Host partner: the app base URL.
+     * - White-Label partner: partner_domain when active_custom_url is
+     *   enabled (falling back to partner_subdomain if partner_domain is
+     *   empty), otherwise partner_subdomain.
+     * - Certified partner: partner_subdomain.
+     * - No partner / no domain configured: the app base URL.
+     */
+    function getEmbedFormBaseUrl(): string
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        if (app()->environment('local')) {
+            return $baseUrl;
+        }
+
+        $partner = auth()->user()?->partner;
+
+        if (!$partner || $partner->is_host) {
+            return $baseUrl;
+        }
+
+        $domain = null;
+
+        if ($partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL) {
+            $domain = $partner->active_custom_url
+                ? ($partner->partner_domain ?: $partner->partner_subdomain)
+                : $partner->partner_subdomain;
+        } elseif ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+            $domain = $partner->partner_subdomain;
+        }
+
+        if (empty($domain)) {
+            return $baseUrl;
+        }
+
+        $domain = preg_replace('/^https?:\/\//i', '', trim($domain));
+
+        return 'https://' . rtrim($domain, '/');
     }
 }
 
@@ -263,6 +338,41 @@ if (!function_exists('make_url')) {
     }
 }
 
+if (!function_exists('toDateOnly')) {
+    /**
+     * Render a date-only value as a plain Y-m-d string.
+     *
+     * Counterpart to toTimezone(). A DATE column holds a calendar date with no
+     * time and no zone - "paid through 2026-08-31" is the same day everywhere -
+     * so it must NOT be shifted into the caller's timezone on the way out.
+     * Converting it would read the stored value as midnight UTC and hand any
+     * viewer behind UTC the previous day.
+     *
+     * Use this for DATE columns; use toTimezone() only for DATETIME/TIMESTAMP
+     * columns, which are real instants and do need converting.
+     *
+     * @param mixed $date
+     * @param string $format
+     * @return string|null
+     */
+    function toDateOnly($date, string $format = 'Y-m-d'): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($date)->format($format);
+        } catch (\Exception $e) {
+            Log::error('Date formatting failed', [
+                'date' => $date,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
+
 if (!function_exists('toTimezone')) {
     /**
      * Convert a date/time value to the specified timezone and format.
@@ -285,7 +395,7 @@ if (!function_exists('toTimezone')) {
                 ->setTimezone($timezone)
                 ->format($format);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Timezone conversion failed', [
+            Log::error('Timezone conversion failed', [
                 'datetime' => $datetime,
                 'timezone' => $timezone,
                 'error' => $e->getMessage(),
@@ -323,5 +433,52 @@ if (!function_exists('calculateTimeInBusiness')) {
         }
 
         return implode(' ', $parts);
+    }
+}
+
+if (!function_exists('invoiceBranding')) {
+    /**
+     * Resolve the branding an invoice should be rendered with.
+     *
+     * An invoice carries the brand of WHOEVER IS BEING PAID - the owner of the
+     * money - not of whoever happens to be looking at it. Two cases, nothing else:
+     *
+     *   entity_type = Partner    the host is billing the partner
+     *                            -> HOST branding
+     *   entity_type = Borrower   the partner is billing its own client
+     *                            -> invoices.partner_id's branding
+     *
+     * Partner type is deliberately NOT inspected here. getBrandingSettings()
+     * already falls back to the host for anything a partner has not set, so a
+     * certified partner - who sets nothing of their own - resolves to the host's
+     * values naturally, without a second rule to keep in sync.
+     *
+     * Within one tenant's values the logo falls back document -> sidebar.
+     *
+     * Returns ['partner' => ?Partner, 'branding' => array, 'logo' => string].
+     */
+    function invoiceBranding(?string $entityType, ?int $partnerId): array
+    {
+        $partner = $entityType === Partner::class
+            ? Partner::host()
+            : ($partnerId ? Partner::find($partnerId) : null);
+
+        // An invoice with no partner on it at all still has to render something.
+        $partner ??= Partner::host();
+
+        $branding = $partner
+            ? app(\App\Services\FCH\Common\Setting\AppConfigurationService::class)
+                ->getBrandingSettings($partner->id)
+            : [];
+
+        $logo = ($branding['logo_document_full_url'] ?? null)
+            ?: ($branding['logo_sidebar_full_url'] ?? null)
+            ?: '';
+
+        return [
+            'partner' => $partner,
+            'branding' => $branding,
+            'logo' => (string) $logo,
+        ];
     }
 }

@@ -18,16 +18,13 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\CronJobFailureMail;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
-use App\Models\Subscription\SubscriptionPhase;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\Subscription\SubscriptionListResource;
-use App\Http\Resources\FCH\Subscription\SubscriptionDetailsResource;
 use App\Http\Resources\FCH\Subscription\PartnerBorrowerFeeResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
-use App\Models\ActivityLog\ActivityLog;
 use App\Models\Partner\SubscriptionPlan;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 
@@ -108,8 +105,6 @@ class SubscriptionService
                 'borrower:id,first_name,last_name,email,partner_id',
                 'borrower.partner:id,full_name,company_name,email',
                 'user:id,name,email',
-                'enrollmentPhase',
-                'platformFeePhase'
             ])
             ->select('subscriptions.*');
 
@@ -179,27 +174,17 @@ class SubscriptionService
             }
         }
 
-        // Join Enrollment Phase for next_installment_date or enrollment_completed_at
-        if ($sortField === 'next_installment_date' || isset($rawFilters['next_installment_date']) || $sortField === 'enrollment_completed_at' || isset($rawFilters['enrollment_completed_at'])) {
-            $query->withEnrollmentPhase();
-
-            if ($sortField === 'next_installment_date') {
-                $query->orderBy('ep.next_installment_date', $sortOrder);
-                $skipSorting = true;
-            } elseif ($sortField === 'enrollment_completed_at') {
-                $query->orderBy('ep.enrollment_completed_at', $sortOrder);
-                $skipSorting = true;
-            }
-        }
-
-        // Join Platform Fee Phase for next_platform_fee_date
-        if ($sortField === 'next_platform_fee_date' || isset($rawFilters['next_platform_fee_date'])) {
-            $query->withPlatformFeePhase();
-
-            if ($sortField === 'next_platform_fee_date') {
-                $query->orderBy('pfp.next_platform_fee_date', $sortOrder);
-                $skipSorting = true;
-            }
+        // next_installment_date / next_platform_fee_date used to live on the
+        // subscription_phases side table. Both are now the same thing — the next
+        // cycle the cron will bill — which is subscription_end_date, with
+        // current_phase saying whether that cycle is an installment or a platform
+        // fee. enrollment_completed_at is likewise a real column here now.
+        if ($sortField === 'next_installment_date' || $sortField === 'next_platform_fee_date') {
+            $query->orderBy('subscriptions.subscription_end_date', $sortOrder);
+            $skipSorting = true;
+        } elseif ($sortField === 'enrollment_completed_at') {
+            $query->orderBy('subscriptions.enrollment_completed_at', $sortOrder);
+            $skipSorting = true;
         }
 
         // Created At Filter (Format: Y-m-d h:i A)
@@ -277,8 +262,10 @@ class SubscriptionService
             $data['installment_type'] = (Str::contains($data['enrollment_type'], [Subscription::ENROLLMENT_TYPE_PAYMENT_PLAN, Subscription::ENROLLMENT_TYPE_MONTHLY])) ? 1 : 0;
         }
 
-        // Calculate subscription_amount_per_month
-        if (!isset($data['subscription_amount_per_month'])) {
+        // Calculate subscription_amount_per_month.
+        // array_key_exists, not isset: an explicitly-passed null must be respected
+        // rather than silently replaced with payable_amount.
+        if (!array_key_exists('subscription_amount_per_month', $data)) {
             $totalSubAmount = $data['total_subscription_amount'] ?? 0;
             $downPayment = $data['down_payment'] ?? 0;
             $installmentCount = $data['installment_count'] ?? 0;
@@ -286,8 +273,12 @@ class SubscriptionService
 
             if ($installmentType == 1 && $installmentCount > 0) {
                 $data['subscription_amount_per_month'] = ($totalSubAmount - $downPayment) / $installmentCount;
+            } elseif (SubscriptionCreationService::isOneTimePayment($data['enrollment_type'] ?? null)) {
+                // One Time Payment is settled in a single charge — no recurring
+                // monthly amount exists, so this stays null.
+                $data['subscription_amount_per_month'] = null;
             } else {
-                // One-time / non-installment plan: use payable_amount, fall back to monthly_platform_fee.
+                // Other non-installment plans: use payable_amount, fall back to monthly_platform_fee.
                 $data['subscription_amount_per_month'] = $data['payable_amount'] ?? ($data['monthly_platform_fee'] ?? 0);
             }
         }
@@ -309,8 +300,6 @@ class SubscriptionService
             'borrower.partner',
             'user',
             'partnerPlan',
-            'enrollmentPhase',
-            'platformFeePhase'
         ])->where('id', $id);
 
         $this->applyRbacScope($query);
@@ -433,23 +422,37 @@ class SubscriptionService
      */
     private function handleOneTimePayment(Subscription $subscription, Invoice $invoice): void
     {
-        $nextEnd = $subscription->subscription_end_date
-            ? Carbon::parse($subscription->subscription_end_date)->addMonth()->toDateString()
-            : now()->addMonth()->toDateString();
         $isFirstPayment = !$subscription->subscription_start_date;
+        $isBorrower = $subscription->entity_type === Borrower::class;
 
         $updateData = [
-            'status' => Subscription::STATUS_ACTIVE,
             'installments_paid' => 1,
             'enrollment_completed_at' => $subscription->enrollment_completed_at ?: now(),
-            'current_phase' => Subscription::PHASE_PLATFORM_FEE,
             'current_cycle_invoice_id' => null,
-            'subscription_end_date' => $nextEnd,
         ];
 
         if ($isFirstPayment) {
-            $updateData['subscription_start_date'] = now();
-            $updateData['first_payment_date'] = now();
+            // Date-only columns: store the calendar date, never a timestamp.
+            $updateData['subscription_start_date'] = today();
+            $updateData['first_payment_date'] = today();
+        }
+
+        if ($isBorrower) {
+            // A borrower's one-time enrollment is the whole debt: paying it finishes
+            // them. Nothing recurs, so there is no cycle date to carry - and a date
+            // here would be actively harmful, because isSubscriptionRestricted() in
+            // both portals locks a profile once today is past subscription_end_date.
+            // Setting it to today() locked every borrower out the day after they
+            // paid in full.
+            $updateData['status'] = Subscription::STATUS_ACTIVE;
+            $updateData['current_phase'] = Subscription::PHASE_COMPLETED;
+            $updateData['subscription_end_date'] = null;
+        } else {
+            // Partners roll into the recurring monthly platform fee, so they keep a
+            // live cycle date.
+            $updateData['status'] = Subscription::STATUS_ACTIVE;
+            $updateData['current_phase'] = Subscription::PHASE_PLATFORM_FEE;
+            $updateData['subscription_end_date'] = $this->nextCycleFrom($subscription);
         }
 
         $subscription->update($updateData);
@@ -464,45 +467,105 @@ class SubscriptionService
      */
     private function handleInstallmentPayment(Subscription $subscription, Invoice $invoice): void
     {
-        $nextEnd = $subscription->subscription_end_date
-            ? Carbon::parse($subscription->subscription_end_date)->addMonth()->toDateString()
-            : now()->addMonth()->toDateString();
-        $plan = $subscription->partnerPlan;
+        $nextCycle = $this->nextCycleFrom($subscription);
 
-        // Set start date on first payment
-        if (!$subscription->subscription_start_date && $subscription->phase != Subscription::PHASE_ENROLLMENT) {
+        // Set start date on first payment. subscription_start_date is only ever
+        // written by this branch, so its absence alone reliably means "this is the
+        // very first payment" — whether that payment was a down payment (current_phase
+        // starts at PHASE_ENROLLMENT) or the first installment on a no-down-payment
+        // plan (current_phase starts at PHASE_INSTALLMENT). Either way it migrates
+        // the subscription into PHASE_INSTALLMENT below.
+        if (!$subscription->subscription_start_date) {
             $subscription->update([
-                'subscription_start_date' => now(),
-                'first_payment_date' => now(),
+                'subscription_start_date' => today(),
+                'first_payment_date' => today(),
                 'installments_paid' => $invoice->type == Invoice::INVOICE_TYPE_DOWN_PAYMENT ? 0 : 1,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_INSTALLMENT,
-                'subscription_end_date' => $nextEnd,
+                'subscription_end_date' => $nextCycle,
                 'current_cycle_invoice_id' => null,
             ]);
 
-        } elseif ($subscription->phase == Subscription::PHASE_INSTALLMENT) {
+        } elseif ($subscription->current_phase == Subscription::PHASE_INSTALLMENT) {
 
             $isLastInstallment = $subscription->installment_count == ($subscription->installments_paid + 1);
-            $subscription->update([
-                'status' => Subscription::STATUS_ACTIVE,
+            $isBorrower = $subscription->entity_type === Borrower::class;
+
+            $updateData = [
                 'installments_paid' => $subscription->installments_paid + 1,
-                'installment_end_date' => $nextEnd,
-                'subscription_end_date' => $nextEnd,
                 'enrollment_completed_at' => $isLastInstallment ? now() : null,
-                'current_phase' => $isLastInstallment ? Subscription::PHASE_PLATFORM_FEE : Subscription::PHASE_INSTALLMENT,
+                'subscription_end_date' => $nextCycle,
+                'status' => Subscription::STATUS_ACTIVE,
                 'current_cycle_invoice_id' => null,
-            ]);
+            ];
+
+            if ($isLastInstallment && $isBorrower) {
+                // The final installment settles a borrower's whole debt. Nothing
+                // recurs, so the cycle date is cleared for the same reason as the
+                // one-time branch: a date left here locks them out of their profile
+                // once it passes.
+                $updateData['current_phase'] = Subscription::PHASE_COMPLETED;
+                $updateData['subscription_end_date'] = null;
+            } else {
+                $updateData['current_phase'] = $isLastInstallment
+                    ? Subscription::PHASE_PLATFORM_FEE
+                    : Subscription::PHASE_INSTALLMENT;
+            }
+
+            $subscription->update($updateData);
         } else {
+            // A borrower who already finished owes nothing. A later payment (a stray
+            // fee invoice, say) must not revive their schedule - that would re-arm
+            // the cron for someone with nothing left to bill, and lock them out once
+            // the date passed.
+            if ($subscription->entity_type === Borrower::class
+                && $subscription->current_phase === Subscription::PHASE_COMPLETED) {
+                $subscription->update([
+                    'status' => Subscription::STATUS_ACTIVE,
+                    'current_cycle_invoice_id' => null,
+                ]);
+
+                return;
+            }
+
             $subscription->update([
                 'status' => Subscription::STATUS_ACTIVE,
-                'installment_end_date' => $nextEnd,
-                'subscription_end_date' => $nextEnd,
+                'subscription_end_date' => $nextCycle,
                 'current_cycle_invoice_id' => null,
             ]);
         }
 
         return;
+    }
+
+    /**
+     * Where a payment carries the subscription to.
+     *
+     *   paid BEFORE subscription_end_date -> subscription_end_date + 1 month
+     *   paid on or after it (late)        -> today + 1 month
+     *
+     * Anchoring an early payment on the existing end date is what keeps the billing
+     * day stable. An invoice is raised generate_before_days ahead of the due date,
+     * so a customer who pays the moment it appears would otherwise walk their
+     * billing day backwards by that many days every single cycle.
+     *
+     * Anchoring a late payment on today is what keeps them out of the lockout:
+     * isSubscriptionRestricted() in both portals locks a profile once today is past
+     * subscription_end_date, so carrying a date behind today would lock a customer
+     * for the act of paying.
+     *
+     * This is the only cycle date now. expected_end_date is gone - with one open
+     * invoice at a time a cycle is never rolled forward without payment, so the
+     * second date it existed to carry has nothing left to record.
+     */
+    private function nextCycleFrom(Subscription $subscription): Carbon
+    {
+        // subscription_end_date is cast to a date, so it arrives as Carbon already.
+        $end = $subscription->subscription_end_date?->copy()->startOfDay();
+
+        $anchor = $end && $end->gt(today()) ? $end : today();
+
+        return $anchor->copy()->addMonth();
     }
 
     /**
@@ -556,21 +619,29 @@ class SubscriptionService
                 }
             }
 
+            // current_cycle_invoice_id -> null: matches handleOneTimePayment() /
+            // handleInstallmentPayment() - this invoice is now paid, so it must stop
+            // being "the open invoice for this cycle", otherwise createInvoiceIfDue()
+            // keeps finding a (paid) invoice here and treats the cycle as already
+            // billed instead of generating the next one.
             $subscription->update([
-                'subscription_start_date' => now(),
-                'first_payment_date' => now(),
+                'subscription_start_date' => today(),
+                'first_payment_date' => today(),
                 'subscription_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_phase' => Subscription::PHASE_USER_SEAT,
+                'current_cycle_invoice_id' => null,
             ]);
         } else {
-            // Renewal: extend subscription_end_date
+            // Renewal: extend from where the seat is already paid through, so buying
+            // a seat early never costs the days already paid for.
             $currentEnd = Carbon::parse($subscription->subscription_end_date);
             $newEnd = $currentEnd->addMonths($monthsPaid);
 
             $subscription->update([
                 'subscription_end_date' => $newEnd,
                 'status' => Subscription::STATUS_ACTIVE,
+                'current_cycle_invoice_id' => null,
             ]);
 
             if ($user) {
@@ -600,57 +671,35 @@ class SubscriptionService
      */
     protected function createInvoiceIfDue(Subscription $subscription): bool
     {
-        $today = Carbon::today();
         $dueDate = $subscription->subscription_end_date;
 
+        // Nothing scheduled: a borrower who has paid in full, or a subscription
+        // whose first invoice is raised at enrollment rather than by this cron.
         if (!$dueDate) {
             return false;
         }
 
-        $parsedDueDate = Carbon::parse($dueDate)->startOfDay();
-        $generateBeforeDays = (int) config('subscription.generate_before_days', 5);
-        $earliestGenerateDate = $parsedDueDate->copy()->subDays($generateBeforeDays)->startOfDay();
-
-        // Check if subscription_end_date has expired: mark status as Past Due if current cycle invoice remains unpaid
-        if ($today->gt($parsedDueDate)) {
-            if ($subscription->current_cycle_invoice_id) {
-                $currentInvoice = Invoice::find($subscription->current_cycle_invoice_id);
-                if ($currentInvoice && $currentInvoice->status === Invoice::STATUS_UNPAID) {
-                    $subscription->update(['status' => Subscription::STATUS_PAST_DUE]);
-                }
-            }
-        }
-
-        // Must be within the generation window (e.g. within 5 days before subscription_end_date)
-        if ($today->lt($earliestGenerateDate)) {
+        // One open invoice at a time. Until the customer pays what they already owe,
+        // no further invoice is raised - nothing is expired, nothing is rolled
+        // forward, and a debt can never stack into several invoices. Only the
+        // subscription's own cycle counts, so a borrower fee the PARTNER owes cannot
+        // hold the borrower's billing hostage.
+        if (Invoice::where('subscription_id', $subscription->id)->openCycle()->exists()) {
             return false;
         }
 
-        // Deduplication using current_cycle_invoice_id
-        if ($subscription->current_cycle_invoice_id) {
-            $currentInvoice = Invoice::find($subscription->current_cycle_invoice_id);
-            if ($currentInvoice) {
-                if ($currentInvoice->status === Invoice::STATUS_UNPAID || $currentInvoice->created_at >= $earliestGenerateDate) {
-                    return false;
-                }
-            }
-        }
+        // Raised generate_before_days ahead of the due date, so the invoice is
+        // waiting when the cycle lands.
+        $generateFrom = $dueDate->copy()
+            ->startOfDay()
+            ->subDays((int) config('subscription.generate_before_days', 5));
 
-        // Deduplication fallback: do not create if an unpaid invoice already exists for this subscription
-        $hasUnpaidInvoice = Invoice::where('subscription_id', $subscription->id)
-            ->where('status', Invoice::STATUS_UNPAID)
-            ->exists();
-
-        if ($hasUnpaidInvoice) {
-            return false;
-        }
-
-        // Deduplication fallback: do not create if an invoice was already generated within this cycle window
-        $alreadyGeneratedThisCycle = Invoice::where('subscription_id', $subscription->id)
-            ->where('created_at', '>=', $earliestGenerateDate)
-            ->exists();
-
-        return !$alreadyGeneratedThisCycle;
+        // Those two checks are together airtight against duplicates, so there is no
+        // third guard: run the cron twice in a day and the second run finds the
+        // first run's invoice open; pay it in between and the cycle date has moved a
+        // month out. A "was one raised recently" check used to sit here and did harm,
+        // matching invoices that had since been PAID.
+        return today()->gte($generateFrom);
     }
 
     /**
@@ -664,6 +713,67 @@ class SubscriptionService
      * @param string       $type  'enrollment' | 'platform_fee'
      * @return void
      */
+    /**
+     * Why this subscription cannot be billed right now, or null if it can.
+     *
+     * A borrower is also blocked when their partner is not Active — the borrower
+     * reaches the platform through that partner, so if the partner is switched off
+     * the borrower is not receiving the service either.
+     *
+     * @param  Subscription $subscription
+     * @param  mixed        $entity
+     * @return string|null  Human-readable reason, used for the pause log.
+     */
+    protected function billingBlockReason(Subscription $subscription, $entity): ?string
+    {
+        if ($subscription->entity_type === Borrower::class) {
+            if ($entity->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower status is ' . $entity->status;
+            }
+
+            $entity->loadMissing('partner');
+            $partner = $entity->partner;
+
+            if (!$partner) {
+                return 'Borrower has no partner';
+            }
+
+            if ($partner->status !== Partner::STATUS_ACTIVE) {
+                return "Borrower's partner status is " . $partner->status;
+            }
+
+            return null;
+        }
+
+        if ($subscription->entity_type === Partner::class) {
+            return $entity->status !== Partner::STATUS_ACTIVE
+                ? 'Partner status is ' . $entity->status
+                : null;
+        }
+
+        if ($subscription->entity_type === User::class) {
+            return $entity->status !== User::STATUS['active']
+                ? 'User status is ' . $entity->status
+                : null;
+        }
+
+        if ($subscription->entity_type === Employee::class) {
+            $userRecord = User::where('entity_type', Employee::class)
+                ->where('entity_id', $subscription->entity_id)
+                ->first();
+
+            if (!$userRecord) {
+                return 'Employee has no user account';
+            }
+
+            return $userRecord->status !== User::STATUS['active']
+                ? 'Employee user status is ' . $userRecord->status
+                : null;
+        }
+
+        return null;
+    }
+
     protected function createInvoiceForSubscription(Subscription $subscription): void
     {
         try {
@@ -675,24 +785,38 @@ class SubscriptionService
                     return;
                 }
 
-                // Status guard per entity type
-                if ($subscription->entity_type === Borrower::class) {
-                    if ($entity->status !== Borrower::STATUS_ACTIVE)
-                        return;
-                    $entity->loadMissing('partner');
-                    $partner = $entity->partner;
-                    if (!$partner || $partner->status !== Partner::STATUS_ACTIVE)
-                        return;
-                } elseif ($subscription->entity_type === Partner::class) {
-                    if ($entity->status !== Partner::STATUS_ACTIVE)
-                        return;
-                } elseif ($subscription->entity_type === User::class) {
-                    if ($entity->status !== User::STATUS['active'])
-                        return;
-                } elseif ($subscription->entity_type === Employee::class) {
-                    $userRecord = User::where('entity_type', Employee::class)->where('entity_id', $subscription->entity_id)->first();
-                    if (!$userRecord || $userRecord->status !== User::STATUS['active'])
-                        return;
+                // Status guard per entity type.
+                //
+                // A subscriber who is not Active is not receiving the service, so
+                // billing PAUSES rather than silently skipping. The distinction
+                // matters on the way back: billing simply resumes with the one
+                // invoice raised on the next run.
+                $blockReason = $this->billingBlockReason($subscription, $entity);
+
+                if ($blockReason) {
+                    Log::info('Skipped billing: subscriber is not Active', [
+                        'subscription_id' => $subscription->id,
+                        'entity' => class_basename($subscription->entity_type) . '#' . $subscription->entity_id,
+                        'reason' => $blockReason,
+                    ]);
+
+                    return;
+                }
+
+                // Safety net: a Borrower should never be in the recurring platform-fee
+                // cycle — self-heal any stale/corrupted state instead of billing $0.
+                // Status stays Active; current_phase is what records "nothing left to bill."
+                if ($subscription->entity_type === Borrower::class && $subscription->current_phase === Subscription::PHASE_PLATFORM_FEE) {
+                    // Clearing subscription_end_date stops the scheduling, and is
+                    // what every other finished-borrower path writes.
+                    $subscription->update([
+                        'current_phase' => Subscription::PHASE_COMPLETED,
+                        'subscription_end_date' => null,
+                    ]);
+                    Log::warning('Auto-completed a Borrower subscription stuck in platform_fee phase', [
+                        'subscription_id' => $subscription->id,
+                    ]);
+                    return;
                 }
 
                 if (!$this->createInvoiceIfDue($subscription)) {
@@ -702,16 +826,16 @@ class SubscriptionService
                 $phase = $subscription->current_phase;
                 $isPlatformFee = $phase === Subscription::PHASE_PLATFORM_FEE;
 
-                // Installment limit check
+                // Installment limit check — keyed on actual payments collected
+                // (installments_paid), not raw invoice row count. A missed cycle now
+                // generates an Expired row that's rolled past, not a real payment, so
+                // counting rows here would stop billing before the plan is actually
+                // paid off.
                 if ($phase === Subscription::PHASE_INSTALLMENT) {
-                    $invoiceCount = Invoice::where('subscription_id', $subscription->id)
-                        ->whereNotIn('type', [Invoice::INVOICE_TYPE_PLATFORM_FEE])
-                        ->count();
                     $totalCount = $subscription->installment_count ?? ($subscription->partnerPlan?->total_installment_count_upto ?? 0);
-                    $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
-                    $allowedInvoices = $hasDownPayment ? ($totalCount + 1) : $totalCount;
+                    $paidCount = (int) ($subscription->installments_paid ?? 0);
 
-                    if ($totalCount && $invoiceCount >= $allowedInvoices) {
+                    if ($totalCount && $paidCount >= $totalCount) {
                         return;
                     }
                 }
@@ -732,19 +856,42 @@ class SubscriptionService
                 if ($phase === Subscription::PHASE_PLATFORM_FEE) {
                     $amount = $subscription->monthly_platform_fee;
                 } elseif ($phase === Subscription::PHASE_USER_SEAT) {
-                    $amount = $subscription->monthly_platform_fee;
+                    // User/Employee seat renewal — billed at the per-seat rate, not
+                    // monthly_platform_fee (which only applies to Partner subscriptions).
+                    $amount = $subscription->per_seat_amount;
                 } else {
                     // enrollment or installment
-                    $invoiceCount = Invoice::where('subscription_id', $subscription->id)
-                        ->whereNotIn('type', [Invoice::INVOICE_TYPE_PLATFORM_FEE])
-                        ->count();
-                    $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
                     if ($subscription->installment_type == 1 && $subscription->installment_count > 0) {
-                        if ($invoiceCount == 0 && $hasDownPayment) {
-                            $amount = $subscription->down_payment;
-                        } else {
-                            $amount = ($subscription->total_subscription_amount - $subscription->down_payment) / $subscription->installment_count;
-                        }
+                        // Has the first cycle been billed yet? Counted over the
+                        // subscription's OWN cycle invoices: a borrower fee is the
+                        // partner's separate charge, and counting it made the row
+                        // look already-billed so the down payment was never raised.
+                        $isFirstCycle = !Invoice::where('subscription_id', $subscription->id)
+                            ->whereIn('type', [
+                                Invoice::INVOICE_TYPE_ENROLLMENT,
+                                Invoice::INVOICE_TYPE_DOWN_PAYMENT,
+                                Invoice::INVOICE_TYPE_INSTALLMENT,
+                            ])
+                            ->exists();
+
+                        $hasDownPayment = $subscription->down_payment && $subscription->down_payment > 0;
+
+                        // The monthly figure as EnrollmentService calculated it at
+                        // signup. Read, never recomputed: an installment plan always
+                        // carries subscription_amount_per_month, so a missing one is
+                        // a broken row, and billing something derived would paper
+                        // over it with a number nobody agreed to.
+                        //
+                        // This used to be (total_subscription_amount - down_payment)
+                        // / installment_count, which subtracted the down payment a
+                        // SECOND time: total_subscription_amount is already the
+                        // remaining balance after it. A 7696 plan with 1000 down over
+                        // 12 months was billed 474.67 a month instead of 558.00, so
+                        // the customer was undercharged every cycle and the plan
+                        // could never settle.
+                        $amount = $isFirstCycle && $hasDownPayment
+                            ? $subscription->down_payment
+                            : $subscription->subscription_amount_per_month;
                     } else {
                         $amount = $subscription->payable_amount;
                     }
@@ -761,12 +908,32 @@ class SubscriptionService
                     $email = $partner ? $partner->email : $email;
                 }
 
-                // When creating a new invoice, if previous invoice is still unpaid make that invoice Expired
-                Invoice::where('subscription_id', $subscription->id)
-                    ->where('id', $subscription->current_cycle_invoice_id)
-                    ->where('status', Invoice::STATUS_UNPAID)
-                    ->update(['status' => Invoice::STATUS_EXPIRED]);
+                // Never generate a zero/invalid-amount invoice — a $0 charge attempt on
+                // Stripe fails and spams the admin failure-notification mailbox every cycle.
+                if ($amount === null || (float) $amount <= 0) {
+                    // Name the column the phase should have billed from, so a broken
+                    // row is identifiable from the log line alone rather than being
+                    // reported every cycle as a nameless "zero amount".
+                    $source = match ($phase) {
+                        Subscription::PHASE_PLATFORM_FEE => 'monthly_platform_fee',
+                        Subscription::PHASE_USER_SEAT => 'per_seat_amount',
+                        Subscription::PHASE_INSTALLMENT => 'subscription_amount_per_month',
+                        default => 'payable_amount',
+                    };
 
+                    Log::warning('Skipped invoice generation: zero/invalid amount', [
+                        'subscription_id' => $subscription->id,
+                        'phase' => $phase,
+                        'amount' => $amount,
+                        'expected_from' => $source,
+                    ]);
+                    return;
+                }
+
+                // Nothing is expired on the way in. Reaching this point means
+                // createInvoiceIfDue() found no open cycle invoice, so there is
+                // nothing to supersede - and superseding is exactly what the current
+                // rule forbids: one invoice stands until the customer pays it.
                 $invoice = $this->invoiceService->create([
                     'partner_id' => $partnerId,
                     'borrower_id' => $subscription->entity_type === Borrower::class ? $subscription->entity_id : null,
@@ -834,7 +1001,7 @@ class SubscriptionService
      * Queries subscriptions table directly using current_phase + next_installment_date.
      */
     /**
-     * Generate invoices for all active subscriptions whose subscription_end_date is due.
+     * Generate invoices for all active subscriptions whose cycle is due.
      *
      * This is the single unified invoice generator for all subscription types:
      *  - enrollment   (Partner/Borrower down payment pending)
@@ -842,17 +1009,35 @@ class SubscriptionService
      *  - platform_fee (Partner/Borrower platform fee phase)
      *  - user_seat    (User/Employee monthly seat renewal)
      *
-     * current_phase determines the invoice type; subscription_end_date is the sole trigger.
+     * current_phase determines the invoice type; subscription_end_date is the scheduling
+     * trigger (see the class docblock on Subscription for how it differs from
+     * subscription_end_date, which records what's actually been paid).
      * next_installment_date and next_platform_fee_date are deprecated and no longer used.
      */
     public function generateDueInvoices(): void
     {
-        $targetDate = now()->addDays(config('subscription.generate_before_days', 5));
+        $targetDate = today()
+            ->addDays((int) config('subscription.generate_before_days', 5))
+            ->toDateString();
 
-        Subscription::with(['entity', 'partnerPlan'])
+        // Keyed on subscription_end_date, the only cycle date left. Rows with an
+        // invoice still open are excluded here as well as inside
+        // createInvoiceIfDue(), which keeps each chunk small when many customers are
+        // behind.
+        //
+        // A plain comparison, not whereDate(): the column is already a DATE, so
+        // wrapping it in DATE() bought nothing and made its index unusable.
+        // The borrower's partner is eager loaded because billingBlockReason() reads
+        // it for every borrower — without it the cron ran a query per row.
+        Subscription::query()
+            ->with([
+                'entity' => fn($morphTo) => $morphTo->morphWith([Borrower::class => ['partner']]),
+                'partnerPlan',
+            ])
             ->where('status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('subscription_end_date')
-            ->whereDate('subscription_end_date', '<=', $targetDate)
+            ->where('subscription_end_date', '<=', $targetDate)
+            ->whereDoesntHave('invoices', fn($q) => $q->openCycle())
             ->chunkById(100, function ($subscriptions) {
                 foreach ($subscriptions as $subscription) {
                     $this->createInvoiceForSubscription($subscription);
@@ -878,15 +1063,19 @@ class SubscriptionService
         $totalActive = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_ACTIVE)->count();
         $totalPending = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_PENDING)->count();
 
-        // Expiring Soon (within 5 days)
+        // Expiring Soon (next cycle due within 5 days) — a scheduling stat, keyed on
+        // subscription_end_date, the only cycle date left.
         $expiringSoon = (clone $cloned)->where('subscriptions.status', Subscription::STATUS_ACTIVE)
             ->whereNotNull('subscriptions.subscription_end_date')
-            ->whereBetween('subscriptions.subscription_end_date', [now(), now()->addDays(5)])
+            ->whereBetween('subscriptions.subscription_end_date', [today()->toDateString(), today()->addDays(5)->toDateString()])
             ->count();
 
-        // Expired Subscriptions
+        // Behind on payment — subscriptions whose subscription_end_date (paid
+        // through) has already passed. Under the roll-forward billing model these
+        // no longer freeze at Past Due, so this is the one place that still
+        // surfaces real payment delinquency for an admin to see.
         $expiredCount = (clone $cloned)->whereNotNull('subscriptions.subscription_end_date')
-            ->where('subscriptions.subscription_end_date', '<', now())
+            ->whereDate('subscriptions.subscription_end_date', '<', today()->toDateString())
             ->count();
 
         // Revenue this month (from paid invoices linked to scoped partner)

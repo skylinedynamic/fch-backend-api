@@ -459,77 +459,53 @@ class FundingApplicationDocumentService
         return array_merge($branding, $borrowerInfo, $sigInfo);
     }
 
+    /**
+     * Whose brand goes on this document, and which logo file represents it.
+     *
+     * White-Label partners issue documents under their OWN brand - that is the
+     * product they are paying for - so a WL partner's application and signature
+     * certificate carry their logo. Certified partners operate under the host's
+     * brand, so their documents carry the HOST logo even when they have uploaded
+     * one of their own; the brand partner is forced to the host rather than left
+     * to inheritance, which would otherwise hand a Certified partner their own.
+     *
+     * The logo itself is logo_document - the key that means "the logo for a white
+     * page". Falling back to logo_sidebar when it is absent is explicit here as
+     * well as in AppConfiguration::BRANDING_LOGO_FALLBACKS.
+     */
     private static function getCompanyBrandingInfo($application)
     {
         $appConfigService = new AppConfigurationService();
-        $module = AppConfiguration::MODULE_BRANDING;
-        $partnerId = $application->partner_id;
 
-        // Try application partner branding
-        $branding = $appConfigService->getByModule($module, $partnerId);
+        $hostPartner = Partner::host();
+        $partner = $application->partner_id ? Partner::find($application->partner_id) : null;
 
-        $hostPartner = Partner::where('is_host', true)->first();
-        
-        // Fallback to host partner branding
-        if (empty($branding)) {
-            $branding = $appConfigService->getByModule($module, $hostPartner ? $hostPartner->id : null);
-        }
+        $isWhiteLabel = $partner
+            && !$partner->is_host
+            && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
 
-        $address = $appConfigService->get('address', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('address', null, null, $hostPartner->id) : null);
-        $phone = $appConfigService->get('phone_number', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('phone_number', null, null, $hostPartner->id) : null);
-        $email = $appConfigService->get('email', null, null, $partnerId) ?? ($hostPartner ? $appConfigService->get('email', null, null, $hostPartner->id) : null);
+        $brandPartner = $isWhiteLabel ? $partner : ($hostPartner ?? $partner);
+        $brandPartnerId = $brandPartner->id ?? null;
 
+        // Resolves each surface logo through its fallback chain, exhausting the
+        // tenant's own uploads before inheriting the host's.
+        $branding = $appConfigService->getBrandingSettings($brandPartnerId);
+
+        $address = $appConfigService->get('address', null, null, $brandPartnerId);
+        $phone = $appConfigService->get('phone_number', null, null, $brandPartnerId);
+        $email = $appConfigService->get('email', null, null, $brandPartnerId);
         $contactParts = array_filter([$phone, $email]);
-        
-        $logoKey = $branding['primary_logo'] ?? $branding['secondary_logo'] ?? $branding['header_logo'] ?? null;
-        $logoBase64 = '';
-        $paths = $logoKey && $logoKey !== 'null' ? [
-            storage_path('app/public/' . ltrim((string) $logoKey, '/')),
-            public_path('storage/' . ltrim((string) $logoKey, '/')),
-            public_path(ltrim((string) $logoKey, '/'))
-        ] : [];
-        
-        $paths = array_merge($paths, [public_path('logo-mail.png'), public_path('logo.png')]);
 
-        foreach ($paths as $path) {
-            if (file_exists($path)) {
-                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-                if ($ext === 'png') {
-                    $img = @imagecreatefrompng($path);
-                    if ($img) {
-                        imagealphablending($img, false);
-                        imagesavealpha($img, true);
+        // logo_document is the on-white logo; logo_sidebar is the explicit
+        // last resort the brief asks for when no document logo is set.
+        $logoKey = $branding['logo_document'] ?? $branding['logo_sidebar'] ?? null;
 
-                        $width = imagesx($img);
-                        $height = imagesy($img);
-
-                        for ($x = 0; $x < $width; $x++) {
-                            for ($y = 0; $y < $height; $y++) {
-                                $color = imagecolorat($img, $x, $y);
-                                $rgba = imagecolorsforindex($img, $color);
-                                
-                                if ($rgba['alpha'] < 127) {
-                                    // If pixel is white-ish (R,G,B > 150), turn it black
-                                    if ($rgba['red'] > 150 && $rgba['green'] > 150 && $rgba['blue'] > 150) {
-                                        $black = imagecolorallocatealpha($img, 0, 0, 0, $rgba['alpha']);
-                                        imagesetpixel($img, $x, $y, $black);
-                                    }
-                                }
-                            }
-                        }
-
-                        ob_start();
-                        imagepng($img);
-                        $imgData = ob_get_clean();
-                        imagedestroy($img);
-                        $logoBase64 = 'data:image/png;base64,' . base64_encode($imgData);
-                        break;
-                    }
-                }
-                $logoBase64 = 'data:image/' . $ext . ';base64,' . base64_encode(file_get_contents($path));
-                break;
-            }
-        }
+        // A white-label partner must never be handed the host's logo as a stand-in:
+        // that is the exact branding leak this change exists to stop. If their file
+        // is missing the logo comes back empty and the template falls through to
+        // their company name. Host-branded documents may still use the packaged
+        // logo files, since that IS their brand.
+        [$logoBase64, $logoWidth, $logoHeight] = self::resolveDocumentLogo($logoKey, !$isWhiteLabel);
 
         return [
             'primaryColor' => $branding['primary_color'] ?? '#2563a2',
@@ -540,8 +516,64 @@ class FundingApplicationDocumentService
             'companyContact' => implode('  |  ', $contactParts),
             'companyWebsite' => '',
             'logoBase64' => $logoBase64,
+            'logoWidth' => $logoWidth,
+            'logoHeight' => $logoHeight,
             'tz' => request()->header('X-Timezone') ?? config('app.timezone'),
         ];
+    }
+
+    /**
+     * Read the logo file and size it to fit a 200x60 box, preserving aspect ratio.
+     *
+     * dompdf does not implement object-fit (it is absent from dompdf 3.x
+     * entirely), so declaring `object-fit: contain` in the template would be
+     * silently ignored and a fixed 200x60 would stretch every non-3.33:1 logo.
+     * The contain maths is therefore done here and emitted as explicit width and
+     * height; the CSS declaration stays in the template for any browser preview.
+     *
+     * @return array{0: string, 1: int, 2: int} [base64 data URI, width, height]
+     */
+    private static function resolveDocumentLogo(
+        ?string $logoKey,
+        bool $allowPackagedFallback = true,
+        int $boxWidth = 200,
+        int $boxHeight = 60
+    ): array {
+        $paths = $logoKey && $logoKey !== 'null' ? [
+            storage_path('app/public/' . ltrim($logoKey, '/')),
+            public_path('storage/' . ltrim($logoKey, '/')),
+            public_path(ltrim($logoKey, '/')),
+        ] : [];
+
+        // The packaged files are the HOST's logo, so they are a valid last resort
+        // only for host-branded documents.
+        if ($allowPackagedFallback) {
+            $paths = array_merge($paths, [public_path('logo-mail.png'), public_path('logo.png')]);
+        }
+
+        foreach ($paths as $path) {
+            if (!file_exists($path)) {
+                continue;
+            }
+
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION)) ?: 'png';
+            $base64 = 'data:image/' . $ext . ';base64,' . base64_encode(file_get_contents($path));
+
+            $width = $boxWidth;
+            $height = $boxHeight;
+
+            $size = @getimagesize($path);
+            if ($size && !empty($size[0]) && !empty($size[1])) {
+                // contain: scale by whichever axis is the tighter constraint.
+                $scale = min($boxWidth / $size[0], $boxHeight / $size[1]);
+                $width = max(1, (int) round($size[0] * $scale));
+                $height = max(1, (int) round($size[1] * $scale));
+            }
+
+            return [$base64, $width, $height];
+        }
+
+        return ['', $boxWidth, $boxHeight];
     }
 
     private static function getBorrowerBusinessInfo($application)

@@ -84,6 +84,11 @@ class BorrowerService
             }
         }
 
+        // Snapshot the query scoped only by partner authorization (before search/status/column
+        // filters are applied) so the summary cards always reflect true totals for the partner,
+        // not just the rows matching whatever search/filter the user currently has active.
+        $statsQuery = clone $query;
+
         // Filter by current_tier (supports ID or Name)
         $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
         if ($currentTier !== null && $currentTier !== '') {
@@ -110,6 +115,12 @@ class BorrowerService
             } else {
                 $query->where('borrowers.status', $status);
             }
+        }
+
+        // Filter by Free Plan / Regular plan (is_free_trail)
+        $isFreeTrail = $filters['is_free_trail']['value'] ?? ($filters['is_free_trail'] ?? null);
+        if ($isFreeTrail !== null && $isFreeTrail !== '') {
+            $query->where('borrowers.is_free_trail', filter_var($isFreeTrail, FILTER_VALIDATE_BOOLEAN));
         }
 
         // Apply Search
@@ -246,12 +257,13 @@ class BorrowerService
             ]
         );
 
-        // Calculate statistics before pagination
+        // Calculate statistics from the partner-scoped (but otherwise unfiltered) query, so the
+        // summary cards show true totals rather than fluctuating with the table's search/filters.
         $statistics = [
-            'total_borrowers' => (clone $query)->count(),
-            'active_borrowers' => (clone $query)->where('status', Borrower::STATUS_ACTIVE)->count(),
-            'inactive_borrowers' => (clone $query)->whereIn('status', [Borrower::STATUS_INACTIVE, Borrower::STATUS_SUSPENDED])->count(),
-            'new_this_month' => (clone $query)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+            'total_borrowers' => (clone $statsQuery)->count(),
+            'active_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_ACTIVE)->count(),
+            'inactive_borrowers' => (clone $statsQuery)->where('status', Borrower::STATUS_INACTIVE)->count(),
+            'new_this_month' => (clone $statsQuery)->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])->count(),
         ];
 
         $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -463,7 +475,11 @@ class BorrowerService
             $borrowerData = collect($data)->except($exceptFields)->toArray();
             $borrowerData['business_start_date'] = isset($data['business_start_date']) ? normalizeDate($data['business_start_date']) : $borrower->business_start_date;
             $borrowerData['date_of_birth'] = isset($data['date_of_birth']) ? normalizeDate($data['date_of_birth']) : $borrower->date_of_birth;
-            $borrowerData['free_trail_end_date'] = isset($data['free_trail_end_date']) ? normalizeDate($data['free_trail_end_date']) : $borrower->free_trail_end_date;
+            // free_trail_end_date is a DATE column and is now serialised verbatim
+            // through toDateOnly(), so a reposted value round-trips unchanged.
+            if (isset($borrowerData['free_trail_end_date'])) {
+                $borrowerData['free_trail_end_date'] = normalizeDate($borrowerData['free_trail_end_date']);
+            }
 
             // Handle city overrides if 'other' city is provided
             if (isset($data['other_city'])) {
@@ -645,6 +661,7 @@ class BorrowerService
             }
 
             foreach ($bankAccountsData as $row) {
+                $accountOpenDate = !empty($row['account_open_date']) ? normalizeDate($row['account_open_date']) : null;
                 if (!empty($row['id'])) {
                     $bba = BorrowerBankAccount::where('id', $row['id'])
                         ->where('borrower_id', $borrower->id)
@@ -652,7 +669,7 @@ class BorrowerService
                     if ($bba) {
                         $bba->fill([
                             'bank_name' => $row['bank_name'],
-                            'account_open_date' => $row['account_open_date'] ?? null,
+                            'account_open_date' => $accountOpenDate,
                         ]);
                         if ($bba->isDirty()) {
                             $bba->save();
@@ -663,7 +680,7 @@ class BorrowerService
                     BorrowerBankAccount::create([
                         'borrower_id' => $borrower->id,
                         'bank_name' => $row['bank_name'],
-                        'account_open_date' => $row['account_open_date'] ?? null,
+                        'account_open_date' => $accountOpenDate,
                     ]);
                     $bankAccountsChanged = true;
                 }
@@ -693,7 +710,7 @@ class BorrowerService
             );
         }
 
-        return $borrower->load('bankAccounts')->fresh();
+        return $borrower->fresh(['bankAccounts']);
     }
 
     /**
@@ -704,7 +721,7 @@ class BorrowerService
         return Borrower::when(auth()->user()->user_type == User::PARTNER, function ($query) {
             $query->where('partner_id', auth()->user()->partner_id);
         })
-            ->with('partner', 'latestSubscription')
+            ->with('partner', 'latestSubscription', 'bankAccounts')
             ->find($id);
     }
 

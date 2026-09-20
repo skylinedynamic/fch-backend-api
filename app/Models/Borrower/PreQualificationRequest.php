@@ -29,6 +29,7 @@ class PreQualificationRequest extends Model
         'business_name',
         'industry_type',
         'business_structure',
+        'business_start_date',
         'monthly_revenue',
         'annual_revenue',
         'years_in_business',
@@ -38,12 +39,23 @@ class PreQualificationRequest extends Model
         'purpose_note',
         'personal_credit_score',
         'estimated_business_credit_score',
+        'credit_score_source',
         'existing_business_debt',
         'debt_balance',
         'notes',
         'status',
         'status_note',
         'assign_to',
+        // System-managed evaluation fields. Not borrower input, but written via
+        // update() during submit//evaluation, which mass-assignment would
+        // otherwise silently discard.
+        'validation_status',
+        'validation_version',
+        'validation_summary',
+        'validation_issues',
+        'validated_at',
+        'gpt_status',
+        'gpt_generated_at',
     ];
 
     protected $casts = [
@@ -52,7 +64,22 @@ class PreQualificationRequest extends Model
         'funding_requested_amount' => 'decimal:2',
         'debt_balance' => 'decimal:2',
         'existing_business_debt' => 'boolean',
+        'business_start_date' => 'date',
+        'validation_issues' => 'array',
+        'validated_at' => 'datetime',
+        'gpt_generated_at' => 'datetime',
     ];
+
+    public const VALIDATION_PASSED = 'PASSED';
+    public const VALIDATION_INCORRECT = 'INCORRECT';
+    public const VALIDATION_NEEDS_CORRECTION = 'INCORRECT';
+    public const VALIDATION_SYSTEM_ERROR = 'SYSTEM_ERROR';
+
+    public const GPT_PENDING = 'PENDING';
+    public const GPT_COMPLETED = 'COMPLETED';
+    public const GPT_INCORRECT = 'INCORRECT';
+    public const GPT_NEEDS_CORRECTION = 'INCORRECT';
+    public const GPT_FAILED = 'FAILED';
 
     public const ON_HOLD = 'On Hold';
     public const PENDING = 'Pending';
@@ -86,6 +113,22 @@ class PreQualificationRequest extends Model
         self::DECLINED => self::DECLINED,
     ];
 
+    /**
+     * How long a status note may be.
+     *
+     * Status Notes is a short reviewer note, not a memo — the full underwriting
+     * write-up lives in the AI Underwriting Result tab. The generated note
+     * ("AUE stance: … Next action: …") tops out around 70 characters, so this
+     * leaves room for a reviewer to add context without the field becoming a
+     * second place to store the memo.
+     *
+     * Single source of truth for the limit: the request rule, the generated-note
+     * truncation and the admin form's counter all derive from it. If it changes,
+     * STATUS_NOTE_MAX_LENGTH in the admin front-end's PreQualificationDetails
+     * must change with it.
+     */
+    public const STATUS_NOTE_MAX_LENGTH = 200;
+
       public const PURPOSE_OF_FUNDING_OPTIONS = [
         'Working Capital' => 'Working Capital',
         'Equipment'       => 'Equipment',
@@ -98,6 +141,28 @@ class PreQualificationRequest extends Model
     public function getStatusClassAttribute(): string
     {
         return self::STATUS_CLASS[$this->status] ?? '';
+    }
+
+    /**
+     * The request's own business_start_date, falling back to the linked
+     * Borrower's business_start_date when this record's own value is blank
+     * (e.g. the borrower entered it during account setup, not this prequal form).
+     */
+    public function resolvedBusinessStartDate(): ?string
+    {
+        return $this->business_start_date ?? $this->borrower?->business_start_date ?? null;
+    }
+
+    /**
+     * Human-readable time-in-business, preferring a calculation from the
+     * resolved start date (own record, then borrower fallback) over the
+     * request's own free-text years_in_business, which may be stale or absent.
+     */
+    public function resolvedYearsInBusiness(): ?string
+    {
+        $startDate = $this->resolvedBusinessStartDate();
+
+        return $startDate ? calculateTimeInBusiness($startDate) : ($this->years_in_business ?: null);
     }
 
     public function user()

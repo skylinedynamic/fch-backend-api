@@ -76,6 +76,7 @@ return [
     'pre_qualification_funding_info_successfully' => 'Pre-qualification funding information updated successfully',
     'pre_qualification_funding_info_failed' => 'Failed to update pre-qualification funding information. Please try again.',
     'pre_qualification_request_not_found' => 'Pre-qualification request not found',
+    'pre_qualification_retry_not_available' => 'There is no failed underwriting review to retry for this request.',
     'pre_qualification_not_found' => 'Pre-qualification application not found',
     'pre_qualification_retrieved_successfully' => 'Pre-qualification application retrieved successfully',
     'pre_qualification_retrieval_failed' => 'Failed to retrieve pre-qualification application. Please try again.',
@@ -162,7 +163,7 @@ return [
 
     'borrower_not_found' => 'Borrower not found.',
     'free_trial_created_log' => 'Client account created on a <span class="text-danger fw-semibold">Limited Access Edition</span> plan. Access time is for lifetime.',
-    'free_trial_converted_log' => 'Converted from Free Trial to :enrollment_type',
+    'free_trial_converted_log' => 'Converted from Free Plan to :enrollment_type',
     'default_enrollment_type' => 'Paid Enrollment',
     'field_updated' => ':field was updated to :value',
     'empty_value' => 'empty',
@@ -186,7 +187,7 @@ return [
     'mail' => [
         'subject_account_created' => 'Welcome to :company - Your Borrower Account Details & Enrollment',
         'subject_account_created_enrollment' => 'Welcome to :company - Complete Your Enrollment Payment',
-        'subject_account_created_trial' => 'Welcome to :company - Limited Free Edition',
+        'subject_account_created_trial' => 'Welcome to :company - Limited Free Plan',
         'subject_account_migrated' => 'Welcome to :company - Client Account Migrated from Limited Access Edition',
     ],
 ];

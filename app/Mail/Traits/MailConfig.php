@@ -81,8 +81,14 @@ trait MailConfig
             Config::set('mail.default', $driver);
 
             if ($driver == 'smtp') {
+                // smtp_port comes from a free-text settings field (see StoreEmailConfigurationRequest),
+                // so guard against non-numeric legacy/bad values reaching Symfony's Dsn, which
+                // requires a strict ?int and throws a TypeError otherwise.
+                $port = $config->smtp_port ?? null;
+                $port = (is_numeric($port) && (int) $port == $port) ? (int) $port : null;
+
                 Config::set('mail.mailers.smtp.host', $config->smtp_host ?? null);
-                Config::set('mail.mailers.smtp.port', $config->smtp_port ?? null);
+                Config::set('mail.mailers.smtp.port', $port);
                 Config::set('mail.mailers.smtp.username', $config->smtp_username ?? null);
                 Config::set('mail.mailers.smtp.password', $config->smtp_password ?? null);
                 Config::set('mail.mailers.smtp.encryption', $config->smtp_encryption ?? null);
@@ -110,7 +116,17 @@ trait MailConfig
         }
 
         try {
+            // Catch \Throwable, not \Exception - a bad/misconfigured mailer setting
+            // (e.g. an invalid SMTP port) surfaces as a \TypeError from Symfony's
+            // transport factory, which \Exception does not catch. A failed send must
+            // never break the caller's business logic (e.g. creating a lead), so log
+            // and bypass it instead of letting it propagate.
             return parent::send($mailer);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("MailConfig: Failed to send " . static::class . " for Partner ID: {$partnerId}", [
+                'error' => $e->getMessage(),
+            ]);
+            return null;
         } finally {
             // Restore original configurations
             foreach ($originalConfig as $key => $value) {

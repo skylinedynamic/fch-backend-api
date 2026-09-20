@@ -124,7 +124,8 @@ class CommissionService
                     'email' => $partner->email,
                     'country' => $partner->country,
                     'payment_amount' => $commission->partner_commission_amount,
-                    'payment_date' => now(),
+                    // payment_date is a DATE column - store the calendar date.
+                    'payment_date' => today(),
                     'status' => Invoice::STATUS_PAID,
                     'type' => Invoice::INVOICE_TYPE_COMMISSION_PAYOUT,
                     'currency' => $commission->currency,

@@ -12,6 +12,20 @@ use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
+/**
+ * subscription_end_date is the one cycle date: what the customer is paid through
+ * AND when the cron next bills them. It only moves on a real payment
+ * (handleOneTimePayment / handleInstallmentPayment / handleUserSeatPayment in
+ * SubscriptionService), and generateDueInvoices() / createInvoiceIfDue() key off it.
+ *
+ * NULL means nothing is scheduled: a borrower who has paid in full, or a
+ * subscription whose first invoice has not been settled yet.
+ *
+ * There is no second scheduling date. Only one invoice may be open at a time, so a
+ * cycle is never rolled forward without payment and the two can never diverge.
+ * Both portals also lock a profile once today is past this date, which is why a
+ * finished borrower must carry NULL rather than a date in the past.
+ */
 class Subscription extends Model
 {
     use HasFactory, SoftDeletes;
@@ -31,6 +45,7 @@ class Subscription extends Model
     const PHASE_INSTALLMENT = 'installment';
     const PHASE_PLATFORM_FEE = 'platform_fee';
     const PHASE_USER_SEAT = 'user_seat';
+    const PHASE_COMPLETED = 'completed';
 
     protected $table = 'subscriptions';
 
@@ -62,6 +77,10 @@ class Subscription extends Model
     ];
 
     protected $casts = [
+        // Calendar dates, not instants: stored as DATE and emitted verbatim via
+        // toDateOnly(). Never run these through toTimezone() - shifting a
+        // date-only value into the viewer's zone reads it as midnight UTC and
+        // hands anyone behind UTC the previous day.
         'first_payment_date' => 'date',
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
@@ -100,6 +119,11 @@ class Subscription extends Model
         return $this->belongsTo(User::class, 'entity_id');
     }
 
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class, 'entity_id');
+    }
+
     public function entity()
     {
         return $this->morphTo();
@@ -115,24 +139,19 @@ class Subscription extends Model
         return $this->belongsTo(\App\Models\Invoice\Invoice::class, 'current_cycle_invoice_id');
     }
 
-    public function allPhases()
+    public function invoices()
     {
-        return $this->hasMany(SubscriptionPhase::class);
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id');
     }
 
-    public function phases()
+    /**
+     * Invoices still owed. Excludes Expired — a rolled-past cycle is not a
+     * collectable debt, it is a record of a cycle that was missed.
+     */
+    public function unpaidInvoices()
     {
-        return $this->hasOne(SubscriptionPhase::class)->latestOfMany();
-    }
-
-    public function enrollmentPhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_ENROLLMENT);
-    }
-
-    public function platformFeePhase()
-    {
-        return $this->hasOne(SubscriptionPhase::class)->where('phase', SubscriptionPhase::PHASE_PLATFORM_FEE);
+        return $this->hasMany(\App\Models\Invoice\Invoice::class, 'subscription_id')
+            ->where('status', \App\Models\Invoice\Invoice::STATUS_UNPAID);
     }
 
     /**
@@ -181,28 +200,6 @@ class Subscription extends Model
     }
 
     /**
-     * Scope: join enrollment phase.
-     */
-    public function scopeWithEnrollmentPhase($query)
-    {
-        return $query->leftJoin('subscription_phases as ep', function ($join) {
-            $join->on('subscriptions.id', '=', 'ep.subscription_id')
-                ->where('ep.phase', '=', SubscriptionPhase::PHASE_ENROLLMENT);
-        })->addSelect('ep.next_installment_date');
-    }
-
-    /**
-     * Scope: join platform fee phase.
-     */
-    public function scopeWithPlatformFeePhase($query)
-    {
-        return $query->leftJoin('subscription_phases as pfp', function ($join) {
-            $join->on('subscriptions.id', '=', 'pfp.subscription_id')
-                ->where('pfp.phase', '=', SubscriptionPhase::PHASE_PLATFORM_FEE);
-        })->addSelect('pfp.next_platform_fee_date');
-    }
-
-    /**
      * Scope: join borrower table.
      */
     public function scopeWithBorrower($query)
@@ -215,6 +212,184 @@ class Subscription extends Model
                 'borrowers.last_name'
                 // We can resolve full name in concatenation or view
             );
+    }
+
+    /**
+     * Whether billing is currently stopped for this subscription.
+     *
+     * Derived from the subscriber's live status every time it is asked, never from
+     * a stored flag. There used to be a billing_paused_at column caching this, but
+     * it was only stamped when the cron next processed the row — so between an
+     * admin suspending someone and the next cron run it said "not paused" while
+     * billing had in reality already stopped, and every reader had to check the
+     * live status anyway to cover the gap.
+     */
+    public function getIsBillingPausedAttribute(): bool
+    {
+        return $this->billingPausedReason() !== null;
+    }
+
+    /**
+     * Why billing is stopped, or null. Only inspects relations already loaded.
+     */
+    public function billingPausedReason(): ?string
+    {
+        if ($this->entity_type === Partner::class && $this->relationLoaded('partner')) {
+            $partner = $this->partner;
+
+            return ($partner && $partner->status !== Partner::STATUS_ACTIVE)
+                ? 'Partner is ' . $partner->status
+                : null;
+        }
+
+        if ($this->entity_type === Borrower::class && $this->relationLoaded('borrower')) {
+            $borrower = $this->borrower;
+
+            if (!$borrower) {
+                return null;
+            }
+
+            if ($borrower->status !== Borrower::STATUS_ACTIVE) {
+                return 'Borrower is ' . $borrower->status;
+            }
+
+            // A borrower reaches the platform through their partner, so a suspended
+            // partner stops the borrower's billing too.
+            if ($borrower->relationLoaded('partner') && $borrower->partner
+                && $borrower->partner->status !== Partner::STATUS_ACTIVE) {
+                return 'Partner ' . ($borrower->partner->company_name ?: $borrower->partner->full_name)
+                    . ' is ' . $borrower->partner->status;
+            }
+        }
+
+        // Seat subscriptions: the seat holder's own user account decides.
+        if (in_array($this->entity_type, [User::class, Employee::class], true)
+            && $this->relationLoaded('entity') && $this->entity) {
+            $seatStatus = $this->entity_type === User::class
+                ? $this->entity->status
+                : $this->entity->job_status;
+
+            if ($seatStatus !== null && $seatStatus !== User::STATUS['active']
+                && $seatStatus !== Employee::STATUS_ACTIVE) {
+                return class_basename($this->entity_type) . ' is ' . $seatStatus;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Constrain to subscriptions whose billing is stopped, in SQL.
+     *
+     * The query-side twin of billingPausedReason(). Shared by the billing screens
+     * and by the auto-charge dispatcher so the two can never disagree about who is
+     * collectable.
+     */
+    public function scopeBillingBlocked($query)
+    {
+        return $query->where(function ($outer) {
+            $outer->where(function ($q) {
+                $q->where('subscriptions.entity_type', Partner::class)
+                    ->whereExists(function ($inner) {
+                        $inner->selectRaw(1)
+                            ->from('partners')
+                            ->whereColumn('partners.id', 'subscriptions.entity_id')
+                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
+                    });
+            })->orWhere(function ($q) {
+                // Borrower blocked by their own status, or by their partner's.
+                $q->where('subscriptions.entity_type', Borrower::class)
+                    ->whereExists(function ($inner) {
+                        $inner->selectRaw(1)
+                            ->from('borrowers')
+                            ->whereColumn('borrowers.id', 'subscriptions.entity_id')
+                            ->where(function ($w) {
+                                $w->where('borrowers.status', '!=', Borrower::STATUS_ACTIVE)
+                                    ->orWhereExists(function ($p) {
+                                        $p->selectRaw(1)
+                                            ->from('partners')
+                                            ->whereColumn('partners.id', 'borrowers.partner_id')
+                                            ->where('partners.status', '!=', Partner::STATUS_ACTIVE);
+                                    });
+                            });
+                    });
+            });
+        });
+    }
+
+    /**
+     * The next amount due and when, given the subscription's current phase.
+     *
+     * Single source of truth for "what's the next bill" - used by both the
+     * Subscription Details page (SubscriptionDetailsResource) and My Subscription
+     * (MySubscriptionService), which previously computed this two different ways
+     * and disagreed: MySubscriptionService fell back to payable_amount whenever
+     * subscription_amount_per_month was empty, which is correct only during
+     * enrollment - once enrollment_completed_at is set, a partner owes the
+     * recurring monthly_platform_fee, not the (much larger) one-time enrollment
+     * total again.
+     *
+     * @return array{date: mixed, type: ?string, amount: float|null}
+     */
+    public function nextBilling(): array
+    {
+        $isPartner = $this->entity_type === Partner::class;
+        $isBorrower = $this->entity_type === Borrower::class;
+        $isEnrollmentCompleted = !empty($this->enrollment_completed_at);
+        $isInstallment = (int) $this->installment_type === 1;
+
+        $date = null;
+        $type = null;
+        $amount = null;
+
+        if ($isPartner) {
+            if (!$isInstallment) {
+                if ($isEnrollmentCompleted) {
+                    // Enrollment paid off -> recurring platform fee.
+                    $date = $this->subscription_end_date;
+                    $type = 'Platform Fee';
+                    $amount = $this->monthly_platform_fee;
+                } else {
+                    $date = $this->subscription_end_date ?? $this->first_payment_date;
+                    $type = 'One Time Enrollment';
+                    $amount = $this->payable_amount ?? $this->total_subscription_amount;
+                }
+            } else {
+                $date = $this->subscription_end_date;
+                if (!$isEnrollmentCompleted) {
+                    if ((int) $this->installments_paid === 0 && (float) $this->down_payment > 0) {
+                        $type = 'Down Payment';
+                        $amount = $this->down_payment;
+                    } else {
+                        $type = 'Installment';
+                        $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+                    }
+                } else {
+                    $type = 'Platform Fee';
+                    $amount = $this->monthly_platform_fee;
+                }
+            }
+        } elseif ($isBorrower) {
+            // A borrower owes nothing further once enrollment_completed_at is set -
+            // there is no borrower platform fee.
+            if (!$isEnrollmentCompleted) {
+                $date = $this->subscription_end_date;
+                $type = 'Installment';
+                $amount = $this->subscription_amount_per_month ?? $this->payable_amount;
+            }
+        } else {
+            // Additional Seat Subscription.
+            $seatTotal = ($this->user_seats ?? 0) * ($this->per_seat_amount ?? 0);
+            $date = $this->subscription_end_date;
+            $type = 'Seat Fee';
+            $amount = $seatTotal > 0 ? $seatTotal : $this->payable_amount;
+        }
+
+        return [
+            'date' => $date,
+            'type' => $type,
+            'amount' => $amount !== null ? (float) $amount : null,
+        ];
     }
 
     /**

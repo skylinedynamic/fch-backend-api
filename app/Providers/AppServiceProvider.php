@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
+use App\Support\Branding\MailBrandContext;
 use App\Models\User\User;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -45,6 +47,19 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Model::preventLazyLoading(!app()->isProduction());
+
+        // The mail layout paints its header band and footer in the tenant's brand
+        // colours. Every mailable copies only the keys it names into its own view
+        // data, so the palette is injected here instead of in 40-odd mailables.
+        // Values already present in the view win, so a mailable can still override.
+        View::composer('emails.layouts.mail', function ($view) {
+            $data = $view->getData();
+            foreach (MailBrandContext::forView() as $key => $value) {
+                if (!array_key_exists($key, $data)) {
+                    $view->with($key, $value);
+                }
+            }
+        });
 
         $checks = [
             DatabaseCheck::new (),

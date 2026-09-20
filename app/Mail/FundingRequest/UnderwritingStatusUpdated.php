@@ -12,6 +12,7 @@ use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Log;
 
 use App\Models\Common\AppConfiguration;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
 
 class UnderwritingStatusUpdated extends Mailable
 {
@@ -40,16 +41,13 @@ class UnderwritingStatusUpdated extends Mailable
                 ? $partner->id
                 : getConfigPartner()->id;
 
-            $brandingConfig = AppConfiguration::where('partner_id', $partnerId)
-                ->where('module', AppConfiguration::MODULE_BRANDING)
-                ->whereIn('key', ['site_name', 'primary_logo', 'secondary_logo'])
-                ->pluck('value', 'key')
-                ->toArray();
+            $brandingConfig = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
 
             $siteName = $brandingConfig['site_name'] ?? ($partner?->company_name ?? config('app.name'));
-            $logoUrl = (isset($brandingConfig['secondary_logo']) && $brandingConfig['secondary_logo'] != null)
-                ? asset('storage/' . $brandingConfig['secondary_logo'])
-                : (isset($brandingConfig['primary_logo']) ? asset('storage/' . $brandingConfig['primary_logo']) : null);
+            // Mail headers are white, so the mail logo first, then the other
+            // light-surface ones - never the dark sidebar logo.
+            $logoPath = $brandingConfig['logo_mail'] ?? $brandingConfig['logo_document'] ?? null;
+            $logoUrl = $logoPath ? asset('storage/' . $logoPath) : null;
 
             return $this->subject("Funding Request {$status}")
                         ->view('emails.borrower.underwriting_status_updated')

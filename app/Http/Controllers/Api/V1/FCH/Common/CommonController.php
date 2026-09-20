@@ -53,7 +53,8 @@ class CommonController extends Controller
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // See AuthService::login() for why '.phases' was dropped.
+            'partner.subscription',
         ];
 
         $user->load($relations);
@@ -91,7 +92,7 @@ class CommonController extends Controller
 
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
-        $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', ['site_name', 'primary_logo'])->exists()) : true;
+        $isBrandingFresh = $partner ? (AppConfiguration::where('partner_id', $partner->id)->where('module', AppConfiguration::MODULE_BRANDING)->whereIn('key', AppConfiguration::BRANDING_FRESHNESS_KEYS)->exists()) : true;
 
         $isPaymentFresh = false;
         if ($partner) {

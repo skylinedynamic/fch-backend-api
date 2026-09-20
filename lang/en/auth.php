@@ -16,6 +16,7 @@ return [
     'user_not_found' => 'User not found',
     'subscription_expired' => 'Your subscription package has expired. Please contact :partner for renewal.',
     'free_trial_expired' => 'Your free trial has expired. Please contact :partner for assistance.',
+    'free_plan_expired' => 'Your free plan has expired. Please contact :partner for assistance.',
     'payment_not_completed' => 'Your payment was not completed. Please contact :partner for assistance.',
     'partner_suspended' => 'Your account has been suspended. Please contact :partner for more information.',
     'partner_inactive' => 'Your account is currently inactive. Please contact :partner for activation.',

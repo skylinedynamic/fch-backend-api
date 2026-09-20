@@ -45,8 +45,13 @@ class ProfileService
                 'last_4_ssn' => $data['last_4_ssn'],
             ];
 
-            // Update the user
-            Borrower::where('id', $user->entity_id)->update($updateData);
+            // Update the borrower — via a fetched model instance (not a bulk
+            // Borrower::where(...)->update()) so the last_4_ssn/ssn accessors
+            // and mutators on the model actually run.
+            $borrower = Borrower::find($user->entity_id);
+            if ($borrower) {
+                $borrower->update($updateData);
+            }
 
             // Update the user
             $userData = [

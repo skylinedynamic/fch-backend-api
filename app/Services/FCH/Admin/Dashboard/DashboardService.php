@@ -60,6 +60,21 @@ class DashboardService
                 ->get()
         );
 
+        $pendingRemindersQuery = \App\Models\Common\Reminder::createdByUser($user)
+            ->where('status', \App\Models\Common\Reminder::STATUS_PENDING);
+
+        $totalPendingReminders = (clone $pendingRemindersQuery)->count();
+
+        $data['upcoming_tasks_reminders'] = \App\Http\Resources\FCH\Reminder\ReminderResource::collection(
+            (clone $pendingRemindersQuery)
+                ->withClient()
+                ->orderBy('created_at', 'desc')
+                ->take(5)
+                ->get()
+        )->resolve();
+
+        $data['pending_reminders_count'] = $totalPendingReminders;
+
         $data['latest_funding_applications'] = DashboardFundingApplicationResource::collection(
             $partner->fundingApplications()->with('partner')    
                 ->where('status', '!=', FundingApplication::ON_HOLD)

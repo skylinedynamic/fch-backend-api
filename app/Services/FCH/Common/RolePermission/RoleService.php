@@ -129,12 +129,12 @@ class RoleService
             $role->syncPermissions($permissions);
 
             $role->load('users');
-            
+
             foreach ($role->users as $user) {
                 $user->syncPermissions($permissions);
-                $user->is_refresh = true;
-                $user->save();
             }
+
+            $this->markRoleUsersForRefresh($role);
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -225,6 +225,8 @@ class RoleService
                 }
             }
 
+            $this->markRoleUsersForRefresh($role);
+
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
             // Log System Event
@@ -232,5 +234,24 @@ class RoleService
 
             return $role->load('permissions');
         });
+    }
+
+    /**
+     * Whenever a role's permissions change, every user who owns that role must
+     * re-fetch their permissions/roles on their next request. Flag them all
+     * with a single bulk update rather than saving each user model.
+     *
+     * @param Role $role
+     * @return void
+     */
+    protected function markRoleUsersForRefresh(Role $role): void
+    {
+        $role->loadMissing('users');
+
+        $userIds = $role->users->pluck('id');
+
+        if ($userIds->isNotEmpty()) {
+            DB::table('users')->whereIn('id', $userIds)->update(['is_refresh' => true]);
+        }
     }
 }

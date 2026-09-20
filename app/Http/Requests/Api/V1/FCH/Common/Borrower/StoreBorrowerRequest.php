@@ -34,6 +34,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'home_address'         => ['nullable', 'string', 'max:255'],
             'date_of_birth'        => ['nullable'],
             'last_4_ssn'           => ['nullable', 'string', 'max:4'],
+            'ssn'                  => ['nullable', 'string', 'regex:/^\d{3}-?\d{2}-?\d{4}$/'],
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],

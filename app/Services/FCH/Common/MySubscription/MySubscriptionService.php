@@ -54,7 +54,7 @@ class MySubscriptionService
         }
 
         // Partner's latest subscription
-        $subscription = Subscription::with(['enrollmentPhase', 'platformFeePhase', 'partnerPlan', 'entity', 'partner', 'borrower'])
+        $subscription = Subscription::with(['partnerPlan', 'entity', 'partner', 'borrower'])
             ->where('entity_type', Partner::class)
             ->where('entity_id', $partner->id)
             ->orderBy('id', 'desc')
@@ -98,9 +98,16 @@ class MySubscriptionService
 
         $recentPayments = $recentPaymentsQuery->orderBy('id', 'desc')->limit(10)->get();
 
-        // Calculate Upcoming Billing Details for subscription
-        $nextDate = toTimezone($subscription?->subscription_end_date);
-        $nextAmount = $subscription?->subscription_amount_per_month ?? $subscription?->payable_amount ?? 0;
+        // Calculate Upcoming Billing Details for subscription.
+        // See Subscription::nextBilling() - shared with SubscriptionDetailsResource
+        // (the Subscription Details page) so both pages agree on what's due next.
+        // Previously this fell back to payable_amount whenever
+        // subscription_amount_per_month was empty, which is only correct during
+        // enrollment - once enrollment_completed_at is set, a partner owes the
+        // recurring monthly_platform_fee, not the one-time enrollment total again.
+        $nextBilling = $subscription?->nextBilling() ?? ['date' => null, 'type' => null, 'amount' => 0];
+        $nextDate = toDateOnly($nextBilling['date']);
+        $nextAmount = $nextBilling['amount'] ?? 0;
 
         // Determine Subscription Completion Status
         $isCompleted = false;
@@ -159,10 +166,14 @@ class MySubscriptionService
                 'payable_amount' => currencyFormat($subscription->payable_amount),
                 'down_payment' => currencyFormat($subscription->down_payment),
                 'subscription_amount_per_month' => currencyFormat($subscription->subscription_amount_per_month),
+                // The recurring platform fee, distinct from subscription_amount_per_month
+                // (which is the installment/enrollment amount and is null once
+                // enrollment is complete - it was never the platform fee).
+                'monthly_platform_fee' => currencyFormat($subscription->monthly_platform_fee),
                 'installment_count' => (int) $subscription->installment_count,
                 'installments_paid' => (int) ($subscription->installments_paid ?? 0),
-                'subscription_start_date' => toTimezone($subscription->subscription_start_date),
-                'subscription_end_date' => toTimezone($subscription->subscription_end_date),
+                'subscription_start_date' => toDateOnly($subscription->subscription_start_date),
+                'subscription_end_date' => toDateOnly($subscription->subscription_end_date),
                 'enrollment_completed_at' => toTimezone($subscription->enrollment_completed_at),
                 'is_completed' => $isCompleted,
             ] : null,
@@ -176,10 +187,17 @@ class MySubscriptionService
                 'created_at' => toTimezone($latestInvoice->created_at),
             ] : null,
             'upcoming_billing' => $subscription ? [
-                'next_date' => toTimezone($nextDate),
+                // Already rendered by toDateOnly() above. It is a calendar date -
+                // never run it through toTimezone(), which would read the date-only
+                // string as midnight UTC and shift it a day for viewers behind UTC.
+                'next_date' => $nextDate,
                 'amount' => currencyFormat($nextAmount),
                 'raw_amount' => $nextAmount,
+                'type' => $nextBilling['type'] ?? 'N/A',
                 'enrollment_type' => $subscription->enrollment_type ?? 'N/A',
+                'current_phase' => $subscription->current_phase
+                    ? ucwords(str_replace('_', ' ', $subscription->current_phase))
+                    : 'N/A',
                 'status' => $subscription->status ?? Subscription::STATUS_ACTIVE,
             ] : null,
             'recent_payments' => PaymentResource::collection($recentPayments),

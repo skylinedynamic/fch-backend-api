@@ -89,7 +89,7 @@ class AuthService
                 }
             }
 
-            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->isPast()) {
+            if ($userSeatSubscription->subscription_end_date && Carbon::parse($userSeatSubscription->subscription_end_date)->lt(today())) {
                 $partner = $user->partner;
                 // Only block if partner is NOT a host
                 if ($partner && (int) ($partner->is_host ?? 0) === 0) {
@@ -109,7 +109,9 @@ class AuthService
         if ($isFreeTrail && $freeTrailEndDate && Carbon::parse($freeTrailEndDate)->isPast()) {
             $partner = $user->partner;
             $partnerName = $partner ? ($partner->company_name ?? $partner->full_name ?? 'your partner') : 'your partner';
-            return ApiResponse::loginError(__('auth.free_trial_expired', ['partner' => $partnerName]), 'email');
+            // Borrowers see "Free Plan" wording; partner accounts keep the original "Free Trial" wording.
+            $messageKey = $user->entity_type === Borrower::class ? 'auth.free_plan_expired' : 'auth.free_trial_expired';
+            return ApiResponse::loginError(__($messageKey, ['partner' => $partnerName]), 'email');
         }
 
         $partner = $user->partner;
@@ -179,7 +181,11 @@ class AuthService
                 $query->where('partner_id', $user->partner_id);
             },
             'roles.permissions',
-            'partner.subscription.phases',
+            // 'subscription_phases' table (and its Subscription::phases() relation) was
+            // dropped in 2026_08_31_120000_drop_subscription_phases_and_payment_methods_tables
+            // - the phase state it held now lives directly on the subscription row
+            // (current_phase, installments_paid, etc.), so there is nothing left to eager-load here.
+            'partner.subscription',
         ];
 
         $user->load($relations);

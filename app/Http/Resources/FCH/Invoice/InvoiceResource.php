@@ -2,9 +2,7 @@
 
 namespace App\Http\Resources\FCH\Invoice;
 
-use App\Models\Common\AppConfiguration;
 use App\Models\Invoice\Invoice;
-use App\Models\Partner\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -34,7 +32,7 @@ class InvoiceResource extends JsonResource
                 $this->currency_symbol ?? '$',
                 $this->conversion_rate ?? 1
             ),
-            'payment_date' => toTimezone($this->payment_date),
+            'payment_date' => toDateOnly($this->payment_date),
             'status' => $this->status,
             'payment_id' => $this->relationLoaded('latestPayment')
                 ? $this->latestPayment?->id
@@ -81,63 +79,50 @@ class InvoiceResource extends JsonResource
     {
         static $brandingCache = [];
 
-        $partner = $this->relationLoaded('partner') && $this->partner
-            ? $this->partner
-            : null;
+        // Branding belongs to whoever is being PAID, not to the viewing tenant:
+        // a Partner invoice is the host billing the partner, so it carries the
+        // host's brand, while a Borrower invoice is the partner billing its own
+        // client and carries that partner's. The rule lives in invoiceBranding()
+        // so every invoice surface (this resource, the borrower resource and both
+        // PDF builders) agrees.
+        $partnerId = $this->partner_id ? (int) $this->partner_id : null;
+        $entityType = $this->entity_type;
 
-        $targetPartnerId = $this->borrower_id ? $this->partner_id : null;
+        // Cached on the same inputs the rule reads, so an invoice list resolves
+        // each distinct combination once rather than once per row.
+        $cacheKey = ($entityType ?? '-') . '|' . ($partnerId ?? 0);
 
-        if (!$partner && $targetPartnerId) {
-            $partner = Partner::find($targetPartnerId);
-        }
-
-        if (!$partner || $partner->partner_type !== Partner::PARTNER_TYPE_WHITE_LABEL) {
-            static $hostPartner = null;
-            if ($hostPartner === null) {
-                $hostPartner = Partner::where('is_host', 1)->first();
-            }
-            $partner = $hostPartner;
-        }
-
-        $resolvedPartnerId = $partner?->id ?? 0;
-
-        if (!isset($brandingCache[$resolvedPartnerId])) {
-            $branding = $resolvedPartnerId
-                ? AppConfiguration::where('partner_id', $resolvedPartnerId)
-                    ->where('module', AppConfiguration::MODULE_BRANDING)
-                    ->pluck('value', 'key')
-                    ->toArray()
-                : [];
+        if (!isset($brandingCache[$cacheKey])) {
+            $resolved = invoiceBranding($entityType, $partnerId);
+            $partner = $resolved['partner'];
+            $branding = $resolved['branding'];
+            $resolvedPartnerId = $partner?->id ?? 0;
 
             $siteName = $branding['site_name']
                 ?? $partner?->company_name
                 ?? config('app.name');
 
-            $rawLogo = $branding['primary_logo']
-                ?? $branding['secondary_logo']
-                ?? $branding['header_logo']
-                ?? $partner?->company_logo;
+            // Invoice paper is white, so the document logo comes first, falling
+            // back to the sidebar logo when this tenant uploaded no document one.
+            // primary_logo is deliberately not used here: it is the
+            // white-on-transparent mark, which is invisible on a printed invoice.
+            $logoUrl = $resolved['logo'];
 
-            $logoUrl = asset('logo-mail.png');
-
-            if ($rawLogo && $rawLogo !== 'null') {
-                if (str_starts_with($rawLogo, 'http')) {
-                    $logoUrl = encodeUrl($rawLogo);
-                } else {
-                    $cleanPath = ltrim((string) $rawLogo, '/');
-
-                    if (!str_starts_with($cleanPath, 'site-settings/') && !str_starts_with($cleanPath, 'partners/')) {
-                        $cleanPath = ($partner && $partner->company_logo === $rawLogo)
-                            ? "partners/{$resolvedPartnerId}/{$cleanPath}"
-                            : "site-settings/{$cleanPath}";
-                    }
-
-                    $logoUrl = encodeUrl(asset('storage/' . $cleanPath));
-                }
+            // A partner logo uploaded outside the branding module is a last resort.
+            if (!$logoUrl && $partner?->company_logo && $partner->company_logo !== 'null') {
+                $raw = ltrim((string) $partner->company_logo, '/');
+                $logoUrl = str_starts_with($raw, 'http')
+                    ? encodeUrl($raw)
+                    : encodeUrl(asset('storage/partners/' . $resolvedPartnerId . '/' . $raw));
             }
 
-            $brandingCache[$resolvedPartnerId] = [
+            // Deliberately no bundled default: an invoice with no logo shows the
+            // company name rather than another tenant's mark.
+
+            $brandingCache[$cacheKey] = [
                 'site_name' => $siteName,
+                'logo_document_full_url' => $logoUrl,
+                'logo_sidebar_full_url' => $branding['logo_sidebar_full_url'] ?? '',
                 'primary_logo' => $logoUrl,
                 'logo' => $logoUrl,
                 'address' => $partner?->address_line_1 ?? '',
@@ -148,6 +133,6 @@ class InvoiceResource extends JsonResource
             ];
         }
 
-        return $brandingCache[$resolvedPartnerId];
+        return $brandingCache[$cacheKey];
     }
 }

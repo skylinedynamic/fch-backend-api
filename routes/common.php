@@ -1,18 +1,20 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CreditBuilder\CreditAccountController as AdminCreditAccountController;
 use App\Http\Controllers\Api\V1\FCH\Admin\Dashboard\DashboardController;
+use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
 use App\Http\Controllers\Api\V1\FCH\Common\ActivityLog\ActivityLogController;
 use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Appointment\AppointmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
+use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
-use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
@@ -22,18 +24,20 @@ use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
-use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Invoice\InvoiceController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementSignController;
 use App\Http\Controllers\Api\V1\FCH\Common\ManageAgreement\AgreementTemplateController;
+use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFundingApplicationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
+use App\Http\Controllers\Api\V1\FCH\Common\Reminder\ReminderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -48,13 +52,20 @@ use App\Http\Controllers\Api\V1\Global\Notification\NotificationController as V1
 use App\Http\Controllers\Api\V1\Global\TwoFaAuth\TwoFaController as V1TwoFaController;
 use App\Http\Controllers\Api\V1\GlobalPayment\UnifiedPaymentController;
 use App\Http\Controllers\DomainResolverController;
-use App\Http\Controllers\Api\V1\FCH\Admin\WeeklySummary\WeeklySummaryController;
+use App\Http\Controllers\Api\V1\FCH\Common\EmbedForm\EmbedFormController;
 use Illuminate\Support\Facades\Route;
+
+
 
 
 // Internal domain resolver — stateless, no session/cookies
 Route::get('/resolve-custom-domain', [DomainResolverController::class, 'resolve']);
 Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck']);
+
+// Tenant brand as a render-blocking stylesheet, linked from each portal's
+// index.html. Deliberately outside /v1 and unauthenticated: it has to load
+// before the app boots, on a cold visit with no token and no localStorage.
+Route::get('/branding.css', [BrandingController::class, 'css']);
 
 
 Route::prefix('v1')->group(function () {
@@ -76,6 +87,11 @@ Route::prefix('v1')->group(function () {
     Route::get('common/locations', [LocationController::class, 'index']);
 
     Route::get('common/get-theme', [CommonController::class, 'getTheme']);
+
+    // Branding only — skips the email-config and payment-provider queries that
+    // get-theme also runs, so the portals can paint the brand without waiting on
+    // them. Returns the precomputed CSS variable map alongside the raw values.
+    Route::get('common/branding', [BrandingController::class, 'show']);
 
     // 📊 Public Weekly Executive Summary (no auth required)
     Route::get('common/weekly-summary', [WeeklySummaryController::class, 'index']);
@@ -127,6 +143,7 @@ Route::prefix('v1')->group(function () {
 
             // Business Financials fetch — dedicated endpoint
             Route::get('borrowers/business-financials/{id}', [BorrowerController::class, 'getBusinessFinancials']);
+            Route::get('borrowers/{id}/business-financials', [BorrowerController::class, 'getBusinessFinancials']);
 
             // Credit Profile routes — must be before wildcard borrowers/{id}
             Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
@@ -163,6 +180,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('pre-qualification/card-summary', [RequestApplicationController::class, 'getPreQualificationCardSummary']);
                 Route::get('pre-qualification/{id}', [RequestApplicationController::class, 'getPreQualificationById']);
                 Route::post('pre-qualification/status-update', [RequestApplicationController::class, 'preQualificationStatusUpdate']);
+                Route::post('pre-qualification/{id}/run-ai', [RequestApplicationController::class, 'runAiPreQualification']);
                 Route::post('funding-application', [RequestApplicationController::class, 'getFundingApplication']);
                 Route::get('funding-application/card-summary', [RequestApplicationController::class, 'getFundingApplicationCardSummary']);
                 Route::get('funding-application/{id}', [RequestApplicationController::class, 'getFundingApplicationById']);
@@ -258,6 +276,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [ActivityLogController::class, 'index']);
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
+                Route::match(['put', 'post'], '/{id}', [ActivityLogController::class, 'update']);
+                Route::delete('/{id}', [ActivityLogController::class, 'destroy']);
             });
 
             // Funding Sequencings
@@ -357,6 +377,15 @@ Route::prefix('v1')->group(function () {
                 Route::post('/save', [CommonAppConfigurationController::class, 'store']);
             });
 
+            // OpenAI configuration (host-only settings screen)
+            // Access is decided in the admin UI by PartnerHostRoute (is_host and
+            // an entity type of Partner); no per-role permission is required here.
+            Route::prefix('openai')->group(function () {
+                Route::get('config', [OpenAiConfigurationController::class, 'show']);
+                Route::get('models', [OpenAiConfigurationController::class, 'models']);
+                Route::post('config', [OpenAiConfigurationController::class, 'store']);
+            });
+
             // 📧 Email Configurations
             Route::prefix('email-configurations')->group(function () {
                 Route::get('/', [EmailConfigurationController::class, 'index']);
@@ -387,6 +416,34 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{id}', [CommonResourceController::class, 'show']);
                 Route::get('/download/{id}', [CommonResourceController::class, 'download']);
             });
+
+            // 📝 Embedded Form Management (Internal / Authenticated)
+            Route::prefix('embed-forms')->group(function () {
+                Route::get('config', [EmbedFormController::class, 'getConfig']);
+                Route::put('config', [EmbedFormController::class, 'updateConfig']);
+                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey']);
+
+                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
+                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
+                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
+
+                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
+            });
+
+
+                    // V1 Reminder routes
+                Route::prefix('reminders')->group(function () {
+                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::get('/due', [ReminderController::class, 'getDue']);
+                    Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
+                    Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
+                    Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
+                    Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
+                    Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+                });
+
+
         });
 
         Route::post('process-payment', [UnifiedPaymentController::class, 'processPayment']);
