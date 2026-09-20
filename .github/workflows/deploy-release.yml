@@ -33,12 +33,13 @@ jobs:
       - name: Install Composer Dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
+      # No .env is needed: phpunit.xml supplies APP_KEY and the rest of the
+      # test config. All a fresh checkout lacks is storage/, which is gitignored
+      # in full, so the directories and the Passport keys have to be made here -
+      # without them every Passport::actingAs() test dies on "Invalid key supplied".
       - name: Prepare Test Environment
         run: |
-          cp .env.example .env
-          php artisan key:generate
-          # storage/ is gitignored, so a fresh checkout has no Passport keys and
-          # every Passport::actingAs() test dies with "Invalid key supplied".
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
           php artisan passport:keys --force
 
       # Run as two steps so the log shows plainly that both suites ran.
