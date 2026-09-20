@@ -124,7 +124,8 @@ class ReminderController extends Controller
             $id,
             $request->minutes,
             $request->reschedule_at,
-            $request->lead_minutes
+            $request->lead_minutes,
+            $request->note
         );
 
         if (!$reminder) {
@@ -152,7 +153,7 @@ class ReminderController extends Controller
         }
 
         try {
-            return $this->reminderService->downloadAttachment((int) $id, (string) $path);
+            return $this->reminderService->downloadAttachment($user, (int) $id, (string) $path);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), $e->getCode() ?: 400);
         }

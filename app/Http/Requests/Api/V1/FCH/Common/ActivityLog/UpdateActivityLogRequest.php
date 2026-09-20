@@ -14,7 +14,7 @@ class UpdateActivityLogRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'subject'       => ['sometimes', 'required', 'string', 'max:500'],
+            'subject'       => ['sometimes', 'required', 'string', 'max:200'],
             'description'   => ['nullable', 'string'],
             'reference'     => ['nullable', 'string', 'max:255'],
             'activity_date' => ['nullable', 'date'],
@@ -35,6 +35,7 @@ class UpdateActivityLogRequest extends BaseApiRequest
     {
         return [
             'subject.required'      => __('activity_log.subject_required'),
+            'subject.max'           => 'The summary may not be greater than 200 characters.',
             'remind_at.required_if' => 'A reminder time is required when setting a reminder.',
         ];
     }

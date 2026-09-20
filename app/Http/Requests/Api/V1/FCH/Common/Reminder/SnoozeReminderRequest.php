@@ -30,7 +30,7 @@ class SnoozeReminderRequest extends BaseApiRequest
         $timezone = $this->header('X-Timezone', config('app.timezone'));
 
         return [
-            'minutes' => 'required_without:reschedule_at|nullable|integer|min:1',
+            'minutes' => 'required_without:reschedule_at|nullable|integer|min:1|max:1440',
             'reschedule_at' => [
                 'bail',
                 'required_without:minutes',
@@ -46,6 +46,8 @@ class SnoozeReminderRequest extends BaseApiRequest
             // before"), matching the same dropdown activity creation uses. Only
             // meaningful alongside reschedule_at; ignored for a plain minutes-snooze.
             'lead_minutes' => 'nullable|integer|min:0',
+            // Optional reason for snoozing, kept in the reminder's snooze history.
+            'note' => 'nullable|string|max:200',
         ];
     }
 
@@ -60,6 +62,8 @@ class SnoozeReminderRequest extends BaseApiRequest
             'minutes.required_without' => 'Either minutes or a reschedule date/time is required.',
             'minutes.integer' => 'The minutes must be an integer.',
             'minutes.min' => 'The minutes must be at least 1.',
+            'minutes.max' => 'The snooze may not be longer than 1440 minutes (24 hours).',
+            'note.max' => 'The snooze note may not be greater than 200 characters.',
             'reschedule_at.required_without' => 'Either minutes or a reschedule date/time is required.',
             'reschedule_at.date' => 'The reschedule date/time is not valid.',
         ];

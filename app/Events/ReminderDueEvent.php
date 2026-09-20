@@ -35,12 +35,16 @@ class ReminderDueEvent implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        // created_by/created_by_entity_type identify the owning entity (Partner,
-        // Borrower, Employee...), not a users.id — and multiple login accounts can
-        // share one entity — so resolve every matching user before broadcasting.
-        $userIds = User::where('entity_id', $this->reminder->created_by)
-            ->where('entity_type', $this->reminder->created_by_entity_type)
-            ->pluck('id');
+        // A reminder created since reminders became per-user points
+        // created_by/created_by_entity_type at the User itself, so it reaches only
+        // its creator. Older rows identify the owning entity (Partner, Borrower,
+        // Employee...), which several login accounts can share, so every user on
+        // that entity still gets notified.
+        $userIds = $this->reminder->created_by_entity_type === User::class
+            ? collect([(int) $this->reminder->created_by])
+            : User::where('entity_id', $this->reminder->created_by)
+                ->where('entity_type', $this->reminder->created_by_entity_type)
+                ->pluck('id');
 
         return $userIds
             ->map(fn ($id) => new PrivateChannel('App.Models.User.' . $id))

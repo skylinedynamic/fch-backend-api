@@ -39,7 +39,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'visible_to_host' => ['nullable', 'in:1,0,true,false'],
             'visible_to_borrower' => ['nullable', 'in:1,0,true,false'],
 
-            'subject'       => ['required', 'string', 'max:500'],
+            'subject'       => ['required', 'string', 'max:200'],
             'description'   => ['required', 'string'],
 
             'to_emails' => [
@@ -101,6 +101,7 @@ class StoreActivityLogRequest extends BaseApiRequest
             'reference.required'     => __('activity_log.reference_required'),
             'activity_date.required' => __('activity_log.activity_date_required'),
             'subject.required'       => __('activity_log.subject_required'),
+            'subject.max'            => 'The summary may not be greater than 200 characters.',
             'description.required'   => __('activity_log.description_required'),
             'attachments.*.file'     => __('activity_log.attachment_file'),
             'remind_at.required_if'  => 'A reminder time is required when setting a reminder.',
