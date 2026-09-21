@@ -66,20 +66,53 @@ class ActivityLogResource extends JsonResource
         $reminderTimeUnit = $props['reminder_time_unit'] ?? 'Minutes';
 
         $linkedReminder = !empty($props['reminder_id']) ? Reminder::find($props['reminder_id']) : null;
-        if (!$linkedReminder && !$remindMe && empty($props['reminder_id']) && $this->subject_id && $this->subject_type) {
+        if (!$linkedReminder && $this->id) {
+            $linkedReminder = Reminder::where('activity_log_id', $this->id)->first();
+        }
+        if (!$linkedReminder && $this->subject_id && $this->subject_type && !empty($props['subject'])) {
             $linkedReminder = Reminder::where('entity_id', $this->subject_id)
                 ->where('entity_type', $this->subject_type)
-                ->where('status', Reminder::STATUS_PENDING)
-                ->where('summary', $props['subject'] ?? '')
+                ->where('summary', $props['subject'])
+                ->latest()
                 ->first();
         }
+
+        $reminderStatus = null;
+        $reminderStatusRaw = null;
+        $isReminderMissed = false;
 
         if ($linkedReminder) {
             // The reminder row is the source of truth for when it actually fires
             $remindMe = true;
+            $reminderStatusRaw = $linkedReminder->status;
             $remindAt = $linkedReminder->reminder_date_time
                 ? toTimezone($linkedReminder->reminder_date_time, null, 'Y-m-d H:i:s')
                 : null;
+
+            $activityAt = $linkedReminder->set_date_time ?? $linkedReminder->send_at ?? $linkedReminder->reminder_date_time;
+            $isReminderMissed = ($linkedReminder->status === Reminder::STATUS_PENDING || $linkedReminder->status === Reminder::STATUS_SENT)
+                && $activityAt && Carbon::parse($activityAt)->isPast();
+
+            $snoozeHistory = is_array($linkedReminder->snooze_history) ? $linkedReminder->snooze_history : [];
+            $hasSnooze = !empty($snoozeHistory);
+            $lastSnooze = $hasSnooze ? end($snoozeHistory) : null;
+            $isCurrentlySnoozed = $hasSnooze && $linkedReminder->status === Reminder::STATUS_PENDING && !empty($lastSnooze['snoozed_until']) && Carbon::parse($lastSnooze['snoozed_until'])->isFuture();
+
+            if ($isReminderMissed) {
+                $reminderStatus = 'Missed';
+            } elseif ($isCurrentlySnoozed) {
+                $reminderStatus = 'Snoozed';
+            } elseif ($linkedReminder->status === Reminder::STATUS_PENDING) {
+                $reminderStatus = 'Pending';
+            } elseif ($linkedReminder->status === Reminder::STATUS_SENT) {
+                $reminderStatus = 'Sent';
+            } elseif ($linkedReminder->status === Reminder::STATUS_CANCELLED) {
+                $reminderStatus = 'Dismissed';
+            } elseif ($linkedReminder->status === Reminder::STATUS_COMPLETED) {
+                $reminderStatus = 'Completed';
+            } else {
+                $reminderStatus = ucfirst($linkedReminder->status);
+            }
 
             if ($reminderPreset !== 'custom_date_time' && $linkedReminder->set_date_time && $linkedReminder->reminder_date_time) {
                 $leadMinutes = (int) round(
@@ -88,9 +121,15 @@ class ActivityLogResource extends JsonResource
                 [$reminderPreset, $reminderTimeValue, $reminderTimeUnit] =
                     $this->resolveReminderPreset($leadMinutes, $reminderPreset, $reminderTimeValue, $reminderTimeUnit);
             }
+        } elseif ($remindMe) {
+            $reminderStatus = 'Pending';
+            $reminderStatusRaw = Reminder::STATUS_PENDING;
+            $remindAt = $toDisplay($props['remind_at'] ?? null);
         } else {
             $remindAt = $toDisplay($props['remind_at'] ?? null);
         }
+
+        $isEdited = (bool) ($this->created_at && $this->updated_at && $this->created_at->diffInSeconds($this->updated_at) > 1);
 
         return [
             'id'            => $this->id,
@@ -118,11 +157,15 @@ class ActivityLogResource extends JsonResource
             'attachments_count' => $this->properties['attachments']['count'] ?? 0,
             'status'            => $this->status,
             // Reminder fields
-            'remind_me'         => $remindMe,
-            'remind_at'         => $remindAt,
-            'reminder_preset'   => $reminderPreset,
-            'reminder_time_value'=> $reminderTimeValue,
-            'reminder_time_unit' => $reminderTimeUnit,
+            'remind_me'            => $remindMe,
+            'remind_at'            => $remindAt,
+            'reminder_id'          => $linkedReminder?->id ?? ($props['reminder_id'] ?? null),
+            'reminder_status'      => $reminderStatus,
+            'reminder_status_raw'  => $reminderStatusRaw,
+            'is_reminder_missed'   => $isReminderMissed,
+            'reminder_preset'      => $reminderPreset,
+            'reminder_time_value'  => $reminderTimeValue,
+            'reminder_time_unit'   => $reminderTimeUnit,
             // Timeline specific
             'causer_name'   => ($this->relationLoaded('causer') && $this->causer) 
                                 ? ($this->causer->name ?? 'System') 
@@ -142,6 +185,7 @@ class ActivityLogResource extends JsonResource
             // the API enforces the same rule.
             'can_edit'      => $this->resource->isEditableBy($request->user()),
             'can_delete'    => $this->resource->isEditableBy($request->user()),
+            'is_edited'     => $isEdited,
             'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
