@@ -121,6 +121,15 @@ return [
         ],
     ],
 
+    'tasks & reminders' => [
+        'permissions' => [
+            ['name' => 'view reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete reminders', 'is_certified' => 1, 'is_host' => 0],
+        ],
+    ],
+
     'training & courses' => [
         'permissions' => [
             ['name' => 'view training & courses', 'is_certified' => 1, 'is_host' => 0],

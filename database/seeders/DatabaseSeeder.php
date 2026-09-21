@@ -99,7 +99,8 @@ class DatabaseSeeder extends Seeder
             FundingRequestPermissionSeeder::class,
             UpdateDomainConfigurationPermissionSeeder::class,
             AdditionalSeatForUserSeeder::class,
-            SubscriptionSeatsSeeder::class
+            SubscriptionSeatsSeeder::class,
+            TaskReminderPermissionSeeder::class
         ]);
     }
 }
