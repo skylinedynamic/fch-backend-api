@@ -20,10 +20,11 @@ class SeoController extends Controller
     public function index(Request $request)
     {
         $filters = [
-            'search' => $request->search,
-            'per_page' => $request->per_page,
-            'sort_field' => $request->sort_field,
-            'sort_order' => $request->sort_order,
+            'search'     => $request->search ?? $request->input('params.search'),
+            'page'       => $request->page ?? $request->input('params.page', 1),
+            'per_page'   => $request->per_page ?? $request->input('params.per_page', 10),
+            'sort_field' => $request->sort_field ?? $request->input('params.sort_field', 'id'),
+            'sort_order' => $request->sort_order ?? $request->input('params.sort_order', 'asc'),
             'partner_id' => $request->user() ? $request->user()->partner_id : null,
         ];
         $result = $this->seoService->list($filters);

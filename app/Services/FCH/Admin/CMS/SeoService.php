@@ -13,7 +13,7 @@ class SeoService
         $partnerId = $filters['partner_id'] ?? null;
         $query = SeoSetting::query();
         
-        $sortField = $filters['sort_field'] ?? 'page_name';
+        $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = $filters['sort_order'] ?? 'asc';
         $query->orderBy($sortField, $sortOrder);
         
@@ -30,8 +30,9 @@ class SeoService
             });
         }
 
+        $page = $filters['page'] ?? 1;
         $perPage = $filters['per_page'] ?? 10;
-        $settings = $query->paginate($perPage);
+        $settings = $query->paginate($perPage, ['*'], 'page', $page);
 
         return [
             'paginator' => $settings
