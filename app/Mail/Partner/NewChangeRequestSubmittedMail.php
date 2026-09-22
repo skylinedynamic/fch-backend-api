@@ -5,6 +5,7 @@ namespace App\Mail\Partner;
 use App\Models\Borrower\BorrowerChangeRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
@@ -12,7 +13,12 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class NewChangeRequestSubmittedMail extends Mailable
+/**
+ * Queued. It already pulled in Queueable but never declared ShouldQueue, so it
+ * was sending inline - holding the borrower's submission open on an SMTP round
+ * trip, and swallowing a transient refusal instead of retrying it.
+ */
+class NewChangeRequestSubmittedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

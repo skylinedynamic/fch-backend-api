@@ -18,6 +18,19 @@ return [
     'change_request_list_success' => 'Change requests retrieved successfully.',
     'change_request_status_updated' => 'Change request status updated successfully.',
     'change_request_already_processed' => 'This change request has already been processed and cannot be modified.',
+
+    // Notifications. A submission is announced to the host; a decision goes back
+    // to the borrower only. See App\Services\Profile\ChangeRequestNotifier.
+    'change_request_status_subject' => 'Profile Change Request Update',
+    'default_borrower_name' => 'Borrower',
+
+    // Logs. Notification failures are logged and swallowed: the change request is
+    // already saved, so a mail problem must not surface to the borrower or the
+    // reviewer.
+    'log_change_request_host_email_missing' => 'Change request not announced: the host partner has no email address.',
+    'log_change_request_notify_failed' => 'Failed to announce a profile change request to the host partner.',
+    'log_change_request_borrower_email_missing' => 'Change request decision not sent: the borrower has no email address.',
+    'log_change_request_status_notify_failed' => 'Failed to send the change request status email to the borrower.',
     'borrower_not_found' => 'Borrower record not found.',
     'profile_update_success' => 'Profile updated successfully.',
     'profile_picture_update_success' => 'Profile picture updated successfully.',
