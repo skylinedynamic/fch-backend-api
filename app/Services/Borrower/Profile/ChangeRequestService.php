@@ -3,9 +3,9 @@
 namespace App\Services\Borrower\Profile;
 
 use App\Models\Borrower\BorrowerChangeRequest;
+use App\Services\Profile\ChangeRequestNotifier;
 use App\Models\User\User;
 use App\Models\Partner\Partner;
-use App\Mail\Partner\NewChangeRequestSubmittedMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
@@ -77,19 +77,10 @@ class ChangeRequestService
             "updated_by"         => null,
         ]);
 
-        // Send email to Host Partner with host partner email config
-        try {
-            $hostPartner = Partner::host();
-            $hostEmail = $hostPartner?->email ?: $hostPartner?->contact_person_email;
-
-            if ($hostEmail) {
-                Mail::to($hostEmail)->send(new NewChangeRequestSubmittedMail($hostPartner, $changeRequest));
-            } else {
-                Log::warning('NewChangeRequestSubmitted email not sent: Host partner email is empty.');
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to send Change Request email to host partner: ' . $e->getMessage());
-        }
+        // Announce it to the host, from the host's own mailbox. The notifier
+        // logs and swallows its own failures - the request is already saved, so
+        // a mail problem must not surface to the borrower.
+        app(ChangeRequestNotifier::class)->requestSubmitted($changeRequest);
 
         return $changeRequest;
     }

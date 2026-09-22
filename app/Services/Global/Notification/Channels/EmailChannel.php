@@ -3,6 +3,7 @@
 namespace App\Services\Global\Notification\Channels;
 
 use App\Models\User\User;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\Global\Notification\Types\NotificationTypeInterface;
 use App\Services\Global\Notification\Mail\GenericNotificationMail;
 use Illuminate\Support\Facades\Log;
@@ -65,8 +66,11 @@ class EmailChannel
         $mailDriver = config('mail.default');
 
         if ($mailDriver === 'smtp') {
-            return !empty(config('mail.mailers.smtp.host')) &&
-                !empty(config('mail.mailers.smtp.username'));
+            // Credentials are tenant data and are applied per message by
+            // App\Mail\Traits\MailConfig, so config/mail.php holds none at
+            // rest - reading it here would report every tenant unconfigured.
+            // Ask the resolver the same question the send path asks.
+            return $this->tenantMailIsUsable();
         }
 
         if ($mailDriver === 'mailgun') {
@@ -75,8 +79,8 @@ class EmailChannel
         }
 
         if ($mailDriver === 'ses') {
-            return !empty(config('services.ses.key')) &&
-                !empty(config('services.ses.secret'));
+            // Same as smtp above: resolved per tenant, not from config.
+            return $this->tenantMailIsUsable();
         }
 
         if ($mailDriver === 'postmark') {
@@ -89,6 +93,20 @@ class EmailChannel
 
         // For other drivers or local testing
         return true;
+    }
+
+    /**
+     * Whether the current tenant has mail credentials that can actually connect.
+     *
+     * The same resolution the send path uses, so this cannot report "configured"
+     * for a message that MailConfig would then refuse to send, or the reverse.
+     */
+    private function tenantMailIsUsable(): bool
+    {
+        $service = app(EmailConfigurationService::class);
+        $partner = getConfigPartner();
+
+        return $service->isUsable($service->resolveFor($partner?->id));
     }
 
     /**

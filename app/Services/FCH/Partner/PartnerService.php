@@ -674,10 +674,10 @@ class PartnerService
             $query->where('partners.status', $filters['status']);
         }
 
-        // 🔍 Filter by is_free_trail (directly on partners table)
-        if (isset($filters['is_free_trail']) && $filters['is_free_trail'] !== '') {
-            $query->where('partners.is_free_trail', $filters['is_free_trail']);
-        }
+        // 🔍 Filter by trial status (Partner::TRIAL_STATUS). The scope owns the
+        // rules so this list and the Trial badge on the row cannot disagree about
+        // what "Expired" means.
+        $query->trialFilter($filters['is_free_trail'] ?? null);
 
         // 🔍 Search filter (uses scopeSearch from Partner model)
         if (!empty($filters['search'])) {

@@ -88,7 +88,13 @@ class CommonController extends Controller
     public function getTheme(AppConfigurationService $configService)
     {
         $partner = getConfigPartner();
-        $branding = $configService->getBrandingSettings($partner->id);
+
+        // Portal chrome, so the host's logo is not inherited. getConfigPartner()
+        // has already resolved every partner that trades under the host's brand
+        // to the host itself, so a non-host partner here is one branded as
+        // itself, and its borrowers must never see the host's mark in the
+        // sidebar or on the login screen. See getBrandingSettings().
+        $branding = $configService->getBrandingSettings($partner->id, (bool) $partner->is_host);
 
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;

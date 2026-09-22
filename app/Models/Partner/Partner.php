@@ -207,6 +207,72 @@ class Partner extends Model
         return $this->morphOne(User::class, 'entity');
     }
 
+    public const TRIAL_TRIAL = 'Trial';
+    public const TRIAL_EXPIRED = 'Expired';
+    public const TRIAL_REGULAR = 'Regular';
+
+    /**
+     * The trial states a partner's plan can be in, mirroring self::STATUS.
+     *
+     * These are statuses, not column values: Trial and Regular are resolved from
+     * the is_free_trail flag, Expired additionally from the end date. Declared
+     * here, next to the scope that interprets them, so the list screen never has
+     * to guess the spelling - and so the filter can be built from this list
+     * rather than re-typing the options.
+     */
+    public const TRIAL_STATUS = [
+        self::TRIAL_TRIAL => self::TRIAL_TRIAL,
+        self::TRIAL_EXPIRED => self::TRIAL_EXPIRED,
+        self::TRIAL_REGULAR => self::TRIAL_REGULAR,
+    ];
+
+    /**
+     * Scope: narrow to a trial status, as chosen in the Trials filter.
+     *
+     *   null / ''   -> no filter, every partner
+     *   'Trial'     -> on a free trial, whether or not it has run out
+     *   'Expired'   -> on a free trial whose end date has already passed
+     *   'Regular'   -> not on a free trial
+     *
+     * Expired is a subset of Trial, not a sibling: a partner whose trial ran out
+     * is still on a trial plan, so it appears under both.
+     *
+     * "Expired" deliberately matches the rule the list's own Trial badge uses: the
+     * end date must be strictly before today, so a trial ending today still counts
+     * as running. Anything looser would filter to rows the table labels "Trial".
+     *
+     * An unrecognised value filters nothing rather than matching arbitrarily - the
+     * old code passed the raw value into a where(), where MySQL's loose comparison
+     * silently made junk behave like "Regular".
+     */
+    public function scopeTrialFilter($query, $trial)
+    {
+        if ($trial === null || $trial === '') {
+            return $query;
+        }
+
+        // Deprecated aliases. The filter used to send the is_free_trail boolean
+        // straight through; mapped rather than ignored so a browser still running
+        // the previous bundle keeps filtering correctly.
+        if (in_array($trial, ['1', 1, true], true)) {
+            $trial = self::TRIAL_TRIAL;
+        } elseif (in_array($trial, ['0', 0, false], true)) {
+            $trial = self::TRIAL_REGULAR;
+        }
+
+        $isFreeTrail = $this->qualifyColumn('is_free_trail');
+        $endDate = $this->qualifyColumn('free_trail_end_date');
+
+        return match ($trial) {
+            self::TRIAL_TRIAL => $query->where($isFreeTrail, true),
+            self::TRIAL_REGULAR => $query->where($isFreeTrail, false),
+            self::TRIAL_EXPIRED => $query->where($isFreeTrail, true)
+                ->whereNotNull($endDate)
+                ->whereDate($endDate, '<', now()->toDateString()),
+            default => $query,
+        };
+    }
+
     /**
      * Scope: apply text search across common partner fields.
      */

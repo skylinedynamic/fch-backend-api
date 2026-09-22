@@ -2,19 +2,18 @@
 
 namespace App\Services\FCH\Admin\CreditBuilder;
 
+use App\Services\CreditBuilder\VerificationNotifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\CreditBuilder\Tier;
 use App\Models\CreditBuilder\TierTask;
 use App\Models\Borrower\MigratedTask;
-use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class TaskVerificationService
 {
@@ -82,6 +81,7 @@ class TaskVerificationService
                 if ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) {
                     $results[] = [
                         'task_name' => $taskName,
+                        'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                         'is_verified' => true,
                         'message' => __('verification_center.already_verified'),
                         'skipped' => true,
@@ -105,6 +105,7 @@ class TaskVerificationService
                 $isVerified = ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
                     'task_name' => $taskName,
+                        'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => $isVerified,
                     'message' => $isVerified ? __('verification_center.verified') : __('verification_center.rejected'),
                 ];
@@ -213,35 +214,17 @@ class TaskVerificationService
     }
 
     /**
-     * Mail notification.
+     * Notify everyone a decision concerns.
+     *
+     * Delegates to VerificationNotifier, which sends the borrower's copy from
+     * their own partner's mailbox and the partner's copy from the host's. This
+     * method and its twin in the other verification service previously held
+     * identical inline copies of the borrower mail and nothing else - no
+     * partner was ever told.
      */
     protected function sendVerificationStatusMail($borrower, string $status, ?string $note, array $taskResults): void
     {
-        try {
-            $email = $borrower?->email ?? $borrower?->user?->email ?? null;
-            if (!$email)
-                return;
-
-            $filteredResults = array_filter($taskResults, fn($r) => !($r['skipped'] ?? false));
-            if (empty($filteredResults))
-                return;
-
-            $statusLabel = $status == BorrowerTaskVerificationRequest::COMPLETED ? __('verification_center.verified') : __('verification_center.rejected');
-
-
-            try {
-                Mail::to($email)->send(new BorrowerVerificationStatusMail([
-                    'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
-                    'borrower_name' => personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) ?: 'Borrower',
-                    'status' => $status,
-                    'note' => $note,
-                    'task_results' => $filteredResults,
-                ]));
-            } catch (\Exception $e) {
-                Log::error('TaskVerificationService: Global mail error', ['error' => $e->getMessage()]);
-            }
-        } catch (\Exception $e) {
-            Log::error('TaskVerificationService: sendVerificationStatusMail failed', ['error' => $e->getMessage()]);
-        }
+        app(VerificationNotifier::class)->decisionMade($borrower, $status, $note, $taskResults);
     }
+
 }

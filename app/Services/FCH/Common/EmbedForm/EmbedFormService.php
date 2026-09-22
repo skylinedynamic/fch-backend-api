@@ -14,6 +14,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Support\EmbedForm\EmbedFormLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -53,8 +54,14 @@ class EmbedFormService
      * Host, which is why that is deliberately not used here.
      *
      * An empty list means unrestricted, matching what the configuration screen
-     * tells the partner. The API's own host is always allowed so the Direct
-     * Shareable Link keeps working even when the list names only their website.
+     * tells the partner. The host the form is SERVED from is always allowed, so
+     * the Direct Shareable Link keeps working even when the list names only the
+     * partner's website. That host is now the partner's own domain rather than
+     * the API's - a partner with an allow-list would otherwise have their own
+     * link refused the moment it moved domains. Partner 17 is the live example:
+     * their list names `fourcorneracademy.com` while their form is published on
+     * `admin.fourcorneracademy.com`, and a subdomain is deliberately not treated
+     * as the listed host.
      */
     public function isOriginAllowed(EmbedFormConfig $config, Request $request): bool
     {
@@ -79,7 +86,14 @@ class EmbedFormService
             return false;
         }
 
-        $permitted = [$this->normalizeHost(config('app.url'))];
+        $permitted = [
+            // Where the form is published for this partner.
+            $this->normalizeHost(EmbedFormLocation::forPartner($config->partner)->baseUrl()),
+            // The API's own host, which served the form before the link moved.
+            // Kept so links already pasted into partner sites are not refused
+            // the day this ships.
+            $this->normalizeHost(config('app.url')),
+        ];
 
         foreach ($allowed as $domain) {
             $permitted[] = $this->normalizeHost($domain);
@@ -115,19 +129,55 @@ class EmbedFormService
     }
 
     /**
+     * Where this partner's form is published, or why it cannot be.
+     */
+    public function locationFor(int $partnerId): EmbedFormLocation
+    {
+        return EmbedFormLocation::forPartner(Partner::find($partnerId));
+    }
+
+    /**
+     * This partner's config, without creating one.
+     *
+     * The settings screen calls this so a partner who cannot yet publish is
+     * shown the warning rather than handed a form whose link goes nowhere.
+     */
+    public function findConfig(int $partnerId): ?EmbedFormConfig
+    {
+        return EmbedFormConfig::with('partner')->where('partner_id', $partnerId)->first();
+    }
+
+    /**
      * Get or create an EmbedFormConfig for the given partner.
+     *
+     * Refuses to create one for a partner with no address to publish it at. A
+     * White-Label partner's form lives on a domain of its own and nowhere else,
+     * so until one exists the form has no URL - and a config row created anyway
+     * would hand out a key that resolves to nothing.
+     *
+     * @throws \DomainException when the partner has nowhere to publish.
      */
     public function getOrCreateConfig(int $partnerId): EmbedFormConfig
     {
-        return EmbedFormConfig::firstOrCreate(
-            ['partner_id' => $partnerId],
-            [
-                'public_key' => EmbedFormConfig::generatePublicKey(),
-                'form_title' => 'Business Funding Application',
-                'notification_email' => null,
-                'is_active' => true,
-            ]
-        );
+        $existing = $this->findConfig($partnerId);
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $location = $this->locationFor($partnerId);
+
+        if (!$location->isAvailable()) {
+            throw new \DomainException($location->warning());
+        }
+
+        return EmbedFormConfig::create([
+            'partner_id' => $partnerId,
+            'public_key' => EmbedFormConfig::generatePublicKey(),
+            'form_title' => 'Business Funding Application',
+            'notification_email' => null,
+            'is_active' => true,
+        ]);
     }
 
     /**

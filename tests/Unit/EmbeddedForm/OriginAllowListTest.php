@@ -3,6 +3,7 @@
 namespace Tests\Unit\EmbeddedForm;
 
 use App\Models\EmbedForm\EmbedFormConfig;
+use App\Models\Partner\Partner;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -158,12 +159,67 @@ class OriginAllowListTest extends TestCase
     #[Test]
     public function the_apis_own_host_is_always_allowed(): void
     {
-        // Otherwise a partner listing only their website would break their own
-        // Direct Shareable Link, which is served from the API.
+        // Where the form was served before the link moved to the partner's own
+        // domain. Still allowed, so links already pasted into partner sites are
+        // not refused the day that ships.
         $this->assertTrue($this->service->isOriginAllowed(
             $this->config(['https://willowcreek.example']),
             $this->requestFrom('https://api.fourcornerfunding.com')
         ));
+    }
+
+    #[Test]
+    public function the_host_the_form_is_published_on_is_always_allowed(): void
+    {
+        // The live case this fixes. Partner 17 lists `fourcorneracademy.com`
+        // while their form is published on `admin.fourcorneracademy.com`, and a
+        // subdomain is deliberately not the listed host (see the test below), so
+        // before this their own Direct Shareable Link was refused.
+        $config = $this->config(['https://fourcorneracademy.com']);
+        $config->setRelation('partner', new Partner([
+            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'is_host' => false,
+            'active_custom_url' => true,
+            'partner_domain' => 'admin.fourcorneracademy.com',
+        ]));
+
+        $this->inProduction(fn () => $this->assertTrue($this->service->isOriginAllowed(
+            $config,
+            $this->requestFrom('https://admin.fourcorneracademy.com')
+        )));
+    }
+
+    #[Test]
+    public function a_partner_with_nowhere_to_publish_widens_nothing(): void
+    {
+        // A blocked partner has no base URL, and null must not widen the list -
+        // normalizeHost(null) returning null has to be filtered out rather than
+        // matching a request whose own host failed to parse.
+        $config = $this->config(['https://willowcreek.example']);
+        $config->setRelation('partner', new Partner([
+            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'is_host' => false,
+            'partner_domain' => null,
+            'partner_subdomain' => null,
+        ]));
+
+        $this->assertFalse($this->service->isOriginAllowed(
+            $config,
+            $this->requestFrom('https://evil.example')
+        ));
+    }
+
+    /** Tenant domains only resolve in production. */
+    private function inProduction(callable $assertions): void
+    {
+        $original = app()->environment();
+        app()['env'] = 'production';
+
+        try {
+            $assertions();
+        } finally {
+            app()['env'] = $original;
+        }
     }
 
     #[Test]

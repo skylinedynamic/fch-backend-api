@@ -7,6 +7,16 @@ return [
     'form_not_found_or_inactive' => 'Form not found or is no longer active.',
     'origin_not_allowed' => 'This form is not authorised to be submitted from this website.',
 
+    // Publishing address. A White-Label partner's form is served on a domain of
+    // its own and nowhere else, so without one there is no address to publish
+    // and no form to create.
+    'partner_domain_required' => 'Set a domain for your account before creating an embedded form. Your application form is published on that domain, so there is nowhere to host it until one is configured.',
+
+    // The host and Certified partners publish on the platform's public site, so
+    // a blank BASE_WEBSITE leaves them with no address either. Reported the same
+    // way as a missing partner domain rather than silently producing no link.
+    'base_website_required' => 'The platform website address is not configured, so there is nowhere to publish this form. Set BASE_WEBSITE on the server before creating an embedded form.',
+
     // Submissions
     'submission_not_found' => 'Submission not found.',
     'status_updated' => 'Status updated successfully.',

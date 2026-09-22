@@ -3,8 +3,8 @@
 namespace App\Services\FCH\Common\ChangeRequest;
 
 use App\Helpers\ApiResponse;
+use App\Services\Profile\ChangeRequestNotifier;
 use App\Models\Borrower\BorrowerChangeRequest;
-use App\Mail\Borrower\ChangeRequestStatusMail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -133,27 +133,9 @@ class ChangeRequestService
             }
         }
 
-        // Send email notification to borrower
-        try {
-            $borrower = $changeRequest->borrower;
-            $email = $borrower->email ?? $borrower->business_email;
-
-            if ($email) {
-                try {
-                    Mail::to($email)->send(new ChangeRequestStatusMail([
-                        'borrower_name' => $borrower->first_name . ' ' . $borrower->last_name,
-                        'field_name' => $changeRequest->field_name,
-                        'status' => $changeRequest->status,
-                        'new_value' => $changeRequest->new_value,
-                        'note' => $changeRequest->note,
-                    ]));
-                } catch (\Exception $e) {
-                    Log::error("Failed to send change request email: " . $e->getMessage());
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error("Failed to send change request email: " . $e->getMessage());
-        }
+        // Tell the borrower, from their OWN partner's mailbox. The notifier logs
+        // and swallows its own failures.
+        app(ChangeRequestNotifier::class)->decisionMade($changeRequest);
 
         return ApiResponse::success(
             new \App\Http\Resources\FCH\Common\ChangeRequest\ChangeRequestResource($changeRequest->fresh(['borrower', 'updater'])),
