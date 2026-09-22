@@ -24,13 +24,13 @@
                             #</th>
                         <th
                             style="text-align: left; padding: 10px 8px; border-bottom: 1px solid #e9ebec; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #878a99; letter-spacing: 0.5px;">
+                            Tier</th>
+                        <th
+                            style="text-align: left; padding: 10px 8px; border-bottom: 1px solid #e9ebec; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #878a99; letter-spacing: 0.5px;">
                             Task Name</th>
                         <th
                             style="text-align: left; padding: 10px 8px; border-bottom: 1px solid #e9ebec; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #878a99; letter-spacing: 0.5px;">
                             Status</th>
-                        <th
-                            style="text-align: left; padding: 10px 8px; border-bottom: 1px solid #e9ebec; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #878a99; letter-spacing: 0.5px;">
-                            Remark</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -46,6 +46,9 @@
                             <td class="col-num"
                                 style="padding: 8px; border-bottom: 1px solid #eee; color: #64748b; width: 32px;">
                                 {{ $index + 1 }}</td>
+                            <td class="col-tier"
+                                style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600; color: #1e3a8a; font-size: 13px; white-space: nowrap;">
+                                {{ $result['tier_name'] ?? __('verification_center.unknown_tier') }}</td>
                             <td class="col-task"
                                 style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 500; color: #0f172a; font-size: 13px;">
                                 {{ $result['task_name'] }}</td>
@@ -54,9 +57,6 @@
                                 <span class="badge"
                                     style="display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; {{ $badgeStyles }}">{{ $badgeLabel }}</span>
                             </td>
-                            <td class="col-remark"
-                                style="padding: 8px; border-bottom: 1px solid #eee; color: #64748b; font-size: 13px;">
-                                {{ $result['message'] ?? '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

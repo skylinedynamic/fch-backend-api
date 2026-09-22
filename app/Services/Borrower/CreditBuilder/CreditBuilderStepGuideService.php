@@ -15,6 +15,7 @@ use App\Http\Resources\Borrower\CreditBuilder\TierResource;
 use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use App\Models\Borrower\MigratedTask;
 use App\Services\CreditBuilder\VerificationNotifier;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -153,7 +154,11 @@ class CreditBuilderStepGuideService
             throw $e;
         }
 
-        $requests = collect($verificationRequests);
+        // An Eloquent collection, not collect(): the notifier call below eager
+        // loads with ->load(), which only exists on Eloquent\Collection. A base
+        // Support\Collection threw BadMethodCallException right after the commit,
+        // so the rows were saved but the host was never told.
+        $requests = new EloquentCollection($verificationRequests);
 
         // Announce the submission to the host, from the host's own mailbox.
         //

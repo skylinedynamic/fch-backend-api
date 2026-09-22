@@ -43,6 +43,14 @@ class NewChangeRequestSubmittedMail extends Mailable implements ShouldQueue
     {
         $branding = $this->getHostBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
+        // concatUrl() supplies the scheme. BASE_PARTNER_PORTAL is stored without
+        // one ("localhost:5174"), and a href with no scheme is read as a
+        // relative path, so the button in the mail went nowhere.
+        $this->dynamicData['reviewUrl'] = concatUrl(
+            getPartnerDomain($this->partner->id),
+            'intake-review/change-requests',
+            config('app.frontend_partner_url')
+        );
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
@@ -71,6 +79,7 @@ class NewChangeRequestSubmittedMail extends Mailable implements ShouldQueue
                 'newValue'      => $this->changeRequest->new_value,
                 'siteName'      => $this->dynamicData['siteName'],
                 'logoUrl'       => $this->dynamicData['logoUrl'],
+                'reviewUrl'     => $this->dynamicData['reviewUrl'],
             ],
         );
     }

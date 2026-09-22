@@ -81,6 +81,7 @@ class TaskVerificationService
                 if ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED) {
                     $results[] = [
                         'task_name' => $taskName,
+                        'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                         'is_verified' => true,
                         'message' => __('verification_center.already_verified'),
                         'skipped' => true,
@@ -104,6 +105,7 @@ class TaskVerificationService
                 $isVerified = ($statusToSet == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
                     'task_name' => $taskName,
+                        'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => $isVerified,
                     'message' => $isVerified ? __('verification_center.verified') : __('verification_center.rejected'),
                 ];

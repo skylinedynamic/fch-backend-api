@@ -3,13 +3,16 @@
 @section('title', $siteName . ' - New Verification Request')
 
 @section('content')
+    {{-- Greeting, then the summary - the same opening the profile change request
+         mail uses. The old heading repeated the subject line verbatim, which
+         already names the borrower and the task count. --}}
     <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">
-        {{ __('verification_center.new_request_subject') }}</h4>
+        Hello {{ $hostName ?? __('borrower.host_partner') }},</h4>
 
-    <p style="line-height: 1.5;">
+    <p style="line-height: 1.5; margin-bottom: 24px;">
         <strong>{{ $borrowerName }}</strong>@if ($partnerName) of <strong>{{ $partnerName }}</strong>@endif
         has submitted {{ trans_choice('verification_center.task_count', count($tasks), ['count' => count($tasks)]) }}
-        for verification.
+        for verification and requires your review.
     </p>
 
     {{-- Every task in the submission, grouped by tier. A bulk submission is one
@@ -90,7 +93,28 @@
         </div>
     </div>
 
-    <p style="line-height: 1.5; margin-bottom: 0; font-size: 13px; color: #64748b;">
-        Review these in the Verification Center.
-    </p>
+    {{-- Straight to this borrower's requests, so the reviewer does not have to
+         find them in the Verification Center's full list.
+
+         Guarded: a queue worker holds the mailable class in memory from the
+         moment it booted, while Blade recompiles per render. A worker that has
+         not been restarted since a deploy therefore renders this template
+         against the previous class, and an unguarded {{ $reviewUrl }} aborts the
+         whole send. Losing the button beats losing the email. --}}
+    @isset($reviewUrl)
+        <div class="btn-container" style="margin: 30px 0 8px 0; text-align: center;">
+            <a href="{{ $reviewUrl }}" class="btn"
+                style="display: inline-block; background-color: #0ab39c; color: #ffffff !important; text-decoration: none; padding: 12px 28px; font-size: 14px; font-weight: 500; border-radius: 4px;">Review
+                in Verification Center</a>
+        </div>
+
+        <p style="line-height: 1.5; margin-bottom: 0; font-size: 12px; color: #94a3b8; text-align: center;">
+            Or paste this into your browser:<br>
+            <span style="color: #64748b; word-break: break-all;">{{ $reviewUrl }}</span>
+        </p>
+    @else
+        <p style="line-height: 1.5; margin-bottom: 0; font-size: 13px; color: #64748b;">
+            Review these in the Verification Center.
+        </p>
+    @endisset
 @endsection

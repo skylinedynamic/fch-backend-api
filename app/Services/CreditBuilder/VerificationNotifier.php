@@ -69,6 +69,12 @@ class VerificationNotifier
             Mail::to($recipient)->send(new TaskVerificationRequestedMail([
                 'borrower_name' => $this->nameOf($borrower),
                 'borrower_email' => $borrower?->email,
+                // Lets the mail deep link straight to this borrower's requests
+                // rather than the Verification Center's full list.
+                'borrower_id' => $borrower?->id,
+                // The recipient, for the greeting. Taken from the host row already
+                // resolved above rather than looked up again in the mailable.
+                'host_name' => $host?->full_name ?: $host?->company_name,
                 'partner_name' => $borrower?->partner?->company_name ?: $borrower?->partner?->full_name,
                 'tasks' => $this->taskLines($requests),
             ], $host?->id));

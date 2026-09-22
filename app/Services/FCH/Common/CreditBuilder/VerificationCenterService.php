@@ -336,6 +336,7 @@ class VerificationCenterService
             if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
                     'message' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED)
                         ? __('verification_center.already_verified')
@@ -424,12 +425,14 @@ class VerificationCenterService
                 $isVerified = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => $isVerified,
                     'message' => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
                 ];
             } else {
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => false,
                     'message' => $errorMessage ?: __('verification_center.no_api_assigned'),
                     'skipped' => true,
