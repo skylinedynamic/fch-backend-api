@@ -51,7 +51,18 @@ final class EmbedFormLocation
             return self::forWhiteLabel($partner);
         }
 
-        return new self(self::baseWebsiteUrl(), null);
+        $baseUrl = self::baseWebsiteUrl();
+
+        // A blank address is not a usable one. Without this an unset
+        // BASE_WEBSITE produced an empty base, which is not null - so
+        // isAvailable() reported true and the settings screen showed neither a
+        // warning nor a link, leaving the partner with no way to tell that
+        // anything was wrong.
+        if ($baseUrl === '') {
+            return new self(null, __('embed_form.base_website_required'));
+        }
+
+        return new self($baseUrl, null);
     }
 
     /**
@@ -81,14 +92,20 @@ final class EmbedFormLocation
     /**
      * The platform's public website, shared by the host and Certified partners.
      *
-     * Outside production it is this application instead: BASE_WEBSITE points at
-     * the marketing site's dev server, which does not serve `/form/*`.
+     * BASE_WEBSITE in every environment. It used to fall back to this
+     * application's own APP_URL outside production, on the grounds that the
+     * marketing site's dev server does not serve `/form/*` - but that meant the
+     * settings screen showed a `127.0.0.1:8000` link locally, which is not the
+     * address the form is actually published on and cannot be shared. The
+     * configured website is the answer to "where is this form published", so it
+     * is what gets shown; whether that host proxies `/form/*` yet is a routing
+     * concern, not a reason to display a different address.
      */
     private static function baseWebsiteUrl(): string
     {
-        return app()->environment('production')
-            ? self::normalise(config('app.base_website'))
-            : self::appUrl();
+        $configured = trim((string) config('app.base_website'));
+
+        return $configured === '' ? '' : self::normalise($configured);
     }
 
     private static function appUrl(): string

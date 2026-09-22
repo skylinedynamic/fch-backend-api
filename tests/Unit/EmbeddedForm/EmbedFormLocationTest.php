@@ -166,6 +166,132 @@ class EmbedFormLocationTest extends TestCase
         });
     }
 
+    // -- BASE_WEBSITE applies in every environment ----------------------
+
+    #[Test]
+    public function the_host_publishes_on_the_base_website_outside_production_too(): void
+    {
+        // No inProduction() wrapper on purpose - this is the local case.
+        // Resolution used to substitute APP_URL outside production, which put a
+        // 127.0.0.1:8000 link on the settings screen: not the address the form
+        // is published on, and not something a partner can share.
+        $location = EmbedFormLocation::forPartner($this->partner(
+            Partner::PARTNER_TYPE_CERTIFIED,
+            ['is_host' => true]
+        ));
+
+        $this->assertSame('https://' . self::BASE_WEBSITE, $location->baseUrl());
+        $this->assertStringStartsWith('https://' . self::BASE_WEBSITE . '/form/', (string) $location->formUrl('abc123'));
+    }
+
+    #[Test]
+    public function a_certified_partner_publishes_on_the_base_website_outside_production_too(): void
+    {
+        $location = EmbedFormLocation::forPartner($this->partner(
+            Partner::PARTNER_TYPE_CERTIFIED
+        ));
+
+        $this->assertSame('https://' . self::BASE_WEBSITE, $location->baseUrl());
+    }
+
+    #[Test]
+    public function the_link_never_points_at_the_api_host_outside_production_either(): void
+    {
+        // The specific regression: APP_URL is the API, not the public website.
+        foreach ([true, false] as $isHost) {
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_CERTIFIED,
+                ['is_host' => $isHost]
+            ));
+
+            $this->assertStringNotContainsString(
+                self::API_HOST,
+                (string) $location->formUrl('abc123'),
+                $isHost ? 'host link leaked the API host' : 'certified link leaked the API host'
+            );
+            $this->assertStringNotContainsString('127.0.0.1', (string) $location->formUrl('abc123'));
+        }
+    }
+
+    // -- Nothing configured at all -------------------------------------
+
+    #[Test]
+    public function an_unset_base_website_leaves_the_host_with_nowhere_to_publish(): void
+    {
+        // The mirror of the White-Label rule below: the host and Certified
+        // partners publish on BASE_WEBSITE, so a blank one is the same dead end
+        // as a missing partner domain and has to be reported the same way.
+        //
+        // It previously resolved to an empty string rather than null, which is
+        // not the same thing: isAvailable() returned true and warning() returned
+        // null, so the settings screen offered neither a link nor an explanation.
+        $this->inProduction(function () {
+            config(['app.base_website' => null]);
+
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_CERTIFIED,
+                ['is_host' => true]
+            ));
+
+            $this->assertFalse($location->isAvailable());
+            $this->assertNull($location->baseUrl());
+            $this->assertSame(__('embed_form.base_website_required'), $location->warning());
+        });
+    }
+
+    #[Test]
+    public function a_blank_base_website_is_treated_as_unset(): void
+    {
+        // env('BASE_WEBSITE=') yields an empty string, not null, so the config
+        // default never applies - whitespace has to count as missing too.
+        $this->inProduction(function () {
+            config(['app.base_website' => '   ']);
+
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_CERTIFIED
+            ));
+
+            $this->assertFalse($location->isAvailable());
+            $this->assertSame(__('embed_form.base_website_required'), $location->warning());
+        });
+    }
+
+    #[Test]
+    public function a_host_with_no_base_website_is_given_no_link_and_no_snippet(): void
+    {
+        $this->inProduction(function () {
+            config(['app.base_website' => null]);
+
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_CERTIFIED,
+                ['is_host' => true]
+            ));
+
+            $this->assertNull($location->formUrl('abc123'));
+            $this->assertNull($location->embedSnippet('abc123'));
+            $this->assertNull($location->host());
+        });
+    }
+
+    #[Test]
+    public function a_white_label_partner_is_unaffected_by_a_blank_base_website(): void
+    {
+        // Its address comes from its own columns, so the platform's website
+        // being unset must not take its form down with it.
+        $this->inProduction(function () {
+            config(['app.base_website' => null]);
+
+            $location = EmbedFormLocation::forPartner($this->partner(
+                Partner::PARTNER_TYPE_WHITE_LABEL,
+                ['partner_domain' => 'admin.northwind.com']
+            ));
+
+            $this->assertTrue($location->isAvailable());
+            $this->assertSame('https://admin.northwind.com', $location->baseUrl());
+            $this->assertNull($location->warning());
+        });
+    }
+
     #[Test]
     public function a_white_label_partner_with_no_domain_at_all_cannot_publish(): void
     {
