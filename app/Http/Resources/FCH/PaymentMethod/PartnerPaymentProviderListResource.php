@@ -27,7 +27,10 @@ class PartnerPaymentProviderListResource extends JsonResource
         if (is_object($configuration)) {
             $configuration = (array) $configuration;
         }
-        $paymentMode = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+        // payment_mode lives on the linkage row; updateOrCreateConfig() strips it
+        // out of the encrypted configuration JSON, so the column is the source of truth.
+        $paymentMode = $linkage?->payment_mode
+            ?? ($configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
 
         $pubKey = null;
         if ($this->name === PaymentProvider::STRIPE) {
@@ -46,14 +49,16 @@ class PartnerPaymentProviderListResource extends JsonResource
                     $partnerId = Partner::host()?->id;
                 }
                 if ($partnerId) {
-                    $providerConfig = PartnerPaymentProvider::where('partner_id', $partnerId)
+                    $fallbackLinkage = PartnerPaymentProvider::where('partner_id', $partnerId)
                         ->where('payment_provider_id', $this->id)
                         ->where('status', true)
-                        ->first()?->configuration ?? [];
+                        ->first();
+                    $providerConfig = $fallbackLinkage?->configuration ?? [];
                     if (is_object($providerConfig)) {
                         $providerConfig = (array) $providerConfig;
                     }
-                    $mode = $providerConfig['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+                    $mode = $fallbackLinkage?->payment_mode
+                        ?? ($providerConfig['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
                     $pubKey = $providerConfig[$mode]['publishable_key']
                         ?? $providerConfig['publishable_key']
                         ?? $providerConfig['public_key']
