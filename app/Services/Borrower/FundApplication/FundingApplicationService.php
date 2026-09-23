@@ -167,7 +167,34 @@ class FundingApplicationService
 
 
             if (!$isNew && $existing && empty($status)) {
-                unset($data['status']); // Do not overwrite existing status
+                if ($existing->status === FundingApplication::PENDING) {
+                    // The wizard prefills every step with the currently saved values, so
+                    // paging through without changing anything re-submits identical data.
+                    // Only an actual field change should invalidate the signature.
+                    $metaKeys = ['status', 'borrower_id', 'partner_id', 'updated_by', 'created_by',
+                        'funding_request_id', 'funding_sequence_id', 'signature_data', 'attestation_authorization',
+                        'is_business_info_saved', 'is_ownership_info_saved', 'is_financial_info_saved',
+                        'is_funding_request_saved', 'is_disclosures_saved', 'is_federal_compliance_saved'];
+                    // Untouched optional fields round-trip through the wizard as '' rather than
+                    // null, which a cast (e.g. integer) would otherwise turn into a false "0 !== null"
+                    // dirty flag. Normalize for the comparison only - the real save still gets $data as-is.
+                    $comparableData = array_map(fn ($value) => $value === '' ? null : $value, $data);
+                    $existing->fill($comparableData);
+                    $hasRealChange = $existing->isDirty(array_diff(array_keys($data), $metaKeys));
+
+                    if ($hasRealChange) {
+                        // Application was already submitted and is awaiting review; a real edit
+                        // invalidates the prior signature and requires the borrower to resign
+                        $data['status'] = FundingApplication::DRAFT;
+                        $data['signature_data'] = null;
+                        $data['attestation_authorization'] = false;
+                        $data['requires_resign'] = true;
+                    } else {
+                        unset($data['status']); // No actual change - keep it Submitted - Pending Review
+                    }
+                } else {
+                    unset($data['status']); // Do not overwrite existing status
+                }
             }
 
             $fundingApplication = FundingApplication::updateOrCreate(

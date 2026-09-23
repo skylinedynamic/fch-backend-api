@@ -107,6 +107,7 @@ class FundingRequestResource extends JsonResource
             'is_federal_compliance_saved' => $fundingApp ? (bool)$fundingApp->is_federal_compliance_saved : false,
             'signature_data' => $fundingApp ? $fundingApp->signature_data : null,
             'status' => $fundingApp ? $fundingApp->status : null,
+            'requires_resign' => $fundingApp ? (bool)$fundingApp->requires_resign : false,
         ];
     }
 }

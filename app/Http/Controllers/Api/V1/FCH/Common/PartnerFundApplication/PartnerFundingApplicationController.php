@@ -354,6 +354,7 @@ class PartnerFundingApplicationController extends Controller
 
             // Set old attestation_authorization to true for backward compatibility
             $validated['attestation_authorization'] = true;
+            $validated['requires_resign'] = false;
 
             $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
 

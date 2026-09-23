@@ -99,6 +99,7 @@ class FundingApplication extends Model
         'federal_compliance_disclosures_explanation',
         'attestation_authorization',
         'signature_data',
+        'requires_resign',
         'currency',
         'currency_symbol',
         'conversion_rate',
@@ -118,6 +119,7 @@ class FundingApplication extends Model
         'date_of_birth' => 'date',
         'funded_date' => 'date',
         'signature_data' => 'array',
+        'requires_resign' => 'boolean',
 
         'is_business_info_saved' => 'boolean',
         'is_ownership_info_saved' => 'boolean',
