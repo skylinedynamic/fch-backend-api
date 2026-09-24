@@ -260,6 +260,7 @@ class ReminderClientAndSnoozeTest extends TestCase
             'activity_date' => now()->addDay()->format('Y-m-d H:i:s'),
             'remind_me' => '1',
             'remind_at' => now()->addDay()->subMinutes(30)->format('Y-m-d H:i:s'),
+            'visibility' => 'partner',
         ])->assertSuccessful();
 
         $logId = $response->json('data.id');

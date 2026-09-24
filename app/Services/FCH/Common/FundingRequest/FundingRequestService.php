@@ -286,12 +286,13 @@ class FundingRequestService
                     "Your funding request has been approved. Please proceed to complete your funding application.",
                     'notification',
                     [
-                        'is_internal' => false, 
+                        'is_internal' => false,
                         'visible_to_borrower' => true,
                         'email_sent' => !empty($borrowerEmail),
                         'approval_time' => Carbon::now()->toDateTimeString(),
                         'email_delivery_status' => 'Dispatched'
-                    ]
+                    ],
+                    ActivityLog::VISIBILITY_EVERYONE
                 );
             }
         }
@@ -355,7 +356,8 @@ class FundingRequestService
             [
                 'lender_ids' => $review->lender_ids,
                 'is_internal' => true
-            ]
+            ],
+            ActivityLog::VISIBILITY_INTERNAL
         );
 
         return ApiResponse::success($review, "Lenders assigned successfully");

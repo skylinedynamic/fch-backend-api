@@ -287,6 +287,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [ActivityLogController::class, 'index']);
                 Route::get('/{id}', [ActivityLogController::class, 'show']);
                 Route::post('/', [ActivityLogController::class, 'store']);
+                Route::match(['patch', 'post'], '/{id}/visibility', [ActivityLogController::class, 'updateVisibility']);
                 Route::match(['put', 'post'], '/{id}', [ActivityLogController::class, 'update']);
                 Route::delete('/{id}', [ActivityLogController::class, 'destroy']);
             });

@@ -39,6 +39,12 @@ class StoreActivityLogRequest extends BaseApiRequest
             'visible_to_host' => ['nullable', 'in:1,0,true,false'],
             'visible_to_borrower' => ['nullable', 'in:1,0,true,false'],
 
+            'visibility' => [
+                Rule::requiredIf($this->log_type === ActivityLog::TYPE_ACTIVITY),
+                'nullable',
+                Rule::in($this->allowedVisibilities()),
+            ],
+
             'subject'       => ['required', 'string', 'max:200'],
             'description'   => ['required', 'string'],
 
@@ -91,9 +97,30 @@ class StoreActivityLogRequest extends BaseApiRequest
         ];
     }
 
+    /**
+     * Host users may address an activity at any of the 4 levels. Partner
+     * users may not tag anything "Internal (FCH Only)" — meaningless from
+     * their side, and letting them set it would just hide their own note
+     * from themselves next time a host reviews it.
+     */
+    private function allowedVisibilities(): array
+    {
+        if (ActivityLog::isHostUser($this->user())) {
+            return ActivityLog::VISIBILITY_LEVELS;
+        }
+
+        return [
+            ActivityLog::VISIBILITY_PRIVATE,
+            ActivityLog::VISIBILITY_PARTNER,
+            ActivityLog::VISIBILITY_EVERYONE,
+        ];
+    }
+
     public function messages(): array
     {
         return [
+            'visibility.required'    => 'Please select who can see this activity.',
+            'visibility.in'          => 'That visibility level is not available to you.',
             'to_emails.required'     => __('activity_log.to_emails_required'),
             'to_emails.email'        => __('activity_log.to_emails_invalid'),
             'to_emails.string'       => __('activity_log.to_emails_invalid'),

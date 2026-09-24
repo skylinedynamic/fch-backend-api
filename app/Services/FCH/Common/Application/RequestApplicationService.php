@@ -424,7 +424,8 @@ class RequestApplicationService
                 $title,
                 $description,
                 'funding_application_status_update',
-                ['visible_to_borrower' => true, 'visible_to_partner' => true]
+                ['visible_to_borrower' => true, 'visible_to_partner' => true],
+                \App\Models\ActivityLog\ActivityLog::VISIBILITY_EVERYONE
             );
         }
 
