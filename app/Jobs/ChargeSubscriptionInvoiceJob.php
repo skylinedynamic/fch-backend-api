@@ -158,6 +158,22 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             : $invoice->partner_id;
 
         $partnerProvider = $gatewayManager->resolvePartnerProvider($receiverId);
+
+        // A saved card lives in one Stripe account. Charging it from the other
+        // fails at Stripe with a message about the token rather than the mode,
+        // so refuse here and say which mismatch it was.
+        $storedMode = is_array($payer->stripe_customer_id)
+            ? ($payer->stripe_customer_id['payment_mode'] ?? null)
+            : null;
+        $activeMode = $partnerProvider->paymentMode();
+
+        if ($storedMode && $storedMode !== $activeMode) {
+            $this->markFailed(
+                "Saved card belongs to the {$storedMode} Stripe account but the receiving partner is in {$activeMode} mode; the payer must re-enter their card."
+            );
+            return;
+        }
+
         $driver = $gatewayManager->driverFor($partnerProvider);
 
         $currency = strtolower($invoice->currency ?? Invoice::CURRENCY_USD);

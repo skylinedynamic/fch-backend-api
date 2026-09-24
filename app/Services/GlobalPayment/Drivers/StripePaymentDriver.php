@@ -6,6 +6,7 @@ use App\Contracts\Payment\PaymentGatewayInterface;
 use App\Models\Invoice\Invoice;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
+use App\Support\Payment\PaymentCredentials;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Stripe\Customer as StripeCustomer;
@@ -33,13 +34,12 @@ class StripePaymentDriver implements PaymentGatewayInterface
     public function initialize(array $config, string $environment = PaymentProvider::MODE_SANDBOX): self
     {
         $this->config = $config;
-        $this->environment = $environment;
+        $this->environment = PaymentCredentials::normalizeMode($environment);
 
-        $envConfig = $config[$environment] ?? $config;
-        $this->apiKey = $envConfig['secret_key'] ?? ($config['stripe_secret_' . $environment] ?? null);
+        $this->apiKey = PaymentCredentials::secretKey($config, $this->environment);
 
         if (!$this->apiKey) {
-            throw new RuntimeException("Stripe secret key not configured for {$environment} mode.");
+            throw new RuntimeException("Stripe secret key not configured for {$this->environment} mode.");
         }
 
         Stripe::setApiKey($this->apiKey);
@@ -78,7 +78,8 @@ class StripePaymentDriver implements PaymentGatewayInterface
         $customerId = $customerService->resolveCustomer(
             $invoice->email,
             $invoice->customer_name ?? 'Client',
-            $stripeCustomerData
+            $stripeCustomerData,
+            $this->environment
         );
 
         // 3. Attach payment method and set as default (if a token is provided)
@@ -118,14 +119,37 @@ class StripePaymentDriver implements PaymentGatewayInterface
         $cardName = !empty($cardDetails['name']) ? $cardDetails['name'] : ($isSandbox ? 'Sandbox Card' : null);
         $cardNo = $cardDetails['card_no'];
 
-        // Persist Stripe Customer ID and card details
-        if ($payer && (empty($stripeCustomerIdRaw) || empty($payer->stripe_customer_id['card_no'] ?? null))) {
+        // Persist the Stripe Customer this charge actually used.
+        //
+        // resolveCustomer() discards a customer belonging to the other Stripe
+        // account and resolves a fresh one, so after a mode switch the id used
+        // here is NOT the one on file. Writing back only when the record looked
+        // empty left the stale id in place, and the next payment repeated the
+        // whole rediscovery - so the record is also rewritten whenever the
+        // customer or the mode has moved on.
+        //
+        // Rewriting on a mode change is what backfills `payment_mode` onto rows
+        // saved before it was recorded, which is what lets the cross-account
+        // guards recognize them later.
+        $stored = is_array($payer?->stripe_customer_id) ? $payer->stripe_customer_id : [];
+        $storedCustomerId = $stored['customer_id'] ?? (is_string($payer?->stripe_customer_id) ? $payer->stripe_customer_id : null);
+        $customerMoved = $storedCustomerId !== $customerId;
+
+        $isStale = $customerMoved || ($stored['payment_mode'] ?? null) !== $this->environment;
+        $isIncomplete = empty($storedCustomerId) || empty($stored['card_no'] ?? null);
+
+        if ($payer && ($isStale || $isIncomplete)) {
+            // Card details already on file describe the OLD customer's card, so
+            // they are only worth keeping when the customer itself has not moved.
+            $keepIfSameCustomer = fn (string $key) => $customerMoved ? null : ($stored[$key] ?? null);
+
             $payer->update([
                 'default_payment_method' => PaymentProvider::STRIPE,
                 'stripe_customer_id' => [
-                    'customer_id' => $customerId,
-                    'name'        => $cardName,
-                    'card_no'     => $cardNo,
+                    'customer_id'  => $customerId,
+                    'name'         => $cardName ?: $keepIfSameCustomer('name'),
+                    'card_no'      => $cardNo ?: $keepIfSameCustomer('card_no'),
+                    'payment_mode' => $this->environment,
                 ],
             ]);
         }

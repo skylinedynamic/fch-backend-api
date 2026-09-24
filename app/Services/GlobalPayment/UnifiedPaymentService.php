@@ -183,7 +183,7 @@ class UnifiedPaymentService
                         $cardNo = $cardNo ?: ($cardInfo['card_no'] ?? null);
                     }
 
-                    $isSandbox = ($partnerProvider->payment_mode ?? PaymentProvider::MODE_SANDBOX) === PaymentProvider::MODE_SANDBOX;
+                    $isSandbox = $partnerProvider->paymentMode() === PaymentProvider::MODE_SANDBOX;
                     $cardName = !empty($cardName) ? $cardName : ($isSandbox ? __('payment.sandbox_card') : null);
 
                     if (empty($payer->stripe_customer_id_raw) || empty($payer->stripe_customer_id['card_no'] ?? null)) {
@@ -193,6 +193,7 @@ class UnifiedPaymentService
                                 'customer_id' => $rawCustId,
                                 'name' => $cardName,
                                 'card_no' => $cardNo,
+                                'payment_mode' => $partnerProvider->paymentMode(),
                             ],
                         ]);
                     }

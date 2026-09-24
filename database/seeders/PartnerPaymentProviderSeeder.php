@@ -73,8 +73,10 @@ class PartnerPaymentProviderSeeder extends Seeder
             $rawMode = $items['payment_mode'] ?? $items['paymentmode'] ?? $items['mode'] ?? $items['environment'] ?? $items['stripe_mode'] ?? 'sandbox';
             $paymentMode = strtolower(trim((string) $rawMode)) === 'production' ? 'production' : 'sandbox';
 
+            // payment_mode is a column on the linkage, not part of this blob - see
+            // the 2026_08_09 migration. Writing a second copy here is what kept
+            // reintroducing the duplicate that readers used to disagree over.
             $configuration = [
-                'payment_mode' => $paymentMode,
                 'sandbox' => [
                     'publishable_key' => $items['stripe_key_sandbox'] ?? null,
                     'secret_key' => $items['stripe_secret_sandbox'] ?? null,

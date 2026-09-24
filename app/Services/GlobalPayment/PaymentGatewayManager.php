@@ -66,14 +66,8 @@ class PaymentGatewayManager
     public function driverFor(PartnerPaymentProvider $partnerProvider): PaymentGatewayInterface
     {
         $providerName = $partnerProvider->provider?->name ?? PaymentProvider::STRIPE;
-        $configuration = $partnerProvider->configuration ?? [];
-        if (is_object($configuration)) {
-            $configuration = (array) $configuration;
-        }
-        // payment_mode is a column on the linkage row, not part of the encrypted
-        // configuration JSON (updateOrCreateConfig() strips it out before saving).
-        $environment = $partnerProvider->payment_mode
-            ?? ($configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
+        $configuration = $partnerProvider->configurationArray();
+        $environment = $partnerProvider->paymentMode();
 
         Log::debug("[PaymentGatewayManager] Initializing payment driver", [
             'partner_id' => $partnerProvider->partner_id,
