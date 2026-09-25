@@ -13,8 +13,12 @@ return new class extends Migration
         $table = config('activitylog.table_name') ?? 'activity_log';
 
         if (! Schema::connection($connection)->hasColumn($table, 'visibility')) {
-            Schema::connection($connection)->table($table, function (Blueprint $table) {
-                $table->string('visibility', 20)->default('internal')->index();
+            Schema::connection($connection)->table($table, function (Blueprint $blueprint) use ($connection, $table) {
+                $column = $blueprint->string('visibility', 20)->default('internal')->index();
+
+                if (Schema::connection($connection)->hasColumn($table, 'causer_id')) {
+                    $column->after('causer_id');
+                }
             });
         }
 
