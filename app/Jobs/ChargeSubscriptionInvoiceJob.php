@@ -13,6 +13,7 @@ use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
+use App\Services\GlobalPayment\PaymentMailService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,6 +33,15 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
      * @var int
      */
     public int $tries = 2;
+
+    /**
+     * Marks a failure the payer has to act on, rather than one worth retrying.
+     *
+     * Recorded on the ledger entry so a later pass can tell it has already asked
+     * them once - this job runs twice a day and would otherwise send the same
+     * email until the invoice was dealt with.
+     */
+    public const REASON_CARD_ACCOUNT_MISMATCH = 'card_account_mismatch';
 
     /**
      * The number of seconds to wait before retrying the job.
@@ -168,9 +178,23 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         $activeMode = $partnerProvider->paymentMode();
 
         if ($storedMode && $storedMode !== $activeMode) {
+            // Ask once. Every later pass still records the failure, but sending
+            // the same email twice a day until the invoice is settled would
+            // train the payer to ignore it.
+            $alreadyAsked = Payment::where('invoice_id', $invoice->id)
+                ->where('status', Payment::STATUS_FAILED)
+                ->get()
+                ->contains(fn ($failure) => ($failure->details['reason_code'] ?? null) === self::REASON_CARD_ACCOUNT_MISMATCH);
+
             $this->markFailed(
-                "Saved card belongs to the {$storedMode} Stripe account but the receiving partner is in {$activeMode} mode; the payer must re-enter their card."
+                "Saved card belongs to the {$storedMode} Stripe account but the receiving partner is in {$activeMode} mode; the payer must re-enter their card.",
+                ['reason_code' => self::REASON_CARD_ACCOUNT_MISMATCH]
             );
+
+            if (!$alreadyAsked) {
+                app(PaymentMailService::class)->sendCardReauthorizationRequired($invoice);
+            }
+
             return;
         }
 
