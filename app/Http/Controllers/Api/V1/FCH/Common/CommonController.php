@@ -8,7 +8,6 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
-use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Setting\EmailConfiguration;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
@@ -107,14 +106,9 @@ class CommonController extends Controller
                 ->where('status', true)
                 ->first();
 
-            if ($partnerProvider) {
-                $config = $partnerProvider->configuration ?? [];
-                $paymentMode = $config['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
-
-                if ($paymentMode) {
-                    $isPaymentFresh = true;
-                }
-            }
+            // An active linkage always resolves to one mode or the other, so this
+            // flag says only that the partner has configured payments at all.
+            $isPaymentFresh = (bool) $partnerProvider;
         }
 
         if (auth()->check()) {

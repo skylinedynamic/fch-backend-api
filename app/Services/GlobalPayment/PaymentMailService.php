@@ -2,6 +2,7 @@
 
 namespace App\Services\GlobalPayment;
 
+use App\Mail\Payment\CardReauthorizationRequiredMail;
 use App\Mail\Payment\PaymentApprovedMail;
 use App\Mail\Payment\PaymentRejectedMail;
 use App\Mail\Payment\PaymentSubmittedMail;
@@ -31,6 +32,108 @@ class PaymentMailService
     // ──────────────────────────────────────────────
     // Public Dispatch Methods
     // ──────────────────────────────────────────────
+
+    /**
+     * Ask a payer to re-enter the card their automatic payments are charged to.
+     *
+     * Sent when the saved card belongs to a Stripe account the receiving partner
+     * no longer transacts in. A Stripe Customer and its card live in exactly one
+     * account - test or live - and cannot be moved between them, so no retry can
+     * fix this; only the payer entering the card again can. Nothing else tells
+     * them, so without this the cron just fails twice a day until someone notices
+     * a month of unpaid invoices.
+     *
+     * @param Payment|null $payment The failed ledger entry, when one was written.
+     */
+    public function sendCardReauthorizationRequired(Invoice $invoice, ?Payment $payment = null): void
+    {
+        $payer = $invoice->entity;
+
+        if (!$payer) {
+            return;
+        }
+
+        $payerEmail = $payer->email ?? null;
+
+        if (!$payerEmail) {
+            Log::warning('[PaymentMail] Card re-authorization needed but the payer has no email', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+            return;
+        }
+
+        try {
+            $sendingPartnerId = $this->resolveSendingPartnerId($payer);
+
+            Mail::to($payerEmail)->queue(new CardReauthorizationRequiredMail([
+                'partner_id' => $sendingPartnerId,
+                'amount' => $invoice->payment_amount,
+                'currency' => $invoice->currency ?? 'USD',
+                'invoice_id' => $invoice->invoice_id ?: $invoice->id,
+                'card_no' => is_array($payer->stripe_customer_id ?? null)
+                    ? ($payer->stripe_customer_id['card_no'] ?? null)
+                    : null,
+                'description' => $this->resolveDescription($invoice, __('payment.program_payment')),
+                'date' => now(),
+                'portal_url' => $this->resolveBillingUrl($payer, $sendingPartnerId),
+                'user_name' => $payer->full_name ?? $payer->company_name ?? __('payment.valued_customer'),
+            ], $sendingPartnerId));
+        } catch (\Exception $e) {
+            Log::error(__('payment.log_mail_send_error', [
+                'mail' => 'CardReauthorizationRequiredMail',
+                'error' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    /**
+     * Whose mailbox and branding a payer is written to under.
+     *
+     * Only a White-Label partner corresponds with its own people under its own
+     * name; a Certified partner trades under the host's brand, and a partner
+     * paying its own fees is the host's customer. This is the rule
+     * getConfigPartner() applies to a request - restated against an explicit
+     * payer because the cron that calls this has no authenticated user and no
+     * request Origin for that helper to read, and would silently answer "host"
+     * for everyone.
+     */
+    protected function resolveSendingPartnerId(object $payer): ?int
+    {
+        $hostId = Partner::where('is_host', 1)->value('id');
+
+        // A partner's own fees are billed by the host, so the host addresses them.
+        if ($payer instanceof Partner) {
+            return $hostId;
+        }
+
+        $partner = $payer->partner ?? ($payer->partner_id ? Partner::find($payer->partner_id) : null);
+
+        if ($partner && ($partner->is_host || $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)) {
+            return $partner->id;
+        }
+
+        return $hostId;
+    }
+
+    /**
+     * Where this payer updates their card - their own portal, not the other one.
+     */
+    protected function resolveBillingUrl(object $payer, ?int $sendingPartnerId): ?string
+    {
+        if ($payer instanceof Partner) {
+            return concatUrl(getPartnerDomain($sendingPartnerId), 'my-subscription', config('app.frontend_partner_url'));
+        }
+
+        $borrowerDomain = getBorrowerDomain($payer->partner_id ?? $sendingPartnerId);
+
+        // getBorrowerDomain() returns null for a White-Label partner with no
+        // borrower domain of its own, where any link would land on a portal the
+        // isolation check then refuses. Better no button than a broken one.
+        return $borrowerDomain
+            ? concatUrl($borrowerDomain, 'billing-details', config('app.frontend_borrower_url'))
+            : null;
+    }
 
     /**
      * Send "Payment Submitted" notification.

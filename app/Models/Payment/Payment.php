@@ -185,20 +185,8 @@ class Payment extends Model
             throw new \Exception(__('payment.stripe_not_configured'));
         }
 
-        $configuration = $linkage->configuration;
-        if (is_object($configuration)) {
-            $configuration = (array) $configuration;
-        }
-
-        $paymentMode = $linkage->payment_mode ?? $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
-
-        $secretKey = null;
-        if (is_array($configuration)) {
-            $secretKey = $configuration[$paymentMode]['secret_key']
-                ?? $configuration['secret_key']
-                ?? $configuration['stripe_secret_' . $paymentMode]
-                ?? null;
-        }
+        $paymentMode = $linkage->paymentMode();
+        $secretKey = $linkage->secretKey();
 
         if (!$secretKey) {
             throw new \Exception(__('payment.stripe_secret_not_configured', ['mode' => $paymentMode]));
@@ -236,8 +224,8 @@ class Payment extends Model
             $linkage = PartnerPaymentProvider::where('partner_id', $partnerId)
                 ->where('payment_provider_id', $stripeProvider->id)
                 ->first();
-            if ($linkage && $linkage->payment_mode) {
-                $paymentMode = $linkage->payment_mode;
+            if ($linkage) {
+                $paymentMode = $linkage->paymentMode();
             }
         }
 

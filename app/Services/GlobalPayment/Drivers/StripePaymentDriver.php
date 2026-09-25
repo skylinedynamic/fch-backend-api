@@ -6,6 +6,7 @@ use App\Contracts\Payment\PaymentGatewayInterface;
 use App\Models\Invoice\Invoice;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
+use App\Support\Payment\PaymentCredentials;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
 use Stripe\Customer as StripeCustomer;
@@ -30,16 +31,45 @@ class StripePaymentDriver implements PaymentGatewayInterface
     protected string $environment = PaymentProvider::MODE_SANDBOX;
     protected ?string $apiKey = null;
 
+    /**
+     * A key that makes repeating the SAME charge attempt harmless.
+     *
+     * Stripe remembers an idempotency key for 24 hours: a second request
+     * carrying one it has already seen is not charged again, it simply replays
+     * the first response. That is the difference between a retry and a second
+     * debit.
+     *
+     * It matters here because a charge can succeed and still be lost. A failure
+     * anywhere after the money moves - a queue retry, a rolled back transaction -
+     * leaves the invoice Unpaid, and the next pass charges a card that has
+     * already paid.
+     *
+     * What goes into the key decides what counts as "the same attempt":
+     *
+     *   invoice   the debt being settled - a different invoice is a real charge
+     *   amount    Stripe rejects a reused key carrying different parameters, so
+     *   currency  a changed amount has to produce a different key, not an error
+     *   instrument the card or customer being charged - so a payer whose card was
+     *             declined can immediately retry with another one, which a key
+     *             built from the invoice alone would block for 24 hours
+     *
+     * @param string $scope Distinguishes the calling flow, so an interactive
+     *                      charge and an auto-charge never collide.
+     */
+    protected function idempotencyKey(string $scope, array $parts): string
+    {
+        return $scope . '_' . substr(hash('sha256', implode('|', $parts)), 0, 40);
+    }
+
     public function initialize(array $config, string $environment = PaymentProvider::MODE_SANDBOX): self
     {
         $this->config = $config;
-        $this->environment = $environment;
+        $this->environment = PaymentCredentials::normalizeMode($environment);
 
-        $envConfig = $config[$environment] ?? $config;
-        $this->apiKey = $envConfig['secret_key'] ?? ($config['stripe_secret_' . $environment] ?? null);
+        $this->apiKey = PaymentCredentials::secretKey($config, $this->environment);
 
         if (!$this->apiKey) {
-            throw new RuntimeException("Stripe secret key not configured for {$environment} mode.");
+            throw new RuntimeException("Stripe secret key not configured for {$this->environment} mode.");
         }
 
         Stripe::setApiKey($this->apiKey);
@@ -78,7 +108,8 @@ class StripePaymentDriver implements PaymentGatewayInterface
         $customerId = $customerService->resolveCustomer(
             $invoice->email,
             $invoice->customer_name ?? 'Client',
-            $stripeCustomerData
+            $stripeCustomerData,
+            $this->environment
         );
 
         // 3. Attach payment method and set as default (if a token is provided)
@@ -108,7 +139,14 @@ class StripePaymentDriver implements PaymentGatewayInterface
         }
 
         // 5. Create & confirm the PaymentIntent
-        $intent = PaymentIntent::create($intentParams);
+        $intent = PaymentIntent::create($intentParams, [
+            'idempotency_key' => $this->idempotencyKey('charge', [
+                $invoice->id,
+                $amountInCents,
+                $currency,
+                $paymentMethodId ?? $customerId,
+            ]),
+        ]);
 
         if (!$cardDetails['card_no'] && !empty($intent->payment_method)) {
             $cardDetails = $customerService->fetchCardDetails($intent->payment_method);
@@ -118,20 +156,49 @@ class StripePaymentDriver implements PaymentGatewayInterface
         $cardName = !empty($cardDetails['name']) ? $cardDetails['name'] : ($isSandbox ? 'Sandbox Card' : null);
         $cardNo = $cardDetails['card_no'];
 
-        // Persist Stripe Customer ID and card details
-        if ($payer && (empty($stripeCustomerIdRaw) || empty($payer->stripe_customer_id['card_no'] ?? null))) {
+        // Persist the Stripe Customer this charge actually used.
+        //
+        // resolveCustomer() discards a customer belonging to the other Stripe
+        // account and resolves a fresh one, so after a mode switch the id used
+        // here is NOT the one on file. Writing back only when the record looked
+        // empty left the stale id in place, and the next payment repeated the
+        // whole rediscovery - so the record is also rewritten whenever the
+        // customer or the mode has moved on.
+        //
+        // Rewriting on a mode change is what backfills `payment_mode` onto rows
+        // saved before it was recorded, which is what lets the cross-account
+        // guards recognize them later.
+        $stored = is_array($payer?->stripe_customer_id) ? $payer->stripe_customer_id : [];
+        $storedCustomerId = $stored['customer_id'] ?? (is_string($payer?->stripe_customer_id) ? $payer->stripe_customer_id : null);
+        $customerMoved = $storedCustomerId !== $customerId;
+
+        $isStale = $customerMoved || ($stored['payment_mode'] ?? null) !== $this->environment;
+        $isIncomplete = empty($storedCustomerId) || empty($stored['card_no'] ?? null);
+
+        if ($payer && ($isStale || $isIncomplete)) {
+            // Card details already on file describe the OLD customer's card, so
+            // they are only worth keeping when the customer itself has not moved.
+            $keepIfSameCustomer = fn (string $key) => $customerMoved ? null : ($stored[$key] ?? null);
+
             $payer->update([
                 'default_payment_method' => PaymentProvider::STRIPE,
                 'stripe_customer_id' => [
-                    'customer_id' => $customerId,
-                    'name'        => $cardName,
-                    'card_no'     => $cardNo,
+                    'customer_id'  => $customerId,
+                    'name'         => $cardName ?: $keepIfSameCustomer('name'),
+                    'card_no'      => $cardNo ?: $keepIfSameCustomer('card_no'),
+                    'payment_mode' => $this->environment,
                 ],
             ]);
         }
 
         return [
             'success' => in_array($intent->status, ['succeeded', 'requires_capture']),
+            // Not a decline. The issuer wants the cardholder to authenticate -
+            // 3-D Secure, which usually means an OTP - and the charge is waiting
+            // on a step this application does not implement. Flagged separately so
+            // callers can say that, instead of reporting a generic failure for a
+            // card that is perfectly good.
+            'requires_action' => $intent->status === 'requires_action',
             'transaction_id' => $intent->id,
             'status' => $intent->status,
             'client_secret' => $intent->client_secret,
@@ -152,8 +219,13 @@ class StripePaymentDriver implements PaymentGatewayInterface
      * @param string $description
      * @return array
      */
-    public function chargeOffSession(string $customerId, int $amountCents, string $currency = 'usd', string $description = 'Subscription Auto-Charge'): array
-    {
+    public function chargeOffSession(
+        string $customerId,
+        int $amountCents,
+        string $currency = 'usd',
+        string $description = 'Subscription Auto-Charge',
+        ?string $idempotencyReference = null
+    ): array {
         $customer = StripeCustomer::retrieve($customerId);
         $defaultPaymentMethod = $customer->invoice_settings->default_payment_method ?? null;
 
@@ -183,10 +255,23 @@ class StripePaymentDriver implements PaymentGatewayInterface
             ];
         }
 
-        $intent = PaymentIntent::create($params);
+        // Unattended and on a schedule, so this is the path most likely to repeat
+        // a charge nobody asked for. A caller that can name the debt gets that
+        // protection; one that cannot is left as it was.
+        $options = $idempotencyReference === null ? [] : [
+            'idempotency_key' => $this->idempotencyKey('offsession', [
+                $idempotencyReference,
+                $amountCents,
+                strtolower($currency),
+                $customerId,
+            ]),
+        ];
+
+        $intent = PaymentIntent::create($params, $options);
 
         return [
             'success' => $intent->status === 'succeeded',
+            'requires_action' => $intent->status === 'requires_action',
             'transaction_id' => $intent->id,
             'status' => $intent->status,
             'raw' => $intent->toArray(),

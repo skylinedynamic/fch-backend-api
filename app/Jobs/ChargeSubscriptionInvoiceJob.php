@@ -13,6 +13,7 @@ use App\Models\Subscription\Subscription;
 use App\Models\User\User;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
+use App\Services\GlobalPayment\PaymentMailService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,6 +33,15 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
      * @var int
      */
     public int $tries = 2;
+
+    /**
+     * Marks a failure the payer has to act on, rather than one worth retrying.
+     *
+     * Recorded on the ledger entry so a later pass can tell it has already asked
+     * them once - this job runs twice a day and would otherwise send the same
+     * email until the invoice was dealt with.
+     */
+    public const REASON_CARD_ACCOUNT_MISMATCH = 'card_account_mismatch';
 
     /**
      * The number of seconds to wait before retrying the job.
@@ -158,6 +168,36 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             : $invoice->partner_id;
 
         $partnerProvider = $gatewayManager->resolvePartnerProvider($receiverId);
+
+        // A saved card lives in one Stripe account. Charging it from the other
+        // fails at Stripe with a message about the token rather than the mode,
+        // so refuse here and say which mismatch it was.
+        $storedMode = is_array($payer->stripe_customer_id)
+            ? ($payer->stripe_customer_id['payment_mode'] ?? null)
+            : null;
+        $activeMode = $partnerProvider->paymentMode();
+
+        if ($storedMode && $storedMode !== $activeMode) {
+            // Ask once. Every later pass still records the failure, but sending
+            // the same email twice a day until the invoice is settled would
+            // train the payer to ignore it.
+            $alreadyAsked = Payment::where('invoice_id', $invoice->id)
+                ->where('status', Payment::STATUS_FAILED)
+                ->get()
+                ->contains(fn ($failure) => ($failure->details['reason_code'] ?? null) === self::REASON_CARD_ACCOUNT_MISMATCH);
+
+            $this->markFailed(
+                "Saved card belongs to the {$storedMode} Stripe account but the receiving partner is in {$activeMode} mode; the payer must re-enter their card.",
+                ['reason_code' => self::REASON_CARD_ACCOUNT_MISMATCH]
+            );
+
+            if (!$alreadyAsked) {
+                app(PaymentMailService::class)->sendCardReauthorizationRequired($invoice);
+            }
+
+            return;
+        }
+
         $driver = $gatewayManager->driverFor($partnerProvider);
 
         $currency = strtolower($invoice->currency ?? Invoice::CURRENCY_USD);
@@ -169,12 +209,27 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                 $payer->stripe_customer_id_raw,
                 $amountInCents,
                 $currency,
-                $description
+                $description,
+                // Names the debt, so this job retrying - or the next cron pass
+                // finding the invoice still Unpaid after a charge that succeeded
+                // but was not recorded - replays the original charge instead of
+                // taking the money a second time.
+                'invoice_' . $invoice->id
             );
 
             if (empty($result['success'])) {
                 $rawDetails = is_array($result) ? ($result['raw'] ?? $result) : [];
-                $this->markFailed("Stripe off-session charge declined: " . ($result['status'] ?? 'unknown'), $rawDetails);
+
+                // Worth distinguishing even here, where nobody is watching: a card
+                // needing bank authentication can never be charged off-session, so
+                // it will fail on every pass until the payer replaces it. A
+                // "declined" line would have this retried forever as if the next
+                // attempt might work.
+                $reason = !empty($result['requires_action'])
+                    ? 'Saved card needs bank authentication (3-D Secure), which cannot be completed off-session; the payer must use a different card.'
+                    : 'Stripe off-session charge declined: ' . ($result['status'] ?? 'unknown');
+
+                $this->markFailed($reason, $rawDetails);
                 return;
             }
 

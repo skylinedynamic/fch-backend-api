@@ -16,6 +16,8 @@ return [
     'first_name_required' => 'First name is required',
     'first_name_string' => 'First name must be a string',
     'first_name_max' => 'First name cannot exceed 255 characters',
+    'middle_name_string' => 'Middle name must be a string',
+    'middle_name_max' => 'Middle name cannot exceed 255 characters',
     'last_name_required' => 'Last name is required',
     'last_name_string' => 'Last name must be a string',
     'last_name_max' => 'Last name cannot exceed 255 characters',

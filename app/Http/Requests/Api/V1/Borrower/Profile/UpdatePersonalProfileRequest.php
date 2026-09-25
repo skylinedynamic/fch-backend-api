@@ -27,6 +27,10 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
     {
         return [
             'first_name' => 'required|string|max:255',
+            // Optional, unlike the names either side of it: plenty of people
+            // have no middle name, and requiring one would lock them out of
+            // saving their own profile.
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => [
                 'required',
@@ -57,6 +61,8 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'first_name.required' => __('borrower_validation.first_name_required'),
             'first_name.string' => __('borrower_validation.first_name_string'),
             'first_name.max' => __('borrower_validation.first_name_max'),
+            'middle_name.string' => __('borrower_validation.middle_name_string'),
+            'middle_name.max' => __('borrower_validation.middle_name_max'),
             'last_name.required' => __('borrower_validation.last_name_required'),
             'last_name.string' => __('borrower_validation.last_name_string'),
             'last_name.max' => __('borrower_validation.last_name_max'),
