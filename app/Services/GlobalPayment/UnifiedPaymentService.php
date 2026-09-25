@@ -98,7 +98,25 @@ class UnifiedPaymentService
         $bankDetailId = $data['bank_detail_id'] ?? (is_array($tokenPayload) ? ($tokenPayload['bank_detail_id'] ?? null) : null);
         $bankDetail = $bankDetailId ? PaymentMethodBankDetail::find($bankDetailId) : null;
 
-        DB::beginTransaction();
+        // The gateway call deliberately runs OUTSIDE any transaction.
+        //
+        // A charge is not undone by a rollback. Holding a transaction open across
+        // it meant that a failure anywhere in the ~130 lines that followed - a
+        // subscription bug, an SMTP timeout, a deadlock - erased the record of
+        // money that had already left the payer's account. The invoice stayed
+        // Unpaid, so the next cron pass charged them again.
+        //
+        // So the order is: take the money, then record it in the shortest
+        // transaction that will hold the records, then do everything that can fail
+        // on its own afterwards.
+        $gatewayResult = [];
+
+        // Tracked explicitly rather than inferred from DB::transactionLevel(),
+        // which reports any transaction at all - including one a caller opened
+        // around this method. Rolling that back would discard work this method
+        // never owned.
+        $transactionOpened = false;
+
         try {
             // 1. Charge the payment gateway (or handle manual processing)
             if ($isManual) {
@@ -141,8 +159,35 @@ class UnifiedPaymentService
             }
 
             if (empty($gatewayResult['success'])) {
+                // A card the issuer wants authenticated (3-D Secure, typically an
+                // OTP) is not a declined card. Reporting it as a generic failure
+                // tells the payer nothing they can act on, and leaves no trace of
+                // why it happened - the same dead end as an error that names a
+                // token and says nothing about the setting behind it.
+                //
+                // The full 3-D Secure flow is not built: it needs the browser to
+                // confirm with `client_secret` and a webhook to catch a payer who
+                // closes the tab midway. US-issued cards rarely trigger it, so
+                // this names the situation rather than handling it - and if the
+                // log below starts appearing, that is the signal to build it.
+                if (!empty($gatewayResult['requires_action'])) {
+                    Log::warning('[UnifiedPayment] Card needs bank authentication (3-D Secure), which is not supported', [
+                        'invoice_id' => $invoice->id,
+                        'transaction_id' => $gatewayResult['transaction_id'] ?? null,
+                        'provider' => $providerName,
+                    ]);
+
+                    throw new Exception(__('payment.charge_requires_authentication'));
+                }
+
                 throw new Exception(__('payment.charge_failed', ['provider' => $providerName ?? __('payment.gateway')]));
             }
+
+            // The money has moved. From here the only work is recording it, so the
+            // transaction spans the records and nothing else - no gateway calls,
+            // no mail.
+            DB::beginTransaction();
+            $transactionOpened = true;
 
             $paymentStatus = $isManual ? Payment::STATUS_PROCESSING : Payment::STATUS_SUCCEEDED;
             $invoiceStatus = $isManual ? Invoice::STATUS_PROCESSING : Invoice::STATUS_PAID;
@@ -229,6 +274,13 @@ class UnifiedPaymentService
             //    (Application-Led Model: Laravel is the source of truth for billing cycles)
             $this->subscriptionService->handleSuccessfulPayment($invoice, $subscription);
 
+            DB::commit();
+            $transactionOpened = false;
+
+            // Past this point the payment is durably recorded. Everything below is
+            // a consequence of it, and none of it may undo it: step 6 makes a
+            // second gateway call of its own, and step 7 talks to an SMTP server.
+
             // 6. Auto charge platform fee if partner is certified/white-label and not is_host (only for non-manual / succeeded payments)
             if (!$isManual && $isFirstPayment && $subscription?->entity_type === Borrower::class) {
                 $borrowerId = $invoice->borrower_id ?? $subscription->entity_id;
@@ -253,15 +305,25 @@ class UnifiedPaymentService
             }
 
             // 7. Send payment email to both payer and receiver via centralized PaymentMailService
+            //
+            // Caught and logged rather than thrown: the payer has paid and the
+            // ledger says so, and a mail server having a bad minute is not a
+            // reason to report that back as a failed payment.
             if ($payer) {
-                if ($isManual) {
-                    $this->paymentMailService->sendSubmitted($payment, $invoice, $providerName, $bankDetail, $partnerId);
-                } elseif ($isPaidOrSuccess) {
-                    $this->paymentMailService->sendSuccess($payment, $invoice, $providerName, $partnerId);
+                try {
+                    if ($isManual) {
+                        $this->paymentMailService->sendSubmitted($payment, $invoice, $providerName, $bankDetail, $partnerId);
+                    } elseif ($isPaidOrSuccess) {
+                        $this->paymentMailService->sendSuccess($payment, $invoice, $providerName, $partnerId);
+                    }
+                } catch (Exception $e) {
+                    Log::error('[UnifiedPayment] Payment recorded but its email could not be sent', [
+                        'invoice_id' => $invoice->id,
+                        'payment_id' => $payment->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
-
-            DB::commit();
 
             return [
                 'success' => true,
@@ -271,7 +333,25 @@ class UnifiedPaymentService
                 'details' => $gatewayResult,
             ];
         } catch (Exception $e) {
-            DB::rollBack();
+            // The failure may have happened before this method opened its
+            // transaction, or after it committed one.
+            if ($transactionOpened) {
+                DB::rollBack();
+            }
+
+            // A charge that went through but could not be recorded is the one
+            // failure here that costs the payer real money, and the generic log
+            // below does not say what was taken. Name the gateway transaction so
+            // it can be found and reconciled.
+            if (!empty($gatewayResult['success']) && !empty($gatewayResult['transaction_id'])) {
+                Log::critical('[UnifiedPayment] Charge succeeded but could not be recorded - reconcile manually', [
+                    'invoice_id' => $invoice->id,
+                    'transaction_id' => $gatewayResult['transaction_id'],
+                    'provider' => $providerName,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             Log::error(__('payment.log_unified_error', ['error' => $e->getMessage()]), ['data' => $data]);
             throw $e;
         }

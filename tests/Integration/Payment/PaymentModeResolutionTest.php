@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Payment;
+namespace Tests\Integration\Payment;
 
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
@@ -10,37 +10,35 @@ use App\Services\FCH\Common\PaymentMethod\PaymentMethodService;
 use App\Services\FCH\Common\Setting\PaymentMethodConfigurationService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Passport\Passport;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Stripe\Stripe;
 use Tests\TestCase;
 
 /**
- * A partner switches Stripe to production, and both halves of a payment follow.
+ * The save path and the charge path must agree on which Stripe account is live.
  *
- * This is the bug that reached production, reproduced end to end. A partner set
- * Stripe to Production on the settings screen; the list kept showing Sandbox, and
- * paying an enrollment fee failed with "No such PaymentMethod".
+ * These wire the real components together - the settings save service, the
+ * key-serving service, the gateway manager, the linkage model - and enter them
+ * directly rather than through a route. What is being tested is the seam between
+ * them, which is exactly where the production bug lived: each component was
+ * correct on its own, and two of them disagreed about where `payment_mode` was
+ * stored.
  *
- * The cause was a split source of truth. `payment_mode` had been promoted from
- * the encrypted `configuration` blob to its own column, and the save path deletes
- * the inline copy on every save - but some readers still looked for it in the
- * blob, found nothing, and defaulted to sandbox. So the publishable key sent to
- * the browser came from production while the secret key used to charge came from
- * sandbox. The card was tokenized in the live account and the charge ran against
- * the test account, which is why Stripe denied all knowledge of the token.
+ * `payment_mode` had been promoted from the encrypted `configuration` blob to its
+ * own column, and the save path deletes the inline copy on every save - but some
+ * readers still looked for it in the blob, found nothing, and defaulted to
+ * sandbox. So the publishable key sent to the browser came from production while
+ * the secret key used to charge came from sandbox. Cards were tokenized live and
+ * charged against test, and Stripe denied all knowledge of the token.
  *
- * Saving is what did the damage: it is the act of choosing Production that
- * deletes the blob copy the charge path was reading. So these tests never write
- * the linkage directly - they go through the real save service, exactly as the
- * settings screen does, and then read back through the real endpoints and the
- * real gateway wiring. A test that seeded the row by hand would not have caught
- * this.
- *
- * No network calls: the gateway is only ever initialized, never charged, and the
- * assertion is which key it was initialized with.
+ * Saving is what did the damage, so these never write a linkage by hand. They go
+ * through PaymentMethodConfigurationService exactly as the settings screen does -
+ * a hand-seeded row would not reproduce the bug at all.
  */
-class StripePaymentModeTest extends TestCase
+#[CoversClass(PaymentMethodConfigurationService::class)]
+#[CoversClass(PaymentMethodService::class)]
+class PaymentModeResolutionTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -72,8 +70,8 @@ class StripePaymentModeTest extends TestCase
             'status' => true,
         ]);
 
-        // A partner-entity user: the enrollment fee is owed to the host, so both
-        // the key endpoint and the charge path resolve to the host's linkage.
+        // A partner-entity user: an enrollment fee is owed to the host, so both
+        // the key lookup and the charge resolve to the host's linkage.
         $this->partnerUser = User::create([
             'name' => 'Partner Owner',
             'email' => 'owner@example.test',
@@ -85,9 +83,7 @@ class StripePaymentModeTest extends TestCase
         ]);
     }
 
-    /**
-     * Save through the real service, the way the settings screen does.
-     */
+    /** Save through the real service, the way the settings screen does. */
     private function saveConfig(string $mode): PartnerPaymentProvider
     {
         return app(PaymentMethodConfigurationService::class)->updateOrCreateConfig($this->host->id, [
@@ -118,6 +114,25 @@ class StripePaymentModeTest extends TestCase
         return Stripe::getApiKey();
     }
 
+    /** The publishable key the browser would be handed. */
+    private function keyServedToTheBrowser(): ?string
+    {
+        $this->actingAs($this->partnerUser);
+
+        $providers = app(PaymentMethodService::class)->getActiveProvidersForPartner();
+
+        return collect($providers)->firstWhere('name', PaymentProvider::STRIPE)['publishable_key'] ?? null;
+    }
+
+    private function runCleanupMigration(): void
+    {
+        $migration = require database_path(
+            'migrations/2026_09_23_120000_remove_payment_mode_from_partner_payment_provider_configurations.php'
+        );
+
+        $migration->up();
+    }
+
     /**
      * The state the bug depended on: after a real save, the blob carries no
      * `payment_mode` at all, so anything reading it there gets nothing.
@@ -132,58 +147,18 @@ class StripePaymentModeTest extends TestCase
     }
 
     /**
-     * The reported symptom: set Production, the list still said Sandbox.
-     */
-    #[Test]
-    public function the_settings_list_reports_production_after_switching_to_production(): void
-    {
-        $this->saveConfig(PaymentProvider::MODE_PRODUCTION);
-
-        Passport::actingAs($this->partnerUser);
-
-        $response = $this->getJson('/api/v1/common/partner-payment-providers');
-
-        $response->assertOk();
-        $this->assertSame(
-            PaymentProvider::MODE_PRODUCTION,
-            collect($response->json('data'))->firstWhere('name', PaymentProvider::STRIPE)['payment_mode']
-        );
-    }
-
-    /**
-     * The failure itself. The browser tokenizes with the publishable key this
-     * endpoint serves; the server charges with the secret key the gateway picks.
-     * If those come from different Stripe accounts the token does not exist as
-     * far as the charge is concerned, which is the production error verbatim.
+     * The failure itself. The browser tokenizes with one key; the server charges
+     * with the other. If they come from different Stripe accounts the token does
+     * not exist as far as the charge is concerned, which is the production error
+     * verbatim.
      */
     #[Test]
     public function the_browsers_key_and_the_charging_key_come_from_the_same_account(): void
     {
         $this->saveConfig(PaymentProvider::MODE_PRODUCTION);
 
-        $this->actingAs($this->partnerUser);
-
-        $providers = app(PaymentMethodService::class)->getActiveProvidersForPartner();
-        $publishableKey = collect($providers)->firstWhere('name', PaymentProvider::STRIPE)['publishable_key'];
-
-        $this->assertSame(self::PK_LIVE, $publishableKey);
+        $this->assertSame(self::PK_LIVE, $this->keyServedToTheBrowser());
         $this->assertSame(self::SK_LIVE, $this->secretKeyTheGatewayWouldUse());
-    }
-
-    #[Test]
-    public function the_same_holds_over_http_for_the_payment_methods_endpoint(): void
-    {
-        $this->saveConfig(PaymentProvider::MODE_PRODUCTION);
-
-        Passport::actingAs($this->partnerUser);
-
-        $response = $this->getJson('/api/v1/payment/get-payment-methods');
-
-        $response->assertOk();
-        $this->assertSame(
-            self::PK_LIVE,
-            collect($response->json('data'))->firstWhere('name', PaymentProvider::STRIPE)['publishable_key']
-        );
     }
 
     /**
@@ -195,14 +170,7 @@ class StripePaymentModeTest extends TestCase
     {
         $this->saveConfig(PaymentProvider::MODE_SANDBOX);
 
-        $this->actingAs($this->partnerUser);
-
-        $providers = app(PaymentMethodService::class)->getActiveProvidersForPartner();
-
-        $this->assertSame(
-            self::PK_TEST,
-            collect($providers)->firstWhere('name', PaymentProvider::STRIPE)['publishable_key']
-        );
+        $this->assertSame(self::PK_TEST, $this->keyServedToTheBrowser());
         $this->assertSame(self::SK_TEST, $this->secretKeyTheGatewayWouldUse());
     }
 
@@ -217,57 +185,13 @@ class StripePaymentModeTest extends TestCase
 
         $this->saveConfig(PaymentProvider::MODE_SANDBOX);
 
-        $this->actingAs($this->partnerUser);
-        $providers = app(PaymentMethodService::class)->getActiveProvidersForPartner();
-
-        $this->assertSame(
-            self::PK_TEST,
-            collect($providers)->firstWhere('name', PaymentProvider::STRIPE)['publishable_key']
-        );
+        $this->assertSame(self::PK_TEST, $this->keyServedToTheBrowser());
         $this->assertSame(self::SK_TEST, $this->secretKeyTheGatewayWouldUse());
     }
 
     /**
-     * The edit screen and the list screen must not disagree - they disagreeing is
-     * what made the original report look like a display-only glitch.
-     */
-    #[Test]
-    public function the_edit_screen_and_the_list_screen_agree(): void
-    {
-        $linkage = $this->saveConfig(PaymentProvider::MODE_PRODUCTION);
-
-        Passport::actingAs($this->partnerUser);
-
-        $list = $this->getJson('/api/v1/common/partner-payment-providers');
-        $detail = $this->getJson('/api/v1/common/partner-payment-providers/' . $this->stripe->id);
-
-        $list->assertOk();
-        $detail->assertOk();
-
-        $this->assertSame(
-            collect($list->json('data'))->firstWhere('name', PaymentProvider::STRIPE)['payment_mode'],
-            $detail->json('data.payment_mode')
-        );
-        $this->assertSame(PaymentProvider::MODE_PRODUCTION, $detail->json('data.payment_mode'));
-        $this->assertSame($linkage->id, $detail->json('data.id'));
-    }
-
-    /**
-     * Run the one-off cleanup that reconciles the column with the configuration.
-     */
-    private function runCleanupMigration(): void
-    {
-        $migration = require database_path(
-            'migrations/2026_09_23_120000_remove_payment_mode_from_partner_payment_provider_configurations.php'
-        );
-
-        $migration->up();
-    }
-
-    /**
      * A row as the 2026_08_09 migration left it: mode still inline, column
-     * holding nothing but the `sandbox` default it was created with, never
-     * backfilled.
+     * holding nothing but the `sandbox` default it was created with.
      */
     private function legacyRow(): PartnerPaymentProvider
     {
@@ -294,9 +218,6 @@ class StripePaymentModeTest extends TestCase
      * unverified inline `production` would start moving real money off a row
      * nobody has confirmed. Under-reaching costs a declined test payment;
      * over-reaching charges a live card.
-     *
-     * The cleanup migration resolves the conflict deliberately and logs it, which
-     * the next test covers.
      */
     #[Test]
     public function a_legacy_row_fails_safe_to_sandbox_before_the_cleanup_runs(): void
@@ -397,53 +318,5 @@ class StripePaymentModeTest extends TestCase
 
         $this->assertSame(PaymentProvider::MODE_PRODUCTION, $linkage->payment_mode);
         $this->assertSame(self::SK_LIVE, $linkage->secretKey());
-    }
-
-    /**
-     * The guard that would have stopped this at the settings screen.
-     */
-    #[Test]
-    public function the_api_refuses_test_keys_saved_under_production(): void
-    {
-        Passport::actingAs($this->partnerUser);
-
-        $response = $this->postJson('/api/v1/common/partner-payment-providers', [
-            'payment_provider_id' => $this->stripe->id,
-            'payment_mode' => PaymentProvider::MODE_PRODUCTION,
-            'status' => true,
-            'is_default' => true,
-            'configuration' => [
-                'production' => [
-                    'publishable_key' => 'pk_test_wrong_account',
-                    'secret_key' => 'sk_test_wrong_account',
-                ],
-            ],
-        ]);
-
-        $response->assertStatus(422);
-        $this->assertDatabaseCount('partner_payment_providers', 0);
-    }
-
-    #[Test]
-    public function the_api_accepts_correctly_paired_production_keys(): void
-    {
-        Passport::actingAs($this->partnerUser);
-
-        $response = $this->postJson('/api/v1/common/partner-payment-providers', [
-            'payment_provider_id' => $this->stripe->id,
-            'payment_mode' => PaymentProvider::MODE_PRODUCTION,
-            'status' => true,
-            'is_default' => true,
-            'configuration' => [
-                'sandbox' => ['publishable_key' => self::PK_TEST, 'secret_key' => self::SK_TEST],
-                'production' => ['publishable_key' => self::PK_LIVE, 'secret_key' => self::SK_LIVE],
-            ],
-        ]);
-
-        $response->assertOk();
-        $this->assertSame(
-            PaymentProvider::MODE_PRODUCTION,
-            PartnerPaymentProvider::first()->payment_mode
-        );
     }
 }

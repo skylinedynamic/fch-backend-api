@@ -185,12 +185,27 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                 $payer->stripe_customer_id_raw,
                 $amountInCents,
                 $currency,
-                $description
+                $description,
+                // Names the debt, so this job retrying - or the next cron pass
+                // finding the invoice still Unpaid after a charge that succeeded
+                // but was not recorded - replays the original charge instead of
+                // taking the money a second time.
+                'invoice_' . $invoice->id
             );
 
             if (empty($result['success'])) {
                 $rawDetails = is_array($result) ? ($result['raw'] ?? $result) : [];
-                $this->markFailed("Stripe off-session charge declined: " . ($result['status'] ?? 'unknown'), $rawDetails);
+
+                // Worth distinguishing even here, where nobody is watching: a card
+                // needing bank authentication can never be charged off-session, so
+                // it will fail on every pass until the payer replaces it. A
+                // "declined" line would have this retried forever as if the next
+                // attempt might work.
+                $reason = !empty($result['requires_action'])
+                    ? 'Saved card needs bank authentication (3-D Secure), which cannot be completed off-session; the payer must use a different card.'
+                    : 'Stripe off-session charge declined: ' . ($result['status'] ?? 'unknown');
+
+                $this->markFailed($reason, $rawDetails);
                 return;
             }
 

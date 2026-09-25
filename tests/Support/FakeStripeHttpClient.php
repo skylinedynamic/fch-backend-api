@@ -27,6 +27,15 @@ class FakeStripeHttpClient implements ClientInterface
     /** @var array<string, array<string, mixed>> */
     private array $responses = [];
 
+    /**
+     * Called as each request goes out, so a test can observe the state of the
+     * application at the exact moment money moves - whether a database
+     * transaction is open, for instance.
+     *
+     * @var null|callable(string $url): void
+     */
+    public $onRequest = null;
+
     public function __construct()
     {
         $this->responses = [
@@ -99,6 +108,49 @@ class FakeStripeHttpClient implements ClientInterface
     }
 
     /**
+     * Every idempotency key sent, in order.
+     *
+     * Stripe carries the key as a request header, so this is how a test can tell
+     * a retry from a second debit.
+     *
+     * @return array<int, string>
+     */
+    public function idempotencyKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->requests as $request) {
+            foreach ($request['headers'] as $header) {
+                if (is_string($header) && stripos($header, 'Idempotency-Key: ') === 0) {
+                    $keys[] = substr($header, strlen('Idempotency-Key: '));
+                }
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The idempotency key on the charge request, or null if it carried none.
+     */
+    public function chargeIdempotencyKey(): ?string
+    {
+        foreach ($this->requests as $request) {
+            if (!str_contains($request['url'], '/v1/payment_intents')) {
+                continue;
+            }
+
+            foreach ($request['headers'] as $header) {
+                if (is_string($header) && stripos($header, 'Idempotency-Key: ') === 0) {
+                    return substr($header, strlen('Idempotency-Key: '));
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether any request was made against the given Stripe resource.
      */
     public function called(string $resource): bool
@@ -120,6 +172,10 @@ class FakeStripeHttpClient implements ClientInterface
             'headers' => $headers,
             'params' => $params,
         ];
+
+        if (is_callable($this->onRequest)) {
+            ($this->onRequest)($absUrl);
+        }
 
         foreach ($this->responses as $resource => $body) {
             if (str_contains($absUrl, '/v1/' . $resource)) {
