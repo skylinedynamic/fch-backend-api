@@ -18,6 +18,7 @@ class PersonalProfileResource extends JsonResource
         return [
             'id' => $this->id,
             'first_name' => $this->entity->first_name,
+            'middle_name' => $this->entity->middle_name,
             'last_name' => $this->entity->last_name,
             'email' => $this->email,
             'phone_number' => $this->entity->phone_number, 
