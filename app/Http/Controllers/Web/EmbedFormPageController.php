@@ -9,7 +9,9 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Support\EmbedForm\EmbedFormLogo;
 use App\Rules\UsPostalCode;
+use Illuminate\Support\Facades\Storage;
 
 class EmbedFormPageController extends Controller
 {
@@ -40,20 +42,22 @@ class EmbedFormPageController extends Controller
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
-        $logoUrl = null;
-        // The embed form renders on white, so the document logo is the right one.
-        $logoPath = $branding['logo_document']
-            ?? ($branding['logo_mail']
-            ?? $partner?->company_logo);
+        // Whose logo this is - the partner's own or the host's - is a
+        // brand-ownership rule, not a fallback chain. See EmbedFormLogo.
+        $logoPath = app(EmbedFormLogo::class)->pathFor($partner);
 
-        if ($logoPath) {
-            $logoUrl = asset('storage/' . $logoPath);
-        }
+        // The public disk, not asset(): this page is served on the partner's own
+        // host by a proxy (see EmbedFormLocation) while these files are served on
+        // the API's, and asset() builds on whichever host served the request - so
+        // it pointed the browser at a path that host does not serve.
+        $logoUrl = $logoPath
+            ? encodeUrl(Storage::disk('public')->url($logoPath))
+            : null;
 
         // Resolved favicon URL
         $faviconUrl = null;
         if (!empty($branding['favicon'])) {
-            $faviconUrl = asset('storage/' . $branding['favicon']);
+            $faviconUrl = encodeUrl(Storage::disk('public')->url($branding['favicon']));
         }
 
         // Theme colors
