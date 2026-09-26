@@ -15,7 +15,7 @@
                 Hello {{ $submission->first_name }},
             </h4>
             <p style="line-height: 1.5; margin-bottom: 24px; color: #495057;">
-                Thank you for your funding application. Your client account with <strong>{{ $siteName }}</strong>
+                Thank you for your application. Your client account with <strong>{{ $siteName }}</strong>
                 is now open and your application is with our team &mdash; there is nothing further you need to
                 send us, and no need to apply again.
             </p>

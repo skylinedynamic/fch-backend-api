@@ -14,6 +14,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Support\EmbedForm\EmbedFormLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -562,10 +563,27 @@ class EmbedFormService
      */
     protected function sendNotificationEmail(EmbedFormSubmission $submission, EmbedFormConfig $config): void
     {
-        $notifyEmail = $config->notification_email
-            ?: ($config->partner?->contact_person_email ?: $config->partner?->email);
+        $partner = $config->partner;
+
+        // The form's own inbox if one is set, otherwise the partner's account
+        // address. NOT contact_person_email: that is the partner's own staff
+        // contact, not the address the platform notifies.
+        $notifyEmail = $config->notification_email ?: $partner?->email;
 
         if (!$notifyEmail) {
+            return;
+        }
+
+        // A White-Label partner sends under its own credentials or not at all.
+        // MailConfig would otherwise resolve the host's mailbox for it, and mail
+        // leaving under the host's name is the one thing the tier exists to
+        // prevent - better to send nothing and say so in the log.
+        if ($this->isWhiteLabelPartner($partner) && !$this->hasOwnMailConfiguration($partner)) {
+            Log::info(__('embed_form.log_notification_skipped_no_mail_config'), [
+                'partner_id' => $partner->id,
+                'submission_uid' => $submission->submission_uid,
+            ]);
+
             return;
         }
 
@@ -581,6 +599,37 @@ class EmbedFormService
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * NOTE the order. `is_host` is tested first because the host partner is
+     * itself stored with `partner_type = 'White-Label Partner (WL)'`, so a
+     * type-first check would treat the platform's own form as white-label and
+     * silence its notifications.
+     */
+    protected function isWhiteLabelPartner(?Partner $partner): bool
+    {
+        return $partner
+            && !$partner->is_host
+            && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
+    }
+
+    /**
+     * Whether this partner can send mail under its own credentials.
+     *
+     * Mirrors the first branch of EmailConfigurationService::resolveFor() - a row
+     * exists as soon as the settings screen is opened, so having rows is not the
+     * same as being able to connect, and the partner must have switched its own
+     * configuration on.
+     */
+    protected function hasOwnMailConfiguration(Partner $partner): bool
+    {
+        $emailConfigurations = app(EmailConfigurationService::class);
+        $own = $emailConfigurations->getConfigurations($partner->id)->first();
+
+        return $own
+            && !empty($own->enable_custom_configuration)
+            && $emailConfigurations->isUsable($own);
     }
 
     /**
