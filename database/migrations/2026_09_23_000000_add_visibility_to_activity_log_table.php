@@ -10,11 +10,17 @@ return new class extends Migration
     public function up(): void
     {
         $connection = config('activitylog.database_connection');
-        $table = config('activitylog.table_name');
+        $table = config('activitylog.table_name') ?? 'activity_log';
 
-        Schema::connection($connection)->table($table, function (Blueprint $table) {
-            $table->string('visibility', 20)->default('internal')->after('status')->index();
-        });
+        if (! Schema::connection($connection)->hasColumn($table, 'visibility')) {
+            Schema::connection($connection)->table($table, function (Blueprint $blueprint) use ($connection, $table) {
+                $column = $blueprint->string('visibility', 20)->default('internal')->index();
+
+                if (Schema::connection($connection)->hasColumn($table, 'causer_id')) {
+                    $column->after('causer_id');
+                }
+            });
+        }
 
         $query = DB::connection($connection)->table($table);
 
@@ -58,10 +64,12 @@ return new class extends Migration
     public function down(): void
     {
         $connection = config('activitylog.database_connection');
-        $table = config('activitylog.table_name');
+        $table = config('activitylog.table_name') ?? 'activity_log';
 
-        Schema::connection($connection)->table($table, function (Blueprint $table) {
-            $table->dropColumn('visibility');
-        });
+        if (Schema::connection($connection)->hasColumn($table, 'visibility')) {
+            Schema::connection($connection)->table($table, function (Blueprint $table) {
+                $table->dropColumn('visibility');
+            });
+        }
     }
 };
