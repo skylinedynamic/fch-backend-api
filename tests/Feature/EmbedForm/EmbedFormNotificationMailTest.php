@@ -58,19 +58,7 @@ class EmbedFormNotificationMailTest extends TestCase
     }
 
     #[Test]
-    public function the_forms_notification_email_is_used_when_set(): void
-    {
-        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, [
-            'email' => 'partner-column@example.test',
-        ]);
-
-        $this->notify($partner, ['notification_email' => 'form-inbox@example.test']);
-
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('form-inbox@example.test'));
-    }
-
-    #[Test]
-    public function without_one_the_partners_email_column_is_used(): void
+    public function the_partners_email_column_is_the_address_used(): void
     {
         $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, [
             'email' => 'partner-column@example.test',
@@ -79,6 +67,21 @@ class EmbedFormNotificationMailTest extends TestCase
         $this->notify($partner);
 
         Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
+    }
+
+    #[Test]
+    public function a_stored_notification_email_is_ignored(): void
+    {
+        // The settings screen no longer offers the field, but rows saved before
+        // it was removed still carry a value - and it must not redirect mail.
+        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, [
+            'email' => 'partner-column@example.test',
+        ]);
+
+        $this->notify($partner, ['notification_email' => 'stale-form-inbox@example.test']);
+
+        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
+        Mail::assertNotSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('stale-form-inbox@example.test'));
     }
 
     #[Test]

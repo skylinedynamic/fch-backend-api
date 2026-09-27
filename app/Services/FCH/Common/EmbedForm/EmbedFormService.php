@@ -565,10 +565,10 @@ class EmbedFormService
     {
         $partner = $config->partner;
 
-        // The form's own inbox if one is set, otherwise the partner's account
-        // address. NOT contact_person_email: that is the partner's own staff
-        // contact, not the address the platform notifies.
-        $notifyEmail = $config->notification_email ?: $partner?->email;
+        // The partner's account address, and only that. The form no longer asks
+        // for a notification address of its own, and contact_person_email is the
+        // partner's staff contact rather than the address the platform notifies.
+        $notifyEmail = $partner?->email;
 
         if (!$notifyEmail) {
             return;
