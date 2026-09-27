@@ -47,18 +47,38 @@ final class EmbedFormLogo
      */
     public function pathFor(?Partner $partner): ?string
     {
-        if ($this->isWhiteLabel($partner)) {
-            // inheritLogosFromHost: false keeps the host's mark out of a
-            // white-label form. Its company_logo column is the older place the
-            // same upload was kept, so it is still honoured as a last resort.
-            $branding = $this->configurations->getBrandingSettings($partner->id, false);
+        $branding = $this->brandingFor($partner);
 
+        if ($this->isWhiteLabel($partner)) {
+            // company_logo is the older place the same upload was kept, so it is
+            // still honoured as a last resort.
             return $this->firstSurface($branding) ?? ($partner->company_logo ?: null);
         }
 
-        return $this->firstSurface(
-            $this->configurations->getBrandingSettings(Partner::host()?->id)
-        );
+        return $this->firstSurface($branding);
+    }
+
+    /**
+     * The branding whose logo this form carries - the answer to "whose brand is
+     * this page published under", which is the partner's own only when it is
+     * White-Label.
+     *
+     * Callers want the whole array rather than just a path because branding also
+     * hands out `<key>_full_url`, and for a tenant with nothing uploaded that is
+     * where the name-carrying placeholder lives - there is no stored file for it,
+     * so the bare key is empty.
+     *
+     * @return array<string, mixed>
+     */
+    public function brandingFor(?Partner $partner): array
+    {
+        if ($this->isWhiteLabel($partner)) {
+            // inheritLogosFromHost: false keeps the host's mark out of a
+            // white-label form, and is what produces that placeholder.
+            return $this->configurations->getBrandingSettings($partner->id, false);
+        }
+
+        return $this->configurations->getBrandingSettings(Partner::host()?->id);
     }
 
     /**

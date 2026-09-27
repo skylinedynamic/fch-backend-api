@@ -5,6 +5,7 @@ namespace Tests\Unit\EmbeddedForm;
 use App\Http\Controllers\Api\V1\Global\Website\EmbedForm\PublicEmbedFormController;
 use App\Http\Controllers\Web\EmbedFormPageController;
 use App\Models\Partner\Partner;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,10 +39,16 @@ class EmbedFormBrandingTest extends TestCase
     {
         parent::setUp();
 
-        // asset() reads the request root and scheme, which in a unit test are
-        // localhost over http. Forcing both makes the legacy-column assertion
-        // exact; the scheme needs its own call, as forceRootUrl leaves it alone.
-        URL::forceRootUrl(self::ROOT);
+        // The address is built from the public disk, not asset(), because this
+        // page is served on the partner's own domain by a proxy while /storage is
+        // served by the API - asset() would build on the proxying host. ROOT
+        // therefore stands for the API's own host here.
+        config(['filesystems.disks.public.url' => self::ROOT . '/storage']);
+        Storage::forgetDisk('public');
+
+        // Still forced, so anything that does reach asset() cannot quietly pass
+        // by building the same address from the request root instead.
+        URL::forceRootUrl('https://proxying-host.example.test');
         URL::forceScheme('https');
     }
 
@@ -169,6 +176,45 @@ class EmbedFormBrandingTest extends TestCase
     public function no_favicon_leaves_the_tag_out(): void
     {
         $this->assertNull($this->faviconUrl([]));
+    }
+
+    // -- an unset BASE_API_URL must not produce a relative src ---------------
+
+    /**
+     * config/filesystems.php builds the public disk's base as
+     * `env('BASE_API_URL').'/storage'`, so an unset BASE_API_URL leaves it as the
+     * bare string `/storage` - and the disk then hands back `/storage/...` with no
+     * host on it. A relative src resolves against whichever host served the page,
+     * which for this form is the partner's domain, where /storage is not served
+     * at all: in production that rendered a broken image on every form.
+     *
+     * asset() is the fallback rather than the primary because it follows the
+     * request host, which is only the API's where the edge proxy rewrites Host
+     * for /form/*. As a last resort it still beats an address that cannot resolve.
+     */
+    #[Test]
+    public function a_disk_with_no_configured_base_still_yields_an_absolute_url(): void
+    {
+        config(['filesystems.disks.public.url' => '/storage']);
+        Storage::forgetDisk('public');
+
+        $url = (string) $this->logoUrl(['logo_document' => 'branding/logo.png']);
+
+        $this->assertStringStartsWith('https://', $url);
+        $this->assertStringEndsWith('/storage/branding/logo.png', $url);
+    }
+
+    #[Test]
+    public function a_relative_fallback_is_still_encoded_and_not_double_slashed(): void
+    {
+        config(['filesystems.disks.public.url' => '/storage']);
+        Storage::forgetDisk('public');
+
+        $url = (string) $this->logoUrl(['logo_document' => '/branding/my logo.png']);
+
+        $this->assertStringNotContainsString(' ', $url);
+        $this->assertStringNotContainsString('storage//', $url);
+        $this->assertStringEndsWith('/storage/branding/my%20logo.png', $url);
     }
 
     // -- the JSON config endpoint answers the same way ----------------------
