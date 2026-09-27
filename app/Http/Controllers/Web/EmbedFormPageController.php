@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Models\Borrower\BorrowerDocType;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Scoring\CreditScoreService;
 use App\Models\EmbedForm\EmbedFormConfig;
@@ -40,21 +41,8 @@ class EmbedFormPageController extends Controller
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name', 'Financial Care Hub')));
 
-        $logoUrl = null;
-        // The embed form renders on white, so the document logo is the right one.
-        $logoPath = $branding['logo_document']
-            ?? ($branding['logo_mail']
-            ?? $partner?->company_logo);
-
-        if ($logoPath) {
-            $logoUrl = asset('storage/' . $logoPath);
-        }
-
-        // Resolved favicon URL
-        $faviconUrl = null;
-        if (!empty($branding['favicon'])) {
-            $faviconUrl = asset('storage/' . $branding['favicon']);
-        }
+        $logoUrl = $this->resolveLogoUrl($branding, $partner);
+        $faviconUrl = $this->resolveFaviconUrl($branding);
 
         // Theme colors
         $primaryColor = $branding['primary_color'] ?? '#0d6efd';
@@ -92,5 +80,49 @@ class EmbedFormPageController extends Controller
             'minimumAge' => (int) config('funding_application.embed_form.minimum_age', 18),
             'postalCodeLength' => UsPostalCode::length(),
         ]);
+    }
+
+    /**
+     * The logo for this form's header, or null when there is none to draw.
+     *
+     * Branding hands out every logo twice: the bare key holds the stored path,
+     * and `<key>_full_url` holds the address already built from it - run through
+     * encodeUrl() and with any leading slash stripped. The second one is what
+     * every other surface in the application reads, and what is read here.
+     *
+     * This used to take the bare path and rebuild the address with
+     * `asset('storage/'.$path)`, which skipped both of those steps. A logo
+     * uploaded as "my logo.png" produced an unescaped src the browser could not
+     * load, and a path stored with a leading slash produced `storage//logo.png`.
+     * Either way the header showed a broken image. Rebuilding also discarded the
+     * placeholder branding returns for a tenant with no upload of its own, since
+     * the placeholder is not a stored file and so never appears in the bare key.
+     *
+     * The form renders on white, so the document logo is the right surface, with
+     * the mail logo behind it. `company_logo` is the legacy partner column, kept
+     * last for partners whose logo was never moved into branding.
+     */
+    private function resolveLogoUrl(array $branding, ?Partner $partner): ?string
+    {
+        $resolved = ($branding['logo_document_full_url'] ?? null)
+            ?: ($branding['logo_mail_full_url'] ?? null);
+
+        if ($resolved) {
+            return $resolved;
+        }
+
+        return $partner?->company_logo
+            ? encodeUrl(asset('storage/' . ltrim($partner->company_logo, '/')))
+            : null;
+    }
+
+    /**
+     * The favicon for the tab, or null to leave the tag out.
+     *
+     * Read from the built address for the same reason as the logo above.
+     */
+    private function resolveFaviconUrl(array $branding): ?string
+    {
+        return ($branding['favicon_full_url'] ?? null) ?: null;
     }
 }

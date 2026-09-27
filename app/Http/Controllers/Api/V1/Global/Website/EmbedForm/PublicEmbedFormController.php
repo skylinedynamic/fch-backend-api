@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest;
 use App\Models\Common\AppConfiguration;
+use App\Models\Partner\Partner;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,17 +45,8 @@ class PublicEmbedFormController extends Controller
         $partnerName = $branding['site_name']
             ?? ($partner?->company_name ?: ($partner?->full_name ?: config('app.name')));
 
-        $logoUrl = null;
-        // The embed form renders on white, so the document logo is the right one.
-        $logoPath = $branding['logo_document']
-            ?? ($branding['logo_mail']
-            ?? $partner?->company_logo);
-
-        if ($logoPath) {
-            $logoUrl = asset('storage/' . $logoPath);
-        }
-
-        $faviconUrl = !empty($branding['favicon']) ? asset('storage/' . $branding['favicon']) : null;
+        $logoUrl = $this->resolveLogoUrl($branding, $partner);
+        $faviconUrl = $this->resolveFaviconUrl($branding);
 
         return ApiResponse::success([
             'form_title' => $config->form_title,
@@ -91,5 +83,31 @@ class PublicEmbedFormController extends Controller
         return ApiResponse::success([
             'submission_uid' => $submission->submission_uid,
         ], __('embed_form.submission_success'), 201);
+    }
+
+    /**
+     * The logo an outside site should render for this form.
+     *
+     * The same resolution as the hosted page's own header - see
+     * EmbedFormPageController::resolveLogoUrl() for why the built address is
+     * read rather than rebuilt from the stored path.
+     */
+    private function resolveLogoUrl(array $branding, ?Partner $partner): ?string
+    {
+        $resolved = ($branding['logo_document_full_url'] ?? null)
+            ?: ($branding['logo_mail_full_url'] ?? null);
+
+        if ($resolved) {
+            return $resolved;
+        }
+
+        return $partner?->company_logo
+            ? encodeUrl(asset('storage/' . ltrim($partner->company_logo, '/')))
+            : null;
+    }
+
+    private function resolveFaviconUrl(array $branding): ?string
+    {
+        return ($branding['favicon_full_url'] ?? null) ?: null;
     }
 }
