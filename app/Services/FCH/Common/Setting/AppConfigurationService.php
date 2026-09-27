@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Setting;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class AppConfigurationService
 {
@@ -329,8 +330,17 @@ class AppConfigurationService
             // Only a real upload goes in the bare key, so the placeholder cannot
             // be mistaken for a stored file by anything that writes back.
             $resolvedLogos[$imageKey] = $resolved;
+            // Addressed from the `public` disk's own url, not from asset().
+            // asset() builds on the INCOMING REQUEST's root, and this result is
+            // cached for six hours under a key that does not carry the hostname -
+            // so whichever host warmed the cache had its own name baked into
+            // every logo URL served to every other surface. Only the API host
+            // serves /storage, so the portals, invoices, mail and the public
+            // embed form all showed a broken image until the entry aged out.
+            // The disk's url (BASE_API_URL, config/filesystems.php) is the same
+            // answer for every caller, which is what makes it safe to cache.
             $resolvedLogos[$imageKey . '_full_url'] = $resolved
-                ? encodeUrl(asset('storage/' . ltrim($resolved, '/')))
+                ? encodeUrl(Storage::disk('public')->url($resolved))
                 : ($inheritThisKey ? null : $placeholder);
         }
 
