@@ -166,6 +166,33 @@
             border-bottom-right-radius: 0 !important;
         }
 
+        /* A select2 inside an input-group has to stay on the group's row.
+           .select2-container below is width:100% !important, which is right for
+           a select that owns its row and wrong here: it fills the flex line by
+           itself and pushes the field beside it onto a second one. That is what
+           the country picker was doing to the business phone number.
+
+           The width mirrors the inline one on the <select>, which is what the
+           browser shows before select2 initialises and if its script never
+           loads. Only one field in this form pairs a select2 with an input;
+           every other input-group here uses .input-group-text. */
+        .input-group > .select2-container {
+            flex: 0 0 auto;
+            width: 132px !important;
+        }
+
+        /* Join the two into one control: square the inner corners and pull the
+           borders together so the seam reads as a single line, the way
+           Bootstrap does for its own input-group children. */
+        .input-group > .select2-container .select2-selection--single {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+        }
+
+        .input-group > .select2-container + .form-control {
+            margin-left: -1px;
+        }
+
         /* Select2 Custom Styling matching 4px radius & zero focus/hover border */
         .select2-container {
             width: 100% !important;
