@@ -1312,9 +1312,26 @@
             ownerSelect.add(new Option(country.name, country.name));
         });
 
+        // The business phone's country defaults to the United States. This is a
+        // US lending product, and the picker's two entries both read "+1" - USA
+        // and Canada share the dialling code - so leaving it empty asked every
+        // applicant to make a choice that looks like it has no consequence but
+        // decides which state list they get.
+        //
+        // Set before initSelect2() runs (see the init order above), so select2
+        // renders the selection rather than needing to be told about it after the
+        // fact. A deployment whose config/locations.php has no United States
+        // entry falls back to whatever leads the list.
+        const defaultBusinessCountry = findCountryByCode('USA') || LOCATIONS[0];
+
+        if (defaultBusinessCountry) {
+            businessSelect.value = defaultBusinessCountry.code;
+        }
+
         // A single-country deployment should not make the applicant pick it.
+        // Left as it was: the owner's country is its own field on a later step,
+        // and nothing here says which country an owner lives in.
         if (LOCATIONS.length === 1) {
-            businessSelect.value = LOCATIONS[0].code;
             ownerSelect.value = LOCATIONS[0].name;
         }
 
