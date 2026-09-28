@@ -7,6 +7,8 @@ use App\Models\Borrower\Borrower;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\User\User;
 use Illuminate\Validation\Rule;
+use App\Rules\BusinessEin;
+use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 
 class UpdateBorrowerRequest extends BaseApiRequest
@@ -59,7 +61,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'         => ['nullable', 'string', 'max:255'],
-            'business_ein'          => ['nullable', 'string', 'max:255'],
+            'business_ein'          => ['nullable', 'string', new BusinessEin()],
             'business_phone'        => ['nullable', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'business_address'      => ['nullable', 'string', 'max:255'],
             'business_city'         => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -76,7 +78,7 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_description'  => ['nullable', 'string'],
             'business_logo'         => ['nullable', 'file', 'mimes:jpg,jpeg,png,svg', 'max:5120'],
-            'duns_number'           => ['nullable', 'string', 'max:255'],
+            'duns_number'           => ['nullable', 'string', new DunsNumber()],
             'state_file_number'     => ['nullable', 'string', 'max:255'],
             'business_start_date'   => ['nullable'],
 
