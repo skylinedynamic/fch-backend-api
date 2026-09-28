@@ -33,6 +33,13 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
             'date_of_birth' => 'required|date',
             'phone' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+
+            // The FCRA authorisation and the E-SIGN consent, refused here rather
+            // than only in the browser: what has to be demonstrable to an auditor
+            // is that the API would not pull credit without both. They are two
+            // legally distinct consents, so two rules.
+            'credit_authorization_accepted' => ['required', 'accepted'],
+            'e_consent_accepted' => ['required', 'accepted'],
         ];
     }
 }
