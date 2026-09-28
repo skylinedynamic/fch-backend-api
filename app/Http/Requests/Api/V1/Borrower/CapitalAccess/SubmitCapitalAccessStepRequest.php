@@ -23,18 +23,18 @@ class SubmitCapitalAccessStepRequest extends BaseApiRequest
      */
     public function rules(): array
     {
-        $sequenceId = $this->route('sequenceId');
-        
-        $seq = \App\Models\CreditBuilder\CapitalAccessSequence::find($sequenceId);
-        $min = $seq ? ($seq->est_limit_min ?? 0) : 0;
-        $max = $seq ? ($seq->est_limit_max ?? 999999999) : 999999999;
-
         $statuses = implode(',', CapitalAccessApplication::STATUSES);
         $approvedStatus = CapitalAccessApplication::STATUS_APPROVED;
 
+        // No bound taken from the step's own estimate. It used to be clamped to
+        // est_limit_min..est_limit_max, so an approval outside the estimated band
+        // could not be recorded at all - but the band is a projection and the
+        // approval is a fact, and the two do not have to agree. The estimate is
+        // shown beside the field as guidance instead. min:0 is not a cap; it only
+        // says a credit limit is not a negative number.
         return [
             'status'       => "required|string|in:{$statuses}",
-            'credit_limit' => "required_if:status,{$approvedStatus}|nullable|numeric|min:{$min}|max:{$max}",
+            'credit_limit' => "required_if:status,{$approvedStatus}|nullable|numeric|min:0",
             'notes'        => 'nullable|string',
         ];
     }
@@ -46,16 +46,10 @@ class SubmitCapitalAccessStepRequest extends BaseApiRequest
      */
     public function messages(): array
     {
-        $sequenceId = $this->route('sequenceId');
-        $seq = \App\Models\CreditBuilder\CapitalAccessSequence::find($sequenceId);
-        $min = $seq ? ($seq->est_limit_min ?? 0) : 0;
-        $max = $seq ? ($seq->est_limit_max ?? 999999999) : 999999999;
-
         return [
             'credit_limit.required' => 'Approved Credit Limit is required.',
             'credit_limit.numeric'  => 'Approved Credit Limit must be a number.',
-            'credit_limit.min'      => "Approved Credit Limit must be at least {$min}.",
-            'credit_limit.max'      => "Approved Credit Limit must be at most {$max}.",
+            'credit_limit.min'      => 'Approved Credit Limit cannot be negative.',
         ];
     }
 }
