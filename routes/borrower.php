@@ -33,6 +33,8 @@ use App\Http\Controllers\Api\V1\Borrower\PreQualification\PreQualificationContro
 use App\Http\Controllers\Api\V1\Borrower\Resource\ResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
 use App\Http\Controllers\Api\V1\Borrower\ActivityLog\BorrowerActivityLogController;
+use App\Http\Controllers\Api\V1\Borrower\Assistant\BorrowerAssistantController;
+use App\Http\Controllers\Api\V1\FCH\Common\Comment\CommentController as BorrowerCommentController;
 
 
 /* |-------------------------------------------------------------------------- | Borrower API Routes |-------------------------------------------------------------------------- | | Here is where you can register borrower API routes for your application. | These routes are loaded by the RouteServiceProvider and all of them will | be assigned to the "api" middleware group. Make something great! | */
@@ -237,6 +239,25 @@ Route::prefix('v1/borrower')->group(function () {
                 Route::get('/', [BorrowerActivityLogController::class, 'index']);
                 Route::get('/{id}', [BorrowerActivityLogController::class, 'show']);
                 Route::post('/', [BorrowerActivityLogController::class, 'store']);
+            });
+
+            // Borrower support assistant chat (knowledge-only, white-label
+            // boundary enforced in SupportAssistantService).
+            Route::get('assistant/config', [BorrowerAssistantController::class, 'config']);
+            Route::prefix('assistant')->middleware('throttle:assistant')->group(function () {
+                Route::post('messages', [BorrowerAssistantController::class, 'sendMessage']);
+                Route::get('conversations/{sessionId}/messages', [BorrowerAssistantController::class, 'history']);
+                Route::get('sessions', [BorrowerAssistantController::class, 'index']);
+                Route::post('sessions', [BorrowerAssistantController::class, 'store']);
+                Route::delete('sessions', [BorrowerAssistantController::class, 'destroy']);
+            });
+
+            // Client comments on the borrower's own records.
+            Route::prefix('comments')->group(function () {
+                Route::get('/', [BorrowerCommentController::class, 'index']);
+                Route::post('/', [BorrowerCommentController::class, 'store']);
+                Route::match(['put', 'post'], '/{id}', [BorrowerCommentController::class, 'update']);
+                Route::delete('/{id}', [BorrowerCommentController::class, 'destroy']);
             });
         }
     );

@@ -9,11 +9,13 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLog extends Activity
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected static function booted()
     {
