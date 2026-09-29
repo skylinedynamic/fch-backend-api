@@ -221,7 +221,7 @@ class SupportAssistantService
             $messages = $this->buildHistory($conversation);
 
             $result = $this->openAi->runChat(
-                $config->model ?: config('openai.default_model', 'gpt-5.6-luna'),
+                $config->model ?: $this->openAi->defaultModel(),
                 $instructions,
                 $messages,
                 $usingVectorStore ? [[
@@ -229,7 +229,7 @@ class SupportAssistantService
                     'vector_store_ids' => [$config->vector_store_id],
                 ]] : [],
                 [
-                    'reasoning_effort' => $config->reasoning_effort ?: 'low',
+                    'reasoning_effort' => $config->reasoning_effort ?: $this->openAi->defaultReasoningEffort(),
                     'max_output_tokens' => $config->max_output_tokens ?: 1200,
                     // Stable, non-PII identifier — never the user's email/name,
                     // matching WlpAssistantService.php.example.
@@ -364,20 +364,21 @@ class SupportAssistantService
     }
 
     /**
-     * Reads every file under storage/app/assistant-knowledge/{type}/ and
+     * Reads every file under app/Services/Assistant/Knowledge/{type}/ and
      * concatenates them with a filename header each, for direct inclusion in
      * the prompt when no vector_store_id is configured (the OpenAI key in
      * this environment lacks api.files.write/vector-store scopes, so File
      * Search's upload step fails — see SyncAssistantKnowledge). This is a
      * fallback, not the intended architecture: it costs more input tokens
      * per turn and has no real citation mechanism, only the filename-mention
-     * approximation in deriveInlineSources().
+     * approximation in deriveInlineSources(). Lives under app/ (git-tracked)
+     * rather than storage/ (gitignored) so it actually ships on deploy.
      *
      * @return ?array{content: string, filenames: string[]}
      */
     private function loadInlineKnowledge(string $assistantType): ?array
     {
-        $folder = storage_path('app/assistant-knowledge/' . $assistantType);
+        $folder = app_path('Services/Assistant/Knowledge/' . $assistantType);
 
         if (! is_dir($folder)) {
             return null;
@@ -606,7 +607,7 @@ class SupportAssistantService
             . "system prompt below; base both entirely on what it actually covers, nothing outside it, no filler.";
 
         $result = $this->openAi->run(
-            $config->model ?: config('openai.default_model', 'gpt-5.6-luna'),
+            $config->model ?: $this->openAi->defaultModel(),
             $instructions,
             ['assistant_system_prompt' => $systemPrompt],
             'widget_intro',

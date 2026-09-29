@@ -296,9 +296,9 @@ class AssistantAccessTest extends TestCase
     public function the_wlp_config_endpoint_returns_live_derived_copy_sourced_from_the_saved_prompt_and_is_borrower_blocked(): void
     {
         $this->writeSystemPrompt(AiAssistantConfig::TYPE_WLP_SUPPORT, 'You help WLPs with settings and training.');
+        config(['assistant.wlp_support.model' => 'gpt-test', 'assistant.wlp_support.is_enabled' => true]);
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
         $config->vector_store_id = 'vs_test_123';
-        $config->is_enabled = true;
         $config->save();
 
         $this->mock(OpenAiResponsesService::class, function ($mock) {
@@ -326,9 +326,9 @@ class AssistantAccessTest extends TestCase
     public function the_borrower_config_endpoint_returns_live_derived_copy_and_no_system_prompt_field(): void
     {
         $this->writeSystemPrompt(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'You help borrowers with their application.');
+        config(['assistant.borrower_support.model' => 'gpt-test', 'assistant.borrower_support.is_enabled' => true]);
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
         $config->vector_store_id = 'vs_test_456';
-        $config->is_enabled = true;
         $config->save();
 
         $this->mock(OpenAiResponsesService::class, function ($mock) {

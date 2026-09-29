@@ -6,10 +6,18 @@ use App\Models\Common\AppConfiguration;
 
 /**
  * Per-assistant-type settings (WLP, Borrower) — not an Eloquent model, and
- * there is no dedicated ai_assistant_configs table. Backed by the existing
- * AppConfiguration key/value store (AppConfiguration::MODULE_OPENAI already
- * holds openai_api_key), one JSON-encoded row per assistant_type, the same
- * way any other admin-editable settings live in this codebase.
+ * there is no dedicated ai_assistant_configs table.
+ *
+ * is_enabled/model/reasoning_effort/max_output_tokens come from
+ * config/assistant.php — a plain, git-tracked config file, not a database
+ * row — so turning an assistant on ships with a code deploy, never an
+ * app_configurations write or an .env value.
+ *
+ * vector_store_id/knowledge_manifest_version stay backed by the existing
+ * AppConfiguration key/value store instead: unlike the settings above, a
+ * vector store id is a fact only known at runtime, discovered by actually
+ * running SyncAssistantKnowledge against a live OpenAI account — it cannot
+ * live in a file committed before that command ever runs.
  */
 class AiAssistantConfig
 {
@@ -33,35 +41,39 @@ class AiAssistantConfig
     }
 
     /**
-     * Always returns an object — a type with no saved settings yet just
-     * comes back all-blank/disabled, matching Eloquent's firstOrNew()
-     * semantics the admin screen and callers here already rely on.
+     * Always returns an object — a type with no runtime settings yet just
+     * comes back with vector_store_id/knowledge_manifest_version blank,
+     * matching Eloquent's firstOrNew() semantics callers here rely on.
      */
     public static function find(string $assistantType): self
     {
+        $configDefaults = config('assistant.' . $assistantType, []);
+
         $raw = AppConfiguration::get($assistantType, null, AppConfiguration::MODULE_OPENAI);
-        $data = $raw ? (json_decode($raw, true) ?: []) : [];
+        $runtime = $raw ? (json_decode($raw, true) ?: []) : [];
 
         return new self(
             assistant_type: $assistantType,
-            model: $data['model'] ?? null,
-            reasoning_effort: $data['reasoning_effort'] ?? null,
-            max_output_tokens: $data['max_output_tokens'] ?? null,
-            vector_store_id: $data['vector_store_id'] ?? null,
-            knowledge_manifest_version: $data['knowledge_manifest_version'] ?? null,
-            is_enabled: (bool) ($data['is_enabled'] ?? false),
+            model: $configDefaults['model'] ?? null,
+            reasoning_effort: $configDefaults['reasoning_effort'] ?? null,
+            max_output_tokens: $configDefaults['max_output_tokens'] ?? null,
+            vector_store_id: $runtime['vector_store_id'] ?? null,
+            knowledge_manifest_version: $runtime['knowledge_manifest_version'] ?? null,
+            is_enabled: (bool) ($configDefaults['is_enabled'] ?? false),
         );
     }
 
+    /**
+     * Persists only vector_store_id/knowledge_manifest_version — the runtime
+     * facts SyncAssistantKnowledge discovers. is_enabled/model/reasoning_effort
+     * come from config/assistant.php and are never written here; changing
+     * them means editing that file and deploying, not calling save().
+     */
     public function save(): void
     {
         AppConfiguration::set($this->assistant_type, json_encode([
-            'model' => $this->model,
-            'reasoning_effort' => $this->reasoning_effort,
-            'max_output_tokens' => $this->max_output_tokens,
             'vector_store_id' => $this->vector_store_id,
             'knowledge_manifest_version' => $this->knowledge_manifest_version,
-            'is_enabled' => $this->is_enabled,
         ]), AppConfiguration::MODULE_OPENAI);
     }
 
@@ -73,10 +85,13 @@ class AiAssistantConfig
      * "Knowledge attached" is satisfied either by a real vector_store_id
      * (the intended File Search architecture) or, when the configured
      * OpenAI key lacks file/vector-store write scopes, by local files under
-     * storage/app/assistant-knowledge/{type}/ that get inlined into the
+     * app/Services/Assistant/Knowledge/{type}/ that get inlined into the
      * prompt instead — see SupportAssistantService::loadInlineKnowledge().
-     * The vector-store path is preferred; inline is a fallback, not a
-     * replacement.
+     * Deliberately under app/ (git-tracked, deploys with the code) rather
+     * than storage/ (gitignored, per-environment only) — like the system
+     * prompt files, this content must ship with the code, not be dropped in
+     * by hand per server. The vector-store path is preferred; inline is a
+     * fallback, not a replacement.
      */
     public function isReady(): bool
     {
@@ -87,7 +102,7 @@ class AiAssistantConfig
 
     public function hasInlineKnowledgeFiles(): bool
     {
-        $folder = storage_path('app/assistant-knowledge/' . $this->assistant_type);
+        $folder = app_path('Services/Assistant/Knowledge/' . $this->assistant_type);
 
         return is_dir($folder) && count(glob($folder . '/*') ?: []) > 0;
     }
