@@ -372,6 +372,207 @@ class OpenAiResponsesService
     }
 
     /**
+     * Multi-turn, tool-enabled counterpart to run(): a support-assistant chat
+     * turn instead of a single structured extraction.
+     *
+     * Deliberately `store: false` with no `previous_response_id` — the caller
+     * (SupportAssistantService) reconstructs the full turn history itself from
+     * its own chat_messages table on every call, rather than relying on
+     * OpenAI's server-side conversation retention. FCH stays the single
+     * source of truth for what was said, which callers need anyway since the
+     * transcript is already persisted on our own side.
+     *
+     * Output is plain text (unlike run()'s json_schema), since a support
+     * reply is free text with citations, not a structured extraction.
+     *
+     * @param array<int, array{role: string, content: string}> $messages Full turn history, oldest first.
+     * @param array $tools e.g. [['type' => 'file_search', 'vector_store_ids' => [$id]]].
+     * @param array $options {
+     *     Matches WlpAssistantService.php.example's request shape.
+     *
+     *     @var ?string $reasoning_effort   e.g. 'low'. Omitted for non-reasoning models, same rule as run().
+     *     @var ?int    $max_output_tokens  Caps response length/cost.
+     *     @var ?string $safety_identifier  Stable, non-PII per-user identifier (already hashed by the caller).
+     * }
+     *
+     * @return array{ok: bool, text: ?string, sources: array, model: ?string, latency_ms: int, usage: ?array, request_id: ?string, error: ?string}
+     */
+    public function runChat(
+        string $model,
+        string $instructions,
+        array $messages,
+        array $tools = [],
+        array $options = [],
+        array $logContext = []
+    ): array {
+        $maxAttempts = max(1, (int) config('openai.max_attempts', 3));
+        $result = null;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $result = $this->attemptChat($model, $instructions, $messages, $tools, $options, array_merge($logContext, [
+                'attempt' => $attempt,
+                'max_attempts' => $maxAttempts,
+            ]));
+
+            if ($result['ok'] || !$this->isRetryable($result) || $attempt === $maxAttempts) {
+                break;
+            }
+
+            $delayMs = (int) config('openai.retry_delay_ms', 2000) * $attempt;
+            usleep($delayMs * 1000);
+        }
+
+        return $result;
+    }
+
+    protected function attemptChat(
+        string $model,
+        string $instructions,
+        array $messages,
+        array $tools,
+        array $options,
+        array $logContext
+    ): array {
+        $startTime = microtime(true);
+
+        $body = [
+            'model' => $model,
+            'store' => false,
+            'instructions' => $instructions,
+            'input' => array_map(
+                static fn (array $m) => ['role' => $m['role'], 'content' => $m['content']],
+                $messages
+            ),
+        ];
+
+        if (!empty($tools)) {
+            $body['tools'] = $tools;
+            // Needed to recover file_search citations for the response's `sources`.
+            $body['include'] = ['file_search_call.results'];
+        }
+
+        if (!empty($options['max_output_tokens'])) {
+            $body['max_output_tokens'] = (int) $options['max_output_tokens'];
+        }
+
+        if (!empty($options['reasoning_effort']) && $this->modelSupportsReasoningEffort($model)) {
+            $body['reasoning'] = ['effort' => $options['reasoning_effort']];
+        }
+
+        if (!empty($options['safety_identifier'])) {
+            $body['safety_identifier'] = $options['safety_identifier'];
+        }
+
+        try {
+            $response = Http::timeout($this->timeout)
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$this->baseUrl}/responses", $body);
+        } catch (\Throwable $e) {
+            $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+            $this->logOutcome($logContext, $model, 'TRANSPORT_ERROR', $latencyMs, null);
+
+            return [
+                'ok' => false,
+                'text' => null,
+                'sources' => [],
+                'model' => $model,
+                'latency_ms' => $latencyMs,
+                'usage' => null,
+                'failure_kind' => 'TRANSPORT_ERROR',
+                'http_status' => null,
+                'request_id' => null,
+                'error' => 'OpenAI Responses API connection error: ' . $e->getMessage(),
+            ];
+        }
+
+        $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+
+        if (!$response->successful()) {
+            $errorBody = $response->json();
+            $errorMessage = $errorBody['error']['message'] ?? $response->body();
+            $this->logOutcome($logContext, $model, 'API_ERROR', $latencyMs, null, $response->status(), $response->header('x-request-id') ?: null);
+
+            return [
+                'ok' => false,
+                'text' => null,
+                'sources' => [],
+                'model' => $model,
+                'latency_ms' => $latencyMs,
+                'usage' => null,
+                'failure_kind' => 'API_ERROR',
+                'http_status' => $response->status(),
+                'request_id' => null,
+                'error' => "OpenAI Responses API error ({$response->status()}): {$errorMessage}",
+            ];
+        }
+
+        $json = $response->json();
+        $usage = $json['usage'] ?? null;
+        $text = $this->extractOutputText($json);
+        $requestId = $response->header('x-request-id') ?: null;
+
+        if ($text === null) {
+            $this->logOutcome($logContext, $model, 'INVALID_JSON', $latencyMs, $usage, $response->status(), $requestId);
+
+            return [
+                'ok' => false,
+                'text' => null,
+                'sources' => [],
+                'model' => $model,
+                'latency_ms' => $latencyMs,
+                'usage' => $usage,
+                'failure_kind' => 'INVALID_JSON',
+                'http_status' => $response->status(),
+                'request_id' => $requestId,
+                'error' => 'OpenAI Responses API returned no output text.',
+            ];
+        }
+
+        $this->logOutcome($logContext, $model, 'SUCCESS', $latencyMs, $usage, $response->status(), $requestId);
+
+        return [
+            'ok' => true,
+            'text' => $text,
+            'sources' => $this->extractCitations($json),
+            'model' => $json['model'] ?? $model,
+            'latency_ms' => $latencyMs,
+            'usage' => $usage,
+            'request_id' => $requestId,
+            'error' => null,
+        ];
+    }
+
+    /**
+     * File_search citation titles, matching WlpAssistantService.php.example's
+     * extractApprovedSourceTitles() — dedupes by filename since the same
+     * knowledge file is commonly cited more than once in one reply.
+     *
+     * @return array<int, array{title: string}>
+     */
+    protected function extractCitations(array $response): array
+    {
+        $titles = [];
+
+        foreach ((array) ($response['output'] ?? []) as $item) {
+            foreach ((array) ($item['content'] ?? []) as $content) {
+                foreach ((array) ($content['annotations'] ?? []) as $annotation) {
+                    if (($annotation['type'] ?? null) === 'file_citation') {
+                        $title = $annotation['filename'] ?? $annotation['file_name'] ?? null;
+                        if (is_string($title) && $title !== '') {
+                            $titles[$title] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_map(static fn (string $title) => ['title' => $title], array_keys($titles));
+    }
+
+    /**
      * Minimal, dependency-free structural validation of $data against $schema:
      * required keys present, enum membership, and recursion into object/array
      * item schemas. Not a full JSON Schema implementation — only what our own

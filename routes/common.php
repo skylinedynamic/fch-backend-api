@@ -38,6 +38,9 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
+use App\Http\Controllers\Api\V1\FCH\Common\Comment\CommentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -396,6 +399,32 @@ Route::prefix('v1')->group(function () {
                 Route::get('config', [OpenAiConfigurationController::class, 'show']);
                 Route::get('models', [OpenAiConfigurationController::class, 'models']);
                 Route::post('config', [OpenAiConfigurationController::class, 'store']);
+            });
+
+            // Support assistant admin config (host-only; enforced again inside
+            // the controller regardless of what the admin UI hides).
+            Route::prefix('assistant-config')->group(function () {
+                Route::get('/', [AssistantConfigController::class, 'index']);
+                Route::post('/', [AssistantConfigController::class, 'store']);
+            });
+
+            // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
+            // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).
+            Route::get('assistant/wlp/config', [WlpAssistantController::class, 'config']);
+            Route::prefix('assistant/wlp')->middleware('throttle:assistant')->group(function () {
+                Route::post('messages', [WlpAssistantController::class, 'sendMessage']);
+                Route::get('conversations/{sessionId}/messages', [WlpAssistantController::class, 'history']);
+                Route::get('sessions', [WlpAssistantController::class, 'index']);
+                Route::post('sessions', [WlpAssistantController::class, 'store']);
+                Route::delete('sessions', [WlpAssistantController::class, 'destroy']);
+            });
+
+            // Client comments (polymorphic; entity_type restricted to Comment::ALLOWED_ENTITY_TYPES).
+            Route::prefix('comments')->group(function () {
+                Route::get('/', [CommentController::class, 'index']);
+                Route::post('/', [CommentController::class, 'store']);
+                Route::match(['put', 'post'], '/{id}', [CommentController::class, 'update']);
+                Route::delete('/{id}', [CommentController::class, 'destroy']);
             });
 
             // 📧 Email Configurations
