@@ -40,7 +40,6 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
-use App\Http\Controllers\Api\V1\FCH\Common\Comment\CommentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -417,14 +416,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('sessions', [WlpAssistantController::class, 'index']);
                 Route::post('sessions', [WlpAssistantController::class, 'store']);
                 Route::delete('sessions', [WlpAssistantController::class, 'destroy']);
-            });
-
-            // Client comments (polymorphic; entity_type restricted to Comment::ALLOWED_ENTITY_TYPES).
-            Route::prefix('comments')->group(function () {
-                Route::get('/', [CommentController::class, 'index']);
-                Route::post('/', [CommentController::class, 'store']);
-                Route::match(['put', 'post'], '/{id}', [CommentController::class, 'update']);
-                Route::delete('/{id}', [CommentController::class, 'destroy']);
             });
 
             // 📧 Email Configurations
