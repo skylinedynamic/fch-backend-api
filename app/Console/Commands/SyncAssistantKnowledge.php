@@ -9,13 +9,15 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Builds (or rebuilds) an assistant's OpenAI vector store from the approved
- * knowledge files dropped into storage/app/assistant-knowledge/{type}/, and
+ * knowledge files under app/Services/Assistant/Knowledge/{type}/, and
  * records the resulting vector_store_id on its AiAssistantConfig row.
  *
  * This is the on-ramp for Phase D: once FCH hands over the real knowledge
- * manifest for an assistant, drop the files in that folder and run this
- * command — no code change needed to go live, only this command plus
- * flipping is_enabled from the admin config screen.
+ * manifest for an assistant, commit the files into that folder (git-tracked,
+ * so they ship on the next deploy — unlike storage/, which is gitignored
+ * and per-environment only), run this command, then set is_enabled to true
+ * in config/assistant.php and deploy — is_enabled is a config file value now,
+ * not an admin-screen setting.
  *
  *   php artisan assistant:sync-knowledge wlp_support
  *   php artisan assistant:sync-knowledge borrower_support
@@ -40,7 +42,7 @@ class SyncAssistantKnowledge extends Command
             return self::FAILURE;
         }
 
-        $folder = storage_path('app/assistant-knowledge/' . $type);
+        $folder = app_path('Services/Assistant/Knowledge/' . $type);
         $files = is_dir($folder) ? glob($folder . '/*') : [];
 
         if (empty($files)) {
@@ -90,7 +92,7 @@ class SyncAssistantKnowledge extends Command
         $config->save();
 
         $this->info("Done. vector_store_id={$vectorStoreId} attached to '{$type}'.");
-        $this->comment("Remember: this assistant still needs its system prompt file populated (app/Services/Assistant/{$type}_system_prompt.txt) and is_enabled=true from the admin Assistant Config screen before it goes live.");
+        $this->comment("Remember: this assistant still needs its system prompt file populated (app/Services/Assistant/{$type}_system_prompt.txt) and is_enabled=true in config/assistant.php before it goes live.");
 
         return self::SUCCESS;
     }

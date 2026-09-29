@@ -12,9 +12,10 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * The admin Assistant Config screen: host-only, and refuses to enable an
- * assistant that has no knowledge base attached (neither a vector store nor
- * local inline-knowledge files), matching AssistantConfigController.
+ * The admin Assistant Config screen: host-only, read-only status reflecting
+ * config/assistant.php (is_enabled/model/reasoning_effort) and whatever
+ * assistant:sync-knowledge has recorded (vector_store_id) — matching
+ * AssistantConfigController, which no longer accepts writes for the former.
  */
 class AssistantConfigTest extends TestCase
 {
@@ -64,40 +65,38 @@ class AssistantConfigTest extends TestCase
     }
 
     #[Test]
-    public function a_non_host_partner_cannot_view_or_save_assistant_config(): void
+    public function a_non_host_partner_cannot_view_assistant_config(): void
     {
         Passport::actingAs($this->partnerUser, [], 'api');
 
         $this->getJson('/api/v1/common/assistant-config')->assertStatus(403);
-        $this->postJson('/api/v1/common/assistant-config', [
-            'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
-        ])->assertStatus(403);
     }
 
     #[Test]
-    public function a_host_user_can_save_a_draft_without_enabling_it(): void
+    public function a_host_user_sees_the_config_file_values(): void
     {
+        config(['assistant.wlp_support.is_enabled' => false]);
+        config(['assistant.wlp_support.model' => 'gpt-test']);
+
         Passport::actingAs($this->hostUser, [], 'api');
 
-        $this->postJson('/api/v1/common/assistant-config', [
-            'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
-            'model' => 'gpt-test',
-            'is_enabled' => false,
-        ])->assertSuccessful();
-
-        $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
-        $this->assertSame('gpt-test', $config->model);
-        $this->assertFalse($config->is_enabled);
+        $this->getJson('/api/v1/common/assistant-config')
+            ->assertSuccessful()
+            ->assertJsonFragment([
+                'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
+                'model' => 'gpt-test',
+                'is_enabled' => false,
+            ]);
     }
 
     #[Test]
-    public function enabling_an_assistant_with_no_knowledge_base_at_all_is_refused(): void
+    public function is_ready_is_false_with_no_knowledge_base_at_all_even_if_enabled_in_config(): void
     {
-        // This dev environment has real inline-knowledge fixture files dropped
-        // under storage/app/assistant-knowledge/wlp_support/ for manual testing
-        // — hide them for the duration of this test so "no knowledge base at
+        // This dev environment has real inline-knowledge fixture files under
+        // app/Services/Assistant/Knowledge/wlp_support/ for manual testing —
+        // hide them for the duration of this test so "no knowledge base at
         // all" is actually true, regardless of ambient disk state.
-        $folder = storage_path('app/assistant-knowledge/' . AiAssistantConfig::TYPE_WLP_SUPPORT);
+        $folder = app_path('Services/Assistant/Knowledge/' . AiAssistantConfig::TYPE_WLP_SUPPORT);
         $backup = $folder . '_backup_' . uniqid();
         $hadFolder = is_dir($folder);
         if ($hadFolder) {
@@ -105,14 +104,9 @@ class AssistantConfigTest extends TestCase
         }
 
         try {
-            Passport::actingAs($this->hostUser, [], 'api');
+            config(['assistant.wlp_support.is_enabled' => true]);
 
-            $this->postJson('/api/v1/common/assistant-config', [
-                'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
-                'is_enabled' => true,
-            ])->assertStatus(422);
-
-            $this->assertFalse(AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->is_enabled);
+            $this->assertFalse(AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->isReady());
         } finally {
             if ($hadFolder) {
                 rename($backup, $folder);
@@ -121,19 +115,24 @@ class AssistantConfigTest extends TestCase
     }
 
     #[Test]
-    public function enabling_an_assistant_that_already_has_a_vector_store_succeeds(): void
+    public function is_ready_is_true_once_sync_knowledge_has_recorded_a_vector_store(): void
     {
+        config(['assistant.wlp_support.is_enabled' => true]);
+
+        // Simulates what `php artisan assistant:sync-knowledge` records after
+        // a real OpenAI upload — the only thing this feature still persists.
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
         $config->vector_store_id = 'vs_already_synced';
         $config->save();
 
         Passport::actingAs($this->hostUser, [], 'api');
 
-        $this->postJson('/api/v1/common/assistant-config', [
-            'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
-            'is_enabled' => true,
-        ])->assertSuccessful();
-
-        $this->assertTrue(AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->is_enabled);
+        $this->getJson('/api/v1/common/assistant-config')
+            ->assertSuccessful()
+            ->assertJsonFragment([
+                'assistant_type' => AiAssistantConfig::TYPE_WLP_SUPPORT,
+                'vector_store_id' => 'vs_already_synced',
+                'is_ready' => true,
+            ]);
     }
 }

@@ -106,11 +106,14 @@ class SupportAssistantServiceTest extends TestCase
     private function enabledConfig(string $type, string $systemPrompt = 'You are a test assistant.'): AiAssistantConfig
     {
         $this->writeSystemPrompt($type, $systemPrompt);
+        config([
+            "assistant.{$type}.model" => 'gpt-test',
+            "assistant.{$type}.reasoning_effort" => 'low',
+            "assistant.{$type}.is_enabled" => true,
+        ]);
 
         $config = AiAssistantConfig::find($type);
-        $config->model = 'gpt-test';
         $config->vector_store_id = 'vs_test_123';
-        $config->is_enabled = true;
         $config->save();
 
         return $config;
@@ -137,9 +140,9 @@ class SupportAssistantServiceTest extends TestCase
     #[Test]
     public function a_disabled_config_also_short_circuits_without_calling_openai(): void
     {
+        // is_enabled defaults to false in config/assistant.php — left unset here.
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
         $config->vector_store_id = 'vs_test_123';
-        $config->is_enabled = false;
         $config->save();
 
         $this->mock(OpenAiResponsesService::class, function ($mock) {

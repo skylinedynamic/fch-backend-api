@@ -401,12 +401,12 @@ Route::prefix('v1')->group(function () {
                 Route::post('config', [OpenAiConfigurationController::class, 'store']);
             });
 
-            // Support assistant admin config (host-only; enforced again inside
-            // the controller regardless of what the admin UI hides).
-            Route::prefix('assistant-config')->group(function () {
-                Route::get('/', [AssistantConfigController::class, 'index']);
-                Route::post('/', [AssistantConfigController::class, 'store']);
-            });
+            // Support assistant admin status (read-only; host-only, enforced
+            // again inside the controller regardless of what the admin UI
+            // hides). is_enabled/model/reasoning_effort come from
+            // config/assistant.php, changed by a code deploy — there is
+            // nothing left here for an admin "save" action to persist.
+            Route::get('assistant-config', [AssistantConfigController::class, 'index']);
 
             // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
             // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).

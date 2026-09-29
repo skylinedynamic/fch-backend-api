@@ -4,19 +4,24 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Assistant;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\FCH\Common\Assistant\StoreAiAssistantConfigRequest;
 use App\Models\Assistant\AiAssistantConfig;
 use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Read-only status for the host: is_enabled/model/reasoning_effort come from
+ * config/assistant.php (a code deploy changes them, not this screen) and
+ * vector_store_id/knowledge_manifest_version come from actually running
+ * `php artisan assistant:sync-knowledge` — there is nothing left for an
+ * admin "save" action to persist, so this controller only ever reads.
+ */
 class AssistantConfigController extends Controller
 {
     /**
-     * Host-partner guard for every endpoint here, matching
-     * OpenAiConfigurationController::denyIfNotHostPartner() — these screens
-     * control the model, token/effort budget, and enablement OpenAI runs on
-     * behalf of every tenant, so the API itself must refuse a non-host
-     * caller regardless of what the admin UI hides.
+     * Host-partner guard, matching OpenAiConfigurationController::denyIfNotHostPartner()
+     * — this exposes which model/effort OpenAI runs on behalf of every
+     * tenant, so the API itself must refuse a non-host caller regardless of
+     * what the admin UI hides.
      */
     protected function denyIfNotHostPartner(): ?JsonResponse
     {
@@ -49,40 +54,5 @@ class AssistantConfigController extends Controller
             'is_enabled' => $c->is_enabled,
             'is_ready' => $c->isReady(),
         ]));
-    }
-
-    public function store(StoreAiAssistantConfigRequest $request)
-    {
-        if ($denied = $this->denyIfNotHostPartner()) {
-            return $denied;
-        }
-
-        try {
-            $data = $request->validated();
-
-            $config = AiAssistantConfig::find($data['assistant_type']);
-            $wantsEnabled = (bool) ($data['is_enabled'] ?? false);
-
-            // A config can only be switched on once it actually has a
-            // knowledge base attached — either a real vector store (the
-            // knowledge sync command) or local inline-knowledge files (the
-            // fallback used when the OpenAI key can't upload files/vector
-            // stores). Refused here rather than silently saved and going
-            // live with nothing behind it.
-            $hasKnowledge = filled($config->vector_store_id) || $config->hasInlineKnowledgeFiles();
-            if ($wantsEnabled && ! $hasKnowledge) {
-                return ApiResponse::error(__('assistant.cannot_enable_without_knowledge'), 422);
-            }
-
-            $config->model = $data['model'] ?? null;
-            $config->reasoning_effort = $data['reasoning_effort'] ?? null;
-            $config->max_output_tokens = $data['max_output_tokens'] ?? null;
-            $config->is_enabled = $wantsEnabled;
-            $config->save();
-
-            return ApiResponse::success(null, __('assistant.config_saved'));
-        } catch (\Exception $e) {
-            return ApiResponse::serverError(__('assistant.config_save_failed'));
-        }
     }
 }
