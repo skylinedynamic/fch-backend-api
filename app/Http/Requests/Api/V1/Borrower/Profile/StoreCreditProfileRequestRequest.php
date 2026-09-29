@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\Ssn;
+use App\Rules\UsPhoneNumber;
 use App\Rules\UsPostalCode;
 
 class StoreCreditProfileRequestRequest extends BaseApiRequest
@@ -18,6 +20,43 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
     /**
      * Get the validation rules that apply to the request.
      */
+    /**
+     * The two consents, which are evidence rather than profile fields.
+     *
+     * They are validated here because the API must refuse to pull credit
+     * without both, but they have no columns on `credit_profile_requests` -
+     * they belong in `credit_authorization_consents`, written separately.
+     */
+    public const CONSENT_FIELDS = [
+        'credit_authorization_accepted',
+        'e_consent_accepted',
+    ];
+
+    /**
+     * Just the fields that are columns of the request row.
+     *
+     * The controller used to hand the whole of validated() to the service. The
+     * model is `$guarded = []`, so Eloquent took the consent keys for columns
+     * too and every submission died on
+     * "Unknown column 'credit_authorization_accepted'".
+     */
+    public function creditProfileAttributes(): array
+    {
+        return $this->safe()->except(self::CONSENT_FIELDS);
+    }
+
+    /**
+     * An SSN is nine digits; the hyphens are only how it is written. Reducing it
+     * here means the pull is keyed on one form whichever way the borrower typed
+     * it, and that the rule below checks the number rather than the writing.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('ssn')) {
+            $this->merge(['ssn' => Ssn::normalize($this->input('ssn'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -29,9 +68,9 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
             'city' => 'required|string|max:255',
             'state' => 'required|string|max:255',
             'zip' => ['required', 'string', new UsPostalCode()],
-            'ssn' => 'required|string|max:255',
+            'ssn' => ['required', new Ssn()],
             'date_of_birth' => 'required|date',
-            'phone' => 'required|string|max:255',
+            'phone' => ['required', new UsPhoneNumber()],
             'email' => 'required|email|max:255',
 
             // The FCRA authorisation and the E-SIGN consent, refused here rather

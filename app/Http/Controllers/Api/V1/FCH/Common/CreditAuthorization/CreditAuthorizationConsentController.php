@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\CreditAuthorization;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\Borrower\Borrower;
 use App\Models\CreditAuthorization\CreditAuthorizationConsent;
+use App\Services\FCH\Common\Setting\AppConfigurationService;
+use App\Support\Branding\PdfLogo;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +52,8 @@ class CreditAuthorizationConsentController extends Controller
                 ?: ('Client #' . $consent->borrower_id),
             'borrowerEmail' => $borrower?->email,
             'generatedAt' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
+
+            'logoSrc' => $this->logoFor($borrower),
         ])->setPaper('a4')->setWarnings(false);
 
         // Named so a folder of these stays sortable and unambiguous in an audit
@@ -60,6 +65,48 @@ class CreditAuthorizationConsentController extends Controller
         );
 
         return $pdf->download($filename);
+    }
+
+
+    /**
+     * The mark this document carries: the BORROWER'S OWN partner's logo.
+     *
+     * Never the host's by inheritance. getBrandingSettings() inherits logos
+     * from the host by default, which is right for a Certified partner - it
+     * trades under the host's brand deliberately - but wrong here: this PDF
+     * goes to iSoftPull saying the record belongs to that tenant, and a
+     * white-label tenant's paperwork carrying the platform's logo announces
+     * precisely what the tier exists to hide. A tenant with nothing uploaded
+     * gets a document with no logo, not one with someone else's.
+     *
+     * The host's own borrowers still get the host's logo, because then it IS
+     * their partner's - the rule is "the borrower's partner", not "never the
+     * host".
+     *
+     * Surfaces are tried document -> mail -> sidebar over what is actually on
+     * disk. Branding chains these keys too, but only by value: a key naming a
+     * file that has since gone still counts as set there, so resolution would
+     * stop at it and the masthead would come out blank.
+     *
+     * Embedded rather than linked, because Dompdf fetches no remote images and
+     * this document is not a good reason to turn that on.
+     */
+    private function logoFor(?Borrower $borrower): ?string
+    {
+        if (!$borrower?->partner_id) {
+            return null;
+        }
+
+        $branding = app(AppConfigurationService::class)->getBrandingSettings(
+            $borrower->partner_id,
+            (bool) $borrower->partner?->is_host
+        );
+
+        return PdfLogo::firstAvailable([
+            $branding['logo_document'] ?? null,
+            $branding['logo_mail'] ?? null,
+            $branding['logo_sidebar'] ?? null,
+        ]);
     }
 
     /**

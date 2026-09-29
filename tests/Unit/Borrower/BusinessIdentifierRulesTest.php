@@ -12,7 +12,8 @@ use Tests\TestCase;
 /**
  * The two identifiers a business is known by, and the shapes they are allowed.
  *
- *   EIN   - nine digits written XX-XXXXXXX, so ten characters stored.
+ *   EIN   - nine digits. XX-XXXXXXX is how it is written, not what it is, so
+ *           both writings are the same number and the nine digits are stored.
  *   DUNS  - nine digits, nothing else.
  *
  * Both were `string|max:255` on the admin create and update paths, so a client
@@ -43,17 +44,39 @@ class BusinessIdentifierRulesTest extends TestCase
         $this->assertFalse($this->fails($this->einRules(), ['business_ein' => '12-3456789']));
     }
 
-    public static function badEins(): array
+    /**
+     * These used to be refused, and refusing them was the bug.
+     *
+     * The hyphen is how an EIN is written, not part of the number - which is
+     * why three MicroBilt strategies strip it before sending the value on. The
+     * borrower portal strips it too, on the way out of the form, so demanding
+     * it here meant the portal could never save a business EIN at all.
+     */
+    #[Test]
+    #[DataProvider('otherWritingsOfTheSameEin')]
+    public function the_same_nine_digits_pass_however_they_are_written(string $ein): void
+    {
+        $this->assertFalse($this->fails($this->einRules(), ['business_ein' => $ein]));
+    }
+
+    public static function otherWritingsOfTheSameEin(): array
     {
         return [
             'no dash' => ['123456789'],
-            'too few digits' => ['12-345678'],
-            'too many digits' => ['12-34567890'],
             'dash misplaced' => ['123-456789'],
-            'letters' => ['AB-CDEFGHI'],
             'padded with a space' => [' 12-3456789'],
             'trailing space' => ['12-3456789 '],
+        ];
+    }
+
+    public static function badEins(): array
+    {
+        return [
+            'too few digits' => ['12-345678'],
+            'too many digits' => ['12-34567890'],
+            'letters' => ['AB-CDEFGHI'],
             'ten digits, no dash' => ['1234567890'],
+            'eight digits, no dash' => ['12345678'],
         ];
     }
 

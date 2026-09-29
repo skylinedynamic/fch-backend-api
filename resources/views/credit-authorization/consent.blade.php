@@ -31,9 +31,22 @@
         .tick { font-weight: bold; }
         .cite { font-size: 10px; color: #555; margin-top: 3px; }
         .foot { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9px; color: #666; }
+        /* Dompdf has no flexbox, so the masthead is a table - the one layout
+           primitive it lays out reliably. */
+        .mast { width: 100%; margin-bottom: 8px; }
+        .mast td { vertical-align: middle; padding: 0; text-align: right; }
+        .mast img { max-height: 46px; max-width: 200px; }
     </style>
 </head>
 <body>
+
+@if(!empty($logoSrc))
+    {{-- The mark only. The issuer is already named in the footer, and a second
+         copy beside the logo read as a caption for it. --}}
+    <table class="mast">
+        <tr><td><img src="{{ $logoSrc }}" alt=""></td></tr>
+    </table>
+@endif
 
 <h1>Credit Authorization Record</h1>
 <div class="sub">

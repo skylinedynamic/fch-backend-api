@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
 
 class StoreChangeRequest extends BaseApiRequest
@@ -24,6 +25,19 @@ class StoreChangeRequest extends BaseApiRequest
      *
      * @return array
      */
+    /**
+     * An EIN is nine digits; the hyphen is only how it is written. The modal
+     * that posts this request does not strip it, while the main save does, so
+     * without reducing it here the same field would be judged by two different
+     * standards depending on which screen the borrower used.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('field_name') === 'business_ein' && $this->has('new_value')) {
+            $this->merge(['new_value' => BusinessEin::normalize($this->input('new_value'))]);
+        }
+    }
+
     public function rules()
     {
         $fieldName = $this->input('field_name');
@@ -31,7 +45,7 @@ class StoreChangeRequest extends BaseApiRequest
         $allRules = [
             // Business Info
             'business_name' => 'required|string|max:255',
-            'business_ein' => 'required|string|size:10',
+            'business_ein' => ['required', new BusinessEin()],
             'business_phone' => 'nullable|string|max:20',
             'business_email' => 'required|email|max:255',
             'duns_number' => 'nullable|string|size:9',

@@ -35,7 +35,7 @@ class CreditProfileRequestController extends Controller
                 return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
-            $creditProfileRequest = $this->service->store($user, $request->validated());
+            $creditProfileRequest = $this->service->store($user, $request->creditProfileAttributes());
 
             // The evidence that this pull was asked for. Written from the
             // client's own request so the IP and user agent are theirs, and
@@ -56,7 +56,13 @@ class CreditProfileRequestController extends Controller
             $host = Partner::where('is_host', 1)->first();
             if ($host && $host->email) {
                 try {
-                    Mail::to($host->email)->send(new CreditProfileRequestMail($creditProfileRequest));
+                    Mail::to($host->email)->send(
+                        // Sent with the host's own mail credentials rather than
+                        // left to resolve them: this notification is the host's,
+                        // and naming the partner means it does not depend on the
+                        // unconfigured-tenant fallback happening to land there.
+                        new CreditProfileRequestMail($creditProfileRequest, (int) $host->id)
+                    );
                 } catch (\Throwable $mailException) {
                     Log::error(__('credit_profile_request.log_upload_email_failed', ['error' => $mailException->getMessage()]));
                 }
