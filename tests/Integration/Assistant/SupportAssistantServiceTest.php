@@ -122,7 +122,9 @@ class SupportAssistantServiceTest extends TestCase
     #[Test]
     public function an_unconfigured_assistant_never_calls_openai_and_flags_escalation(): void
     {
-        // No AiAssistantConfig row at all for this type.
+        // Force disabled explicitly — don't rely on config/assistant.php's
+        // own default, which a deploy may have flipped to true.
+        config(['assistant.wlp_support.is_enabled' => false]);
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldNotReceive('runChat');
         });
@@ -140,7 +142,9 @@ class SupportAssistantServiceTest extends TestCase
     #[Test]
     public function a_disabled_config_also_short_circuits_without_calling_openai(): void
     {
-        // is_enabled defaults to false in config/assistant.php — left unset here.
+        // Force disabled explicitly — don't rely on config/assistant.php's
+        // own default, which a deploy may have flipped to true.
+        config(['assistant.wlp_support.is_enabled' => false]);
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
         $config->vector_store_id = 'vs_test_123';
         $config->save();

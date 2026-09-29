@@ -114,6 +114,9 @@ class AssistantAccessTest extends TestCase
     #[Test]
     public function the_wlp_assistant_answers_with_a_safe_placeholder_when_unconfigured(): void
     {
+        // Force disabled explicitly — don't rely on config/assistant.php's
+        // own default, which a deploy may have flipped to true.
+        config(['assistant.wlp_support.is_enabled' => false]);
         Passport::actingAs($this->partnerUser, [], 'api');
 
         $response = $this->postJson('/api/v1/common/assistant/wlp/messages', [
@@ -129,6 +132,9 @@ class AssistantAccessTest extends TestCase
     #[Test]
     public function the_borrower_assistant_answers_with_a_safe_placeholder_when_unconfigured(): void
     {
+        // Force disabled explicitly — don't rely on config/assistant.php's
+        // own default, which a deploy may have flipped to true.
+        config(['assistant.borrower_support.is_enabled' => false]);
         Passport::actingAs($this->borrowerUser, [], 'api');
 
         $this->postJson('/api/v1/borrower/assistant/messages', [
@@ -280,6 +286,9 @@ class AssistantAccessTest extends TestCase
     #[Test]
     public function the_wlp_config_endpoint_reports_not_ready_with_no_config_row_and_never_calls_openai(): void
     {
+        // Force disabled explicitly — don't rely on config/assistant.php's
+        // own default, which a deploy may have flipped to true.
+        config(['assistant.wlp_support.is_enabled' => false]);
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldNotReceive('run');
         });
