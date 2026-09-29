@@ -27,7 +27,7 @@ return [
     */
 
     'wlp_support' => [
-        'is_enabled' => false,
+        'is_enabled' => true,
         'model' => null,
         'reasoning_effort' => null,
         'max_output_tokens' => null,
@@ -36,7 +36,7 @@ return [
     ],
 
     'borrower_support' => [
-        'is_enabled' => false,
+        'is_enabled' => true,
         'model' => null,
         'reasoning_effort' => null,
         'max_output_tokens' => null,
