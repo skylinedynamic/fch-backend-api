@@ -87,11 +87,23 @@ class SyncAssistantKnowledge extends Command
         $vectorStoreId = $storeResponse->json('id');
 
         $config = AiAssistantConfig::find($type);
+        $previousStoreId = $config->vector_store_id;
         $config->vector_store_id = $vectorStoreId;
         $config->knowledge_manifest_version = $this->option('manifest-version');
         $config->save();
 
         $this->info("Done. vector_store_id={$vectorStoreId} attached to '{$type}'.");
+
+        // The old store must not linger: a superseded knowledge set (old
+        // versions, placeholders, documents that are no longer approved) is
+        // exactly how stale or unsafe answers keep surfacing after an update.
+        if ($previousStoreId && $previousStoreId !== $vectorStoreId) {
+            $deleted = Http::withHeaders(['Authorization' => 'Bearer ' . $apiKey])
+                ->delete("https://api.openai.com/v1/vector_stores/{$previousStoreId}");
+            $deleted->successful()
+                ? $this->line("  removed superseded vector store {$previousStoreId}")
+                : $this->warn("  could not remove superseded vector store {$previousStoreId}; delete it manually so it cannot be reused.");
+        }
         $this->comment("Remember: this assistant still needs its system prompt file populated (app/Services/Assistant/{$type}_system_prompt.txt) and is_enabled=true in config/assistant.php before it goes live.");
 
         return self::SUCCESS;

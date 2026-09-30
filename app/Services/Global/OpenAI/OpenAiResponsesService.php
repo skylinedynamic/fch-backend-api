@@ -393,6 +393,7 @@ class OpenAiResponsesService
      *     @var ?string $reasoning_effort   e.g. 'low'. Omitted for non-reasoning models, same rule as run().
      *     @var ?int    $max_output_tokens  Caps response length/cost.
      *     @var ?string $safety_identifier  Stable, non-PII per-user identifier (already hashed by the caller).
+     *     @var ?array  $response_format    {name: string, schema: array} — strict JSON-schema output instead of free text.
      * }
      *
      * @return array{ok: bool, text: ?string, sources: array, model: ?string, latency_ms: int, usage: ?array, request_id: ?string, error: ?string}
@@ -445,6 +446,23 @@ class OpenAiResponsesService
             ),
         ];
 
+        // An empty model means "let the hosted Prompt decide": an explicit
+        // request model would override the one configured on the OpenAI platform.
+        if ($model === '') {
+            unset($body['model']);
+        }
+
+        // Hosted Agent: a stored Prompt (pmpt_...) managed on the OpenAI platform.
+        if (!empty($options['prompt']['id'])) {
+            $body['prompt'] = array_filter([
+                'id' => $options['prompt']['id'],
+                'version' => $options['prompt']['version'] ?? null,
+            ], fn ($v) => filled($v));
+            // Its file_search tool (if any) lives inside the prompt, so its
+            // citations are always wanted.
+            $body['include'] = ['file_search_call.results'];
+        }
+
         if (!empty($tools)) {
             $body['tools'] = $tools;
             // Needed to recover file_search citations for the response's `sources`.
@@ -455,7 +473,18 @@ class OpenAiResponsesService
             $body['max_output_tokens'] = (int) $options['max_output_tokens'];
         }
 
-        if (!empty($options['reasoning_effort']) && $this->modelSupportsReasoningEffort($model)) {
+        // Optional strict structured output (e.g. the support assistants'
+        // answer + navigation envelope). Works alongside file_search.
+        if (!empty($options['response_format']['schema'])) {
+            $body['text'] = ['format' => [
+                'type' => 'json_schema',
+                'name' => $options['response_format']['name'] ?? 'response',
+                'strict' => true,
+                'schema' => $options['response_format']['schema'],
+            ]];
+        }
+
+        if ($model !== '' && !empty($options['reasoning_effort']) && $this->modelSupportsReasoningEffort($model)) {
             $body['reasoning'] = ['effort' => $options['reasoning_effort']];
         }
 
@@ -536,6 +565,9 @@ class OpenAiResponsesService
         return [
             'ok' => true,
             'text' => $text,
+            // true when the model hit max_output_tokens before finishing: a
+            // structured reply in that state is truncated JSON, not an answer.
+            'incomplete' => ($json['status'] ?? 'completed') === 'incomplete',
             'sources' => $this->extractCitations($json),
             'model' => $json['model'] ?? $model,
             'latency_ms' => $latencyMs,

@@ -41,6 +41,9 @@ class BorrowerAssistantController extends Controller
             'is_ready' => $isReady,
             'welcome_subtitle' => $intro['welcome_subtitle'] ?? null,
             'quick_suggestions' => $intro['quick_suggestions'] ?? [],
+            // route_key => same-origin path, from the server-side approved map, so
+            // the widget's allowlist follows route changes without a frontend deploy.
+            'navigation' => array_map(fn ($e) => $e['path'], $config->navigationMap()),
         ]);
     }
 
@@ -68,6 +71,8 @@ class BorrowerAssistantController extends Controller
                 // is already correct for the viewer — see ChatMessageResource.
                 'created_at' => toTimezone($result['assistant_message']->created_at, null, 'M j, Y g:i A'),
                 'actions' => $result['actions'],
+                // Deterministic destination for Take Me There: {required, intent, route_key}.
+                'navigation' => $result['navigation'],
                 'sources' => $result['sources'],
                 'escalation' => $result['escalation'],
                 'policy' => $result['policy'],

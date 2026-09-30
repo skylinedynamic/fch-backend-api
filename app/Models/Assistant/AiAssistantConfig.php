@@ -37,7 +37,15 @@ class AiAssistantConfig
         public ?string $vector_store_id = null,
         public ?string $knowledge_manifest_version = null,
         public bool $is_enabled = false,
+        public ?string $openai_prompt_id = null,
+        public ?string $openai_prompt_version = null,
     ) {
+    }
+
+    /** Whether this assistant runs an Agent (stored Prompt) hosted on the OpenAI platform. */
+    public function usesHostedPrompt(): bool
+    {
+        return filled($this->openai_prompt_id);
     }
 
     /**
@@ -60,6 +68,8 @@ class AiAssistantConfig
             vector_store_id: $runtime['vector_store_id'] ?? null,
             knowledge_manifest_version: $runtime['knowledge_manifest_version'] ?? null,
             is_enabled: (bool) ($configDefaults['is_enabled'] ?? false),
+            openai_prompt_id: $configDefaults['openai_prompt_id'] ?? null,
+            openai_prompt_version: $configDefaults['openai_prompt_version'] ?? null,
         );
     }
 
@@ -95,6 +105,11 @@ class AiAssistantConfig
      */
     public function isReady(): bool
     {
+        // A hosted OpenAI Agent carries its own instructions and knowledge.
+        if ($this->usesHostedPrompt()) {
+            return $this->is_enabled;
+        }
+
         return $this->is_enabled
             && $this->hasSystemPrompt()
             && (filled($this->vector_store_id) || $this->hasInlineKnowledgeFiles());
@@ -108,23 +123,97 @@ class AiAssistantConfig
     }
 
     /**
-     * The system prompt is a versioned code artifact, not a DB column — like
-     * PreQualificationClientAueService's *_Responses_Instructions.txt, it
-     * ships beside the service that uses it and only changes via a code
-     * deploy, never through the admin Assistant Config screen.
+     * Path of the bundled default prompt. It is the approved prompt shipped
+     * with the code and the fallback when no database version is active; a
+     * database version, when activated, always takes precedence — see
+     * activePrompt().
      */
     public function systemPromptPath(): string
     {
         return app_path("Services/Assistant/{$this->assistant_type}_system_prompt.txt");
     }
 
-    public function systemPrompt(): string
+    /**
+     * The exact prompt in force right now, with the identity needed to audit
+     * a response back to it: the active AiAssistantPromptVersion row if one
+     * exists (a routine prompt-only change: no code deploy), otherwise the
+     * bundled file. Deliberately never cached — a stale copy of the prompt is
+     * exactly the failure this replaces — one indexed query per turn.
+     *
+     * @return array{content: string, version: string, sha256: string, source: string}
+     */
+    public function activePrompt(): array
+    {
+        $row = null;
+
+        try {
+            $row = AiAssistantPromptVersion::query()
+                ->where('assistant_type', $this->assistant_type)
+                ->where('is_active', true)
+                ->latest('activated_at')
+                ->first();
+        } catch (\Throwable $e) {
+            // Table not migrated yet: fall back to the bundled file.
+        }
+
+        if ($row && trim((string) $row->content) !== '') {
+            return [
+                'content' => (string) $row->content,
+                'version' => $row->version,
+                'sha256' => hash('sha256', (string) $row->content),
+                'source' => 'database',
+            ];
+        }
+
+        $content = $this->bundledSystemPrompt();
+
+        return [
+            'content' => $content,
+            'version' => AiAssistantPromptVersion::detectVersion($content) ?? 'bundled',
+            'sha256' => hash('sha256', $content),
+            'source' => 'file',
+        ];
+    }
+
+    public function bundledSystemPrompt(): string
     {
         return file_exists($this->systemPromptPath()) ? (string) file_get_contents($this->systemPromptPath()) : '';
+    }
+
+    public function systemPrompt(): string
+    {
+        return $this->activePrompt()['content'];
     }
 
     public function hasSystemPrompt(): bool
     {
         return trim($this->systemPrompt()) !== '';
+    }
+
+    /**
+     * The approved route_key => {label, path} map for this assistant: the
+     * defaults in config/assistant.php overlaid with host-managed rows from
+     * ai_assistant_navigation_routes (an inactive row removes a key). Always
+     * server-side data — never influenced by the model or the user.
+     *
+     * @return array<string, array{label: string, path: string}>
+     */
+    public function navigationMap(): array
+    {
+        $map = (array) config('assistant.navigation.' . $this->assistant_type, []);
+
+        try {
+            foreach (AiAssistantNavigationRoute::where('assistant_type', $this->assistant_type)->get() as $row) {
+                if ($row->is_active) {
+                    $map[$row->route_key] = ['label' => $row->label, 'path' => $row->path];
+                } else {
+                    unset($map[$row->route_key]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Table not migrated yet: config defaults only.
+        }
+
+        return $map;
     }
 }

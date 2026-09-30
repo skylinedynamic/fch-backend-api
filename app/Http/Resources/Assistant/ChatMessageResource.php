@@ -14,6 +14,7 @@ class ChatMessageResource extends JsonResource
             'role' => $this->role,
             'content' => $this->content,
             'actions' => $this->actions ?? [],
+            'navigation' => $this->navigation ?? ['required' => false, 'intent' => 'none', 'route_key' => null],
             'sources' => $this->sources ?? [],
             // toTimezone() (app/Helpers/helpers.php) reads the caller's own
             // X-Timezone header — the same header apiClient already attaches

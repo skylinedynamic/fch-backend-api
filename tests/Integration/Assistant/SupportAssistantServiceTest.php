@@ -119,6 +119,17 @@ class SupportAssistantServiceTest extends TestCase
         return $config;
     }
 
+    /** The model's strict JSON reply: {answer, navigation}. */
+    private function envelope(string $answer, ?string $routeKey = null): string
+    {
+        return json_encode([
+            'answer' => $answer,
+            'navigation' => $routeKey === null
+                ? ['required' => false, 'intent' => 'none', 'route_key' => null]
+                : ['required' => true, 'intent' => 'portal_navigation', 'route_key' => $routeKey],
+        ]);
+    }
+
     #[Test]
     public function an_unconfigured_assistant_never_calls_openai_and_flags_escalation(): void
     {
@@ -168,7 +179,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => "Go to Settings.\n\n**Take Me There**\n\nThen select **Email Configuration**.",
+                'text' => $this->envelope("Go to Settings.\n\n**Take Me There**\n\nThen select **Email Configuration**.", 'settings'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -181,13 +192,14 @@ class SupportAssistantServiceTest extends TestCase
         $result = $service->sendMessage($conversation, 'How do I set up email?', $this->partnerUser);
 
         $this->assertStringNotContainsString('Take Me There', $result['assistant_message']->content);
-        $this->assertStringContainsString('[[ACTION:settings_home]]', $result['assistant_message']->content);
+        $this->assertStringContainsString('[[ACTION:navigate_settings]]', $result['assistant_message']->content);
         $this->assertCount(1, $result['actions']);
         $this->assertSame([
             'type' => 'navigate',
-            'id' => 'settings_home',
+            'id' => 'navigate_settings',
             'label' => 'Take Me There',
-            'path' => '/admin/settings',
+            'path' => '/settings',
+            'route_key' => 'settings',
         ], $result['actions'][0]);
     }
 
@@ -199,7 +211,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'Just a plain answer with no CTA.',
+                'text' => $this->envelope('Just a plain answer with no CTA.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -222,7 +234,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'Please do not share that.',
+                'text' => $this->envelope('Please do not share that.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -246,7 +258,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'Sure, here is how.',
+                'text' => $this->envelope('Sure, here is how.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -270,7 +282,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'This requires review by the Four Corner Funding team. Please email support@fourcornerfunding.com.',
+                'text' => $this->envelope('This requires review by the Four Corner Funding team. Please email support@fourcornerfunding.com.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -287,7 +299,7 @@ class SupportAssistantServiceTest extends TestCase
     }
 
     #[Test]
-    public function the_borrower_assistant_redacts_a_white_label_boundary_leak_as_a_backstop(): void
+    public function the_borrower_assistant_replaces_a_white_label_boundary_leak_with_the_neutral_handoff(): void
     {
         $this->enabledConfig(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
 
@@ -295,7 +307,7 @@ class SupportAssistantServiceTest extends TestCase
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
                 // Simulates a prompt failure: the model should never say this to a borrower.
-                'text' => 'This platform is powered by Four Corner Funding (FCH).',
+                'text' => $this->envelope('This platform is powered by Four Corner Funding (FCH).'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -309,6 +321,7 @@ class SupportAssistantServiceTest extends TestCase
 
         $this->assertStringNotContainsString('Four Corner Funding', $result['assistant_message']->content);
         $this->assertStringNotContainsString('FCH', $result['assistant_message']->content);
+        $this->assertStringStartsWith('This requires review by your support team.', $result['assistant_message']->content);
         $this->assertTrue($result['policy']['restricted_content_blocked']);
     }
 
@@ -320,7 +333,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'Four Corner Funding requires this for all WLPs.',
+                'text' => $this->envelope('Four Corner Funding requires this for all WLPs.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
@@ -391,7 +404,7 @@ class SupportAssistantServiceTest extends TestCase
         $this->mock(OpenAiResponsesService::class, function ($mock) {
             $mock->shouldReceive('runChat')->once()->andReturn([
                 'ok' => true,
-                'text' => 'Answer.',
+                'text' => $this->envelope('Answer.'),
                 'sources' => [],
                 'model' => 'gpt-test',
                 'usage' => null,
