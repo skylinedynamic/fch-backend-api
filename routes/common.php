@@ -40,6 +40,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantPromptController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantNavigationRouteController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
@@ -406,6 +408,23 @@ Route::prefix('v1')->group(function () {
             // config/assistant.php, changed by a code deploy — there is
             // nothing left here for an admin "save" action to persist.
             Route::get('assistant-config', [AssistantConfigController::class, 'index']);
+
+            // Prompt release management (host-only, re-checked in the controller):
+            // add an immutable version, activate it, or roll back to an older one —
+            // no code deploy for prompt-only changes.
+            // Approved Take Me There route map: add/repoint/disable keys, no deploy.
+            Route::prefix('assistant-config/{type}/routes')->group(function () {
+                Route::get('/', [AssistantNavigationRouteController::class, 'index']);
+                Route::put('{key}', [AssistantNavigationRouteController::class, 'upsert']);
+                Route::delete('{key}', [AssistantNavigationRouteController::class, 'destroy']);
+            });
+
+            Route::prefix('assistant-config/{type}/prompts')->group(function () {
+                Route::get('/', [AssistantPromptController::class, 'index']);
+                Route::post('/', [AssistantPromptController::class, 'store']);
+                Route::post('revert-to-bundled', [AssistantPromptController::class, 'revertToBundled']);
+                Route::post('{id}/activate', [AssistantPromptController::class, 'activate'])->whereNumber('id');
+            });
 
             // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
             // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).

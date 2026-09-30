@@ -45,6 +45,7 @@ class AssistantConfigController extends Controller
         );
 
         return ApiResponse::success($configs->map(fn (AiAssistantConfig $c) => [
+            'prompt' => collect($c->activePrompt())->only(['version', 'sha256', 'source'])->all(),
             'assistant_type' => $c->assistant_type,
             'model' => $c->model,
             'reasoning_effort' => $c->reasoning_effort,
