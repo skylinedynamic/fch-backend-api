@@ -87,7 +87,7 @@ class EmployeeService
                     'phone_number' => 'phone_number_1',
                 ],
                 'concat_fields' => [
-                    'full_name' => ['first_name', 'last_name'],
+                    'full_name' => ['first_name'],
                 ],
             ]
         );
@@ -217,7 +217,7 @@ class EmployeeService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $partner->id,
-                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : ($employee->first_name . ' ' . $employee->last_name),
+                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $employee->full_name,
                     'email' => $partner ? $partner->email : $employee->email,
                     'payment_amount' => $amount,
                     'payment_date' => null,
@@ -305,9 +305,8 @@ class EmployeeService
             $employee->fill($employeeData);
             $isEmployeeDirty = $employee->isDirty([
                 'first_name',
-                'last_name',
                 'email',
-                'phone_number',
+                'phone_number_1',
             ]);
 
             // 3️⃣ Handle user creation if needed
@@ -315,7 +314,7 @@ class EmployeeService
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
-                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
+                    'name' => trim((string) $employee->first_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1,
                     'password' => Hash::make($plainPassword),
@@ -337,7 +336,7 @@ class EmployeeService
                 $plainPassword = null;
 
                 $updateData = [
-                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
+                    'name' => trim((string) $employee->first_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1 ?? $employee->phone_number,
                 ];

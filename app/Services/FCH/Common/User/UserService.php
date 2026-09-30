@@ -393,7 +393,18 @@ class UserService
             }
 
             $oldStatus = $user->status;
-            $user->update($data);
+
+            // A login account linked to an employee is the same person, so the
+            // details both records hold (name, email, phone) move together —
+            // in one transaction, so the two can't end up disagreeing.
+            DB::transaction(function () use ($user, $data) {
+                $user->update($data);
+
+                if ($user->wasChanged(['name', 'email', 'phone_number'])
+                    && ($employee = $user->entity) instanceof Employee) {
+                    $employee->syncFromUser($user);
+                }
+            });
 
             // Sync user login status if user status changed to inactive
             if ($user->status !== $oldStatus && $user->status === User::STATUS['inactive']) {

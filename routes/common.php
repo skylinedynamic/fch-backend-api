@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController as CommonCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Compensation\CompensationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
@@ -125,6 +126,13 @@ Route::prefix('v1')->group(function () {
             Route::post('employees/multiple-delete', [EmployeeController::class, 'multipleDelete']);
             Route::get('employees-next-id', [EmployeeController::class, 'nextId']);
             Route::apiResource('employees', EmployeeController::class);
+
+            // Compensation ("Paid By") is stored separately from the entity that
+            // owns it, so it has its own endpoints — never the employee ones. The
+            // entity is identified by entity_type/entity_id in the body, and the
+            // one write endpoint handles both the first save and later edits.
+            Route::post('compensations/fetch-compensation', [CompensationController::class, 'show']);
+            Route::post('compensations', [CompensationController::class, 'store']);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);

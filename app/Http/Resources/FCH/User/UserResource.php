@@ -17,6 +17,10 @@ class UserResource extends JsonResource
             'email'        => $this->email,
             'phone_number' => $this->phone_number,
             'role'         => $this->getRoleNames()->first(),
+            // Resolved from preloaded roles only, so this never triggers a lazy
+            // load. The details screen needs the id to preselect the dropdown —
+            // the role name alone can't identify it.
+            'role_id'      => $this->relationLoaded('roles') ? optional($this->roles->first())->id : null,
             'status'        => $this->status,
             'image'         => (function ($user) {
                 if (!$user || !$user->entity) return null;
