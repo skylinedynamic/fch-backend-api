@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFunding
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Reminder\ReminderController;
+use App\Http\Controllers\Api\V1\FCH\Common\Notification\NotificationInboxController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
@@ -516,6 +517,15 @@ Route::prefix('v1')->group(function () {
                     Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
                     Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
                     Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+                });
+
+                // In-app notification inbox (bell + notifications page)
+                Route::prefix('notifications')->group(function () {
+                    Route::get('/', [NotificationInboxController::class, 'index']);
+                    Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+                    Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
+                    Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
+                    Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
                 });
 
 

@@ -455,6 +455,16 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * Private channel for broadcast notifications. Laravel's default would be
+     * "App.Models.User.User.{id}" (from this class's namespace); keep it on the
+     * channel authorized in routes/channels.php that the portals subscribe to.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.User.' . $this->id;
+    }
+
+    /**
      * Polymorphic relation to the associated entity model.
      */
     public function entity(): MorphTo

@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 class FundingRequestService
 {
@@ -273,6 +274,14 @@ class FundingRequestService
                         'trace'     => $e->getTraceAsString(),
                     ]);
                 }
+            }
+
+            // --- 4. IN-APP NOTIFICATIONS (bell, real-time) ---
+            $notifier = app(Notifier::class);
+            $notificationData = ['id' => $review->id, 'status' => $data['status']];
+            $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData);
+            if ($isNonHostPartner) {
+                $notifier->send('partner.funding_request.status_changed', $partner, $notificationData);
             }
 
             // In-platform activity notification for borrower
