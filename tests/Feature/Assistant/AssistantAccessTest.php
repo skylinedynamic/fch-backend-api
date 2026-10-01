@@ -8,7 +8,7 @@ use App\Models\Assistant\ChatMessage;
 use App\Models\Borrower\Borrower;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
-use App\Services\Global\OpenAI\OpenAiResponsesService;
+use App\Services\Global\OpenAI\OpenAiAgentsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Laravel\Passport\Passport;
@@ -18,7 +18,7 @@ use Tests\TestCase;
 /**
  * HTTP-level checks for both assistant route stacks: the not-ready gate end
  * to end (no OpenAI call needed — the fast path is entered before the
- * OpenAiResponsesService is ever touched), and that a caller can never read,
+ * OpenAiAgentsService is ever touched), and that a caller can never read,
  * or list into, another user's session via the sessions/history endpoints.
  */
 class AssistantAccessTest extends TestCase
@@ -31,21 +31,21 @@ class AssistantAccessTest extends TestCase
     private Borrower $borrower;
     private User $borrowerUser;
 
-    /** Real, on-disk prompt file contents as found before this test touched them. */
-    private array $originalSystemPrompts = [];
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        foreach (AiAssistantConfig::TYPES as $type) {
-            $path = (new AiAssistantConfig($type))->systemPromptPath();
-            $this->originalSystemPrompts[$type] = file_exists($path) ? file_get_contents($path) : '';
-        }
+        // No test here may reach OpenAI: any path that would call the agent
+        // fails the test instead.
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldNotReceive('runAgent');
+            $mock->shouldNotReceive('retrieveAgent');
+        });
 
         $this->partner = Partner::create([
             'is_host' => false,
             'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
             'company_name' => 'Four Corner Funding',
             'full_name' => 'Four Corner Funding',
             'email' => 'partner-' . uniqid() . '@example.test',
@@ -54,6 +54,7 @@ class AssistantAccessTest extends TestCase
         $otherPartner = Partner::create([
             'is_host' => false,
             'status' => Partner::STATUS_ACTIVE,
+            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
             'company_name' => 'Another Partner Co',
             'full_name' => 'Another Partner Co',
             'email' => 'other-' . uniqid() . '@example.test',
@@ -90,33 +91,10 @@ class AssistantAccessTest extends TestCase
         return User::findOrFail($id);
     }
 
-    /**
-     * The system prompt lives in a real file, not a DB column — write it
-     * directly for tests that need isReady() to be true. tearDown() restores
-     * whatever was actually on disk before this test ran (never a hardcoded
-     * blank), so this never clobbers real content someone is testing with
-     * outside the suite.
-     */
-    private function writeSystemPrompt(string $assistantType, string $content): void
-    {
-        file_put_contents((new AiAssistantConfig($assistantType))->systemPromptPath(), $content);
-    }
-
-    protected function tearDown(): void
-    {
-        foreach ($this->originalSystemPrompts as $type => $content) {
-            $this->writeSystemPrompt($type, $content);
-        }
-
-        parent::tearDown();
-    }
-
     #[Test]
     public function the_wlp_assistant_answers_with_a_safe_placeholder_when_unconfigured(): void
     {
-        // Force disabled explicitly — don't rely on config/assistant.php's
-        // own default, which a deploy may have flipped to true.
-        config(['assistant.wlp_support.is_enabled' => false]);
+        // No agent id has been saved in Settings.
         Passport::actingAs($this->partnerUser, [], 'api');
 
         $response = $this->postJson('/api/v1/common/assistant/wlp/messages', [
@@ -132,9 +110,7 @@ class AssistantAccessTest extends TestCase
     #[Test]
     public function the_borrower_assistant_answers_with_a_safe_placeholder_when_unconfigured(): void
     {
-        // Force disabled explicitly — don't rely on config/assistant.php's
-        // own default, which a deploy may have flipped to true.
-        config(['assistant.borrower_support.is_enabled' => false]);
+        // No agent id has been saved in Settings.
         Passport::actingAs($this->borrowerUser, [], 'api');
 
         $this->postJson('/api/v1/borrower/assistant/messages', [
@@ -286,13 +262,6 @@ class AssistantAccessTest extends TestCase
     #[Test]
     public function the_wlp_config_endpoint_reports_not_ready_with_no_config_row_and_never_calls_openai(): void
     {
-        // Force disabled explicitly — don't rely on config/assistant.php's
-        // own default, which a deploy may have flipped to true.
-        config(['assistant.wlp_support.is_enabled' => false]);
-        $this->mock(OpenAiResponsesService::class, function ($mock) {
-            $mock->shouldNotReceive('run');
-        });
-
         Passport::actingAs($this->partnerUser, [], 'api');
 
         $this->getJson('/api/v1/common/assistant/wlp/config')
@@ -302,61 +271,119 @@ class AssistantAccessTest extends TestCase
     }
 
     #[Test]
-    public function the_wlp_config_endpoint_returns_live_derived_copy_sourced_from_the_saved_prompt_and_is_borrower_blocked(): void
+    public function the_wlp_config_endpoint_reports_ready_and_is_borrower_blocked(): void
     {
-        $this->writeSystemPrompt(AiAssistantConfig::TYPE_WLP_SUPPORT, 'You help WLPs with settings and training.');
-        config(['assistant.wlp_support.model' => 'gpt-test', 'assistant.wlp_support.is_enabled' => true]);
-        $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
-        $config->vector_store_id = 'vs_test_123';
-        $config->save();
-
-        $this->mock(OpenAiResponsesService::class, function ($mock) {
-            $mock->shouldReceive('run')->once()->andReturn([
-                'ok' => true,
-                'data' => [
-                    'welcome_subtitle' => 'Ask a question about settings or training.',
-                    'quick_suggestions' => ['How do I configure email?', 'Where is training?'],
-                ],
-            ]);
-        });
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, ['agent_id' => 'agent_wlp_test']);
+        $this->mockAgentAndIntro('Partner instructions.', 'Get help with partner workflows.', ['How do I add a client?']);
 
         Passport::actingAs($this->partnerUser, [], 'api');
-        $this->getJson('/api/v1/common/assistant/wlp/config')
+        $this->getJson('/api/v1/common/assistant/wlp/config?intro=1')
             ->assertOk()
             ->assertJsonPath('data.is_ready', true)
-            ->assertJsonPath('data.welcome_subtitle', 'Ask a question about settings or training.')
-            ->assertJsonPath('data.quick_suggestions', ['How do I configure email?', 'Where is training?']);
+            ->assertJsonPath('data.welcome_subtitle', 'Get help with partner workflows.')
+            ->assertJsonPath('data.quick_suggestions', ['How do I add a client?']);
 
         Passport::actingAs($this->borrowerUser, [], 'api');
         $this->getJson('/api/v1/common/assistant/wlp/config')->assertStatus(403);
     }
 
     #[Test]
-    public function the_borrower_config_endpoint_returns_live_derived_copy_and_no_system_prompt_field(): void
+    public function the_borrower_config_endpoint_never_exposes_the_agent_or_its_instructions(): void
     {
-        $this->writeSystemPrompt(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'You help borrowers with their application.');
-        config(['assistant.borrower_support.model' => 'gpt-test', 'assistant.borrower_support.is_enabled' => true]);
-        $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
-        $config->vector_store_id = 'vs_test_456';
-        $config->save();
-
-        $this->mock(OpenAiResponsesService::class, function ($mock) {
-            $mock->shouldReceive('run')->once()->andReturn([
-                'ok' => true,
-                'data' => [
-                    'welcome_subtitle' => 'Ask a question about your application.',
-                    'quick_suggestions' => ['How do I check my status?'],
-                ],
-            ]);
-        });
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['agent_id' => 'agent_borrower_test']);
+        $this->mockAgentAndIntro('SECRET borrower instructions.', 'Get help with your application.', ['How long must I be in business?']);
 
         Passport::actingAs($this->borrowerUser, [], 'api');
-        $response = $this->getJson('/api/v1/borrower/assistant/config')
+        $response = $this->getJson('/api/v1/borrower/assistant/config?intro=1')
             ->assertOk()
             ->assertJsonPath('data.is_ready', true)
-            ->assertJsonPath('data.welcome_subtitle', 'Ask a question about your application.')
-            ->assertJsonPath('data.quick_suggestions', ['How do I check my status?']);
+            ->assertJsonPath('data.welcome_subtitle', 'Get help with your application.')
+            ->assertJsonPath('data.quick_suggestions', ['How long must I be in business?']);
 
-        $this->assertArrayNotHasKey('system_prompt', $response->json('data'));
+        $this->assertEqualsCanonicalizing(
+            ['is_ready', 'welcome_subtitle', 'quick_suggestions'],
+            array_keys($response->json('data'))
+        );
+        $this->assertStringNotContainsString('SECRET', $response->getContent());
+        $this->assertStringNotContainsString('agent_borrower_test', $response->getContent());
+    }
+
+    #[Test]
+    public function the_page_load_check_says_whether_to_show_the_chat_without_ever_calling_openai(): void
+    {
+        // setUp()'s mock fails the test if OpenAI is touched.
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['agent_id' => 'agent_borrower_test']);
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, ['agent_id' => 'agent_wlp_test', 'enabled' => false]);
+
+        Passport::actingAs($this->borrowerUser, [], 'api');
+        $this->getJson('/api/v1/borrower/assistant/config')
+            ->assertOk()
+            ->assertJsonPath('data.is_ready', true)
+            ->assertJsonPath('data.quick_suggestions', []);
+
+        // Disabled by the host: the partner widget is told not to show.
+        Passport::actingAs($this->partnerUser, [], 'api');
+        $this->getJson('/api/v1/common/assistant/wlp/config')
+            ->assertOk()
+            ->assertJsonPath('data.is_ready', false);
+    }
+
+    #[Test]
+    public function the_partner_chat_is_for_white_label_partners_only_never_the_host_or_certified_partners(): void
+    {
+        // setUp()'s mock fails the test if OpenAI is touched.
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, ['agent_id' => 'agent_wlp_test']);
+
+        $host = Partner::create([
+            'is_host' => true, 'status' => Partner::STATUS_ACTIVE, 'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'company_name' => 'Host', 'full_name' => 'Host', 'email' => 'host-' . uniqid() . '@example.test',
+        ]);
+        $certified = Partner::create([
+            'is_host' => false, 'status' => Partner::STATUS_ACTIVE, 'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
+            'company_name' => 'Certified', 'full_name' => 'Certified', 'email' => 'cert-' . uniqid() . '@example.test',
+        ]);
+
+        $excluded = [
+            'host partner user' => $this->makeUser(User::PARTNER, ['partner_id' => $host->id]),
+            'host admin user' => $this->makeUser(User::ADMIN, ['partner_id' => $host->id]),
+            'certified partner user' => $this->makeUser(User::PARTNER, ['partner_id' => $certified->id]),
+            'user with no partner' => $this->makeUser(User::ADMIN),
+        ];
+
+        foreach ($excluded as $who => $user) {
+            Passport::actingAs($user, [], 'api');
+
+            // The widget is told not to show...
+            $this->getJson('/api/v1/common/assistant/wlp/config?intro=1')
+                ->assertOk()
+                ->assertJsonPath('data.is_ready', false);
+            // ...and the chat itself refuses them even if called directly.
+            $this->postJson('/api/v1/common/assistant/wlp/messages', ['message' => 'Hello'])->assertStatus(403);
+            $this->getJson('/api/v1/common/assistant/wlp/sessions')->assertStatus(403);
+            $this->postJson('/api/v1/common/assistant/wlp/sessions')->assertStatus(403);
+        }
+
+        $this->assertDatabaseCount('chat_conversations', 0);
+
+        // A White-Label Partner's own users (partner or staff) do get it.
+        foreach ([$this->partnerUser, $this->makeUser(User::ADMIN, ['partner_id' => $this->partner->id])] as $user) {
+            Passport::actingAs($user, [], 'api');
+
+            $this->getJson('/api/v1/common/assistant/wlp/config')->assertOk()->assertJsonPath('data.is_ready', true);
+            $this->getJson('/api/v1/common/assistant/wlp/sessions')->assertOk();
+        }
+    }
+
+    /** The agent as OpenAI would return it, with its own welcome and suggested-questions sections. */
+    private function mockAgentAndIntro(string $instructions, string $subtitle, array $suggestions): void
+    {
+        $instructions .= "\n\n## WELCOME MESSAGE\n\n{$subtitle}\n\n## SUGGESTED QUESTIONS\n\n- " . implode("\n- ", $suggestions) . "\n";
+
+        $this->mock(OpenAiAgentsService::class, function ($mock) use ($instructions) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => ['instructions' => $instructions]]);
+            // The copy is read from the agent's instructions; no model is ever asked to write it.
+            $mock->shouldNotReceive('run');
+            $mock->shouldNotReceive('runAgent');
+        });
     }
 }

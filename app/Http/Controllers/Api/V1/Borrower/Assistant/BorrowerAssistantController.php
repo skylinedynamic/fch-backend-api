@@ -26,24 +26,26 @@ class BorrowerAssistantController extends Controller
     /**
      * GET /borrower/assistant/config — the small, safe-to-expose subset of
      * the assistant's state any authenticated borrower may read: whether
-     * it's ready to answer, and the widget's welcome subtitle + suggestion
-     * chips, live-derived from the current system prompt (see
-     * SupportAssistantService::deriveWidgetIntro() — nothing here is stored
-     * in the database). Never the system prompt itself.
+     * it's ready to answer, plus the widget's welcome subtitle and suggested
+     * questions, written from the agent's current instructions on the OpenAI
+     * platform (see SupportAssistantService::widgetIntro()). Never the
+     * agent's id or its instructions themselves.
      */
     public function config()
     {
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
-        $isReady = $config->isReady();
-        $intro = $isReady ? $this->assistantService->deriveWidgetIntro($config) : null;
+        // The widget asks this on every page load to decide whether to show
+        // itself, so it must stay cheap. The welcome copy costs one read of
+        // the agent from OpenAI and is only fetched when the panel is opened
+        // (?intro=1).
+        $intro = request()->boolean('intro')
+            ? $this->assistantService->widgetIntro($config)
+            : ['welcome_subtitle' => null, 'quick_suggestions' => []];
 
         return ApiResponse::success([
-            'is_ready' => $isReady,
-            'welcome_subtitle' => $intro['welcome_subtitle'] ?? null,
-            'quick_suggestions' => $intro['quick_suggestions'] ?? [],
-            // route_key => same-origin path, from the server-side approved map, so
-            // the widget's allowlist follows route changes without a frontend deploy.
-            'navigation' => array_map(fn ($e) => $e['path'], $config->navigationMap()),
+            'is_ready' => $config->isReady(),
+            'welcome_subtitle' => $intro['welcome_subtitle'],
+            'quick_suggestions' => $intro['quick_suggestions'],
         ]);
     }
 

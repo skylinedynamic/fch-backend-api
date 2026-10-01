@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Assistant\StoreAssistantMessageRequest;
 use App\Http\Resources\Assistant\ChatMessageResource;
 use App\Models\Assistant\AiAssistantConfig;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\Assistant\SupportAssistantService;
 use Illuminate\Http\JsonResponse;
@@ -45,13 +46,37 @@ class WlpAssistantController extends Controller
     }
 
     /**
+     * This chat is for White-Label Partners only: the caller must belong to a
+     * partner that is a White-Label Partner and is not the host. The host's
+     * own users and Certified Partners never get it, whatever the UI shows.
+     */
+    protected function isWhiteLabelPartnerUser(): bool
+    {
+        $user = Auth::user();
+
+        if (! $user || $user->user_type === User::BORROWER) {
+            return false;
+        }
+
+        $partner = $user->partner;
+
+        return $partner
+            && ! $partner->is_host
+            && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL;
+    }
+
+    protected function denyUnlessWhiteLabelPartner(): ?JsonResponse
+    {
+        return $this->isWhiteLabelPartnerUser() ? null : ApiResponse::forbidden(__('auth.access_denied'));
+    }
+
+    /**
      * GET /wlp-assistant/config — the small, safe-to-expose subset of the
      * assistant's state any authenticated WLP user may read: whether it's
-     * ready to answer, and the widget's welcome subtitle + suggestion chips,
-     * live-derived from the current system prompt (see
-     * SupportAssistantService::deriveWidgetIntro() — nothing here is stored
-     * in the database). Never the system prompt or vector_store_id
-     * themselves — those stay behind the host-only AssistantConfigController.
+     * ready to answer, plus the widget's welcome subtitle and suggested
+     * questions, written from the agent's current instructions on the OpenAI
+     * platform (see SupportAssistantService::widgetIntro()). The agent's id
+     * stays behind the host-only AssistantConfigController.
      */
     public function config()
     {
@@ -60,16 +85,21 @@ class WlpAssistantController extends Controller
         }
 
         $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT);
-        $isReady = $config->isReady();
-        $intro = $isReady ? $this->assistantService->deriveWidgetIntro($config) : null;
+        // Host users and Certified Partners share this portal with White-Label
+        // Partners, so they are answered (not refused) with "don't show it".
+        $isReady = $this->isWhiteLabelPartnerUser() && $config->isReady();
+        // The widget asks this on every page load to decide whether to show
+        // itself, so it must stay cheap. The welcome copy costs one read of
+        // the agent from OpenAI and is only fetched when the panel is opened
+        // (?intro=1).
+        $intro = $isReady && request()->boolean('intro')
+            ? $this->assistantService->widgetIntro($config)
+            : ['welcome_subtitle' => null, 'quick_suggestions' => []];
 
         return ApiResponse::success([
             'is_ready' => $isReady,
-            'welcome_subtitle' => $intro['welcome_subtitle'] ?? null,
-            'quick_suggestions' => $intro['quick_suggestions'] ?? [],
-            // route_key => same-origin path, from the server-side approved map, so
-            // the widget's allowlist follows route changes without a frontend deploy.
-            'navigation' => array_map(fn ($e) => $e['path'], $config->navigationMap()),
+            'welcome_subtitle' => $intro['welcome_subtitle'],
+            'quick_suggestions' => $intro['quick_suggestions'],
         ]);
     }
 
@@ -80,7 +110,7 @@ class WlpAssistantController extends Controller
      */
     public function sendMessage(StoreAssistantMessageRequest $request)
     {
-        if ($denied = $this->denyIfBorrower()) {
+        if ($denied = $this->denyUnlessWhiteLabelPartner()) {
             return $denied;
         }
 
@@ -120,7 +150,7 @@ class WlpAssistantController extends Controller
 
     public function history($sessionId)
     {
-        if ($denied = $this->denyIfBorrower()) {
+        if ($denied = $this->denyUnlessWhiteLabelPartner()) {
             return $denied;
         }
 
@@ -146,7 +176,7 @@ class WlpAssistantController extends Controller
      */
     public function index()
     {
-        if ($denied = $this->denyIfBorrower()) {
+        if ($denied = $this->denyUnlessWhiteLabelPartner()) {
             return $denied;
         }
 
@@ -173,7 +203,7 @@ class WlpAssistantController extends Controller
      */
     public function store()
     {
-        if ($denied = $this->denyIfBorrower()) {
+        if ($denied = $this->denyUnlessWhiteLabelPartner()) {
             return $denied;
         }
 
@@ -194,7 +224,7 @@ class WlpAssistantController extends Controller
      */
     public function destroy()
     {
-        if ($denied = $this->denyIfBorrower()) {
+        if ($denied = $this->denyUnlessWhiteLabelPartner()) {
             return $denied;
         }
 

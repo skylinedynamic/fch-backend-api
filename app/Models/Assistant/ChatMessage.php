@@ -21,9 +21,6 @@ class ChatMessage extends Model
         'sources',
         'openai_request_id',
         'usage',
-        'prompt_version',
-        'prompt_sha256',
-        'prompt_source',
         'navigation',
     ];
 
