@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController as V1AuthControll
 use App\Http\Controllers\Api\V1\FCH\Common\AuthProfile\AuthProfileController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerController;
+use App\Http\Controllers\Api\V1\FCH\Common\CreditAuthorization\CreditAuthorizationConsentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Borrower\BorrowerDocumentsChecklistController;
 use App\Http\Controllers\Api\V1\FCH\Common\Commission\CommissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\CommonController;
@@ -187,6 +188,14 @@ Route::prefix('v1')->group(function () {
             Route::post('borrowers/parse-credit-profile', [BorrowerController::class, 'parseCreditProfile']);
             Route::post('borrowers/save-credit-profile', [BorrowerController::class, 'saveCreditProfile']);
             Route::get('borrowers/get-credit-profile/{borrowerId}', [BorrowerController::class, 'getCreditProfile']);
+
+            // The PDF sent to iSoftPull when they ask us to prove a client
+            // authorised a pull. Host partner only, enforced in the controller.
+            //
+            // Only the file has a route of its own - the records themselves ride
+            // along with the credit profile request details, which is the screen
+            // that shows them.
+            Route::get('credit-authorizations/{id}/download', [CreditAuthorizationConsentController::class, 'download']);
 
             // Borrower routes
             // MUST stay above the wildcard `borrowers/{id}` below: routes match in

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Borrower\CreditProfileRequest;
+use App\Models\CreditAuthorization\CreditAuthorizationConsent;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class CreditProfileRequestAdminController extends Controller
@@ -57,10 +59,34 @@ class CreditProfileRequestAdminController extends Controller
                 return ApiResponse::notFound(__('credit_profile_request.not_found'));
             }
 
+            // The FCRA authorisations behind this client's pulls travel with the
+            // details rather than on an endpoint of their own - the screen shows
+            // them together, so fetching them together keeps it to one call.
+            //
+            // Host partner only: these rows carry the consumer's IP and device
+            // and exist to answer an audit of our own permissible purpose. A
+            // non-host simply gets an empty list, not an error.
+            $creditProfileRequest->setAttribute(
+                'credit_authorizations',
+                $this->isHostUser()
+                    ? CreditAuthorizationConsent::forBorrower($creditProfileRequest->borrower_id)
+                    : []
+            );
+
             return ApiResponse::success($creditProfileRequest, __('credit_profile_request.details_retrieved_successfully'));
         } catch (\Exception $e) {
             Log::error(__('credit_profile_request.log_details_retrieval_failed', ['error' => $e->getMessage()]));
             return ApiResponse::serverError(__('credit_profile_request.details_retrieval_failed'));
         }
+    }
+
+    /**
+     * Only the host partner sees authorisation records. Checked here rather than
+     * left to a permission name so that adding a field to this response cannot
+     * quietly widen who sees a consumer's IP and device.
+     */
+    private function isHostUser(): bool
+    {
+        return (bool) (Auth::user()?->partner?->is_host);
     }
 }
