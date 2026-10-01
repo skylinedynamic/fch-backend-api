@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
+use App\Http\Controllers\Api\V1\Global\Account\EmailChangeConfirmationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Compensation\CompensationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Account\EmailChangeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
@@ -67,6 +69,25 @@ Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck'
 // index.html. Deliberately outside /v1 and unauthenticated: it has to load
 // before the app boots, on a cold visit with no token and no localStorage.
 Route::get('/branding.css', [BrandingController::class, 'css']);
+
+// Email change links — confirm (sent to the new address), cancel and undo (sent
+// to the old one). Public: each link's signature is the authority (checked in
+// the controller). Opening a link (GET) only shows a page; its form POSTs back
+// to the same signed URL to act. These are browser pages, not JSON: the `web`
+// group gives them the session their forms' CSRF token needs.
+Route::prefix('email-change')
+    ->middleware('web')
+    ->controller(EmailChangeConfirmationController::class)
+    ->whereNumber('user')
+    ->middleware('throttle:10,1')
+    ->group(function () {
+        Route::get('confirm/{user}/{hash}', 'showConfirm')->name('email-change.confirm');
+        Route::post('confirm/{user}/{hash}', 'confirm');
+        Route::get('cancel/{user}/{hash}', 'showCancel')->name('email-change.cancel');
+        Route::post('cancel/{user}/{hash}', 'cancel');
+        Route::get('undo/{user}/{hash}', 'showRevert')->name('email-change.revert');
+        Route::post('undo/{user}/{hash}', 'revert');
+    });
 
 
 Route::prefix('v1')->group(function () {
@@ -133,6 +154,11 @@ Route::prefix('v1')->group(function () {
             // one write endpoint handles both the first save and later edits.
             Route::post('compensations/fetch-compensation', [CompensationController::class, 'show']);
             Route::post('compensations', [CompensationController::class, 'store']);
+
+            // A pending sign-in email change (started by saving an edit form,
+            // completed by the emailed link) can be resent or withdrawn here.
+            Route::post('email-change/resend', [EmailChangeController::class, 'resend']);
+            Route::post('email-change/cancel', [EmailChangeController::class, 'cancel']);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);

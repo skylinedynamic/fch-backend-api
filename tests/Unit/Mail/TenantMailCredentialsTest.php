@@ -247,6 +247,17 @@ class TenantMailCredentialsTest extends TestCase
     }
 
     #[Test]
+    public function an_unqueued_mailable_can_ask_to_have_a_transport_failure_rethrown(): void
+    {
+        // For a sender that retries the refusal itself, instead of a queue.
+        $mailable = new UnqueuedRethrowingTransportFailureMailable();
+
+        $this->expectException(\Symfony\Component\Mailer\Exception\TransportException::class);
+
+        $mailable->sendAndCatch();
+    }
+
+    #[Test]
     public function a_configuration_error_is_never_retried(): void
     {
         // A bad port or a missing host fails identically on every attempt, so
@@ -345,6 +356,11 @@ class UnqueuedTransportFailureMailable extends FailingMailable
             }
         };
     }
+}
+
+class UnqueuedRethrowingTransportFailureMailable extends UnqueuedTransportFailureMailable
+{
+    protected bool $rethrowTransportFailures = true;
 }
 
 class QueuedConfigErrorMailable extends FailingMailable implements \Illuminate\Contracts\Queue\ShouldQueue

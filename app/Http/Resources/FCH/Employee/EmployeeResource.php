@@ -57,6 +57,8 @@ class EmployeeResource extends JsonResource
                     'id' => $this->user->id,
                     'name' => $this->user->name,
                     'email' => $this->user->email,
+                    // A new sign-in email awaiting confirmation from that address.
+                    'pending_email' => $this->user->pending_email,
                     'phone_number' => $this->user->phone_number,
                     'user_type' => $this->user->user_type,
                     'created_at' => $this->user->created_at?->format('Y-m-d H:i:s'),

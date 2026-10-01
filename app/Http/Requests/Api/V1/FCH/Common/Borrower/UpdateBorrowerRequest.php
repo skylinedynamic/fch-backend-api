@@ -36,13 +36,13 @@ class UpdateBorrowerRequest extends BaseApiRequest
             'phone_number' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'email' => [
                 'sometimes', 'required', 'email', 'max:255',
+                // Matches the users.email index exactly: deleted accounts still hold theirs.
                 Rule::unique('users', 'email')
                     ->ignore(
                         User::where('entity_type', Borrower::class)
                             ->where('entity_id', (int) $this->route('id'))
                             ->value('id')
-                    )
-                    ->whereNull('deleted_at'),
+                    ),
             ],
             'country'      => ['nullable', 'string', 'max:255'],
             'country_code' => ['nullable', 'string', 'max:255'],

@@ -37,6 +37,7 @@ class BorrowerService
         protected SubscriptionService $subscriptionService,
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected \App\Services\Global\Account\EmailChangeService $emailChange,
     ) {
     }
 
@@ -465,6 +466,11 @@ class BorrowerService
         DB::beginTransaction();
         try {
             $user = $borrower->user;
+
+            // With a login, a new email is confirmed from the new address before
+            // either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($data, $user, $borrower->email);
+
             $wasFreeTrial = (bool) $borrower->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
@@ -637,6 +643,10 @@ class BorrowerService
                 $user->update(['is_refresh' => true]);
             }
             DB::commit();
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             // Return consistent format or just borrower? Controller expects resource.
             // Keeping it simple as controller will be updated to handle array for store, but update often doesn't need email.
@@ -881,13 +891,9 @@ class BorrowerService
         }
 
         if ($existingUser) {
+            // A login's email never changes here — update() hands a new one to
+            // EmailChangeService — so there's no password to reset.
             $plainPassword = null;
-            // Check if email is changing and present in update data
-            if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
-                $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
-                $userData['password'] = bcrypt($plainPassword);
-                Log::info('Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
-            }
 
             $existingUser->update($userData);
             return ['user' => $existingUser, 'plain_password' => $plainPassword];

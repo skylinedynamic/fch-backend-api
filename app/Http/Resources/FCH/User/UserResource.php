@@ -15,6 +15,8 @@ class UserResource extends JsonResource
             'id'           => $this->id,
             'name'         => $this->name,
             'email'        => $this->email,
+            // A new sign-in email awaiting confirmation from that address.
+            'pending_email' => $this->pending_email,
             'phone_number' => $this->phone_number,
             'role'         => $this->getRoleNames()->first(),
             // Resolved from preloaded roles only, so this never triggers a lazy
