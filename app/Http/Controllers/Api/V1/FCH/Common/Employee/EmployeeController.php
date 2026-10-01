@@ -129,7 +129,7 @@ class EmployeeController extends Controller
             $plainPassword = bin2hex(random_bytes(4));
 
             $userData = [
-                'name' => trim($request->first_name . ' ' . $request->last_name) ?: $request->email,
+                'name' => trim((string) $request->first_name) ?: $request->email,
                 'email' => $request->email,
                 'phone_number' => $request->phone_number,
                 'plain_password' => $plainPassword,

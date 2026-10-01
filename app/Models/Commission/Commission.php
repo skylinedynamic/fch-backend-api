@@ -97,6 +97,12 @@ class Commission extends Model
         return $this->belongsTo(Partner::class);
     }
 
+    /** The payout made from this commission, once paid. */
+    public function payout()
+    {
+        return $this->hasOne(CommissionPayout::class);
+    }
+
     /**
      * Get the funding application that owns the commission.
      */

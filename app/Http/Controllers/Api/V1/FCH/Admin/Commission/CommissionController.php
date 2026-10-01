@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\FCH\Admin\Commission\SaveCommissionRequest;
 use App\Http\Requests\Api\V1\FCH\Admin\Commission\ProcessPayoutRequest;
 use App\Http\Resources\FCH\Admin\Commission\CommissionResource;
 use App\Services\FCH\Admin\Commission\CommissionService;
+use Illuminate\Validation\ValidationException;
 
 use Throwable;
 
@@ -45,6 +46,10 @@ class CommissionController extends Controller
         try {
             $data = $request->validated();
             return $this->commissionService->processPayout($id, $data);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('commission.not_found'));
         } catch (Throwable $e) {
             return ApiResponse::serverError(__('application.error_processing_payout'), 500);
         }

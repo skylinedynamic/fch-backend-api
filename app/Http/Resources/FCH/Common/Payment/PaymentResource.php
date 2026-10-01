@@ -61,7 +61,7 @@ class PaymentResource extends JsonResource
             'entity_type' => $this->entity_type,
             'borrower_name' => ($this->entity_type === Borrower::class && $this->borrower) ? ($this->borrower->first_name . ' ' . $this->borrower->last_name) : '',
             'partner_name' => ($this->entity_type === Partner::class && $this->partner) ? ($this->partner->full_name ?? '') : '',
-            'name' => $this->entity ? ($this->entity->full_name ?? $this->entity->company_name ?? ($this->entity->first_name . ' ' . $this->entity->last_name)) : '',
+            'name' => $this->entity ? ($this->entity->full_name ?? $this->entity->company_name ?? $this->entity->name ?? trim($this->entity->first_name . ' ' . $this->entity->last_name)) : '',
             'email' => $this->entity?->email,
             'phone' => $this->entity?->phone_number,
             'address' => $this->entity?->address_line_1 ?? $this->entity?->business_address_line_1 ?? $this->entity?->postal_code ?? $this->entity?->business_postal_code,

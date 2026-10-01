@@ -4,7 +4,11 @@ namespace App\Services\FCH\Common\ChangeRequest;
 
 use App\Helpers\ApiResponse;
 use App\Services\Profile\ChangeRequestNotifier;
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerChangeRequest;
+use App\Models\User\User;
+use App\Services\Global\Account\EmailChangeService;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -99,6 +103,22 @@ class ChangeRequestService
             return ApiResponse::error(__('profile.change_request_already_processed'), 422);
         }
 
+        // A client's sign-in email isn't written straight to the record: it goes
+        // through the same confirm-from-the-new-address flow as every other
+        // email change, which also keeps the login and the record in step.
+        // Checked before the request is marked approved, so an address that's
+        // already taken leaves it pending instead of "approved but not applied".
+        $emailChange = app(EmailChangeService::class);
+        $loginForEmailChange = $this->loginForEmailChange($changeRequest, $data['status']);
+
+        if ($loginForEmailChange) {
+            try {
+                $emailChange->ensureAvailable((string) $changeRequest->new_value, $loginForEmailChange);
+            } catch (ValidationException $e) {
+                return ApiResponse::error($e->getMessage(), 422);
+            }
+        }
+
         $changeRequest->update([
             'status' => $data['status'],
             'note' => $data['note'] ?? $changeRequest->note,
@@ -114,7 +134,9 @@ class ChangeRequestService
 
                 if ($entityType && $entityId) {
                     // entity_type is a fully-qualified model class name
-                    if ($entityType === \App\Models\Borrower\Borrower::class) {
+                    if ($loginForEmailChange) {
+                        $emailChange->request($loginForEmailChange, (string) $changeRequest->new_value);
+                    } elseif ($entityType === \App\Models\Borrower\Borrower::class) {
                         // Borrower's own table — update via the model directly
                         $borrower->{$changeRequest->db_field_name} = $changeRequest->new_value;
                         $borrower->save();
@@ -141,5 +163,21 @@ class ChangeRequestService
             new \App\Http\Resources\FCH\Common\ChangeRequest\ChangeRequestResource($changeRequest->fresh(['borrower', 'updater'])),
             __('profile.change_request_status_updated')
         );
+    }
+
+    /**
+     * The login whose sign-in email an approved request would change: only an
+     * approval of the client's own `email` field, and only when they have a
+     * login — without one there's nothing to confirm and it applies directly.
+     */
+    private function loginForEmailChange(BorrowerChangeRequest $changeRequest, string $status): ?User
+    {
+        if ($status !== BorrowerChangeRequest::STATUS_APPROVED
+            || $changeRequest->entity_type !== Borrower::class
+            || $changeRequest->db_field_name !== 'email') {
+            return null;
+        }
+
+        return $changeRequest->borrower?->user;
     }
 }
