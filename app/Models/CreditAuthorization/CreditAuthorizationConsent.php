@@ -66,6 +66,9 @@ class CreditAuthorizationConsent extends Model
         return "Credit Authorization v{$this->authorization_version} — {$this->authorization_url}";
     }
 
+    /** How the portal shows these times, e.g. "Sep 16, 2026 02:30 AM". */
+    public const DISPLAY_FORMAT = 'M d, Y h:i A';
+
     /**
      * One client's authorisations as the screens read them, newest first.
      *
@@ -89,12 +92,55 @@ class CreditAuthorizationConsent extends Model
                 'citation' => $consent->citation(),
                 'credit_authorization_accepted' => $consent->credit_authorization_accepted,
                 'e_consent_accepted' => $consent->e_consent_accepted,
-                'consented_at' => optional($consent->consented_at)->toIso8601String(),
+                // In the viewer's time zone (X-Timezone) for the portal. The
+                // stored values, and the PDF built from them, stay UTC.
+                'consented_at' => toTimezone($consent->consented_at, null, self::DISPLAY_FORMAT),
                 'ip_address' => $consent->ip_address,
                 'user_agent' => $consent->user_agent,
                 'isoftpull_transaction_id' => $consent->isoftpull_transaction_id,
-                'pulled_at' => optional($consent->pulled_at)->toIso8601String(),
+                'pulled_at' => toTimezone($consent->pulled_at, null, self::DISPLAY_FORMAT),
             ])
             ->all();
+    }
+
+    /**
+     * When this borrower's credit was last pulled from iSoftPull, in the
+     * viewer's time zone. Worked out here rather than from the formatted rows:
+     * "Sep 16, 2026 02:30 AM" does not sort as text.
+     */
+    public static function lastPulledForBorrower(int $borrowerId): ?string
+    {
+        $latest = static::where('borrower_id', $borrowerId)->max('pulled_at');
+
+        return toTimezone($latest, null, self::DISPLAY_FORMAT);
+    }
+
+    /**
+     * Where a client's credit pulls stand, for the client's own portal.
+     *
+     * A request is the consent the client gave. It is "pending" until a pull is
+     * attached to it (`pulled_at`), "completed" after. The latest request decides
+     * the status; the last pull is the latest `pulled_at` across all of them, so
+     * a new request still waiting does not hide the pull before it.
+     *
+     * Times are in the viewer's time zone (X-Timezone), already formatted.
+     *
+     * @return array{last_pulled_at: ?string, last_request: ?array{status: string, requested_at: ?string, pulled_at: ?string}}
+     */
+    public static function pullStatusForBorrower(int $borrowerId): array
+    {
+        $latest = static::where('borrower_id', $borrowerId)
+            ->orderByDesc('consented_at')
+            ->orderByDesc('id')
+            ->first();
+
+        return [
+            'last_pulled_at' => static::lastPulledForBorrower($borrowerId),
+            'last_request' => $latest ? [
+                'status' => $latest->pulled_at ? 'completed' : 'pending',
+                'requested_at' => toTimezone($latest->consented_at, null, self::DISPLAY_FORMAT),
+                'pulled_at' => toTimezone($latest->pulled_at, null, self::DISPLAY_FORMAT),
+            ] : null,
+        ];
     }
 }

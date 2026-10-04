@@ -72,6 +72,12 @@ class CreditProfileRequestAdminController extends Controller
                     ? CreditAuthorizationConsent::forBorrower($creditProfileRequest->borrower_id)
                     : []
             );
+            $creditProfileRequest->setAttribute(
+                'credit_last_pulled_at',
+                $this->isHostUser()
+                    ? CreditAuthorizationConsent::lastPulledForBorrower($creditProfileRequest->borrower_id)
+                    : null
+            );
 
             return ApiResponse::success($creditProfileRequest, __('credit_profile_request.details_retrieved_successfully'));
         } catch (\Exception $e) {

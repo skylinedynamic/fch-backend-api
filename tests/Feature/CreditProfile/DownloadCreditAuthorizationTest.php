@@ -9,6 +9,7 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -162,6 +163,81 @@ class DownloadCreditAuthorizationTest extends TestCase
         // the framework's default and not what the portal ever sees.
         $this->getJson('/api/v1/common/credit-authorizations/' . $this->consent->id . '/download')
             ->assertStatus(401);
+    }
+
+    // -- who the document says the consumer is --------------------------------
+
+    /** The HTML Dompdf is given: the view, filled with what the controller passed it. */
+    private function renderedConsumerSection(): string
+    {
+        $data = null;
+        View::composer('credit-authorization.consent', function ($view) use (&$data) {
+            $data = $view->getData();
+        });
+
+        $this->download()->assertOk();
+
+        return view('credit-authorization.consent', $data)->render();
+    }
+
+    #[Test]
+    public function the_consumer_section_names_the_company_and_phone(): void
+    {
+        $this->borrower->update([
+            'business_name' => 'Mccall Holdings LLC',
+            'phone_number' => '5125550142',
+        ]);
+        $this->actAsHost();
+
+        $html = $this->renderedConsumerSection();
+
+        $this->assertStringContainsString('Company', $html);
+        $this->assertStringContainsString('Mccall Holdings LLC', $html);
+        $this->assertStringContainsString('Phone', $html);
+        $this->assertStringContainsString('5125550142', $html);
+    }
+
+    #[Test]
+    public function the_consumer_section_does_not_show_a_client_id(): void
+    {
+        $this->actAsHost();
+
+        $html = $this->renderedConsumerSection();
+
+        $this->assertStringNotContainsString('Client ID', $html);
+    }
+
+    #[Test]
+    public function it_leaves_out_company_and_phone_rows_when_there_are_none(): void
+    {
+        $this->borrower->update(['business_name' => null, 'phone_number' => null]);
+        $this->actAsHost();
+
+        $html = $this->renderedConsumerSection();
+
+        $this->assertStringNotContainsString('>Company<', $html);
+        $this->assertStringNotContainsString('>Phone<', $html);
+    }
+
+    #[Test]
+    public function column_names_and_values_share_the_same_weight_and_colour(): void
+    {
+        $this->actAsHost();
+
+        $html = $this->renderedConsumerSection();
+
+        preg_match('/td\.k\s*\{([^}]*)\}/', $html, $label);
+        preg_match('/td\.v\s*\{([^}]*)\}/', $html, $value);
+
+        foreach (['font-weight', 'color'] as $property) {
+            preg_match('/' . $property . ':\s*([^;]+)/', $label[1] ?? '', $l);
+            preg_match('/' . $property . ':\s*([^;]+)/', $value[1] ?? '', $v);
+
+            $this->assertNotEmpty($l[1] ?? null, "label has no {$property}");
+            $this->assertSame(trim($l[1]), trim($v[1] ?? ''), "label and value differ in {$property}");
+        }
+
+        $this->assertStringContainsString('600', $label[1]);
     }
 
     // -- the tenant's mark on the document ----------------------------------
