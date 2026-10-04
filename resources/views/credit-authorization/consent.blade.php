@@ -25,8 +25,12 @@
         h2 { font-size: 12px; margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #ccc; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 4px 0; vertical-align: top; }
-        td.k { width: 170px; color: #555; }
-        td.v { font-weight: bold; }
+        /* Names and values are drawn the same - a label in grey regular beside a
+           bold value read as two different kinds of text. 600 is a semi-bold
+           request: Dompdf's DejaVu Sans has only regular and bold faces, so it
+           renders as the bold one. */
+        td.k { width: 170px; color: #1a1a1a; font-weight: 600; }
+        td.v { color: #1a1a1a; font-weight: 600; }
         .quote { border: 1px solid #ccc; background: #fafafa; padding: 9px 11px; margin: 6px 0 4px; }
         .tick { font-weight: bold; }
         .cite { font-size: 10px; color: #555; margin-top: 3px; }
@@ -57,9 +61,14 @@
 <h2>Consumer</h2>
 <table>
     <tr><td class="k">Name</td><td class="v">{{ $borrowerName }}</td></tr>
-    <tr><td class="k">Client ID</td><td class="v">{{ $consent->borrower_id }}</td></tr>
+    @if(!empty($borrowerCompany))
+        <tr><td class="k">Company</td><td class="v">{{ $borrowerCompany }}</td></tr>
+    @endif
     @if($borrowerEmail)
         <tr><td class="k">Email</td><td class="v">{{ $borrowerEmail }}</td></tr>
+    @endif
+    @if(!empty($borrowerPhone))
+        <tr><td class="k">Phone</td><td class="v">{{ $borrowerPhone }}</td></tr>
     @endif
 </table>
 

@@ -51,6 +51,8 @@ class CreditAuthorizationConsentController extends Controller
             'borrowerName' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name)
                 ?: ('Client #' . $consent->borrower_id),
             'borrowerEmail' => $borrower?->email,
+            'borrowerCompany' => $borrower?->business_name,
+            'borrowerPhone' => $borrower?->phone_number,
             'generatedAt' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
 
             'logoSrc' => $this->logoFor($borrower),
