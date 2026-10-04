@@ -161,12 +161,188 @@ class SupportAssistantServiceTest extends TestCase
     {
         $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'How do I add a client?', 'Like this.', $wlp);
         $this->assertSame('agent_wlp_test', $wlp[0]);
-        // No instructions, model, tools or knowledge are sent: just the turns.
+        // No instructions or model are sent: just the turns. No vector store is
+        // saved for these assistants here, so no tool override goes either.
         $this->assertSame([['role' => 'user', 'content' => 'How do I add a client?']], $wlp[1]);
+        $this->assertSame([], $wlp[4], 'no vector store saved here, so nothing overrides the agent');
 
         $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Where are my documents?', 'Here.', $borrower);
         $this->assertSame('agent_borrower_test', $borrower[0]);
         $this->assertSame([['role' => 'user', 'content' => 'Where are my documents?']], $borrower[1]);
+    }
+
+    #[Test]
+    public function the_saved_vector_stores_are_sent_as_a_file_search_tool_on_every_message(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
+            'vector_stores' => [['id' => 'vs_6abe4d0caac08191960c116f6681bc27', 'enabled' => true]],
+        ]);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'How long must I be in business?', 'Three years.', $captured);
+
+        $this->assertSame([
+            'tools' => [[
+                'type' => 'file_search',
+                'vector_store_ids' => ['vs_6abe4d0caac08191960c116f6681bc27'],
+                'max_num_results' => (int) config('openai.file_search.max_num_results'),
+            ]],
+            // The store is searched before the model may answer, rather than
+            // only when it decides the question is worth a lookup.
+            'tool_choice' => ['type' => 'file_search'],
+        ], $captured[4]);
+    }
+
+    #[Test]
+    public function the_search_can_be_handed_back_to_the_model_without_losing_the_knowledge_base(): void
+    {
+        config(['openai.file_search.force' => false]);
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['vector_stores' => ['vs_borrowerstore']]);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Hello?', 'Hi.', $captured);
+
+        // The store still goes with every message; only the compulsion drops.
+        $this->assertSame(['vs_borrowerstore'], $captured[4]['tools'][0]['vector_store_ids']);
+        $this->assertArrayNotHasKey('tool_choice', $captured[4]);
+    }
+
+    #[Test]
+    public function each_assistant_searches_only_its_own_knowledge_base(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['vector_stores' => ['vs_borrowerstore']]);
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, ['vector_stores' => ['vs_wlpstore']]);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Where are my documents?', 'Here.', $borrower);
+        $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'How do I add a client?', 'Like this.', $wlp);
+
+        $this->assertSame(['vs_borrowerstore'], $borrower[4]['tools'][0]['vector_store_ids']);
+        $this->assertSame(['vs_wlpstore'], $wlp[4]['tools'][0]['vector_store_ids']);
+    }
+
+    #[Test]
+    public function an_answer_citing_no_approved_file_is_flagged_but_still_shown(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['vector_stores' => ['vs_borrowerstore']]);
+
+        // The agent answered, but nothing came back from the knowledge base.
+        $result = $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'How long must I be in business?', 'Probably three years.');
+
+        $this->assertFalse($result['policy']['answer_grounded']);
+        // Still delivered: a greeting or a clarifying question legitimately
+        // cites nothing, and withholding those would break the conversation.
+        $this->assertSame('Probably three years.', $result['assistant_message']->content);
+        $this->assertFalse($result['escalation']['required']);
+    }
+
+    #[Test]
+    public function an_answer_built_on_an_approved_file_is_flagged_as_grounded(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, ['vector_stores' => ['vs_borrowerstore']]);
+
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('runAgent')->once()->andReturn([
+                'ok' => true,
+                'text' => 'Three years.',
+                'sources' => [['title' => 'Borrower_Page_02_Fundability_Standards_v1_0.md']],
+                'file_search_calls' => 1,
+                'model' => 'gpt-test',
+                'usage' => null,
+                'request_id' => 'sess_test',
+            ]);
+        });
+
+        $service = app(SupportAssistantService::class);
+        $conversation = $service->startOrGetConversation($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+        $result = $service->sendMessage($conversation, 'How long must I be in business?', $this->borrowerUser);
+
+        $this->assertTrue($result['policy']['answer_grounded']);
+        $this->assertSame([['title' => 'Borrower_Page_02_Fundability_Standards_v1_0.md']], $result['assistant_message']->sources);
+    }
+
+    #[Test]
+    public function an_assistant_with_no_vector_store_saved_is_never_flagged_as_ungrounded(): void
+    {
+        // Nothing is configured to cite against, so "not grounded" would be
+        // noise rather than a finding.
+        $result = $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'Hello?', 'Hi there.');
+
+        $this->assertTrue($result['policy']['answer_grounded']);
+    }
+
+    #[Test]
+    public function an_assistant_with_no_vector_store_saved_leaves_the_agents_own_tools_alone(): void
+    {
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Hello?', 'Hi.', $captured);
+
+        // An empty list means "send no override", not "search nothing" — the
+        // agent's own saved tools still run.
+        $this->assertSame([], $captured[4]);
+    }
+
+    #[Test]
+    public function several_vector_stores_are_searched_together_in_one_tool(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, [
+            'vector_stores' => [
+                ['id' => 'vs_first', 'enabled' => true],
+                ['id' => 'vs_second', 'enabled' => true],
+            ],
+        ]);
+
+        $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'Hello?', 'Hi.', $captured);
+
+        $this->assertCount(1, $captured[4]['tools'], 'one file_search tool, not one per store');
+        $this->assertSame(['vs_first', 'vs_second'], $captured[4]['tools'][0]['vector_store_ids']);
+    }
+
+    #[Test]
+    public function a_switched_off_store_is_kept_in_settings_but_never_searched(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, [
+            'vector_stores' => [
+                ['id' => 'vs_live', 'enabled' => true],
+                // Parked while it is rebuilt: the id stays, the search does not.
+                ['id' => 'vs_being_rebuilt', 'enabled' => false],
+            ],
+        ]);
+
+        $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'Hello?', 'Hi.', $captured);
+
+        $this->assertSame(['vs_live'], $captured[4]['tools'][0]['vector_store_ids']);
+        // Switching it off does not lose it — it can be switched back on.
+        $this->assertCount(2, AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->vector_stores);
+    }
+
+    #[Test]
+    public function switching_every_store_off_leaves_the_agents_own_tools_alone(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, [
+            'vector_stores' => [['id' => 'vs_parked', 'enabled' => false]],
+        ]);
+
+        $result = $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'Hello?', 'Hi.', $captured);
+
+        // Nothing of ours is searched, so nothing of ours is overridden, and
+        // there is nothing to hold the answer to.
+        $this->assertSame([], $captured[4]);
+        $this->assertTrue($result['policy']['answer_grounded']);
+    }
+
+    #[Test]
+    public function a_store_switched_back_on_is_searched_from_the_very_next_message(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
+            'vector_stores' => [['id' => 'vs_knowledge', 'enabled' => false]],
+        ]);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'One', 'A.', $before);
+        $this->assertSame([], $before[4]);
+
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
+            'vector_stores' => [['id' => 'vs_knowledge', 'enabled' => true]],
+        ]);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Two', 'B.', $after);
+        $this->assertSame(['vs_knowledge'], $after[4]['tools'][0]['vector_store_ids']);
     }
 
     #[Test]

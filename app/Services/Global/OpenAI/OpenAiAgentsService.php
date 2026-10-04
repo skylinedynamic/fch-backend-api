@@ -9,11 +9,18 @@ use Illuminate\Support\Facades\Http;
  * Client for OpenAI's Agents API (https://platform.openai.com/agents): runs a
  * saved Agent (agent_...) exactly as it is configured on the platform.
  *
- * Nothing about the agent is sent from here — instructions, model, reasoning,
- * tools and knowledge are all whatever is saved on the platform. A session
- * copies the saved agent when it is created and never sees later edits, so
- * every chat turn runs in a brand-new session: an edit saved on the platform
- * is used by the very next message, with no deploy and no cache to clear.
+ * Instructions, model and reasoning are whatever is saved on the platform. A
+ * session copies the saved agent when it is created and never sees later
+ * edits, so every chat turn runs in a brand-new session: an edit saved on the
+ * platform is used by the very next message, with no deploy and no cache to
+ * clear.
+ *
+ * Tools are the exception. A caller may pass session-only overrides, sent as
+ * an inline `agent` object alongside `agent_id`, so knowledge retrieval is
+ * guaranteed for the turn instead of depending on the saved agent having been
+ * configured with the right file_search store. Per OpenAI's merge rules an
+ * override array replaces the saved field rather than adding to it, so a tool
+ * list passed must be complete.
  *
  * Requires an API key with the api.agents.read and api.agents.write
  * permissions (plus api.responses.write for the model call itself).
@@ -29,21 +36,52 @@ class OpenAiAgentsService extends OpenAiResponsesService
      * The saved agent as it is on the platform right now (name, model,
      * instructions, ...). Never cached.
      *
-     * @return array{ok: bool, agent: ?array, error: ?string}
+     * `unreachable` separates "OpenAI says this id is wrong" from "we never got
+     * to ask". Only the first is evidence against the id; the second is a
+     * network fault, and a caller must not treat it as a bad configuration.
+     *
+     * @return array{ok: bool, agent: ?array, unreachable: bool, error: ?string}
      */
     public function retrieveAgent(string $agentId): array
     {
         try {
             $response = $this->client(30)->get("{$this->baseUrl}/agents/{$agentId}");
         } catch (\Throwable $e) {
-            return ['ok' => false, 'agent' => null, 'error' => 'Could not reach OpenAI: ' . $e->getMessage()];
+            return ['ok' => false, 'agent' => null, 'unreachable' => true, 'error' => 'Could not reach OpenAI: ' . $e->getMessage()];
         }
 
         if (! $response->successful()) {
-            return ['ok' => false, 'agent' => null, 'error' => $this->errorMessage($response)];
+            return ['ok' => false, 'agent' => null, 'unreachable' => false, 'error' => $this->errorMessage($response)];
         }
 
-        return ['ok' => true, 'agent' => (array) $response->json(), 'error' => null];
+        return ['ok' => true, 'agent' => (array) $response->json(), 'unreachable' => false, 'error' => null];
+    }
+
+    /**
+     * A vector store as it is on the platform (name, file counts, status), so
+     * a knowledge base can be verified to exist and be reachable by this key
+     * before it is saved against an assistant.
+     *
+     * @return array{ok: bool, store: ?array, unreachable: bool, error: ?string}
+     */
+    public function retrieveVectorStore(string $vectorStoreId): array
+    {
+        try {
+            // Vector stores are a Responses-API resource, not an Agents one:
+            // no agents beta header, and no /agents prefix on the path.
+            $response = Http::timeout(30)
+                ->connectTimeout(20)
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->apiKey])
+                ->get("{$this->baseUrl}/vector_stores/{$vectorStoreId}");
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'store' => null, 'unreachable' => true, 'error' => 'Could not reach OpenAI: ' . $e->getMessage()];
+        }
+
+        if (! $response->successful()) {
+            return ['ok' => false, 'store' => null, 'unreachable' => false, 'error' => $this->errorMessage($response)];
+        }
+
+        return ['ok' => true, 'store' => (array) $response->json(), 'unreachable' => false, 'error' => null];
     }
 
     /**
@@ -51,10 +89,11 @@ class OpenAiAgentsService extends OpenAiResponsesService
      *
      * @param array<int, array{role: string, content: string}> $messages Full turn history, oldest first.
      * @param array<string, string> $metadata Non-PII string key/values stored on the OpenAI session.
+     * @param array<string, mixed> $agentOverrides Session-only agent fields (tools, tool_choice); empty leaves the saved agent as it is.
      *
      * @return array{ok: bool, text: ?string, sources: array, model: ?string, latency_ms: int, usage: ?array, request_id: ?string, error: ?string}
      */
-    public function runAgent(string $agentId, array $messages, array $metadata = [], array $logContext = []): array
+    public function runAgent(string $agentId, array $messages, array $metadata = [], array $logContext = [], array $agentOverrides = []): array
     {
         $startTime = microtime(true);
         $sessionId = null;
@@ -64,6 +103,10 @@ class OpenAiAgentsService extends OpenAiResponsesService
             // agent's work and its answer — so nothing is polled or re-read.
             $response = $this->client($this->timeout)->post("{$this->baseUrl}/agents/sessions", array_filter([
                 'agent_id' => $agentId,
+                // Session-only override: everything left out of it still comes
+                // from the saved agent. Omitted entirely when the caller passes
+                // nothing, so the agent's own configuration is left alone.
+                'agent' => $agentOverrides ?: null,
                 // A support chat needs no sandbox to run code in.
                 'environment' => ['type' => 'none'],
                 'input' => [[
@@ -125,12 +168,23 @@ class OpenAiAgentsService extends OpenAiResponsesService
             $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
             $model = (string) ($session['agent']['model'] ?? $session['model'] ?? '');
             $usage = is_array($session['usage'] ?? null) ? $session['usage'] : null;
-            $this->logOutcome($logContext, $model, 'SUCCESS', $latencyMs, $usage, 200, $sessionId);
+            $sources = $this->extractCitations(['output' => $data]);
+            $searches = $this->countFileSearchCalls($data);
+
+            // Whether the knowledge base was actually consulted, and whether
+            // anything it returned was cited. An answer with no search behind
+            // it is the model talking from memory — the single most useful
+            // thing to know when a reply is confidently wrong.
+            $this->logOutcome(array_merge($logContext, [
+                'file_search_calls' => $searches,
+                'citations' => count($sources),
+            ]), $model, 'SUCCESS', $latencyMs, $usage, 200, $sessionId);
 
             return [
                 'ok' => true,
                 'text' => $text,
-                'sources' => $this->extractCitations(['output' => $data]),
+                'sources' => $sources,
+                'file_search_calls' => $searches,
                 'model' => $model ?: null,
                 'latency_ms' => $latencyMs,
                 'usage' => $usage,
@@ -208,6 +262,24 @@ class OpenAiAgentsService extends OpenAiResponsesService
     }
 
     /**
+     * How many times the agent searched the knowledge base during this turn.
+     * Zero means file_search never ran, so nothing in the answer came from an
+     * approved knowledge file.
+     */
+    protected function countFileSearchCalls(array $items): int
+    {
+        $count = 0;
+
+        foreach ($items as $item) {
+            if (is_array($item) && str_contains((string) ($item['type'] ?? ''), 'file_search')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * The agent's reply: its message marked as the final answer, or — when no
      * message carries a phase — its last message.
      */
@@ -277,7 +349,10 @@ class OpenAiAgentsService extends OpenAiResponsesService
 
     private function client(int $timeout): PendingRequest
     {
-        return Http::timeout($timeout)->withHeaders([
+        // Laravel's 10-second default connect timeout is short for a host that
+        // reaches OpenAI through a proxy or a slow link, and a connect failure
+        // there is indistinguishable from a bad id at the call site.
+        return Http::timeout($timeout)->connectTimeout(20)->withHeaders([
             'Authorization' => 'Bearer ' . $this->apiKey,
             'Content-Type' => 'application/json',
             'OpenAI-Beta' => 'agents=v1',
@@ -288,7 +363,7 @@ class OpenAiAgentsService extends OpenAiResponsesService
     {
         $message = $response->json()['error']['message'] ?? $response->body();
 
-        return "OpenAI Agents API error ({$response->status()}): {$message}";
+        return "OpenAI API error ({$response->status()}): {$message}";
     }
 
     private function agentFailure(array $logContext, string $kind, float $startTime, string $error, ?int $httpStatus = null, ?string $sessionId = null): array
@@ -300,6 +375,7 @@ class OpenAiAgentsService extends OpenAiResponsesService
             'ok' => false,
             'text' => null,
             'sources' => [],
+            'file_search_calls' => 0,
             'model' => null,
             'latency_ms' => $latencyMs,
             'usage' => null,

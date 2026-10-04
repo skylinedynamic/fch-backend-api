@@ -134,7 +134,8 @@ class OpenAiAgentsServiceTest extends TestCase
                 && $request->hasHeader('OpenAI-Beta', 'agents=v1')
                 && $body['agent_id'] === 'agent_abc'
                 && $body['input'] === [['role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'Hi']]]]
-                // The saved agent supplies these; sending any would override the platform.
+                // The saved agent supplies these; sending any would override the
+                // platform. With no tools passed, not even "agent" is sent.
                 && ! isset($body['agent'], $body['instructions'], $body['model'], $body['tools']);
         });
 
@@ -206,5 +207,106 @@ class OpenAiAgentsServiceTest extends TestCase
 
         $this->assertTrue($result['ok']);
         $this->assertSame('Be helpful.', $result['agent']['instructions']);
+    }
+
+    #[Test]
+    public function overrides_are_sent_as_an_inline_agent_beside_the_saved_agent_id(): void
+    {
+        $this->fakeTurn([[
+            'type' => 'message',
+            'role' => 'assistant',
+            'phase' => 'final_answer',
+            'content' => [['type' => 'output_text', 'text' => 'Three years.']],
+        ]]);
+
+        $overrides = [
+            'tools' => [['type' => 'file_search', 'vector_store_ids' => ['vs_abc123'], 'max_num_results' => 20]],
+            'tool_choice' => ['type' => 'file_search'],
+        ];
+
+        app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']], [], [], $overrides);
+
+        Http::assertSent(function (Request $request) use ($overrides) {
+            if ($request->method() !== 'POST') {
+                return false;
+            }
+
+            $body = $request->data();
+
+            return $body['agent_id'] === 'agent_abc'
+                // Only what was passed is overridden: model, instructions and
+                // reasoning still come from the agent saved on the platform.
+                && $body['agent'] === $overrides
+                && ! isset($body['agent']['model'], $body['agent']['instructions']);
+        });
+    }
+
+    #[Test]
+    public function a_turn_reports_how_often_the_knowledge_base_was_searched(): void
+    {
+        $this->fakeTurn([
+            ['type' => 'file_search_call', 'status' => 'completed', 'queries' => ['minimum time in business']],
+            [
+                'type' => 'message',
+                'role' => 'assistant',
+                'phase' => 'final_answer',
+                'content' => [[
+                    'type' => 'output_text',
+                    'text' => 'Three years.',
+                    'annotations' => [
+                        ['type' => 'file_citation', 'filename' => 'Borrower_Page_02_Fundability_Standards_v1_0.md'],
+                        // The same file cited twice is one source, not two.
+                        ['type' => 'file_citation', 'filename' => 'Borrower_Page_02_Fundability_Standards_v1_0.md'],
+                    ],
+                ]],
+            ],
+        ]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertSame(1, $result['file_search_calls']);
+        $this->assertSame([['title' => 'Borrower_Page_02_Fundability_Standards_v1_0.md']], $result['sources']);
+    }
+
+    #[Test]
+    public function an_answer_produced_without_searching_reports_no_file_search_calls(): void
+    {
+        $this->fakeTurn([[
+            'type' => 'message',
+            'role' => 'assistant',
+            'phase' => 'final_answer',
+            'content' => [['type' => 'output_text', 'text' => 'Probably around three years.']],
+        ]]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(0, $result['file_search_calls']);
+        $this->assertSame([], $result['sources']);
+    }
+
+    #[Test]
+    public function a_vector_store_is_read_from_the_responses_api_without_the_agents_beta_header(): void
+    {
+        Http::fake(['*' => Http::response(['id' => 'vs_abc123', 'name' => 'Borrower Assistant - Approved Knowledge v1.6', 'status' => 'completed'])]);
+
+        $result = app(OpenAiAgentsService::class)->retrieveVectorStore('vs_abc123');
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('Borrower Assistant - Approved Knowledge v1.6', $result['store']['name']);
+
+        Http::assertSent(fn (Request $request) => $request->url() === 'https://api.openai.com/v1/vector_stores/vs_abc123'
+            && ! $request->hasHeader('OpenAI-Beta'));
+    }
+
+    #[Test]
+    public function an_unreachable_vector_store_is_reported_and_not_thrown(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => 'No such vector store: vs_typo']], 404)]);
+
+        $result = app(OpenAiAgentsService::class)->retrieveVectorStore('vs_typo');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('No such vector store', $result['error']);
     }
 }
