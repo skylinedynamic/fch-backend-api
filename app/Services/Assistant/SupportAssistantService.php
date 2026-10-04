@@ -18,9 +18,14 @@ use Illuminate\Support\Facades\Log;
  * off that, never off client input.
  *
  * Each assistant is an Agent saved on the OpenAI platform. This service adds
- * no instructions, knowledge or wording of its own: the user's conversation
- * goes to the agent and the agent's answer is what the user sees. Editing the
- * agent on the platform changes the very next reply.
+ * no instructions or wording of its own: the user's conversation goes to the
+ * agent and the agent's answer is what the user sees. Editing the agent on the
+ * platform changes the very next reply.
+ *
+ * It does pin down one thing: the file_search tool and the vector stores it
+ * reads are sent with every turn, from the assistant's own settings. Knowledge
+ * retrieval is what makes these answers trustworthy, so it cannot be left to
+ * whether the saved agent happens to have the tool switched on.
  *
  * The sendMessage() return shape stays aligned with the approved
  * FCH_WLP_Assistant_OpenAPI_v1_1.yaml contract, so both frontends keep
@@ -189,7 +194,11 @@ class SupportAssistantService
                     'assistant_type' => $conversation->assistant_type,
                     'conversation_id' => $conversation->id,
                     'agent_id' => $config->agent_id,
-                ]
+                    'vector_stores' => count($config->enabledVectorStoreIds()),
+                ],
+                // The approved knowledge base, sent explicitly so this turn
+                // searches it whatever the saved agent's own tools say.
+                $config->agentOverrides()
             );
 
             if (! $result['ok']) {
@@ -210,6 +219,27 @@ class SupportAssistantService
 
             $sources = $result['sources'] ?? [];
 
+            // Whether this answer actually rests on an approved knowledge file.
+            // An answer with no citation behind it is the model speaking from
+            // its own memory — the shape every "the assistant said something
+            // that isn't in our docs" report takes, so it is recorded and
+            // reported rather than left invisible.
+            $searchableStores = $config->enabledVectorStoreIds();
+            $grounded = empty($searchableStores) || ! empty($sources);
+
+            if (! $grounded) {
+                Log::warning('Support assistant answered without citing its knowledge base', [
+                    'assistant_type' => $conversation->assistant_type,
+                    'conversation_id' => $conversation->id,
+                    'agent_id' => $config->agent_id,
+                    'vector_store_ids' => $searchableStores,
+                    // Zero here means the search never ran at all, which points
+                    // at the tool override rather than at the knowledge files.
+                    'file_search_calls' => (int) ($result['file_search_calls'] ?? 0),
+                    'openai_session_id' => $result['request_id'] ?? null,
+                ]);
+            }
+
             // The agent's answer, exactly as it wrote it.
             $reply = $conversation->messages()->create([
                 'role' => ChatMessage::ROLE_ASSISTANT,
@@ -229,7 +259,7 @@ class SupportAssistantService
                 'navigation' => $this->noNavigation(),
                 'sources' => $sources,
                 'escalation' => ['required' => false, 'reason' => null, 'route' => null],
-                'policy' => $this->policyEnvelope($sensitiveInputDetected),
+                'policy' => $this->policyEnvelope($sensitiveInputDetected, $grounded),
             ];
         });
     }
@@ -279,7 +309,13 @@ class SupportAssistantService
         return ['required' => false, 'intent' => 'none', 'route_key' => null];
     }
 
-    private function policyEnvelope(bool $sensitiveInputDetected): array
+    /**
+     * @param bool $grounded Whether the reply cited an approved knowledge file.
+     *                       True for a fallback reply, which makes no claims of
+     *                       its own, and for an assistant with no vector store
+     *                       configured, where there is nothing to cite against.
+     */
+    private function policyEnvelope(bool $sensitiveInputDetected, bool $grounded = true): array
     {
         return [
             // Must remain false in Version 1 — see the OpenAPI contract's `policy.live_data_used` const.
@@ -287,6 +323,11 @@ class SupportAssistantService
             // The agent's answer is passed through as written; nothing is blocked here.
             'restricted_content_blocked' => false,
             'sensitive_input_detected' => $sensitiveInputDetected,
+            // False means the answer cited no approved knowledge file, so it
+            // should not be relied on as policy. The reply is still shown: a
+            // greeting or a clarifying question legitimately cites nothing, and
+            // withholding those would break ordinary conversation.
+            'answer_grounded' => $grounded,
         ];
     }
 

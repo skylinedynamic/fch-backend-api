@@ -173,6 +173,182 @@ class AssistantConfigTest extends TestCase
     }
 
     #[Test]
+    public function the_host_saves_the_vector_stores_each_assistant_searches(): void
+    {
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => ['name' => 'Agent']]);
+            $mock->shouldReceive('retrieveVectorStore')->andReturn(['ok' => true, 'error' => null, 'store' => ['id' => 'vs_x']]);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+        $url = '/api/v1/common/assistant-config/' . AiAssistantConfig::TYPE_BORROWER_SUPPORT;
+
+        $stores = [
+            ['id' => 'vs_6abe4d0caac08191960c116f6681bc27', 'enabled' => true],
+            // Added now, switched on later: the id is kept either way.
+            ['id' => 'vs_6abe0f46ad8c8191b55186af0a98a070', 'enabled' => false],
+        ];
+
+        $this->putJson($url, ['agent_id' => 'agent_490bca14c956', 'vector_stores' => $stores])->assertOk();
+
+        $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+        $this->assertSame($stores, $config->vector_stores);
+        // Only the switched-on store is ever handed to the agent.
+        $this->assertSame(['vs_6abe4d0caac08191960c116f6681bc27'], $config->enabledVectorStoreIds());
+
+        // Saving one assistant's stores never touches the other's.
+        $this->assertSame([], AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->vector_stores);
+
+        $this->getJson('/api/v1/common/assistant-config')
+            ->assertJsonFragment(['vector_stores' => $stores]);
+
+        // Leaving the field out keeps what is stored, rather than clearing it.
+        $this->putJson($url, ['agent_id' => 'agent_490bca14c956'])->assertOk();
+        $this->assertCount(2, AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT)->vector_stores);
+
+        // An empty list is how a host deliberately clears them.
+        $this->putJson($url, ['agent_id' => 'agent_490bca14c956', 'vector_stores' => []])->assertOk();
+        $this->assertSame([], AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT)->vector_stores);
+    }
+
+    #[Test]
+    public function the_same_store_added_twice_is_kept_once_so_it_cannot_be_half_on(): void
+    {
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => ['name' => 'Agent']]);
+            $mock->shouldReceive('retrieveVectorStore')->andReturn(['ok' => true, 'error' => null, 'store' => ['id' => 'vs_x']]);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+
+        $this->putJson('/api/v1/common/assistant-config/' . AiAssistantConfig::TYPE_WLP_SUPPORT, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => [
+                ['id' => 'vs_duplicate', 'enabled' => true],
+                ['id' => '', 'enabled' => true],
+                ['id' => 'vs_duplicate', 'enabled' => false],
+            ],
+        ])->assertOk();
+
+        // The first row wins; the blank row is dropped rather than refused, so
+        // an empty repeater row the host never filled in is not an error.
+        $this->assertSame(
+            [['id' => 'vs_duplicate', 'enabled' => true]],
+            AiAssistantConfig::find(AiAssistantConfig::TYPE_WLP_SUPPORT)->vector_stores
+        );
+    }
+
+    #[Test]
+    public function a_vector_store_openai_cannot_load_is_refused_rather_than_saved(): void
+    {
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => ['name' => 'Agent']]);
+            $mock->shouldReceive('retrieveVectorStore')->with('vs_typo')
+                ->andReturn(['ok' => false, 'store' => null, 'error' => 'OpenAI API error (404): No such vector store: vs_typo']);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+        $url = '/api/v1/common/assistant-config/' . AiAssistantConfig::TYPE_BORROWER_SUPPORT;
+
+        // Wrong prefix: an agent or file id pasted into the wrong field.
+        $this->putJson($url, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => [['id' => 'file_9SgkPtn1ygGMwJC9nC7G3o', 'enabled' => true]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['vector_stores.0.id']);
+
+        // Well-formed, but this key cannot reach it — caught here, not in chat.
+        $response = $this->putJson($url, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => [['id' => 'vs_typo', 'enabled' => true]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['vector_stores.0.id']);
+        $this->assertStringContainsString('No such vector store', json_encode($response->json()));
+
+        // A switched-off store is checked too: a typo parked today would
+        // otherwise only surface in front of a user when it is switched on.
+        $this->putJson($url, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => [['id' => 'vs_typo', 'enabled' => false]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['vector_stores.0.id']);
+
+        $this->assertSame([], AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT)->vector_stores);
+    }
+
+    #[Test]
+    public function settings_still_save_when_openai_cannot_be_reached_to_verify_them(): void
+    {
+        // A connection failure says nothing about whether the ids are right.
+        // Refusing on one would leave the host unable to save at all whenever
+        // the link to OpenAI is down — including to correct a bad id.
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $unreachable = ['ok' => false, 'unreachable' => true, 'error' => 'Could not reach OpenAI: cURL error 28: Connection timed out'];
+            $mock->shouldReceive('retrieveAgent')->andReturn($unreachable + ['agent' => null]);
+            $mock->shouldReceive('retrieveVectorStore')->andReturn($unreachable + ['store' => null]);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+
+        $response = $this->putJson('/api/v1/common/assistant-config/' . AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => [['id' => 'vs_knowledge', 'enabled' => true]],
+        ])->assertOk();
+
+        $config = AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+        $this->assertSame('agent_490bca14c956', $config->agent_id);
+        $this->assertSame(['vs_knowledge'], $config->enabledVectorStoreIds());
+
+        // Saved, but never silently: the host is told what went unverified.
+        $this->assertStringContainsString('could not be reached to verify', (string) $response->json('message'));
+    }
+
+    #[Test]
+    public function more_stores_than_an_assistant_may_hold_are_refused(): void
+    {
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => ['name' => 'Agent']]);
+            $mock->shouldReceive('retrieveVectorStore')->andReturn(['ok' => true, 'error' => null, 'store' => ['id' => 'vs_x']]);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+
+        $tooMany = [];
+        for ($i = 0; $i <= AiAssistantConfig::MAX_VECTOR_STORES; $i++) {
+            $tooMany[] = ['id' => 'vs_store' . $i, 'enabled' => true];
+        }
+
+        $this->putJson('/api/v1/common/assistant-config/' . AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
+            'agent_id' => 'agent_490bca14c956',
+            'vector_stores' => $tooMany,
+        ])->assertStatus(422)->assertJsonValidationErrors(['vector_stores']);
+
+        $this->assertSame([], AiAssistantConfig::find(AiAssistantConfig::TYPE_BORROWER_SUPPORT)->vector_stores);
+    }
+
+    #[Test]
+    public function the_screen_shows_the_vector_stores_the_saved_agent_itself_carries(): void
+    {
+        AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_WLP_SUPPORT, ['agent_id' => 'agent_wlp_test']);
+
+        $this->mock(OpenAiAgentsService::class, function ($mock) {
+            $mock->shouldReceive('retrieveAgent')->andReturn(['ok' => true, 'error' => null, 'agent' => [
+                'name' => 'FCH WLP Support Assistant',
+                'model' => 'gpt-6-astra',
+                'tools' => [
+                    ['type' => 'web_search'],
+                    ['type' => 'file_search', 'vector_store_ids' => ['vs_6abe0f46ad8c8191b55186af0a98a070']],
+                ],
+            ]]);
+        });
+
+        Passport::actingAs($this->hostUser, [], 'api');
+
+        // So a host can see at a glance when the platform agent and these
+        // settings point at different knowledge bases.
+        $this->getJson('/api/v1/common/assistant-config')
+            ->assertSuccessful()
+            ->assertJsonFragment(['agent_vector_store_ids' => ['vs_6abe0f46ad8c8191b55186af0a98a070']]);
+    }
+
+    #[Test]
     public function a_non_host_partner_cannot_change_an_assistants_agent(): void
     {
         Passport::actingAs($this->partnerUser, [], 'api');
