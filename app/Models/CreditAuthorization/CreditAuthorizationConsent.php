@@ -3,6 +3,7 @@
 namespace App\Models\CreditAuthorization;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Borrower\BorrowerCreditProfile;
 use App\Models\Borrower\CreditProfileRequest;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,6 +69,10 @@ class CreditAuthorizationConsent extends Model
 
     /** How the portal shows these times, e.g. "Sep 16, 2026 02:30 AM". */
     public const DISPLAY_FORMAT = 'M d, Y h:i A';
+
+    /** Where a client's credit request stands: waiting for a pull, or pulled. */
+    public const REQUEST_PENDING = 'pending';
+    public const REQUEST_COMPLETED = 'completed';
 
     /**
      * One client's authorisations as the screens read them, newest first.
@@ -137,10 +142,53 @@ class CreditAuthorizationConsent extends Model
         return [
             'last_pulled_at' => static::lastPulledForBorrower($borrowerId),
             'last_request' => $latest ? [
-                'status' => $latest->pulled_at ? 'completed' : 'pending',
+                'status' => $latest->pulled_at ? self::REQUEST_COMPLETED : self::REQUEST_PENDING,
                 'requested_at' => toTimezone($latest->consented_at, null, self::DISPLAY_FORMAT),
                 'pulled_at' => toTimezone($latest->pulled_at, null, self::DISPLAY_FORMAT),
             ] : null,
         ];
+    }
+
+    /**
+     * Whether each client's credit request is still waiting, for the admin list.
+     *
+     * The client's latest consent decides: "pending" until a pull is attached
+     * to it, "completed" after. A request from before consents were recorded
+     * has none, so it falls back to whether a credit profile has been saved for
+     * the client - that is the pull having run.
+     *
+     * Two queries for the whole page rather than two per row.
+     *
+     * @param  array<int, int>  $borrowerIds
+     * @return array<int, string>  'pending' | 'completed', keyed by borrower id
+     */
+    public static function requestStatusesForBorrowers(array $borrowerIds): array
+    {
+        $borrowerIds = array_values(array_unique(array_filter($borrowerIds)));
+        if ($borrowerIds === []) {
+            return [];
+        }
+
+        $latestPulled = static::whereIn('borrower_id', $borrowerIds)
+            ->orderByDesc('consented_at')
+            ->orderByDesc('id')
+            ->get(['borrower_id', 'pulled_at'])
+            ->unique('borrower_id')
+            ->mapWithKeys(fn (self $consent) => [$consent->borrower_id => $consent->pulled_at !== null]);
+
+        $withProfile = BorrowerCreditProfile::whereIn('borrower_id', $borrowerIds)
+            ->pluck('borrower_id')
+            ->flip();
+
+        $statuses = [];
+        foreach ($borrowerIds as $borrowerId) {
+            $pulled = $latestPulled->has($borrowerId)
+                ? $latestPulled->get($borrowerId)
+                : $withProfile->has($borrowerId);
+
+            $statuses[$borrowerId] = $pulled ? self::REQUEST_COMPLETED : self::REQUEST_PENDING;
+        }
+
+        return $statuses;
     }
 }

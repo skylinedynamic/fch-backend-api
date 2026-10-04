@@ -40,6 +40,16 @@ class CreditProfileRequestAdminController extends Controller
 
             $requests = $query->paginate($perPage);
 
+            // Whether each client is still waiting for their pull, so the list
+            // shows it without opening every row. Status only - the consent
+            // records behind it stay host-only on the details screen.
+            $statuses = CreditAuthorizationConsent::requestStatusesForBorrowers(
+                $requests->getCollection()->pluck('borrower_id')->all()
+            );
+            $requests->getCollection()->each(
+                fn ($row) => $row->setAttribute('request_status', $statuses[$row->borrower_id] ?? null)
+            );
+
             return ApiResponse::success($requests, __('credit_profile_request.retrieved_successfully'));
         } catch (\Exception $e) {
             Log::error(__('credit_profile_request.log_retrieval_failed', ['error' => $e->getMessage()]));
