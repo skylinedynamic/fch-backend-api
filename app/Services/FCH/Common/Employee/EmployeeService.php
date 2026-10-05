@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Employee;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
@@ -30,7 +31,6 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Mail\AccountCreateNotificationMail;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
-use Illuminate\Support\Facades\Mail;
 
 class EmployeeService
 {
@@ -586,7 +586,8 @@ class EmployeeService
         ];
 
         try {
-            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+            app(Notifier::class)->send($isUpdate ? 'user.account.login_updated' : 'user.account.created', $user,
+                mail: (new AccountCreateNotificationMail($data))->to($user->email));
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),

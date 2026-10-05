@@ -2,8 +2,8 @@
 
 namespace App\Mail\Payment;
 
+use App\Mail\Contracts\SendsImmediately;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
  use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
@@ -12,7 +12,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use App\Models\Partner\Partner;
 
-class PaymentSuccessUserMail extends Mailable implements ShouldQueue
+class PaymentSuccessUserMail extends Mailable implements SendsImmediately
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

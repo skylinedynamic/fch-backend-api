@@ -10,6 +10,7 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Subscription\Subscription;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use App\Services\FCH\Common\Notification\Sms\SmsRecipient;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -456,6 +457,18 @@ class User extends Authenticatable implements OAuthenticatable
     public function receivesBroadcastNotificationsOn(): string
     {
         return 'App.Models.User.' . $this->id;
+    }
+
+    /**
+     * Number for the `sms` notification channel: the borrower's, partner's or
+     * employee's phone with its country code, else this user's own
+     * (SmsRecipient). SmsSender normalises it to E.164 when sending. Not yet
+     * required to be verified - there is no phone verification flow. Null
+     * means this user gets no SMS, while bell and mail are unaffected.
+     */
+    public function routeNotificationForSms(): ?string
+    {
+        return app(SmsRecipient::class)->numberFor($this);
     }
 
     /**

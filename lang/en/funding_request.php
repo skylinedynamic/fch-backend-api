@@ -34,4 +34,10 @@ return [
     'id_exists' => 'The selected ID does not exist.',
     'status_required' => 'The status field is required.',
     'status_in' => 'The status must be Pending, Approved, or Rejected.',
+
+    'logs' => [
+        'dispatched_to_borrower' => 'FundingRequest #:id: Dispatched :mailable to borrower (:email)',
+        'dispatched_to_partner' => 'FundingRequest #:id: Dispatched :mailable to partner (:email, Partner ID: :partner_id)',
+        'dispatched_to_host' => 'FundingRequest #:id: Dispatched PartnerFundingRequestApproved notification copy to Host (:email)',
+    ],
 ];

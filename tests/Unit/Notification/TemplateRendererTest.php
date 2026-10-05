@@ -79,4 +79,31 @@ class TemplateRendererTest extends TestCase
 
         $this->assertSame('/funding-requests/1%2F..%2F..%2Fadmin%3Fx%3D1', $rendered->url);
     }
+
+    #[Test]
+    public function the_sms_text_is_filled_from_the_types_own_sms_template(): void
+    {
+        $rendered = (new TemplateRenderer())->render(
+            $this->type(['sms' => 'Request #{{id}}: {{status}}']),
+            ['id' => 42, 'status' => 'Approved']
+        );
+
+        $this->assertSame('Request #42: Approved', $rendered->sms);
+    }
+
+    #[Test]
+    public function without_an_sms_template_the_sms_text_is_the_title_and_body(): void
+    {
+        $rendered = (new TemplateRenderer())->render($this->type(), ['id' => 42, 'status' => 'Approved']);
+
+        $this->assertSame('Funding request Approved: Request #42 is now Approved.', $rendered->sms);
+    }
+
+    #[Test]
+    public function the_sms_text_is_never_part_of_the_stored_bell_payload(): void
+    {
+        $rendered = (new TemplateRenderer())->render($this->type(['sms' => 'x']), []);
+
+        $this->assertArrayNotHasKey('sms', $rendered->toArray());
+    }
 }

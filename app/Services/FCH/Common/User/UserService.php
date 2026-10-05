@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\User;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use App\Models\User\User;
 use App\Models\Common\Role;
@@ -18,7 +19,6 @@ use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use App\Models\ActivityLog\ActivityLog;
 use Spatie\Permission\PermissionRegistrar;
 use App\Services\Global\Datatable\QueryFilter;
@@ -516,7 +516,8 @@ class UserService
                 'partner_id' => $partnerId,
             ];
 
-            Mail::to($user->email)->send(new UserCreateNotificationMail($data));
+            app(Notifier::class)->send('user.account.created', $user,
+                mail: (new UserCreateNotificationMail($data))->to($user->email));
         } catch (Throwable $e) {
             Log::error('📧 UserCreateNotificationMail failed', [
                 'user_id' => $user->id ?? null,

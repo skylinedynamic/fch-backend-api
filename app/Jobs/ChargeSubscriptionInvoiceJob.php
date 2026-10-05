@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\CronJobFailureMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
@@ -21,7 +22,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ChargeSubscriptionInvoiceJob implements ShouldQueue
 {
@@ -308,13 +308,13 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
         if (!empty($emails)) {
             try {
-                Mail::to($emails)->send(new CronJobFailureMail([
+                app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail([
                     'job_name' => 'ChargeSubscriptionInvoiceJob (Database Queue)',
                     'error_message' => $reason,
                     'timestamp' => now()->toDateTimeString(),
                     'user_email' => $this->invoice->email ?? 'N/A',
                     'user_id' => $this->invoice->entity_id ?? 'N/A',
-                ]));
+                ]))->to($emails));
             } catch (\Exception $e) {
                 Log::error('[Queue AutoCharge] Failed to send failure notification email', ['error' => $e->getMessage()]);
             }

@@ -23,6 +23,7 @@ return [
         "code" => "USA",
         "currency" => "USD",
         "phone_code" => "+1",
+        "phone_national_length" => 10,
         "flag" => "🇺🇸.svg",
         "states" => [
             [
@@ -292,6 +293,7 @@ return [
         "code" => "CAN",
         "currency" => "CAD",
         "phone_code" => "+1",
+        "phone_national_length" => 10,
         "flag" => "🇨🇦.svg",
         "states" => [
             [

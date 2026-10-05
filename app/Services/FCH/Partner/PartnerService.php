@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Partner;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use Illuminate\Support\Str;
@@ -18,7 +19,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
@@ -33,6 +33,7 @@ use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
+use DateTimeInterface;
 
 class PartnerService
 {
@@ -54,7 +55,8 @@ class PartnerService
     private function sendTrialWelcomeEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.trial_started', $mailData['user'], ['date' => $this->trialDate($mailData)],
+                mail: (new PartnerTrialMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Exception $e) {
             Log::error(__('partner.log.trial_welcome_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
@@ -69,7 +71,8 @@ class PartnerService
     private function sendAccountUpdateEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.login_updated', $mailData['user'],
+                mail: (new PartnerAccountUpdateMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Exception $e) {
             Log::error(__('partner.log.account_update_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
@@ -84,13 +87,22 @@ class PartnerService
     private function sendTrialExpiryUpdatedEmail(array $mailData, ?int $hostPartnerId = null): void
     {
         try {
-            Mail::to($mailData['user']->email)->queue(new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.trial_extended', $mailData['user'], ['date' => $this->trialDate($mailData)],
+                mail: (new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Throwable $e) {
             Log::error(__('partner.log.trial_expiry_mail_failed'), [
                 'partner_id' => $mailData['partner_id'] ?? null,
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /** The trial end date as the bell shows it (the column may be cast to Carbon). */
+    private function trialDate(array $mailData): string
+    {
+        $date = $mailData['trial_end_date'] ?? null;
+
+        return $date instanceof DateTimeInterface ? $date->format('M j, Y') : ((string) $date ?: 'N/A');
     }
 
     /**

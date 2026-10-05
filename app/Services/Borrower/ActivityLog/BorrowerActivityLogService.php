@@ -2,8 +2,10 @@
 
 namespace App\Services\Borrower\ActivityLog;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
+use App\Mail\ActivityLog\ActivityLogMail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
@@ -477,30 +479,20 @@ class BorrowerActivityLogService
             $recipients = is_array($decoded) ? $decoded : array_map('trim', explode(',', $recipients));
         }
 
-        $subject = $data['subject'] ?? 'New Email from Activity Log';
-        $body = $data['description'] ?? '';
+        $emailData = [
+            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'body' => $data['description'] ?? '',
+        ];
 
         foreach ($recipients as $recipient) {
             if (empty($recipient))
                 continue;
 
-            Mail::send('emails.activity_log_mail', [
-                'subject' => $subject,
-                'body' => $body,
-                'attachments_count' => count($attachments),
-                'attachment_names' => $attachmentNames,
-            ], function ($message) use ($recipient, $subject, $attachments) {
-                $message->to($recipient)->subject($subject);
-
-                foreach ($attachments as $file) {
-                    if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-                        $message->attach($file->getRealPath(), [
-                            'as' => $file->getClientOriginalName(),
-                            'mime' => $file->getMimeType(),
-                        ]);
-                    }
-                }
-            });
+            // The same Mailable and template as the partner-portal activity log.
+            // This used a raw Mail::send(), which bypasses MailConfig and so had
+            // no tenant mailbox to send from.
+            app(Notifier::class)->send('activity_log.email',
+                mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
         }
     }
 

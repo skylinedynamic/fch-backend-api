@@ -18,11 +18,12 @@ final class NotificationTypeDefinition
         public readonly string $body,
         public readonly ?string $url,
         public readonly bool $isActive,
+        public readonly ?string $sms = null,
     ) {
     }
 
     /**
-     * @param array{name?: string, category?: string, icon?: ?string, channels?: array, title?: string, body?: string, url?: ?string, is_active?: bool} $definition
+     * @param array{name?: string, category?: string, icon?: ?string, channels?: array, title?: string, body?: string, url?: ?string, is_active?: bool, sms?: ?string} $definition
      */
     public static function fromArray(string $key, array $definition): self
     {
@@ -36,6 +37,7 @@ final class NotificationTypeDefinition
             body: (string) ($definition['body'] ?? ''),
             url: $definition['url'] ?? null,
             isActive: (bool) ($definition['is_active'] ?? true),
+            sms: isset($definition['sms']) ? (string) $definition['sms'] : null,
         );
     }
 }

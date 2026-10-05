@@ -32,6 +32,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FCH\Common\Notification\Notifier;
+use App\Mail\Borrower\DraftApplicationSentMail;
 
 class PartnerFundingApplicationController extends Controller   
 {
@@ -268,7 +270,12 @@ class PartnerFundingApplicationController extends Controller
 
             $fundingApp = FundingApplication::with('borrower')->find($federalCompliance->funding_application_id ?? $federalCompliance->id);
             if ($fundingApp && $fundingApp->borrower) {
-                \Illuminate\Support\Facades\Mail::to($fundingApp->borrower->email)->send(new \App\Mail\Borrower\DraftApplicationSentMail($fundingApp));
+                app(Notifier::class)->send(
+                    'borrower.funding_application.draft_ready',
+                    $fundingApp->borrower,
+                    ['id' => $fundingApp->funding_request_id],
+                    mail: (new DraftApplicationSentMail($fundingApp))->to($fundingApp->borrower->email)
+                );
             }
 
             return ApiResponse::success(

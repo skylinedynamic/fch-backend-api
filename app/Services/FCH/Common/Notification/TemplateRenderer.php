@@ -12,12 +12,17 @@ class TemplateRenderer
 
     public function render(NotificationTypeDefinition $type, array $data): RenderedNotification
     {
+        $title = $this->fill($type->title, $data);
+        $body = $this->fill($type->body, $data);
+
         return new RenderedNotification(
-            title: $this->fill($type->title, $data),
-            body: $this->fill($type->body, $data),
+            title: $title,
+            body: $body,
             url: $this->url($type->url, $data),
             icon: $type->icon,
             category: $type->category,
+            // A type without its own SMS wording is texted its bell text.
+            sms: $type->sms !== null ? $this->fill($type->sms, $data) : "{$title}: {$body}",
         );
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Funding;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\Borrower\Funding\FundingRequestResource;
 use App\Mail\FundingRequest\UnderwritingSubmitted;
 use App\Models\Funding\FundingSequencing;
@@ -12,7 +13,6 @@ use App\Traits\PaginatesApi;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\Borrower\Document\DocumentService;
@@ -102,25 +102,41 @@ class FundingRequestService
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
             
-            $emailsToNotify = [];
+            // Who is told: the host, and the borrower's own partner when that is
+            // not the host. Each gets the bell; the email goes to each distinct
+            // address, as before.
+            $toNotify = [];
+            $mailed = [];
 
-            if ($hostPartner && !empty($hostPartner->email)) {
-                $emailsToNotify[] = $hostPartner->email;
-            } else {
+            if ($hostPartner) {
+                $toNotify[] = $hostPartner;
+            }
+            if (!$hostPartner || empty($hostPartner->email)) {
                 Log::warning('UnderwritingSubmitted email not sent to host: No host partner found or email is empty.');
             }
 
-            if ($borrowerPartner && $borrowerPartner->is_host == 0 && !empty($borrowerPartner->email)) {
-                if (!in_array($borrowerPartner->email, $emailsToNotify)) {
-                    $emailsToNotify[] = $borrowerPartner->email;
-                }
+            if ($borrowerPartner && $borrowerPartner->is_host == 0) {
+                $toNotify[] = $borrowerPartner;
             }
 
-            foreach ($emailsToNotify as $email) {
-                Log::info("Attempting to send UnderwritingSubmitted email to {$email}.");
+            $bellData = [
+                'id' => $fundingRequest->id,
+                'borrower' => personName($borrower->first_name, $borrower->middle_name, $borrower->last_name),
+            ];
+
+            foreach ($toNotify as $recipient) {
+                $email = !empty($recipient->email) && !in_array($recipient->email, $mailed, true) ? $recipient->email : null;
+                $mailed[] = $email;
+
+                if ($email) {
+                    Log::info("Attempting to send UnderwritingSubmitted email to {$email}.");
+                }
                 try {
-                    Mail::to($email)->send(new UnderwritingSubmitted($fundingRequest));
-                    Log::info("UnderwritingSubmitted email sent successfully to {$email}.");
+                    app(Notifier::class)->send('partner.funding_request.submitted', $recipient, $bellData,
+                        mail: $email ? (new UnderwritingSubmitted($fundingRequest))->to($email) : null);
+                    if ($email) {
+                        Log::info("UnderwritingSubmitted email sent successfully to {$email}.");
+                    }
                 } catch (\Exception $e) {
                     Log::error("Failed to send UnderwritingSubmitted email to {$email}.", [
                         'error' => $e->getMessage(),

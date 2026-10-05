@@ -2,6 +2,7 @@
 
 namespace App\Mail\Appointment;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Models\Appointment\Appointment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -11,7 +12,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class AppointmentNotification extends Mailable
+class AppointmentNotification extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

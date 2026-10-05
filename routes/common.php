@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SmsConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
@@ -414,6 +415,15 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [EmailConfigurationController::class, 'store']);
                 Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
+
+            // SMS Configuration (host and white-label partners)
+            Route::prefix('sms-configuration')
+                ->middleware('permission:update sms configuration settings')
+                ->group(function () {
+                    Route::get('/', [SmsConfigurationController::class, 'index']);
+                    Route::post('/', [SmsConfigurationController::class, 'store']);
+                    Route::post('/test', [SmsConfigurationController::class, 'test'])->middleware('throttle:5,1');
+                });
 
             // Agreement templates
             Route::prefix('agreement-templates')->group(function () {

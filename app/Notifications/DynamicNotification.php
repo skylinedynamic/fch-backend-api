@@ -57,6 +57,11 @@ class DynamicNotification extends Notification implements ShouldQueue
         ]);
     }
 
+    public function toSms(object $notifiable): string
+    {
+        return $this->message->sms;
+    }
+
     public function broadcastType(): string
     {
         return $this->typeKey;

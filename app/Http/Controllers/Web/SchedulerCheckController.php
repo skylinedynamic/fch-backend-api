@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Controllers\Controller;
 use App\Mail\CronJobFailureMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class SchedulerCheckController extends Controller
 {
@@ -77,12 +77,12 @@ class SchedulerCheckController extends Controller
         }
 
         try {
-            Mail::to($emails)->send(new CronJobFailureMail([
+            app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail([
                 'job_name' => 'Scheduler Daily Check',
                 'error_message' => trim($errorMessage),
                 'timestamp' => now()->toDateTimeString(),
                 'stack_trace' => json_encode($details, JSON_PRETTY_PRINT),
-            ]));
+            ]))->to($emails));
             Log::warning('Scheduler check alert sent.', ['details' => $details]);
         } catch (\Throwable $e) {
             Log::error('Failed to send scheduler check alert: ' . $e->getMessage());

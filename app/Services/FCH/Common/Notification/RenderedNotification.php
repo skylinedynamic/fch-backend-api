@@ -14,6 +14,7 @@ final class RenderedNotification
         public readonly ?string $url,
         public readonly ?string $icon,
         public readonly string $category,
+        public readonly string $sms = '',
     ) {
     }
 

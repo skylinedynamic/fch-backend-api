@@ -18,6 +18,8 @@ use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Notification\Notifier;
+use App\Mail\Commission\CommissionPayoutMail;
 
 class CommissionService
 {
@@ -162,9 +164,15 @@ class CommissionService
                 'payout_date' => now(),
             ]);
 
-            if (isset($invoice) && isset($partner) && $partner->email) {
-                \Illuminate\Support\Facades\Mail::to($partner->email)
-                    ->send(new \App\Mail\Commission\CommissionPayoutMail($commission, $invoice, $data['note'] ?? null));
+            // Inside the transaction: the bell and the queued email both wait
+            // for the commit below, so a rolled-back payout announces nothing.
+            if (isset($invoice) && isset($partner)) {
+                app(Notifier::class)->send('partner.commission.paid', $partner, [
+                    'id' => $commission->id,
+                    'amount' => ($commission->currency ?: 'USD') . ' ' . number_format((float) $commission->partner_commission_amount, 2),
+                ], mail: $partner->email
+                    ? (new CommissionPayoutMail($commission, $invoice, $data['note'] ?? null))->to($partner->email)
+                    : null);
             }
 
             DB::commit();

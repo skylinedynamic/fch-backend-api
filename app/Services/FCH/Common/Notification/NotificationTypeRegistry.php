@@ -4,6 +4,8 @@ namespace App\Services\FCH\Common\Notification;
 
 use App\Models\Common\NotificationType;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Resolves a notification type key to its definition: the config catalogue
@@ -48,16 +50,28 @@ class NotificationTypeRegistry
     }
 
     /**
+     * An unreadable table yields no overrides (uncached, so the next call
+     * retries): every email passes through here, and a broken overrides table
+     * must cost the runtime overrides, not the emails.
+     *
      * @return array<string, array<string, mixed>>
      */
     private function overrides(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, fn () => NotificationType::query()
-            ->get()
-            ->keyBy('key')
-            ->map(fn (NotificationType $type) => $type->only([
-                'name', 'category', 'icon', 'channels', 'title_template', 'body_template', 'url_template', 'is_active',
-            ]))
-            ->all());
+        try {
+            return Cache::rememberForever(self::CACHE_KEY, fn () => NotificationType::query()
+                ->get()
+                ->keyBy('key')
+                ->map(fn (NotificationType $type) => $type->only([
+                    'name', 'category', 'icon', 'channels', 'title_template', 'body_template', 'url_template', 'is_active',
+                ]))
+                ->all());
+        } catch (Throwable $e) {
+            Log::error(__('notification.notifier.logs.overrides_unreadable'), [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
     }
 }
