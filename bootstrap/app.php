@@ -54,6 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_AWS_ELB,
         );
 
+        // Remember each user's browser timezone for work done outside a request.
+        $middleware->api(append: [
+            \App\Http\Middleware\RememberUserTimezone::class,
+        ]);
+
         $middleware->alias([
             'require-2fa' => \App\Http\Middleware\RequireTwoFactor::class,
             'check-2fa-status' => \App\Http\Middleware\CheckTwoFactorStatus::class,

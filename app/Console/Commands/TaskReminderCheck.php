@@ -24,8 +24,10 @@ class TaskReminderCheck extends Command
             ->chunkById(100, function ($reminders) {
                 foreach ($reminders as $reminder) {
                     if ($reminder->creator) {
-                        event(new \App\Events\ReminderDueEvent($reminder));
-                        $reminder->update(['status' => \App\Models\Common\Reminder::STATUS_SENT]);
+                        // Quietly, so marking it sent doesn't also push an
+                        // "updated" event on top of the due one.
+                        $reminder->forceFill(['status' => \App\Models\Common\Reminder::STATUS_SENT])->saveQuietly();
+                        app(\App\Services\FCH\Common\Reminder\ReminderBroadcaster::class)->due($reminder);
                     }
                 }
             });
