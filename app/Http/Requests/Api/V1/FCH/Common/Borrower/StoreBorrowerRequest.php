@@ -5,6 +5,8 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
+use App\Rules\BusinessEin;
+use App\Rules\DunsNumber;
 use App\Rules\UsPostalCode;
 
 class StoreBorrowerRequest extends BaseApiRequest
@@ -40,7 +42,7 @@ class StoreBorrowerRequest extends BaseApiRequest
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],
-            'business_ein'         => ['nullable', 'string', 'max:255'],
+            'business_ein'         => ['nullable', 'string', new BusinessEin()],
             'business_website'     => ['nullable', 'max:255'],
             'business_address'     => ['nullable', 'string', 'max:255'],
             'business_country'     => ['required', 'string', 'max:255'],
@@ -55,7 +57,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_industry_type' => ['nullable', 'string', 'max:255'],
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_start_date'  => ['nullable'],
-            'duns_number'          => ['nullable', 'string', 'max:255'],
+            'duns_number'          => ['nullable', 'string', new DunsNumber()],
             'state_file_number'    => ['nullable', 'string', 'max:255'],
 
             // ── Other ───────────────────────────────────────────────────────

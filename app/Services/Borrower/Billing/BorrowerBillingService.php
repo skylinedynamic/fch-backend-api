@@ -186,9 +186,7 @@ class BorrowerBillingService
                 $partnerProvider = PartnerPaymentProvider::where('partner_id', $partnerId)
                     ->where('payment_provider_id', $p->id)
                     ->first();
-                if ($partnerProvider && is_array($partnerProvider->configuration)) {
-                    $pubKey = $partnerProvider->configuration['publishable_key'] ?? $partnerProvider->configuration['public_key'] ?? null;
-                }
+                $pubKey = $partnerProvider?->publishableKey();
             }
 
             return [
@@ -229,9 +227,9 @@ class BorrowerBillingService
 
         if ($isStripe) {
             $partnerId = $borrower->partner_id ?? Partner::host()?->id;
-            if ($partnerId) {
-                app(Payment::class)->configureStripeForPartner($partnerId);
-            }
+            $paymentMode = $partnerId
+                ? app(Payment::class)->configureStripeForPartner($partnerId)->payment_mode
+                : null;
 
             $paymentMethodId = $data['payment_method_id'] ?? null;
             $existingCustomerData = $borrower->stripe_customer_id;
@@ -245,7 +243,8 @@ class BorrowerBillingService
                     $stripeCustId = $customerService->resolveCustomer(
                         $borrower->email,
                         $borrower->full_name ?? 'Borrower',
-                        $existingCustomerData
+                        $existingCustomerData,
+                        $paymentMode
                     );
                     $customerService->setDefaultPaymentMethod($stripeCustId, $paymentMethodId);
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
@@ -268,6 +267,7 @@ class BorrowerBillingService
                     'customer_id' => $stripeCustId,
                     'name' => $cardDetails['name'],
                     'card_no' => $cardDetails['card_no'],
+                    'payment_mode' => $paymentMode,
                 ] : null,
             ]);
         } else {

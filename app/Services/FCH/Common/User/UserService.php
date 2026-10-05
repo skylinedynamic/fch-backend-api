@@ -26,6 +26,7 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Services\Global\Notification\Mail\UserCreateNotificationMail;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
+use App\Services\Global\Account\EmailChangeService;
 
 use function Illuminate\Support\months;
 
@@ -41,6 +42,7 @@ class UserService
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
         protected SubscriptionCreationService $subscriptionCreationService,
+        protected EmailChangeService $emailChange,
     ) {
     }
 
@@ -376,7 +378,10 @@ class UserService
 
 
         try {
-            $emailChanged = isset($data['email']) && $user->email !== $data['email'];
+            // A new sign-in email is confirmed from the new address before it
+            // takes effect (and no longer resets the password).
+            $newEmail = $this->emailChange->takeFrom($data, $user, $user->email);
+
             $passwordUpdated = false;
             $plainPassword = null;
 
@@ -385,15 +390,21 @@ class UserService
                 $data['password'] = Hash::make($plainPassword);
                 $passwordUpdated = true;
                 Log::info('🔑 Password explicitly updated for User', ['user_id' => $user->id]);
-            } elseif ($emailChanged) {
-                $plainPassword = bin2hex(random_bytes(4));
-                $data['password'] = Hash::make($plainPassword);
-                $passwordUpdated = true;
-                Log::info('🔑 Password reset for User due to email change', ['user_id' => $user->id]);
             }
 
             $oldStatus = $user->status;
-            $user->update($data);
+
+            // A login account linked to an employee is the same person, so the
+            // details both records hold (name, email, phone) move together —
+            // in one transaction, so the two can't end up disagreeing.
+            DB::transaction(function () use ($user, $data) {
+                $user->update($data);
+
+                if ($user->wasChanged(['name', 'email', 'phone_number'])
+                    && ($employee = $user->entity) instanceof Employee) {
+                    $employee->syncFromUser($user);
+                }
+            });
 
             // Sync user login status if user status changed to inactive
             if ($user->status !== $oldStatus && $user->status === User::STATUS['inactive']) {
@@ -410,13 +421,14 @@ class UserService
                 ActivityLog::LOG_TYPE_USER_UPDATE
             );
 
-            // 📧 Send update notification if password or email changed
-            if ($passwordUpdated || $emailChanged) {
-                $subject = $emailChanged
-                    ? __('common.email_changed_subject')
-                    : __('common.password_updated_subject');
+            // 📧 Send update notification if the password was changed
+            if ($passwordUpdated) {
                 $partner = $user->partner ?: Partner::where('is_host', 1)->first();
-                $this->sendCreatedMail($user, $partner, $plainPassword, $subject);
+                $this->sendCreatedMail($user, $partner, $plainPassword, __('common.password_updated_subject'));
+            }
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
             }
 
             return $user;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\FCH\Common\Commission;
 
+use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -58,6 +59,11 @@ class CommissionDetailsResource extends JsonResource
             'partner_email' => $this->partner?->email,
             'partner_phone_number' => $this->partner?->phone_number,
             'partner_type' => $this->partner?->partner_type,
+            'partner_logo' => $this->partner?->partner_image ? url(encodeUrl($this->partner->partner_image)) : null,
+
+            // What the client's assigned user earns from the deal — clients of
+            // the host partner only, otherwise null.
+            'payout' => app(CommissionPayoutService::class)->forCommission($this->resource),
         ];
     }
 }

@@ -16,7 +16,7 @@ class EmployeeResource extends JsonResource
         return [
             'id' => $this->id,
 
-            'full_name' => trim(($this->first_name ?? '').' '.($this->last_name ?? '')),
+            'full_name' => $this->full_name,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,
 
@@ -57,6 +57,8 @@ class EmployeeResource extends JsonResource
                     'id' => $this->user->id,
                     'name' => $this->user->name,
                     'email' => $this->user->email,
+                    // A new sign-in email awaiting confirmation from that address.
+                    'pending_email' => $this->user->pending_email,
                     'phone_number' => $this->user->phone_number,
                     'user_type' => $this->user->user_type,
                     'created_at' => $this->user->created_at?->format('Y-m-d H:i:s'),

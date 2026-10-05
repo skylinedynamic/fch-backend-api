@@ -1,6 +1,15 @@
 <?php
 
 return [
+    // In-app notification inbox (bell / notifications page)
+    'inbox' => [
+        'fetched' => 'Notifications fetched successfully',
+        'marked_read' => 'Notification marked as read',
+        'marked_all_read' => 'All notifications marked as read',
+        'deleted' => 'Notification deleted',
+        'not_found' => 'Notification not found',
+    ],
+
     // Common reusable strings
     'greeting_hello_name' => 'Hello :name,',
     'salutation_best_regards_team' => 'Best regards,<br>:appName Team',

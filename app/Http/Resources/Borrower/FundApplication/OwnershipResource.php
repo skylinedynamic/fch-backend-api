@@ -20,6 +20,7 @@ class OwnershipResource extends JsonResource
 
         if ($owner) {
             $firstName = $owner->first_name;
+            $middleName = $owner->middle_name;
             $lastName = $owner->last_name;
             $email = $owner->email;
             $mobilePhone = $owner->mobile_phone;
@@ -35,6 +36,7 @@ class OwnershipResource extends JsonResource
             $ownershipPct = $owner->ownership_percentage;
         } else {
             $firstName = $this->first_name ?? $borrower?->first_name ?? null;
+            $middleName = $this->middle_name ?? $borrower?->middle_name ?? null;
             $lastName = $this->last_name ?? $borrower?->last_name ?? null;
             $email = $borrower?->email ?? null;
             $mobilePhone = $this->phone_number ?? $borrower?->phone_number ?? null;
@@ -68,7 +70,7 @@ class OwnershipResource extends JsonResource
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
             'first_name' => $firstName,
-            'middle_name' => $firstName,
+            'middle_name' => $middleName,
             'last_name' => $lastName,
             'email' => $email,
             'phone_number' => $mobilePhone ?? $homePhone,

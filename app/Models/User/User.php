@@ -41,6 +41,10 @@ class User extends Authenticatable implements OAuthenticatable
     protected $fillable = [
         'name',
         'email',
+        'pending_email',
+        'pending_email_requested_at',
+        'previous_email',
+        'email_changed_at',
         'phone_number',
         'image',
         'phone_verified_at',
@@ -74,6 +78,8 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'pending_email_requested_at' => 'datetime',
+            'email_changed_at' => 'datetime',
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
             'is_paid' => 'boolean',
@@ -446,6 +452,16 @@ class User extends Authenticatable implements OAuthenticatable
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'entity_id');
+    }
+
+    /**
+     * Private channel for broadcast notifications. Laravel's default would be
+     * "App.Models.User.User.{id}" (from this class's namespace); keep it on the
+     * channel authorized in routes/channels.php that the portals subscribe to.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.User.' . $this->id;
     }
 
     /**

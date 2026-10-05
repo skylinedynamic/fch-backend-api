@@ -233,9 +233,9 @@ class MySubscriptionService
 
         if ($isStripe) {
             $hostPartnerId = Partner::host()?->id;
-            if ($hostPartnerId) {
-                app(Payment::class)->configureStripeForPartner($hostPartnerId);
-            }
+            $paymentMode = $hostPartnerId
+                ? app(Payment::class)->configureStripeForPartner($hostPartnerId)->payment_mode
+                : null;
 
             $paymentMethodId = $data['payment_method_id'] ?? null;
             $existingCustomerData = $partner->stripe_customer_id;
@@ -249,7 +249,8 @@ class MySubscriptionService
                     $stripeCustId = $customerService->resolveCustomer(
                         $partner->email,
                         $partner->full_name ?? 'Partner',
-                        $existingCustomerData
+                        $existingCustomerData,
+                        $paymentMode
                     );
                     $customerService->setDefaultPaymentMethod($stripeCustId, $paymentMethodId);
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
@@ -272,6 +273,7 @@ class MySubscriptionService
                     'customer_id' => $stripeCustId,
                     'name' => $cardDetails['name'],
                     'card_no' => $cardDetails['card_no'],
+                    'payment_mode' => $paymentMode,
                 ] : null,
             ]);
         } else {

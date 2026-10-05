@@ -56,13 +56,13 @@ class PaymentMethodService
                 $publishableKey = null;
                 $bankDetails = [];
 
-                $rawMode = $partnerProvider?->payment_mode ?? ($partnerProvider?->configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
-                $environment = strtolower(trim((string) $rawMode));
+                // The browser tokenizes the card with this key, and the server later
+                // charges it with the secret key from the same linkage. Both sides
+                // must resolve the mode identically or the token is unusable.
+                $environment = $partnerProvider?->paymentMode() ?? PaymentProvider::MODE_SANDBOX;
 
                 if ($provider->name === PaymentProvider::STRIPE && $partnerProvider) {
-                    $config = $partnerProvider->configuration ?? [];
-                    $envConfig = $config[$environment] ?? $config;
-                    $publishableKey = $envConfig['publishable_key'] ?? ($config['stripe_key_' . $environment] ?? null);
+                    $publishableKey = $partnerProvider->publishableKey();
                 }
 
                 if ($provider->name === PaymentProvider::BANK_TRANSFER && $partnerProvider) {

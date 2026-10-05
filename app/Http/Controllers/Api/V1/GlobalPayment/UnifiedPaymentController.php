@@ -121,11 +121,8 @@ class UnifiedPaymentController extends Controller
             throw new Exception("Stripe provider is not configured or active for this partner.");
         }
 
-        $config = $partnerProvider->configuration ?? [];
-        $environment = $partnerProvider->payment_mode ?? ($config['payment_mode'] ?? PaymentProvider::MODE_SANDBOX);
-        $envConfig = $config[$environment] ?? $config;
-
-        $secretKey = $envConfig['secret_key'] ?? ($config['stripe_secret_' . $environment] ?? null);
+        $environment = $partnerProvider->paymentMode();
+        $secretKey = $partnerProvider->secretKey();
 
         if (!$secretKey) {
             throw new Exception("Stripe secret key not configured for " . $environment . " mode.");

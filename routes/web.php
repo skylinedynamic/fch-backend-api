@@ -17,6 +17,7 @@ Route::get('/form/{key}', [EmbedFormPageController::class, 'show'])->name('embed
 
 
 
+
 Route::get("/login", [AuthController::class, "showLoginForm"])->name("login");
 Route::post("/login", [AuthController::class, "login"]);
 Route::post("/logout", [AuthController::class, "logout"])->name("logout");

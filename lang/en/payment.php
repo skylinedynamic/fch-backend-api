@@ -19,6 +19,7 @@ return [
     'unauthorized_payment_attempt' => 'Unauthorized invoice payment attempt.',
     'bank_account_required' => 'Please select a bank account to proceed with bank transfer.',
     'charge_failed' => 'Payment charge failed via :provider.',
+    'charge_requires_authentication' => 'This card requires verification from your bank, which is not supported yet. Please try a different card.',
     'gateway' => 'gateway',
     'invoice_payment_description' => 'Payment for invoice #:invoice_id',
     'stripe_provider_not_found' => 'Stripe payment provider not found.',

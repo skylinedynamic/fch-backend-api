@@ -97,5 +97,6 @@ return [
     // Logs
     'log_store_failed' => 'EmbedFormService::storeSubmission failed',
     'log_notification_failed' => 'Failed to send embed form notification email',
+    'log_notification_skipped_no_mail_config' => 'Embed form notification skipped: white-label partner has no usable mail configuration of its own',
     'log_conversion_failed' => 'Embed form submission to free trial borrower conversion failed',
 ];

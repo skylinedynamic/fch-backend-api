@@ -20,6 +20,8 @@ class BorrowerDetailsResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user?->id,
+            // A new sign-in email awaiting confirmation from that address.
+            'pending_email' => $this->user?->pending_email,
             'signup_id' => $this->signup_id,
             'first_name' => $this->first_name,
             'middle_name' => $this->middle_name,

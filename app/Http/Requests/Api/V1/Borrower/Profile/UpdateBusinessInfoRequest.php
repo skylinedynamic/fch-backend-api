@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\BusinessEin;
 use App\Rules\UsPostalCode;
 
 class UpdateBusinessInfoRequest extends BaseApiRequest
@@ -21,11 +22,23 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
+    /**
+     * An EIN is nine digits; the hyphen is only how it is written. Reducing it
+     * here means the column holds one form whichever way the caller sent it,
+     * and that the rule below checks the number rather than the writing.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::normalize($this->input('business_ein'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'business_name' => 'required|string|max:255',
-            'business_ein' => 'required|string|size:10',
+            'business_ein' => ['required', new BusinessEin()],
             'business_phone' => 'nullable|string|max:20',
             'business_email' => 'required|email|max:255',
             'duns_number' => 'nullable|string|size:9',

@@ -29,6 +29,12 @@ trait MailConfig
     protected ?int $mailPartnerId = null;
 
     /**
+     * Rethrow a transport refusal even though this mailable isn't queued - for
+     * a sender that retries the send itself (see EmailChangeService).
+     */
+    protected bool $rethrowTransportFailures = false;
+
+    /**
      * Transports that carry no credentials and address no one.
      *
      * `log` and `array` are how local work and the test suite avoid sending
@@ -217,13 +223,15 @@ trait MailConfig
             // response, and swallowing it here is what turned a "too many
             // emails per second" into two permanently lost payment
             // confirmations - the queue saw the job succeed and never retried.
+            $willRetry = $this instanceof ShouldQueue || $this->rethrowTransportFailures;
+
             Log::warning('MailConfig: transport refused ' . static::class, [
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
-                'will_retry' => $this instanceof ShouldQueue,
+                'will_retry' => $willRetry,
             ]);
 
-            if ($this instanceof ShouldQueue) {
+            if ($willRetry) {
                 // Back to the queue, to be retried per backoff()/retryUntil().
                 // A permanent refusal (bad credentials, say) exhausts the window
                 // and lands in failed_jobs, which is still the better outcome:

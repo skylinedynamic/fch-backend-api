@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 class FundingRequestService
 {
@@ -275,6 +276,14 @@ class FundingRequestService
                 }
             }
 
+            // --- 4. IN-APP NOTIFICATIONS (bell, real-time) ---
+            $notifier = app(Notifier::class);
+            $notificationData = ['id' => $review->id, 'status' => $data['status']];
+            $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData);
+            if ($isNonHostPartner) {
+                $notifier->send('partner.funding_request.status_changed', $partner, $notificationData);
+            }
+
             // In-platform activity notification for borrower
             if ($data['status'] === FundingRequest::STATUS_APPROVED) {
                 app(ActivityLogService::class)->logSystemEvent(
@@ -286,12 +295,13 @@ class FundingRequestService
                     "Your funding request has been approved. Please proceed to complete your funding application.",
                     'notification',
                     [
-                        'is_internal' => false, 
+                        'is_internal' => false,
                         'visible_to_borrower' => true,
                         'email_sent' => !empty($borrowerEmail),
                         'approval_time' => Carbon::now()->toDateTimeString(),
                         'email_delivery_status' => 'Dispatched'
-                    ]
+                    ],
+                    ActivityLog::VISIBILITY_EVERYONE
                 );
             }
         }
@@ -355,7 +365,8 @@ class FundingRequestService
             [
                 'lender_ids' => $review->lender_ids,
                 'is_internal' => true
-            ]
+            ],
+            ActivityLog::VISIBILITY_INTERNAL
         );
 
         return ApiResponse::success($review, "Lenders assigned successfully");

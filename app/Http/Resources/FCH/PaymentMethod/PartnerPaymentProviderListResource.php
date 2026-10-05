@@ -23,20 +23,13 @@ class PartnerPaymentProviderListResource extends JsonResource
     public function toArray(Request $request): array
     {
         $linkage = $this->linkage ?? null;
-        $configuration = $linkage ? ($linkage->configuration ?? []) : [];
-        if (is_object($configuration)) {
-            $configuration = (array) $configuration;
-        }
-        $paymentMode = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+        $configuration = $linkage ? $linkage->configurationArray() : [];
+        $paymentMode = $linkage ? $linkage->paymentMode() : PaymentProvider::MODE_SANDBOX;
 
         $pubKey = null;
         if ($this->name === PaymentProvider::STRIPE) {
-            if (is_array($configuration)) {
-                $pubKey = $configuration[$paymentMode]['publishable_key']
-                    ?? $configuration['publishable_key']
-                    ?? $configuration['public_key']
-                    ?? null;
-            }
+            $pubKey = $linkage?->publishableKey();
+
             if (!$pubKey && $request->user()) {
                 $partnerId = $linkage?->partner_id ?? $request->user()->partner_id;
                 if (!$partnerId && $request->user()->entity_type === Borrower::class) {
@@ -46,18 +39,10 @@ class PartnerPaymentProviderListResource extends JsonResource
                     $partnerId = Partner::host()?->id;
                 }
                 if ($partnerId) {
-                    $providerConfig = PartnerPaymentProvider::where('partner_id', $partnerId)
+                    $pubKey = PartnerPaymentProvider::where('partner_id', $partnerId)
                         ->where('payment_provider_id', $this->id)
                         ->where('status', true)
-                        ->first()?->configuration ?? [];
-                    if (is_object($providerConfig)) {
-                        $providerConfig = (array) $providerConfig;
-                    }
-                    $mode = $providerConfig['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
-                    $pubKey = $providerConfig[$mode]['publishable_key']
-                        ?? $providerConfig['publishable_key']
-                        ?? $providerConfig['public_key']
-                        ?? null;
+                        ->first()?->publishableKey();
                 }
             }
         }
@@ -70,7 +55,7 @@ class PartnerPaymentProviderListResource extends JsonResource
             'logo'            => $this->logo ? encodeUrl(asset($this->logo)) : null,
             'status'          => $linkage ? (bool) $linkage->status : false,
             'is_default'      => $linkage ? (bool) $linkage->is_default : false,
-            'is_configured'   => $linkage ? (!empty($linkage->configuration)) : false,
+            'is_configured'   => !empty($configuration),
             'payment_mode'    => $paymentMode,
             'publishable_key' => $pubKey,
         ];

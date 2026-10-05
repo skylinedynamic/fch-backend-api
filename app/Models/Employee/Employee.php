@@ -2,10 +2,12 @@
 
 namespace App\Models\Employee;
 
+use App\Models\Compensation\CompensationSetting;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
@@ -60,11 +62,41 @@ class Employee extends Model
     }
 
     /**
-     * 🔹 Full name accessor.
+     * 🔹 Relationship: compensation rows — one for Hourly/Salary, one per
+     * applicable service for Per Deal.
+     */
+    public function compensations(): MorphMany
+    {
+        return $this->morphMany(CompensationSetting::class, 'entity');
+    }
+
+    /**
+     * Copy the details this employee shares with its login account (name,
+     * email, phone) from that account, so editing either record keeps the
+     * other in step. Only fields that differ are written.
+     *
+     * first_name holds the employee's whole name; last_name is a legacy column
+     * that's no longer read or written.
+     */
+    public function syncFromUser(User $user): void
+    {
+        $this->fill([
+            'first_name' => $user->name,
+            'email' => $user->email,
+            'phone_number_1' => $user->phone_number,
+        ]);
+
+        if ($this->isDirty()) {
+            $this->save();
+        }
+    }
+
+    /**
+     * 🔹 Full name accessor — first_name holds the whole name (last_name is legacy).
      */
     public function getFullNameAttribute(): string
     {
-        return trim("{$this->first_name} {$this->last_name}");
+        return trim((string) $this->first_name);
     }
 
     /**
@@ -80,8 +112,6 @@ class Employee extends Model
 
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'like', "%{$search}%")
-                ->orWhere('last_name', 'like', "%{$search}%")
-                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
                 ->orWhere('email', 'like', "%{$search}%")
                 ->orWhere('phone_number_1', 'like', "%{$search}%")
                 ->orWhere('department', 'like', "%{$search}%")

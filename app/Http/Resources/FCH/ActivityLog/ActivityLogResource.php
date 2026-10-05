@@ -129,7 +129,7 @@ class ActivityLogResource extends JsonResource
             $remindAt = $toDisplay($props['remind_at'] ?? null);
         }
 
-        $isEdited = (bool) ($this->created_at && $this->updated_at && $this->created_at->diffInSeconds($this->updated_at) > 1);
+        $isEdited = (bool) ($props['is_edited'] ?? false);
 
         return [
             'id'            => $this->id,
@@ -156,6 +156,10 @@ class ActivityLogResource extends JsonResource
             'attachments'       => $this->properties['attachments']['files'] ?? [],
             'attachments_count' => $this->properties['attachments']['count'] ?? 0,
             'status'            => $this->status,
+            // Visibility
+            'visibility'          => $this->visibility,
+            'visibility_label'    => \App\Models\ActivityLog\ActivityLog::VISIBILITY_LABELS[$this->visibility] ?? ucfirst((string) $this->visibility),
+            'can_edit_visibility' => $this->resource->canChangeVisibilityBy($request->user()),
             // Reminder fields
             'remind_me'            => $remindMe,
             'remind_at'            => $remindAt,
@@ -181,11 +185,13 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->causer->id,
                 'name' => $this->causer->name,
             ] : null),
+            'is_owner'      => $this->resource->isOwnedBy($request->user()),
             // Edit/delete are offered only on your own manual activity entries;
             // the API enforces the same rule.
             'can_edit'      => $this->resource->isEditableBy($request->user()),
             'can_delete'    => $this->resource->isEditableBy($request->user()),
             'is_edited'     => $isEdited,
+            'edited_at'     => !empty($props['edited_at']) ? toTimezone($props['edited_at'], null, 'Y-m-d H:i:s') : toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
             'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];

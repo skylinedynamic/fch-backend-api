@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1\Borrower\Profile;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\Borrower\Profile\RequestCreditProfileUpdateRequest;
 use App\Http\Resources\Borrower\Profile\BorrowerCreditProfileResource;
+use App\Services\Borrower\Profile\CreditAuthorizationConsentService;
 use App\Mail\Borrower\UpdateCreditProfileRequestMail;
 use App\Models\Borrower\BorrowerCreditProfile;
 use App\Models\Borrower\CreditProfileRequest;
@@ -44,7 +46,7 @@ class BorrowerCreditProfileController extends Controller
             return ApiResponse::error($e->getMessage(), 500);
         }
     }
-    public function requestUpdate($id): JsonResponse
+    public function requestUpdate(RequestCreditProfileUpdateRequest $request, $id): JsonResponse
     {
         try {
             $user = Auth::user();
@@ -59,6 +61,14 @@ class BorrowerCreditProfileController extends Controller
             if (!$creditProfile) {
                 return ApiResponse::error(__('credit_profile_request.credit_profile_not_found'), 404);
             }
+
+            // An update is a new pull, so it gets its own evidence row. No
+            // credit_profile_requests row is created here, which is why the
+            // consent records that link as nullable.
+            app(CreditAuthorizationConsentService::class)->record(
+                (int) $user->entity_id,
+                $request
+            );
 
             // Fetch host partner and send them the update request email.
             // Catch \Throwable (not \Exception - a \TypeError from a misconfigured

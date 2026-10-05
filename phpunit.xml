@@ -10,7 +10,16 @@
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        <!-- Feature: boots the framework and may touch the database. -->
+        <!-- Integration: several real components wired together against a real
+             database - services, jobs, models, gateway drivers - entered
+             directly rather than through a route. Nothing under test is mocked;
+             only the outside world is (Stripe's HTTP layer, mail). -->
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+        <!-- Feature: entered through an HTTP route, so it exercises the
+             middleware, guards, controller and resource as a request really
+             would. -->
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
@@ -36,6 +45,9 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- No real mail server to rate-limit here, so no pause between sends. -->
+        <env name="MAIL_SEND_GAP_MS" value="0"/>
+        <env name="MAIL_SEND_RETRY_DELAYS_MS" value="0,0,0"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

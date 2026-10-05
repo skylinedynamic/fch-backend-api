@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
 use App\Services\FCH\Common\Tier\TierService;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Services\Borrower\Profile\CreditAuthorizationConsentService;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
@@ -118,6 +119,9 @@ class BorrowerController extends Controller
                 new BorrowerDetailsResource($updatedBorrower),
                 __('borrower.updated')
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // e.g. the new email is already taken — the form needs to show why.
+            throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
         }
@@ -628,6 +632,8 @@ class BorrowerController extends Controller
                 'inquiries' => 'nullable|array',
                 'pdf_url' => 'nullable|string',
                 'document_id' => 'nullable|integer|exists:borrower_documents,id',
+                // Optional: ties this pull to the consent that authorised it.
+                'isoftpull_transaction_id' => 'nullable|string|max:191',
             ]);
 
             $borrowerId = (int) $request->input('borrower_id');
@@ -764,6 +770,34 @@ class BorrowerController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+
+            // The pull this borrower authorised has now happened, so tie it to
+            // the consent behind it: `pulled_at`, plus the iSoftPull transaction
+            // id when one was supplied. Only ever adds - `consented_at` stays as
+            // it was, because when the client agreed is the fact being proved.
+            //
+            // After the commit and in its own try/catch on purpose: a missing
+            // consent must be visible in the log, not silently roll back a credit
+            // profile that was saved correctly.
+            try {
+                $consentService = app(CreditAuthorizationConsentService::class);
+                $consent = $consentService->latestUnattached($borrowerId);
+
+                if ($consent) {
+                    $consentService->attachPull($consent, $request->input('isoftpull_transaction_id'));
+                } else {
+                    // Worth knowing about: a profile was saved with no unused
+                    // authorisation on file to attribute it to.
+                    Log::warning(__('credit_profile_request.log_no_consent_to_attach', [
+                        'borrower_id' => $borrowerId,
+                    ]));
+                }
+            } catch (\Throwable $consentException) {
+                Log::error(__('credit_profile_request.log_attach_consent_failed', [
+                    'borrower_id' => $borrowerId,
+                    'error' => $consentException->getMessage(),
+                ]));
+            }
 
             return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
 
