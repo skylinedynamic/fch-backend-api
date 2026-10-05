@@ -109,4 +109,5 @@ class DatabaseSeeder extends Seeder
 
 
 // php artisan db:seed --class=SmsConfigurationPermissionSeeder
+// php artisan db:seed --class=LinkUsersToEmployeesSeeder
 
