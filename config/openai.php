@@ -114,6 +114,39 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | File Search
+    |--------------------------------------------------------------------------
+    |
+    | How many knowledge-base chunks the support assistants may retrieve per
+    | search, and whether searching is compulsory. The vector stores themselves
+    | are chosen per assistant in Settings > OpenAI Configuration; these two
+    | dials apply to both assistants and are set here, not in .env.
+    |
+    | Retrieving too few chunks is the usual cause of a confident but wrong
+    | answer: the passage holding the answer is in the store, but never reaches
+    | the model. Raising this costs input tokens and some latency on every
+    | message, so it is a dial, not a free win.
+    |
+    */
+
+    'file_search' => [
+        'max_num_results' => 20,
+
+        /*
+        | When true, an assistant with a vector store configured must search it
+        | before it is allowed to answer, rather than deciding for itself
+        | whether the question is worth a lookup. Left to the model, a question
+        | it "already knows" is answered from training data — fluent, confident
+        | and not from the approved files.
+        |
+        | The cost is a search on every message, including "hello". Set to
+        | false to hand the decision back to the model.
+        */
+        'force' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Retries
     |--------------------------------------------------------------------------
     |

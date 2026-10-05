@@ -11,117 +11,80 @@ use Tests\TestCase;
 
 /**
  * OpenAiAgentsService against a faked OpenAI: the request it sends for a chat
- * turn (the saved agent's id and the conversation — nothing else), and how it
- * reads the answer back.
+ * turn, and how it reads the answer back.
+ *
+ * A turn is two calls. The saved agent is read from the Agents API for its
+ * wording, model and reasoning; the turn itself runs on the Responses API,
+ * because file_search is a Responses API tool and an Agents session rejects
+ * it outright. Both halves are asserted here.
  */
 class OpenAiAgentsServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const SESSIONS = 'https://api.openai.com/v1/agents/sessions';
+    private const RESPONSES = 'https://api.openai.com/v1/responses';
+    private const AGENTS = 'https://api.openai.com/v1/agents';
 
-    protected function setUp(): void
+    private const SAVED_AGENT = [
+        'id' => 'agent_abc',
+        'model' => 'gpt-6-astra',
+        'instructions' => 'Be helpful.',
+    ];
+
+    /**
+     * Fakes both halves of a turn: the agent read, then the Responses call.
+     *
+     * @param array $output The Responses API `output` items.
+     */
+    private function fakeTurn(array $output, array $agent = self::SAVED_AGENT, array $response = []): void
     {
-        parent::setUp();
-
-        // The session delete is deferred until after the response in real
-        // requests; run it inline here so it can be asserted.
-        $this->withoutDefer();
-    }
-
-    /** A streamed (server-sent events) turn, as the Agents API returns it for stream: true. */
-    private function sse(array $events): string
-    {
-        return implode('', array_map(
-            fn (array $e) => "event: {$e['type']}\ndata: " . json_encode($e) . "\n\n",
-            $events
-        ));
-    }
-
-    #[Test]
-    public function a_streamed_turn_is_answered_from_the_one_request_with_no_polling(): void
-    {
-        $session = ['id' => 'sess_1', 'status' => 'in_progress', 'agent' => ['model' => 'gpt-6-astra']];
-
-        Http::fake(function (Request $request) use ($session) {
-            if ($request->method() === 'POST') {
-                return Http::response($this->sse([
-                    ['type' => 'agent.session.created', 'session' => $session],
-                    ['type' => 'agent.session.turn.item.done', 'item' => ['type' => 'message', 'role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'Hi']]]],
-                    ['type' => 'agent.session.turn.item.done', 'item' => ['type' => 'reasoning', 'summary' => []]],
-                    ['type' => 'agent.session.turn.output_text.delta', 'delta' => 'The minimum'],
-                    ['type' => 'agent.session.turn.item.done', 'item' => ['type' => 'message', 'role' => 'assistant', 'phase' => 'final_answer', 'content' => [['type' => 'output_text', 'text' => 'The minimum is 3 years.']]]],
-                    ['type' => 'agent.session.idle', 'session' => ['status' => 'idle'] + $session],
-                ]), 201, ['Content-Type' => 'text/event-stream']);
+        Http::fake(function (Request $request) use ($output, $agent, $response) {
+            if (str_starts_with($request->url(), self::AGENTS)) {
+                return Http::response($agent);
             }
 
-            return Http::response(['id' => 'sess_1', 'deleted' => true]);
-        });
-
-        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
-
-        $this->assertTrue($result['ok']);
-        $this->assertSame('The minimum is 3 years.', $result['text']);
-        $this->assertSame('gpt-6-astra', $result['model']);
-        $this->assertSame('sess_1', $result['request_id']);
-
-        Http::assertSent(fn (Request $request) => $request->method() === 'POST' && $request->data()['stream'] === true);
-        // No status polling and no separate read of the items.
-        Http::assertNotSent(fn (Request $request) => $request->method() === 'GET');
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::SESSIONS . '/sess_1');
-    }
-
-    #[Test]
-    public function a_streamed_turn_that_fails_is_reported_as_an_error(): void
-    {
-        Http::fake(function (Request $request) {
-            if ($request->method() === 'POST') {
-                return Http::response($this->sse([
-                    ['type' => 'agent.session.created', 'session' => ['id' => 'sess_1', 'status' => 'in_progress']],
-                    ['type' => 'agent.session.turn.failed', 'turn' => ['id' => 'turn_1']],
-                ]), 201, ['Content-Type' => 'text/event-stream']);
-            }
-
-            return Http::response(['id' => 'sess_1', 'deleted' => true]);
-        });
-
-        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
-
-        $this->assertFalse($result['ok']);
-        $this->assertStringContainsString('failed', $result['error']);
-    }
-
-    private function fakeTurn(array $items, array $session = ['id' => 'sess_1', 'status' => 'idle']): void
-    {
-        Http::fake(function (Request $request) use ($items, $session) {
-            if ($request->method() === 'POST' && $request->url() === self::SESSIONS) {
-                return Http::response($session);
-            }
-            if ($request->method() === 'GET' && str_contains($request->url(), '/items')) {
-                return Http::response(['data' => $items, 'has_more' => false]);
-            }
-            if ($request->method() === 'GET') {
-                return Http::response(['id' => 'sess_1', 'status' => 'idle']);
-            }
-
-            return Http::response(['id' => 'sess_1', 'deleted' => true]);
+            return Http::response(array_merge([
+                'id' => 'resp_1',
+                'output' => $output,
+                'usage' => ['input_tokens' => 120, 'output_tokens' => 40],
+            ], $response));
         });
     }
 
-    #[Test]
-    public function a_turn_sends_only_the_agent_id_and_the_conversation_then_returns_the_final_answer(): void
+    /** The shape the Responses API returns an assistant message in. */
+    private function answer(string $text, array $annotations = []): array
     {
-        $this->fakeTurn([
-            ['type' => 'message', 'role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'Hi']]],
-            ['type' => 'message', 'role' => 'assistant', 'phase' => 'commentary', 'content' => [['type' => 'output_text', 'text' => 'Looking that up.']]],
-            ['type' => 'message', 'role' => 'assistant', 'phase' => 'final_answer', 'content' => [['type' => 'output_text', 'text' => 'The minimum is 5 years.']]],
-        ]);
+        return [
+            'type' => 'message',
+            'role' => 'assistant',
+            'content' => [array_filter([
+                'type' => 'output_text',
+                'text' => $text,
+                'annotations' => $annotations ?: null,
+            ])],
+        ];
+    }
 
-        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']], ['assistant_type' => 'borrower_support']);
+    #[Test]
+    public function a_turn_runs_on_the_responses_api_carrying_the_agents_own_wording_and_model(): void
+    {
+        $this->fakeTurn([$this->answer('The minimum is 5 years.')]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent(
+            'agent_abc',
+            [['role' => 'user', 'content' => 'Hi']],
+            ['assistant_type' => 'borrower_support']
+        );
 
         $this->assertTrue($result['ok']);
         $this->assertSame('The minimum is 5 years.', $result['text']);
-        $this->assertSame('sess_1', $result['request_id']);
+        $this->assertSame('gpt-6-astra', $result['model']);
+        $this->assertSame('resp_1', $result['request_id']);
+
+        // The saved agent is read first: its wording and model are not copied
+        // into this codebase, so an edit on the platform applies immediately.
+        Http::assertSent(fn (Request $request) => $request->method() === 'GET'
+            && $request->url() === self::AGENTS . '/agent_abc');
 
         Http::assertSent(function (Request $request) {
             if ($request->method() !== 'POST') {
@@ -130,23 +93,27 @@ class OpenAiAgentsServiceTest extends TestCase
 
             $body = $request->data();
 
-            return $request->url() === self::SESSIONS
-                && $request->hasHeader('OpenAI-Beta', 'agents=v1')
-                && $body['agent_id'] === 'agent_abc'
-                && $body['input'] === [['role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'Hi']]]]
-                // The saved agent supplies these; sending any would override the platform.
-                && ! isset($body['agent'], $body['instructions'], $body['model'], $body['tools']);
+            return $request->url() === self::RESPONSES
+                && $body['model'] === 'gpt-6-astra'
+                && $body['instructions'] === 'Be helpful.'
+                && $body['metadata'] === ['assistant_type' => 'borrower_support']
+                && $body['input'] === [[
+                    'role' => 'user',
+                    'content' => [['type' => 'input_text', 'text' => 'Hi']],
+                ]]
+                // No knowledge base passed, so no tool is sent and the model
+                // answers from its instructions alone.
+                && ! isset($body['tools'], $body['tool_choice']);
         });
 
-        // The session is removed afterwards: the transcript lives in chat_messages.
-        Http::assertSent(fn (Request $request) => $request->method() === 'DELETE' && $request->url() === self::SESSIONS . '/sess_1');
+        // An Agents session is never created: that API cannot run file_search.
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/agents/sessions'));
     }
 
     #[Test]
-    public function a_follow_up_goes_as_one_user_message_carrying_the_earlier_turns(): void
+    public function a_follow_up_sends_the_earlier_turns_in_their_own_roles(): void
     {
-        // The Agents API rejects any input role but "user".
-        $this->fakeTurn([['type' => 'message', 'role' => 'assistant', 'phase' => 'final_answer', 'content' => [['type' => 'output_text', 'text' => 'Yes.']]]]);
+        $this->fakeTurn([$this->answer('Yes.')]);
 
         app(OpenAiAgentsService::class)->runAgent('agent_abc', [
             ['role' => 'user', 'content' => 'What is the minimum?'],
@@ -159,42 +126,172 @@ class OpenAiAgentsServiceTest extends TestCase
                 return false;
             }
 
-            $input = $request->data()['input'];
-            $text = $input[0]['content'][0]['text'];
-
-            return count($input) === 1
-                && $input[0]['role'] === 'user'
-                && str_contains($text, 'User: What is the minimum?')
-                && str_contains($text, 'Assistant: 5 years.')
-                && str_ends_with($text, 'Is 4 years enough?');
+            // The Responses API takes the turns as they happened, so the model
+            // sees its own earlier reply rather than a transcript of it. Input
+            // and output text are typed differently.
+            return $request->data()['input'] === [
+                ['role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'What is the minimum?']]],
+                ['role' => 'assistant', 'content' => [['type' => 'output_text', 'text' => '5 years.']]],
+                ['role' => 'user', 'content' => [['type' => 'input_text', 'text' => 'Is 4 years enough?']]],
+            ];
         });
     }
 
     #[Test]
-    public function a_session_still_running_after_create_is_polled_until_it_finishes(): void
+    public function an_empty_message_is_dropped_rather_than_sent_as_a_blank_turn(): void
+    {
+        $this->fakeTurn([$this->answer('Hello.')]);
+
+        app(OpenAiAgentsService::class)->runAgent('agent_abc', [
+            ['role' => 'user', 'content' => '   '],
+            ['role' => 'user', 'content' => 'Hello?'],
+        ]);
+
+        Http::assertSent(fn (Request $request) => $request->method() !== 'POST'
+            || count($request->data()['input']) === 1);
+    }
+
+    #[Test]
+    public function the_knowledge_base_is_sent_as_responses_api_tools_not_an_inline_agent(): void
+    {
+        $this->fakeTurn([$this->answer('Three years.')]);
+
+        $overrides = [
+            'tools' => [['type' => 'file_search', 'vector_store_ids' => ['vs_abc123'], 'max_num_results' => 20]],
+            'tool_choice' => ['type' => 'file_search'],
+        ];
+
+        app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']], [], [], $overrides);
+
+        Http::assertSent(function (Request $request) use ($overrides) {
+            if ($request->method() !== 'POST') {
+                return false;
+            }
+
+            $body = $request->data();
+
+            // Top level, where the Responses API accepts them. Nested under an
+            // "agent" key — as an Agents session needs — OpenAI rejects both
+            // the tool and the tool_choice with a 400.
+            return $body['tools'] === $overrides['tools']
+                && $body['tool_choice'] === $overrides['tool_choice']
+                && ! isset($body['agent'], $body['agent_id']);
+        });
+    }
+
+    #[Test]
+    public function the_agents_saved_reasoning_effort_is_sent_for_a_model_that_accepts_it(): void
     {
         $this->fakeTurn(
-            [['type' => 'message', 'role' => 'assistant', 'content' => 'Plain string answer.']],
-            ['id' => 'sess_1', 'status' => 'in_progress']
+            [$this->answer('Three years.')],
+            ['id' => 'agent_abc', 'model' => 'gpt-5-mini', 'instructions' => 'Be helpful.', 'reasoning' => ['effort' => 'high']]
         );
+
+        app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        Http::assertSent(fn (Request $request) => $request->method() !== 'POST'
+            || $request->data()['reasoning'] === ['effort' => 'high']);
+    }
+
+    #[Test]
+    public function reasoning_effort_is_withheld_from_a_model_that_would_reject_it(): void
+    {
+        // Sending reasoning.effort to a non-reasoning model is a hard 400.
+        $this->fakeTurn(
+            [$this->answer('Three years.')],
+            ['id' => 'agent_abc', 'model' => 'gpt-4o-mini', 'instructions' => 'Be helpful.', 'reasoning' => ['effort' => 'high']]
+        );
+
+        app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        Http::assertSent(fn (Request $request) => $request->method() !== 'POST'
+            || ! isset($request->data()['reasoning']));
+    }
+
+    #[Test]
+    public function a_turn_reports_how_often_the_knowledge_base_was_searched(): void
+    {
+        $this->fakeTurn([
+            ['type' => 'file_search_call', 'status' => 'completed', 'queries' => ['minimum time in business']],
+            $this->answer('Three years.', [
+                ['type' => 'file_citation', 'filename' => 'Borrower_Page_02_Fundability_Standards_v1_0.md'],
+                // The same file cited twice is one source, not two.
+                ['type' => 'file_citation', 'filename' => 'Borrower_Page_02_Fundability_Standards_v1_0.md'],
+            ]),
+        ]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertSame(1, $result['file_search_calls']);
+        $this->assertSame([['title' => 'Borrower_Page_02_Fundability_Standards_v1_0.md']], $result['sources']);
+    }
+
+    #[Test]
+    public function an_answer_produced_without_searching_reports_no_file_search_calls(): void
+    {
+        $this->fakeTurn([$this->answer('Probably around three years.')]);
 
         $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
 
         $this->assertTrue($result['ok']);
-        $this->assertSame('Plain string answer.', $result['text']);
-        Http::assertSent(fn (Request $request) => $request->method() === 'GET' && $request->url() === self::SESSIONS . '/sess_1');
+        $this->assertSame(0, $result['file_search_calls']);
+        $this->assertSame([], $result['sources']);
     }
 
     #[Test]
-    public function an_api_error_is_reported_and_not_thrown(): void
+    public function an_api_error_on_the_turn_is_reported_and_not_thrown(): void
     {
-        Http::fake(['*' => Http::response(['error' => ['message' => 'Managed Agents requests require the api.agents.write permission']], 403)]);
+        Http::fake(function (Request $request) {
+            if (str_starts_with($request->url(), self::AGENTS)) {
+                return Http::response(self::SAVED_AGENT);
+            }
+
+            return Http::response(['error' => ['message' => 'Invalid value: \'file_search\'.']], 400);
+        });
 
         $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
 
         $this->assertFalse($result['ok']);
-        $this->assertSame(403, $result['http_status']);
-        $this->assertStringContainsString('api.agents.write', $result['error']);
+        $this->assertSame(400, $result['http_status']);
+        $this->assertStringContainsString('file_search', $result['error']);
+    }
+
+    #[Test]
+    public function an_agent_that_cannot_be_read_fails_the_turn_before_any_model_is_called(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => "No agent found with id 'agent_gone'."]], 404)]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_gone', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('No agent found', $result['error']);
+
+        // Nothing is guessed on the agent's behalf: no model is invented and
+        // no turn is run against one.
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::RESPONSES);
+    }
+
+    #[Test]
+    public function an_agent_saved_without_a_model_is_reported_rather_than_guessed_at(): void
+    {
+        $this->fakeTurn([$this->answer('Hi.')], ['id' => 'agent_abc', 'instructions' => 'Be helpful.']);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('no model saved', $result['error']);
+        Http::assertNotSent(fn (Request $request) => $request->url() === self::RESPONSES);
+    }
+
+    #[Test]
+    public function a_turn_that_returns_no_text_is_reported_rather_than_shown_as_an_empty_reply(): void
+    {
+        $this->fakeTurn([['type' => 'file_search_call', 'status' => 'completed']]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('no answer text', $result['error']);
     }
 
     #[Test]
@@ -206,5 +303,30 @@ class OpenAiAgentsServiceTest extends TestCase
 
         $this->assertTrue($result['ok']);
         $this->assertSame('Be helpful.', $result['agent']['instructions']);
+    }
+
+    #[Test]
+    public function a_vector_store_is_read_from_the_responses_api_without_the_agents_beta_header(): void
+    {
+        Http::fake(['*' => Http::response(['id' => 'vs_abc123', 'name' => 'Borrower Assistant - Approved Knowledge v1.6', 'status' => 'completed'])]);
+
+        $result = app(OpenAiAgentsService::class)->retrieveVectorStore('vs_abc123');
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('Borrower Assistant - Approved Knowledge v1.6', $result['store']['name']);
+
+        Http::assertSent(fn (Request $request) => $request->url() === 'https://api.openai.com/v1/vector_stores/vs_abc123'
+            && ! $request->hasHeader('OpenAI-Beta'));
+    }
+
+    #[Test]
+    public function an_unreachable_vector_store_is_reported_and_not_thrown(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['message' => 'No such vector store: vs_typo']], 404)]);
+
+        $result = app(OpenAiAgentsService::class)->retrieveVectorStore('vs_typo');
+
+        $this->assertFalse($result['ok']);
+        $this->assertStringContainsString('No such vector store', $result['error']);
     }
 }
