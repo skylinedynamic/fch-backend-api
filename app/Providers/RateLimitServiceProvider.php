@@ -51,5 +51,14 @@ class RateLimitServiceProvider extends ServiceProvider
                     ]);
                 });
         });
+
+        // Support assistant chat: each OpenAI call has a real cost and
+        // latency, so this is capped per authenticated user (falling back to
+        // IP for the rare unauthenticated hit) rather than left unbounded.
+        RateLimiter::for('assistant', function (Request $request) {
+            $key = optional($request->user())->getKey() ?: $request->ip();
+
+            return Limit::perMinute(20)->by((string) $key);
+        });
     }
 }

@@ -622,6 +622,27 @@ return [
             'channels' => ['mail'],
         ],
 
+        // Changing a sign-in email (App\Services\Global\Account\EmailChangeService).
+        // The links confirm, cancel or undo the change, so like a reset link
+        // they stay out of the bell.
+        'auth.email_change_requested' => [
+            'name' => 'Sign-in email change requested (old address)',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
+        'auth.email_change_confirmation' => [
+            'name' => 'Confirm new sign-in email (new address)',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
+        'auth.email_changed' => [
+            'name' => 'Sign-in email changed (old address)',
+            'category' => 'system',
+            'channels' => ['mail'],
+        ],
+
         'auth.test' => [
             'name' => 'Mail configuration test',
             'category' => 'system',

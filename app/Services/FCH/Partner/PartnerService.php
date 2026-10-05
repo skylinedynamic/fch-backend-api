@@ -44,6 +44,7 @@ class PartnerService
         protected SubscriptionService $subscriptionService,
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected \App\Services\Global\Account\EmailChangeService $emailChange,
     ) {
     }
 
@@ -350,9 +351,15 @@ class PartnerService
                 $data['partner_image'] = 'partners/' . $partner->id . '/' . $imageName;
             }
 
-            // Update user
-            // Assuming the partner has a linked user via polymorphic relation or we find by email
-            $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
+            // The partner's own login, via its entity link. It used to fall back
+            // to "whichever account has the submitted email", which could reach
+            // an unrelated account (e.g. one of the partner's employees) and
+            // overwrite its name, phone and password.
+            $user = $partner->partnerUser;
+
+            // With a login, a new email is confirmed from the new address before
+            // either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($data, $user, $partner->email);
             $wasFreeTrial = (bool) $partner->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
@@ -501,8 +508,12 @@ class PartnerService
                 $this->enrollmentService->enrollPartner($partner, $user, $enrollmentData, isMigration: true);
             }
 
-            $user->update(['is_refresh' => true]);
+            $user?->update(['is_refresh' => true]);
             DB::commit();
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             // Send trial expiry updated email if free trial expiry date was updated
             $isFreeTrialNow = (bool) ($partner->is_free_trail ?? false);
@@ -583,13 +594,9 @@ class PartnerService
         $plainPassword = null;
 
         if ($existingUser) {
-
+            // A login's email never changes here — update() hands a new one to
+            // EmailChangeService — so there's no password to reset.
             $plainPassword = null;
-
-            if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
-                $plainPassword = bin2hex(random_bytes(4));
-                $userData['password'] = bcrypt($plainPassword);
-            }
 
             $userData['is_refresh'] = true;
             $existingUser->update($userData);

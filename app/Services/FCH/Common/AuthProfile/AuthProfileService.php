@@ -95,9 +95,10 @@ class AuthProfileService
         } elseif ($user->entity_type === Employee::class) {
             $employee = $user->entity;
             if ($employee) {
+                // An employee's whole name lives in first_name (last_name is legacy).
                 $employee->update([
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
+                    'first_name' => $fullName,
+                    'phone_number_1' => $user->phone_number,
                 ]);
             }
         }

@@ -95,7 +95,7 @@ class PaymentService
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
-                'invoice:id,invoice_id',
+                'invoice:id,invoice_id,type',
                 'entity'
             ])
             ->select('payments.*');
@@ -151,41 +151,7 @@ class PaymentService
 
         $typeFilter = $this->extractFilterValue($filters['transaction_type'] ?? null);
         if (!empty($typeFilter)) {
-            $targetType = strtolower((string) $typeFilter);
-            $isNonHostPartner = !empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0;
-
-            if ($isNonHostPartner) {
-                if ($targetType === 'debit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.is_partner_paying', 1)
-                            ->orWhere('payments.entity_type', Partner::class)
-                            ->orWhere('payments.status', 'refunded')
-                            ->orWhere('payments.payment_type', 'payout');
-                    });
-                } else if ($targetType === 'credit') {
-                    $query->where(function ($q) {
-                        $q->where(function ($q2) {
-                            $q2->where('payments.is_partner_paying', 0)
-                                ->orWhereNull('payments.is_partner_paying');
-                        })
-                            ->where('payments.entity_type', '!=', Partner::class)
-                            ->where('payments.status', '!=', 'refunded')
-                            ->where('payments.payment_type', '!=', 'payout');
-                    });
-                }
-            } else {
-                if ($targetType === 'debit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.status', 'refunded')
-                            ->orWhere('payments.payment_type', 'payout');
-                    });
-                } else if ($targetType === 'credit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.status', '!=', 'refunded')
-                            ->where('payments.payment_type', '!=', 'payout');
-                    });
-                }
-            }
+            $this->applyTransactionTypeFilter($query, (string) $typeFilter, $authUser);
         }
 
         // Efficiently extract global search term
@@ -469,41 +435,7 @@ class PaymentService
 
         $typeFilter = $this->extractFilterValue($filters['transaction_type'] ?? null);
         if (!empty($typeFilter)) {
-            $targetType = strtolower((string) $typeFilter);
-            $isNonHostPartner = !empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0;
-
-            if ($isNonHostPartner) {
-                if ($targetType === 'debit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.is_partner_paying', 1)
-                            ->orWhere('payments.entity_type', Partner::class)
-                            ->orWhere('payments.status', 'refunded')
-                            ->orWhere('payments.payment_type', 'payout');
-                    });
-                } else if ($targetType === 'credit') {
-                    $query->where(function ($q) {
-                        $q->where(function ($q2) {
-                            $q2->where('payments.is_partner_paying', 0)
-                                ->orWhereNull('payments.is_partner_paying');
-                        })
-                            ->where('payments.entity_type', '!=', Partner::class)
-                            ->where('payments.status', '!=', 'refunded')
-                            ->where('payments.payment_type', '!=', 'payout');
-                    });
-                }
-            } else {
-                if ($targetType === 'debit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.status', 'refunded')
-                            ->orWhere('payments.payment_type', 'payout');
-                    });
-                } else if ($targetType === 'credit') {
-                    $query->where(function ($q) {
-                        $q->where('payments.status', '!=', 'refunded')
-                            ->where('payments.payment_type', '!=', 'payout');
-                    });
-                }
-            }
+            $this->applyTransactionTypeFilter($query, (string) $typeFilter, $authUser);
         }
 
         return $this->getStatsFromQuery($query);
@@ -707,6 +639,82 @@ class PaymentService
                 'message' => __('payment.rejected_successfully'),
                 'data' => new PaymentResource($payment->fresh())
             ];
+        });
+    }
+
+    /**
+     * Filter by Credit / Debit — the same rule Payment::getTransactionTypeForUser
+     * applies to a row, written as a query. A commission payout is a Credit for
+     * whoever it was paid to and a Debit for everyone else (the admin who paid
+     * it); every other payment keeps its usual rule.
+     */
+    protected function applyTransactionTypeFilter(Builder $query, string $typeFilter, mixed $authUser): void
+    {
+        $target = strtolower($typeFilter);
+
+        if (!in_array($target, ['debit', 'credit'], true)) {
+            return;
+        }
+
+        $isNonHostPartner = !empty($authUser?->partner) && (int) ($authUser->partner->is_host ?? 0) === 0;
+
+        $isCommissionPayout = fn (Builder $q) => $q->whereHas(
+            'invoice',
+            fn ($invoice) => $invoice->where('invoices.type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)
+        );
+
+        // Paid to the viewer: to their partner, or to them as a user.
+        $receivedByViewer = fn (Builder $q) => $q->where(function ($q2) use ($authUser) {
+            $q2->where(fn ($p) => $p->where('payments.entity_type', Partner::class)
+                    ->where('payments.entity_id', (string) $authUser?->partner_id))
+                ->orWhere(fn ($u) => $u->where('payments.entity_type', User::class)
+                    ->where('payments.entity_id', (string) $authUser?->id));
+        });
+
+        $debitOtherwise = $isNonHostPartner
+            ? function (Builder $q) {
+                $q->where('payments.is_partner_paying', 1)
+                    ->orWhere('payments.entity_type', Partner::class)
+                    ->orWhere('payments.status', 'refunded')
+                    ->orWhere('payments.payment_type', 'payout');
+            }
+            : function (Builder $q) {
+                $q->where('payments.status', 'refunded')
+                    ->orWhere('payments.payment_type', 'payout');
+            };
+
+        $creditOtherwise = $isNonHostPartner
+            ? function (Builder $q) {
+                $q->where(function ($q2) {
+                    $q2->where('payments.is_partner_paying', 0)
+                        ->orWhereNull('payments.is_partner_paying');
+                })
+                    ->where('payments.entity_type', '!=', Partner::class)
+                    ->where('payments.status', '!=', 'refunded')
+                    ->where('payments.payment_type', '!=', 'payout');
+            }
+            : function (Builder $q) {
+                $q->where('payments.status', '!=', 'refunded')
+                    ->where('payments.payment_type', '!=', 'payout');
+            };
+
+        $query->where(function (Builder $q) use ($target, $isCommissionPayout, $receivedByViewer, $debitOtherwise, $creditOtherwise) {
+            // Payments that aren't commission payouts: the usual rule.
+            $q->where(function (Builder $other) use ($target, $isCommissionPayout, $debitOtherwise, $creditOtherwise) {
+                $other->where($target === 'debit' ? $debitOtherwise : $creditOtherwise)
+                    ->whereNot($isCommissionPayout);
+            });
+
+            // Commission payouts: a Credit if paid to the viewer, otherwise a Debit.
+            $q->orWhere(function (Builder $payout) use ($target, $isCommissionPayout, $receivedByViewer) {
+                $isCommissionPayout($payout);
+
+                if ($target === 'credit') {
+                    $receivedByViewer($payout);
+                } else {
+                    $payout->whereNot($receivedByViewer);
+                }
+            });
         });
     }
 }

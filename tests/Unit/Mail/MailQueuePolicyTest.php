@@ -39,6 +39,10 @@ class MailQueuePolicyTest extends TestCase
         \App\Services\Global\Notification\Mail\UserCreateNotificationMail::class,
         // Password reset, two-factor codes and the password-changed notice.
         \App\Services\Global\Notification\Mail\GenericNotificationMail::class,
+        // Changing a sign-in email: the confirm / cancel / undo links.
+        \App\Mail\Account\EmailChangeConfirmationMail::class,
+        \App\Mail\Account\EmailChangeRequestedMail::class,
+        \App\Mail\Account\EmailChangedMail::class,
     ];
 
     public static function mailables(): array

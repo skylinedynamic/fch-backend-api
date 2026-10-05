@@ -120,6 +120,9 @@ class PartnerController extends Controller
                 'full_name' => $updatedPartner->full_name,
                 'company_name' => $updatedPartner->company_name,
                 'email' => $updatedPartner->email,
+                // A new sign-in email awaiting confirmation (the email above is
+                // still the one in effect until it's confirmed).
+                'pending_email' => $updatedPartner->partnerUser?->pending_email,
                 'phone_number' => $updatedPartner->phone_number,
                 'state' => $updatedPartner->state,
                 'city' => $updatedPartner->city,

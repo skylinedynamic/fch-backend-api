@@ -42,6 +42,10 @@ class User extends Authenticatable implements OAuthenticatable
     protected $fillable = [
         'name',
         'email',
+        'pending_email',
+        'pending_email_requested_at',
+        'previous_email',
+        'email_changed_at',
         'phone_number',
         'image',
         'phone_verified_at',
@@ -75,6 +79,8 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'pending_email_requested_at' => 'datetime',
+            'email_changed_at' => 'datetime',
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
             'is_paid' => 'boolean',

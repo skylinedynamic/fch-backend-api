@@ -119,6 +119,9 @@ class BorrowerController extends Controller
                 new BorrowerDetailsResource($updatedBorrower),
                 __('borrower.updated')
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // e.g. the new email is already taken — the form needs to show why.
+            throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
         }

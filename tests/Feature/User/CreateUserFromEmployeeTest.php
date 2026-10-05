@@ -64,8 +64,7 @@ class CreateUserFromEmployeeTest extends TestCase
     {
         return Employee::create(array_merge([
             'partner_id' => $partner->id,
-            'first_name' => $first,
-            'last_name' => 'Doe',
+            'first_name' => "$first Doe", // first_name holds the whole name
             'email' => strtolower($first) . '@example.test',
             'phone_number_1' => '(555) 123-4567',
         ], $attributes));
@@ -107,8 +106,7 @@ class CreateUserFromEmployeeTest extends TestCase
             ->assertJsonPath('status', true)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $free->id)
-            ->assertJsonPath('data.0.first_name', 'Free')
-            ->assertJsonPath('data.0.last_name', 'Doe')
+            ->assertJsonPath('data.0.first_name', 'Free Doe')
             ->assertJsonPath('data.0.full_name', 'Free Doe')
             ->assertJsonPath('data.0.email', 'free@example.test')
             ->assertJsonPath('data.0.phone_number_1', '(555) 123-4567');
