@@ -51,6 +51,33 @@ class EmployeeService
     }
 
     /**
+     * The partner's employees that have no user account yet - the only ones a
+     * new user can be created for. An employee whose user was (soft) deleted
+     * counts as having none.
+     */
+    public function availableForUser(int $partnerId)
+    {
+        return Employee::query()
+            ->where('partner_id', $partnerId)
+            ->whereDoesntHave('user')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'email', 'phone_number_1', 'country_code', 'employee_code', 'designation'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'first_name' => $employee->first_name,
+                'last_name' => $employee->last_name,
+                'full_name' => $employee->full_name,
+                'email' => $employee->email,
+                'phone_number_1' => $employee->phone_number_1,
+                'country_code' => $employee->country_code,
+                'employee_code' => $employee->employee_code,
+                'designation' => $employee->designation,
+            ])
+            ->values();
+    }
+
+    /**
      * Paginate employees for a business.
      */
     public function list(int $partnerId, array $filters)

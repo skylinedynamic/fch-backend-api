@@ -87,8 +87,10 @@ class UserService
                 'password' => Hash::make($plainPassword),
                 'partner_id' => $authUser->partner_id,
                 'status' => $isPaid ? User::STATUS['inactive'] : User::STATUS['active'],
-                'entity_type' => null,
-                'entity_id' => null,
+                // Every user is the login of one of the partner's employees -
+                // StoreUserRequest guarantees employee_id is theirs and unlinked.
+                'entity_type' => Employee::class,
+                'entity_id' => $data['employee_id'],
                 'is_paid' => $isPaid,
             ]);
 

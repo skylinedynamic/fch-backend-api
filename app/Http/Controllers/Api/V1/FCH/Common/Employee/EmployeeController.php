@@ -277,6 +277,20 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Employees without a user account (for the Add User employee picker)
+     */
+    public function availableForUser(Request $request)
+    {
+        try {
+            $employees = $this->employeeService->availableForUser($request->user()->partner_id);
+
+            return ApiResponse::success($employees, __('employee.employee_listed'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
+        }
+    }
+
+    /**
      * Get Next Employee ID
      */
     public function nextId()
