@@ -143,12 +143,32 @@ class ReminderClientAndSnoozeTest extends TestCase
         $match = $this->makeReminder(Borrower::class, $this->borrowerId, ['summary' => 'Unrelated subject']);
         $other = $this->makeReminder(Partner::class, $this->partnerId, ['summary' => 'Another subject']);
 
-        $ids = collect($this->getJson('/api/v1/common/reminders?search=' . urlencode('Johnathan Smithfield'))
+        $ids = collect($this->postJson('/api/v1/common/reminders/fetch-reminders', ['search' => 'Johnathan Smithfield'])
             ->assertOk()
             ->json('data.reminders.data'))->pluck('id');
 
         $this->assertTrue($ids->contains($match->id));
         $this->assertFalse($ids->contains($other->id));
+    }
+
+    #[Test]
+    public function the_list_takes_its_filters_from_the_request_body(): void
+    {
+        $this->makeReminder(Borrower::class, $this->borrowerId);
+        $this->makeReminder(Borrower::class, $this->borrowerId, ['status' => Reminder::STATUS_PENDING]);
+        $this->makeReminder(Borrower::class, $this->borrowerId, ['status' => Reminder::STATUS_CANCELLED]);
+
+        // The Reminders page's "is there anything to dismiss?" check.
+        $this->postJson('/api/v1/common/reminders/fetch-reminders', ['status' => 'dismissable', 'per_page' => 1])
+            ->assertOk()
+            ->assertJsonCount(1, 'data.reminders.data')
+            ->assertJsonPath('data.reminders.meta.total', 2);
+    }
+
+    #[Test]
+    public function the_list_is_no_longer_served_over_get(): void
+    {
+        $this->getJson('/api/v1/common/reminders?status=dismissable&per_page=1')->assertNotFound();
     }
 
     #[Test]
@@ -269,7 +289,7 @@ class ReminderClientAndSnoozeTest extends TestCase
         $this->assertNotNull($reminder, 'Reminder should store the activity log it was created from');
         $this->assertSame('Johnathan Smithfield', $reminder->loadClient()->clientSummary()['client']['name']);
 
-        $this->getJson('/api/v1/common/reminders?per_page=50')
+        $this->postJson('/api/v1/common/reminders/fetch-reminders', ['per_page' => 50])
             ->assertOk()
             ->assertJsonFragment(['id' => $reminder->id, 'activity_log_id' => $logId]);
     }

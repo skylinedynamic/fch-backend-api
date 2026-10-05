@@ -521,7 +521,7 @@ Route::prefix('v1')->group(function () {
 
                     // V1 Reminder routes
                 Route::prefix('reminders')->group(function () {
-                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::post('/fetch-reminders', [ReminderController::class, 'index']);
                     Route::get('/due', [ReminderController::class, 'getDue']);
                     Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
                     Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
