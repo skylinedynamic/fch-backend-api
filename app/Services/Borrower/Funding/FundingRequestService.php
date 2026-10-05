@@ -4,6 +4,7 @@ namespace App\Services\Borrower\Funding;
 
 use App\Http\Resources\Borrower\Funding\FundingRequestResource;
 use App\Mail\FundingRequest\UnderwritingSubmitted;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -50,6 +51,33 @@ class FundingRequestService
             throw new Exception("Already applied. Please wait for approval or rejection.");
         }
 
+        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->orderBy('id', 'desc')
+            ->first();
+
+        // An approved request that already produced an application can only be
+        // re-opened once that application has left the borrower's hands - with a
+        // lender, under contract, funded, closed or denied (see
+        // config/funding_application.php `statuses.allows_new_request`). That
+        // round is settled either way, so a fresh request starts a new one.
+        //
+        // While the application is still being reviewed here - On Hold, Draft,
+        // Pending, Underwriting, Verification, Approved - a second request for the
+        // same funding option would run a parallel pipeline for the same borrower
+        // against the same lenders, which is what this refuses.
+        if ($latestRequest && $latestRequest->status === FundingRequest::STATUS_APPROVED) {
+            $latestApplication = FundingApplication::where('funding_request_id', $latestRequest->id)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($latestApplication && ! $latestApplication->allowsNewFundingRequest()) {
+                throw new Exception(__('funding_request.application_already_in_progress', [
+                    'status' => $latestApplication->status,
+                ]));
+            }
+        }
+
         $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
         $lenderIds = [];
         if ($fundingOption) {
@@ -82,11 +110,6 @@ class FundingRequestService
             $finalLenderIds = array_values(array_unique($finalLenderIds));
         }
         $data['lender_ids'] = $finalLenderIds;
-
-        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
-            ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->orderBy('id', 'desc')
-            ->first();
 
         if ($latestRequest && in_array($latestRequest->status, [FundingRequest::STATUS_REJECTED, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_ACCEPTED])) {
             $data['reject_reason'] = null;

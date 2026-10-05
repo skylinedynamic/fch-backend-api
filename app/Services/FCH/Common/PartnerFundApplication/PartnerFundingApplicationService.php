@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\PartnerFundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
 use App\Helpers\ApiResponse;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
@@ -13,11 +14,35 @@ use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
+use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 class PartnerFundingApplicationService
 {
+    public function __construct(
+        private FundingApplicationEditGuard $editGuard,
+        private FundingApplicationAuditLogger $auditLogger
+    ) {
+    }
+
+    /**
+     * Where an application the partner is still preparing should sit: On Hold
+     * while steps are outstanding, Draft once federal compliance - the last step -
+     * is on file and it is ready to go to the borrower to sign.
+     *
+     * @param array $data
+     * @param FundingApplication|null $existing
+     * @return string
+     */
+    private function preparationStatus(array $data, $existing = null): string
+    {
+        $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation'])
+            || ($existing && $existing->federal_compliance_disclosures_explanation !== null);
+
+        return $hasFederalCompliance ? FundingApplication::DRAFT : FundingApplication::ON_HOLD;
+    }
 
     /**
      * Get Business Info for the authenticated user.
@@ -93,48 +118,11 @@ class PartnerFundingApplicationService
                 throw new \Exception("Could not determine borrower ID.");
             }
 
-            $existingStatus = $existing->status ?? null;
+            // Status, the edit lock and the resign rules are all applied further
+            // down, once the application this save actually targets has been
+            // resolved - the lookup below can land on a different row than the
+            // preliminary one used here to find the borrower.
 
-            if ($existingStatus === FundingApplication::PENDING && empty($status)) {
-                // The wizard prefills every step with the currently saved values, so
-                // paging through without changing anything re-submits identical data.
-                // Only an actual field change should invalidate the signature.
-                $metaKeys = ['id', 'status', 'signature_data', 'attestation_authorization',
-                    'is_business_info_saved', 'is_ownership_info_saved', 'is_financial_info_saved',
-                    'is_funding_request_saved', 'is_disclosures_saved', 'is_federal_compliance_saved'];
-                // Untouched optional fields round-trip through the wizard as '' rather than
-                // null, which a cast (e.g. integer) would otherwise turn into a false "0 !== null"
-                // dirty flag. Normalize for the comparison only - the real save still gets $data as-is.
-                $comparableData = array_map(fn ($value) => $value === '' ? null : $value, $data);
-                $existing->fill($comparableData);
-                $hasRealChange = $existing->isDirty(array_diff(array_keys($data), $metaKeys));
-
-                if ($hasRealChange) {
-                    // Application was already submitted and is awaiting review; a real edit
-                    // invalidates the prior signature and requires the partner/borrower to resign
-                    $data['status'] = FundingApplication::DRAFT;
-                    $data['signature_data'] = null;
-                    $data['attestation_authorization'] = false;
-                    $data['requires_resign'] = true;
-                } else {
-                    unset($data['status']); // No actual change - keep it Submitted - Pending Review
-                }
-            } else if ($existingStatus && !in_array($existingStatus, [FundingApplication::ON_HOLD, FundingApplication::DRAFT])) {
-                // Application has progressed beyond pending review (e.g. Underwriting, Approved); preserve its status unless explicitly overridden
-                $data['status'] = $status ?? $existingStatus;
-            } else {
-                // Check if federal compliance exists (either being saved now, or already exists)
-                $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation']) || (isset($existing) && $existing->federal_compliance_disclosures_explanation !== null);
-                
-                if ($hasFederalCompliance) {
-                    // When saving the last data, update status to DRAFT
-                    $data['status'] = $status ?? FundingApplication::DRAFT;
-                } else {
-                    // Otherwise, all saves should be ON_HOLD
-                    $data['status'] = $status ?? FundingApplication::ON_HOLD;
-                }
-            }
-            
             $data['is_partner_prepared'] = true;
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id ?? auth()->id(); // Use partner_id if it exists, otherwise fallback
@@ -176,11 +164,17 @@ class PartnerFundingApplicationService
             $existing = null;
             if (empty($matchId)) {
                 $fundingReqId = $data['funding_request_id'] ?? null;
-                $query = FundingApplication::where('borrower_id', $borrowerId)
-                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+                $query = FundingApplication::where('borrower_id', $borrowerId);
 
+                // Match on the funding request alone, not on "still a draft". This
+                // used to filter to On Hold / Draft, which meant a save for an
+                // already-submitted application found nothing and created a second
+                // row - quietly sidestepping both the edit lock and the resign
+                // rules below, which is exactly what they exist to prevent.
                 if ($fundingReqId) {
                     $query->where('funding_request_id', $fundingReqId);
+                } else {
+                    $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
                 }
 
                 $existing = $query->latest()->first();
@@ -198,12 +192,51 @@ class PartnerFundingApplicationService
                 // User specifies no updated_by for partner creation
             }
 
+            // The partner wizard parks an in-progress application at On Hold and
+            // promotes it to Draft once the last step (federal compliance) is on
+            // file, so it is ready to send to the borrower to sign. An application
+            // that is already past signing keeps the status it has; only an
+            // explicit status, or a resign forced below, moves it.
+            $changedFields = [];
+            $requiresResign = false;
+            $previousStatus = $existing->status ?? null;
 
+            if (!$isNew && $existing && empty($status)) {
+                $data['status'] = in_array($existing->status, FundingApplication::preSignatureStatuses(), true)
+                    ? $this->preparationStatus($data, $existing)
+                    : $existing->status;
+            } else {
+                $data['status'] = $status ?? $this->preparationStatus($data, $existing);
+            }
+
+            if (!$isNew && $existing) {
+                try {
+                    $decision = $this->editGuard->applyEditRules($existing, $data, $status);
+                } catch (FundingApplicationLockedException $e) {
+                    $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_PARTNER);
+                    throw $e;
+                }
+
+                $data = $decision['data'];
+                $changedFields = $decision['changed_fields'];
+                $requiresResign = $decision['requires_resign'];
+            }
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
                 $data
             );
+
+            if ($requiresResign) {
+                // A partner changed data the borrower had already attested to, so
+                // it is the borrower's signature that is now stale.
+                $this->auditLogger->logEditRequiringResign(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_PARTNER,
+                    $previousStatus ?? ''
+                );
+            }
 
 
             if (isset($data['has_co_borrower']) && $data['has_co_borrower']) {

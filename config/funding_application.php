@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Borrower\FundingApplication;
+
 /*
 |--------------------------------------------------------------------------
 | Funding Application
@@ -20,6 +22,165 @@
 */
 
 return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Status Lifecycle
+    |--------------------------------------------------------------------------
+    |
+    | Which statuses let the borrower and partner still touch the application,
+    | and what a touch costs them.
+    |
+    | The lists below reference FundingApplication's constants rather than
+    | repeating the strings, so a status is spelled in exactly one place. These
+    | resolve to plain strings while the config is read, well after the
+    | autoloader is registered, and `config:cache` exports the resolved strings -
+    | so the cached config carries no dependency on the model.
+    |
+    | What lives here is the *grouping* decision: which bucket a status belongs
+    | to, and therefore what it permits. Moving a status between buckets is an
+    | edit to this file alone, not a hunt through the services.
+    |
+    | A status belongs to exactly one editing bucket:
+    |
+    |   pre_signature   - the wizard is still being filled in. Nothing has been
+    |                     signed, so an edit is just an edit.
+    |   resign_on_edit  - already signed and submitted. A real field change
+    |                     invalidates the signature: the application drops back
+    |                     to `resign_target`, signature_data is cleared, and the
+    |                     borrower has to sign again. A save that changes nothing
+    |                     (the wizard re-posts every step's prefilled values) must
+    |                     NOT cost a signature.
+    |   locked          - the file is out of our hands - with a lender, under
+    |                     contract, funded or closed. Borrower and partner cannot
+    |                     edit at all; only an admin status change moves it on.
+    |
+    | `allows_new_request` is about a different question: may the borrower submit
+    | a *new* funding request for this option? Yes exactly when the current
+    | application has left their hands - it is with a lender, under contract,
+    | funded, closed or denied. Either way that round is settled and a fresh
+    | request starts a new one; what must not happen is a second request opened
+    | while an application is still being reviewed, which would run two pipelines
+    | for the same borrower against the same lenders.
+    |
+    | It mirrors `locked` today and is kept as its own list so a status can later
+    | be held back from re-applying without also making it editable again - those
+    | are different decisions and should not share a switch.
+    |
+    */
+
+    'statuses' => [
+
+        /*
+        | Every status where the borrower and the partner may still change the
+        | application. This is the roll-up of the two buckets below - they split
+        | the same set by what an edit *costs*, this says plainly what is open at
+        | all. Enforcement reads this list: anything not in it is read-only.
+        */
+        'editable' => [
+            FundingApplication::ON_HOLD,
+            FundingApplication::DRAFT,
+            FundingApplication::PENDING,
+            FundingApplication::SUBMITTED,
+            FundingApplication::UNDERWRITING_REVIEW,
+            FundingApplication::MISSING_DOCUMENTS,
+            FundingApplication::IN_VERIFICATION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
+        ],
+
+        'pre_signature' => [
+            FundingApplication::ON_HOLD,
+            FundingApplication::DRAFT,
+        ],
+
+        'resign_on_edit' => [
+            FundingApplication::PENDING,
+            FundingApplication::SUBMITTED,
+            FundingApplication::UNDERWRITING_REVIEW,
+            FundingApplication::MISSING_DOCUMENTS,
+            FundingApplication::IN_VERIFICATION,
+            FundingApplication::APPROVED_CONDITIONAL,
+            FundingApplication::APPROVED_FINAL,
+        ],
+
+        'locked' => [
+            FundingApplication::MATCHED_TO_LENDER,
+            FundingApplication::SUBMITTED_TO_LENDER,
+            FundingApplication::LENDER_REVIEWING,
+            FundingApplication::OFFER_ISSUED,
+            FundingApplication::OFFER_ACCEPTED,
+            FundingApplication::CONTRACTING_DOCS_OUT,
+            FundingApplication::CLEARED_TO_FUND,
+            FundingApplication::FUNDED,
+            FundingApplication::CLOSED_COMPLETED,
+            FundingApplication::DENIED,
+        ],
+
+        // Out of the borrower's hands - that round is settled, so they may submit
+        // a new funding request for this option.
+        'allows_new_request' => [
+            FundingApplication::MATCHED_TO_LENDER,
+            FundingApplication::SUBMITTED_TO_LENDER,
+            FundingApplication::LENDER_REVIEWING,
+            FundingApplication::OFFER_ISSUED,
+            FundingApplication::OFFER_ACCEPTED,
+            FundingApplication::CONTRACTING_DOCS_OUT,
+            FundingApplication::CLEARED_TO_FUND,
+            FundingApplication::FUNDED,
+            FundingApplication::CLOSED_COMPLETED,
+            FundingApplication::DENIED,
+        ],
+
+        // Where a signature-invalidating edit puts the application.
+        'resign_target' => FundingApplication::DRAFT,
+
+        /*
+        | Statuses written by older versions of the application that still sit on
+        | rows in the database. Each is read as its modern equivalent, so an old
+        | application lands in the right bucket instead of matching nothing.
+        |
+        | This matters because an unrecognised status is treated as read-only -
+        | the safe default for a status nobody has classified. Without this map a
+        | bare 'Pending' row, which simply means submitted, would stop being
+        | editable the moment the lists above started being enforced.
+        */
+        'legacy_aliases' => [
+            // Written before the status was renamed; it means the same thing.
+            // The key stays a literal because no constant names it any more.
+            'Pending' => FundingApplication::PENDING,
+        ],
+
+        /*
+        | Fields excluded when deciding whether a save actually changed anything.
+        | These are bookkeeping the server sets itself, or the very fields a
+        | resign rewrites - counting them would make every save look like an edit
+        | and cost the borrower a signature for paging through the wizard.
+        */
+        'edit_comparison_ignored_fields' => [
+            'id',
+            'status',
+            'status_note',
+            'borrower_id',
+            'partner_id',
+            'is_partner_prepared',
+            'created_by',
+            'updated_by',
+            'funding_request_id',
+            'funding_sequence_id',
+            'signature_data',
+            'attestation_authorization',
+            'requires_resign',
+            'co_borrowers',
+            'is_business_info_saved',
+            'is_ownership_info_saved',
+            'is_financial_info_saved',
+            'is_funding_request_saved',
+            'is_disclosures_saved',
+            'is_federal_compliance_saved',
+        ],
+
+    ],
 
     /*
     |--------------------------------------------------------------------------

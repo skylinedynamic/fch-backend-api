@@ -34,4 +34,6 @@ return [
     'id_exists' => 'The selected ID does not exist.',
     'status_required' => 'The status field is required.',
     'status_in' => 'The status must be Pending, Approved, or Rejected.',
+
+    'application_already_in_progress' => 'You already have a funding application in progress for this option (:status). You can start a new request once it has been sent to a lender, funded, closed or denied.',
 ];

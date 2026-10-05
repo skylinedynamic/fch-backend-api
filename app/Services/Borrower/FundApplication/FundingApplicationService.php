@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\FundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
 use App\Helpers\ApiResponse;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
@@ -13,11 +14,18 @@ use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
+use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 class FundingApplicationService
 {
+    public function __construct(
+        private FundingApplicationEditGuard $editGuard,
+        private FundingApplicationAuditLogger $auditLogger
+    ) {
+    }
 
     /**
      * Get Business Info for the authenticated user.
@@ -166,41 +174,45 @@ class FundingApplicationService
 
 
 
-            if (!$isNew && $existing && empty($status)) {
-                if ($existing->status === FundingApplication::PENDING) {
-                    // The wizard prefills every step with the currently saved values, so
-                    // paging through without changing anything re-submits identical data.
-                    // Only an actual field change should invalidate the signature.
-                    $metaKeys = ['status', 'borrower_id', 'partner_id', 'updated_by', 'created_by',
-                        'funding_request_id', 'funding_sequence_id', 'signature_data', 'attestation_authorization',
-                        'is_business_info_saved', 'is_ownership_info_saved', 'is_financial_info_saved',
-                        'is_funding_request_saved', 'is_disclosures_saved', 'is_federal_compliance_saved'];
-                    // Untouched optional fields round-trip through the wizard as '' rather than
-                    // null, which a cast (e.g. integer) would otherwise turn into a false "0 !== null"
-                    // dirty flag. Normalize for the comparison only - the real save still gets $data as-is.
-                    $comparableData = array_map(fn ($value) => $value === '' ? null : $value, $data);
-                    $existing->fill($comparableData);
-                    $hasRealChange = $existing->isDirty(array_diff(array_keys($data), $metaKeys));
+            // What this save is allowed to do to an application that already
+            // exists - and whether it costs the borrower their signature - is
+            // decided in one place for both portals. See FundingApplicationEditGuard.
+            $changedFields = [];
+            $requiresResign = false;
+            $previousStatus = $existing->status ?? null;
 
-                    if ($hasRealChange) {
-                        // Application was already submitted and is awaiting review; a real edit
-                        // invalidates the prior signature and requires the borrower to resign
-                        $data['status'] = FundingApplication::DRAFT;
-                        $data['signature_data'] = null;
-                        $data['attestation_authorization'] = false;
-                        $data['requires_resign'] = true;
-                    } else {
-                        unset($data['status']); // No actual change - keep it Submitted - Pending Review
-                    }
-                } else {
-                    unset($data['status']); // Do not overwrite existing status
+            if (!$isNew && $existing) {
+                // Saving a step of an application that already exists never moves
+                // it on by itself; only an explicit status (submitting) does.
+                if (empty($status)) {
+                    $data['status'] = $existing->status;
                 }
+
+                try {
+                    $decision = $this->editGuard->applyEditRules($existing, $data, $status);
+                } catch (FundingApplicationLockedException $e) {
+                    $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_BORROWER);
+                    throw $e;
+                }
+
+                $data = $decision['data'];
+                $changedFields = $decision['changed_fields'];
+                $requiresResign = $decision['requires_resign'];
             }
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
                 $data
             );
+
+            if ($requiresResign) {
+                $this->auditLogger->logEditRequiringResign(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_BORROWER,
+                    $previousStatus ?? ''
+                );
+            }
 
 
             if (isset($data['has_co_borrower']) && $data['has_co_borrower']) {

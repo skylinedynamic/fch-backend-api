@@ -258,6 +258,195 @@ class FundingApplication extends Model
         return self::STATUS_CLASS[$this->status] ?? '';
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Status Lifecycle
+    |--------------------------------------------------------------------------
+    |
+    | The buckets live in config/funding_application.php under `statuses` - see
+    | that file for what each one means. The constants above stay the source of
+    | the strings; config decides what each string lets a borrower or partner do.
+    |
+    | Every reader defaults to the constant list rather than an empty array, so a
+    | missing or truncated config section fails closed (nothing editable) instead
+    | of silently unlocking a funded application.
+    |
+    */
+
+    /**
+     * Every status where borrower and partner may still change the application.
+     *
+     * This is the list enforcement reads - anything outside it is read-only,
+     * including a status nobody has classified. Failing closed is deliberate: an
+     * unknown status is more likely to be one added past the point of editing
+     * than one that should quietly stay open. Genuinely old values are mapped
+     * instead, through `statuses.legacy_aliases`.
+     *
+     * @return array<int, string>
+     */
+    public static function editableStatuses(): array
+    {
+        return config('funding_application.statuses.editable', array_merge(
+            self::preSignatureStatuses(),
+            self::resignOnEditStatuses()
+        ));
+    }
+
+    /**
+     * Read a status written by an older version of the application as its modern
+     * equivalent, so it classifies the same way.
+     */
+    public static function canonicalStatus(?string $status): ?string
+    {
+        if ($status === null) {
+            return null;
+        }
+
+        return config('funding_application.statuses.legacy_aliases', [])[$status] ?? $status;
+    }
+
+    /**
+     * Statuses where borrower and partner may not edit the application at all.
+     *
+     * @return array<int, string>
+     */
+    public static function lockedStatuses(): array
+    {
+        return config('funding_application.statuses.locked', [
+            self::MATCHED_TO_LENDER,
+            self::SUBMITTED_TO_LENDER,
+            self::LENDER_REVIEWING,
+            self::OFFER_ISSUED,
+            self::OFFER_ACCEPTED,
+            self::CONTRACTING_DOCS_OUT,
+            self::CLEARED_TO_FUND,
+            self::FUNDED,
+            self::CLOSED_COMPLETED,
+            self::DENIED,
+        ]);
+    }
+
+    /**
+     * Statuses where this round is settled - the application has left the
+     * borrower's hands - so they may submit a new funding request.
+     *
+     * @return array<int, string>
+     */
+    public static function statusesAllowingNewRequest(): array
+    {
+        return config('funding_application.statuses.allows_new_request', self::lockedStatuses());
+    }
+
+    /**
+     * Statuses that carry a signature, so a real field change invalidates it.
+     *
+     * @return array<int, string>
+     */
+    public static function resignOnEditStatuses(): array
+    {
+        return config('funding_application.statuses.resign_on_edit', [
+            self::PENDING,
+            self::SUBMITTED,
+            self::UNDERWRITING_REVIEW,
+            self::MISSING_DOCUMENTS,
+            self::IN_VERIFICATION,
+            self::APPROVED_CONDITIONAL,
+            self::APPROVED_FINAL,
+        ]);
+    }
+
+    /**
+     * Statuses where the wizard is still being filled in and nothing is signed.
+     *
+     * @return array<int, string>
+     */
+    public static function preSignatureStatuses(): array
+    {
+        return config('funding_application.statuses.pre_signature', [
+            self::ON_HOLD,
+            self::DRAFT,
+        ]);
+    }
+
+    /**
+     * Where a signature-invalidating edit puts the application.
+     */
+    public static function resignTargetStatus(): string
+    {
+        return config('funding_application.statuses.resign_target', self::DRAFT);
+    }
+
+    /**
+     * Fields that don't count when deciding whether a save changed anything.
+     *
+     * @return array<int, string>
+     */
+    public static function editComparisonIgnoredFields(): array
+    {
+        return config('funding_application.statuses.edit_comparison_ignored_fields', []);
+    }
+
+    /**
+     * The file is with a lender, under contract, funded or closed - borrower and
+     * partner are read-only from here on.
+     */
+    public function isLockedForEdit(): bool
+    {
+        return ! $this->isEditable();
+    }
+
+    /**
+     * This round is settled: the borrower may submit a new funding request.
+     */
+    public function allowsNewFundingRequest(): bool
+    {
+        return in_array(self::canonicalStatus($this->status), self::statusesAllowingNewRequest(), true);
+    }
+
+    /**
+     * A signature is on file, so a real field change costs it.
+     */
+    public function invalidatesSignatureOnEdit(): bool
+    {
+        return in_array(self::canonicalStatus($this->status), self::resignOnEditStatuses(), true);
+    }
+
+    /**
+     * Borrower/partner may still change the application's data.
+     */
+    public function isEditable(): bool
+    {
+        return in_array(self::canonicalStatus($this->status), self::editableStatuses(), true);
+    }
+
+    /**
+     * Everything a portal needs to decide what to show: whether the form is
+     * open, what an edit will cost, and whether the borrower may start over.
+     *
+     * Both portals spread this into their resources rather than each deriving
+     * its own flags, so "locked" means the same thing on every screen and in
+     * the server-side check that actually enforces it.
+     *
+     * @return array<string, mixed>
+     */
+    public function editingState(): array
+    {
+        $isLocked = $this->isLockedForEdit();
+
+        return [
+            'is_locked' => $isLocked,
+            'is_editable' => ! $isLocked,
+            'requires_resign' => (bool) $this->requires_resign,
+            // True when the form is open but a change will cost the signature -
+            // what the portal warns about before letting an edit through.
+            'edit_requires_resign' => ! $isLocked && $this->invalidatesSignatureOnEdit(),
+            'can_start_new_funding_request' => $this->allowsNewFundingRequest(),
+            'locked_reason' => $isLocked
+                ? __('application.funding_application_locked', ['status' => $this->status])
+                : null,
+        ];
+    }
+
     /**
      * Get the borrower that owns the funding application.
      */
