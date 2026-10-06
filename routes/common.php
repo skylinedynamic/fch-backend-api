@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\PreQualificationAgentConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
@@ -450,6 +451,13 @@ Route::prefix('v1')->group(function () {
             // agent's instructions are edited on the OpenAI platform, never here.
             Route::get('assistant-config', [AssistantConfigController::class, 'index']);
             Route::put('assistant-config/{type}', [AssistantConfigController::class, 'update']);
+
+            // Pre-Qualification agent settings (host-only, enforced again inside
+            // the controller): which OpenAI Agent runs each step of the
+            // underwriting pipeline and which vector stores it searches. The
+            // instructions and the output schema live on the OpenAI platform.
+            Route::get('prequalification-agent-config', [PreQualificationAgentConfigController::class, 'index']);
+            Route::put('prequalification-agent-config/{step}', [PreQualificationAgentConfigController::class, 'update']);
 
             // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
             // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).
