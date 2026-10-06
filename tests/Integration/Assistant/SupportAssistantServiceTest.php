@@ -171,6 +171,34 @@ class SupportAssistantServiceTest extends TestCase
         $this->assertSame([['role' => 'user', 'content' => 'Where are my documents?']], $borrower[1]);
     }
 
+    public static function bothAssistants(): array
+    {
+        return [
+            'wlp' => [AiAssistantConfig::TYPE_WLP_SUPPORT],
+            'borrower' => [AiAssistantConfig::TYPE_BORROWER_SUPPORT],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('bothAssistants')]
+    public function a_long_conversation_still_sends_the_newest_message_as_the_last_turn(string $type): void
+    {
+        // Past the history limit the oldest turns must fall away, never the
+        // question just asked.
+        for ($i = 1; $i <= 120; $i++) {
+            $result = $this->ask($type, "Question {$i}", "Answer {$i}", $sent);
+
+            $this->assertSame(['role' => 'user', 'content' => "Question {$i}"], end($sent[1]), "turn {$i}");
+            $this->assertSame("Answer {$i}", $result['assistant_message']->content, "turn {$i}");
+        }
+
+        $this->assertCount(20, $sent[1]);
+        $this->assertSame(['role' => 'assistant', 'content' => 'Answer 110'], $sent[1][0]);
+        $this->assertSame(['role' => 'assistant', 'content' => 'Answer 119'], $sent[1][18]);
+        // The limit is on what the model is sent, never on what is kept.
+        $this->assertSame(240, $result['conversation']->messages()->count());
+    }
+
     #[Test]
     public function the_saved_vector_stores_are_sent_as_a_file_search_tool_on_every_message(): void
     {
@@ -501,6 +529,22 @@ class SupportAssistantServiceTest extends TestCase
         // startOrGetConversation must now resume the new one, not resurrect the closed one.
         $resumed = $service->startOrGetConversation($this->partnerUser, AiAssistantConfig::TYPE_WLP_SUPPORT);
         $this->assertSame($fresh->id, $resumed->id);
+    }
+
+    #[Test]
+    public function a_new_session_with_no_message_yet_is_still_listed_first(): void
+    {
+        // The widget reopens whichever session is listed first, so an empty
+        // new session must not fall behind the one it replaced.
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Old question', 'Old answer.');
+
+        $service = app(SupportAssistantService::class);
+        $fresh = $service->startNewConversation($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+
+        $listed = $service->listOwnConversations($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+
+        $this->assertSame($fresh->id, $listed->first()->id);
+        $this->assertSame(0, $listed->first()->messages()->count());
     }
 
     #[Test]
