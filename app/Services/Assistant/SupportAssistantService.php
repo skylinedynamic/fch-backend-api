@@ -333,8 +333,11 @@ class SupportAssistantService
 
     private function buildHistory(ChatConversation $conversation): array
     {
+        // messages() is already ordered oldest-first, and a second orderBy only
+        // breaks ties — so without reorder() the limit keeps the FIRST turns
+        // of the thread and drops the message the user has just sent.
         return $conversation->messages()
-            ->latest('id')
+            ->reorder('id', 'desc')
             ->limit(self::HISTORY_LIMIT)
             ->get()
             ->sortBy('id')
