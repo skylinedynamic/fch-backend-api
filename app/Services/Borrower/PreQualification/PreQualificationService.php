@@ -109,10 +109,12 @@ class PreQualificationService
         }
 
         // Same as submit: answer first, evaluate after the response is delivered.
-        $record->update([
-            'gpt_status' => PreQualificationRequest::GPT_PENDING,
-            'gpt_generated_at' => null,
-        ]);
+        // Being reviewed again, so it is no longer Failed; the outcome of this
+        // run sets it from here.
+        $record->applyUnderwritingOutcome(true);
+        $record->gpt_status = PreQualificationRequest::GPT_PENDING;
+        $record->gpt_generated_at = null;
+        $record->save();
 
         $userId = Auth::id();
         app()->terminating(function () use ($record, $userId) {
@@ -144,7 +146,10 @@ class PreQualificationService
         try {
             app(PreQualificationAiService::class)->evaluate($record, $userId);
         } catch (\Throwable $e) {
-            $record->update(['gpt_status' => PreQualificationRequest::GPT_FAILED]);
+            $record->refresh();
+            $record->applyUnderwritingOutcome(false);
+            $record->gpt_status = PreQualificationRequest::GPT_FAILED;
+            $record->save();
 
             Log::error('Pre-qualification AUE evaluation failed', [
                 'pre_qualification_request_id' => $record->id,

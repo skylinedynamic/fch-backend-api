@@ -72,6 +72,7 @@ class PreQualificationAiService
         if ($validation['blocking']) {
             // The evaluation is stored and stays with FCH staff; the borrower is
             // shown what the agent said needs correcting.
+            $application->applyUnderwritingOutcome(false);
             $application->gpt_status = PreQualificationRequest::GPT_COMPLETED;
             $application->gpt_generated_at = now();
             $application->save();
@@ -133,6 +134,7 @@ class PreQualificationAiService
         if (filled($statusNote)) {
             $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
+        $application->applyUnderwritingOutcome(true);
         $application->gpt_status = PreQualificationRequest::GPT_COMPLETED;
         $application->gpt_generated_at = now();
         $application->save();
@@ -230,6 +232,7 @@ class PreQualificationAiService
             $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
 
+        $application->applyUnderwritingOutcome(false);
         $application->gpt_status = PreQualificationRequest::GPT_FAILED;
         $application->gpt_generated_at = now();
         $application->save();

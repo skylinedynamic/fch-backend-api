@@ -123,6 +123,13 @@ class PreQualificationResource extends JsonResource
             return null;
         }
 
+        // A run the agent blocked also ends COMPLETED — the evaluation was
+        // produced, it is only withheld — and writes no borrower row, so the
+        // latest one on file belongs to an earlier run.
+        if (($this->validation_status ?? null) === PreQualificationRequest::VALIDATION_INCORRECT) {
+            return null;
+        }
+
         // client() scope is mandatory here: internal rows live in the same table
         // and carry the underwriting memo, risk flags and lender routing.
         $row = PreQualificationGptResult::query()
