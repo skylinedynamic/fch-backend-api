@@ -8,16 +8,30 @@ use App\Models\Funding\FundingSequencing;
 use App\Models\Funding\LenderVisibility;
 use App\Models\Lender\Lender;
 use App\Models\Lender\LenderProductCategory;
-use App\Services\Global\OpenAI\OpenAiResponsesService;
+use App\Models\PreQualification\PreQualificationAgentConfig;
+use App\Services\Global\OpenAI\OpenAiAgentsService;
 use Illuminate\Support\Carbon;
 
 /**
- * FCH_Internal_Prequalification_AUE_v3 — internal-only underwriting evaluation.
+ * Internal-only underwriting evaluation.
  *
  * Grounds every eligibility judgment in the CURRENT active lender matrix pulled from
  * the database at call time (never hard-coded in the prompt). Output is stored as an
  * "internal" row in pre_qualification_gpt_results and never released to the
  * borrower/partner.
+ *
+ * The underwriting instructions, the output schema, the model and the reasoning
+ * effort are all read from the Pre-Qualification agent on the OpenAI platform at
+ * call time. Nothing about how this evaluates is written here — no prompt text,
+ * no schema file — so an edit saved on the platform applies to the very next
+ * run, with nothing to deploy. Only the facts underwritten against are built
+ * here: the borrower, the live lender matrix and the current FCH rule package.
+ *
+ * With no agent configured the step produces no evaluation and says so. There
+ * is deliberately nothing to fall back to: a second set of instructions living
+ * in this codebase is exactly the hard-coded underwriting the agent replaces,
+ * and it would decide a borrower's result without anyone knowing which of the
+ * two had run.
  *
  * Every underwriting judgment here comes from the model response. When the call
  * fails this returns ok:false and stores nothing — it never substitutes a locally
@@ -26,6 +40,13 @@ use Illuminate\Support\Carbon;
  */
 class PreQualificationInternalAueService
 {
+    use ResolvesAgentPromptVersion;
+
+    /**
+     * Last-resort label for a stored row, used only when neither the response
+     * nor the agent names a version. The instructions themselves live on the
+     * agent — this is not a prompt, and nothing is generated from it.
+     */
     public const PROMPT_VERSION = 'FCH_Internal_Prequalification_AUE_v3';
 
     /**
@@ -56,7 +77,8 @@ class PreQualificationInternalAueService
         'restricted_industries',
     ];
 
-    protected OpenAiResponsesService $client;
+    /** Runs the saved Pre-Qualification agent; also holds the OpenAI credential. */
+    protected OpenAiAgentsService $agents;
 
     /** Correlates this run's internal and client rows. */
     protected ?string $runId = null;
@@ -64,9 +86,9 @@ class PreQualificationInternalAueService
     /** OpenAI's identifiers for the call behind the row about to be written. */
     protected ?string $requestId = null;
 
-    public function __construct(OpenAiResponsesService $client)
+    public function __construct(OpenAiAgentsService $agents)
     {
-        $this->client = $client;
+        $this->agents = $agents;
     }
 
     /**
@@ -78,14 +100,11 @@ class PreQualificationInternalAueService
         $lenderMatrix = $this->buildActiveLenderMatrix();
         $matrixVersion = config('openai.lender_matrix_version', 'runtime') . ':' . now()->format('Y-m-d');
 
-        if (!$this->client->hasApiKey()) {
+        if (!$this->agents->hasApiKey()) {
             return $this->failed('No OpenAI API key configured.');
         }
 
-        $instructions = file_get_contents(__DIR__ . '/FCH_Internal_Prequalification_AUE_v3_Responses_Instructions.txt');
-        $schema = json_decode(file_get_contents(__DIR__ . '/FCH_Internal_Prequalification_AUE_v3_Response_Schema.json'), true);
-
-        // submission_id and matrix_version are required by the v3 schema and are
+        // submission_id and matrix_version are required by the schema and are
         // ours to state, not the model's to infer, so they are supplied as input
         // and checked against the response below.
         $input = [
@@ -96,20 +115,27 @@ class PreQualificationInternalAueService
             'fch_rule_package' => $this->buildRulePackage(),
         ];
 
-        $result = $this->client->run(
-            model: $this->client->defaultModel(),
-            instructions: $instructions,
-            input: $input,
-            schemaName: 'fch_internal_prequalification_aue_v3',
-            schema: $schema,
-            reasoningEffort: $this->client->defaultReasoningEffort(),
-            logContext: [
-                'prompt_version' => self::PROMPT_VERSION,
-                'pre_qualification_request_id' => $application->id,
-                'step' => 'internal_aue',
-                'lender_matrix_version' => $matrixVersion,
-            ],
-        );
+        $logContext = [
+            'prompt_version' => self::PROMPT_VERSION,
+            'pre_qualification_request_id' => $application->id,
+            'step' => 'internal_aue',
+            'lender_matrix_version' => $matrixVersion,
+        ];
+
+        $agent = PreQualificationAgentConfig::find(PreQualificationAgentConfig::TYPE_AGENT);
+
+        if (!$agent->isReady()) {
+            return $this->failed('No Pre-Qualification agent is configured in Settings > OpenAI Configuration.');
+        }
+
+        // The instructions and the output schema live on the agent, so neither
+        // exists in this codebase to be read. Only the facts are built here.
+        $result = $this->agents->runStructuredAgent($agent->agent_id, $input, $agent->agentOverrides(), $logContext);
+
+        // Whatever effort the agent is saved with, including none at all — an
+        // agent on a model that takes no reasoning effort records none, rather
+        // than a value this code picked on its behalf.
+        $reasoningEffort = $result['reasoning_effort'] ?? null;
 
         if (!$result['ok']) {
             return $this->failed($result['error']);
@@ -141,7 +167,21 @@ class PreQualificationInternalAueService
         $data['submission_id'] = (string) $application->id;
         $data['matrix_version'] = $matrixVersion;
 
-        $this->persist($application, $data, self::PROMPT_VERSION, $matrixVersion, $result['model'], 'medium', $result['latency_ms'], false, $userId);
+        $this->persist(
+            $application,
+            $data,
+            // The version the evaluation itself reports, so a stored row names
+            // the prompt that produced it rather than the one this class was
+            // written against — which is the whole point of the agent holding
+            // the instructions.
+            self::promptVersionFor($data, $result),
+            $matrixVersion,
+            $result['model'],
+            $reasoningEffort,
+            $result['latency_ms'],
+            false,
+            $userId
+        );
 
         return [
             'ok' => true,
@@ -175,7 +215,7 @@ class PreQualificationInternalAueService
         string $promptVersion,
         string $matrixVersion,
         ?string $model,
-        string $reasoningEffort,
+        ?string $reasoningEffort,
         int $latencyMs,
         bool $isPlaceholder,
         ?int $userId

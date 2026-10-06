@@ -60,10 +60,50 @@ class PreQualificationResource extends JsonResource
             // borrower-facing response.
             'validation_status' => $this->validation_status ?? null,
             'validation_summary' => $this->validation_summary ?? null,
+            // What the validator agent wrote FOR the borrower about each thing
+            // they have to correct. Only the borrower-addressed message of each
+            // blocking finding — see borrowerCorrections().
+            'validation_corrections' => $this->borrowerCorrections(),
             'gpt_status' => $this->gpt_status ?? null,
-            'gpt_generated_at' => !empty($this->gpt_generated_at) ? Carbon::parse($this->gpt_generated_at)->format('Y-m-d h:i A') : null,
+            // Converted to the viewer's timezone, like every other timestamp in
+            // this response. It was formatted straight off the stored UTC value,
+            // so "Evaluated" read hours away from the Submitted date beside it
+            // and from the clock on the borrower's own machine.
+            'gpt_generated_at' => toTimezone($this->gpt_generated_at, null, 'Y-m-d h:i A'),
             'underwriting_result' => $this->clientAueResult(),
         ];
+    }
+
+    /**
+     * The blocking findings, as the validator agent worded them for the borrower.
+     *
+     * A finding carries two texts: user_message, written to be read by the
+     * borrower, and internal_message, written for FCH staff — plus
+     * suggested_action, which is staff guidance. Only user_message crosses to
+     * this side, by name rather than by exclusion, so a new staff-only field in
+     * the agent's schema cannot reach a borrower by being forgotten here. That
+     * is the same boundary PreQualificationRequestResource draws when it keeps
+     * validation_issues host-only.
+     *
+     * Non-blocking findings are left out: a warning is not something the
+     * borrower is being asked to go and fix.
+     *
+     * @return array<int, array{field: ?string, message: string}>
+     */
+    protected function borrowerCorrections(): array
+    {
+        return collect((array) ($this->validation_issues ?? []))
+            ->filter(fn ($issue) => is_array($issue) && ($issue['severity'] ?? null) === 'BLOCKING')
+            ->map(fn ($issue) => [
+                // Which answer to go back to, when the agent named one.
+                'field' => is_string($issue['field'] ?? null) && $issue['field'] !== '' ? $issue['field'] : null,
+                'message' => trim((string) ($issue['user_message'] ?? '')),
+            ])
+            // A finding the agent gave no borrower wording for has nothing to
+            // show; the internal text is not substituted in its place.
+            ->filter(fn ($issue) => $issue['message'] !== '')
+            ->values()
+            ->all();
     }
 
     /**
