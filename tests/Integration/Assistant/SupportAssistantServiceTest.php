@@ -532,6 +532,22 @@ class SupportAssistantServiceTest extends TestCase
     }
 
     #[Test]
+    public function a_new_session_with_no_message_yet_is_still_listed_first(): void
+    {
+        // The widget reopens whichever session is listed first, so an empty
+        // new session must not fall behind the one it replaced.
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Old question', 'Old answer.');
+
+        $service = app(SupportAssistantService::class);
+        $fresh = $service->startNewConversation($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+
+        $listed = $service->listOwnConversations($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+
+        $this->assertSame($fresh->id, $listed->first()->id);
+        $this->assertSame(0, $listed->first()->messages()->count());
+    }
+
+    #[Test]
     public function every_message_gets_a_uuid_never_relying_on_the_internal_integer_id(): void
     {
         $result = $this->ask(AiAssistantConfig::TYPE_WLP_SUPPORT, 'Hi', 'Answer.');

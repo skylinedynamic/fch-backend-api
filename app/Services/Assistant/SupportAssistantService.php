@@ -132,7 +132,10 @@ class SupportAssistantService
             ->where('assistant_type', $assistantType)
             ->where('causer_type', get_class($user))
             ->where('causer_id', $user->getKey())
-            ->orderByDesc('last_message_at')
+            // Newest first by creation, not by last message: a session just
+            // started has no message yet, and sorting it last would make the
+            // widget reopen the conversation the user has just left.
+            ->orderByDesc('id')
             ->get();
     }
 
