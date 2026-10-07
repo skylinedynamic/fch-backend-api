@@ -80,6 +80,40 @@ class FundingApplicationAuditLogger
     }
 
     /**
+     * A real field change to an application that has been submitted before but
+     * carries no signature right now (a re-sign is already owed), so this edit
+     * cost nothing further. Still recorded: every change to a submitted
+     * application is listed, not only the first one after signing.
+     *
+     * @param  array<int, string>  $changedFields
+     * @param  array<string, array{from: mixed, to: mixed}>  $changes
+     */
+    public function logEdit(FundingApplication $application, array $changedFields, string $actor, array $changes = []): void
+    {
+        $actorName = $this->actorName($actor);
+        $loggedChanges = $this->presentableChanges($changes);
+        $fieldList = $loggedChanges === []
+            ? $this->humanizeFields($changedFields)
+            : $this->describeChanges($loggedChanges);
+        $count = count($changedFields);
+
+        $this->write(
+            $application,
+            'Funding Application Edited',
+            ucfirst($actor) . " {$actorName} edited {$count} field(s) on the application ({$fieldList}).",
+            [
+                'visible_to_borrower' => '1',
+                'actor' => $actor,
+                'actor_name' => $actorName,
+                'changed_fields' => $changedFields,
+                'changed_field_count' => $count,
+                'changes' => $loggedChanges,
+                'requires_resign' => (bool) $application->requires_resign,
+            ]
+        );
+    }
+
+    /**
      * An edit that was refused because the application has moved past the
      * borrower's and partner's reach. Worth recording: a refused write attempt on
      * a file that is already with a lender is exactly the kind of thing someone
@@ -109,27 +143,65 @@ class FundingApplicationAuditLogger
      * first submission from a borrower signing again after an edit cleared the
      * previous signature.
      */
+    /**
+     * @param  array<string, mixed>|null  $previousSignature  the signature this one replaces, if any
+     * @param  array<string, mixed>|null  $newSignature       the signature just given
+     */
     public function logSubmitted(
         FundingApplication $application,
         string $signerName,
         bool $wasResubmission,
-        string $actor = self::ACTOR_BORROWER
+        string $actor = self::ACTOR_BORROWER,
+        ?array $previousSignature = null,
+        ?array $newSignature = null
     ): void {
         $subject = $wasResubmission
             ? 'Funding Application Re-signed and Re-submitted'
             : 'Funding Application Submitted';
 
         $description = $wasResubmission
-            ? "Funding Application re-signed and re-submitted by {$signerName} after an edit "
-                . 'invalidated the previous signature.'
+            ? "Funding Application re-signed and re-submitted by {$signerName}. The new signature replaces the previous one."
             : "Funding Application submitted by {$signerName}.";
+
+        // What was signed, old and new, kept on the entry itself: the image for
+        // an e-signature, the typed name otherwise. The application only ever
+        // holds its latest two, so this is the lasting record of each change.
+        $signatures = array_filter([
+            'previous' => $wasResubmission ? $this->signatureForLog($previousSignature) : null,
+            'new' => $this->signatureForLog($newSignature),
+        ]);
 
         $this->write($application, $subject, $description, [
             'visible_to_borrower' => '1',
             'actor' => $actor,
             'actor_name' => $signerName,
             'is_resubmission' => $wasResubmission,
+            'signatures' => $signatures ?: null,
         ]);
+    }
+
+    /**
+     * A signature reduced to what the log shows: how it was given, the name,
+     * the image if it was an e-signature, and when.
+     *
+     * @param  array<string, mixed>|null  $signature
+     * @return array<string, mixed>|null
+     */
+    private function signatureForLog(?array $signature): ?array
+    {
+        if (! $signature || (empty($signature['signature_name']) && empty($signature['signature_image']))) {
+            return null;
+        }
+
+        $isEsign = ($signature['signature_type'] ?? 'typed') === 'esign' && ! empty($signature['signature_image']);
+
+        return [
+            'type' => $isEsign ? 'esign' : 'typed',
+            'name' => $signature['signature_name'] ?? null,
+            'image' => $isEsign ? $signature['signature_image'] : null,
+            'signed_at' => $signature['signed_at'] ?? null,
+            'signature_date' => $signature['signature_date'] ?? null,
+        ];
     }
 
     /**

@@ -240,6 +240,17 @@ class PartnerFundingApplicationService
                     $previousStatus ?? '',
                     $changes
                 );
+            } elseif (! $isNew && empty($status) && $changedFields !== [] && $existing->hasBeenSubmitted()) {
+                // A further change to an application that was submitted before
+                // (a re-sign is already owed). It costs nothing more, but what
+                // changed is still recorded. Preparing a new application for
+                // the first time is not logged step by step.
+                $this->auditLogger->logEdit(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_PARTNER,
+                    $changes
+                );
             }
 
 

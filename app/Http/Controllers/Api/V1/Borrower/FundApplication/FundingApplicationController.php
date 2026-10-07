@@ -372,16 +372,32 @@ class FundingApplicationController extends Controller
         try {
             $validated = $request->validated();
 
-            // Read the resign flag before saving clears it: it is what separates a
-            // first submission from a borrower signing again after an edit wiped
-            // the previous signature, and the audit trail needs to say which.
-            $wasResubmission = false;
-            if (!empty($validated['id'])) {
-                $priorState = FundingApplication::where('id', $validated['id'])
-                    ->where('borrower_id', Auth::user()->entity_id)
-                    ->first();
-                $wasResubmission = $priorState ? (bool) $priorState->requires_resign : false;
+            // Read the application as it stands before this save rewrites it. Two
+            // things are taken from it for the audit trail:
+            //
+            //  - whether this is a first submission or a re-submission. It is a
+            //    re-submission whenever the application has been signed before -
+            //    a re-sign is owed after an edit, or a signature is still on file
+            //    and the borrower is simply signing again.
+            //  - the signature being replaced, so the log can show the old one
+            //    beside the new one.
+            $priorState = FundingApplication::where('borrower_id', Auth::user()->entity_id)
+                ->when(
+                    ! empty($validated['id']),
+                    fn ($query) => $query->where('id', $validated['id']),
+                    fn ($query) => $query->where('funding_request_id', $validated['funding_request_id'] ?? 0)->latest('id')
+                )
+                ->first();
+
+            $previousSignature = null;
+            if ($priorState) {
+                $previousSignature = ! empty($priorState->signature_data)
+                    ? $priorState->signature_data
+                    : ($priorState->requires_resign ? $priorState->previousSignature() : null);
             }
+            $wasResubmission = $priorState
+                ? ((bool) $priorState->requires_resign || ! empty($priorState->signature_data))
+                : false;
 
             // Extract agent info
             $agent = $request->userAgent();
@@ -457,15 +473,26 @@ class FundingApplicationController extends Controller
             $validated['attestation_authorization'] = true;
             $validated['requires_resign'] = false;
 
+            // Signing again while a signature is still on file replaces it. Keep
+            // the one being replaced, so "Previous Signature" stays accurate
+            // (after an edit the guard has already kept it).
+            if ($priorState && ! empty($priorState->signature_data)) {
+                $validated['previous_signature_data'] = $priorState->signature_data;
+            }
+
             $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
 
-            // Log that the borrower submitted - or, after an edit cleared their
-            // signature, re-signed and re-submitted - the application.
+            // Log that the borrower submitted - or, having signed before,
+            // re-signed and re-submitted - the application, with the signature
+            // that was replaced and the new one.
             $borrowerName = !empty($validated['signature_name']) ? $validated['signature_name'] : (Auth::user() ? trim(Auth::user()->first_name . ' ' . Auth::user()->last_name) : 'Borrower');
             app(FundingApplicationAuditLogger::class)->logSubmitted(
                 $attestationAndAuthorization,
                 $borrowerName,
-                $wasResubmission
+                $wasResubmission,
+                FundingApplicationAuditLogger::ACTOR_BORROWER,
+                $previousSignature,
+                $validated['signature_data']
             );
 
             // Generate Certificate and Final PDF via new Document Service

@@ -62,6 +62,8 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
             // or an e-signature (drawn or uploaded image). Whichever they did
             // not choose is not required and is ignored.
             'signature_type' => 'nullable|in:typed,esign',
+            // Any text the borrower types as their name, up to 255 characters.
+            // The portal's input stops at 255, so this limit is the backstop.
             'signature_name' => 'required_unless:signature_type,esign|nullable|string|min:3|max:255|regex:/^(?!\s*$).+/',
             'signature_image' => [
                 'required_if:signature_type,esign',

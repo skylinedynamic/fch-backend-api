@@ -178,6 +178,36 @@ class ActivityLogResource extends JsonResource
                                 ? $this->causer->getEntityImage() 
                                 : ($borrowerImage ?? $partnerImage ?? asset('avatar/avatar-default.jpg')),
             'event_label'   => $this->getEventLabel(),
+            // On an "application edited" entry: each field that changed, with its
+            // old and new value ({ field: { label, from, to } }). Sensitive ones
+            // (SSN and the like) arrive as "[hidden]".
+            'field_changes' => is_array($this->properties['changes'] ?? null) && ($this->properties['changes'] ?? []) !== []
+                ? $this->properties['changes']
+                : null,
+            // On a submit / re-submit entry: the signature that was replaced
+            // and the new one (image for an e-signature, typed name otherwise),
+            // with their dates formatted through toTimezone().
+            'signatures'    => (function () {
+                $signatures = $this->properties['signatures'] ?? null;
+                if (! is_array($signatures)) {
+                    return null;
+                }
+
+                foreach ($signatures as $key => $signature) {
+                    if (! is_array($signature)) {
+                        unset($signatures[$key]);
+                        continue;
+                    }
+                    if (! empty($signature['signed_at'])) {
+                        $signatures[$key]['signed_at'] = toTimezone($signature['signed_at'], null, 'M d, Y g:i A');
+                    }
+                    if (! empty($signature['signature_date'])) {
+                        $signatures[$key]['signature_date'] = toTimezone($signature['signature_date'], config('app.timezone'), 'M d, Y');
+                    }
+                }
+
+                return $signatures ?: null;
+            })(),
             'changes'       => $this->properties['attributes'] ?? null,
             'old_values'    => $this->properties['old'] ?? null,
             // Audit
