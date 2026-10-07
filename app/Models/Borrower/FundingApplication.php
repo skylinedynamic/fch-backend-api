@@ -611,14 +611,42 @@ class FundingApplication extends Model
         return $this->hasMany(FundingApplicationDocument::class);
     }
 
+    /**
+     * The Funding Applications list search: the columns the list shows, the
+     * applicant and business details on the application, and the borrower the
+     * application belongs to.
+     *
+     * A name is matched word by word, so "Michael Chen" finds a first name of
+     * "Michael" with a last name of "Chen" (and a middle name in between)
+     * although no single column holds the whole phrase.
+     */
     public function scopeSearch($query, $term)
     {
+        $term = trim((string) $term);
         $like = "%{$term}%";
+        $words = preg_split('/\s+/', $term, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
-        return $query->where(function (Builder $q) use ($like) {
+        // Every word of the term must appear in one of the given name columns.
+        $nameMatches = function ($q, array $columns) use ($words) {
+            foreach ($words as $word) {
+                $q->where(function ($inner) use ($columns, $word) {
+                    foreach ($columns as $column) {
+                        $inner->orWhere($column, 'like', "%{$word}%");
+                    }
+                });
+            }
+        };
+
+        return $query->where(function (Builder $q) use ($like, $words, $nameMatches) {
             $q->where('first_name', 'like', $like)
+              ->orWhere('middle_name', 'like', $like)
               ->orWhere('last_name', 'like', $like)
               ->orWhere('full_name', 'like', $like)
+              ->orWhere('application_number', 'like', $like)
+              ->orWhere('industry_type', 'like', $like)
+              ->orWhere('entity_type', 'like', $like)
+              ->orWhere('purpose_of_funds', 'like', $like)
+              ->orWhere('status', 'like', $like)
               ->orWhere('business_name', 'like', $like)
               ->orWhere('business_email', 'like', $like)
               ->orWhere('business_phone_no', 'like', $like)
@@ -630,7 +658,24 @@ class FundingApplication extends Model
               ->orWhere('business_address', 'like', $like)
               ->orWhere('business_city', 'like', $like)
               ->orWhere('business_state', 'like', $like)
-              ->orWhere('business_zip_code', 'like', $like);
+              ->orWhere('business_postal_code', 'like', $like);
+
+            if ($words === []) {
+                return;
+            }
+
+            // The applicant's name as entered on the application...
+            $q->orWhere(fn ($name) => $nameMatches($name, ['first_name', 'middle_name', 'last_name']));
+
+            // ...and the borrower's own record: name, email, phone, business.
+            $q->orWhereHas('borrower', function ($borrower) use ($like, $nameMatches) {
+                $borrower->where(function ($b) use ($like, $nameMatches) {
+                    $b->where(fn ($name) => $nameMatches($name, ['first_name', 'middle_name', 'last_name']))
+                      ->orWhere('email', 'like', $like)
+                      ->orWhere('phone_number', 'like', $like)
+                      ->orWhere('business_name', 'like', $like);
+                });
+            });
         });
     }
 
