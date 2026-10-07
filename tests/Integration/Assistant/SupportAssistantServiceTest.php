@@ -164,7 +164,7 @@ class SupportAssistantServiceTest extends TestCase
         // No instructions or model are sent: just the turns. No vector store is
         // saved for these assistants here, so no tool override goes either.
         $this->assertSame([['role' => 'user', 'content' => 'How do I add a client?']], $wlp[1]);
-        $this->assertSame([], $wlp[4], 'no vector store saved here, so nothing overrides the agent');
+        $this->assertArrayNotHasKey('tools', $wlp[4], 'no vector store saved here, so no tool overrides the agent');
 
         $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Where are my documents?', 'Here.', $borrower);
         $this->assertSame('agent_borrower_test', $borrower[0]);
@@ -208,16 +208,14 @@ class SupportAssistantServiceTest extends TestCase
 
         $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'How long must I be in business?', 'Three years.', $captured);
 
-        $this->assertSame([
-            'tools' => [[
-                'type' => 'file_search',
-                'vector_store_ids' => ['vs_6abe4d0caac08191960c116f6681bc27'],
-                'max_num_results' => (int) config('openai.file_search.max_num_results'),
-            ]],
-            // The store is searched before the model may answer, rather than
-            // only when it decides the question is worth a lookup.
-            'tool_choice' => ['type' => 'file_search'],
-        ], $captured[4]);
+        $this->assertSame([[
+            'type' => 'file_search',
+            'vector_store_ids' => ['vs_6abe4d0caac08191960c116f6681bc27'],
+            'max_num_results' => (int) config('openai.file_search.max_num_results'),
+        ]], $captured[4]['tools']);
+        // The store is searched before the model may answer, rather than
+        // only when it decides the question is worth a lookup.
+        $this->assertSame(['type' => 'file_search'], $captured[4]['tool_choice']);
     }
 
     #[Test]
@@ -303,7 +301,7 @@ class SupportAssistantServiceTest extends TestCase
 
         // An empty list means "send no override", not "search nothing" — the
         // agent's own saved tools still run.
-        $this->assertSame([], $captured[4]);
+        $this->assertArrayNotHasKey('tools', $captured[4]);
     }
 
     #[Test]
@@ -351,7 +349,7 @@ class SupportAssistantServiceTest extends TestCase
 
         // Nothing of ours is searched, so nothing of ours is overridden, and
         // there is nothing to hold the answer to.
-        $this->assertSame([], $captured[4]);
+        $this->assertArrayNotHasKey('tools', $captured[4]);
         $this->assertTrue($result['policy']['answer_grounded']);
     }
 
@@ -363,7 +361,7 @@ class SupportAssistantServiceTest extends TestCase
         ]);
 
         $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'One', 'A.', $before);
-        $this->assertSame([], $before[4]);
+        $this->assertArrayNotHasKey('tools', $before[4]);
 
         AiAssistantConfig::saveSettings(AiAssistantConfig::TYPE_BORROWER_SUPPORT, [
             'vector_stores' => [['id' => 'vs_knowledge', 'enabled' => true]],
@@ -371,6 +369,221 @@ class SupportAssistantServiceTest extends TestCase
 
         $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Two', 'B.', $after);
         $this->assertSame(['vs_knowledge'], $after[4]['tools'][0]['vector_store_ids']);
+    }
+
+    /** The structured reply the agent returns: its answer plus the Take Me There destination. */
+    private function reply(string $answer, ?string $routeKey): string
+    {
+        return json_encode([
+            'answer' => $answer,
+            'navigation' => $routeKey === null
+                ? ['required' => false, 'intent' => 'none', 'route_key' => null]
+                : ['required' => true, 'intent' => 'portal_navigation', 'route_key' => $routeKey],
+        ]);
+    }
+
+    /** Sends one message answered with a structured reply; the real marker-stripping runs. */
+    private function askStructured(string $type, string $question, string $reply, ?array &$captured = null): array
+    {
+        $captured = [];
+        $this->mock(OpenAiAgentsService::class, function ($mock) use ($reply, &$captured) {
+            $mock->makePartial();
+            $mock->shouldReceive('runAgent')->once()->andReturnUsing(function (...$args) use ($reply, &$captured) {
+                $captured = $args;
+
+                return ['ok' => true, 'text' => $reply, 'sources' => [], 'model' => 'gpt-test', 'usage' => null, 'request_id' => 'sess_test'];
+            });
+        });
+
+        $user = $type === AiAssistantConfig::TYPE_WLP_SUPPORT ? $this->partnerUser : $this->borrowerUser;
+        $service = app(SupportAssistantService::class);
+        $conversation = $service->startOrGetConversation($user, $type);
+
+        return $service->sendMessage($conversation, $question, $user);
+    }
+
+    #[Test]
+    public function every_turn_asks_for_the_answer_together_with_an_approved_destination(): void
+    {
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Where are my documents?', 'Here.', $captured);
+
+        $schema = $captured[4]['text']['format'];
+        $this->assertSame('json_schema', $schema['type']);
+        $this->assertTrue($schema['strict']);
+
+        // Only this assistant's own destinations can be named — or none.
+        $keys = $schema['schema']['properties']['navigation']['properties']['route_key']['enum'];
+        $this->assertContains('documents', $keys);
+        $this->assertContains(null, $keys);
+        $this->assertNotContains('leads', $keys, 'a WLP destination is not offered to the borrower assistant');
+
+        // The note explaining the format lists names and keys, never a path.
+        $this->assertStringContainsString('Documents -> documents', $captured[4]['instructions_append']);
+        $this->assertStringNotContainsString('/documents', $captured[4]['instructions_append']);
+    }
+
+    #[Test]
+    public function a_take_me_there_line_becomes_a_button_to_the_approved_page(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_BORROWER_SUPPORT,
+            'Where do I upload the documents requested for my funding application?',
+            $this->reply("Upload them in the **Documents** area.\n\n**Take Me There**\n\nUpload clear, complete files.", 'documents')
+        );
+
+        $this->assertSame(
+            "Upload them in the **Documents** area.\n\n[[ACTION:navigate_documents]]\n\nUpload clear, complete files.",
+            $result['assistant_message']->content
+        );
+        $this->assertSame([[
+            'type' => 'navigate',
+            'id' => 'navigate_documents',
+            'label' => 'Take Me There',
+            'path' => '/documents',
+            'route_key' => 'documents',
+        ]], $result['actions']);
+        $this->assertSame(['required' => true, 'intent' => 'portal_navigation', 'route_key' => 'documents'], $result['navigation']);
+
+        // Kept with the message, so the button is still there when history reloads.
+        $stored = $result['assistant_message']->fresh();
+        $this->assertSame($result['actions'], $stored->actions);
+        $this->assertSame($result['navigation'], $stored->navigation);
+    }
+
+    #[Test]
+    public function the_destination_named_beside_the_label_is_dropped_in_favour_of_the_button(): void
+    {
+        // The wording seen in the WLP portal before the button existed.
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_WLP_SUPPORT,
+            'Where do I upload the documents requested for my funding application?',
+            $this->reply("For the approved WLP navigation, use:\n\n**Take Me There — Funding Application**\n\nUpload clear files.", 'funding_application')
+        );
+
+        $this->assertSame(
+            "For the approved WLP navigation, use:\n\n[[ACTION:navigate_funding_application]]\n\nUpload clear files.",
+            $result['assistant_message']->content
+        );
+        $this->assertSame('/intake-review/funding-application', $result['actions'][0]['path']);
+    }
+
+    #[Test]
+    public function guidance_that_follows_the_label_is_kept_under_the_button(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_WLP_SUPPORT,
+            'How do I set up email?',
+            $this->reply("1. **Take Me There** -> Then select **Email Configuration**.\n2. Save.", 'settings')
+        );
+
+        $this->assertSame(
+            "1. [[ACTION:navigate_settings]]\nThen select **Email Configuration**.\n2. Save.",
+            $result['assistant_message']->content
+        );
+    }
+
+    #[Test]
+    public function a_destination_given_without_the_line_still_gets_its_button(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_BORROWER_SUPPORT,
+            'Where are the guides?',
+            $this->reply('The guides are in **Resource Hub**.', 'resource_hub')
+        );
+
+        $this->assertSame("The guides are in **Resource Hub**.\n\n[[ACTION:navigate_resource_hub]]", $result['assistant_message']->content);
+        $this->assertSame('/resources', $result['actions'][0]['path']);
+    }
+
+    #[Test]
+    public function take_me_there_with_no_approved_destination_is_removed_rather_than_shown_as_words(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_BORROWER_SUPPORT,
+            'Where is the thing?',
+            $this->reply("It is in your portal.\n\n**Take Me There**\n\nAsk your support team if it is missing.", null)
+        );
+
+        $this->assertSame("It is in your portal.\n\nAsk your support team if it is missing.", $result['assistant_message']->content);
+        $this->assertSame([], $result['actions']);
+        $this->assertSame(['required' => false, 'intent' => 'none', 'route_key' => null], $result['navigation']);
+    }
+
+    #[Test]
+    public function a_passing_mention_of_take_me_there_goes_too_when_there_is_no_button(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_WLP_SUPPORT,
+            'Where is the thing?',
+            $this->reply('The videos are in **Resources**. Select Take Me There, then choose Resources. Ask support if it is missing.', null)
+        );
+
+        $this->assertSame('The videos are in **Resources**. Ask support if it is missing.', $result['assistant_message']->content);
+        $this->assertSame([], $result['actions']);
+    }
+
+    #[Test]
+    public function a_reply_stored_with_citation_markers_is_never_shown_or_resent_with_them(): void
+    {
+        $service = app(SupportAssistantService::class);
+        $conversation = $service->startOrGetConversation($this->borrowerUser, AiAssistantConfig::TYPE_BORROWER_SUPPORT);
+        // As saved before the markers were stripped on arrival.
+        $conversation->messages()->create(['role' => 'user', 'content' => 'Why is my tier locked?']);
+        $old = $conversation->messages()->create([
+            'role' => 'assistant',
+            'content' => "Contact your support team. \u{E200}filecite\u{E202}turn0file1\u{E202}turn0file6\u{E201}",
+        ]);
+
+        $shown = (new \App\Http\Resources\Assistant\ChatMessageResource($old))->toArray(request());
+        $this->assertSame('Contact your support team.', $shown['content']);
+
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Thanks', 'Welcome.', $captured);
+        $this->assertSame(['role' => 'assistant', 'content' => 'Contact your support team.'], $captured[1][1]);
+    }
+
+    #[Test]
+    public function a_destination_outside_the_assistants_own_map_never_becomes_a_button(): void
+    {
+        // "leads" is a WLP page; the borrower assistant may not send anyone there.
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_BORROWER_SUPPORT,
+            'Where are leads?',
+            $this->reply("**Take Me There**\n\nSee your portal. [[ACTION:navigate_leads]]", 'leads')
+        );
+
+        $this->assertSame('See your portal.', $result['assistant_message']->content);
+        $this->assertSame([], $result['actions']);
+    }
+
+    #[Test]
+    public function citation_markers_inside_a_structured_answer_are_removed(): void
+    {
+        $result = $this->askStructured(
+            AiAssistantConfig::TYPE_BORROWER_SUPPORT,
+            'Why is my tier locked?',
+            $this->reply("Contact your support team. \u{E200}filecite\u{E202}turn0file1\u{E202}turn0file6\u{E201}", null)
+        );
+
+        $this->assertSame('Contact your support team.', $result['assistant_message']->content);
+    }
+
+    #[Test]
+    public function a_structured_reply_cut_short_becomes_a_safe_error_and_never_raw_json(): void
+    {
+        $result = $this->askStructured(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Hello?', '{"answer": "Upload them in the');
+
+        $this->assertStringNotContainsString('{', $result['assistant_message']->content);
+        $this->assertTrue($result['escalation']['required']);
+        $this->assertSame('invalid_response', $result['escalation']['reason']);
+    }
+
+    #[Test]
+    public function the_agent_is_shown_its_own_wording_for_an_earlier_button_never_the_placeholder(): void
+    {
+        $this->askStructured(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Where are my documents?', $this->reply("**Take Me There**", 'documents'));
+        $this->ask(AiAssistantConfig::TYPE_BORROWER_SUPPORT, 'Thanks', 'Welcome.', $captured);
+
+        $this->assertSame(['role' => 'assistant', 'content' => '**Take Me There**'], $captured[1][1]);
     }
 
     #[Test]

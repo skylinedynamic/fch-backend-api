@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Assistant;
 
+use App\Services\Global\OpenAI\OpenAiAgentsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,7 +13,9 @@ class ChatMessageResource extends JsonResource
         return [
             'message_id' => $this->uuid,
             'role' => $this->role,
-            'content' => $this->content,
+            // Cleaned on the way out as well as on arrival, so a reply stored
+            // before citation markers were stripped never shows them.
+            'content' => OpenAiAgentsService::withoutCitationMarkers((string) $this->content),
             'actions' => $this->actions ?? [],
             'navigation' => $this->navigation ?? ['required' => false, 'intent' => 'none', 'route_key' => null],
             'sources' => $this->sources ?? [],

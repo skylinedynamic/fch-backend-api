@@ -104,7 +104,8 @@ class OpenAiAgentsService extends OpenAiResponsesService
      *
      * @param array<int, array{role: string, content: string}> $messages Full turn history, oldest first.
      * @param array<string, string> $metadata Non-PII string key/values stored on the OpenAI response.
-     * @param array<string, mixed> $agentOverrides Responses API tools/tool_choice; empty sends no tools.
+     * @param array<string, mixed> $agentOverrides Responses API tools/tool_choice/text, plus
+     *                                             `instructions_append`; empty sends no tools.
      *
      * @return array{ok: bool, text: ?string, sources: array, model: ?string, latency_ms: int, usage: ?array, request_id: ?string, error: ?string}
      */
@@ -137,8 +138,13 @@ class OpenAiAgentsService extends OpenAiResponsesService
             'store' => (bool) config('openai.store', true),
         ];
 
-        if (filled($agent['instructions'] ?? null)) {
-            $body['instructions'] = (string) $agent['instructions'];
+        // The saved instructions, followed by whatever the caller needs the
+        // answer to carry for the application itself (a reply format). The
+        // agent's own wording always comes first and is never altered.
+        $instructions = (string) ($agent['instructions'] ?? '') . (string) ($agentOverrides['instructions_append'] ?? '');
+
+        if (trim($instructions) !== '') {
+            $body['instructions'] = $instructions;
         }
 
         if ($metadata !== []) {
@@ -148,7 +154,8 @@ class OpenAiAgentsService extends OpenAiResponsesService
         // The approved knowledge base, as the caller built it. These are
         // Responses API fields already — a file_search tool and, when search is
         // forced, the tool_choice that makes the model look before answering.
-        foreach (['tools', 'tool_choice'] as $field) {
+        // `text` carries a structured reply format when the caller needs one.
+        foreach (['tools', 'tool_choice', 'text'] as $field) {
             if (! empty($agentOverrides[$field])) {
                 $body[$field] = $agentOverrides[$field];
             }
@@ -202,7 +209,9 @@ class OpenAiAgentsService extends OpenAiResponsesService
 
         return [
             'ok' => true,
-            'text' => trim($text),
+            // A structured reply is left as the JSON it is: the caller decodes
+            // it and cleans the answer inside, where the markers actually are.
+            'text' => empty($agentOverrides['text']) ? $this->stripCitationMarkers($text) : trim($text),
             'sources' => $sources,
             'file_search_calls' => $searches,
             'model' => $model,
@@ -212,6 +221,36 @@ class OpenAiAgentsService extends OpenAiResponsesService
             'request_id' => $requestId,
             'error' => null,
         ];
+    }
+
+    /**
+     * The answer without the model's inline citation markers.
+     *
+     * A file_search answer marks each cited passage in the text itself, as
+     * "filecite", "turn0file1", ... wrapped in private-use Unicode characters
+     * (U+E200–U+E206). They are placeholders for a client to swap for a
+     * rendered citation; shown as they are, they read as boxes and internal
+     * file references. What was cited is not lost: it is in the response's
+     * annotations, which extractCitations() returns as `sources`.
+     */
+    public function stripCitationMarkers(string $text): string
+    {
+        return self::withoutCitationMarkers($text);
+    }
+
+    /**
+     * The same clean-up for text that is already stored — a reply saved before
+     * the markers were removed on arrival must not show them either.
+     */
+    public static function withoutCitationMarkers(string $text): string
+    {
+        $clean = preg_replace('/\x{E200}[^\x{E201}]*\x{E201}/u', '', $text) ?? $text;
+        // A marker cut short (no closing character) still must not show.
+        $clean = preg_replace('/[\x{E200}-\x{E206}]/u', '', $clean) ?? $clean;
+        // Removing a marker can leave its leading space before punctuation or a line end.
+        $clean = preg_replace('/[ \t]+(?=[.,;:!?]|\R|$)/u', '', $clean) ?? $clean;
+
+        return trim($clean);
     }
 
     /**

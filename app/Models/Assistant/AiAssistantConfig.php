@@ -186,6 +186,29 @@ class AiAssistantConfig
     }
 
     /**
+     * This assistant's approved Take Me There destinations, from
+     * config/assistant.php: route_key => ['label' => ..., 'path' => ...].
+     * The only places a navigation button may ever lead.
+     *
+     * @return array<string, array{label: string, path: string}>
+     */
+    public function navigationMap(): array
+    {
+        return (array) config('assistant.navigation.' . $this->assistant_type, []);
+    }
+
+    /**
+     * The same map as route_key => path, which is what a portal's chat widget
+     * checks an action against before it renders or follows it.
+     *
+     * @return array<string, string>
+     */
+    public function navigationPaths(): array
+    {
+        return array_map(static fn (array $entry) => $entry['path'], $this->navigationMap());
+    }
+
+    /**
      * The file_search tool sent with every chat turn, or null when no store is
      * switched on — in which case the agent's own saved tools stand, exactly as
      * they do for an assistant with nothing configured here at all.

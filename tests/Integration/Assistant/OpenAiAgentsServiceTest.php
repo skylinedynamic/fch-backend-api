@@ -227,6 +227,23 @@ class OpenAiAgentsServiceTest extends TestCase
     }
 
     #[Test]
+    public function inline_citation_markers_are_removed_from_the_answer_but_the_sources_are_kept(): void
+    {
+        $this->fakeTurn([
+            ['type' => 'file_search_call', 'status' => 'completed', 'queries' => ['locked tier']],
+            $this->answer(
+                "Contact your support team for a review. \u{E200}filecite\u{E202}turn0file1\u{E202}turn0file6\u{E201}\n\nSee the guide \u{E200}filecite\u{E202}turn0file2\u{E201}.",
+                [['type' => 'file_citation', 'filename' => 'Borrower_Page_05_Credit_Builder_v1_0.md']]
+            ),
+        ]);
+
+        $result = app(OpenAiAgentsService::class)->runAgent('agent_abc', [['role' => 'user', 'content' => 'Hi']]);
+
+        $this->assertSame("Contact your support team for a review.\n\nSee the guide.", $result['text']);
+        $this->assertSame([['title' => 'Borrower_Page_05_Credit_Builder_v1_0.md']], $result['sources']);
+    }
+
+    #[Test]
     public function an_answer_produced_without_searching_reports_no_file_search_calls(): void
     {
         $this->fakeTurn([$this->answer('Probably around three years.')]);
