@@ -198,6 +198,7 @@ class PartnerFundingApplicationService
             // that is already past signing keeps the status it has; only an
             // explicit status, or a resign forced below, moves it.
             $changedFields = [];
+            $changes = [];
             $requiresResign = false;
             $previousStatus = $existing->status ?? null;
 
@@ -219,6 +220,7 @@ class PartnerFundingApplicationService
 
                 $data = $decision['data'];
                 $changedFields = $decision['changed_fields'];
+                $changes = $decision['changes'];
                 $requiresResign = $decision['requires_resign'];
             }
 
@@ -234,7 +236,8 @@ class PartnerFundingApplicationService
                     $fundingApplication,
                     $changedFields,
                     FundingApplicationAuditLogger::ACTOR_PARTNER,
-                    $previousStatus ?? ''
+                    $previousStatus ?? '',
+                    $changes
                 );
             }
 

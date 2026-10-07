@@ -199,6 +199,13 @@ class FundingSequencingResource extends JsonResource
             // being parked on a "View Application" link that leads nowhere useful.
             'funding_application_id' => $latestApplication ? $latestApplication->id : null,
             'funding_application_status' => $latestApplication ? $latestApplication->status : null,
+            // Lifecycle key (1-19). At or below the editable limit the borrower
+            // may still edit the application; past it they start a new request.
+            'funding_application_status_key' => $latestApplication ? FundingApplication::statusKey($latestApplication->status) : null,
+            'funding_application_is_editable' => $latestApplication ? $latestApplication->isEditable() : false,
+            'funding_application_funding_request_id' => $latestApplication
+                ? ($latestApplication->funding_request_id ?? $latestReview?->id)
+                : null,
             'funding_application_is_locked' => $latestApplication ? $latestApplication->isLockedForEdit() : false,
             'funding_application_requires_resign' => $latestApplication ? (bool) $latestApplication->requires_resign : false,
             'can_start_new_funding_request' => $latestApplication ? $latestApplication->allowsNewFundingRequest() : false,

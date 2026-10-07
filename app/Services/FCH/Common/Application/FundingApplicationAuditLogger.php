@@ -24,6 +24,10 @@ class FundingApplicationAuditLogger
     public const ACTOR_BORROWER = 'borrower';
     public const ACTOR_PARTNER = 'partner';
 
+    // Never written to the log in the clear - the entry is visible to the
+    // borrower and to staff, and a changed SSN needs recording, not repeating.
+    private const SENSITIVE_FIELD_MARKERS = ['ssn', 'ein', 'tax_id', 'date_of_birth', 'account_number', 'routing'];
+
     public function __construct(private ActivityLogService $activityLog)
     {
     }
@@ -33,15 +37,20 @@ class FundingApplicationAuditLogger
      * their signature.
      *
      * @param  array<int, string>  $changedFields
+     * @param  array<string, array{from: mixed, to: mixed}>  $changes  old and new value per changed field
      */
     public function logEditRequiringResign(
         FundingApplication $application,
         array $changedFields,
         string $actor,
-        string $previousStatus
+        string $previousStatus,
+        array $changes = []
     ): void {
         $actorName = $this->actorName($actor);
-        $fieldList = $this->humanizeFields($changedFields);
+        $loggedChanges = $this->presentableChanges($changes);
+        $fieldList = $loggedChanges === []
+            ? $this->humanizeFields($changedFields)
+            : $this->describeChanges($loggedChanges);
         $count = count($changedFields);
 
         $description = $actor === self::ACTOR_PARTNER
@@ -62,6 +71,7 @@ class FundingApplicationAuditLogger
                 'actor_name' => $actorName,
                 'changed_fields' => $changedFields,
                 'changed_field_count' => $count,
+                'changes' => $loggedChanges,
                 'previous_status' => $previousStatus,
                 'new_status' => $application->status,
                 'requires_resign' => true,
@@ -161,6 +171,76 @@ class FundingApplicationAuditLogger
         }
 
         return $actor === self::ACTOR_PARTNER ? 'Partner' : 'Borrower';
+    }
+
+    /**
+     * The changes as they may be stored and shown: values flattened to text, and
+     * sensitive ones replaced so the log records that they moved without
+     * repeating them.
+     *
+     * @param  array<string, array{from: mixed, to: mixed}>  $changes
+     * @return array<string, array{label: string, from: string, to: string}>
+     */
+    private function presentableChanges(array $changes): array
+    {
+        $presentable = [];
+
+        foreach ($changes as $field => $change) {
+            $sensitive = $this->isSensitive($field);
+
+            $presentable[$field] = [
+                'label' => ucwords(str_replace('_', ' ', $field)),
+                'from' => $sensitive ? '[hidden]' : $this->displayValue($change['from'] ?? null),
+                'to' => $sensitive ? '[hidden]' : $this->displayValue($change['to'] ?? null),
+            ];
+        }
+
+        return $presentable;
+    }
+
+    /**
+     * @param  array<string, array{label: string, from: string, to: string}>  $changes
+     */
+    private function describeChanges(array $changes): string
+    {
+        return implode('; ', array_map(
+            static fn (array $change) => $change['from'] === '[hidden]'
+                ? "{$change['label']}: changed"
+                : "{$change['label']}: \"{$change['from']}\" to \"{$change['to']}\"",
+            $changes
+        ));
+    }
+
+    private function isSensitive(string $field): bool
+    {
+        foreach (self::SENSITIVE_FIELD_MARKERS as $marker) {
+            if ($field === $marker || str_contains($field, $marker . '_') || str_ends_with($field, '_' . $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function displayValue(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'empty';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        if (is_array($value) || is_object($value)) {
+            return (string) json_encode($value);
+        }
+
+        return (string) $value;
     }
 
     /**

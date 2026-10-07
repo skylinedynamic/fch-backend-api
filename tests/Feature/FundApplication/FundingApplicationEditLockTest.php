@@ -301,6 +301,74 @@ class FundingApplicationEditLockTest extends TestCase
     }
 
     #[Test]
+    public function a_resign_forcing_edit_records_the_old_and_new_value_of_each_field(): void
+    {
+        $before = FundingApplication::find($this->applicationId);
+
+        $this->postBusinessInfo([
+            'business_name' => 'Alpha Tech Solutions LLC',
+            'business_city' => 'Portland',
+        ])->assertOk();
+
+        $log = $this->logsFor('Funding Application Edited - Re-signature Required')->first();
+        $changes = $log->properties['changes'];
+
+        $this->assertSame((string) $before->business_name, $changes['business_name']['from']);
+        $this->assertSame('Alpha Tech Solutions LLC', $changes['business_name']['to']);
+        $this->assertSame('Portland', $changes['business_city']['to']);
+        $this->assertSame('Business Name', $changes['business_name']['label']);
+
+        // And a person reading the log sees the same thing, not just column names.
+        $this->assertStringContainsString('"Alpha Tech Solutions LLC"', $log->description);
+        $this->assertStringContainsString('"Portland"', $log->description);
+    }
+
+    // ── The signature an edit clears ─────────────────────────────────
+
+    #[Test]
+    public function the_signature_an_edit_clears_is_kept_for_the_re_signing_step(): void
+    {
+        $this->postBusinessInfo(['business_name' => 'Alpha Tech Solutions LLC'])->assertOk();
+
+        $application = FundingApplication::find($this->applicationId);
+        $this->assertNull($application->signature_data);
+        $this->assertSame('Michael Chen', $application->previous_signature_data['signature_name']);
+
+        $attestation = $this->getJson(
+            '/api/v1/borrower/funding-application/attestation-authorization?funding_request_id=' . $this->fundingRequestId
+        )->assertOk()->json('data');
+
+        // Nothing to prefill the new signature from, and the old one beside it.
+        $this->assertNull($attestation['signature_data']);
+        $this->assertTrue($attestation['requires_resign']);
+        $this->assertSame('Michael Chen', $attestation['previous_signature']['signature_name']);
+        $this->assertNotNull($attestation['previous_signature']['signed_at']);
+    }
+
+    #[Test]
+    public function a_second_edit_before_re_signing_does_not_lose_the_previous_signature(): void
+    {
+        $this->postBusinessInfo(['business_name' => 'Alpha Tech Solutions LLC'])->assertOk();
+        $this->postBusinessInfo(['business_city' => 'Portland'])->assertOk();
+
+        $application = FundingApplication::find($this->applicationId);
+
+        $this->assertSame('Michael Chen', $application->previous_signature_data['signature_name']);
+    }
+
+    #[Test]
+    public function a_signed_application_reports_no_previous_signature(): void
+    {
+        $attestation = $this->getJson(
+            '/api/v1/borrower/funding-application/attestation-authorization?funding_request_id=' . $this->fundingRequestId
+        )->assertOk()->json('data');
+
+        $this->assertFalse($attestation['requires_resign']);
+        $this->assertNull($attestation['previous_signature']);
+        $this->assertSame('Michael Chen', $attestation['signature_data']['signature_name']);
+    }
+
+    #[Test]
     public function an_edit_that_changes_nothing_writes_no_log(): void
     {
         $this->postBusinessInfo(['number_of_employees' => ''])->assertOk();

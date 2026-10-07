@@ -81,6 +81,38 @@ class FundingApplicationEditGuard
     }
 
     /**
+     * What each changed field held before this save and what it is being set to,
+     * so the audit trail can say what moved and not just that something did.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<int, string>  $changedFields
+     * @return array<string, array{from: mixed, to: mixed}>
+     */
+    public function changedValues(FundingApplication $existing, array $data, array $changedFields): array
+    {
+        if ($changedFields === []) {
+            return [];
+        }
+
+        // Read both sides through the model, so the old and the new value are
+        // cast the same way (a boolean stays a boolean, a date a date) and the
+        // pair recorded is the pair that was actually compared.
+        $probe = clone $existing;
+        $probe->fill(array_map(static fn ($value) => $value === '' ? null : $value, $data));
+
+        $changes = [];
+
+        foreach ($changedFields as $field) {
+            $changes[$field] = [
+                'from' => $existing->getAttribute($field),
+                'to' => $probe->getAttribute($field),
+            ];
+        }
+
+        return $changes;
+    }
+
+    /**
      * Apply the editing rules to a save that is about to happen.
      *
      * The caller decides `$data['status']` before calling - the two portals park
@@ -95,7 +127,7 @@ class FundingApplicationEditGuard
      *                                                present the caller owns the status
      *                                                and the signature it just wrote,
      *                                                so no resign is forced
-     * @return array{data: array<string, mixed>, changed_fields: array<int, string>, requires_resign: bool}
+     * @return array{data: array<string, mixed>, changed_fields: array<int, string>, changes: array<string, array{from: mixed, to: mixed}>, requires_resign: bool}
      *
      * @throws FundingApplicationLockedException
      */
@@ -114,30 +146,36 @@ class FundingApplicationEditGuard
             // prefilled values; paging through must not cost a signature.
             || $changedFields === [];
 
+        $changes = $this->changedValues($existing, $data, $changedFields);
+
         if ($leaveStatusToCaller) {
-            return $this->result($data, $changedFields, false);
+            return $this->result($data, $changedFields, $changes, false);
         }
 
         // A real edit to a signed application. The edit is still persisted; what
         // it loses is the signature attesting to the old data.
         $data['status'] = FundingApplication::resignTargetStatus();
+        // Kept so the re-signing step can show what was signed before.
+        $data['previous_signature_data'] = $existing->signature_data ?: $existing->previous_signature_data;
         $data['signature_data'] = null;
         $data['attestation_authorization'] = false;
         $data['requires_resign'] = true;
 
-        return $this->result($data, $changedFields, true);
+        return $this->result($data, $changedFields, $changes, true);
     }
 
     /**
      * @param  array<string, mixed>  $data
      * @param  array<int, string>  $changedFields
-     * @return array{data: array<string, mixed>, changed_fields: array<int, string>, requires_resign: bool}
+     * @param  array<string, array{from: mixed, to: mixed}>  $changes
+     * @return array{data: array<string, mixed>, changed_fields: array<int, string>, changes: array<string, array{from: mixed, to: mixed}>, requires_resign: bool}
      */
-    private function result(array $data, array $changedFields, bool $requiresResign): array
+    private function result(array $data, array $changedFields, array $changes, bool $requiresResign): array
     {
         return [
             'data' => $data,
             'changed_fields' => $changedFields,
+            'changes' => $changes,
             'requires_resign' => $requiresResign,
         ];
     }

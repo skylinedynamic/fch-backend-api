@@ -99,6 +99,7 @@ class FundingApplication extends Model
         'federal_compliance_disclosures_explanation',
         'attestation_authorization',
         'signature_data',
+        'previous_signature_data',
         'requires_resign',
         'currency',
         'currency_symbol',
@@ -119,6 +120,7 @@ class FundingApplication extends Model
         'date_of_birth' => 'date',
         'funded_date' => 'date',
         'signature_data' => 'array',
+        'previous_signature_data' => 'array',
         'requires_resign' => 'boolean',
 
         'is_business_info_saved' => 'boolean',
@@ -177,6 +179,38 @@ class FundingApplication extends Model
     public const FUNDED = 'Funded';
     public const CLOSED_COMPLETED = 'Closed (Completed)';
     public const DENIED = 'Denied';
+
+    /**
+     * Each status's position in the lifecycle, 1 being the earliest.
+     *
+     * Editing is decided by this number: borrower and partner may change the
+     * application while its key is at or below `statuses.max_editable_key`
+     * (9 - Approved (Final)), and not once it has moved past it.
+     */
+    public const STATUS_KEYS = [
+        self::ON_HOLD => 1,
+        self::DRAFT => 2,
+        self::PENDING => 3,
+        self::SUBMITTED => 4,
+        self::UNDERWRITING_REVIEW => 5,
+        self::MISSING_DOCUMENTS => 6,
+        self::IN_VERIFICATION => 7,
+        self::APPROVED_CONDITIONAL => 8,
+        self::APPROVED_FINAL => 9,
+        self::MATCHED_TO_LENDER => 10,
+        self::SUBMITTED_TO_LENDER => 11,
+        self::LENDER_REVIEWING => 12,
+        self::OFFER_ISSUED => 13,
+        self::OFFER_ACCEPTED => 14,
+        self::CONTRACTING_DOCS_OUT => 15,
+        self::CLEARED_TO_FUND => 16,
+        self::FUNDED => 17,
+        self::CLOSED_COMPLETED => 18,
+        self::DENIED => 19,
+    ];
+
+    // The last key borrower and partner may still edit at, if config omits it.
+    public const MAX_EDITABLE_STATUS_KEY = 9;
     
 
     // Status Class Constants
@@ -274,22 +308,37 @@ class FundingApplication extends Model
     */
 
     /**
-     * Every status where borrower and partner may still change the application.
+     * A status's lifecycle key, or null for one nobody has numbered.
+     */
+    public static function statusKey(?string $status): ?int
+    {
+        return self::STATUS_KEYS[self::canonicalStatus($status)] ?? null;
+    }
+
+    /**
+     * The highest key borrower and partner may still edit at.
+     */
+    public static function maxEditableStatusKey(): int
+    {
+        return (int) config('funding_application.statuses.max_editable_key', self::MAX_EDITABLE_STATUS_KEY);
+    }
+
+    /**
+     * Every status where borrower and partner may still change the application:
+     * those whose key is at or below the editable limit.
      *
-     * This is the list enforcement reads - anything outside it is read-only,
-     * including a status nobody has classified. Failing closed is deliberate: an
-     * unknown status is more likely to be one added past the point of editing
-     * than one that should quietly stay open. Genuinely old values are mapped
-     * instead, through `statuses.legacy_aliases`.
+     * Anything else is read-only, including a status with no key at all. Failing
+     * closed is deliberate: an unknown status is more likely to be one added
+     * past the point of editing than one that should quietly stay open.
+     * Genuinely old values are mapped instead, through `statuses.legacy_aliases`.
      *
      * @return array<int, string>
      */
     public static function editableStatuses(): array
     {
-        return config('funding_application.statuses.editable', array_merge(
-            self::preSignatureStatuses(),
-            self::resignOnEditStatuses()
-        ));
+        $limit = self::maxEditableStatusKey();
+
+        return array_keys(array_filter(self::STATUS_KEYS, static fn (int $key) => $key <= $limit));
     }
 
     /**
@@ -416,7 +465,54 @@ class FundingApplication extends Model
      */
     public function isEditable(): bool
     {
-        return in_array(self::canonicalStatus($this->status), self::editableStatuses(), true);
+        $key = self::statusKey($this->status);
+
+        return $key !== null && $key <= self::maxEditableStatusKey();
+    }
+
+    /**
+     * The signature an edit cleared, for the re-signing step to show beside the
+     * field for the new one. Null unless a new signature is actually owed.
+     *
+     * Applications edited before the signature was being kept have nothing
+     * stored, so those fall back to the submission entry in the activity log,
+     * which carries the signer's name and when they signed.
+     *
+     * @return array{signature_name: ?string, signed_at: ?string, timezone: ?string}|null
+     */
+    public function previousSignature(): ?array
+    {
+        if (! $this->requires_resign) {
+            return null;
+        }
+
+        $previous = $this->previous_signature_data;
+
+        if (is_array($previous) && ! empty($previous['signature_name'])) {
+            return [
+                'signature_name' => $previous['signature_name'],
+                'signed_at' => $previous['signed_at'] ?? null,
+                'timezone' => $previous['timezone'] ?? null,
+            ];
+        }
+
+        $log = \App\Models\ActivityLog\ActivityLog::where('subject_type', self::class)
+            ->where('subject_id', $this->id)
+            ->whereIn('event', ['Funding Application Submitted', 'Funding Application Re-signed and Re-submitted'])
+            ->latest('id')
+            ->first();
+
+        $signerName = $log?->properties['actor_name'] ?? null;
+
+        if (! $signerName) {
+            return null;
+        }
+
+        return [
+            'signature_name' => $signerName,
+            'signed_at' => $log->created_at?->format('Y-m-d H:i:s'),
+            'timezone' => config('app.timezone'),
+        ];
     }
 
     /**
@@ -434,6 +530,8 @@ class FundingApplication extends Model
         $isLocked = $this->isLockedForEdit();
 
         return [
+            'status_key' => self::statusKey($this->status),
+            'max_editable_status_key' => self::maxEditableStatusKey(),
             'is_locked' => $isLocked,
             'is_editable' => ! $isLocked,
             'requires_resign' => (bool) $this->requires_resign,

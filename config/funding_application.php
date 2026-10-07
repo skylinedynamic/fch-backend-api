@@ -72,22 +72,21 @@ return [
     'statuses' => [
 
         /*
-        | Every status where the borrower and the partner may still change the
-        | application. This is the roll-up of the two buckets below - they split
-        | the same set by what an edit *costs*, this says plainly what is open at
-        | all. Enforcement reads this list: anything not in it is read-only.
+        | Every status carries a lifecycle key (FundingApplication::STATUS_KEYS):
+        |
+        |    1 On Hold                  8 Approved (Conditional)   15 Contracting / Docs Out
+        |    2 Draft                    9 Approved (Final)         16 Cleared to Fund
+        |    3 Submitted – Pending     10 Matched to Lender        17 Funded
+        |    4 Submitted (Received)    11 Submitted to Lender      18 Closed (Completed)
+        |    5 Underwriting Review     12 Lender Reviewing         19 Denied
+        |    6 Missing Documents       13 Offer Issued
+        |    7 In Verification         14 Offer Accepted
+        |
+        | The borrower and the partner may change the application while its key
+        | is at or below this number, and not after. Enforcement reads this:
+        | anything past it, or with no key at all, is read-only.
         */
-        'editable' => [
-            FundingApplication::ON_HOLD,
-            FundingApplication::DRAFT,
-            FundingApplication::PENDING,
-            FundingApplication::SUBMITTED,
-            FundingApplication::UNDERWRITING_REVIEW,
-            FundingApplication::MISSING_DOCUMENTS,
-            FundingApplication::IN_VERIFICATION,
-            FundingApplication::APPROVED_CONDITIONAL,
-            FundingApplication::APPROVED_FINAL,
-        ],
+        'max_editable_key' => 9,
 
         'pre_signature' => [
             FundingApplication::ON_HOLD,
@@ -169,6 +168,7 @@ return [
             'funding_request_id',
             'funding_sequence_id',
             'signature_data',
+            'previous_signature_data',
             'attestation_authorization',
             'requires_resign',
             'co_borrowers',

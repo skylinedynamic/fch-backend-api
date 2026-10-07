@@ -178,6 +178,7 @@ class FundingApplicationService
             // exists - and whether it costs the borrower their signature - is
             // decided in one place for both portals. See FundingApplicationEditGuard.
             $changedFields = [];
+            $changes = [];
             $requiresResign = false;
             $previousStatus = $existing->status ?? null;
 
@@ -197,6 +198,7 @@ class FundingApplicationService
 
                 $data = $decision['data'];
                 $changedFields = $decision['changed_fields'];
+                $changes = $decision['changes'];
                 $requiresResign = $decision['requires_resign'];
             }
 
@@ -210,7 +212,8 @@ class FundingApplicationService
                     $fundingApplication,
                     $changedFields,
                     FundingApplicationAuditLogger::ACTOR_BORROWER,
-                    $previousStatus ?? ''
+                    $previousStatus ?? '',
+                    $changes
                 );
             }
 
