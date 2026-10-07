@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\PartnerFundApplication;
 
 use App\Exceptions\FundingApplicationLockedException;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
@@ -18,7 +19,7 @@ use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Mail\Partner\FundingApplicationSubmittedMail as PartnerFundingApplicationSubmittedMail;
 class PartnerFundingApplicationService
 {
     public function __construct(
@@ -284,10 +285,19 @@ class PartnerFundingApplicationService
             // Send email if submitted
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
+                    // Bell + email. The email only where there is an address, as before.
+                    $notifier = app(Notifier::class);
+                    $bellData = [
+                        'id' => $fundingApplication->id,
+                        'borrower' => personName($fundingApplication->borrower?->first_name, $fundingApplication->borrower?->middle_name, $fundingApplication->borrower?->last_name),
+                    ];
+
                     // Send to Borrower
-                    if ($fundingApplication->borrower && $fundingApplication->borrower->email) {
+                    if ($fundingApplication->borrower) {
                         try {
-                            Mail::to($fundingApplication->borrower->email)->send(new \App\Mail\Borrower\FundingApplicationSubmittedMail($fundingApplication));
+                            $email = $fundingApplication->borrower->email;
+                            $notifier->send('borrower.funding_application.submitted', $fundingApplication->borrower, $bellData,
+                                mail: $email ? (new FundingApplicationSubmittedMail($fundingApplication))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to borrower', [
                                 'application_id' => $fundingApplication->id,
@@ -297,9 +307,11 @@ class PartnerFundingApplicationService
                     }
 
                     // Send to Partner
-                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
+                    if ($fundingApplication->partner) {
                         try {
-                            Mail::to($fundingApplication->partner->email)->send(new \App\Mail\Partner\FundingApplicationSubmittedMail($fundingApplication, $fundingApplication->partner->id));
+                            $email = $fundingApplication->partner->email;
+                            $notifier->send('partner.funding_application.submitted', $fundingApplication->partner, $bellData,
+                                mail: $email ? (new PartnerFundingApplicationSubmittedMail($fundingApplication, $fundingApplication->partner->id))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to partner', [
                                 'application_id' => $fundingApplication->id,
@@ -310,9 +322,10 @@ class PartnerFundingApplicationService
 
                     // Send to Host
                     $host = Partner::host();
-                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                    if ($host && $host->id != $fundingApplication->partner_id) {
                         try {
-                            Mail::to($host->email)->send(new \App\Mail\Partner\FundingApplicationSubmittedMail($fundingApplication, $host->id));
+                            $notifier->send('partner.funding_application.submitted', $host, $bellData,
+                                mail: $host->email ? (new PartnerFundingApplicationSubmittedMail($fundingApplication, $host->id))->to($host->email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to host', [
                                 'application_id' => $fundingApplication->id,

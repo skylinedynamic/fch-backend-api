@@ -11,10 +11,13 @@ use App\Models\CreditBuilder\TierTask;
 use App\Models\Partner\Partner;
 use App\Services\CreditBuilder\VerificationNotifier;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use App\Notifications\DynamicNotification;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+use Tests\Support\FakesBell;
 use Tests\TestCase;
 
 /**
@@ -40,6 +43,8 @@ use Tests\TestCase;
 #[CoversClass(VerificationNotifier::class)]
 class VerificationNotifierTest extends TestCase
 {
+    use FakesBell;
+
     private const HOST_ID = 1;
     private const PARTNER_ID = 42;
 
@@ -48,6 +53,7 @@ class VerificationNotifierTest extends TestCase
         parent::setUp();
 
         Mail::fake();
+        $this->fakeBell();
     }
 
     // ── Fixtures, all in memory ───────────────────────────────────────
@@ -420,6 +426,46 @@ class VerificationNotifierTest extends TestCase
         }
     }
 
+    // ── The bell ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function a_submission_rings_the_hosts_bell_with_a_link_to_that_borrowers_requests(): void
+    {
+        $this->notifier($this->host())->requestSubmitted(
+            $this->borrower($this->partner(self::PARTNER_ID)),
+            collect([$this->request('A task', 'Tier 1', 2), $this->request('B task', 'Tier 1', 2)])
+        );
+
+        $this->assertBelled($this->host(), 'host.credit_builder.verification_requested', fn (array $data) => $data['url'] === '/verification-center/borrower-requests/7'
+            && $data['body'] === 'Jane Smith submitted 2 credit builder task(s) for verification.');
+    }
+
+    #[Test]
+    public function a_host_with_no_address_still_hears_about_it_in_the_bell(): void
+    {
+        $host = $this->host(['email' => null]);
+
+        $this->notifier($host)->requestSubmitted(
+            $this->borrower($this->partner(self::PARTNER_ID)),
+            collect([$this->request('A task', 'Tier 1', 2)])
+        );
+
+        Mail::assertNothingQueued();
+        $this->assertBelled($host, 'host.credit_builder.verification_requested');
+    }
+
+    #[Test]
+    public function a_decision_rings_the_borrowers_bell_and_nobody_elses(): void
+    {
+        $borrower = $this->borrower($this->partner(self::PARTNER_ID));
+
+        $this->notifier($this->host())->decisionMade($borrower, BorrowerTaskVerificationRequest::COMPLETED, null, $this->results());
+
+        $this->assertBelled($borrower, 'borrower.credit_builder.verification_decided', fn (array $data) => $data['title'] === 'Task verification: Verified'
+            && $data['url'] === '/credit-builder');
+        Notification::assertSentTimes(DynamicNotification::class, 1);
+    }
+
     // ── Failures stay out of the caller's way ─────────────────────────
 
     #[Test]
@@ -428,7 +474,7 @@ class VerificationNotifierTest extends TestCase
         // The borrower has already submitted, or the reviewer has already
         // decided and the rows are written. A dead mail server must not turn
         // that into an error on their screen.
-        Mail::shouldReceive('to')->andThrow(new \RuntimeException('simulated transport failure'));
+        Mail::shouldReceive('send')->andThrow(new \RuntimeException('simulated transport failure'));
 
         $notifier = $this->notifier($this->host());
         $borrower = $this->borrower($this->partner(self::PARTNER_ID));

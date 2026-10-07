@@ -68,21 +68,28 @@ return [
         ],
     ],
 
+    // Notifier (config/notifications.php types, bell + mail + sms)
+    'notifier' => [
+        'logs' => [
+            'unknown_type' => 'Notifier: unknown notification type, bell skipped.',
+            'in_app_failed' => 'Notifier: in-app notification failed.',
+            'mail_no_recipient' => 'Notifier: mail has no recipient, not sent.',
+            'overrides_unreadable' => 'NotificationTypeRegistry: overrides unreadable, using the config catalogue.',
+        ],
+    ],
+
     // SmsChannel related strings
     'sms' => [
-        'provider_name' => 'Twilio',
         'errors' => [
-            'not_configured' => 'SMS channel not configured properly',
-            'no_phone' => 'User does not have a phone number',
-            'twilio_send_failed' => 'Failed to send SMS via Twilio',
-            'test_send_failed' => 'Failed to send test SMS',
+            'not_configured' => "SMS not sent: no enabled SMS configuration for this user's partner.",
+            'no_phone' => 'SMS not sent: the user has no phone number.',
+            'invalid_number' => 'SMS not sent: the phone number cannot be converted to international (E.164) format.',
             'send_failed' => 'Failed to send SMS',
-        ],
-        'warnings' => [
-            'message_too_long' => 'SMS message exceeds 160 characters',
+            'provider_not_configured' => 'SMS provider [:provider] is not configured in notifications.sms.providers.',
         ],
         'logs' => [
             'sent_success' => 'SMS sent successfully',
+            'no_enabled_configuration' => "SMS not sent: the recipient's SMS configuration is not enabled.",
         ],
     ],
 

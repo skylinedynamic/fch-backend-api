@@ -7,9 +7,13 @@ use App\Models\Setting\EmailConfiguration;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
+use App\Models\User\User;
+use App\Notifications\DynamicNotification;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -66,7 +70,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
     }
 
     #[Test]
@@ -80,8 +84,8 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner, ['notification_email' => 'stale-form-inbox@example.test']);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
-        Mail::assertNotSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('stale-form-inbox@example.test'));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
+        Mail::assertNotQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('stale-form-inbox@example.test'));
     }
 
     #[Test]
@@ -97,8 +101,8 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
-        Mail::assertNotSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('contact-person@example.test'));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('partner-column@example.test'));
+        Mail::assertNotQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('contact-person@example.test'));
     }
 
     #[Test]
@@ -110,7 +114,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     #[Test]
@@ -123,7 +127,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test'));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('wl@example.test'));
     }
 
     #[Test]
@@ -138,7 +142,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     #[Test]
@@ -151,7 +155,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     #[Test]
@@ -164,7 +168,7 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('certified@example.test'));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo('certified@example.test'));
     }
 
     #[Test]
@@ -174,7 +178,7 @@ class EmbedFormNotificationMailTest extends TestCase
         // would silence the platform's own notifications.
         $this->notify($this->host);
 
-        Mail::assertSent(NewSubmissionMail::class, fn ($mail) => $mail->hasTo($this->host->email));
+        Mail::assertQueued(NewSubmissionMail::class, fn ($mail) => $mail->hasTo($this->host->email));
     }
 
     #[Test]
@@ -184,7 +188,65 @@ class EmbedFormNotificationMailTest extends TestCase
 
         $this->notify($partner);
 
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
+    }
+
+    // ── The bell ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function the_partner_is_told_in_the_bell_with_a_link_to_the_application(): void
+    {
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED);
+        $login = $this->loginFor($partner);
+
+        $submission = $this->notify($partner);
+
+        Notification::assertSentTo($login, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.embed_form.submitted'
+            && $n->toArray($login)['body'] === 'Johnathan Smithfield submitted your embedded application form.'
+            && $n->toArray($login)['url'] === "/embed-form/loan-applications/{$submission->id}");
+    }
+
+    #[Test]
+    public function a_white_label_partner_without_mail_config_still_gets_the_bell(): void
+    {
+        // The mailbox rule is about whose name an email leaves under. The bell
+        // leaves under nobody's, so it is not held back with the email.
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_WHITE_LABEL, ['email' => 'wl@example.test']);
+        $login = $this->loginFor($partner);
+
+        $this->notify($partner);
+
+        Mail::assertNothingOutgoing();
+        Notification::assertSentTo($login, DynamicNotification::class);
+    }
+
+    #[Test]
+    public function a_partner_with_no_address_still_gets_the_bell(): void
+    {
+        Notification::fake();
+        $partner = $this->partner(Partner::PARTNER_TYPE_CERTIFIED, ['email' => null]);
+        $login = $this->loginFor($partner);
+
+        $this->notify($partner);
+
+        Notification::assertSentTo($login, DynamicNotification::class);
+    }
+
+    private function loginFor(Partner $partner): User
+    {
+        return User::findOrFail(DB::table('users')->insertGetId([
+            'name' => 'Partner Login',
+            'email' => 'login-' . uniqid() . '@example.test',
+            'password' => bcrypt('secret'),
+            'user_type' => User::PARTNER,
+            'entity_type' => Partner::class,
+            'entity_id' => $partner->id,
+            'partner_id' => $partner->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]));
     }
 
     /**
@@ -194,7 +256,7 @@ class EmbedFormNotificationMailTest extends TestCase
      *
      * @param  array<string, mixed>  $configAttributes
      */
-    private function notify(Partner $partner, array $configAttributes = []): void
+    private function notify(Partner $partner, array $configAttributes = []): EmbedFormSubmission
     {
         $config = EmbedFormConfig::create(array_merge([
             'partner_id' => $partner->id,
@@ -221,6 +283,8 @@ class EmbedFormNotificationMailTest extends TestCase
         };
 
         $service->notifyNow($submission, $config->fresh()->load('partner'));
+
+        return $submission;
     }
 
     /**

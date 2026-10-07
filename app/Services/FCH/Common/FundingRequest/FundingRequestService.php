@@ -18,8 +18,8 @@ use App\Traits\PaginatesApi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Services\FCH\Common\Notification\Notifier;
+use Throwable;
 
 class FundingRequestService
 {
@@ -212,76 +212,85 @@ class FundingRequestService
                 'host_email'         => $hostEmail,
             ]);
 
-            // --- 1. SEND BORROWER EMAIL ---
-            if ($borrowerEmail) {
-                try {
-                    if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-                        Log::info("FundingRequest #{$review->id}: Dispatching BorrowerFundingRequestApproved to borrower ({$borrowerEmail})");
-                        Mail::to($borrowerEmail)->send(new BorrowerFundingRequestApproved($review));
-                    } else {
-                        Log::info("FundingRequest #{$review->id}: Dispatching UnderwritingStatusUpdated ({$data['status']}) to borrower ({$borrowerEmail})");
-                        Mail::to($borrowerEmail)->send(new UnderwritingStatusUpdated($review));
-                    }
-                    Log::info("FundingRequest #{$review->id}: Successfully dispatched email to borrower ({$borrowerEmail})");
-                } catch (\Throwable $e) {
-                    Log::error("FundingRequest #{$review->id}: Failed to send email to borrower ({$borrowerEmail}). Error: {$e->getMessage()}", [
-                        'exception' => $e->getMessage(),
-                        'trace'     => $e->getTraceAsString(),
-                    ]);
-                }
-            } else {
+            // Bell + email per audience. The bell goes out even when there is no
+            // address to email; the email goes exactly where it always did.
+            $notifier = app(Notifier::class);
+            $isApproved = $data['status'] === FundingRequest::STATUS_APPROVED;
+            $notificationData = ['id' => $review->id, 'status' => $data['status']];
+
+            // --- 1. BORROWER ---
+            if (!$borrowerEmail) {
                 Log::warning("FundingRequest #{$review->id}: Skipped borrower email - No valid email address found for borrower ID {$review->borrower_id}");
             }
 
-            // --- 2. SEND PARTNER EMAIL (if non-host partner) ---
+            try {
+                $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData, mail: $borrowerEmail
+                    ? ($isApproved ? new BorrowerFundingRequestApproved($review) : new UnderwritingStatusUpdated($review))->to($borrowerEmail)
+                    : null);
+
+                if ($borrowerEmail) {
+                    Log::info(__('funding_request.logs.dispatched_to_borrower', [
+                        'id' => $review->id,
+                        'mailable' => $isApproved ? 'BorrowerFundingRequestApproved' : "UnderwritingStatusUpdated ({$data['status']})",
+                        'email' => $borrowerEmail,
+                    ]));
+                }
+            } catch (Throwable $e) {
+                Log::error("FundingRequest #{$review->id}: Failed to send email to borrower ({$borrowerEmail}). Error: {$e->getMessage()}", [
+                    'exception' => $e->getMessage(),
+                    'trace'     => $e->getTraceAsString(),
+                ]);
+            }
+
+            // --- 2. PARTNER (if non-host partner) ---
             if ($isNonHostPartner) {
-                if ($partnerEmail) {
-                    try {
-                        if ($data['status'] === FundingRequest::STATUS_APPROVED) {
-                            Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved to partner ({$partnerEmail}, Partner ID: {$partner->id})");
-                            Mail::to($partnerEmail)->send(new PartnerFundingRequestApproved($review, $partner, false));
-                            Log::info("FundingRequest #{$review->id}: Successfully dispatched PartnerFundingRequestApproved to partner ({$partnerEmail})");
-                        } else {
-                            Log::info("FundingRequest #{$review->id}: Dispatching UnderwritingStatusUpdated to partner ({$partnerEmail}, Partner ID: {$partner->id})");
-                            Mail::to($partnerEmail)->send(new UnderwritingStatusUpdated($review));
-                            Log::info("FundingRequest #{$review->id}: Successfully dispatched UnderwritingStatusUpdated to partner ({$partnerEmail})");
-                        }
-                    } catch (\Throwable $e) {
-                        Log::error("FundingRequest #{$review->id}: Failed to send email to partner ({$partnerEmail}). Error: {$e->getMessage()}", [
-                            'partner_id' => $partner->id,
-                            'exception'  => $e->getMessage(),
-                            'trace'      => $e->getTraceAsString(),
-                        ]);
-                    }
-                } else {
+                if (!$partnerEmail) {
                     Log::warning("FundingRequest #{$review->id}: Skipped partner email - Non-host partner ID {$partner->id} ({$partner->company_name}) has no email or contact_person_email configured.");
+                }
+
+                try {
+                    $notifier->send('partner.funding_request.status_changed', $partner, $notificationData, mail: $partnerEmail
+                        ? ($isApproved ? new PartnerFundingRequestApproved($review, $partner, false) : new UnderwritingStatusUpdated($review))->to($partnerEmail)
+                        : null);
+
+                    if ($partnerEmail) {
+                        Log::info(__('funding_request.logs.dispatched_to_partner', [
+                            'id' => $review->id,
+                            'mailable' => $isApproved ? 'PartnerFundingRequestApproved' : 'UnderwritingStatusUpdated',
+                            'email' => $partnerEmail,
+                            'partner_id' => $partner->id,
+                        ]));
+                    }
+                } catch (Throwable $e) {
+                    Log::error("FundingRequest #{$review->id}: Failed to send email to partner ({$partnerEmail}). Error: {$e->getMessage()}", [
+                        'partner_id' => $partner->id,
+                        'exception'  => $e->getMessage(),
+                        'trace'      => $e->getTraceAsString(),
+                    ]);
                 }
             } else {
                 Log::info("FundingRequest #{$review->id}: Skipped separate partner email because borrower belongs directly to Host (Partner ID: " . ($partner?->id ?? 'Host') . ", is_host: 1).");
             }
 
-            // --- 3. SEND HOST NOTIFICATION EMAIL (for non-host partner requests or status updates) ---
-            if ($hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail) {
+            // --- 3. HOST COPY (a non-host partner's request was approved) ---
+            if ($isNonHostPartner && $isApproved) {
+                $mailHost = $hostEmail && $hostEmail !== $partnerEmail && $hostEmail !== $borrowerEmail;
+
                 try {
-                    if ($isNonHostPartner && $data['status'] === FundingRequest::STATUS_APPROVED) {
-                        Log::info("FundingRequest #{$review->id}: Dispatching PartnerFundingRequestApproved notification copy to Host ({$hostEmail})");
-                        Mail::to($hostEmail)->send(new PartnerFundingRequestApproved($review, $hostPartner, true));
-                        Log::info("FundingRequest #{$review->id}: Successfully dispatched notification to Host ({$hostEmail})");
+                    $notifier->send('host.funding_request.approved', $hostPartner, [
+                        'id' => $review->id,
+                        'partner' => $partner->company_name ?: $partner->full_name,
+                    ], mail: $mailHost ? (new PartnerFundingRequestApproved($review, $hostPartner, true))->to($hostEmail) : null);
+
+                    if ($mailHost) {
+                        Log::info(__('funding_request.logs.dispatched_to_host', ['id' => $review->id, 'email' => $hostEmail]));
                     }
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     Log::error("FundingRequest #{$review->id}: Failed to send notification to Host ({$hostEmail}). Error: {$e->getMessage()}", [
                         'exception' => $e->getMessage(),
                         'trace'     => $e->getTraceAsString(),
                     ]);
                 }
-            }
-
-            // --- 4. IN-APP NOTIFICATIONS (bell, real-time) ---
-            $notifier = app(Notifier::class);
-            $notificationData = ['id' => $review->id, 'status' => $data['status']];
-            $notifier->send('borrower.funding_request.status_changed', $borrower, $notificationData);
-            if ($isNonHostPartner) {
-                $notifier->send('partner.funding_request.status_changed', $partner, $notificationData);
             }
 
             // In-platform activity notification for borrower

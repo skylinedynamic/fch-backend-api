@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
@@ -11,7 +12,6 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ProfileService
 {
@@ -97,7 +97,8 @@ class ProfileService
                 Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
 
                 try {
-                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id));
+                    app(Notifier::class)->send('borrower.account.login_updated', $updatedUser,
+                        mail: (new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id))->to($updatedUser->email));
                 } catch (\Exception $e) {
                     Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
                 }

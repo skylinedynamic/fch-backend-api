@@ -132,7 +132,10 @@ class SupportAssistantService
             ->where('assistant_type', $assistantType)
             ->where('causer_type', get_class($user))
             ->where('causer_id', $user->getKey())
-            ->orderByDesc('last_message_at')
+            // Newest first by creation, not by last message: a session just
+            // started has no message yet, and sorting it last would make the
+            // widget reopen the conversation the user has just left.
+            ->orderByDesc('id')
             ->get();
     }
 
@@ -333,8 +336,11 @@ class SupportAssistantService
 
     private function buildHistory(ChatConversation $conversation): array
     {
+        // messages() is already ordered oldest-first, and a second orderBy only
+        // breaks ties — so without reorder() the limit keeps the FIRST turns
+        // of the thread and drops the message the user has just sent.
         return $conversation->messages()
-            ->latest('id')
+            ->reorder('id', 'desc')
             ->limit(self::HISTORY_LIMIT)
             ->get()
             ->sortBy('id')

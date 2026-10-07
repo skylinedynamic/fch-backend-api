@@ -15,7 +15,7 @@ use App\Models\Payment\Payment;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 /**
  * PaymentMailService
@@ -56,17 +56,16 @@ class PaymentMailService
         $payerEmail = $payer->email ?? null;
 
         if (!$payerEmail) {
+            // Still told in the bell; only the email has nowhere to go.
             Log::warning('[PaymentMail] Card re-authorization needed but the payer has no email', [
                 'invoice_id' => $invoice->id,
             ]);
-
-            return;
         }
 
         try {
             $sendingPartnerId = $this->resolveSendingPartnerId($payer);
 
-            Mail::to($payerEmail)->queue(new CardReauthorizationRequiredMail([
+            $mail = $payerEmail ? new CardReauthorizationRequiredMail([
                 'partner_id' => $sendingPartnerId,
                 'amount' => $invoice->payment_amount,
                 'currency' => $invoice->currency ?? 'USD',
@@ -78,7 +77,15 @@ class PaymentMailService
                 'date' => now(),
                 'portal_url' => $this->resolveBillingUrl($payer, $sendingPartnerId),
                 'user_name' => $payer->full_name ?? $payer->company_name ?? __('payment.valued_customer'),
-            ], $sendingPartnerId));
+            ], $sendingPartnerId) : null;
+
+            // Each portal has its own billing page, hence a type per audience.
+            $this->notifier()->send(
+                $payer instanceof Borrower ? 'borrower.payment.card_reauthorization_required' : 'partner.payment.card_reauthorization_required',
+                $payer,
+                ['invoice' => $invoice->invoice_id ?: $invoice->id],
+                mail: $mail?->to($payerEmail)
+            );
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', [
                 'mail' => 'CardReauthorizationRequiredMail',
@@ -150,14 +157,11 @@ class PaymentMailService
         [$payerEmail, $payerName] = $this->resolvePayerInfo($payment, $invoice);
         [$receiver, $receiverEmail, $receiverName] = $this->resolveReceiver($payment, $invoice);
 
-        if (!$payerEmail && !$receiverEmail) {
-            return;
-        }
-
         try {
             $receiverPartnerId = $receiver?->id ?: $partnerId ?: Partner::where('is_host', 1)->value('id');
             $companyName = $this->resolveCompanyName($payment, $invoice, $receiver);
             $invoiceDisplayId = $invoice->invoice_id ?: $invoice->id;
+            $bellData = $this->bellData($payment, $invoiceDisplayId, $invoice->payment_amount, $invoice->currency, $payerName);
 
             $baseMailData = [
                 'partner_id'     => $receiverPartnerId,
@@ -174,7 +178,8 @@ class PaymentMailService
                 'payer_email'    => $payerEmail,
             ];
 
-            // 1. Send to Payer (Customer Confirmation) - branding is Receiver's branding
+            // 1. Payer (Customer Confirmation) - branding is Receiver's branding
+            $payerMail = null;
             if ($payerEmail) {
                 $payerMailData = array_merge($baseMailData, [
                     'is_receiver' => false,
@@ -184,10 +189,12 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($payerEmail)->queue(new PaymentSubmittedMail($payerMailData, $receiverPartnerId));
+                $payerMail = (new PaymentSubmittedMail($payerMailData, $receiverPartnerId))->to($payerEmail);
             }
+            $this->notifier()->send('payment.submitted', $this->payerOf($payment, $invoice), $bellData, mail: $payerMail);
 
-            // 2. Send to Receiver (Admin / Partner Action Alert) - branding is Receiver's branding
+            // 2. Receiver (Admin / Partner Action Alert) - branding is Receiver's branding
+            $receiverMail = null;
             if ($receiverEmail && $receiverEmail !== $payerEmail) {
                 $paymentUrl = concatUrl(getPartnerDomain($receiverPartnerId), 'payments/' . $payment->id, config('app.frontend_partner_url'));
 
@@ -201,8 +208,9 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($receiverEmail)->queue(new PaymentSubmittedMail($receiverMailData, $receiverPartnerId));
+                $receiverMail = (new PaymentSubmittedMail($receiverMailData, $receiverPartnerId))->to($receiverEmail);
             }
+            $this->notifier()->send('payment.submitted_for_review', $receiver, $bellData, mail: $receiverMail);
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentSubmittedMail', 'error' => $e->getMessage()]));
         }
@@ -222,14 +230,11 @@ class PaymentMailService
         [$payerEmail, $payerName] = $this->resolvePayerInfo($payment, $invoice);
         [$receiver, $receiverEmail, $receiverName] = $this->resolveReceiver($payment, $invoice);
 
-        if (!$payerEmail && !$receiverEmail) {
-            return;
-        }
-
         try {
             $receiverPartnerId = $receiver?->id ?: $partnerId ?: Partner::where('is_host', 1)->value('id');
             $companyName = $this->resolveCompanyName($payment, $invoice, $receiver);
             $invoiceDisplayId = $invoice->invoice_id ?: $invoice->id;
+            $bellData = $this->bellData($payment, $invoiceDisplayId, $invoice->payment_amount, $invoice->currency, $payerName);
 
             $baseMailData = [
                 'partner_id'     => $receiverPartnerId,
@@ -244,7 +249,8 @@ class PaymentMailService
                 'payer_email'    => $payerEmail,
             ];
 
-            // 1. Send to Payer (Customer Receipt) - branding is Receiver's branding
+            // 1. Payer (Customer Receipt) - branding is Receiver's branding
+            $payerMail = null;
             if ($payerEmail) {
                 $payerMailData = array_merge($baseMailData, [
                     'is_receiver' => false,
@@ -254,10 +260,12 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($payerEmail)->queue(new PaymentSuccessMail($payerMailData, $receiverPartnerId));
+                $payerMail = (new PaymentSuccessMail($payerMailData, $receiverPartnerId))->to($payerEmail);
             }
+            $this->notifier()->send('payment.succeeded', $this->payerOf($payment, $invoice), $bellData, mail: $payerMail);
 
-            // 2. Send to Receiver (Partner / Admin Payment Notice) - branding is Receiver's branding
+            // 2. Receiver (Partner / Admin Payment Notice) - branding is Receiver's branding
+            $receiverMail = null;
             if ($receiverEmail && $receiverEmail !== $payerEmail) {
                 $paymentUrl = concatUrl(getPartnerDomain($receiverPartnerId), 'payments/' . $payment->id, config('app.frontend_partner_url'));
 
@@ -271,8 +279,9 @@ class PaymentMailService
                         'invoice_id' => $invoiceDisplayId,
                     ]),
                 ]);
-                Mail::to($receiverEmail)->queue(new PaymentSuccessMail($receiverMailData, $receiverPartnerId));
+                $receiverMail = (new PaymentSuccessMail($receiverMailData, $receiverPartnerId))->to($receiverEmail);
             }
+            $this->notifier()->send('payment.received', $receiver, $bellData, mail: $receiverMail);
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentSuccessMail', 'error' => $e->getMessage()]));
         }
@@ -290,14 +299,11 @@ class PaymentMailService
         [$payerEmail, $payerName] = $this->resolvePayerInfo($payment, $invoice);
         [$receiver] = $this->resolveReceiver($payment, $invoice);
 
-        if (!$payerEmail) {
-            return;
-        }
-
         try {
             $receiverPartnerId = $receiver?->id ?: Partner::where('is_host', 1)->value('id');
             $companyName = $this->resolveCompanyName($payment, $invoice, $receiver);
             $invoiceDisplayId = $invoice?->invoice_id ?: $invoice?->id;
+            $bellData = $this->bellData($payment, $invoiceDisplayId, $payment->amount, $payment->currency, $payerName);
 
             $mailData = [
                 'partner_id'     => $receiverPartnerId,
@@ -319,7 +325,8 @@ class PaymentMailService
                 ]),
             ];
 
-            Mail::to($payerEmail)->queue(new PaymentApprovedMail($mailData, $receiverPartnerId));
+            $this->notifier()->send('payment.approved', $this->payerOf($payment, $invoice), $bellData,
+                mail: $payerEmail ? (new PaymentApprovedMail($mailData, $receiverPartnerId))->to($payerEmail) : null);
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentApprovedMail', 'error' => $e->getMessage()]));
         }
@@ -337,14 +344,11 @@ class PaymentMailService
         [$payerEmail, $payerName] = $this->resolvePayerInfo($payment, $invoice);
         [$receiver] = $this->resolveReceiver($payment, $invoice);
 
-        if (!$payerEmail) {
-            return;
-        }
-
         try {
             $receiverPartnerId = $receiver?->id ?: Partner::where('is_host', 1)->value('id');
             $companyName = $this->resolveCompanyName($payment, $invoice, $receiver);
             $invoiceDisplayId = $invoice?->invoice_id ?: $invoice?->id;
+            $bellData = $this->bellData($payment, $invoiceDisplayId, $payment->amount, $payment->currency, $payerName);
 
             $mailData = [
                 'partner_id'       => $receiverPartnerId,
@@ -366,7 +370,8 @@ class PaymentMailService
                 ]),
             ];
 
-            Mail::to($payerEmail)->queue(new PaymentRejectedMail($mailData, $receiverPartnerId));
+            $this->notifier()->send('payment.rejected', $this->payerOf($payment, $invoice), $bellData,
+                mail: $payerEmail ? (new PaymentRejectedMail($mailData, $receiverPartnerId))->to($payerEmail) : null);
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', ['mail' => 'PaymentRejectedMail', 'error' => $e->getMessage()]));
         }
@@ -375,6 +380,34 @@ class PaymentMailService
     // ──────────────────────────────────────────────
     // Private Resolution Helpers
     // ──────────────────────────────────────────────
+
+    private function notifier(): Notifier
+    {
+        return app(Notifier::class);
+    }
+
+    /**
+     * Who paid: the entity behind the payment (Borrower, Partner, User...),
+     * whose login users get the payer's bell.
+     */
+    private function payerOf(Payment $payment, ?Invoice $invoice): ?object
+    {
+        return $payment->entity ?: $invoice?->entity;
+    }
+
+    /**
+     * Placeholders for the payment bell templates. Amount, invoice number and
+     * the payer's name only - never card or account details.
+     */
+    private function bellData(Payment $payment, $invoiceDisplayId, $amount, ?string $currency, ?string $payerName): array
+    {
+        return [
+            'id' => $payment->id,
+            'invoice' => $invoiceDisplayId,
+            'amount' => ($currency ?: 'USD') . ' ' . number_format((float) $amount, 2),
+            'payer' => $payerName ?: __('payment.customer'),
+        ];
+    }
 
     /**
      * Resolve payer email and display name from a Payment / Invoice entity.

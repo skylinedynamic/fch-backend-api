@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
+use App\Services\FCH\Common\Notification\Notifier;
+use Illuminate\Mail\Mailable;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
@@ -16,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\ActivityLog\ActivityLog;
@@ -44,10 +45,13 @@ class BorrowerService
     /**
      * Send a borrower email using the partner's active mail config.
      */
-    private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
+    /**
+     * @param mixed $recipient Who gets the bell (the borrower's login user)
+     */
+    private function sendBorrowerMail(string $type, mixed $recipient, string $email, Mailable $mailable, int|null $partnerId, array $bellData = []): void
     {
         try {
-            Mail::to($email)->send($mailable);
+            app(Notifier::class)->send($type, $recipient, $bellData, mail: $mailable->to($email));
         } catch (\Exception $e) {
             Log::error('Borrower email failed', [
                 'email' => $email,
@@ -418,9 +422,12 @@ class BorrowerService
                     );
 
                     $this->sendBorrowerMail(
+                        'borrower.account.trial_started',
+                        $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
-                        $borrower->partner_id
+                        $borrower->partner_id,
+                        ['date' => $trialEndDate ?? 'N/A']
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -612,7 +619,7 @@ class BorrowerService
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $user->email]);
-                    $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                    $this->sendBorrowerMail('borrower.account.login_updated', $user, $user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             } elseif (!empty($data['email'])) {
                 $userResult = $this->createOrUpdateUser($data, $borrower);

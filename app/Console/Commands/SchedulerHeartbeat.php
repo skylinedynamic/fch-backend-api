@@ -29,9 +29,6 @@ class SchedulerHeartbeat extends Command
 
             Cache::forever('scheduler.last_run_at', $now);
 
-            $this->info("Scheduler heartbeat recorded at {$now}.");
-            Log::info('Scheduler heartbeat recorded.', ['at' => $now]);
-
             $this->pingExternalHeartbeatUrl();
 
             return self::SUCCESS;
@@ -57,9 +54,7 @@ class SchedulerHeartbeat extends Command
         try {
             $response = Http::timeout(10)->get($url);
 
-            if ($response->successful()) {
-                Log::info('External scheduler heartbeat ping succeeded.', ['url' => $url]);
-            } else {
+            if (!$response->successful()) {
                 Log::warning('External scheduler heartbeat ping returned non-2xx.', [
                     'url' => $url,
                     'status' => $response->status(),

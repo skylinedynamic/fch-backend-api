@@ -6,8 +6,8 @@ use App\Mail\CreditBuilder\TaskVerificationRequestedMail;
 use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use App\Models\CreditBuilder\BorrowerTaskVerificationRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Who gets told about a credit builder verification, and whose mailbox it is
@@ -59,14 +59,17 @@ class VerificationNotifier
             $recipient = $this->addressFor($host);
 
             if (!$recipient) {
+                // Still told in the bell; only the email has nowhere to go.
                 Log::warning(__('verification_center.log_host_email_missing'), [
                     'borrower_id' => $borrower?->id,
                 ]);
-
-                return;
             }
 
-            Mail::to($recipient)->send(new TaskVerificationRequestedMail([
+            app(Notifier::class)->send('host.credit_builder.verification_requested', $host, [
+                'borrower' => $this->nameOf($borrower),
+                'borrower_id' => $borrower?->id,
+                'count' => $requests->count(),
+            ], mail: $recipient ? (new TaskVerificationRequestedMail([
                 'borrower_name' => $this->nameOf($borrower),
                 'borrower_email' => $borrower?->email,
                 // Lets the mail deep link straight to this borrower's requests
@@ -77,7 +80,7 @@ class VerificationNotifier
                 'host_name' => $host?->full_name ?: $host?->company_name,
                 'partner_name' => $borrower?->partner?->company_name ?: $borrower?->partner?->full_name,
                 'tasks' => $this->taskLines($requests),
-            ], $host?->id));
+            ], $host?->id))->to($recipient) : null);
         } catch (\Throwable $e) {
             // The requests are already saved; failing to announce them must not
             // fail the borrower's submission.
@@ -130,20 +133,18 @@ class VerificationNotifier
         try {
             $email = $borrower?->email ?: $borrower?->user?->email;
 
-            if (!$email) {
-                return;
-            }
-
             // The partner id is passed explicitly rather than left to
             // getConfigPartner(): this runs while an admin is authenticated, so
             // the ambient partner is the reviewer's, not the borrower's.
-            Mail::to($email)->send(new BorrowerVerificationStatusMail([
+            app(Notifier::class)->send('borrower.credit_builder.verification_decided', $borrower, [
+                'status' => $statusLabel,
+            ], mail: $email ? (new BorrowerVerificationStatusMail([
                 'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
                 'borrower_name' => $this->nameOf($borrower),
                 'status' => $status,
                 'note' => $note,
                 'task_results' => $results,
-            ], $borrower?->partner_id));
+            ], $borrower?->partner_id))->to($email) : null);
         } catch (\Throwable $e) {
             Log::error(__('verification_center.log_borrower_notify_failed'), [
                 'borrower_id' => $borrower?->id,

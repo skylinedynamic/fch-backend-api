@@ -87,13 +87,17 @@ class PreQualificationRequest extends Model
     public const IN_REVIEW = 'In Review';
     public const APPROVED = 'Approved';
     public const DECLINED = 'Declined';
-    
+    // The automated review did not produce a usable result: the agent called
+    // the borrower's information incorrect, or the evaluation itself failed.
+    public const FAILED = 'Failed';
+
     public const ON_HOLD_CLASS = '';
     public const PENDING_CLASS = 'warning';
     public const INTAKE_RECEIVED_CLASS = 'info';
     public const IN_REVIEW_CLASS = 'primary';
     public const APPROVED_CLASS = 'success';
     public const DECLINED_CLASS = 'danger';
+    public const FAILED_CLASS = 'danger';
 
     public const STATUS_CLASS = [
         self::ON_HOLD => self::ON_HOLD_CLASS,
@@ -102,6 +106,7 @@ class PreQualificationRequest extends Model
         self::IN_REVIEW => self::IN_REVIEW_CLASS,
         self::APPROVED => self::APPROVED_CLASS,
         self::DECLINED => self::DECLINED_CLASS,
+        self::FAILED => self::FAILED_CLASS,
     ];
 
     public const STATUS = [
@@ -111,7 +116,26 @@ class PreQualificationRequest extends Model
         self::IN_REVIEW => self::IN_REVIEW,
         self::APPROVED => self::APPROVED,
         self::DECLINED => self::DECLINED,
+        self::FAILED => self::FAILED,
     ];
+
+    /**
+     * Move the workflow status to match how the automated review ended:
+     * Failed when the information was called incorrect or the evaluation could
+     * not be produced, Pending when it completed.
+     *
+     * Only ever moves between those two. Once a reviewer has taken the file
+     * further (Intake Received, In Review, Approved, Declined) a re-run must
+     * not undo their decision. The caller saves.
+     */
+    public function applyUnderwritingOutcome(bool $succeeded): void
+    {
+        if (!in_array($this->status, [self::PENDING, self::FAILED], true)) {
+            return;
+        }
+
+        $this->status = $succeeded ? self::PENDING : self::FAILED;
+    }
 
     /**
      * How long a status note may be.

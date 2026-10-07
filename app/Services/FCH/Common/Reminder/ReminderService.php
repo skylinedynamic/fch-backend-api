@@ -84,11 +84,26 @@ class ReminderService
      */
     public function bulkDismissReminders(User $user, array $ids): int
     {
-        return Reminder::whereIn('id', $ids)
-            ->createdByUser($user)
-            ->update([
-                'status' => Reminder::STATUS_CANCELLED
-            ]);
+        return $this->cancelAndPush(Reminder::whereIn('id', $ids)->createdByUser($user));
+    }
+
+    /**
+     * Cancel every reminder the query matches in one update. A query update
+     * fires no model events, so the open pop-ups are told here instead (see
+     * Reminder::booted()).
+     */
+    private function cancelAndPush($query): int
+    {
+        $reminders = (clone $query)->get();
+
+        $count = $query->update(['status' => Reminder::STATUS_CANCELLED]);
+
+        $broadcaster = app(ReminderBroadcaster::class);
+        foreach ($reminders as $reminder) {
+            $broadcaster->gone($reminder);
+        }
+
+        return $count;
     }
 
     /**
@@ -100,11 +115,9 @@ class ReminderService
      */
     public function dismissAllReminders(User $user): int
     {
-        return Reminder::createdByUser($user)
-            ->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
-            ->update([
-                'status' => Reminder::STATUS_CANCELLED
-            ]);
+        return $this->cancelAndPush(
+            Reminder::createdByUser($user)->whereIn('status', [Reminder::STATUS_PENDING, Reminder::STATUS_SENT])
+        );
     }
 
     /**

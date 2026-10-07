@@ -2,11 +2,33 @@
 
 namespace App\Http\Resources\FCH\Reminder;
 
+use App\Models\Common\Reminder;
+use App\Models\User\User;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Carbon\Carbon;
 
 class ReminderResource extends JsonResource
 {
+    /** Who the reminder is rendered for when there's no request (a Reverb push). */
+    protected ?User $recipient = null;
+
+    /** That user's timezone; null means the request's X-Timezone, as before. */
+    protected ?string $recipientTimezone = null;
+
+    /**
+     * The reminder exactly as $user's own GET /reminders/due would return it:
+     * dates in their stored timezone (or the app's when it isn't known yet) and
+     * edit rights worked out for them.
+     */
+    public static function forRecipient(Reminder $reminder, User $user): static
+    {
+        $resource = new static($reminder);
+        $resource->recipient = $user;
+        $resource->recipientTimezone = $user->timezone ?: config('app.timezone', 'UTC');
+
+        return $resource;
+    }
+
     /**
      * Transform the resource into an array.
      *
@@ -15,10 +37,12 @@ class ReminderResource extends JsonResource
      */
     public function toArray($request)
     {
+        $tz = $this->recipientTimezone;
+        $viewer = $this->recipient ?? $request?->user();
         $displayDate = $this->reminder_date_time ?? $this->set_date_time ?? $this->send_at;
         // Every date this resource returns goes through the toTimezone() helper in
         // the viewer's timezone (X-Timezone): ISO-8601 for logic, formatted for display.
-        $toTz = fn ($value) => toTimezone($value, null, 'c');
+        $toTz = fn ($value) => toTimezone($value, $tz, 'c');
         ['client' => $client, 'related' => $related] = $this->clientSummary();
 
         // The activity itself (the call/meeting) and the moment its reminder
@@ -32,8 +56,8 @@ class ReminderResource extends JsonResource
             ->map(fn ($entry) => array_merge($entry, [
                 'snoozed_at' => $toTz($entry['snoozed_at'] ?? null),
                 'snoozed_until' => $toTz($entry['snoozed_until'] ?? null),
-                'snoozed_at_display' => toTimezone($entry['snoozed_at'] ?? null, null, 'F j, Y g:i A'),
-                'snoozed_until_display' => toTimezone($entry['snoozed_until'] ?? null, null, 'F j, Y g:i A'),
+                'snoozed_at_display' => toTimezone($entry['snoozed_at'] ?? null, $tz, 'F j, Y g:i A'),
+                'snoozed_until_display' => toTimezone($entry['snoozed_until'] ?? null, $tz, 'F j, Y g:i A'),
             ]))
             ->values()
             ->all();
@@ -43,7 +67,7 @@ class ReminderResource extends JsonResource
             'activity_log_id' => $this->activity_log_id,
             // Editing a reminder means editing the activity behind it, which
             // only its creator may do — the same rule the activity list uses.
-            'activity_can_edit' => (bool) $this->activityLog?->isEditableBy($request->user()),
+            'activity_can_edit' => (bool) ($viewer && $this->activityLog?->isEditableBy($viewer)),
             'client' => $client,
             'related' => $related,
             'snooze_history' => $snoozeHistory,
@@ -67,16 +91,16 @@ class ReminderResource extends JsonResource
             // reminder is still pending/sent) — decided here, on the server clock.
             'is_past_due' => $activityAt ? Carbon::parse($activityAt)->isPast() : false,
             'display' => [
-                'activity_date' => toTimezone($activityAt, null, 'F j, Y'),              // September 17, 2026
-                'activity_time' => toTimezone($activityAt, null, 'g:i A'),               // 1:48 PM
-                'activity_weekday' => toTimezone($activityAt, null, 'l'),                // Thursday
-                'activity_weekday_short' => toTimezone($activityAt, null, 'D'),          // Thu
-                'activity_day' => toTimezone($activityAt, null, 'j'),                    // 17
-                'activity_month_year' => toTimezone($activityAt, null, 'M Y'),           // Sep 2026
-                'activity_datetime' => toTimezone($activityAt, null, 'M j, Y, h:i A'),   // Sep 17, 2026, 01:48 PM
-                'reminder_date' => toTimezone($remindAt, null, 'F j, Y'),                // September 17, 2026
-                'reminder_date_short' => toTimezone($remindAt, null, 'M j, Y'),          // Sep 17, 2026
-                'reminder_time' => toTimezone($remindAt, null, 'g:i A'),                 // 1:33 PM
+                'activity_date' => toTimezone($activityAt, $tz, 'F j, Y'),              // September 17, 2026
+                'activity_time' => toTimezone($activityAt, $tz, 'g:i A'),               // 1:48 PM
+                'activity_weekday' => toTimezone($activityAt, $tz, 'l'),                // Thursday
+                'activity_weekday_short' => toTimezone($activityAt, $tz, 'D'),          // Thu
+                'activity_day' => toTimezone($activityAt, $tz, 'j'),                    // 17
+                'activity_month_year' => toTimezone($activityAt, $tz, 'M Y'),           // Sep 2026
+                'activity_datetime' => toTimezone($activityAt, $tz, 'M j, Y, h:i A'),   // Sep 17, 2026, 01:48 PM
+                'reminder_date' => toTimezone($remindAt, $tz, 'F j, Y'),                // September 17, 2026
+                'reminder_date_short' => toTimezone($remindAt, $tz, 'M j, Y'),          // Sep 17, 2026
+                'reminder_time' => toTimezone($remindAt, $tz, 'g:i A'),                 // 1:33 PM
             ],
         ];
     }

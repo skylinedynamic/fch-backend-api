@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\FundingRequest;
 
+use App\Mail\FundingRequest\BorrowerFundingRequestApproved;
+use App\Mail\FundingRequest\PartnerFundingRequestApproved;
+use App\Mail\FundingRequest\UnderwritingStatusUpdated;
 use App\Models\Borrower\Borrower;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -25,6 +28,8 @@ class FundingRequestStatusNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private Partner $host;
+    private Partner $partner;
     private User $hostAdmin;
     private User $borrowerUser;
     private User $partnerUser;
@@ -39,6 +44,8 @@ class FundingRequestStatusNotificationTest extends TestCase
 
         $hostId = $this->insertPartner(['is_host' => 1]);
         $partnerId = $this->insertPartner(['is_host' => 0]);
+        $this->host = Partner::findOrFail($hostId);
+        $this->partner = Partner::findOrFail($partnerId);
 
         $borrowerId = DB::table('borrowers')->insertGetId([
             'first_name' => 'Bo',
@@ -122,7 +129,39 @@ class FundingRequestStatusNotificationTest extends TestCase
             return $n->typeKey === 'partner.funding_request.status_changed'
                 && $n->toArray($this->partnerUser)['url'] === "/intake-review/funding-request/{$this->requestId}";
         });
+    }
 
+    #[Test]
+    public function an_approval_mails_everyone_it_did_before_now_through_the_queue(): void
+    {
+        $this->updateStatus(FundingRequest::STATUS_APPROVED);
+
+        // The borrower's login email first, as before.
+        Mail::assertQueued(BorrowerFundingRequestApproved::class, fn ($mail) => $mail->hasTo($this->borrowerUser->email));
+        Mail::assertQueued(PartnerFundingRequestApproved::class, fn ($mail) => $mail->hasTo($this->partner->email));
+        Mail::assertQueued(PartnerFundingRequestApproved::class, fn ($mail) => $mail->hasTo($this->host->email));
+        Mail::assertNothingSent();
+    }
+
+    #[Test]
+    public function the_host_hears_about_a_partners_approval_in_the_bell_too(): void
+    {
+        // The host was already emailed a copy; the bell follows the email.
+        $this->updateStatus(FundingRequest::STATUS_APPROVED);
+
+        Notification::assertSentTo($this->hostAdmin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.funding_request.approved'
+            && $n->toArray($this->hostAdmin)['url'] === "/intake-review/funding-request/{$this->requestId}");
+    }
+
+    #[Test]
+    public function any_other_status_tells_the_borrower_and_partner_but_not_the_host(): void
+    {
+        $this->updateStatus(FundingRequest::STATUS_REJECTED);
+
+        Mail::assertQueued(UnderwritingStatusUpdated::class, 2);
+        Mail::assertNotQueued(PartnerFundingRequestApproved::class);
+        Notification::assertSentTo($this->borrowerUser, DynamicNotification::class);
+        Notification::assertSentTo($this->partnerUser, DynamicNotification::class);
         Notification::assertNotSentTo($this->hostAdmin, DynamicNotification::class);
     }
 
@@ -132,5 +171,6 @@ class FundingRequestStatusNotificationTest extends TestCase
         $this->updateStatus(FundingRequest::STATUS_PENDING);
 
         Notification::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 }

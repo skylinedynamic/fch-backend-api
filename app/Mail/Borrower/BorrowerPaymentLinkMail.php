@@ -2,13 +2,14 @@
 
 namespace App\Mail\Borrower;
 
+use App\Mail\Contracts\SendsImmediately;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class BorrowerPaymentLinkMail extends Mailable
+class BorrowerPaymentLinkMail extends Mailable implements SendsImmediately
 {
     use MailableBranding, MailConfig;
 

@@ -43,9 +43,11 @@ use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\PreQualificationAgentConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
 use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SmsConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
@@ -150,6 +152,7 @@ Route::prefix('v1')->group(function () {
             Route::post('employees/fetch-department-status', [EmployeeController::class, 'fetchDepartmentStatus']);
             Route::post('employees/multiple-delete', [EmployeeController::class, 'multipleDelete']);
             Route::get('employees-next-id', [EmployeeController::class, 'nextId']);
+            Route::get('employees-available-for-user', [EmployeeController::class, 'availableForUser']);
             Route::apiResource('employees', EmployeeController::class);
 
             // Compensation ("Paid By") is stored separately from the entity that
@@ -451,6 +454,13 @@ Route::prefix('v1')->group(function () {
             Route::get('assistant-config', [AssistantConfigController::class, 'index']);
             Route::put('assistant-config/{type}', [AssistantConfigController::class, 'update']);
 
+            // Pre-Qualification agent settings (host-only, enforced again inside
+            // the controller): which OpenAI Agent runs each step of the
+            // underwriting pipeline and which vector stores it searches. The
+            // instructions and the output schema live on the OpenAI platform.
+            Route::get('prequalification-agent-config', [PreQualificationAgentConfigController::class, 'index']);
+            Route::put('prequalification-agent-config/{step}', [PreQualificationAgentConfigController::class, 'update']);
+
             // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
             // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).
             Route::get('assistant/wlp/config', [WlpAssistantController::class, 'config']);
@@ -468,6 +478,15 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [EmailConfigurationController::class, 'store']);
                 Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
+
+            // SMS Configuration (host and white-label partners)
+            Route::prefix('sms-configuration')
+                ->middleware('permission:update sms configuration settings')
+                ->group(function () {
+                    Route::get('/', [SmsConfigurationController::class, 'index']);
+                    Route::post('/', [SmsConfigurationController::class, 'store']);
+                    Route::post('/test', [SmsConfigurationController::class, 'test'])->middleware('throttle:5,1');
+                });
 
             // Agreement templates
             Route::prefix('agreement-templates')->group(function () {
@@ -510,7 +529,7 @@ Route::prefix('v1')->group(function () {
 
                     // V1 Reminder routes
                 Route::prefix('reminders')->group(function () {
-                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::post('/fetch-reminders', [ReminderController::class, 'index']);
                     Route::get('/due', [ReminderController::class, 'getDue']);
                     Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
                     Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);

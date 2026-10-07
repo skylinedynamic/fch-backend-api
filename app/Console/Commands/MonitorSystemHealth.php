@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\SystemHealthAlert;
 use App\Models\Monitoring\SystemMetric;
 use App\Models\User\User;
@@ -40,8 +41,6 @@ class MonitorSystemHealth extends Command
 
         // Invalidate cached chart data so the charts dashboard reflects the new snapshot.
         Cache::forget('dashboard.chart_metrics');
-
-        $this->info('System health snapshot saved.');
 
         // 2. Check for alerts
         $this->checkAlerts($metrics);
@@ -175,11 +174,11 @@ class MonitorSystemHealth extends Command
         }
 
         try {
-            Mail::to($recipients)->send(new SystemHealthAlert($alerts, [
+            app(Notifier::class)->send('system.health_alert', mail: (new SystemHealthAlert($alerts, [
                 'CPU Usage' => (float) ($metrics['cpu_usage_ratio'] ?? 0),
                 'RAM Usage' => (float) ($metrics['memory_usage_ratio'] ?? 0),
                 'Disk Space' => (float) ($metrics['disk_usage_ratio'] ?? 0),
-            ]));
+            ]))->to($recipients));
 
             $this->warn('Health alert sent to ' . implode(', ', $recipients));
             Log::warning('System health alert sent.', [

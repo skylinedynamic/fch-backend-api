@@ -2,6 +2,7 @@
 
 namespace App\Mail\FundingRequest;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\FundingRequest\FundingRequest;
@@ -11,7 +12,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class UnderwritingSubmitted extends Mailable
+class UnderwritingSubmitted extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

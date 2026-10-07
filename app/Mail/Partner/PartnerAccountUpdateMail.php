@@ -2,13 +2,14 @@
 
 namespace App\Mail\Partner;
 
+use App\Mail\Contracts\SendsImmediately;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class PartnerAccountUpdateMail extends Mailable
+class PartnerAccountUpdateMail extends Mailable implements SendsImmediately
 {
     use MailableBranding, MailConfig;
 

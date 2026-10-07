@@ -8,9 +8,13 @@ use App\Models\Borrower\Borrower;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Models\User\User;
+use App\Notifications\DynamicNotification;
 use App\Services\FCH\Common\Setting\PaymentMethodConfigurationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\FakeStripeHttpClient;
@@ -140,6 +144,29 @@ class CardReauthorizationMailTest extends TestCase
             CardReauthorizationRequiredMail::class,
             fn ($mail) => $mail->hasTo($payer->email),
         );
+    }
+
+    #[Test]
+    public function the_payer_is_also_asked_in_their_bell_with_a_link_to_their_billing_page(): void
+    {
+        Notification::fake();
+        $payer = $this->strandedPartner();
+        $login = User::findOrFail(DB::table('users')->insertGetId([
+            'name' => 'Host Owner',
+            'email' => 'owner@example.test',
+            'password' => bcrypt('secret'),
+            'user_type' => User::PARTNER,
+            'entity_type' => Partner::class,
+            'entity_id' => $payer->id,
+            'partner_id' => $payer->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]));
+
+        $this->runCron($this->invoiceFor($payer));
+
+        Notification::assertSentTo($login, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'partner.payment.card_reauthorization_required'
+            && $n->toArray($login)['url'] === '/my-subscription');
     }
 
     /**

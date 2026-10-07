@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Employee;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
@@ -50,6 +51,31 @@ class EmployeeService
         $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
 
         return ApiResponse::success(EmployeeResource::collection($employees), __('employee.success.retrieved'));
+    }
+
+    /**
+     * The partner's employees that have no user account yet - the only ones a
+     * new user can be created for. An employee whose user was (soft) deleted
+     * counts as having none.
+     */
+    public function availableForUser(int $partnerId)
+    {
+        return Employee::query()
+            ->where('partner_id', $partnerId)
+            ->whereDoesntHave('user')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'email', 'phone_number_1', 'country_code', 'employee_code', 'designation'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'first_name' => $employee->first_name,
+                'full_name' => $employee->full_name,
+                'email' => $employee->email,
+                'phone_number_1' => $employee->phone_number_1,
+                'country_code' => $employee->country_code,
+                'employee_code' => $employee->employee_code,
+                'designation' => $employee->designation,
+            ])
+            ->values();
     }
 
     /**
@@ -576,7 +602,8 @@ class EmployeeService
         ];
 
         try {
-            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+            app(Notifier::class)->send($isUpdate ? 'user.account.login_updated' : 'user.account.created', $user,
+                mail: (new AccountCreateNotificationMail($data))->to($user->email));
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),

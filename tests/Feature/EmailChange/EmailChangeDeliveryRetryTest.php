@@ -57,22 +57,17 @@ class EmailChangeDeliveryRetryTest extends TestCase
             'partner_id' => $partner->id,
         ]);
 
-        Mail::shouldReceive('to')->andReturnUsing(function (string $to) {
-            return new class($to, $this->attempts, $this->refusals) {
-                public function __construct(private string $to, private array &$attempts, private array &$refusals) {}
+        // The mails go out through the Notifier, which hands the addressed
+        // Mailable to Mail::send().
+        Mail::shouldReceive('send')->andReturnUsing(function ($mail) {
+            $this->attempts[] = ['to' => $mail->to[0]['address'], 'mail' => $mail::class];
 
-                public function send($mail)
-                {
-                    $this->attempts[] = ['to' => $this->to, 'mail' => $mail::class];
+            if (($this->refusals[$mail::class] ?? 0) > 0) {
+                $this->refusals[$mail::class]--;
+                throw new TransportException('Expected response code "354" but got code "550", with message "550 5.7.0 Too many emails per second."');
+            }
 
-                    if (($this->refusals[$mail::class] ?? 0) > 0) {
-                        $this->refusals[$mail::class]--;
-                        throw new TransportException('Expected response code "354" but got code "550", with message "550 5.7.0 Too many emails per second."');
-                    }
-
-                    return null;
-                }
-            };
+            return null;
         });
     }
 

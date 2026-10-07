@@ -2,12 +2,12 @@
 
 namespace App\Services\Global\Notification\Channels;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\User\User;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Services\Global\Notification\Types\NotificationTypeInterface;
 use App\Services\Global\Notification\Mail\GenericNotificationMail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Exception;
 
 class EmailChannel
@@ -37,7 +37,10 @@ class EmailChannel
             ]);
 
             try {
-                Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+                // Mail only: a reset link or sign-in code must never be stored
+                // in the notifications table the bell reads from.
+                app(Notifier::class)->send('auth.' . $notification->getType(),
+                    mail: (new GenericNotificationMail($mailData))->to($user->email));
             } catch (Exception $e) {
                 Log::error(__('notification.email.errors.send_failed'), ['error' => $e->getMessage()]);
             }
@@ -133,7 +136,7 @@ class EmailChannel
             ];
 
             try {
-                Mail::to($user->email)->send(new GenericNotificationMail($mailData));
+                app(Notifier::class)->send('auth.test', mail: (new GenericNotificationMail($mailData))->to($user->email));
             } catch (Exception $e) {
                 Log::error(__('notification.email.errors.test_send_failed'), ['error' => $e->getMessage()]);
             }

@@ -10,6 +10,7 @@ use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Mail\Mailables\Attachment;
 
 class InvoiceMail extends Mailable implements ShouldQueue
 {
@@ -18,10 +19,19 @@ class InvoiceMail extends Mailable implements ShouldQueue
     protected array $dynamicData = [];
 
     /**
+     * The invoice PDF, base64-encoded. This mail is queued, the queue payload
+     * is JSON, and raw PDF bytes are not valid UTF-8 - carried as-is, the push
+     * failed and the email was never sent.
+     */
+    protected ?string $pdfBase64 = null;
+
+    /**
      * Create a new message instance.
      */
-    public function __construct(public $invoice, public $pdfContent = null, ?int $mailPartnerId = null, public ?string $customSubject = null)
+    public function __construct(public $invoice, ?string $pdfContent = null, ?int $mailPartnerId = null, public ?string $customSubject = null)
     {
+        $this->pdfBase64 = $pdfContent !== null && $pdfContent !== '' ? base64_encode($pdfContent) : null;
+
         if ($mailPartnerId) {
             $this->mailPartnerId = $mailPartnerId;
         } else {
@@ -68,9 +78,9 @@ class InvoiceMail extends Mailable implements ShouldQueue
      */
     public function attachments(): array
     {
-        if ($this->pdfContent) {
+        if ($this->pdfBase64) {
             return [
-                \Illuminate\Mail\Mailables\Attachment::fromData(fn() => $this->pdfContent, "Invoice-{$this->invoice->invoice_id}.pdf")
+                Attachment::fromData(fn() => base64_decode($this->pdfBase64), "Invoice-{$this->invoice->invoice_id}.pdf")
                     ->withMime('application/pdf'),
             ];
         }

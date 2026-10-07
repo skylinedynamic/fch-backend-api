@@ -2,6 +2,7 @@
 
 namespace App\Mail\FundingRequest;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\FundingRequest\FundingRequest;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Partner\Partner;
 use App\Models\Common\AppConfiguration;
 
-class PartnerFundingRequestApproved extends Mailable
+class PartnerFundingRequestApproved extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

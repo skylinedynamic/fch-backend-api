@@ -9,7 +9,7 @@ use App\Models\Partner\Partner;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 class SendFundingApplicationReminders extends Command
 {
@@ -30,7 +30,7 @@ class SendFundingApplicationReminders extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(Notifier $notifier)
     {
         $now = Carbon::now();
 
@@ -74,18 +74,24 @@ class SendFundingApplicationReminders extends Command
                     $partnerEmail = $partner?->email;
                     
                     $emailSent = false;
+                    $bellData = [
+                        'id' => $fundingRequest->id,
+                        'borrower' => personName($fundingRequest->borrower->first_name, $fundingRequest->borrower->middle_name, $fundingRequest->borrower->last_name),
+                    ];
 
-                    // Send Borrower Email
+                    // Borrower: bell + email
                     if ($borrowerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to borrower ({$borrowerEmail})");
-                        Mail::to($borrowerEmail)->queue(new BorrowerFundingApplicationReminder($fundingRequest));
+                        $notifier->send('borrower.funding_application.reminder', $user, $bellData,
+                            mail: (new BorrowerFundingApplicationReminder($fundingRequest))->to($borrowerEmail));
                         $emailSent = true;
                     }
 
-                    // Send Partner Email
+                    // Partner: bell + email
                     if ($partnerEmail) {
                         Log::info("FundingRequest #{$fundingRequest->id}: Dispatching Day {$days} Application Reminder to partner ({$partnerEmail})");
-                        Mail::to($partnerEmail)->queue(new PartnerFundingApplicationReminder($fundingRequest, $partner, false));
+                        $notifier->send('partner.funding_application.reminder', $partner, $bellData,
+                            mail: (new PartnerFundingApplicationReminder($fundingRequest, $partner, false))->to($partnerEmail));
                         $emailSent = true;
                     }
 

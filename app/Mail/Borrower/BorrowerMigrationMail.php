@@ -2,13 +2,14 @@
 
 namespace App\Mail\Borrower;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class BorrowerMigrationMail extends Mailable
+class BorrowerMigrationMail extends Mailable implements ShouldQueue
 {
     use MailableBranding, MailConfig;
 

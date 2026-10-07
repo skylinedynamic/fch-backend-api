@@ -6,8 +6,8 @@ use App\Mail\Borrower\ChangeRequestStatusMail;
 use App\Mail\Partner\NewChangeRequestSubmittedMail;
 use App\Models\Borrower\BorrowerChangeRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Who is told about a borrower's profile change request, and from whose mailbox.
@@ -44,14 +44,16 @@ class ChangeRequestNotifier
             $recipient = $this->addressFor($host);
 
             if (!$recipient) {
+                // Still told in the bell; only the email has nowhere to go.
                 Log::warning(__('profile.log_change_request_host_email_missing'), [
                     'change_request_id' => $changeRequest->id,
                 ]);
-
-                return;
             }
 
-            Mail::to($recipient)->send(new NewChangeRequestSubmittedMail($host, $changeRequest));
+            app(Notifier::class)->send('host.change_request.submitted', $host, [
+                'borrower' => $this->nameOf($changeRequest->borrower),
+                'field' => $this->fieldOf($changeRequest),
+            ], mail: $recipient ? (new NewChangeRequestSubmittedMail($host, $changeRequest))->to($recipient) : null);
         } catch (\Throwable $e) {
             Log::error(__('profile.log_change_request_notify_failed'), [
                 'change_request_id' => $changeRequest->id,
@@ -73,8 +75,6 @@ class ChangeRequestNotifier
                 Log::warning(__('profile.log_change_request_borrower_email_missing'), [
                     'change_request_id' => $changeRequest->id,
                 ]);
-
-                return;
             }
 
             // The partner id is passed explicitly rather than left to
@@ -82,14 +82,20 @@ class ChangeRequestNotifier
             // authenticated, so the ambient partner is the reviewer's, not the
             // borrower's. Without this the borrower's mail goes out through the
             // reviewing admin's mail server, under the wrong brand.
-            Mail::to($email)->send(new ChangeRequestStatusMail([
+            //
+            // The bell names the field but never the new value - that can be a
+            // date of birth or an SSN, and the bell is stored and broadcast.
+            app(Notifier::class)->send('borrower.change_request.decided', $borrower, [
+                'field' => $this->fieldOf($changeRequest),
+                'status' => strtolower((string) $changeRequest->status),
+            ], mail: $email ? (new ChangeRequestStatusMail([
                 'subject' => __('profile.change_request_status_subject'),
                 'borrower_name' => $this->nameOf($borrower),
-                'field_name' => $changeRequest->visible_field_name ?: $changeRequest->field_name,
+                'field_name' => $this->fieldOf($changeRequest),
                 'status' => $changeRequest->status,
                 'new_value' => $changeRequest->new_value,
                 'note' => $changeRequest->note,
-            ], $borrower?->partner_id));
+            ], $borrower?->partner_id))->to($email) : null);
         } catch (\Throwable $e) {
             Log::error(__('profile.log_change_request_status_notify_failed'), [
                 'change_request_id' => $changeRequest->id,
@@ -123,6 +129,12 @@ class ChangeRequestNotifier
     private function addressFor(?Partner $partner): ?string
     {
         return $partner?->email ?: null;
+    }
+
+    /** The label the borrower saw in the portal, not the column name. */
+    private function fieldOf(BorrowerChangeRequest $changeRequest): ?string
+    {
+        return $changeRequest->visible_field_name ?: $changeRequest->field_name;
     }
 
     private function nameOf($borrower): string

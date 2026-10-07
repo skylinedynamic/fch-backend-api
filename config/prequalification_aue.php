@@ -26,6 +26,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Data statuses that stop a borrower-facing assessment
+    |--------------------------------------------------------------------------
+    |
+    | The agent reports a data_status over the borrower's own answers. These are
+    | the values that mean the borrower has something to correct: CONFLICTING,
+    | where two answers cannot both be true, and INSUFFICIENT, where one needed
+    | for a meaningful assessment is missing. On either, the evaluation is kept
+    | for FCH staff and the borrower is shown what to fix, rather than an
+    | assessment built on figures the agent just called unreliable.
+    |
+    | COMPLETE and PARTIAL are deliberately absent. PARTIAL is the ordinary
+    | state of a pre-qualification — no documents are collected at this stage,
+    | and the agent's own instructions forbid treating their absence as a
+    | deficiency, so blocking on it would stop every application.
+    |
+    */
+    'blocking_data_statuses' => ['CONFLICTING', 'INSUFFICIENT'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Self-reported personal credit bands
     |--------------------------------------------------------------------------
     |

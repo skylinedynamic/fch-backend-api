@@ -15,6 +15,7 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use App\Services\FCH\Common\Commission\CommissionPayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Passport\Passport;
@@ -503,15 +504,39 @@ class CommissionPayoutTest extends TestCase
     }
 
     #[Test]
+    public function whoever_is_paid_is_told_in_the_bell(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $partnerLogin = $this->user('owner@reseller.test', $other, ['entity_type' => Partner::class, 'entity_id' => $other->id]);
+        $seller = $this->sellerOnTenPercent();
+
+        $toPartner = $this->commission($other, null);
+        $toSeller = $this->commission($this->host, $seller);
+        $this->pay($toPartner)->assertOk();
+        $this->pay($toSeller)->assertOk();
+
+        $bell = fn (User $user) => DB::table('notifications')
+            ->where('type', 'partner.commission.paid')
+            ->where('notifiable_type', User::class)
+            ->where('notifiable_id', $user->id)
+            ->get();
+
+        $this->assertCount(1, $bell($partnerLogin));
+        $this->assertSame("/commissions/{$toPartner->id}", json_decode($bell($partnerLogin)->first()->data, true)['url']);
+        $this->assertCount(1, $bell($seller));
+        $this->assertCount(0, $bell($this->admin));
+    }
+
+    #[Test]
     public function whoever_is_paid_is_emailed_about_it(): void
     {
         $other = $this->partner('Reseller Co', false);
         $this->pay($this->commission($other, null))->assertOk();
         $this->pay($this->commission($this->host, $this->sellerOnTenPercent()))->assertOk();
 
-        Mail::assertSent(CommissionPayoutMail::class, 2);
-        Mail::assertSent(CommissionPayoutMail::class, fn ($mail) => $mail->hasTo($other->email));
-        Mail::assertSent(CommissionPayoutMail::class, fn ($mail) => $mail->hasTo('seller@host.test'));
+        Mail::assertQueued(CommissionPayoutMail::class, 2);
+        Mail::assertQueued(CommissionPayoutMail::class, fn ($mail) => $mail->hasTo($other->email));
+        Mail::assertQueued(CommissionPayoutMail::class, fn ($mail) => $mail->hasTo('seller@host.test'));
     }
 
     #[Test]
@@ -521,7 +546,7 @@ class CommissionPayoutTest extends TestCase
         // the host partner's name and share of the commission.
         $this->pay($this->commission($this->host, $this->sellerOnTenPercent()), ['note' => 'Thanks for the deal'])->assertOk();
 
-        Mail::assertSent(CommissionPayoutMail::class, function ($mail) {
+        Mail::assertQueued(CommissionPayoutMail::class, function ($mail) {
             $html = $mail->render();
 
             $this->assertStringContainsString('Sam Seller', $html);
@@ -539,7 +564,7 @@ class CommissionPayoutTest extends TestCase
         $other = $this->partner('Reseller Co', false);
         $this->pay($this->commission($other, null))->assertOk();
 
-        Mail::assertSent(CommissionPayoutMail::class, function ($mail) {
+        Mail::assertQueued(CommissionPayoutMail::class, function ($mail) {
             $html = $mail->render();
 
             $this->assertStringContainsString('Reseller Co Owner', $html);

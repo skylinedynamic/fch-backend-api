@@ -27,16 +27,6 @@ class NotificationService
     public function sendSms(User $user, NotificationTypeInterface $notification): bool
     {
         try {
-            if (!$this->smsChannel->isConfigured()) {
-                Log::error(__("notification.sms.errors.not_configured"));
-                return false;
-            }
-
-            if (!$user->phone_number) {
-                Log::error(__("notification.sms.errors.no_phone"), ['user_id' => $user->id]);
-                return false;
-            }
-
             $result = $this->smsChannel->send($user, $notification);
             
             if ($result) {
@@ -137,10 +127,10 @@ class NotificationService
     /**
      * Get channel status information.
      */
-    public function getChannelStatus(): array
+    public function getChannelStatus(User $user): array
     {
         return [
-            'sms' => $this->smsChannel->getStatus(),
+            'sms' => $this->smsChannel->getStatus($user),
             'email' => $this->emailChannel->getStatus(),
         ];
     }
@@ -148,11 +138,11 @@ class NotificationService
     /**
      * Check if a specific channel is configured.
      */
-    public function isChannelConfigured(string $channel): bool
+    public function isChannelConfigured(string $channel, User $user): bool
     {
         switch ($channel) {
             case 'sms':
-                return $this->smsChannel->isConfigured();
+                return $this->smsChannel->isConfiguredFor($user);
             case 'email':
                 return $this->emailChannel->isConfigured();
             default:

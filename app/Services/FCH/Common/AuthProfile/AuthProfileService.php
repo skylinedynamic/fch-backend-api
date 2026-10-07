@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\AuthProfile;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use App\Models\Common\AppConfiguration;
@@ -10,8 +11,8 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
 use Log;
+use App\Services\Global\Notification\Mail\GenericNotificationMail;
 
 class AuthProfileService
 {
@@ -51,7 +52,8 @@ class AuthProfileService
             ];
 
             try {
-                Mail::to($user->email)->send(new \App\Services\Global\Notification\Mail\GenericNotificationMail($mailData));
+                app(Notifier::class)->send('user.password_changed', $user,
+                    mail: (new GenericNotificationMail($mailData))->to($user->email));
                 Log::info('📧 Password change notification sent', ['user_id' => $user->id]);
             } catch (\Exception $e) {
                 Log::error('📧 Password change notification failed', [

@@ -9,11 +9,11 @@ use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -71,7 +71,7 @@ class EmailChangeService
         // one, and a refused mail isn't retried — so the sends are spaced out.
         // The notice goes first because it can't be sent again, whereas the
         // confirmation has a Resend button if it's ever the one that's lost.
-        $this->send($user->email, new EmailChangeRequestedMail($user, $newEmail, $this->cancelUrl($user)));
+        $this->send('auth.email_change_requested', $user->email, new EmailChangeRequestedMail($user, $newEmail, $this->cancelUrl($user)));
         $this->pauseBetweenSends();
         $this->sendConfirmation($user);
     }
@@ -203,7 +203,7 @@ class EmailChangeService
         });
 
         // The way back, should the new address not have been theirs.
-        $this->send($oldEmail, new EmailChangedMail($user, $oldEmail, $this->revertUrl($user), self::REVERT_LIFETIME_DAYS));
+        $this->send('auth.email_changed', $oldEmail, new EmailChangedMail($user, $oldEmail, $this->revertUrl($user), self::REVERT_LIFETIME_DAYS));
 
         return EmailChangeResult::Changed;
     }
@@ -358,6 +358,7 @@ class EmailChangeService
     private function sendConfirmation(User $user): void
     {
         $this->send(
+            'auth.email_change_confirmation',
             $user->pending_email,
             new EmailChangeConfirmationMail($user, $this->confirmationUrl($user), self::LINK_LIFETIME_HOURS)
         );
@@ -369,13 +370,14 @@ class EmailChangeService
      * failure mustn't undo the request: the change stays pending and can be
      * resent.
      */
-    private function send(string $to, Mailable $mail): void
+    private function send(string $type, string $to, Mailable $mail): void
     {
         $waits = (array) config('mail.send_retry_delays_ms', []);
+        $mail->to($to);
 
         while (true) {
             try {
-                Mail::to($to)->send($mail);
+                app(Notifier::class)->send($type, mail: $mail);
                 return;
             } catch (TransportExceptionInterface $e) {
                 if ($waits === []) {

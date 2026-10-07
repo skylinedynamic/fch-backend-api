@@ -276,10 +276,12 @@ class RequestApplicationService
             try {
                 $this->preQualificationAiService->evaluate($application->fresh('borrower'), $userId);
             } catch (\Throwable $e) {
-                PreQualificationRequest::where('id', $application->id)->update([
-                    'gpt_status' => PreQualificationRequest::GPT_FAILED,
-                    'gpt_generated_at' => now(),
-                ]);
+                if ($failed = PreQualificationRequest::find($application->id)) {
+                    $failed->applyUnderwritingOutcome(false);
+                    $failed->gpt_status = PreQualificationRequest::GPT_FAILED;
+                    $failed->gpt_generated_at = now();
+                    $failed->save();
+                }
 
                 Log::error('Pre-qualification AUE re-run failed', [
                     'pre_qualification_request_id' => $application->id,

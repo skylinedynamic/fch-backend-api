@@ -2,6 +2,7 @@
 
 namespace App\Mail\EmbedForm;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\Borrower\FundingApplication;
@@ -20,7 +21,7 @@ use Illuminate\Queue\SerializesModels;
  * submitting the form and being contacted, and staff would have to notice the
  * new client themselves.
  */
-class EmbedFormConverted extends Mailable
+class EmbedFormConverted extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

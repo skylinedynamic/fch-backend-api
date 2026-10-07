@@ -10,12 +10,13 @@ use App\Models\Compensation\CompensationSetting;
 use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Payment\Payment;
+use App\Models\User\User;
 use App\Services\FCH\Common\Compensation\CompensationService;
 use App\Services\FCH\Common\Invoice\InvoiceService;
+use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -187,13 +188,21 @@ class CommissionPayoutService
         });
 
         // Whoever was paid — the partner or the assigned user — is told about
-        // it. Once it's committed, so a mail problem can't undo a payment made.
-        if ($invoice->email) {
-            try {
-                Mail::to($invoice->email)->send(new CommissionPayoutMail($commission, $invoice, $note));
-            } catch (Throwable $e) {
-                Log::error('Commission payout mail failed', ['commission_id' => $commission->id, 'error' => $e->getMessage()]);
-            }
+        // it, in the bell and by email. Once it's committed, so a notification
+        // problem can't undo a payment made.
+        try {
+            $payee = $invoice->entity_type === Partner::class
+                ? Partner::find($invoice->entity_id)
+                : User::find($invoice->entity_id);
+
+            app(Notifier::class)->send('partner.commission.paid', $payee, [
+                'id' => $commission->id,
+                'amount' => ($commission->currency ?: 'USD') . ' ' . number_format((float) $invoice->payment_amount, 2),
+            ], mail: $invoice->email
+                ? (new CommissionPayoutMail($commission, $invoice, $note))->to($invoice->email)
+                : null);
+        } catch (Throwable $e) {
+            Log::error('Commission payout notification failed', ['commission_id' => $commission->id, 'error' => $e->getMessage()]);
         }
 
         return $commission;
