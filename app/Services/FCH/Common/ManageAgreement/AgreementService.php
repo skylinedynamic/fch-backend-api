@@ -269,6 +269,84 @@ class AgreementService
         return $agreement;
     }
 
+    /**
+     * The settings of the Signature block in the Borrower Agreement template
+     * that applies to this borrower, so anything else the borrower signs can be
+     * styled the same way as the agreement they signed.
+     *
+     * Their own partner's template is used when it has a signature block, then
+     * the host's; null when neither does, and the caller keeps its defaults.
+     * Only presentation is taken - never the image a builder may have dropped
+     * into the block.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function borrowerSignatureBlock(?Borrower $borrower): ?array
+    {
+        $ownerIds = array_values(array_unique(array_filter([
+            $borrower?->partner_id,
+            $this->getHostPartner()?->id,
+        ])));
+
+        foreach ($ownerIds as $partnerId) {
+            $template = $this->getActiveTemplate((int) $partnerId, 'borrower');
+            $parsed = $template?->template_json ? json_decode($template->template_json, true) : null;
+
+            if (! is_array($parsed)) {
+                continue;
+            }
+
+            // Saved as { blocks, pagePad, docBg }; older templates are a bare list.
+            $block = $this->findSignatureBlock($parsed['blocks'] ?? $parsed);
+
+            if ($block) {
+                return array_intersect_key($block, array_flip(self::SIGNATURE_BLOCK_SETTINGS));
+            }
+        }
+
+        return null;
+    }
+
+    // What the builder's Block Properties panel sets on a Signature block.
+    private const SIGNATURE_BLOCK_SETTINGS = [
+        'fieldLabel', 'fieldRequired',
+        'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textAlign', 'textDecoration',
+        'lineHeight', 'letterSpacing', 'color',
+        'bgColor', 'bgOpacity', 'borderRadius', 'padding', 'marginTop', 'marginBottom',
+    ];
+
+    /**
+     * The first Signature block in a template, including one placed inside a
+     * Parties block's columns.
+     *
+     * @param  mixed  $blocks
+     * @return array<string, mixed>|null
+     */
+    private function findSignatureBlock($blocks): ?array
+    {
+        if (! is_array($blocks)) {
+            return null;
+        }
+
+        foreach ($blocks as $block) {
+            if (! is_array($block)) {
+                continue;
+            }
+
+            if (($block['type'] ?? null) === 'signature') {
+                return $block;
+            }
+
+            foreach (['partyA', 'partyB'] as $column) {
+                if ($nested = $this->findSignatureBlock($block[$column] ?? null)) {
+                    return $nested;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private function getHostPartner(): ?Partner
     {
         return Partner::where('is_host', '=', true)->first();

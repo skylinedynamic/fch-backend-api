@@ -6,6 +6,7 @@ use App\Exceptions\FundingApplicationLockedException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\SignatureImageRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
@@ -321,6 +322,52 @@ class FundingApplicationController extends Controller
         }
     }
 
+    /**
+     * The file the borrower picked in the file manager to sign with.
+     *
+     * The request has already refused anything that is not their own PNG/JPG
+     * within the size limit; what comes back is that image, ready to place in
+     * the signature box.
+     */
+    public function signatureImage(SignatureImageRequest $request)
+    {
+        try {
+            $contents = \Illuminate\Support\Facades\Storage::disk('public')->get($request->storagePath());
+            $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents);
+
+            // Every browser shows PNG and JPEG. Anything else (WEBP, AVIF, GIF,
+            // BMP ...) is turned into a PNG here, so it displays whatever the
+            // borrower's browser happens to support. A type this server cannot
+            // read either (HEIC, for one) is passed through as it is and left
+            // to the browser.
+            if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
+                $size = @getimagesizefromstring($contents);
+                // Decoding is skipped for very large pictures - it would need
+                // more memory than a signature is worth.
+                $decoded = $size && ($size[0] * $size[1]) <= 16000000 ? @imagecreatefromstring($contents) : false;
+
+                if ($decoded !== false) {
+                    imagesavealpha($decoded, true);
+                    ob_start();
+                    imagepng($decoded);
+                    $contents = ob_get_clean();
+                    $mime = 'image/png';
+                    imagedestroy($decoded);
+                }
+            }
+
+            return ApiResponse::success([
+                'image' => 'data:' . $mime . ';base64,' . base64_encode($contents),
+                'file_name' => basename($request->storagePath()),
+                'size_kb' => (int) ceil(strlen($contents) / 1024),
+            ]);
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower_validation.signature_file_not_found'), 422, [
+                'signature_image' => __('borrower_validation.signature_file_not_found'),
+            ]);
+        }
+    }
+
     public function saveAttestationAndAuthorization(AttestationAndAuthorizationRequest $request){
         try {
             $validated = $request->validated();
@@ -365,8 +412,28 @@ class FundingApplicationController extends Controller
                 $deviceType = 'Mobile';
             }
 
+            // Typed name or e-signature - one or the other, never both. An
+            // e-signature carries no typed name, so the account holder's name is
+            // recorded as the printed name beside the image.
+            $isEsign = ($validated['signature_type'] ?? 'typed') === 'esign';
+            if ($isEsign) {
+                $validated['signature_name'] = trim(Auth::user()->first_name . ' ' . Auth::user()->last_name)
+                    ?: trim((string) Auth::user()->name)
+                    ?: trim((string) ($priorState?->full_name ?? ''))
+                    ?: 'Borrower';
+            }
+            $signatureImage = $isEsign ? ($validated['signature_image'] ?? null) : null;
+            // The date the borrower put in the signature block. `signed_at`
+            // below stays the server's own record of when it was submitted.
+            $signatureDate = $isEsign ? ($validated['signature_date'] ?? null) : null;
+            // Not columns; they live inside signature_data below.
+            unset($validated['signature_image'], $validated['signature_type'], $validated['signature_date']);
+
             $validated['signature_data'] = [
                 'signature_name' => $validated['signature_name'] ?? null,
+                'signature_type' => $isEsign ? 'esign' : 'typed',
+                'signature_image' => $signatureImage,
+                'signature_date' => $signatureDate,
                 'ip_address' => $request->ip(),
                 'user_agent' => $agent,
                 'browser_name' => $browser,

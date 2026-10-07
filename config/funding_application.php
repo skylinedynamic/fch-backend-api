@@ -37,98 +37,78 @@ return [
     | autoloader is registered, and `config:cache` exports the resolved strings -
     | so the cached config carries no dependency on the model.
     |
-    | What lives here is the *grouping* decision: which bucket a status belongs
-    | to, and therefore what it permits. Moving a status between buckets is an
-    | edit to this file alone, not a hunt through the services.
+    | What lives here is the status *order*. The buckets are worked out from it,
+    | so reordering or adding a status is an edit to `order` alone:
     |
-    | A status belongs to exactly one editing bucket:
-    |
-    |   pre_signature   - the wizard is still being filled in. Nothing has been
-    |                     signed, so an edit is just an edit.
-    |   resign_on_edit  - already signed and submitted. A real field change
-    |                     invalidates the signature: the application drops back
-    |                     to `resign_target`, signature_data is cleared, and the
+    |   pre_signature   - listed below. The wizard is still being filled in and
+    |                     nothing has been signed, so an edit is just an edit.
+    |   resign_on_edit  - every other status at or below `max_editable_key`.
+    |                     Already signed, so a real field change invalidates the
+    |                     signature: the application drops back to
+    |                     `resign_target`, signature_data is cleared, and the
     |                     borrower has to sign again. A save that changes nothing
     |                     (the wizard re-posts every step's prefilled values) must
     |                     NOT cost a signature.
-    |   locked          - the file is out of our hands - with a lender, under
-    |                     contract, funded or closed. Borrower and partner cannot
-    |                     edit at all; only an admin status change moves it on.
+    |   locked          - every status above `max_editable_key`. The file is out
+    |                     of our hands - with a lender, under contract, funded or
+    |                     closed. Borrower and partner cannot edit at all; only an
+    |                     admin status change moves it on.
     |
-    | `allows_new_request` is about a different question: may the borrower submit
-    | a *new* funding request for this option? Yes exactly when the current
-    | application has left their hands - it is with a lender, under contract,
-    | funded, closed or denied. Either way that round is settled and a fresh
-    | request starts a new one; what must not happen is a second request opened
-    | while an application is still being reviewed, which would run two pipelines
-    | for the same borrower against the same lenders.
-    |
-    | It mirrors `locked` today and is kept as its own list so a status can later
-    | be held back from re-applying without also making it editable again - those
-    | are different decisions and should not share a switch.
+    | A locked status is also where the borrower may submit a *new* funding
+    | request: that round is settled. What must not happen is a second request
+    | opened while an application is still being reviewed, which would run two
+    | pipelines for the same borrower against the same lenders.
     |
     */
 
     'statuses' => [
 
         /*
-        | Every status carries a lifecycle key (FundingApplication::STATUS_KEYS):
+        | THE ONE PLACE THE STATUS ORDER LIVES.
         |
-        |    1 On Hold                  8 Approved (Conditional)   15 Contracting / Docs Out
-        |    2 Draft                    9 Approved (Final)         16 Cleared to Fund
-        |    3 Submitted – Pending     10 Matched to Lender        17 Funded
-        |    4 Submitted (Received)    11 Submitted to Lender      18 Closed (Completed)
-        |    5 Underwriting Review     12 Lender Reviewing         19 Denied
-        |    6 Missing Documents       13 Offer Issued
-        |    7 In Verification         14 Offer Accepted
+        | Every status with its order number, 1 being the earliest. Everything
+        | else is worked out from this map and `max_editable_key` below - which
+        | statuses are editable, which are locked, which cost a signature, which
+        | let the borrower apply again, and how a list sorts by status.
         |
-        | The borrower and the partner may change the application while its key
-        | is at or below this number, and not after. Enforcement reads this:
-        | anything past it, or with no key at all, is read-only.
+        | To reorder: change the numbers here. To add a status: add its constant
+        | to FundingApplication and give it a number here. Nothing else needs to
+        | be touched. A status left out of this map is read-only.
+        */
+        'order' => [
+            FundingApplication::ON_HOLD => 1,
+            FundingApplication::DRAFT => 2,
+            FundingApplication::PENDING => 3,
+            FundingApplication::SUBMITTED => 4,
+            FundingApplication::UNDERWRITING_REVIEW => 5,
+            FundingApplication::MISSING_DOCUMENTS => 6,
+            FundingApplication::IN_VERIFICATION => 7,
+            FundingApplication::APPROVED_CONDITIONAL => 8,
+            FundingApplication::APPROVED_FINAL => 9,
+            FundingApplication::MATCHED_TO_LENDER => 10,
+            FundingApplication::SUBMITTED_TO_LENDER => 11,
+            FundingApplication::LENDER_REVIEWING => 12,
+            FundingApplication::OFFER_ISSUED => 13,
+            FundingApplication::OFFER_ACCEPTED => 14,
+            FundingApplication::CONTRACTING_DOCS_OUT => 15,
+            FundingApplication::CLEARED_TO_FUND => 16,
+            FundingApplication::FUNDED => 17,
+            FundingApplication::CLOSED_COMPLETED => 18,
+            FundingApplication::DENIED => 19,
+        ],
+
+        /*
+        | Borrower and partner may edit the application while its order number
+        | is at or below this (9 itself is still editable). Anything above it is
+        | read-only for them, and the borrower may start a new request instead.
         */
         'max_editable_key' => 9,
 
+        // Editable statuses where nothing has been signed yet, so an edit costs
+        // nothing. Every other editable status costs the signature on a change.
         'pre_signature' => [
             FundingApplication::ON_HOLD,
             FundingApplication::DRAFT,
-        ],
-
-        'resign_on_edit' => [
-            FundingApplication::PENDING,
-            FundingApplication::SUBMITTED,
-            FundingApplication::UNDERWRITING_REVIEW,
-            FundingApplication::MISSING_DOCUMENTS,
-            FundingApplication::IN_VERIFICATION,
-            FundingApplication::APPROVED_CONDITIONAL,
-            FundingApplication::APPROVED_FINAL,
-        ],
-
-        'locked' => [
-            FundingApplication::MATCHED_TO_LENDER,
-            FundingApplication::SUBMITTED_TO_LENDER,
-            FundingApplication::LENDER_REVIEWING,
-            FundingApplication::OFFER_ISSUED,
-            FundingApplication::OFFER_ACCEPTED,
-            FundingApplication::CONTRACTING_DOCS_OUT,
-            FundingApplication::CLEARED_TO_FUND,
-            FundingApplication::FUNDED,
-            FundingApplication::CLOSED_COMPLETED,
-            FundingApplication::DENIED,
-        ],
-
-        // Out of the borrower's hands - that round is settled, so they may submit
-        // a new funding request for this option.
-        'allows_new_request' => [
-            FundingApplication::MATCHED_TO_LENDER,
-            FundingApplication::SUBMITTED_TO_LENDER,
-            FundingApplication::LENDER_REVIEWING,
-            FundingApplication::OFFER_ISSUED,
-            FundingApplication::OFFER_ACCEPTED,
-            FundingApplication::CONTRACTING_DOCS_OUT,
-            FundingApplication::CLEARED_TO_FUND,
-            FundingApplication::FUNDED,
-            FundingApplication::CLOSED_COMPLETED,
-            FundingApplication::DENIED,
         ],
 
         // Where a signature-invalidating edit puts the application.
@@ -180,6 +160,26 @@ return [
             'is_federal_compliance_saved',
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | E-Signature Image
+    |--------------------------------------------------------------------------
+    |
+    | What a borrower may pick in the file manager to sign with. Enforced on the
+    | server when the file is chosen; the portal reads the same values to word
+    | its hint, so the limit is stated in one place.
+    |
+    */
+
+    'signature' => [
+        // Any image type - JPG, JPEG, PNG, HEIC, WEBP, AVIF, GIF and the rest.
+        // Checked against the file's contents, not its extension. Narrow it by
+        // listing exact types instead, e.g. ['image/png', 'image/jpeg'].
+        'mime_types' => ['image/*'],
+        // 1 MB.
+        'max_file_kb' => 1024,
     ],
 
     /*

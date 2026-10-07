@@ -136,6 +136,10 @@ class FundingRequestService
             return ApiResponse::error(__('funding_request.funding_request_not_found'));
         }
 
+        // The detail page decides between "Process" and "Edit Application" from
+        // the application's lifecycle key, not from a list of status names.
+        $review->fundingApplication?->append(['status_key', 'is_editable']);
+
         return ApiResponse::success($review);
     }
 

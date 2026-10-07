@@ -177,12 +177,20 @@ class RequestApplicationService
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
 
+            // Sorting on status follows the lifecycle (key 1-19), not the
+            // alphabet - "Approved" is not the first thing that happens.
+            $sortByStatusKey = $sortField === 'status';
+
+            if ($sortByStatusKey) {
+                $query->orderByStatusKey($sortOrder)->orderBy('id', 'desc');
+            }
+
             $query = QueryFilter::apply(
                 $query,
                 $sortField,
                 $sortOrder,
                 $advancedFilters,
-                []
+                $sortByStatusKey ? ['skip_sorting' => true] : []
             );
 
             $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;

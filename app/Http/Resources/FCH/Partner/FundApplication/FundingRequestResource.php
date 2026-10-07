@@ -130,6 +130,7 @@ class FundingRequestResource extends JsonResource
             'is_editable' => true,
             'requires_resign' => false,
             'edit_requires_resign' => false,
+            'edit_needs_confirmation' => false,
             'can_start_new_funding_request' => false,
             'locked_reason' => null,
         ];

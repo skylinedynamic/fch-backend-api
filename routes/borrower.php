@@ -178,6 +178,8 @@ Route::prefix('v1/borrower')->group(function () {
 
                     Route::get('/attestation-authorization', [FundingApplicationController::class, 'getAttestationAndAuthorization']);
                     Route::post('/attestation-authorization', [FundingApplicationController::class, 'saveAttestationAndAuthorization']);
+                    // Validates the file picked to sign with (type, size) and returns its image.
+                    Route::post('/signature-image', [FundingApplicationController::class, 'signatureImage']);
 
 
                     Route::get('documents/{funding_application_id}', [FundingApplicationController::class, 'getDocuments']);

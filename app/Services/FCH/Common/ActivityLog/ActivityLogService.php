@@ -623,8 +623,9 @@ class ActivityLogService
     {
         $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-        $logType = strtolower($log->log_name ?? '');
-        if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+        // Type "activity" and typed in by a person - not one of the system's own
+        // audit entries, which share the type.
+        if (! $log->isManualActivity()) {
             throw new \Exception('Only manual activity entries can be edited.', 403);
         }
 
@@ -806,8 +807,7 @@ class ActivityLogService
         DB::transaction(function () use ($id) {
             $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-            $logType = strtolower($log->log_name ?? '');
-            if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+            if (! $log->isManualActivity()) {
                 throw new \Exception('Only manual activity entries can be deleted.', 403);
             }
 

@@ -311,11 +311,11 @@ class FundingApplicationEditGuardTest extends TestCase
     #[Test]
     public function a_status_is_editable_exactly_while_its_key_is_nine_or_below(): void
     {
-        $this->assertSame(range(1, 19), array_values(FundingApplication::STATUS_KEYS));
+        $this->assertSame(range(1, 19), array_values(FundingApplication::statusKeys()));
         $this->assertSame(9, FundingApplication::statusKey(FundingApplication::APPROVED_FINAL));
         $this->assertSame(10, FundingApplication::statusKey(FundingApplication::MATCHED_TO_LENDER));
 
-        foreach (FundingApplication::STATUS_KEYS as $status => $key) {
+        foreach (FundingApplication::statusKeys() as $status => $key) {
             $this->assertSame(
                 $key <= 9,
                 $this->application($status)->isEditable(),
