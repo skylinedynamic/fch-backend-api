@@ -301,9 +301,11 @@ class AssistantAccessTest extends TestCase
             ->assertJsonPath('data.quick_suggestions', ['How long must I be in business?']);
 
         $this->assertEqualsCanonicalizing(
-            ['is_ready', 'welcome_subtitle', 'quick_suggestions'],
+            ['is_ready', 'welcome_subtitle', 'quick_suggestions', 'navigation'],
             array_keys($response->json('data'))
         );
+        // The approved Take Me There destinations: in-app paths only.
+        $this->assertSame('/documents', $response->json('data.navigation.documents'));
         $this->assertStringNotContainsString('SECRET', $response->getContent());
         $this->assertStringNotContainsString('agent_borrower_test', $response->getContent());
     }

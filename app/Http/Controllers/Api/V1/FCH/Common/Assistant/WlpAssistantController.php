@@ -100,6 +100,9 @@ class WlpAssistantController extends Controller
             'is_ready' => $isReady,
             'welcome_subtitle' => $intro['welcome_subtitle'],
             'quick_suggestions' => $intro['quick_suggestions'],
+            // route_key => same-origin path from the server-side approved map:
+            // the widget renders a Take Me There button only for a match.
+            'navigation' => $isReady ? $config->navigationPaths() : [],
         ]);
     }
 
