@@ -186,6 +186,10 @@ class ActivityLogResource extends JsonResource
                 'name' => $this->causer->name,
             ] : null),
             'is_owner'      => $this->resource->isOwnedBy($request->user()),
+            // An activity a person created, choosing its visibility themselves -
+            // as opposed to an entry the system wrote (client created, invoice
+            // created, application submitted ...), which nobody chose a level for.
+            'is_manual'     => $this->resource->isManualActivity(),
             // Edit/delete are offered only on your own manual activity entries;
             // the API enforces the same rule.
             'can_edit'      => $this->resource->isEditableBy($request->user()),
