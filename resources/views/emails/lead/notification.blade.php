@@ -22,6 +22,12 @@
         {{-- Contact Information --}}
         <div class="section-label mb-2" style="font-size: 13px; font-weight: 700; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">Contact Information</div>
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            @if ($lead->company_name)
+                <tr>
+                    <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company</td>
+                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->company_name }}</td>
+                </tr>
+            @endif
             @if($lead->contact_person)
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Contact Person</td>
@@ -38,12 +44,6 @@
                 <tr>
                     <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Phone</td>
                     <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 500; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->phone_number }}</td>
-                </tr>
-            @endif
-            @if ($lead->company_name)
-                <tr>
-                    <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Company</td>
-                    <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->company_name }}</td>
                 </tr>
             @endif
             @if ($lead->domain)
