@@ -19,6 +19,8 @@ class BorrowerBusinessFinancialsResource extends JsonResource
             'currency'                  => $this->currency,
             'monthly_revenue'           => formatComma($this->monthly_revenue),
             'annual_revenue'            => formatComma($this->annual_revenue),
+            // Optional. Null when it has never been given or has been cleared.
+            'annual_personal_income'    => formatComma($this->annual_personal_income),
             'avg_bank_balance'          => formatComma($this->avg_bank_balance),
             'average_monthly_deposits'  => formatComma($this->average_monthly_deposits),
             'monthly_deposit_count'     => $this->monthly_deposit_count,
