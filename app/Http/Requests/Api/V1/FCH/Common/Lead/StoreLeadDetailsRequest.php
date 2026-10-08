@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
-use Illuminate\Validation\Rule;
 
 class StoreLeadDetailsRequest extends BaseApiRequest
 {
@@ -21,13 +20,6 @@ class StoreLeadDetailsRequest extends BaseApiRequest
             'salesperson_id' => ['nullable', 'exists:users,id'],
             'company_name' => ['required', 'string', 'max:255'],
             'contact_person' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('leads', 'email')->whereNull('deleted_at'),
-                Rule::unique('users', 'email')->whereNull('deleted_at'),
-            ],
             'domain' => ['nullable', 'string', 'max:255'],
             'lead_source' => ['nullable', 'string', 'max:255'],
             'lead_source_note' => ['required_if:lead_source,Other', 'string', 'max:255', 'nullable'],
@@ -44,8 +36,6 @@ class StoreLeadDetailsRequest extends BaseApiRequest
             'status.required' => __('lead.status_required'),
             'company_name.required' => __('lead.company_name_required'),
             'contact_person.required' => __('lead.contact_person_required'),
-            'email.required' => __('lead.email_required'),
-            'email.unique' => __('lead.email_taken'),
             'lead_source_note.required_if' => __('lead.lead_source_note_required'),
             'referral_partner_id.required_if' => __('lead.referral_partner_required'),
         ];

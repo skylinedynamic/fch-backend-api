@@ -4,6 +4,7 @@ namespace Tests\Feature\Lead;
 
 use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadDetailsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadContactInfoRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadDetailsRequest;
 use App\Mail\Lead\LeadNotificationMail;
 use App\Models\Lead\Lead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -12,44 +13,48 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * A lead is created with its contact person and email, so the "New Lead
- * Created" mail can say who the lead is, and the Contact Info tab keeps
- * requiring both on save.
+ * Lead Details asks for the contact person (so the "New Lead Created" mail can
+ * say who the lead is) but not the email: the email belongs to the Contact Info
+ * tab, which requires both on save.
  */
 class LeadContactRequiredTest extends TestCase
 {
     use RefreshDatabase;
 
     #[Test]
-    public function creating_a_lead_requires_a_contact_person_and_email(): void
+    public function creating_a_lead_requires_a_contact_person(): void
     {
         $errors = $this->errorsFor(new StoreLeadDetailsRequest(), $this->detailsPayload([
             'contact_person' => '',
-            'email' => '',
         ]));
 
         $this->assertArrayHasKey('contact_person', $errors);
-        $this->assertArrayHasKey('email', $errors);
     }
 
     #[Test]
-    public function creating_a_lead_rejects_a_malformed_email(): void
-    {
-        $errors = $this->errorsFor(new StoreLeadDetailsRequest(), $this->detailsPayload([
-            'email' => 'not-an-email',
-        ]));
-
-        $this->assertArrayHasKey('email', $errors);
-        $this->assertArrayNotHasKey('contact_person', $errors);
-    }
-
-    #[Test]
-    public function creating_a_lead_with_both_passes(): void
+    public function creating_a_lead_with_a_contact_person_passes(): void
     {
         $errors = $this->errorsFor(new StoreLeadDetailsRequest(), $this->detailsPayload());
 
-        $this->assertArrayNotHasKey('contact_person', $errors);
-        $this->assertArrayNotHasKey('email', $errors);
+        $this->assertSame([], $errors);
+    }
+
+    #[Test]
+    public function the_email_is_not_asked_for_on_lead_details(): void
+    {
+        $this->assertArrayNotHasKey('email', (new StoreLeadDetailsRequest())->rules());
+        $this->assertArrayNotHasKey('email', (new UpdateLeadDetailsRequest())->rules());
+    }
+
+    #[Test]
+    public function updating_lead_details_requires_a_contact_person(): void
+    {
+        $errors = $this->errorsFor(new UpdateLeadDetailsRequest(), $this->detailsPayload([
+            'contact_person' => '',
+            'lead_source' => 'Website',
+        ]));
+
+        $this->assertArrayHasKey('contact_person', $errors);
     }
 
     #[Test]
@@ -67,7 +72,7 @@ class LeadContactRequiredTest extends TestCase
     }
 
     #[Test]
-    public function the_new_lead_mail_shows_the_full_name_and_email(): void
+    public function the_new_lead_mail_shows_the_contact_person_and_email(): void
     {
         $lead = new Lead([
             'lead_id' => 'LD-2026-1001-001',
@@ -79,7 +84,6 @@ class LeadContactRequiredTest extends TestCase
 
         $html = (new LeadNotificationMail($lead, ['type' => 'manual', 'is_pre_qualification' => false]))->render();
 
-        $this->assertStringContainsString('Full Name', $html);
         $this->assertStringContainsString('Dave Johnson', $html);
         $this->assertStringContainsString('dave@example.test', $html);
     }
@@ -105,7 +109,7 @@ class LeadContactRequiredTest extends TestCase
             'status' => 'New',
             'company_name' => 'Acme Inc',
             'contact_person' => 'Dave Johnson',
-            'email' => 'dave-' . uniqid() . '@example.test',
+            'lead_source' => 'Website',
         ], $overrides);
     }
 }
