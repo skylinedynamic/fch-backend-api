@@ -24,7 +24,7 @@
         <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
             @if($lead->contact_person)
                 <tr>
-                    <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Name</td>
+                    <td class="label" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; width: 40%; padding-left: 10px;">Contact Person Name</td>
                     <td class="value" style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0f172a; text-align: right; padding-right: 10px; word-wrap: break-word;">{{ $lead->contact_person }}</td>
                 </tr>
             @endif
