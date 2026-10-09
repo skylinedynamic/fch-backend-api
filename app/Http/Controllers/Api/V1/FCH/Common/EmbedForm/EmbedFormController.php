@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\ConvertEmbedFormSubmissionRequest;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\FetchEmbedFormSubmissionsRequest;
+use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormConfigRequest;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormSubmissionStatusRequest;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
@@ -255,7 +257,7 @@ class EmbedFormController extends Controller
      * Convert submission to a Borrower.
      * POST /api/v1/common/embed-forms/submissions/{id}/convert-to-borrower
      */
-    public function convertToBorrower(Request $request, int $id): JsonResponse
+    public function convertToBorrower(ConvertEmbedFormSubmissionRequest $request, int $id): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
@@ -272,8 +274,16 @@ class EmbedFormController extends Controller
 
 
         try {
-            $borrower = $this->embedFormService->convertToBorrower($submission, $request->all());
-            return ApiResponse::success($borrower, __('embed_form.converted_to_borrower'));
+            $borrower = $this->embedFormService->convertToBorrower($submission, $request->validated());
+            return ApiResponse::success($borrower, __($borrower['is_existing_borrower'] ?? false ? 'embed_form.converted_to_existing_borrower' : 'embed_form.converted_to_borrower'));
+        } catch (ExistingBorrowerConfirmationRequired $e) {
+            // 409: the request is fine but needs the partner's go-ahead first.
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'code' => 'existing_borrower_confirmation_required',
+                'data' => ['existing_borrower' => $e->borrower],
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         } catch (\Illuminate\Validation\ValidationException $e) {

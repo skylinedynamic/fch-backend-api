@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Global\Website\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Global\Website\EmbedForm\SubmitEmbedFormRequest;
+use App\Http\Requests\Api\V1\Global\Website\EmbedForm\ValidateEmbedFormStepRequest;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
@@ -56,6 +57,22 @@ class PublicEmbedFormController extends Controller
             'primary_color' => $branding['primary_color'] ?? '#0d6efd',
             'secondary_color' => $branding['secondary_color'] ?? '#198754',
         ]);
+    }
+
+    /**
+     * Validate one page of the form server-side when Continue is pressed.
+     * POST /api/v1/embed/validate-step/{key}/{step}
+     *
+     * Nothing is stored; the request class does the work and a failure is
+     * answered as a 422 before this runs.
+     */
+    public function validateStep(ValidateEmbedFormStepRequest $request, string $key, int $step): JsonResponse
+    {
+        if (!$this->embedFormService->resolveConfig($key) || $step < 1 || $step > ValidateEmbedFormStepRequest::LAST_STEP) {
+            return ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'));
+        }
+
+        return ApiResponse::success([], __('embed_form.step_valid'));
     }
 
     /**

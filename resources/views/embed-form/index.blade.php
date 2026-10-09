@@ -1673,9 +1673,14 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function navigateStep(dir) {
+        let stepCheckPending = false;
+
+        async function navigateStep(dir) {
             if (dir === 1) {
+                if (stepCheckPending) return;
+                // Instant client-side pass first, then the server has the final word.
                 if (!validateStep(currentStep)) return;
+                if (!(await validateStepOnServer(currentStep))) return;
                 if (currentStep < TOTAL_STEPS) {
                     currentStep++;
                     showStep(currentStep);
@@ -1684,6 +1689,110 @@
                 currentStep--;
                 showStep(currentStep);
             }
+        }
+
+        /**
+         * Ask the server to validate the page being left, using the same rules as
+         * the final submission. Resolves true only when the page is accepted.
+         */
+        async function validateStepOnServer(step) {
+            const nextBtn = document.getElementById('btnNext');
+            const label = nextBtn.innerHTML;
+            stepCheckPending = true;
+            nextBtn.disabled = true;
+            nextBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Checking...';
+            document.getElementById('errorScreen').style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_BASE}/v1/embed/validate-step/${PUBLIC_KEY}/${step}`, {
+                    method: 'POST',
+                    body: buildFormData(step === 5),
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (res.ok) return true;
+
+                let json = {};
+                try { json = await res.json(); } catch (e) { /* non-JSON error body */ }
+                applyStepErrors(json, step);
+                return false;
+            } catch (err) {
+                document.getElementById('errorMessageText').textContent = 'Network error. Please check your connection and try again.';
+                document.getElementById('errorScreen').style.display = 'block';
+                return false;
+            } finally {
+                stepCheckPending = false;
+                nextBtn.disabled = false;
+                nextBtn.innerHTML = label;
+            }
+        }
+
+        /** The control a server error key (`email`, `co_borrowers.0.email`) belongs to. */
+        function fieldForErrorKey(key) {
+            const parts = key.split('.');
+            const name = parts[0] + parts.slice(1).map(p => `[${p}]`).join('');
+            return document.querySelector(`[name="${name}"]`) || document.getElementById(parts[0]);
+        }
+
+        /** Draw the server's messages on the current page; anything unplaceable goes in the banner. */
+        function applyStepErrors(json, step) {
+            const errors = json.errors || {};
+            const tab = document.getElementById(`tab-${step}`);
+            const unplaced = [];
+            let first = null;
+
+            Object.keys(errors).forEach(key => {
+                const message = [].concat(errors[key])[0];
+                const el = fieldForErrorKey(key);
+
+                if (!el || !tab || !tab.contains(el)) {
+                    unplaced.push(message);
+                    return;
+                }
+                if (el.type === 'radio') {
+                    const group = el.closest('[data-req-group]');
+                    if (group) {
+                        group.classList.add('is-invalid');
+                        errorSlot(group, true).textContent = message;
+                        first = first || group;
+                        return;
+                    }
+                }
+                markInvalid(el, message);
+                first = first || el;
+            });
+
+            if (first) {
+                errorAnchor(first).scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            if (unplaced.length || !first) {
+                const text = unplaced.length ? unplaced.join('<br>') : (json.message || 'Please review this page and try again.');
+                document.getElementById('errorMessageText').innerHTML = text;
+                document.getElementById('errorScreen').style.display = 'block';
+            }
+        }
+
+        /** Everything the server validates, shared by the step checks and the final submit. */
+        function buildFormData(includeDocuments) {
+            const formData = new FormData(document.getElementById('loanAppForm'));
+
+            // Unchecked boxes are absent from FormData, but the server validates
+            // every disclosure as a boolean - so send an explicit 0 for each.
+            ['credit_pull_authorization', 'terms_conditions_acceptance',
+                'esign_consent', 'terms_consent', 'credit_consent', 'legal_binding_consent']
+                .forEach(name => {
+                    if (!formData.has(name)) formData.append(name, '0');
+                });
+
+            if (includeDocuments) {
+                // One field per document type, keyed by its id.
+                Object.entries(files).forEach(([docTypeId, dt]) => {
+                    Array.from(dt.files).forEach(f => formData.append(`documents[${docTypeId}][]`, f));
+                });
+            }
+
+            return formData;
         }
 
         /* ──────────────────────────── Validation ─────────────────────────── */
@@ -2305,20 +2414,7 @@
 
             document.getElementById('consents_data').value = JSON.stringify(consentTimestamps);
 
-            const formData = new FormData(this);
-
-            // Unchecked boxes are absent from FormData, but the server validates
-            // every disclosure as a boolean - so send an explicit 0 for each.
-            ['credit_pull_authorization', 'terms_conditions_acceptance',
-                'esign_consent', 'terms_consent', 'credit_consent', 'legal_binding_consent']
-                .forEach(name => {
-                    if (!formData.has(name)) formData.append(name, '0');
-                });
-
-            // One field per document type, keyed by its id.
-            Object.entries(files).forEach(([docTypeId, dt]) => {
-                Array.from(dt.files).forEach(f => formData.append(`documents[${docTypeId}][]`, f));
-            });
+            const formData = buildFormData(true);
 
             try {
                 const res = await fetch(`${API_BASE}/v1/embed/submit/${PUBLIC_KEY}`, {

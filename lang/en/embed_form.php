@@ -31,6 +31,11 @@ return [
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
     'user_exists_email' => 'A user account with this email already exists.',
+    'email_belongs_to_staff' => 'This email already belongs to a :type account and cannot be converted to a borrower.',
+    'existing_borrower_confirmation_required' => 'A borrower with this email already exists. Confirm to create the funding application under that borrower.',
+    'borrower_other_partner' => 'A borrower with this email already exists under a different partner, so this submission cannot be converted.',
+    'converted_to_existing_borrower' => 'Funding application created for the existing borrower.',
+    'step_valid' => 'Step is valid.',
     'log_funding_application_failed' => 'Failed to create a funding application from embed form submission',
 
     // Attachments & Downloads

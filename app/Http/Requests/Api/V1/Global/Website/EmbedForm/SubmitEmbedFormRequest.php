@@ -7,6 +7,7 @@ use App\Models\Borrower\BorrowerDocType;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
+use App\Rules\EmbedFormApplicantEmail;
 use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -165,8 +166,8 @@ class SubmitEmbedFormRequest extends BaseApiRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->whereNull('deleted_at'),
-                Rule::unique('borrowers', 'email')->whereNull('deleted_at'),
+                // Free, or already a Borrower; never a Partner/Employee/User.
+                new EmbedFormApplicantEmail(),
             ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.
@@ -482,7 +483,6 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'last_name.required' => __('embed_form.last_name_required'),
             'email.required' => __('embed_form.email_required'),
             'email.email' => __('embed_form.email_invalid'),
-            'email.unique' => __('embed_form.email_already_registered'),
             'ssn.digits' => __('embed_form.ssn_format'),
             'co_borrowers.*.ssn.digits' => __('embed_form.ssn_format'),
             'ownership.max' => __('embed_form.ownership_max'),

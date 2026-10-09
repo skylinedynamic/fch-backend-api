@@ -33,6 +33,69 @@ use Throwable;
 
 class EmbedFormService
 {
+    public const EMAIL_AVAILABLE = 'available';
+    public const EMAIL_BORROWER = 'borrower';
+    public const EMAIL_BLOCKED = 'blocked';
+
+    /**
+     * What an applicant's email already is in the system.
+     *
+     * available - nobody holds it.
+     * borrower  - held by a Borrower (the only existing owner that is allowed).
+     * blocked   - held by a Partner, Employee or plain User.
+     *
+     * @return array{status: string, borrower: ?Borrower, type: ?string}
+     */
+    public function classifyEmail(string $email): array
+    {
+        $email = trim($email);
+
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user) {
+            $isBorrower = $user->entity_type === Borrower::class || $user->user_type === User::BORROWER;
+
+            if (!$isBorrower) {
+                return [
+                    'status' => self::EMAIL_BLOCKED,
+                    'borrower' => null,
+                    'type' => $user->entity_name ?: ($user->user_type ?: User::USER),
+                ];
+            }
+
+            $borrower = $user->entity instanceof Borrower
+                ? $user->entity
+                : Borrower::query()->where('email', $email)->first();
+
+            return ['status' => self::EMAIL_BORROWER, 'borrower' => $borrower, 'type' => User::BORROWER];
+        }
+
+        $borrower = Borrower::query()->where('email', $email)->first();
+
+        return $borrower
+            ? ['status' => self::EMAIL_BORROWER, 'borrower' => $borrower, 'type' => User::BORROWER]
+            : ['status' => self::EMAIL_AVAILABLE, 'borrower' => null, 'type' => null];
+    }
+
+    /**
+     * What the partner is shown before agreeing to reuse an existing borrower.
+     */
+    public function existingBorrowerSummary(Borrower $borrower): array
+    {
+        return [
+            'id' => $borrower->id,
+            'name' => personName($borrower->first_name, null, $borrower->last_name),
+            'email' => $borrower->email,
+            'phone_number' => $borrower->phone_number,
+            'business_name' => $borrower->business_name,
+            'status' => $borrower->status,
+            'is_free_trail' => (bool) $borrower->is_free_trail,
+            'partner_name' => $borrower->partner?->company_name ?: $borrower->partner?->full_name,
+            'funding_applications_count' => FundingApplication::query()->where('borrower_id', $borrower->id)->count(),
+            'created_at' => $borrower->created_at?->toIso8601String(),
+        ];
+    }
+
     /**
      * Resolve an EmbedFormConfig by public key. Returns null if not found or inactive.
      */
@@ -697,12 +760,25 @@ class EmbedFormService
                 throw new \InvalidArgumentException(__('embed_form.email_required_conversion'));
             }
 
-            if (Borrower::where('email', $submission->email)->exists()) {
-                throw new \InvalidArgumentException(__('embed_form.borrower_exists_email'));
+            $match = $this->classifyEmail($submission->email);
+
+            // Partner / Employee / User: never convertible.
+            if ($match['status'] === self::EMAIL_BLOCKED) {
+                throw new \InvalidArgumentException(__('embed_form.email_belongs_to_staff', ['type' => $match['type']]));
             }
 
-            if (User::where('email', $submission->email)->exists()) {
-                throw new \InvalidArgumentException(__('embed_form.user_exists_email'));
+            $existingBorrower = $match['borrower'];
+
+            if ($existingBorrower) {
+                if ($submission->partner_id && $existingBorrower->partner_id
+                    && (int) $existingBorrower->partner_id !== (int) $submission->partner_id) {
+                    throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
+                }
+
+                // Nothing is created until the partner has seen who this is.
+                if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                    throw new AppSupportmbedFormxistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                }
             }
 
             $borrowerService = app(BorrowerService::class);
@@ -747,9 +823,15 @@ class EmbedFormService
                 'assign_id' => $data['salesperson_id'] ?? null,
             ];
 
-            $result = $borrowerService->store($borrowerData);
-            $borrower = $result['borrower'] ?? $result;
-            $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
+            if ($existingBorrower) {
+                // The borrower already exists: only the funding application is new.
+                $borrower = $existingBorrower;
+                $borrowerId = $existingBorrower->id;
+            } else {
+                $result = $borrowerService->store($borrowerData);
+                $borrower = $result['borrower'] ?? $result;
+                $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
+            }
 
             // The applicant already filled in a whole funding application on the
             // public form. Carrying it across means partner staff review a real
@@ -777,9 +859,14 @@ class EmbedFormService
                 'id' => $borrowerId,
                 'funding_application' => $fundingApplication,
                 'funding_application_id' => $fundingApplication?->id,
-                'is_free_trail' => true,
+                'is_existing_borrower' => (bool) $existingBorrower,
+                'is_free_trail' => $existingBorrower ? (bool) $existingBorrower->is_free_trail : true,
                 'free_trail_end_date' => null,
             ];
+        } catch (\App\Support\EmbedForm\ExistingBorrowerConfirmationRequired $e) {
+            // An expected pause for confirmation, not a failure: nothing was written.
+            DB::rollBack();
+            throw $e;
         } catch (Throwable $e) {
             DB::rollBack();
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
