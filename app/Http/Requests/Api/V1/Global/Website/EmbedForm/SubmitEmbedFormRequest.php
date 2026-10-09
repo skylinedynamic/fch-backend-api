@@ -161,7 +161,13 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+                Rule::unique('borrowers', 'email')->whereNull('deleted_at'),
+            ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.
             'date_of_birth' => [
@@ -476,6 +482,7 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'last_name.required' => __('embed_form.last_name_required'),
             'email.required' => __('embed_form.email_required'),
             'email.email' => __('embed_form.email_invalid'),
+            'email.unique' => __('embed_form.email_already_registered'),
             'ssn.digits' => __('embed_form.ssn_format'),
             'co_borrowers.*.ssn.digits' => __('embed_form.ssn_format'),
             'ownership.max' => __('embed_form.ownership_max'),

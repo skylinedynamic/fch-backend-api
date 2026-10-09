@@ -70,6 +70,8 @@ class BorrowerController extends Controller
                 __('borrower.created'),
                 201
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage());
         }

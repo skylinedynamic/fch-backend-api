@@ -30,6 +30,7 @@ return [
     'conversion_failed' => 'Conversion failed.',
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
+    'user_exists_email' => 'A user account with this email already exists.',
     'log_funding_application_failed' => 'Failed to create a funding application from embed form submission',
 
     // Attachments & Downloads
@@ -47,6 +48,7 @@ return [
     'last_name_required' => 'Last name is required.',
     'email_required' => 'Email address is required.',
     'email_invalid' => 'Please enter a valid email address.',
+    'email_already_registered' => 'This email address is already registered in our system.',
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',

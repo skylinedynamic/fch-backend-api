@@ -276,6 +276,8 @@ class EmbedFormController extends Controller
             return ApiResponse::success($borrower, __('embed_form.converted_to_borrower'));
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Throwable $e) {
             return ApiResponse::error($e->getMessage() ?: __('embed_form.conversion_failed'), 500);
         }

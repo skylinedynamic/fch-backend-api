@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\EmbedForm;
 
 use App\Helpers\ApiResponse;
+use App\Models\User\User;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\FundingApplication;
@@ -697,6 +698,10 @@ class EmbedFormService
 
             if (Borrower::where('email', $submission->email)->exists()) {
                 throw new \InvalidArgumentException(__('embed_form.borrower_exists_email'));
+            }
+
+            if (User::where('email', $submission->email)->exists()) {
+                throw new \InvalidArgumentException(__('embed_form.user_exists_email'));
             }
 
             $borrowerService = app(BorrowerService::class);

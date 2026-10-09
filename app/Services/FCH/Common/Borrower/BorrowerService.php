@@ -25,6 +25,7 @@ use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
+use Illuminate\Validation\ValidationException;
 
 
 
@@ -884,6 +885,14 @@ class BorrowerService
             $plainPassword = null;
             // Check if email is changing and present in update data
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
+                $conflictUser = User::where('email', $userData['email'])->where('id', '!=', $existingUser->id)->first();
+                if ($conflictUser) {
+                    $entityName = $conflictUser->entity_name ?? class_basename($conflictUser->entity_type ?? 'User');
+                    throw ValidationException::withMessages([
+                        'email' => ["The email '{$userData['email']}' is already registered to an existing {$entityName} account."],
+                    ]);
+                }
+
                 $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
                 $userData['password'] = bcrypt($plainPassword);
                 Log::info('Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
@@ -896,6 +905,15 @@ class BorrowerService
         // Check if user exists by email to avoid duplicates if not linked
         $user = User::where('email', $data['email'])->first();
         if ($user) {
+            // Guard against hijacking existing users from other entities or other borrowers
+            $isSameBorrower = ($user->entity_type === Borrower::class && (int) $user->entity_id === (int) $borrower->id);
+            if (!$isSameBorrower) {
+                $entityName = $user->entity_name ?? class_basename($user->entity_type ?? 'User');
+                throw ValidationException::withMessages([
+                    'email' => ["The email '{$data['email']}' is already registered to an existing {$entityName} account."],
+                ]);
+            }
+
             $user->update($userData);
             return ['user' => $user, 'plain_password' => null];
         }
