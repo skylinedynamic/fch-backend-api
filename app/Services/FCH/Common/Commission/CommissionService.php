@@ -111,7 +111,7 @@ class CommissionService
         return Commission::when($authUser->user_type === User::PARTNER, function ($query) use($authUser) {
             $query->where('partner_id', $authUser->partner_id);
         })
-            ->with(['fundingApplication', 'partner', 'borrower'])
+            ->with(['fundingApplication', 'partner', 'borrower.partner', 'borrower.assignedUser', 'payout.invoice', 'payout.payment'])
             ->findOrFail($id);
     }
 }

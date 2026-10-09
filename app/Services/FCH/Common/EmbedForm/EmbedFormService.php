@@ -15,6 +15,7 @@ use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Models\Partner\Partner;
 use App\Services\FCH\Common\Borrower\BorrowerService;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Support\EmbedForm\EmbedFormLocation;
 use Illuminate\Http\JsonResponse;
@@ -23,10 +24,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Mail\EmbedForm\NewSubmissionMail;
+use Throwable;
 
 
 class EmbedFormService
@@ -253,7 +255,7 @@ class EmbedFormService
             $this->sendNotificationEmail($submission, $config);
 
             return $submission->load(['attachments.docType', 'coBorrowers']);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
             Log::error(__('embed_form.log_store_failed'), ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
@@ -560,7 +562,8 @@ class EmbedFormService
     }
 
     /**
-     * Send notification email to partner.
+     * Tell the partner about a new submission: in the bell always, by email
+     * when there is an address and a mailbox it may leave from.
      */
     protected function sendNotificationEmail(EmbedFormSubmission $submission, EmbedFormConfig $config): void
     {
@@ -571,21 +574,18 @@ class EmbedFormService
         // partner's staff contact rather than the address the platform notifies.
         $notifyEmail = $partner?->email;
 
-        if (!$notifyEmail) {
-            return;
-        }
-
         // A White-Label partner sends under its own credentials or not at all.
         // MailConfig would otherwise resolve the host's mailbox for it, and mail
         // leaving under the host's name is the one thing the tier exists to
-        // prevent - better to send nothing and say so in the log.
-        if ($this->isWhiteLabelPartner($partner) && !$this->hasOwnMailConfiguration($partner)) {
+        // prevent - better to send nothing and say so in the log. The bell
+        // leaves under nobody's name, so it is not held back with the email.
+        if ($notifyEmail && $this->isWhiteLabelPartner($partner) && !$this->hasOwnMailConfiguration($partner)) {
             Log::info(__('embed_form.log_notification_skipped_no_mail_config'), [
                 'partner_id' => $partner->id,
                 'submission_uid' => $submission->submission_uid,
             ]);
 
-            return;
+            $notifyEmail = null;
         }
 
         try {
@@ -594,9 +594,10 @@ class EmbedFormService
             // model to the mailable rather than letting the view trip over it.
             $submission->loadMissing(['attachments', 'coBorrowers']);
 
-            Mail::to($notifyEmail)->send(
-                new \App\Mail\EmbedForm\NewSubmissionMail($submission)
-            );
+            app(Notifier::class)->send('partner.embed_form.submitted', $partner, [
+                'id' => $submission->id,
+                'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
+            ], mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null);
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
@@ -710,7 +711,7 @@ class EmbedFormService
             if ($submission->ssn_encrypted) {
                 try {
                     $ssnDecrypted = Crypt::decryptString($submission->ssn_encrypted);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $ssnDecrypted = null;
                 }
             }
@@ -779,7 +780,7 @@ class EmbedFormService
                 'is_free_trail' => true,
                 'free_trail_end_date' => null,
             ];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
             throw $e;
@@ -880,22 +881,28 @@ class EmbedFormService
         EmbedFormSubmission $submission,
         FundingApplication $application
     ): void {
-        $recipients = [];
+        $notifier = app(Notifier::class);
+        $staffData = [
+            'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
+            'borrower_id' => $application->borrower_id,
+        ];
 
-        $host = Partner::where('is_host', 1)->first();
-        if ($host && !empty($host->email)) {
-            $recipients[] = $host->email;
-        }
-
+        $staff = [Partner::where('is_host', 1)->first()];
         $partner = $submission->partner;
-        if ($partner && !$partner->is_host && !empty($partner->email)) {
-            $recipients[] = $partner->email;
+        if ($partner && !$partner->is_host) {
+            $staff[] = $partner;
         }
 
-        foreach (array_unique($recipients) as $email) {
+        $mailed = [];
+        foreach (array_filter($staff) as $recipient) {
+            // One email per address, as before, even if host and partner share one.
+            $email = !empty($recipient->email) && !in_array($recipient->email, $mailed, true) ? $recipient->email : null;
+            $mailed[] = $email;
+
             try {
-                Mail::to($email)->send(new EmbedFormConverted($submission, $application, true));
-            } catch (\Throwable $e) {
+                $notifier->send('partner.embed_form.converted', $recipient, $staffData,
+                    mail: $email ? (new EmbedFormConverted($submission, $application, true))->to($email) : null);
+            } catch (Throwable $e) {
                 Log::error('Failed to notify staff of an embed form conversion', [
                     'submission_id' => $submission->id,
                     'email' => $email,
@@ -904,17 +911,14 @@ class EmbedFormService
             }
         }
 
-        if (!empty($submission->email)) {
-            try {
-                Mail::to($submission->email)->send(
-                    new EmbedFormConverted($submission, $application, false)
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed to send conversion notice to embed form applicant', [
-                    'submission_id' => $submission->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        try {
+            $notifier->send('borrower.embed_form.converted', $application->borrower, [],
+                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false))->to($submission->email) : null);
+        } catch (Throwable $e) {
+            Log::error('Failed to send conversion notice to embed form applicant', [
+                'submission_id' => $submission->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -928,7 +932,7 @@ class EmbedFormService
             if ($coBorrower->ssn_encrypted) {
                 try {
                     $ssn = Crypt::decryptString($coBorrower->ssn_encrypted);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     $ssn = null;
                 }
             }

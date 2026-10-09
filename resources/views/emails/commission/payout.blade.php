@@ -31,7 +31,7 @@
     </style>
 
     <div class="content">
-        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Dear <strong>{{ $commission->partner->full_name ?? ($commission->partner->company_name ?? 'Partner') }}</strong>,</h4>
+        <h4 style="font-size: 15px; font-weight: 600; color: #495057; margin: 0 0 16px 0;">Dear <strong>{{ $invoice->customer_name ?: 'there' }}</strong>,</h4>
 
         <p>We are pleased to inform you that your commission payout has been successfully processed.</p>
 
@@ -42,7 +42,7 @@
             </tr>
             <tr>
                 <th>Amount Paid</th>
-                <td>{{ $commission->currency_symbol }}{{ number_format($commission->partner_commission_amount, 2) }}
+                <td>{{ $commission->currency_symbol }}{{ number_format($invoice->payment_amount, 2) }}
                     {{ $commission->currency }}</td>
             </tr>
             <tr>

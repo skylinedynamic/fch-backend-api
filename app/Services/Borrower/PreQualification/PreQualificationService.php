@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\PreQualification;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Borrower\PreQualification\PreQualificationResource;
 use App\Models\Borrower\Borrower;
@@ -13,7 +14,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Mail\PreQualificationSubmitted;
-use Illuminate\Support\Facades\Mail;
 
 class PreQualificationService
 {
@@ -57,10 +57,17 @@ class PreQualificationService
             $this->runUnderwriting($record, $userId);
 
             // Send Email to Partner
-            $record->load('partner');
-            if ($record->partner && $record->partner->email) {
+            $record->load(['partner', 'borrower']);
+            if ($record->partner) {
                 try {
-                    Mail::to($record->partner->email)->send(new PreQualificationSubmitted($record));
+                    $borrower = $record->borrower;
+
+                    app(Notifier::class)->send('partner.pre_qualification.submitted', $record->partner, [
+                        'id' => $record->id,
+                        'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
+                    ], mail: $record->partner->email
+                        ? (new PreQualificationSubmitted($record))->to($record->partner->email)
+                        : null);
                 } catch (\Throwable $e) {
                     Log::error('Failed to send pre-qualification email to partner', [
                         'record_id' => $record->id,
@@ -102,10 +109,12 @@ class PreQualificationService
         }
 
         // Same as submit: answer first, evaluate after the response is delivered.
-        $record->update([
-            'gpt_status' => PreQualificationRequest::GPT_PENDING,
-            'gpt_generated_at' => null,
-        ]);
+        // Being reviewed again, so it is no longer Failed; the outcome of this
+        // run sets it from here.
+        $record->applyUnderwritingOutcome(true);
+        $record->gpt_status = PreQualificationRequest::GPT_PENDING;
+        $record->gpt_generated_at = null;
+        $record->save();
 
         $userId = Auth::id();
         app()->terminating(function () use ($record, $userId) {
@@ -137,7 +146,10 @@ class PreQualificationService
         try {
             app(PreQualificationAiService::class)->evaluate($record, $userId);
         } catch (\Throwable $e) {
-            $record->update(['gpt_status' => PreQualificationRequest::GPT_FAILED]);
+            $record->refresh();
+            $record->applyUnderwritingOutcome(false);
+            $record->gpt_status = PreQualificationRequest::GPT_FAILED;
+            $record->save();
 
             Log::error('Pre-qualification AUE evaluation failed', [
                 'pre_qualification_request_id' => $record->id,

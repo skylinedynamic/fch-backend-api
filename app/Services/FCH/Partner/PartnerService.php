@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Partner;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use Illuminate\Support\Str;
@@ -18,7 +19,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Partner\SubscriptionPlan;
 use App\Models\Subscription\Subscription;
 use App\Models\ActivityLog\ActivityLog;
@@ -33,6 +33,7 @@ use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
 use App\Http\Resources\FCH\Borrower\BorrowerPartnerResource;
+use DateTimeInterface;
 
 class PartnerService
 {
@@ -43,6 +44,7 @@ class PartnerService
         protected SubscriptionService $subscriptionService,
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected \App\Services\Global\Account\EmailChangeService $emailChange,
     ) {
     }
 
@@ -54,7 +56,8 @@ class PartnerService
     private function sendTrialWelcomeEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerTrialMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.trial_started', $mailData['user'], ['date' => $this->trialDate($mailData)],
+                mail: (new PartnerTrialMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Exception $e) {
             Log::error(__('partner.log.trial_welcome_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
@@ -69,7 +72,8 @@ class PartnerService
     private function sendAccountUpdateEmail(array $mailData, int $hostPartnerId): void
     {
         try {
-            Mail::to($mailData['user']->email)->send(new PartnerAccountUpdateMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.login_updated', $mailData['user'],
+                mail: (new PartnerAccountUpdateMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Exception $e) {
             Log::error(__('partner.log.account_update_mail_failed'), [
                 'partner_id' => $mailData['partner_id'],
@@ -84,13 +88,22 @@ class PartnerService
     private function sendTrialExpiryUpdatedEmail(array $mailData, ?int $hostPartnerId = null): void
     {
         try {
-            Mail::to($mailData['user']->email)->queue(new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId));
+            app(Notifier::class)->send('partner.account.trial_extended', $mailData['user'], ['date' => $this->trialDate($mailData)],
+                mail: (new PartnerTrialExpiryUpdatedMail($mailData, $hostPartnerId))->to($mailData['user']->email));
         } catch (\Throwable $e) {
             Log::error(__('partner.log.trial_expiry_mail_failed'), [
                 'partner_id' => $mailData['partner_id'] ?? null,
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /** The trial end date as the bell shows it (the column may be cast to Carbon). */
+    private function trialDate(array $mailData): string
+    {
+        $date = $mailData['trial_end_date'] ?? null;
+
+        return $date instanceof DateTimeInterface ? $date->format('M j, Y') : ((string) $date ?: 'N/A');
     }
 
     /**
@@ -338,9 +351,15 @@ class PartnerService
                 $data['partner_image'] = 'partners/' . $partner->id . '/' . $imageName;
             }
 
-            // Update user
-            // Assuming the partner has a linked user via polymorphic relation or we find by email
-            $user = $partner->partnerUser ?? User::where('email', $data['email'] ?? '')->first();
+            // The partner's own login, via its entity link. It used to fall back
+            // to "whichever account has the submitted email", which could reach
+            // an unrelated account (e.g. one of the partner's employees) and
+            // overwrite its name, phone and password.
+            $user = $partner->partnerUser;
+
+            // With a login, a new email is confirmed from the new address before
+            // either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($data, $user, $partner->email);
             $wasFreeTrial = (bool) $partner->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
@@ -489,8 +508,12 @@ class PartnerService
                 $this->enrollmentService->enrollPartner($partner, $user, $enrollmentData, isMigration: true);
             }
 
-            $user->update(['is_refresh' => true]);
+            $user?->update(['is_refresh' => true]);
             DB::commit();
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             // Send trial expiry updated email if free trial expiry date was updated
             $isFreeTrialNow = (bool) ($partner->is_free_trail ?? false);
@@ -571,13 +594,9 @@ class PartnerService
         $plainPassword = null;
 
         if ($existingUser) {
-
+            // A login's email never changes here — update() hands a new one to
+            // EmailChangeService — so there's no password to reset.
             $plainPassword = null;
-
-            if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
-                $plainPassword = bin2hex(random_bytes(4));
-                $userData['password'] = bcrypt($plainPassword);
-            }
 
             $userData['is_refresh'] = true;
             $existingUser->update($userData);

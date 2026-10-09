@@ -8,8 +8,10 @@ use App\Models\CreditAuthorization\CreditAuthorizationConsent;
 use App\Mail\Borrower\CreditProfileRequestMail;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
+use App\Notifications\DynamicNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Passport\Passport;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -212,6 +214,27 @@ class StoreCreditProfileRequestTest extends TestCase
             CreditProfileRequestMail::class,
             fn ($mail) => $mail->hasTo('host@example.test')
         );
+    }
+
+    #[Test]
+    public function the_host_is_told_in_the_bell_with_a_link_to_the_request(): void
+    {
+        Notification::fake();
+        $hostLogin = User::create([
+            'name' => 'Host Owner',
+            'email' => 'owner@example.test',
+            'password' => bcrypt('password'),
+            'user_type' => User::PARTNER,
+            'partner_id' => $this->borrower->partner_id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->borrower->partner_id,
+        ]);
+
+        $id = $this->submit()->assertOk()->json('data.id');
+
+        Notification::assertSentTo($hostLogin, DynamicNotification::class, fn (DynamicNotification $n) => $n->typeKey === 'host.credit_profile.requested'
+            && $n->toArray($hostLogin)['body'] === 'Odessa Mccall submitted a credit profile request.'
+            && $n->toArray($hostLogin)['url'] === "/intake-review/credit-profile-requests/{$id}");
     }
 
     #[Test]

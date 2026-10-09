@@ -2,6 +2,7 @@
 
 namespace App\Mail\Commission;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -10,7 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 
-class CommissionPayoutMail extends Mailable
+class CommissionPayoutMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

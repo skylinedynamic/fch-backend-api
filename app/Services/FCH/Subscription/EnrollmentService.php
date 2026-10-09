@@ -3,7 +3,8 @@
 namespace App\Services\FCH\Subscription;
 
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Mail\Mailable;
+use App\Services\FCH\Common\Notification\Notifier;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Invoice\Invoice;
@@ -48,10 +49,13 @@ class EnrollmentService
     // MAIL HELPERS
     // ──────────────────────────────────────────────────────────────────────────
 
-    private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
+    /**
+     * @param mixed $recipient Who gets the bell (the borrower's login user)
+     */
+    private function sendBorrowerMail(string $type, mixed $recipient, string $email, Mailable $mailable, int|null $partnerId, array $bellData = []): void
     {
         try {
-            Mail::to($email)->send($mailable);
+            app(Notifier::class)->send($type, $recipient, $bellData, mail: $mailable->to($email));
         } catch (\Exception $e) {
             Log::error(__('subscription.borrower_enrollment_email_failed'), [
                 'email' => $email,
@@ -61,16 +65,25 @@ class EnrollmentService
         }
     }
 
-    private function sendPartnerMail(string $email, object $mailable, int $senderPartnerId, int $partnerId): void
+    /**
+     * @param mixed $recipient Who gets the bell (the partner's login user, or the host)
+     */
+    private function sendPartnerMail(string $type, mixed $recipient, string $email, Mailable $mailable, int $senderPartnerId, int $partnerId, array $bellData = []): void
     {
         try {
-            Mail::to($email)->send($mailable);
+            app(Notifier::class)->send($type, $recipient, $bellData, mail: $mailable->to($email));
         } catch (\Exception $e) {
             Log::error(__('subscription.partner_enrollment_email_failed'), [
                 'partner_id' => $partnerId,
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /** The {{amount}} placeholder for an enrollment bell. */
+    private function amountData(Invoice $invoice): array
+    {
+        return ['amount' => ($invoice->currency ?: 'USD') . ' ' . number_format((float) $invoice->payment_amount, 2)];
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -338,7 +351,7 @@ class EnrollmentService
                         'company_logo' => $hostPartner->company_logo ?? 'logo.png',
                     ],
                 ];
-                $this->sendPartnerMail($user->email, new PartnerMigrationMail($mailData, $senderPartnerId), $senderPartnerId, $partner->id);
+                $this->sendPartnerMail('partner.account.migrated', $user, $user->email, new PartnerMigrationMail($mailData, $senderPartnerId), $senderPartnerId, $partner->id, $this->amountData($invoice));
             } else {
                 $mailData = [
                     'partner_id' => $partner->id,
@@ -355,7 +368,7 @@ class EnrollmentService
                     ],
                     'plain_password' => $plainPassword,
                 ];
-                $this->sendPartnerMail($user->email, new PartnerPaymentLinkMail($mailData, $senderPartnerId), $senderPartnerId, $partner->id);
+                $this->sendPartnerMail('partner.account.created_with_payment', $user, $user->email, new PartnerPaymentLinkMail($mailData, $senderPartnerId), $senderPartnerId, $partner->id, $this->amountData($invoice));
             }
         }
 
@@ -454,10 +467,18 @@ class EnrollmentService
                     $hostPartnerId = $hostPartner?->id ?: 1;
                     $hostName = $hostPartner?->full_name ?: null;
                     $this->sendPartnerMail(
+                        'host.borrower_fee_invoice.created',
+                        $hostPartner,
                         $hostEmail,
                         new BorrowerFeeInvoiceNotificationMail($partnerInvoice, $borrower, $partner, $hostName, $hostPartnerId),
                         $hostPartnerId,
-                        $hostPartnerId
+                        $hostPartnerId,
+                        [
+                            'id' => $partnerInvoice->id,
+                            'invoice' => $partnerInvoice->invoice_id ?: $partnerInvoice->id,
+                            'partner' => $partner->company_name ?: $partner->full_name,
+                            'borrower' => personName($borrower->first_name, $borrower->middle_name, $borrower->last_name),
+                        ]
                     );
                 } catch (\Exception $e) {
                     Log::error(__('subscription.borrower_fee_notification_failed'), ['error' => $e->getMessage()]);
@@ -498,22 +519,24 @@ class EnrollmentService
             ],
         ];
 
+        $amountData = $this->amountData($invoice);
+
         if ($isMigration) {
             if ($amounts['initial_invoice_amount'] > 0) {
                 $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
                 $mailData['amount'] = $invoice->payment_amount;
-                $this->sendBorrowerMail($user->email, new BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                $this->sendBorrowerMail('borrower.account.migrated', $user, $user->email, new BorrowerMigrationMail($mailData, $borrower->partner_id), $borrower->partner_id, $amountData);
             }
         } elseif ($isHostCreating) {
             if ($amounts['initial_invoice_amount'] > 0) {
                 $mailData['payment_link'] = concatUrl(getBorrowerDomain($invoice->partner_id), 'invoices', config('app.frontend_borrower_url'));
                 $mailData['amount'] = $invoice->payment_amount;
-                $this->sendBorrowerMail($user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                $this->sendBorrowerMail('borrower.account.created_with_payment', $user, $user->email, new BorrowerPaymentLinkMail($mailData, $borrower->partner_id), $borrower->partner_id, $amountData);
             } else {
-                $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                $this->sendBorrowerMail('borrower.account.created', $user, $user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id, ['name' => $user->name]);
             }
         } else {
-            $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+            $this->sendBorrowerMail('borrower.account.created', $user, $user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id, ['name' => $user->name]);
         }
 
         return [

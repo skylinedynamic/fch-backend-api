@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Invoice;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Borrower\Borrower;
 use App\Models\User\User;
 use Illuminate\Support\Str;
@@ -16,7 +17,6 @@ use Illuminate\Support\Facades\DB;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Eloquent\Builder;
 use App\Services\Global\Datatable\QueryFilter;
 use App\Http\Resources\FCH\Invoice\InvoiceResource;
@@ -516,7 +516,11 @@ class InvoiceService
 
 
         try {
-            Mail::to($recipientEmail)->queue(new InvoiceMail($invoice, $pdfContent));
+            app(Notifier::class)->send('invoice.sent', $invoice->is_partner_paying ? $invoice->partner : $invoice->borrower, [
+                'id' => $invoice->id,
+                'invoice' => $invoice->invoice_id ?: $invoice->id,
+                'amount' => ($invoice->currency ?: 'USD') . ' ' . number_format((float) $invoice->payment_amount, 2),
+            ], mail: (new InvoiceMail($invoice, $pdfContent))->to($recipientEmail));
         } catch (\Exception $e) {
             Log::error('Failed to send invoice email', ['error' => $e->getMessage()]);
         }

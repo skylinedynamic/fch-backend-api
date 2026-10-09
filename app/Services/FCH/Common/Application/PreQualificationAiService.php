@@ -5,47 +5,75 @@ namespace App\Services\FCH\Common\Application;
 use App\Models\Borrower\PreQualificationRequest;
 use App\Services\FCH\Common\PreQualification\AUE\PreQualificationClientAueService;
 use App\Services\FCH\Common\PreQualification\AUE\PreQualificationInternalAueService;
-use App\Services\FCH\Common\PreQualification\Validator\PreQualificationDataIntegrityValidatorService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Orchestrates the FCH Pre-Qualification "Run Scenario" flow end to end, per the
- * required execution order:
+ * Orchestrates the FCH Pre-Qualification "Run Scenario" flow end to end.
+ *
+ * One agent does the underwriting, configured in Settings > OpenAI
+ * Configuration. Its instructions, its output schema, its model and its
+ * reasoning effort live on the OpenAI platform and are read on every run, so
+ * nothing about how a borrower is assessed is written in this codebase.
+ *
+ * The order is:
  *   1. Deterministic backend validation already ran at submission time.
- *   2. FCH Pre-Qualification Form Data Integrity Validator v1.0 (Responses API).
- *   3. If blocking corrections exist, stop here — no AUE is generated.
- *   4. FCH_Internal_Prequalification_AUE_v3 (internal-only, lender-matrix grounded).
- *   5. FCH_Client_AUE_v4 (borrower-safe, built from a sanitized subset of #4).
- *   6. Persist internal and client outputs to separate tables; only the client
- *      output is ever eligible for release outside FCH staff.
+ *   2. The agent evaluates, grounded in the live lender matrix. Its result is
+ *      stored as the internal row and stays with FCH staff.
+ *   3. Its own data_status decides whether the borrower's answers are usable.
+ *      CONFLICTING or INSUFFICIENT means they have something to correct, and no
+ *      borrower-facing assessment is released on figures it just called
+ *      unreliable.
+ *   4. Otherwise the borrower-safe part of that same evaluation is stored as
+ *      the borrower row — the only one ever released outside FCH staff.
  */
 class PreQualificationAiService
 {
-    protected PreQualificationDataIntegrityValidatorService $validator;
     protected PreQualificationInternalAueService $internalAue;
     protected PreQualificationClientAueService $clientAue;
 
     public function __construct(
-        PreQualificationDataIntegrityValidatorService $validator,
         PreQualificationInternalAueService $internalAue,
         PreQualificationClientAueService $clientAue
     ) {
-        $this->validator = $validator;
         $this->internalAue = $internalAue;
         $this->clientAue = $clientAue;
     }
 
     /**
-     * Run the full validator -> internal AUE -> client AUE pipeline for one
-     * Pre-Qualification application and persist every result.
+     * Run the one Pre-Qualification agent for an application and persist both
+     * halves of its result.
+     *
+     * One agent underwrites. Its evaluation is stored as the internal row, the
+     * borrower-safe part of it as the borrower row, and whether the submitted
+     * information is usable at all is that same agent's data_status — there is
+     * no separate validator with a second opinion about the same facts.
      */
     public function evaluate(PreQualificationRequest $application, ?int $userId = null): array
     {
-        $validation = $this->validator->validate($application);
+        // One id shared by both halves of this evaluation, so the internal and
+        // client rows can be paired even across repeat runs.
+        $runId = (string) Str::uuid();
+
+        $internal = $this->internalAue->evaluate($application, $userId, $runId);
+
+        // Without an evaluation there is nothing to underwrite from, and nothing
+        // is invented in its place.
+        if (!$internal['ok']) {
+            return $this->markFailed($application, ['status' => null], $internal['error']);
+        }
+
+        // The agent's own verdict on the information it was given, recorded
+        // before anything is released: a borrower whose figures conflict is
+        // asked to correct them rather than handed a readiness assessment
+        // built on them.
+        $validation = $this->recordDataIntegrity($application, $internal['data']);
 
         if ($validation['blocking']) {
-            $application->gpt_status = PreQualificationRequest::GPT_INCORRECT;
+            // The evaluation is stored and stays with FCH staff; the borrower is
+            // shown what the agent said needs correcting.
+            $application->applyUnderwritingOutcome(false);
+            $application->gpt_status = PreQualificationRequest::GPT_COMPLETED;
             $application->gpt_generated_at = now();
             $application->save();
 
@@ -54,31 +82,21 @@ class PreQualificationAiService
                 'blocked' => true,
                 'validation_status' => $validation['status'],
                 'borrower_message' => $validation['borrower_message'],
-                // The validator blocked before either evaluation ran.
-                'internal' => null,
+                'internal' => $internal['data'],
+                // Nothing borrower-facing is released on information the agent
+                // itself called conflicting or insufficient.
                 'client' => null,
-                'source' => 'fch_data_integrity_validator',
-                'model' => null,
-                'latency_ms' => 0,
+                'admin_status_note' => self::statusNoteFor($internal['data']),
+                'source' => 'openai_agent',
+                'model' => $internal['model'],
+                'latency_ms' => $internal['latency_ms'],
                 'is_fallback' => false,
             ];
         }
 
-        // One id shared by both halves of this evaluation, so the internal and
-        // client rows can be paired even across repeat runs.
-        $runId = (string) Str::uuid();
-
-        $internal = $this->internalAue->evaluate($application, $userId, $runId);
-
-        // Without an internal evaluation there is nothing to underwrite from, and
-        // nothing is invented in its place.
-        if (!$internal['ok']) {
-            return $this->markFailed($application, $validation, $internal['error']);
-        }
-
         $client = $this->clientAue->generate($application, $internal['data'], $runId);
 
-        // The internal memo is stored and stays available to FCH staff, but the
+        // The evaluation is stored and stays available to FCH staff, but the
         // borrower is shown the manual-review state rather than a composed message.
         if (!$client['ok']) {
             return $this->markFailed($application, $validation, $client['error'], $internal);
@@ -101,7 +119,7 @@ class PreQualificationAiService
             // Offered to staff as a one-click Status Notes insert. Composed from
             // the enum fields only, so it is safe for the partners who see it.
             'admin_status_note' => self::statusNoteFor($internal['data']),
-            'source' => 'openai_responses_api',
+            'source' => 'openai_agent',
             'model' => $internal['model'],
             'latency_ms' => $latencyMs,
             'is_fallback' => false,
@@ -116,11 +134,80 @@ class PreQualificationAiService
         if (filled($statusNote)) {
             $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
+        $application->applyUnderwritingOutcome(true);
         $application->gpt_status = PreQualificationRequest::GPT_COMPLETED;
         $application->gpt_generated_at = now();
         $application->save();
 
         return $aiResult;
+    }
+
+    /**
+     * Record what the agent said about the information it was given.
+     *
+     * The agent reports a data_status over the borrower's own answers. CONFLICTING
+     * means two of them cannot both be true; INSUFFICIENT means one needed for a
+     * meaningful assessment is missing. Either way the borrower has something to
+     * correct, and an assessment built on those figures would be an assessment of
+     * figures nobody can rely on — so it is withheld and they are asked to fix it.
+     *
+     * COMPLETE and PARTIAL are not blocking. PARTIAL is the ordinary state of a
+     * pre-qualification: no documents are collected at this stage, and the agent's
+     * own instructions forbid treating their absence as a deficiency.
+     *
+     * The findings shown to the borrower are the agent's own wording for the
+     * conditions it graded BLOCKING, scrubbed of lender names on the same rule the
+     * borrower assessment is. The severity grade and the evidence fields the agent
+     * reasoned over stay internal, as they do everywhere else.
+     *
+     * @return array{blocking: bool, status: ?string, borrower_message: ?string}
+     */
+    protected function recordDataIntegrity(PreQualificationRequest $application, array $internal): array
+    {
+        $blockingStatuses = (array) config('prequalification_aue.blocking_data_statuses', ['CONFLICTING', 'INSUFFICIENT']);
+        $dataStatus = (string) ($internal['data_status'] ?? '');
+        $blocking = in_array($dataStatus, $blockingStatuses, true);
+
+        $issues = [];
+
+        if ($blocking) {
+            $issues = collect((array) ($internal['conditions_and_flags'] ?? []))
+                ->filter(fn ($flag) => is_array($flag) && ($flag['severity'] ?? null) === 'BLOCKING')
+                ->map(fn ($flag) => [
+                    'severity' => 'BLOCKING',
+                    'field' => (string) ($flag['category'] ?? ''),
+                    // What the borrower is being asked to correct, and what to do
+                    // about it — the agent's words, with lender names removed.
+                    'user_message' => PreQualificationClientAueService::scrubLenderNamesFrom(trim(
+                        (string) ($flag['finding'] ?? '') . ' ' . (string) ($flag['required_action'] ?? '')
+                    )),
+                    'internal_message' => (string) ($flag['finding'] ?? ''),
+                    'suggested_action' => (string) ($flag['required_action'] ?? ''),
+                ])
+                ->filter(fn ($issue) => $issue['user_message'] !== '')
+                ->values()
+                ->all();
+        }
+
+        $application->validation_status = $blocking
+            ? PreQualificationRequest::VALIDATION_INCORRECT
+            : PreQualificationRequest::VALIDATION_PASSED;
+        $application->validation_version = (string) ($internal['prompt_version'] ?? '');
+        // Deliberately left empty. validation_summary is one of the few fields
+        // the borrower-facing resource exposes verbatim, and every summary the
+        // agent writes — the executive conclusion, the final disposition — is
+        // internal and may name a lender or a routing decision. The borrower
+        // reads the per-finding messages instead, which are built for them.
+        $application->validation_summary = '';
+        $application->validation_issues = $issues;
+        $application->validated_at = now();
+        $application->save();
+
+        return [
+            'blocking' => $blocking,
+            'status' => $application->validation_status,
+            'borrower_message' => $issues[0]['user_message'] ?? null,
+        ];
     }
 
     /**
@@ -145,6 +232,7 @@ class PreQualificationAiService
             $application->status_note = Str::limit($statusNote, PreQualificationRequest::STATUS_NOTE_MAX_LENGTH, '');
         }
 
+        $application->applyUnderwritingOutcome(false);
         $application->gpt_status = PreQualificationRequest::GPT_FAILED;
         $application->gpt_generated_at = now();
         $application->save();
@@ -166,7 +254,7 @@ class PreQualificationAiService
             // client half is null rather than a locally composed stand-in.
             'internal' => $internal['data'] ?? null,
             'client' => null,
-            'source' => 'openai_responses_api',
+            'source' => 'openai_agent',
             'model' => $internal['model'] ?? null,
             'latency_ms' => (int) ($internal['latency_ms'] ?? 0),
             'is_fallback' => false,
@@ -208,16 +296,30 @@ class PreQualificationAiService
             $borrowerMessage = collect((array) $application->validation_issues)
                 ->firstWhere('severity', 'BLOCKING')['user_message'] ?? null;
 
+            // The evaluation that called the data unusable is this run's own, so
+            // it is not stale and staff need it — it is the only account of why
+            // the file was flagged. It is withheld only when the run did not get
+            // far enough to produce one. The borrower row stays withheld either
+            // way: no assessment is released on figures the agent itself called
+            // conflicting or insufficient.
+            $internalPayload = null;
+
+            if ($internalRow && $application->gpt_status === PreQualificationRequest::GPT_COMPLETED) {
+                $internalPayload = is_array($internalRow->payload ?? null)
+                    ? $internalRow->payload
+                    : (json_decode((string) ($internalRow->payload ?: '{}'), true) ?: []);
+            }
+
             return [
                 'incorrect' => true,
                 'blocked' => true,
                 'validation_status' => $application->validation_status,
                 'borrower_message' => $borrowerMessage,
-                // Stale rows from an earlier run are deliberately not surfaced.
-                'internal' => null,
+                'internal' => $internalPayload,
+                'admin_status_note' => $internalPayload ? self::statusNoteFor($internalPayload) : null,
                 'client' => null,
-                'source' => 'fch_data_integrity_validator',
-                'model' => null,
+                'source' => 'openai_agent',
+                'model' => $internalPayload ? ($internalRow->model ?? null) : null,
                 'latency_ms' => 0,
                 'is_fallback' => false,
             ];
@@ -234,7 +336,7 @@ class PreQualificationAiService
                 'validation_status' => $application->validation_status,
                 'internal' => null,
                 'client' => null,
-                'source' => 'openai_responses_api',
+                'source' => 'openai_agent',
                 'model' => null,
                 'latency_ms' => 0,
                 'is_fallback' => false,
@@ -266,7 +368,7 @@ class PreQualificationAiService
             'internal' => $internalPayload,
             'client' => $clientPayload ?: null,
             'admin_status_note' => self::statusNoteFor($internalPayload),
-            'source' => $isFallback ? 'fch_underwriting_engine' : 'openai_responses_api',
+            'source' => $isFallback ? 'fch_underwriting_engine' : 'openai_agent',
             'model' => $internalRow->model ?? null,
             'latency_ms' => $latencyMs,
             'is_fallback' => $isFallback,

@@ -177,12 +177,20 @@ class RequestApplicationService
             $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
             $advancedFilters = $filters['filters'] ?? [];
 
+            // Sorting on status follows the lifecycle (key 1-19), not the
+            // alphabet - "Approved" is not the first thing that happens.
+            $sortByStatusKey = $sortField === 'status';
+
+            if ($sortByStatusKey) {
+                $query->orderByStatusKey($sortOrder)->orderBy('id', 'desc');
+            }
+
             $query = QueryFilter::apply(
                 $query,
                 $sortField,
                 $sortOrder,
                 $advancedFilters,
-                []
+                $sortByStatusKey ? ['skip_sorting' => true] : []
             );
 
             $perPage = isset($filters['per_page']) ? max(1, (int) $filters['per_page']) : 10;
@@ -276,10 +284,12 @@ class RequestApplicationService
             try {
                 $this->preQualificationAiService->evaluate($application->fresh('borrower'), $userId);
             } catch (\Throwable $e) {
-                PreQualificationRequest::where('id', $application->id)->update([
-                    'gpt_status' => PreQualificationRequest::GPT_FAILED,
-                    'gpt_generated_at' => now(),
-                ]);
+                if ($failed = PreQualificationRequest::find($application->id)) {
+                    $failed->applyUnderwritingOutcome(false);
+                    $failed->gpt_status = PreQualificationRequest::GPT_FAILED;
+                    $failed->gpt_generated_at = now();
+                    $failed->save();
+                }
 
                 Log::error('Pre-qualification AUE re-run failed', [
                     'pre_qualification_request_id' => $application->id,

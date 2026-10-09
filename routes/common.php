@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Global\Branding\BrandingController;
+use App\Http\Controllers\Api\V1\Global\Account\EmailChangeConfirmationController;
 use App\Http\Controllers\Api\V1\FCH\Admin\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\FCH\Common\Billing\BillingController;
 use App\Http\Controllers\Api\V1\FCH\Common\MySubscription\MySubscriptionController;
@@ -22,6 +23,8 @@ use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\CapitalAccessController as CommonCapitalAccessController;
 use App\Http\Controllers\Api\V1\FCH\Common\CreditBuilder\VerificationCenterController;
 use App\Http\Controllers\Api\V1\FCH\Common\Department\DepartmentController;
+use App\Http\Controllers\Api\V1\FCH\Common\Compensation\CompensationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Account\EmailChangeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Employee\EmployeeController;
 use App\Http\Controllers\Api\V1\FCH\Common\Funding\FundingQualificationController;
 use App\Http\Controllers\Api\V1\FCH\Common\FundingRequest\FundingRequestController;
@@ -33,13 +36,18 @@ use App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication\PartnerFunding
 use App\Http\Controllers\Api\V1\FCH\Common\Payment\PaymentController as CommonPaymentController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\PartnerPaymentProviderController;
 use App\Http\Controllers\Api\V1\FCH\Common\Reminder\ReminderController;
+use App\Http\Controllers\Api\V1\FCH\Common\Notification\NotificationInboxController;
 use App\Http\Controllers\Api\V1\FCH\Common\Resource\ResourceController as CommonResourceController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\PermissionController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\RoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\RolePermission\UserRoleController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\AppConfigurationController as CommonAppConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\OpenAiConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\PreQualificationAgentConfigController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\WlpAssistantController;
+use App\Http\Controllers\Api\V1\FCH\Common\Assistant\AssistantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\EmailConfigurationController;
+use App\Http\Controllers\Api\V1\FCH\Common\Setting\SmsConfigurationController;
 use App\Http\Controllers\Api\V1\FCH\Common\Setting\TenantConfigController;
 use App\Http\Controllers\Api\V1\FCH\Common\Statistics\StatisticsController;
 use App\Http\Controllers\Api\V1\FCH\Common\SubscriptionPlan\SubscriptionPlanController;
@@ -67,6 +75,25 @@ Route::get('/caddy/domain-check', [DomainResolverController::class, 'caddyCheck'
 // index.html. Deliberately outside /v1 and unauthenticated: it has to load
 // before the app boots, on a cold visit with no token and no localStorage.
 Route::get('/branding.css', [BrandingController::class, 'css']);
+
+// Email change links — confirm (sent to the new address), cancel and undo (sent
+// to the old one). Public: each link's signature is the authority (checked in
+// the controller). Opening a link (GET) only shows a page; its form POSTs back
+// to the same signed URL to act. These are browser pages, not JSON: the `web`
+// group gives them the session their forms' CSRF token needs.
+Route::prefix('email-change')
+    ->middleware('web')
+    ->controller(EmailChangeConfirmationController::class)
+    ->whereNumber('user')
+    ->middleware('throttle:10,1')
+    ->group(function () {
+        Route::get('confirm/{user}/{hash}', 'showConfirm')->name('email-change.confirm');
+        Route::post('confirm/{user}/{hash}', 'confirm');
+        Route::get('cancel/{user}/{hash}', 'showCancel')->name('email-change.cancel');
+        Route::post('cancel/{user}/{hash}', 'cancel');
+        Route::get('undo/{user}/{hash}', 'showRevert')->name('email-change.revert');
+        Route::post('undo/{user}/{hash}', 'revert');
+    });
 
 
 Route::prefix('v1')->group(function () {
@@ -125,7 +152,20 @@ Route::prefix('v1')->group(function () {
             Route::post('employees/fetch-department-status', [EmployeeController::class, 'fetchDepartmentStatus']);
             Route::post('employees/multiple-delete', [EmployeeController::class, 'multipleDelete']);
             Route::get('employees-next-id', [EmployeeController::class, 'nextId']);
+            Route::get('employees-available-for-user', [EmployeeController::class, 'availableForUser']);
             Route::apiResource('employees', EmployeeController::class);
+
+            // Compensation ("Paid By") is stored separately from the entity that
+            // owns it, so it has its own endpoints — never the employee ones. The
+            // entity is identified by entity_type/entity_id in the body, and the
+            // one write endpoint handles both the first save and later edits.
+            Route::post('compensations/fetch-compensation', [CompensationController::class, 'show']);
+            Route::post('compensations', [CompensationController::class, 'store']);
+
+            // A pending sign-in email change (started by saving an edit form,
+            // completed by the emailed link) can be resent or withdrawn here.
+            Route::post('email-change/resend', [EmailChangeController::class, 'resend']);
+            Route::post('email-change/cancel', [EmailChangeController::class, 'cancel']);
 
             Route::post('users/fetch-users', [UserController::class, 'fetchUsers']);
             Route::post('users/multiple-delete', [UserController::class, 'multipleDelete']);
@@ -407,12 +447,46 @@ Route::prefix('v1')->group(function () {
                 Route::post('config', [OpenAiConfigurationController::class, 'store']);
             });
 
+            // Support assistant settings (host-only, enforced again inside the
+            // controller regardless of what the admin UI hides): which OpenAI
+            // Agent each assistant runs and whether it is switched on. The
+            // agent's instructions are edited on the OpenAI platform, never here.
+            Route::get('assistant-config', [AssistantConfigController::class, 'index']);
+            Route::put('assistant-config/{type}', [AssistantConfigController::class, 'update']);
+
+            // Pre-Qualification agent settings (host-only, enforced again inside
+            // the controller): which OpenAI Agent runs each step of the
+            // underwriting pipeline and which vector stores it searches. The
+            // instructions and the output schema live on the OpenAI platform.
+            Route::get('prequalification-agent-config', [PreQualificationAgentConfigController::class, 'index']);
+            Route::put('prequalification-agent-config/{step}', [PreQualificationAgentConfigController::class, 'update']);
+
+            // WLP support assistant chat — mirrors FCH_WLP_Assistant_OpenAPI_v1_1.yaml's
+            // /wlp-assistant/* paths (see SupportAssistantService for the response envelope).
+            Route::get('assistant/wlp/config', [WlpAssistantController::class, 'config']);
+            Route::prefix('assistant/wlp')->middleware('throttle:assistant')->group(function () {
+                Route::post('messages', [WlpAssistantController::class, 'sendMessage']);
+                Route::get('conversations/{sessionId}/messages', [WlpAssistantController::class, 'history']);
+                Route::get('sessions', [WlpAssistantController::class, 'index']);
+                Route::post('sessions', [WlpAssistantController::class, 'store']);
+                Route::delete('sessions', [WlpAssistantController::class, 'destroy']);
+            });
+
             // 📧 Email Configurations
             Route::prefix('email-configurations')->group(function () {
                 Route::get('/', [EmailConfigurationController::class, 'index']);
                 Route::post('/', [EmailConfigurationController::class, 'store']);
                 Route::get('/toggle-status', [EmailConfigurationController::class, 'toggleStatus']);
             });
+
+            // SMS Configuration (host and white-label partners)
+            Route::prefix('sms-configuration')
+                ->middleware('permission:update sms configuration settings')
+                ->group(function () {
+                    Route::get('/', [SmsConfigurationController::class, 'index']);
+                    Route::post('/', [SmsConfigurationController::class, 'store']);
+                    Route::post('/test', [SmsConfigurationController::class, 'test'])->middleware('throttle:5,1');
+                });
 
             // Agreement templates
             Route::prefix('agreement-templates')->group(function () {
@@ -455,13 +529,22 @@ Route::prefix('v1')->group(function () {
 
                     // V1 Reminder routes
                 Route::prefix('reminders')->group(function () {
-                    Route::get('/', [ReminderController::class, 'index']);
+                    Route::post('/fetch-reminders', [ReminderController::class, 'index']);
                     Route::get('/due', [ReminderController::class, 'getDue']);
                     Route::post('/bulk-dismiss', [ReminderController::class, 'bulkDismiss']);
                     Route::post('/dismiss-all', [ReminderController::class, 'dismissAll']);
                     Route::post('/{id}/dismiss', [ReminderController::class, 'dismiss']);
                     Route::post('/{id}/snooze', [ReminderController::class, 'snooze']);
                     Route::get('/{id}/attachments/download', [ReminderController::class, 'downloadAttachment']);
+                });
+
+                // In-app notification inbox (bell + notifications page)
+                Route::prefix('notifications')->group(function () {
+                    Route::get('/', [NotificationInboxController::class, 'index']);
+                    Route::get('/unread-count', [NotificationInboxController::class, 'unreadCount']);
+                    Route::post('/read-all', [NotificationInboxController::class, 'markAllRead']);
+                    Route::post('/{id}/read', [NotificationInboxController::class, 'markRead']);
+                    Route::delete('/{id}', [NotificationInboxController::class, 'destroy']);
                 });
 
 

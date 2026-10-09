@@ -111,7 +111,6 @@ Schedule::command('task:reminder-check')
     ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(5)
-    ->onSuccess($onSuccess('task:reminder-check'))
     ->onFailure($onFailure('task:reminder-check'));
 
 /*
@@ -128,8 +127,7 @@ Schedule::command('task:reminder-check')
 Schedule::command('scheduler:heartbeat')
     ->everyMinute()
     ->timezone($scheduleTimezone)
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('scheduler:heartbeat'));
+    ->onFailure($onFailure('scheduler:heartbeat'));
 
 /*
 |--------------------------------------------------------------------------
@@ -149,9 +147,7 @@ Schedule::command('app:monitor-health')
     ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('app:monitor-health'))
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('app:monitor-health'));
+    ->onFailure($onFailure('app:monitor-health'));
 
 // Run Spatie health checks. Frequency is env-driven so you can lower it
 // on small instances to reduce load. Default every 5 minutes.
@@ -159,9 +155,7 @@ Schedule::command('health:check')
     ->cron(config('monitoring.health_check_cron', '*/5 * * * *'))
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('health:check'))
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('health:check'));
+    ->onFailure($onFailure('health:check'));
 
 // Purge monitoring history older than 1 month
 Schedule::command('monitoring:prune')

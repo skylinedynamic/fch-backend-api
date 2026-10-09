@@ -2,6 +2,8 @@
 
 namespace App\Services\Borrower\FundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
@@ -13,11 +15,18 @@ use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
+use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Mail\Partner\BorrowerSubmittedFundingApplicationMail;
 class FundingApplicationService
 {
+    public function __construct(
+        private FundingApplicationEditGuard $editGuard,
+        private FundingApplicationAuditLogger $auditLogger
+    ) {
+    }
 
     /**
      * Get Business Info for the authenticated user.
@@ -166,14 +175,59 @@ class FundingApplicationService
 
 
 
-            if (!$isNew && $existing && empty($status)) {
-                unset($data['status']); // Do not overwrite existing status
+            // What this save is allowed to do to an application that already
+            // exists - and whether it costs the borrower their signature - is
+            // decided in one place for both portals. See FundingApplicationEditGuard.
+            $changedFields = [];
+            $changes = [];
+            $requiresResign = false;
+            $previousStatus = $existing->status ?? null;
+
+            if (!$isNew && $existing) {
+                // Saving a step of an application that already exists never moves
+                // it on by itself; only an explicit status (submitting) does.
+                if (empty($status)) {
+                    $data['status'] = $existing->status;
+                }
+
+                try {
+                    $decision = $this->editGuard->applyEditRules($existing, $data, $status);
+                } catch (FundingApplicationLockedException $e) {
+                    $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_BORROWER);
+                    throw $e;
+                }
+
+                $data = $decision['data'];
+                $changedFields = $decision['changed_fields'];
+                $changes = $decision['changes'];
+                $requiresResign = $decision['requires_resign'];
             }
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
                 $data
             );
+
+            if ($requiresResign) {
+                $this->auditLogger->logEditRequiringResign(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_BORROWER,
+                    $previousStatus ?? '',
+                    $changes
+                );
+            } elseif (! $isNew && empty($status) && $changedFields !== [] && $existing->hasBeenSubmitted()) {
+                // A further change to an application that was submitted before
+                // (a re-sign is already owed). It costs nothing more, but what
+                // changed is still recorded. Filling in a new application for
+                // the first time is not logged step by step.
+                $this->auditLogger->logEdit(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_BORROWER,
+                    $changes
+                );
+            }
 
 
             if (isset($data['has_co_borrower']) && $data['has_co_borrower']) {
@@ -218,10 +272,19 @@ class FundingApplicationService
             // Send email if submitted
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
+                    // Bell + email. The email only where there is an address, as before.
+                    $notifier = app(Notifier::class);
+                    $bellData = [
+                        'id' => $fundingApplication->id,
+                        'borrower' => personName($fundingApplication->borrower?->first_name, $fundingApplication->borrower?->middle_name, $fundingApplication->borrower?->last_name),
+                    ];
+
                     // Send to Borrower
-                    if ($fundingApplication->borrower && $fundingApplication->borrower->email) {
+                    if ($fundingApplication->borrower) {
                         try {
-                            Mail::to($fundingApplication->borrower->email)->send(new \App\Mail\Borrower\FundingApplicationSubmittedMail($fundingApplication));
+                            $email = $fundingApplication->borrower->email;
+                            $notifier->send('borrower.funding_application.submitted', $fundingApplication->borrower, $bellData,
+                                mail: $email ? (new FundingApplicationSubmittedMail($fundingApplication))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to borrower', [
                                 'application_id' => $fundingApplication->id,
@@ -231,9 +294,11 @@ class FundingApplicationService
                     }
 
                     // Send to Partner
-                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
+                    if ($fundingApplication->partner) {
                         try {
-                            Mail::to($fundingApplication->partner->email)->send(new \App\Mail\Partner\BorrowerSubmittedFundingApplicationMail($fundingApplication, $fundingApplication->partner->id));
+                            $email = $fundingApplication->partner->email;
+                            $notifier->send('partner.funding_application.submitted', $fundingApplication->partner, $bellData,
+                                mail: $email ? (new BorrowerSubmittedFundingApplicationMail($fundingApplication, $fundingApplication->partner->id))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to partner', [
                                 'application_id' => $fundingApplication->id,
@@ -244,9 +309,10 @@ class FundingApplicationService
 
                     // Send to Host
                     $host = Partner::host();
-                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                    if ($host && $host->id != $fundingApplication->partner_id) {
                         try {
-                            Mail::to($host->email)->send(new \App\Mail\Partner\BorrowerSubmittedFundingApplicationMail($fundingApplication, $host->id));
+                            $notifier->send('partner.funding_application.submitted', $host, $bellData,
+                                mail: $host->email ? (new BorrowerSubmittedFundingApplicationMail($fundingApplication, $host->id))->to($host->email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to host', [
                                 'application_id' => $fundingApplication->id,

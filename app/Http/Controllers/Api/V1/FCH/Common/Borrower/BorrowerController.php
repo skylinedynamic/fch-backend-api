@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
 use App\Services\FCH\Common\Tier\TierService;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
@@ -121,6 +121,9 @@ class BorrowerController extends Controller
                 new BorrowerDetailsResource($updatedBorrower),
                 __('borrower.updated')
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // e.g. the new email is already taken — the form needs to show why.
+            throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
         }
@@ -259,7 +262,8 @@ class BorrowerController extends Controller
         ];
 
         try {
-            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($data, $user->partner_id));
+            app(Notifier::class)->send('borrower.account.created', $user, ['name' => $user->name],
+                mail: (new BorrowerAccountCreatedMail($data, $user->partner_id))->to($user->email));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('📧 BorrowerAccountCreatedMail failed', [
                 'error' => $e->getMessage(),

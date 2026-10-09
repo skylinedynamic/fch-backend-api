@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Admin\Partner;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use App\Helpers\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Mail;
 use App\Services\FCH\Partner\PartnerService;
 use App\Http\Resources\FCH\Partner\PartnerResource;
 use App\Http\Resources\FCH\Partner\TenantConfigResource;
@@ -120,6 +120,9 @@ class PartnerController extends Controller
                 'full_name' => $updatedPartner->full_name,
                 'company_name' => $updatedPartner->company_name,
                 'email' => $updatedPartner->email,
+                // A new sign-in email awaiting confirmation (the email above is
+                // still the one in effect until it's confirmed).
+                'pending_email' => $updatedPartner->partnerUser?->pending_email,
                 'phone_number' => $updatedPartner->phone_number,
                 'state' => $updatedPartner->state,
                 'city' => $updatedPartner->city,
@@ -236,7 +239,8 @@ class PartnerController extends Controller
         ];
 
         try {
-            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+            app(Notifier::class)->send('user.account.created', $user,
+                mail: (new AccountCreateNotificationMail($data))->to($user->email));
         } catch (Throwable $e) {
             Log::error(__('partner.log.account_create_notification_failed'), [
                 'error' => $e->getMessage(),

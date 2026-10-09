@@ -76,14 +76,9 @@ class FundingApplicationDocumentService
                 'downloaded_at' => now(),
             ]);
 
-            $this->activityLogService->logModelEvent(
-                $application,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Funding Application Generated',
-                "Funding Application PDF generated and locked. SHA-256: {$appSha256}",
-                ActivityLog::VISIBILITY_EVERYONE
-            );
+            // No activity-log entry for generating the PDF: it happens on every
+            // submission, and the submit / re-submit entry already says so. The
+            // generation itself is still recorded in the download history above.
 
             // Update signature data with SHA-256 and Cert ID for the template
             $signatureData['sha256'] = $appSha256;
@@ -115,14 +110,8 @@ class FundingApplicationDocumentService
                 'downloaded_at' => now(),
             ]);
 
-            $this->activityLogService->logModelEvent(
-                $application,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Borrower Electronic Signature Certificate Generated',
-                "Borrower Electronic Signature Certificate PDF generated and locked. SHA-256: {$certSha256}",
-                ActivityLog::VISIBILITY_EVERYONE
-            );
+            // Likewise no activity-log entry for generating the certificate; it
+            // is in the download history above.
 
             // Update application with certificate path in signature_data
             $signatureData['certificate_path'] = $pdfPath;

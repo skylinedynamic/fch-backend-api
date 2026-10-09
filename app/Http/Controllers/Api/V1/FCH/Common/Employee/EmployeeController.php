@@ -129,7 +129,7 @@ class EmployeeController extends Controller
             $plainPassword = bin2hex(random_bytes(4));
 
             $userData = [
-                'name' => trim($request->first_name . ' ' . $request->last_name) ?: $request->email,
+                'name' => trim((string) $request->first_name) ?: $request->email,
                 'email' => $request->email,
                 'phone_number' => $request->phone_number,
                 'plain_password' => $plainPassword,
@@ -274,6 +274,20 @@ class EmployeeController extends Controller
         }
 
         return response()->json(['status' => false, 'message' => 'Deletion failed'], 422);
+    }
+
+    /**
+     * Employees without a user account (for the Add User employee picker)
+     */
+    public function availableForUser(Request $request)
+    {
+        try {
+            $employees = $this->employeeService->availableForUser($request->user()->partner_id);
+
+            return ApiResponse::success($employees, __('employee.employee_listed'));
+        } catch (\Throwable $e) {
+            return ApiResponse::serverError(__('employee.employee_list_failed'));
+        }
     }
 
     /**

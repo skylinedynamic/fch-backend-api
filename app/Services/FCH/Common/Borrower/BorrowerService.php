@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
+use App\Services\FCH\Common\Notification\Notifier;
+use Illuminate\Mail\Mailable;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
@@ -16,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\ActivityLog\ActivityLog;
@@ -38,16 +39,20 @@ class BorrowerService
         protected SubscriptionService $subscriptionService,
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected \App\Services\Global\Account\EmailChangeService $emailChange,
     ) {
     }
 
     /**
      * Send a borrower email using the partner's active mail config.
      */
-    private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
+    /**
+     * @param mixed $recipient Who gets the bell (the borrower's login user)
+     */
+    private function sendBorrowerMail(string $type, mixed $recipient, string $email, Mailable $mailable, int|null $partnerId, array $bellData = []): void
     {
         try {
-            Mail::to($email)->send($mailable);
+            app(Notifier::class)->send($type, $recipient, $bellData, mail: $mailable->to($email));
         } catch (\Exception $e) {
             Log::error('Borrower email failed', [
                 'email' => $email,
@@ -418,9 +423,12 @@ class BorrowerService
                     );
 
                     $this->sendBorrowerMail(
+                        'borrower.account.trial_started',
+                        $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
-                        $borrower->partner_id
+                        $borrower->partner_id,
+                        ['date' => $trialEndDate ?? 'N/A']
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -466,6 +474,11 @@ class BorrowerService
         DB::beginTransaction();
         try {
             $user = $borrower->user;
+
+            // With a login, a new email is confirmed from the new address before
+            // either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($data, $user, $borrower->email);
+
             $wasFreeTrial = (bool) $borrower->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
@@ -607,7 +620,7 @@ class BorrowerService
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $user->email]);
-                    $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                    $this->sendBorrowerMail('borrower.account.login_updated', $user, $user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             } elseif (!empty($data['email'])) {
                 $userResult = $this->createOrUpdateUser($data, $borrower);
@@ -638,6 +651,10 @@ class BorrowerService
                 $user->update(['is_refresh' => true]);
             }
             DB::commit();
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             // Return consistent format or just borrower? Controller expects resource.
             // Keeping it simple as controller will be updated to handle array for store, but update often doesn't need email.
@@ -882,6 +899,8 @@ class BorrowerService
         }
 
         if ($existingUser) {
+            // A login's email never changes here — update() hands a new one to
+            // EmailChangeService — so there's no password to reset.
             $plainPassword = null;
             // Check if email is changing and present in update data
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {

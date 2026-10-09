@@ -372,6 +372,33 @@ class OpenAiResponsesService
     }
 
     /**
+     * File_search citation titles, matching WlpAssistantService.php.example's
+     * extractApprovedSourceTitles() — dedupes by filename since the same
+     * knowledge file is commonly cited more than once in one reply.
+     *
+     * @return array<int, array{title: string}>
+     */
+    protected function extractCitations(array $response): array
+    {
+        $titles = [];
+
+        foreach ((array) ($response['output'] ?? []) as $item) {
+            foreach ((array) ($item['content'] ?? []) as $content) {
+                foreach ((array) ($content['annotations'] ?? []) as $annotation) {
+                    if (($annotation['type'] ?? null) === 'file_citation') {
+                        $title = $annotation['filename'] ?? $annotation['file_name'] ?? null;
+                        if (is_string($title) && $title !== '') {
+                            $titles[$title] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_map(static fn (string $title) => ['title' => $title], array_keys($titles));
+    }
+
+    /**
      * Minimal, dependency-free structural validation of $data against $schema:
      * required keys present, enum membership, and recursion into object/array
      * item schemas. Not a full JSON Schema implementation — only what our own

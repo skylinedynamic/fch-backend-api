@@ -107,6 +107,30 @@ class FundingRequestResource extends JsonResource
             'is_federal_compliance_saved' => $fundingApp ? (bool)$fundingApp->is_federal_compliance_saved : false,
             'signature_data' => $fundingApp ? $fundingApp->signature_data : null,
             'status' => $fundingApp ? $fundingApp->status : null,
+
+            // What the borrower is allowed to do with this application, and what
+            // an edit will cost. The server enforces all of it regardless - these
+            // are so the portal can say why before the borrower wastes the typing.
+            ...($fundingApp ? $fundingApp->editingState() : self::noApplicationEditingState()),
+        ];
+    }
+
+    /**
+     * There is no application yet, so there is nothing to lock and nothing
+     * signed to invalidate - the borrower is free to start one.
+     *
+     * @return array<string, mixed>
+     */
+    private static function noApplicationEditingState(): array
+    {
+        return [
+            'is_locked' => false,
+            'is_editable' => true,
+            'requires_resign' => false,
+            'edit_requires_resign' => false,
+            'edit_needs_confirmation' => false,
+            'can_start_new_funding_request' => false,
+            'locked_reason' => null,
         ];
     }
 }

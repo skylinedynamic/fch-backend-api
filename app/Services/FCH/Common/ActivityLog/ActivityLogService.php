@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\ActivityLog;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Mail\ActivityLog\ActivityLogMail;
@@ -26,7 +27,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class ActivityLogService
@@ -584,7 +584,8 @@ class ActivityLogService
             }
 
             try {
-                Mail::to($recipient)->send(new ActivityLogMail($emailData, $attachmentNames, $attachments));
+                app(Notifier::class)->send('activity_log.email',
+                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
             } catch (\Throwable $e) {
                 Log::error('ActivityLog: Failed to send email to recipient', [
                     'recipient' => $recipient,
@@ -622,8 +623,9 @@ class ActivityLogService
     {
         $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-        $logType = strtolower($log->log_name ?? '');
-        if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+        // Type "activity" and typed in by a person - not one of the system's own
+        // audit entries, which share the type.
+        if (! $log->isManualActivity()) {
             throw new \Exception('Only manual activity entries can be edited.', 403);
         }
 
@@ -805,8 +807,7 @@ class ActivityLogService
         DB::transaction(function () use ($id) {
             $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-            $logType = strtolower($log->log_name ?? '');
-            if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+            if (! $log->isManualActivity()) {
                 throw new \Exception('Only manual activity entries can be deleted.', 403);
             }
 

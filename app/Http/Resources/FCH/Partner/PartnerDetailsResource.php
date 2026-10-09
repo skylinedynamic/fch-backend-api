@@ -18,6 +18,10 @@ class PartnerDetailsResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->users->first()->id ?? null,
+            // The partner's own login (user_id above is just the first of its
+            // users) and a new sign-in email awaiting confirmation on it.
+            'login_user_id' => $this->partnerUser?->id,
+            'pending_email' => $this->partnerUser?->pending_email,
             'assigned_user_id' => $this->assignedUser->id ?? null,
             'assigned_user_name' => $this->assignedUser->name ?? null,
             'full_name' => $this->full_name,

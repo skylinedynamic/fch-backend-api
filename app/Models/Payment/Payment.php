@@ -79,6 +79,13 @@ class Payment extends Model
      */
     public function getTransactionTypeForUser(?User $authUser = null): string
     {
+        // A commission payout is money going out to the partner or user it was
+        // paid to — a Credit for them, a Debit for whoever paid it (the admin) —
+        // whichever kind of account is looking.
+        if ($this->isCommissionPayout()) {
+            return $this->isReceivedBy($authUser) ? self::TRANSACTION_TYPE_CREDIT : self::TRANSACTION_TYPE_DEBIT;
+        }
+
         $isPartnerPaying = (bool) $this->is_partner_paying || $this->entity_type === Partner::class;
         $status = strtolower((string) ($this->status ?? ''));
         $paymentType = strtolower((string) ($this->payment_type ?? ''));
@@ -99,6 +106,26 @@ class Payment extends Model
         }
 
         return self::TRANSACTION_TYPE_CREDIT;
+    }
+
+    /** Whether this is a payout of a commission (to a partner, or to a host-partner client's assigned user). */
+    public function isCommissionPayout(): bool
+    {
+        return $this->invoice?->type === Invoice::INVOICE_TYPE_COMMISSION_PAYOUT;
+    }
+
+    /** Whether $user is who this payment was made to: the paid user, or any user of the paid partner. */
+    public function isReceivedBy(?User $user): bool
+    {
+        if (!$user || !$this->entity_id) {
+            return false;
+        }
+
+        return match ($this->entity_type) {
+            Partner::class => (int) $user->partner_id === (int) $this->entity_id,
+            User::class => (int) $user->id === (int) $this->entity_id,
+            default => false,
+        };
     }
 
     /**

@@ -9,11 +9,13 @@ use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLog extends Activity
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected static function booted()
     {
@@ -275,7 +277,32 @@ class ActivityLog extends Activity
     {
         $logType = strtolower($this->log_name ?? '');
 
-        return $logType === 'activity' || $logType === self::TYPE_ACTIVITY;
+        if ($logType !== 'activity' && $logType !== self::TYPE_ACTIVITY) {
+            return false;
+        }
+
+        // The type alone is not enough: the system writes its own events under
+        // the "activity" type too (an application submitted, an edit that cost a
+        // signature, a document generated), with the acting user as causer.
+        // Those are audit records - nobody edits or deletes them, least of all
+        // the person they are about.
+        return ! $this->isSystemEvent();
+    }
+
+    /**
+     * Written by the application itself rather than typed in by a person.
+     *
+     * Every system event goes through logSystemEvent(), which stamps an
+     * `event_label`; an activity a person creates never carries one.
+     */
+    public function isSystemEvent(): bool
+    {
+        $properties = $this->properties;
+        if ($properties instanceof \Illuminate\Support\Collection) {
+            $properties = $properties->toArray();
+        }
+
+        return is_array($properties) && array_key_exists('event_label', $properties);
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\PartnerFundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Partner\FundApplication\AttestationAndAuthorizationRequest;
@@ -21,17 +22,18 @@ use App\Http\Resources\FCH\Partner\FundApplication\FinancialResource;
 use App\Http\Resources\FCH\Partner\FundApplication\FundingApplicationDocumentResource;
 use App\Http\Resources\FCH\Partner\FundApplication\FundingRequestResource;
 use App\Http\Resources\FCH\Partner\FundApplication\OwnershipResource;
-use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Services\FCH\Common\PartnerFundApplication\PartnerFundingApplicationService;
-use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\RequestApplicationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FCH\Common\Notification\Notifier;
+use App\Mail\Borrower\DraftApplicationSentMail;
 
 class PartnerFundingApplicationController extends Controller   
 {
@@ -80,6 +82,11 @@ class PartnerFundingApplicationController extends Controller
                 __('borrower.business_info_updated_successfully')
             );
 
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             \Log::error('saveBusinessInfo error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
@@ -122,6 +129,11 @@ class PartnerFundingApplicationController extends Controller
                 new OwnershipResource($ownershipInfo),
                 __('borrower.ownership_info_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
         }
@@ -163,6 +175,11 @@ class PartnerFundingApplicationController extends Controller
                 new FinancialResource($financialInfo),
                 __('borrower.financial_info_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.financial_info_update_failed'), 500);
         }
@@ -202,6 +219,11 @@ class PartnerFundingApplicationController extends Controller
                 new FundingRequestResource($fundingRequest),
                 __('borrower.funding_request_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.funding_request_update_failed'), 500);
         }
@@ -236,6 +258,11 @@ class PartnerFundingApplicationController extends Controller
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
                 __('borrower.disclosures_and_consent_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.disclosures_and_consent_update_failed'), 500);
         }
@@ -268,13 +295,23 @@ class PartnerFundingApplicationController extends Controller
 
             $fundingApp = FundingApplication::with('borrower')->find($federalCompliance->funding_application_id ?? $federalCompliance->id);
             if ($fundingApp && $fundingApp->borrower) {
-                \Illuminate\Support\Facades\Mail::to($fundingApp->borrower->email)->send(new \App\Mail\Borrower\DraftApplicationSentMail($fundingApp));
+                app(Notifier::class)->send(
+                    'borrower.funding_application.draft_ready',
+                    $fundingApp->borrower,
+                    ['id' => $fundingApp->funding_request_id],
+                    mail: (new DraftApplicationSentMail($fundingApp))->to($fundingApp->borrower->email)
+                );
             }
 
             return ApiResponse::success(
                 new FederalComplianceResource($federalCompliance),
                 __('borrower.federal_compliance_disclosures_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.federal_compliance_disclosures_update_failed'), 500);
         }
@@ -301,7 +338,16 @@ class PartnerFundingApplicationController extends Controller
     public function saveAttestationAndAuthorization(AttestationAndAuthorizationRequest $request){
         try {
             $validated = $request->validated();
-            
+
+            // Read the resign flag before saving clears it: it is what separates a
+            // first submission from signing again after an edit wiped the previous
+            // signature, and the audit trail needs to say which.
+            $wasResubmission = false;
+            if (!empty($validated['id'])) {
+                $priorState = FundingApplication::find($validated['id']);
+                $wasResubmission = $priorState ? (bool) $priorState->requires_resign : false;
+            }
+
             // Extract agent info
             $agent = $request->userAgent();
             $os = 'Unknown';
@@ -354,18 +400,18 @@ class PartnerFundingApplicationController extends Controller
 
             // Set old attestation_authorization to true for backward compatibility
             $validated['attestation_authorization'] = true;
+            $validated['requires_resign'] = false;
 
             $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
 
-            // Log that the borrower submitted the application
-            $activityLogService = app(ActivityLogService::class);
+            // Log that the application was submitted - or, after an edit cleared
+            // the signature, re-signed and re-submitted.
             $borrowerName = !empty($validated['signature_name']) ? $validated['signature_name'] : (Auth::user() ? trim(Auth::user()->first_name . ' ' . Auth::user()->last_name) : 'Borrower');
-            $activityLogService->logModelEvent(
+            app(FundingApplicationAuditLogger::class)->logSubmitted(
                 $attestationAndAuthorization,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Funding Application Submitted',
-                "Funding Application submitted by {$borrowerName}."
+                $borrowerName,
+                $wasResubmission,
+                FundingApplicationAuditLogger::ACTOR_PARTNER
             );
 
             // Generate Certificate and Final PDF via new Document Service
@@ -376,6 +422,11 @@ class PartnerFundingApplicationController extends Controller
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),
                 __('borrower.attestation_and_authorization_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed') . ': ' . $e->getMessage(), 500);
         }

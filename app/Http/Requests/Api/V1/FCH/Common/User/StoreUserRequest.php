@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
+use App\Models\Employee\Employee;
 use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends  BaseApiRequest
@@ -26,7 +27,17 @@ class StoreUserRequest extends  BaseApiRequest
             'phone_number' => ['nullable', 'string', 'max:50', Rule::unique('users', 'phone_number')->whereNull('deleted_at')],
             'password'     => ['required', 'string', 'min:6'],
             'role_id'      => ['required', 'exists:roles,id'],
-            'employee_id'  => ['nullable', 'exists:employees,id'],
+            'employee_id'  => [
+                'required',
+                // Only this partner's own (non-deleted) employees...
+                Rule::exists('employees', 'id')
+                    ->where('partner_id', $this->user()?->partner_id)
+                    ->whereNull('deleted_at'),
+                // ...that are not already linked to a user.
+                Rule::unique('users', 'entity_id')
+                    ->where('entity_type', Employee::class)
+                    ->whereNull('deleted_at'),
+            ],
             'is_paid'      => ['nullable', 'boolean'],
             'start_date'   => ['nullable', 'date'],
             'end_date'     => ['nullable', 'date'],
@@ -46,6 +57,9 @@ class StoreUserRequest extends  BaseApiRequest
             'password.min'         => __('user.password_min'),
             'role_id.required'     => __('user.role_required'),
             'role_id.exists'       => __('user.role_not_found'),
+            'employee_id.required' => __('user.employee_required'),
+            'employee_id.exists'   => __('user.employee_not_found'),
+            'employee_id.unique'   => __('user.employee_already_linked'),
         ];
     }
 }

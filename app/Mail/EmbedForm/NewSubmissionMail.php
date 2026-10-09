@@ -2,6 +2,7 @@
 
 namespace App\Mail\EmbedForm;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use App\Models\EmbedForm\EmbedFormSubmission;
@@ -11,7 +12,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class NewSubmissionMail extends Mailable
+class NewSubmissionMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 

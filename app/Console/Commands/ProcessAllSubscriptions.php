@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Jobs\ChargeSubscriptionInvoiceJob;
 use App\Mail\CronJobFailureMail;
 use App\Models\Invoice\Invoice;
@@ -12,7 +13,6 @@ use App\Services\FCH\Subscription\SubscriptionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Command: subscriptions:process-all
@@ -145,12 +145,12 @@ class ProcessAllSubscriptions extends Command
         }
 
         try {
-            Mail::to($emails)->send(new CronJobFailureMail(array_merge([
+            app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail(array_merge([
                 'job_name'      => $jobName,
                 'error_message' => $errorMessage,
                 'timestamp'     => now()->toDateTimeString(),
                 'stack_trace'   => $trace,
-            ], $extra)));
+            ], $extra)))->to($emails));
         } catch (\Exception $e) {
             Log::error(__('subscription.failed_send_admin_notify'), ['error' => $e->getMessage()]);
         }

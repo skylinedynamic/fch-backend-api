@@ -153,4 +153,34 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gap Between Back-to-Back Sends
+    |--------------------------------------------------------------------------
+    |
+    | Milliseconds to wait between two emails sent in the same request (e.g.
+    | the two an email change sends). A rate-limited mail account — Mailtrap's
+    | free tier allows one per second — refuses the second otherwise, and a
+    | refused email that isn't queued is not retried. 0 turns the pause off.
+    |
+    */
+
+    'send_gap_ms' => (int) env('MAIL_SEND_GAP_MS', 1100),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retrying a Refused Send
+    |--------------------------------------------------------------------------
+    |
+    | Waits, in milliseconds, before each retry of an email the mail server
+    | refused (e.g. "550 Too many emails per second") where the sender retries
+    | itself instead of queueing - one retry per entry. Empty turns retries off.
+    |
+    */
+
+    'send_retry_delays_ms' => array_values(array_filter(array_map(
+        'intval',
+        explode(',', (string) env('MAIL_SEND_RETRY_DELAYS_MS', '2000,4000,8000'))
+    ), fn ($ms) => $ms >= 0)),
+
 ];

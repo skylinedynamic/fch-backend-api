@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Subscription;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\Payment\PaymentSuccessUserMail;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +15,6 @@ use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Mail\CronJobFailureMail;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use App\Models\Subscription\Subscription;
@@ -607,7 +607,8 @@ class SubscriptionService
                 ]);
 
                 try {
-                    Mail::to($user->email)->queue(new PaymentSuccessUserMail([
+                    // Inline, not queued: it carries the new password.
+                    app(Notifier::class)->send('user.seat_activated', $user, mail: (new PaymentSuccessUserMail([
                         'amount' => $invoice->payment_amount,
                         'currency' => $invoice->currency,
                         'transaction_id' => 'SUB_' . $subscription->id,
@@ -617,7 +618,7 @@ class SubscriptionService
                         'user_email' => $user->email,
                         'plainPassword' => $plainPassword,
                         'user' => $user,
-                    ], $user->partner_id));
+                    ], $user->partner_id))->to($user->email));
                 } catch (\Exception $e) {
                     Log::error('Failed to send Seat Purchase Mail: ' . $e->getMessage());
                 }
@@ -985,7 +986,7 @@ class SubscriptionService
 
             if (!empty($emails)) {
                 $entity = $subscription->entity;
-                Mail::to($emails)->send(new CronJobFailureMail([
+                app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail([
                     'job_name' => 'generateDueInvoices — Failure',
                     'error_message' => $e->getMessage(),
                     'timestamp' => now()->toDateTimeString(),
@@ -993,7 +994,7 @@ class SubscriptionService
                     'user_email' => $entity->email ?? 'N/A',
                     'user_id' => $entity->id ?? 'N/A',
                     'partner_name' => $entity->full_name ?? ($entity->partner?->full_name ?? 'N/A'),
-                ]));
+                ]))->to($emails));
             }
         }
     }

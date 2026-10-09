@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH\Common\PartnerFundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Mail\Borrower\FundingApplicationSubmittedMail;
 use App\Models\Borrower\Borrower;
@@ -13,11 +15,35 @@ use App\Models\Borrower\FundingApplicationDocument;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
+use App\Services\FCH\Common\Application\FundingApplicationEditGuard;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Mail\Partner\FundingApplicationSubmittedMail as PartnerFundingApplicationSubmittedMail;
 class PartnerFundingApplicationService
 {
+    public function __construct(
+        private FundingApplicationEditGuard $editGuard,
+        private FundingApplicationAuditLogger $auditLogger
+    ) {
+    }
+
+    /**
+     * Where an application the partner is still preparing should sit: On Hold
+     * while steps are outstanding, Draft once federal compliance - the last step -
+     * is on file and it is ready to go to the borrower to sign.
+     *
+     * @param array $data
+     * @param FundingApplication|null $existing
+     * @return string
+     */
+    private function preparationStatus(array $data, $existing = null): string
+    {
+        $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation'])
+            || ($existing && $existing->federal_compliance_disclosures_explanation !== null);
+
+        return $hasFederalCompliance ? FundingApplication::DRAFT : FundingApplication::ON_HOLD;
+    }
 
     /**
      * Get Business Info for the authenticated user.
@@ -93,24 +119,11 @@ class PartnerFundingApplicationService
                 throw new \Exception("Could not determine borrower ID.");
             }
 
-            $existingStatus = $existing->status ?? null;
-            
-            // If the application is already submitted or beyond, preserve its status unless explicitly overridden
-            if ($existingStatus && !in_array($existingStatus, [FundingApplication::ON_HOLD, FundingApplication::DRAFT])) {
-                $data['status'] = $status ?? $existingStatus;
-            } else {
-                // Check if federal compliance exists (either being saved now, or already exists)
-                $hasFederalCompliance = isset($data['federal_compliance_disclosures_explanation']) || (isset($existing) && $existing->federal_compliance_disclosures_explanation !== null);
-                
-                if ($hasFederalCompliance) {
-                    // When saving the last data, update status to DRAFT
-                    $data['status'] = $status ?? FundingApplication::DRAFT;
-                } else {
-                    // Otherwise, all saves should be ON_HOLD
-                    $data['status'] = $status ?? FundingApplication::ON_HOLD;
-                }
-            }
-            
+            // Status, the edit lock and the resign rules are all applied further
+            // down, once the application this save actually targets has been
+            // resolved - the lookup below can land on a different row than the
+            // preliminary one used here to find the borrower.
+
             $data['is_partner_prepared'] = true;
             $data['borrower_id'] = $borrowerId;
             $data['partner_id'] = auth()->user()->partner_id ?? auth()->id(); // Use partner_id if it exists, otherwise fallback
@@ -152,11 +165,17 @@ class PartnerFundingApplicationService
             $existing = null;
             if (empty($matchId)) {
                 $fundingReqId = $data['funding_request_id'] ?? null;
-                $query = FundingApplication::where('borrower_id', $borrowerId)
-                    ->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
+                $query = FundingApplication::where('borrower_id', $borrowerId);
 
+                // Match on the funding request alone, not on "still a draft". This
+                // used to filter to On Hold / Draft, which meant a save for an
+                // already-submitted application found nothing and created a second
+                // row - quietly sidestepping both the edit lock and the resign
+                // rules below, which is exactly what they exist to prevent.
                 if ($fundingReqId) {
                     $query->where('funding_request_id', $fundingReqId);
+                } else {
+                    $query->whereIn('status', [FundingApplication::ON_HOLD, FundingApplication::DRAFT]);
                 }
 
                 $existing = $query->latest()->first();
@@ -174,12 +193,65 @@ class PartnerFundingApplicationService
                 // User specifies no updated_by for partner creation
             }
 
+            // The partner wizard parks an in-progress application at On Hold and
+            // promotes it to Draft once the last step (federal compliance) is on
+            // file, so it is ready to send to the borrower to sign. An application
+            // that is already past signing keeps the status it has; only an
+            // explicit status, or a resign forced below, moves it.
+            $changedFields = [];
+            $changes = [];
+            $requiresResign = false;
+            $previousStatus = $existing->status ?? null;
 
+            if (!$isNew && $existing && empty($status)) {
+                $data['status'] = in_array($existing->status, FundingApplication::preSignatureStatuses(), true)
+                    ? $this->preparationStatus($data, $existing)
+                    : $existing->status;
+            } else {
+                $data['status'] = $status ?? $this->preparationStatus($data, $existing);
+            }
+
+            if (!$isNew && $existing) {
+                try {
+                    $decision = $this->editGuard->applyEditRules($existing, $data, $status);
+                } catch (FundingApplicationLockedException $e) {
+                    $this->auditLogger->logBlockedEdit($existing, FundingApplicationAuditLogger::ACTOR_PARTNER);
+                    throw $e;
+                }
+
+                $data = $decision['data'];
+                $changedFields = $decision['changed_fields'];
+                $changes = $decision['changes'];
+                $requiresResign = $decision['requires_resign'];
+            }
 
             $fundingApplication = FundingApplication::updateOrCreate(
                 ['id' => $matchId],
                 $data
             );
+
+            if ($requiresResign) {
+                // A partner changed data the borrower had already attested to, so
+                // it is the borrower's signature that is now stale.
+                $this->auditLogger->logEditRequiringResign(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_PARTNER,
+                    $previousStatus ?? '',
+                    $changes
+                );
+            } elseif (! $isNew && empty($status) && $changedFields !== [] && $existing->hasBeenSubmitted()) {
+                // A further change to an application that was submitted before
+                // (a re-sign is already owed). It costs nothing more, but what
+                // changed is still recorded. Preparing a new application for
+                // the first time is not logged step by step.
+                $this->auditLogger->logEdit(
+                    $fundingApplication,
+                    $changedFields,
+                    FundingApplicationAuditLogger::ACTOR_PARTNER,
+                    $changes
+                );
+            }
 
 
             if (isset($data['has_co_borrower']) && $data['has_co_borrower']) {
@@ -224,10 +296,19 @@ class PartnerFundingApplicationService
             // Send email if submitted
             if ($fundingApplication->status === FundingApplication::PENDING) {
                 try {
+                    // Bell + email. The email only where there is an address, as before.
+                    $notifier = app(Notifier::class);
+                    $bellData = [
+                        'id' => $fundingApplication->id,
+                        'borrower' => personName($fundingApplication->borrower?->first_name, $fundingApplication->borrower?->middle_name, $fundingApplication->borrower?->last_name),
+                    ];
+
                     // Send to Borrower
-                    if ($fundingApplication->borrower && $fundingApplication->borrower->email) {
+                    if ($fundingApplication->borrower) {
                         try {
-                            Mail::to($fundingApplication->borrower->email)->send(new \App\Mail\Borrower\FundingApplicationSubmittedMail($fundingApplication));
+                            $email = $fundingApplication->borrower->email;
+                            $notifier->send('borrower.funding_application.submitted', $fundingApplication->borrower, $bellData,
+                                mail: $email ? (new FundingApplicationSubmittedMail($fundingApplication))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to borrower', [
                                 'application_id' => $fundingApplication->id,
@@ -237,9 +318,11 @@ class PartnerFundingApplicationService
                     }
 
                     // Send to Partner
-                    if ($fundingApplication->partner && $fundingApplication->partner->email) {
+                    if ($fundingApplication->partner) {
                         try {
-                            Mail::to($fundingApplication->partner->email)->send(new \App\Mail\Partner\FundingApplicationSubmittedMail($fundingApplication, $fundingApplication->partner->id));
+                            $email = $fundingApplication->partner->email;
+                            $notifier->send('partner.funding_application.submitted', $fundingApplication->partner, $bellData,
+                                mail: $email ? (new PartnerFundingApplicationSubmittedMail($fundingApplication, $fundingApplication->partner->id))->to($email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to partner', [
                                 'application_id' => $fundingApplication->id,
@@ -250,9 +333,10 @@ class PartnerFundingApplicationService
 
                     // Send to Host
                     $host = Partner::host();
-                    if ($host && $host->id != $fundingApplication->partner_id && $host->email) {
+                    if ($host && $host->id != $fundingApplication->partner_id) {
                         try {
-                            Mail::to($host->email)->send(new \App\Mail\Partner\FundingApplicationSubmittedMail($fundingApplication, $host->id));
+                            $notifier->send('partner.funding_application.submitted', $host, $bellData,
+                                mail: $host->email ? (new PartnerFundingApplicationSubmittedMail($fundingApplication, $host->id))->to($host->email) : null);
                         } catch (\Throwable $e) {
                             Log::error('Failed to send funding application submission email to host', [
                                 'application_id' => $fundingApplication->id,

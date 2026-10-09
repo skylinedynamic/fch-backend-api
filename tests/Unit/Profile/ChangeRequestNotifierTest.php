@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+use Tests\Support\FakesBell;
 use Tests\TestCase;
 
 /**
@@ -36,6 +37,8 @@ use Tests\TestCase;
 #[CoversClass(ChangeRequestNotifier::class)]
 class ChangeRequestNotifierTest extends TestCase
 {
+    use FakesBell;
+
     private const HOST_ID = 1;
     private const PARTNER_ID = 42;
 
@@ -44,6 +47,7 @@ class ChangeRequestNotifierTest extends TestCase
         parent::setUp();
 
         Mail::fake();
+        $this->fakeBell();
     }
 
     // ── Fixtures, all in memory ───────────────────────────────────────
@@ -273,6 +277,52 @@ class ChangeRequestNotifierTest extends TestCase
         Mail::assertNothingQueued();
     }
 
+    // ── The bell ──────────────────────────────────────────────────────
+
+    #[Test]
+    public function a_submission_rings_the_hosts_bell(): void
+    {
+        $this->notifier($this->host())->requestSubmitted($this->changeRequest());
+
+        $this->assertBelled($this->host(), 'host.change_request.submitted', fn (array $data) => $data['body'] === 'Jane Smith asked to change their Date of Birth.'
+            && $data['url'] === '/intake-review/change-requests');
+    }
+
+    #[Test]
+    public function a_host_with_no_address_still_hears_about_it_in_the_bell(): void
+    {
+        $host = $this->host(['email' => null]);
+
+        $this->notifier($host)->requestSubmitted($this->changeRequest());
+
+        Mail::assertNothingQueued();
+        $this->assertBelled($host, 'host.change_request.submitted');
+    }
+
+    #[Test]
+    public function a_decision_rings_the_borrowers_bell_without_the_new_value(): void
+    {
+        // The new value can be a date of birth or an SSN; the bell is stored
+        // and pushed over the socket, so it names the field only.
+        $borrower = $this->borrower();
+
+        $this->notifier($this->host())->decisionMade($this->changeRequest($borrower));
+
+        $this->assertBelled($borrower, 'borrower.change_request.decided', fn (array $data) => $data['body'] === 'Your request to change your Date of Birth was approved.'
+            && !str_contains(json_encode($data), '1981-06-06'));
+    }
+
+    #[Test]
+    public function a_borrower_with_no_address_still_hears_about_it_in_the_bell(): void
+    {
+        $borrower = $this->borrower(['email' => null, 'business_email' => null]);
+
+        $this->notifier($this->host())->decisionMade($this->changeRequest($borrower));
+
+        Mail::assertNothingQueued();
+        $this->assertBelled($borrower, 'borrower.change_request.decided');
+    }
+
     // ── Failures stay out of the caller's way ─────────────────────────
 
     #[Test]
@@ -281,7 +331,7 @@ class ChangeRequestNotifierTest extends TestCase
         // The request is already saved, or already applied to the borrower's
         // record. A dead mail server must not turn that into an error on the
         // borrower's or the reviewer's screen.
-        Mail::shouldReceive('to')->andThrow(new \RuntimeException('simulated transport failure'));
+        Mail::shouldReceive('send')->andThrow(new \RuntimeException('simulated transport failure'));
 
         $notifier = $this->notifier($this->host());
 

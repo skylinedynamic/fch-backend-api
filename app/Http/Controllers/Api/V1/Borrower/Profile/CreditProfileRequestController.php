@@ -13,7 +13,7 @@ use App\Services\Borrower\Profile\CreditProfileRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 class CreditProfileRequestController extends Controller
 {
@@ -54,15 +54,20 @@ class CreditProfileRequestController extends Controller
             // \Exception does not catch. A failed/queued-and-later-failed send must
             // never fail the borrower's request submission itself.
             $host = Partner::where('is_host', 1)->first();
-            if ($host && $host->email) {
+            if ($host) {
                 try {
-                    Mail::to($host->email)->send(
+                    $borrower = $creditProfileRequest->borrower;
+
+                    app(Notifier::class)->send('host.credit_profile.requested', $host, [
+                        'id' => $creditProfileRequest->id,
+                        'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
+                    ], mail: $host->email
                         // Sent with the host's own mail credentials rather than
                         // left to resolve them: this notification is the host's,
                         // and naming the partner means it does not depend on the
                         // unconfigured-tenant fallback happening to land there.
-                        new CreditProfileRequestMail($creditProfileRequest, (int) $host->id)
-                    );
+                        ? (new CreditProfileRequestMail($creditProfileRequest, (int) $host->id))->to($host->email)
+                        : null);
                 } catch (\Throwable $mailException) {
                     Log::error(__('credit_profile_request.log_upload_email_failed', ['error' => $mailException->getMessage()]));
                 }

@@ -7,17 +7,14 @@ use App\Http\Resources\FCH\Common\Commission\CommissionResource;
 use App\Http\Resources\FCH\Common\Commission\FundingApplicationCommissionResource;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Commission\Commission;
-use App\Models\Invoice\Invoice;
-use App\Models\Payment\Payment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Services\FCH\Common\Invoice\InvoiceService;
+use App\Services\FCH\Common\Commission\CommissionPayoutService;
 
 use App\Services\Global\Datatable\QueryFilter;
 use App\Traits\PaginatesApi;
 use Illuminate\Database\Eloquent\Builder;
-use App\Models\Partner\Partner;
 
 class CommissionService
 {
@@ -98,91 +95,24 @@ class CommissionService
     }
 
     /**
-     * Process commission payout.
+     * Process commission payout — to the partner, or for a client of the host
+     * partner to the user assigned to that client. Records the payout, an
+     * invoice and a payment (see CommissionPayoutService).
+     *
+     * @throws \Illuminate\Validation\ValidationException when there's nothing that can be paid yet
      */
     public function processPayout($commissionId, array $data)
     {
-        DB::beginTransaction();
+        $commission = app(CommissionPayoutService::class)->pay(
+            Commission::findOrFail($commissionId),
+            $data['partner_payment_method'],
+            $data['note'] ?? null,
+        );
 
-        try {
-            $commission = Commission::with(['partner', 'borrower'])->findOrFail($commissionId);
-
-            if ($commission->payment_status === Commission::PAYMENT_STATUS_PAID) {
-                return ApiResponse::error(__('application.commission_already_paid'), 400);
-            }
-
-            // Only create invoice/payment for partner if partner exists and has commission > 0
-            if ($commission->partner_id && $commission->partner_commission_amount > 0) {
-                $partner = $commission->partner;
-                $invoice = Invoice::create([
-                    'invoice_id' => app(InvoiceService::class)->generateInvoiceId(),
-                    'partner_id' => $commission->partner_id,
-                    'borrower_id' => $commission->borrower_id,
-                    'entity_type' => Partner::class,
-                    'entity_id' => $commission->partner_id,
-                    'customer_name' => $partner->full_name ?? $partner->company_name,
-                    'email' => $partner->email,
-                    'country' => $partner->country,
-                    'payment_amount' => $commission->partner_commission_amount,
-                    // payment_date is a DATE column - store the calendar date.
-                    'payment_date' => today(),
-                    'status' => Invoice::STATUS_PAID,
-                    'type' => Invoice::INVOICE_TYPE_COMMISSION_PAYOUT,
-                    'currency' => $commission->currency,
-                    'currency_symbol' => $commission->currency_symbol,
-                    'conversion_rate' => $commission->conversion_rate,
-                    'note' => $data['note'] ?? null,
-                    'created_by' => auth()->id(),
-                ]);
-
-                $paymentMethod = $data['partner_payment_method'];
-                
-                $payment = new Payment();
-                $payment->createRecord([
-                    'partner_id' => $commission->partner_id,
-                    'borrower_id' => $commission->borrower_id,
-                    'invoice_id' => $invoice->id,
-                    'entity_type' => Partner::class,
-                    'entity_id' => $commission->partner_id,
-                    'amount' => $commission->partner_commission_amount,
-                    'currency' => $commission->currency,
-                    'currency_symbol' => $commission->currency_symbol,
-                    'conversion_rate' => $commission->conversion_rate,
-                    'payment_from' => $paymentMethod,
-                    'payment_type' => $paymentMethod,
-                    'status' => Payment::STATUS_SUCCEEDED,
-                    'transaction_date' => now(),
-                    'created_by' => auth()->id(),
-                ]);
-            }
-
-            $commission->update([
-                'payment_status' => Commission::PAYMENT_STATUS_PAID,
-                'commission_status' => Commission::STATUS_COMPLETED,
-                'payout_date' => now(),
-            ]);
-
-            if (isset($invoice) && isset($partner) && $partner->email) {
-                \Illuminate\Support\Facades\Mail::to($partner->email)
-                    ->send(new \App\Mail\Commission\CommissionPayoutMail($commission, $invoice, $data['note'] ?? null));
-            }
-
-            DB::commit();
-
-            return ApiResponse::success(
-                new CommissionResource($commission->fresh()),
-                __('application.commission_payout_processed_successfully')
-            );
-        } catch (\Throwable $e) {
-            DB::rollBack();
-
-            Log::error('❌ ' . __('application.error_processing_payout'), [
-                'error' => $e->getMessage(),
-                'commission_id' => $commissionId,
-            ]);
-
-            throw $e;
-        }
+        return ApiResponse::success(
+            new CommissionResource($commission->fresh()),
+            __('application.commission_payout_processed_successfully')
+        );
     }
 }
  

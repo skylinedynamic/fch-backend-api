@@ -386,6 +386,13 @@ return [
     
     // Attestation & Authorization
     'signature_name_required' => 'Electronic signature (full legal name) is required.',
+    'signature_file_not_found' => 'That file could not be found. Please choose your signature image again.',
+    'signature_file_type' => 'The signature must be an image file. ":file" is not an image.',
+    'signature_file_size' => 'The signature image must be :max or smaller. ":file" is :size.',
+    'signature_date_invalid' => 'Please choose a valid signature date.',
+    'signature_date_future' => 'The signature date cannot be in the future.',
+    'signature_image_required' => 'Please choose your signature image from the file manager.',
+    'signature_image_invalid' => 'The signature must be a PNG or JPG image. Please choose it again from the file manager.',
     'signature_name_min' => 'Electronic signature must be at least 3 characters.',
     'signature_name_max' => 'Electronic signature may not be greater than 255 characters.',
     'signature_name_invalid' => 'Electronic signature cannot be only spaces.',
