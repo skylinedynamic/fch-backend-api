@@ -16,6 +16,7 @@ use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
 use App\Services\GlobalPayment\PaymentMailService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -23,7 +24,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ChargeSubscriptionInvoiceJob implements ShouldQueue
+class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -51,11 +52,33 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
     public int $backoff = 60;
 
     /**
+     * How long the "already queued" lock may outlive a job that never released
+     * it (a worker killed mid-run). Kept under the 12-hour gap between cron
+     * passes, so a stuck lock costs at most one pass rather than blocking the
+     * invoice for good.
+     */
+    public int $uniqueFor = 11 * 60 * 60;
+
+    /**
      * Create a new job instance.
+     *
+     * Deliberately NOT pinned to a connection. It used to be pinned to
+     * `database`, but production workers run on the default (Redis) connection,
+     * so nothing ever picked these up - invoices sat in the jobs table and were
+     * never auto-charged.
      */
     public function __construct(public Invoice $invoice)
     {
-        $this->onConnection('database');
+    }
+
+    /**
+     * One queued charge per invoice. The cron dispatches every Unpaid invoice
+     * twice a day; without this, each pass adds another copy while the last is
+     * still waiting.
+     */
+    public function uniqueId(): string
+    {
+        return (string) $this->invoice->id;
     }
 
     /**
@@ -233,7 +256,18 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                 return;
             }
 
-            DB::transaction(function () use ($invoice, $result, $subscriptionService) {
+            $recorded = DB::transaction(function () use ($invoice, $result, $subscriptionService) {
+                // Re-read under a row lock. A duplicate of this job that got here
+                // first was handed the same charge by Stripe (same idempotency
+                // key), so if it has already marked the invoice Paid there is
+                // nothing left to record - doing so again would log a second
+                // payment and advance the subscription twice.
+                $current = Invoice::whereKey($invoice->id)->lockForUpdate()->first();
+
+                if (!$current || $current->status !== Invoice::STATUS_UNPAID) {
+                    return false;
+                }
+
                 $payment = new Payment();
                 $payment->createRecord([
                     'partner_id' => $invoice->partner_id,
@@ -259,7 +293,14 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
                 // Advance subscription phase and/or extend renewal dates
                 $subscriptionService->handleSuccessfulPayment($invoice, $subscription);
+
+                return true;
             });
+
+            if (!$recorded) {
+                Log::info("[Queue AutoCharge] Invoice #{$invoice->invoice_id} was already settled by another run; nothing recorded");
+                return;
+            }
 
             Log::info("[Queue AutoCharge] Successfully charged invoice #{$invoice->invoice_id}");
         } catch (\Exception $e) {
@@ -309,7 +350,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         if (!empty($emails)) {
             try {
                 app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail([
-                    'job_name' => 'ChargeSubscriptionInvoiceJob (Database Queue)',
+                    'job_name' => 'ChargeSubscriptionInvoiceJob',
                     'error_message' => $reason,
                     'timestamp' => now()->toDateTimeString(),
                     'user_email' => $this->invoice->email ?? 'N/A',
