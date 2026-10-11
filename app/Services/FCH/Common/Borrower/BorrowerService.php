@@ -2,6 +2,8 @@
 
 namespace App\Services\FCH\Common\Borrower;
 
+use App\Services\FCH\Common\Notification\Notifier;
+use Illuminate\Mail\Mailable;
 use App\Models\User\User;
 use App\Models\Common\Role;
 use App\Helpers\ApiResponse;
@@ -16,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\FCH\Common\Invoice\InvoiceService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\ActivityLog\ActivityLog;
@@ -25,6 +26,7 @@ use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Http\Resources\FCH\Borrower\BorrowerResource;
 use App\Services\FCH\Subscription\EnrollmentService;
 use App\Services\FCH\Subscription\SubscriptionService;
+use Illuminate\Validation\ValidationException;
 
 
 
@@ -37,16 +39,20 @@ class BorrowerService
         protected SubscriptionService $subscriptionService,
         protected EnrollmentService $enrollmentService,
         protected \App\Services\FCH\Common\ActivityLog\ActivityLogService $activityLogService,
+        protected \App\Services\Global\Account\EmailChangeService $emailChange,
     ) {
     }
 
     /**
      * Send a borrower email using the partner's active mail config.
      */
-    private function sendBorrowerMail(string $email, object $mailable, int|null $partnerId): void
+    /**
+     * @param mixed $recipient Who gets the bell (the borrower's login user)
+     */
+    private function sendBorrowerMail(string $type, mixed $recipient, string $email, Mailable $mailable, int|null $partnerId, array $bellData = []): void
     {
         try {
-            Mail::to($email)->send($mailable);
+            app(Notifier::class)->send($type, $recipient, $bellData, mail: $mailable->to($email));
         } catch (\Exception $e) {
             Log::error('Borrower email failed', [
                 'email' => $email,
@@ -89,6 +95,10 @@ class BorrowerService
         // not just the rows matching whatever search/filter the user currently has active.
         $statsQuery = clone $query;
 
+        // Archived borrowers are not active business, so they never count toward
+        // the summary cards - whatever the list below is currently showing.
+        $statsQuery->notArchived();
+
         // Filter by current_tier (supports ID or Name)
         $currentTier = $filters['current_tier']['value'] ?? ($filters['current_tier'] ?? null);
         if ($currentTier !== null && $currentTier !== '') {
@@ -127,6 +137,21 @@ class BorrowerService
         if (!empty($filters['search'])) {
             $query->search($filters['search']);
         }
+
+        // 🗄 Archived borrowers leave the working list but stay findable. A search
+        // reaches them by default; `archived` narrows to them, `archived=all`
+        // ignores the distinction entirely.
+        // '' and null both mean "no archive filter chosen" - the UI sends an empty
+        // string, not null, so both have to be treated the same or a search would
+        // never reach archived records.
+        $archived = $filters['archived'] ?? null;
+        $archived = ($archived === '' ? null : $archived);
+
+        if ($archived === null && !empty($filters['search'])) {
+            $archived = Borrower::ARCHIVE_FILTER_ALL;
+        }
+
+        $query->archiveFilter($archived);
 
         $sortField = $filters['sort_field'] ?? 'id';
         $sortOrder = strtolower($filters['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
@@ -398,9 +423,12 @@ class BorrowerService
                     );
 
                     $this->sendBorrowerMail(
+                        'borrower.account.trial_started',
+                        $user,
                         $user->email,
                         new \App\Mail\Trial\BorrowerTrialMail(array_merge($mailData, ['trial_end_date' => $trialEndDate]), $borrower->partner_id),
-                        $borrower->partner_id
+                        $borrower->partner_id,
+                        ['date' => $trialEndDate ?? 'N/A']
                     );
 
                     $isHostPartner = $partner && $partner->is_host == 1;
@@ -446,6 +474,11 @@ class BorrowerService
         DB::beginTransaction();
         try {
             $user = $borrower->user;
+
+            // With a login, a new email is confirmed from the new address before
+            // either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($data, $user, $borrower->email);
+
             $wasFreeTrial = (bool) $borrower->is_free_trail;
             $isFreeTrialInput = isset($data['is_free_trail']) ? (bool) $data['is_free_trail'] : false;
 
@@ -587,7 +620,7 @@ class BorrowerService
                         'is_update' => true,
                     ];
                     Log::info('📧 Sending account update email to borrower due to email change', ['email' => $user->email]);
-                    $this->sendBorrowerMail($user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
+                    $this->sendBorrowerMail('borrower.account.login_updated', $user, $user->email, new BorrowerAccountCreatedMail($mailData, $borrower->partner_id), $borrower->partner_id);
                 }
             } elseif (!empty($data['email'])) {
                 $userResult = $this->createOrUpdateUser($data, $borrower);
@@ -618,6 +651,10 @@ class BorrowerService
                 $user->update(['is_refresh' => true]);
             }
             DB::commit();
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             // Return consistent format or just borrower? Controller expects resource.
             // Keeping it simple as controller will be updated to handle array for store, but update often doesn't need email.
@@ -728,6 +765,72 @@ class BorrowerService
     /**
      * Delete borrowers.
      */
+
+    /**
+     * Archive records so they leave the working list without being deleted.
+     *
+     * Presentation only: `status` is untouched, so archiving changes nothing about
+     * login, billing or permissions. Already-archived rows are skipped rather than
+     * re-stamped, so the original "who filed this away" survives a repeat action.
+     */
+    public function archive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $archived = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->archive()) {
+                    $archived++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['archived' => $archived],
+                __('borrower.archived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower archive failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.archive_failed'), 400);
+        }
+    }
+
+    /**
+     * Return archived records to the working list. Nothing else about them changes -
+     * archiving never altered the record, so restoring has nothing to rebuild.
+     */
+    public function unarchive(array $ids)
+    {
+        try {
+            DB::beginTransaction();
+
+            $restored = 0;
+
+            foreach (Borrower::whereIn('id', $ids)->get() as $record) {
+                if ($record->unarchive()) {
+                    $restored++;
+                }
+            }
+
+            DB::commit();
+
+            return ApiResponse::success(
+                ['restored' => $restored],
+                __('borrower.unarchived')
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Borrower restore failed', ['ids' => $ids, 'error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('borrower.unarchive_failed'), 400);
+        }
+    }
+
     public function delete(array $ids)
     {
 
@@ -743,7 +846,7 @@ class BorrowerService
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Borrower deletion failed', ['ids' => $ids, 'error' => $e->getMessage()]);
-            return ApiResponse::error($e->getMessage(), 400);
+            return ApiResponse::error(__('borrower.delete_failed'), 400);
         }
     }
 
@@ -796,9 +899,19 @@ class BorrowerService
         }
 
         if ($existingUser) {
+            // A login's email never changes here — update() hands a new one to
+            // EmailChangeService — so there's no password to reset.
             $plainPassword = null;
             // Check if email is changing and present in update data
             if (isset($userData['email']) && $existingUser->email !== $userData['email']) {
+                $conflictUser = User::where('email', $userData['email'])->where('id', '!=', $existingUser->id)->first();
+                if ($conflictUser) {
+                    $entityName = $conflictUser->entity_name ?? class_basename($conflictUser->entity_type ?? 'User');
+                    throw ValidationException::withMessages([
+                        'email' => ["The email '{$userData['email']}' is already registered to an existing {$entityName} account."],
+                    ]);
+                }
+
                 $plainPassword = bin2hex(random_bytes(4)); // Generate 8 char hex string (4 bytes)
                 $userData['password'] = bcrypt($plainPassword);
                 Log::info('Password reset for Borrower user due to email change', ['user_id' => $existingUser->id]);
@@ -811,6 +924,15 @@ class BorrowerService
         // Check if user exists by email to avoid duplicates if not linked
         $user = User::where('email', $data['email'])->first();
         if ($user) {
+            // Guard against hijacking existing users from other entities or other borrowers
+            $isSameBorrower = ($user->entity_type === Borrower::class && (int) $user->entity_id === (int) $borrower->id);
+            if (!$isSameBorrower) {
+                $entityName = $user->entity_name ?? class_basename($user->entity_type ?? 'User');
+                throw ValidationException::withMessages([
+                    'email' => ["The email '{$data['email']}' is already registered to an existing {$entityName} account."],
+                ]);
+            }
+
             $user->update($userData);
             return ['user' => $user, 'plain_password' => null];
         }

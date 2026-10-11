@@ -29,6 +29,10 @@ class PartnerResource extends JsonResource
             'contact_person_relation' => $this->contact_person_relation,
             'partner_type' => $this->partner_type,
             'status' => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'state' => $this->state,
             'city' => $this->city,
             'postal_code' => $this->postal_code,

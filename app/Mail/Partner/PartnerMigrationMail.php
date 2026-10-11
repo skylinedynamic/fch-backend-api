@@ -2,13 +2,14 @@
 
 namespace App\Mail\Partner;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class PartnerMigrationMail extends Mailable
+class PartnerMigrationMail extends Mailable implements ShouldQueue
 {
     use MailableBranding, MailConfig;
 

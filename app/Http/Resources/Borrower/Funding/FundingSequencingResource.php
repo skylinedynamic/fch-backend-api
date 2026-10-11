@@ -119,6 +119,7 @@ class FundingSequencingResource extends JsonResource
         $latestUseOfFunds = null;
         $latestReviewStatus = null;
         $hasFundingApplication = false;
+        $latestApplication = null;
 
         if ($borrower) {
             $latestReview = FundingRequest::where('borrower_id', $borrower->id)
@@ -133,16 +134,25 @@ class FundingSequencingResource extends JsonResource
             }
 
             if ($latestReview) {
-                $hasFundingApplication = FundingApplication::where('funding_request_id', $latestReview->id)->exists();
-                if (!$hasFundingApplication) {
+                // Fetch the application rather than just testing for one: the card
+                // needs its status to decide between "View Application" and
+                // "Start a New Funding Request".
+                $latestApplication = FundingApplication::where('funding_request_id', $latestReview->id)
+                    ->latest('id')
+                    ->first();
+
+                if (!$latestApplication) {
                     $approvedFundingName = $this->name ?: ($this->type ? $this->type->name : null);
                     if ($approvedFundingName) {
-                        $hasFundingApplication = FundingApplication::where('borrower_id', $borrower->id)
+                        $latestApplication = FundingApplication::where('borrower_id', $borrower->id)
                             ->where('approved_funding', $approvedFundingName)
                             ->where('created_at', '>=', $latestReview->created_at)
-                            ->exists();
+                            ->latest('id')
+                            ->first();
                     }
                 }
+
+                $hasFundingApplication = (bool) $latestApplication;
             }
         }
 
@@ -180,6 +190,25 @@ class FundingSequencingResource extends JsonResource
             'latest_review_status' => $latestReviewStatus,
             'has_funding_application' => $hasFundingApplication,
             'latest_review_id' => $latestReview ? $latestReview->id : null,
+
+            // The application this funding option already produced, if any, and
+            // what the borrower may still do about it. `can_start_new_funding_request`
+            // is the one that matters on the detail card: once the application
+            // has left the borrower's hands - with a lender, funded, closed or
+            // denied - that round is settled, so they may apply again rather than
+            // being parked on a "View Application" link that leads nowhere useful.
+            'funding_application_id' => $latestApplication ? $latestApplication->id : null,
+            'funding_application_status' => $latestApplication ? $latestApplication->status : null,
+            // Lifecycle key (1-19). At or below the editable limit the borrower
+            // may still edit the application; past it they start a new request.
+            'funding_application_status_key' => $latestApplication ? FundingApplication::statusKey($latestApplication->status) : null,
+            'funding_application_is_editable' => $latestApplication ? $latestApplication->isEditable() : false,
+            'funding_application_funding_request_id' => $latestApplication
+                ? ($latestApplication->funding_request_id ?? $latestReview?->id)
+                : null,
+            'funding_application_is_locked' => $latestApplication ? $latestApplication->isLockedForEdit() : false,
+            'funding_application_requires_resign' => $latestApplication ? (bool) $latestApplication->requires_resign : false,
+            'can_start_new_funding_request' => $latestApplication ? $latestApplication->allowsNewFundingRequest() : false,
             // Dynamic engine fields
             'engine_status' => $this->engine_status ?? FundingSequencing::ENGINE_STATUS_ACTIVE,
             'engine_status_label' => $this->engine_status_label ?? FundingSequencing::ENGINE_LABEL_ACTIVE,

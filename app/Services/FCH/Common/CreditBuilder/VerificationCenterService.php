@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\CreditBuilder;
 
+use App\Services\CreditBuilder\VerificationNotifier;
 use App\Traits\PaginatesApi;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
@@ -15,10 +16,8 @@ use App\Models\CreditBuilder\TierRelatedApi;
 use App\Models\CreditBuilder\TierTask;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Services\Global\MicroBilt\MicroBiltVerificationFactory;
-use App\Mail\Borrower\BorrowerVerificationStatusMail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class VerificationCenterService
 {
@@ -337,6 +336,7 @@ class VerificationCenterService
             if (in_array($verificationRequest->status, [BorrowerTaskVerificationRequest::COMPLETED, BorrowerTaskVerificationRequest::REJECTED])) {
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED),
                     'message' => ($verificationRequest->status == BorrowerTaskVerificationRequest::COMPLETED)
                         ? __('verification_center.already_verified')
@@ -425,12 +425,14 @@ class VerificationCenterService
                 $isVerified = ($statusToWrite == BorrowerTaskVerificationRequest::COMPLETED);
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => $isVerified,
                     'message' => $isVerified ? __('verification_center.verified') : ($errorMessage ?: __('verification_center.verification_failed')),
                 ];
             } else {
                 $results[] = [
                     'task_name' => $taskName,
+                    'tier_name' => $tier?->name ?: __('verification_center.unknown_tier'),
                     'is_verified' => false,
                     'message' => $errorMessage ?: __('verification_center.no_api_assigned'),
                     'skipped' => true,
@@ -445,61 +447,19 @@ class VerificationCenterService
     }
 
     /**
-     * Send verification status notification email to the borrower.
+     * Notify everyone a decision concerns.
+     *
+     * Delegates to VerificationNotifier, which sends the borrower's copy from
+     * their own partner's mailbox and the partner's copy from the host's. This
+     * method and its twin in the other verification service previously held
+     * identical inline copies of the borrower mail and nothing else - no
+     * partner was ever told.
      */
     protected function sendVerificationStatusMail($borrower, string $status, ?string $note, array $taskResults): void
     {
-        try {
-            // Only send if borrower has an email
-            $email = $borrower?->email ?? $borrower?->user?->email ?? null;
-
-            if (!$email) {
-                Log::warning('VerificationCenterService: No email found for borrower', [
-                    'borrower_id' => $borrower?->id,
-                ]);
-                return;
-            }
-
-            $borrowerName = trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) ?: 'Borrower';
-
-            $statusLabel = match ($status) {
-                BorrowerTaskVerificationRequest::COMPLETED => __('verification_center.verified'),
-                BorrowerTaskVerificationRequest::REJECTED => __('verification_center.rejected'),
-                BorrowerTaskVerificationRequest::PROCESSING => __('verification_center.processing'),
-                BorrowerTaskVerificationRequest::PENDING => __('verification_center.pending'),
-                default => ucfirst($status),
-            };
-
-            // Only send mail for tasks that were not skipped
-            $filteredResults = array_filter($taskResults, function ($result) {
-                return !($result['skipped'] ?? false);
-            });
-
-            if (empty($filteredResults)) {
-                return;
-            }
-
-            try {
-                Mail::to($email)->send(new BorrowerVerificationStatusMail([
-                    'subject' => __('verification_center.verification_status_update') . ' - ' . $statusLabel,
-                    'borrower_name' => $borrowerName,
-                    'status' => $status,
-                    'note' => $note,
-                    'task_results' => $filteredResults,
-                ]));
-            } catch (\Exception $e) {
-                Log::error('VerificationCenterService: Failed to send verification status mail', [
-                    'borrower_id' => $borrower?->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error('VerificationCenterService: Failed to send verification status mail', [
-                'borrower_id' => $borrower?->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        app(VerificationNotifier::class)->decisionMade($borrower, $status, $note, $taskResults);
     }
+
 
     /**
      * Check and update borrower tier if all tasks are completed.

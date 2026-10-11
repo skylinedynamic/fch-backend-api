@@ -2,11 +2,11 @@
 
 namespace App\Services\FCH\Partner;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use App\Models\DemoRequest\DemoRequest;
 use App\Services\Global\Notification\Mail\DemoRequestCreatedMail;
 use Exception;
@@ -71,7 +71,7 @@ class DemoRequestService
             if ($recipient) {
 
                 try {
-                    Mail::to($recipient)->send(new DemoRequestCreatedMail($demoRequest));
+                    app(Notifier::class)->send('demo_request.created', mail: (new DemoRequestCreatedMail($demoRequest))->to($recipient));
                 } catch (Exception $e) {
                     Log::error('DemoRequest email send failed', [
                         'id' => $demoRequest->id,

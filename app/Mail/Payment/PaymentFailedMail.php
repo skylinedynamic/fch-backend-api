@@ -20,7 +20,16 @@ class PaymentFailedMail extends Mailable implements ShouldQueue
 
     public function __construct(public array $paymentData, ?int $partnerId = null)
     {
-        $this->setMailPartnerId();
+        // The argument used to be accepted and dropped, unlike every sibling
+        // mailable. It matters most where it was least visible: queued from the
+        // auto-charge cron there is no authenticated user and no request Origin
+        // for setMailPartnerId() to resolve from, so it fell back to the host and
+        // a White-Label partner's borrower was written to from the host's mailbox.
+        if ($partnerId) {
+            $this->mailPartnerId = $partnerId;
+        } else {
+            $this->setMailPartnerId();
+        }
     }
 
     public function envelope(): Envelope

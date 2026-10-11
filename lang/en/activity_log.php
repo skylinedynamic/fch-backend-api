@@ -9,6 +9,8 @@ return [
     'activity_create_failed' => 'Failed to create activity.',
     'email_sent'          => 'Email sent successfully.',
     'email_send_failed'   => 'Failed to send email.',
+    'visibility_updated'       => 'Activity visibility updated successfully.',
+    'visibility_update_failed' => 'Failed to update activity visibility.',
 
     // Validation
     'reference_required'      => 'Reference is required.',

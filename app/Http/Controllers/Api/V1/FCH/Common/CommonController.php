@@ -8,7 +8,6 @@ use App\Http\Resources\Global\Auth\UserResource;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\PaymentMethod\PartnerPaymentProvider;
-use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Setting\EmailConfiguration;
 use App\Models\User\User;
 use App\Services\FCH\Common\CommonService;
@@ -88,7 +87,13 @@ class CommonController extends Controller
     public function getTheme(AppConfigurationService $configService)
     {
         $partner = getConfigPartner();
-        $branding = $configService->getBrandingSettings($partner->id);
+
+        // Portal chrome, so the host's logo is not inherited. getConfigPartner()
+        // has already resolved every partner that trades under the host's brand
+        // to the host itself, so a non-host partner here is one branded as
+        // itself, and its borrowers must never see the host's mark in the
+        // sidebar or on the login screen. See getBrandingSettings().
+        $branding = $configService->getBrandingSettings($partner->id, (bool) $partner->is_host);
 
         // Configuration Status Flags for Frontend Guard
         $isEmailFresh = $partner ? (EmailConfiguration::where('partner_id', $partner->id)->where('key', 'is_active')->where('value', '1')->exists()) : true;
@@ -101,14 +106,9 @@ class CommonController extends Controller
                 ->where('status', true)
                 ->first();
 
-            if ($partnerProvider) {
-                $config = $partnerProvider->configuration ?? [];
-                $paymentMode = $config['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
-
-                if ($paymentMode) {
-                    $isPaymentFresh = true;
-                }
-            }
+            // An active linkage always resolves to one mode or the other, so this
+            // flag says only that the partner has configured payments at all.
+            $isPaymentFresh = (bool) $partnerProvider;
         }
 
         if (auth()->check()) {

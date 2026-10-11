@@ -2,13 +2,12 @@
 
 namespace App\Services\Global\MicroBilt\Strategies;
 
+use App\Support\Locations;
 use App\Services\Global\MicroBilt\MicroBiltService;
 use App\Models\Borrower\Borrower;
-use Database\Seeders\LocationHelper;
 
 class BusinessIdentityVerification implements VerificationStrategyInterface
 {
-    use LocationHelper;
 
     /**
      * Execute the verification strategy.
@@ -23,7 +22,7 @@ class BusinessIdentityVerification implements VerificationStrategyInterface
             $borrower->business_name ?? '',
             preg_replace('/[^0-9]/', '', $borrower->business_ein ?? ''),
             $borrower->business_city ?? '',
-            $this->getStateCode($borrower->business_state ?? '') ?? ''
+            Locations::stateCode($borrower->business_state ?? '') ?? ''
         );
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1\Borrower\FundApplication;
 
+use App\Exceptions\FundingApplicationLockedException;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\AttestationAndAuthorizationRequest;
+use App\Http\Requests\Api\V1\Borrower\FundApplication\SignatureImageRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\DisclosuresAndConsentRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\FederalComplianceRequest;
 use App\Http\Requests\Api\V1\Borrower\FundApplication\StoreBusinessInfoRequest;
@@ -20,11 +22,10 @@ use App\Http\Resources\Borrower\FundApplication\FinancialResource;
 use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResource;
 use App\Http\Resources\Borrower\FundApplication\FundingRequestResource;
 use App\Http\Resources\Borrower\FundApplication\OwnershipResource;
-use App\Models\ActivityLog\ActivityLog;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Borrower\FundingApplicationDocument;
 use App\Services\Borrower\FundApplication\FundingApplicationService;
-use App\Services\FCH\Common\ActivityLog\ActivityLogService;
+use App\Services\FCH\Common\Application\FundingApplicationAuditLogger;
 use App\Services\FCH\Common\Application\FundingApplicationDocumentService;
 use App\Services\FCH\Common\Application\RequestApplicationService;
 use Illuminate\Http\Request;
@@ -79,6 +80,11 @@ class FundingApplicationController extends Controller
                 __('borrower.business_info_updated_successfully')
             );
 
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
         }
@@ -120,6 +126,11 @@ class FundingApplicationController extends Controller
                 new OwnershipResource($ownershipInfo),
                 __('borrower.ownership_info_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 500);
         }
@@ -161,6 +172,11 @@ class FundingApplicationController extends Controller
                 new FinancialResource($financialInfo),
                 __('borrower.financial_info_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.financial_info_update_failed'), 500);
         }
@@ -200,6 +216,11 @@ class FundingApplicationController extends Controller
                 new FundingRequestResource($fundingRequest),
                 __('borrower.funding_request_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.funding_request_update_failed'), 500);
         }
@@ -234,6 +255,11 @@ class FundingApplicationController extends Controller
                 new DisclosuresAndConsentResource($disclosuresAndConsent),
                 __('borrower.disclosures_and_consent_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.disclosures_and_consent_update_failed'), 500);
         }
@@ -268,6 +294,11 @@ class FundingApplicationController extends Controller
                 new FederalComplianceResource($federalCompliance),
                 __('borrower.federal_compliance_disclosures_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.federal_compliance_disclosures_update_failed'), 500);
         }
@@ -291,10 +322,83 @@ class FundingApplicationController extends Controller
         }
     }
 
+    /**
+     * The file the borrower picked in the file manager to sign with.
+     *
+     * The request has already refused anything that is not their own PNG/JPG
+     * within the size limit; what comes back is that image, ready to place in
+     * the signature box.
+     */
+    public function signatureImage(SignatureImageRequest $request)
+    {
+        try {
+            $contents = \Illuminate\Support\Facades\Storage::disk('public')->get($request->storagePath());
+            $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents);
+
+            // Every browser shows PNG and JPEG. Anything else (WEBP, AVIF, GIF,
+            // BMP ...) is turned into a PNG here, so it displays whatever the
+            // borrower's browser happens to support. A type this server cannot
+            // read either (HEIC, for one) is passed through as it is and left
+            // to the browser.
+            if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
+                $size = @getimagesizefromstring($contents);
+                // Decoding is skipped for very large pictures - it would need
+                // more memory than a signature is worth.
+                $decoded = $size && ($size[0] * $size[1]) <= 16000000 ? @imagecreatefromstring($contents) : false;
+
+                if ($decoded !== false) {
+                    imagesavealpha($decoded, true);
+                    ob_start();
+                    imagepng($decoded);
+                    $contents = ob_get_clean();
+                    $mime = 'image/png';
+                    imagedestroy($decoded);
+                }
+            }
+
+            return ApiResponse::success([
+                'image' => 'data:' . $mime . ';base64,' . base64_encode($contents),
+                'file_name' => basename($request->storagePath()),
+                'size_kb' => (int) ceil(strlen($contents) / 1024),
+            ]);
+        } catch (\Exception $e) {
+            return ApiResponse::error(__('borrower_validation.signature_file_not_found'), 422, [
+                'signature_image' => __('borrower_validation.signature_file_not_found'),
+            ]);
+        }
+    }
+
     public function saveAttestationAndAuthorization(AttestationAndAuthorizationRequest $request){
         try {
             $validated = $request->validated();
-            
+
+            // Read the application as it stands before this save rewrites it. Two
+            // things are taken from it for the audit trail:
+            //
+            //  - whether this is a first submission or a re-submission. It is a
+            //    re-submission whenever the application has been signed before -
+            //    a re-sign is owed after an edit, or a signature is still on file
+            //    and the borrower is simply signing again.
+            //  - the signature being replaced, so the log can show the old one
+            //    beside the new one.
+            $priorState = FundingApplication::where('borrower_id', Auth::user()->entity_id)
+                ->when(
+                    ! empty($validated['id']),
+                    fn ($query) => $query->where('id', $validated['id']),
+                    fn ($query) => $query->where('funding_request_id', $validated['funding_request_id'] ?? 0)->latest('id')
+                )
+                ->first();
+
+            $previousSignature = null;
+            if ($priorState) {
+                $previousSignature = ! empty($priorState->signature_data)
+                    ? $priorState->signature_data
+                    : ($priorState->requires_resign ? $priorState->previousSignature() : null);
+            }
+            $wasResubmission = $priorState
+                ? ((bool) $priorState->requires_resign || ! empty($priorState->signature_data))
+                : false;
+
             // Extract agent info
             $agent = $request->userAgent();
             $os = 'Unknown';
@@ -324,8 +428,28 @@ class FundingApplicationController extends Controller
                 $deviceType = 'Mobile';
             }
 
+            // Typed name or e-signature - one or the other, never both. An
+            // e-signature carries no typed name, so the account holder's name is
+            // recorded as the printed name beside the image.
+            $isEsign = ($validated['signature_type'] ?? 'typed') === 'esign';
+            if ($isEsign) {
+                $validated['signature_name'] = trim(Auth::user()->first_name . ' ' . Auth::user()->last_name)
+                    ?: trim((string) Auth::user()->name)
+                    ?: trim((string) ($priorState?->full_name ?? ''))
+                    ?: 'Borrower';
+            }
+            $signatureImage = $isEsign ? ($validated['signature_image'] ?? null) : null;
+            // The date the borrower put in the signature block. `signed_at`
+            // below stays the server's own record of when it was submitted.
+            $signatureDate = $isEsign ? ($validated['signature_date'] ?? null) : null;
+            // Not columns; they live inside signature_data below.
+            unset($validated['signature_image'], $validated['signature_type'], $validated['signature_date']);
+
             $validated['signature_data'] = [
                 'signature_name' => $validated['signature_name'] ?? null,
+                'signature_type' => $isEsign ? 'esign' : 'typed',
+                'signature_image' => $signatureImage,
+                'signature_date' => $signatureDate,
                 'ip_address' => $request->ip(),
                 'user_agent' => $agent,
                 'browser_name' => $browser,
@@ -347,18 +471,28 @@ class FundingApplicationController extends Controller
 
             // Set old attestation_authorization to true for backward compatibility
             $validated['attestation_authorization'] = true;
+            $validated['requires_resign'] = false;
+
+            // Signing again while a signature is still on file replaces it. Keep
+            // the one being replaced, so "Previous Signature" stays accurate
+            // (after an edit the guard has already kept it).
+            if ($priorState && ! empty($priorState->signature_data)) {
+                $validated['previous_signature_data'] = $priorState->signature_data;
+            }
 
             $attestationAndAuthorization = $this->fundingApplicationService->saveFundingApplication($validated, FundingApplication::PENDING);
 
-            // Log that the borrower submitted the application
-            $activityLogService = app(ActivityLogService::class);
+            // Log that the borrower submitted - or, having signed before,
+            // re-signed and re-submitted - the application, with the signature
+            // that was replaced and the new one.
             $borrowerName = !empty($validated['signature_name']) ? $validated['signature_name'] : (Auth::user() ? trim(Auth::user()->first_name . ' ' . Auth::user()->last_name) : 'Borrower');
-            $activityLogService->logModelEvent(
+            app(FundingApplicationAuditLogger::class)->logSubmitted(
                 $attestationAndAuthorization,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Funding Application Submitted',
-                "Funding Application submitted by {$borrowerName}."
+                $borrowerName,
+                $wasResubmission,
+                FundingApplicationAuditLogger::ACTOR_BORROWER,
+                $previousSignature,
+                $validated['signature_data']
             );
 
             // Generate Certificate and Final PDF via new Document Service
@@ -369,6 +503,11 @@ class FundingApplicationController extends Controller
                 new AttestationAndAuthorizationResource($attestationAndAuthorization),
                 __('borrower.attestation_and_authorization_updated_successfully')
             );
+        } catch (FundingApplicationLockedException $e) {
+            // The application has moved past the borrower's and partner's reach.
+            // 423, not 500: the request itself was fine, this application just
+            // isn't theirs to change any more.
+            return ApiResponse::error($e->getMessage(), 423);
         } catch (\Exception $e) {
             return ApiResponse::error(__('borrower.attestation_and_authorization_update_failed') . ': ' . $e->getMessage(), 500);
         }

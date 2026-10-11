@@ -2,10 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Services\FCH\Common\Notification\Notifier;
+use App\Mail\SystemHealthAlert;
 use App\Models\Monitoring\SystemMetric;
 use App\Models\User\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class MonitorSystemHealth extends Command
@@ -38,8 +41,6 @@ class MonitorSystemHealth extends Command
 
         // Invalidate cached chart data so the charts dashboard reflects the new snapshot.
         Cache::forget('dashboard.chart_metrics');
-
-        $this->info('System health snapshot saved.');
 
         // 2. Check for alerts
         $this->checkAlerts($metrics);
@@ -84,37 +85,111 @@ class MonitorSystemHealth extends Command
         ];
     }
 
-    private function checkAlerts($metrics)
+    /**
+     * The reading at which each resource is considered in trouble.
+     *
+     * Unchanged from the thresholds this command has always used; they are
+     * named here so the alert can report the limit it breached rather than
+     * repeating the number in a sentence.
+     */
+    private const THRESHOLDS = [
+        'CPU Usage' => ['key' => 'cpu_usage_ratio', 'limit' => 0.85],
+        'RAM Usage' => ['key' => 'memory_usage_ratio', 'limit' => 0.90],
+        'Disk Space' => ['key' => 'disk_usage_ratio', 'limit' => 0.95],
+    ];
+
+    /**
+     * Which resources have breached, and by how much.
+     *
+     * Deliberately pure - no mail, no console, no database - so the thresholds
+     * can be tested directly. They are the part most likely to break silently:
+     * a wrong comparison here means either an inbox full of noise or, worse, a
+     * full disk nobody hears about.
+     *
+     * @return array<int, array{metric: string, usage: float, threshold: float}>
+     */
+    private function alertsFor(array $metrics): array
     {
         $alerts = [];
-        if ($metrics['cpu_usage_ratio'] > 0.85)
-            $alerts[] = 'CRITICAL: CPU Usage is above 85%';
-        if ($metrics['memory_usage_ratio'] > 0.90)
-            $alerts[] = 'CRITICAL: RAM Usage is above 90%';
-        if ($metrics['disk_usage_ratio'] > 0.95)
-            $alerts[] = 'CRITICAL: Disk Space is above 95%';
 
-        if (!empty($alerts)) {
-        // $this->sendAlertEmail($alerts);
+        foreach (self::THRESHOLDS as $label => $threshold) {
+            $usage = (float) ($metrics[$threshold['key']] ?? 0);
+
+            // Strictly greater than: a resource sitting exactly on its limit is
+            // at the limit, not over it.
+            if ($usage > $threshold['limit']) {
+                $alerts[] = [
+                    'metric' => $label,
+                    'usage' => $usage,
+                    'threshold' => $threshold['limit'],
+                ];
+            }
         }
+
+        return $alerts;
     }
 
-    private function sendAlertEmail($alerts)
+    private function checkAlerts(array $metrics): void
     {
-        try {
-            // In theory you'd send to your admin email
-            $adminEmail = config('mail.from.address', 'admin@fch.com');
+        $alerts = $this->alertsFor($metrics);
 
-            // Sending raw email for immediate notification
-            Mail::raw(implode("\n", $alerts), function ($message) use ($adminEmail) {
-                $message->to($adminEmail)
-                    ->subject('⚠️ System Health Alert - FCH API');
-            });
-
-            $this->warn('Health alerts sent to ' . $adminEmail);
+        if (empty($alerts)) {
+            return;
         }
-        catch (\Exception $e) {
-            $this->error('Failed to send email alert: ' . $e->getMessage());
+
+        foreach ($alerts as $alert) {
+            $this->warn(sprintf(
+                'CRITICAL: %s is at %.1f%% (limit %.0f%%)',
+                $alert['metric'],
+                $alert['usage'] * 100,
+                $alert['threshold'] * 100
+            ));
+        }
+
+        $this->sendAlertEmail($alerts, $metrics);
+    }
+
+    /**
+     * Notify the operators.
+     *
+     * Addressed to CRON_ERROR_NOTIFY_EMAILS, the same list the cron failure
+     * alert uses, and sent as a Mailable rather than with Mail::raw(). That is
+     * not a cosmetic change: raw sends bypass the MailConfig trait, and since
+     * credentials moved out of config/mail.php into `email_configurations` a raw
+     * send has no mail server to connect to. The Mailable pins the HOST
+     * partner's configuration - this is the platform's own alert, not a
+     * tenant's correspondence.
+     */
+    private function sendAlertEmail(array $alerts, array $metrics): void
+    {
+        $recipients = array_filter(array_map('trim', explode(',', (string) config('app.cron_notify_emails', ''))));
+
+        if (empty($recipients)) {
+            // Worth saying out loud: the thresholds were breached and nobody is
+            // being told, which looks identical to "nothing is wrong".
+            $this->error('Health thresholds breached but CRON_ERROR_NOTIFY_EMAILS is empty; no alert sent.');
+            Log::warning('System health alert not sent: no recipients configured.', ['alerts' => $alerts]);
+
+            return;
+        }
+
+        try {
+            app(Notifier::class)->send('system.health_alert', mail: (new SystemHealthAlert($alerts, [
+                'CPU Usage' => (float) ($metrics['cpu_usage_ratio'] ?? 0),
+                'RAM Usage' => (float) ($metrics['memory_usage_ratio'] ?? 0),
+                'Disk Space' => (float) ($metrics['disk_usage_ratio'] ?? 0),
+            ]))->to($recipients));
+
+            $this->warn('Health alert sent to ' . implode(', ', $recipients));
+            Log::warning('System health alert sent.', [
+                'recipients' => $recipients,
+                'alerts' => $alerts,
+            ]);
+        } catch (\Throwable $e) {
+            // The snapshot above is already saved; a failed alert must not take
+            // the scheduled command down with it.
+            $this->error('Failed to send health alert: ' . $e->getMessage());
+            Log::error('Failed to send system health alert: ' . $e->getMessage(), ['alerts' => $alerts]);
         }
     }
 }

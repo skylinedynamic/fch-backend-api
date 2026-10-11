@@ -2,7 +2,7 @@
 
 namespace App\Jobs\Reminder;
 
-use App\Events\ReminderDueEvent;
+use App\Services\FCH\Common\Reminder\ReminderBroadcaster;
 use App\Models\Common\Reminder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 /**
  * Fires ReminderDueEvent (broadcast over Reverb) at the reminder's exact
  * due timestamp, via the queue's delayed-dispatch mechanism, instead of
- * waiting for the once-a-minute task:reminder-check sweep to notice it.
+ * waiting for the five-minute task:reminder-check sweep to notice it.
  */
 class DispatchReminderDueJob implements ShouldQueue
 {
@@ -58,6 +58,7 @@ class DispatchReminderDueJob implements ShouldQueue
             return;
         }
 
-        event(new ReminderDueEvent($reminder));
+        $reminder->status = Reminder::STATUS_SENT;
+        app(ReminderBroadcaster::class)->due($reminder);
     }
 }

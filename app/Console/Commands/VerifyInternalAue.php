@@ -351,7 +351,7 @@ class VerifyInternalAue extends Command
     private function reportPipelineRun(PreQualificationRequest $application): bool
     {
         $this->newLine();
-        $this->components->info('Full submit pipeline (validator → internal AUE → client AUE)');
+        $this->components->info('Full submit pipeline (one agent → internal evaluation → borrower result)');
 
         $result = null;
         $error = null;
@@ -376,14 +376,26 @@ class VerifyInternalAue extends Command
         }
 
         $ok = $this->check('pipeline completed without throwing', true, '');
-        $ok &= $this->check('validator did not block the submission', !($result['blocked'] ?? false), 'blocked: ' . ($result['borrower_message'] ?? ''));
-        $ok &= $this->check('pipeline did not fall back', !($result['is_fallback'] ?? false), 'a fallback result was returned');
 
         $internal = $result['internal'] ?? null;
         $client = $result['client'] ?? null;
 
+        // The agent calling the submitted answers CONFLICTING or INSUFFICIENT is
+        // a correct outcome, not a pipeline failure: the borrower is asked to fix
+        // them and no assessment is built on them. Reported as what it is.
+        if ($result['blocked'] ?? false) {
+            $this->components->warn('The agent flagged the submitted data — the borrower is asked to correct it.');
+            $this->line('  data_status .............. ' . ($internal['data_status'] ?? '—'));
+            $this->line('  borrower is told ......... ' . ($result['borrower_message'] ?? '—'));
+            $this->line('  internal memo kept ....... ' . (is_array($internal) ? 'yes' : 'no'));
+            $this->line('  borrower assessment ...... withheld, as it should be');
+
+            return (bool) $this->check('the evaluation behind the flag was kept for staff', is_array($internal), 'internal is null');
+        }
+
+        $ok &= $this->check('evaluation did not fall back', !($result['is_fallback'] ?? false), 'a fallback result was returned');
         $ok &= $this->check('internal evaluation produced', is_array($internal), 'internal is null');
-        $ok &= $this->check('client assessment produced', is_array($client), 'client is null');
+        $ok &= $this->check('borrower assessment produced', is_array($client), 'client is null');
 
         if (!is_array($internal) || !is_array($client)) {
             return false;

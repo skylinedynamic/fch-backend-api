@@ -77,6 +77,65 @@ class Reminder extends Model
         return $this->morphTo();
     }
 
+    /**
+     * Keep open reminder pop-ups in step without them polling: whenever a
+     * reminder that is (or was) showing changes or is deleted, its users are
+     * told over Reverb. Bulk query updates skip model events, so those callers
+     * push themselves (see ReminderService).
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (Reminder $reminder) {
+            if ($reminder->wasShowable() || $reminder->isShowable()) {
+                app(\App\Services\FCH\Common\Reminder\ReminderBroadcaster::class)->updated($reminder);
+            }
+        });
+
+        static::deleted(function (Reminder $reminder) {
+            if ($reminder->wasShowable()) {
+                app(\App\Services\FCH\Common\Reminder\ReminderBroadcaster::class)->gone($reminder);
+            }
+        });
+    }
+
+    /** Whether the due-reminder pop-up shows it: fired, or past its time and not yet fired. */
+    public function isShowable(): bool
+    {
+        return self::showable($this->status, $this->reminder_date_time ?? $this->send_at ?? $this->set_date_time);
+    }
+
+    /** isShowable() for the values the row had before the current change. */
+    public function wasShowable(): bool
+    {
+        $at = $this->getOriginal('reminder_date_time') ?? $this->getOriginal('send_at') ?? $this->getOriginal('set_date_time');
+
+        return self::showable($this->getOriginal('status'), $at);
+    }
+
+    private static function showable(?string $status, $at): bool
+    {
+        return $status === self::STATUS_SENT
+            || ($status === self::STATUS_PENDING && $at && \Illuminate\Support\Carbon::parse($at)->lte(now()));
+    }
+
+    /**
+     * The login accounts that see this reminder. New rows belong to one User;
+     * older rows name the owning entity (Partner, Borrower, Employee...), which
+     * several login accounts can share, so each of them sees it.
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    public function recipients(): \Illuminate\Support\Collection
+    {
+        if ($this->created_by_entity_type === User::class) {
+            return User::whereKey($this->created_by)->get();
+        }
+
+        return User::where('entity_type', $this->created_by_entity_type)
+            ->where('entity_id', $this->created_by)
+            ->get();
+    }
+
     public function creator(): MorphTo
     {
         return $this->morphTo(__FUNCTION__, 'created_by_entity_type', 'created_by');

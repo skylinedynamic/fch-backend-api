@@ -34,13 +34,13 @@ $schedulerLogPath = storage_path('logs/scheduler.log');
  */
 $onFailure = function (string $command) {
     return function () use ($command) {
-        $env      = config('app.env', 'unknown');
-        $appUrl   = config('app.url', 'unknown');
+        $env = config('app.env', 'unknown');
+        $appUrl = config('app.url', 'unknown');
         $hostname = gethostname() ?: 'unknown';
 
         Log::error("Scheduled command failed: {$command}", [
-            'env'      => $env,
-            'app_url'  => $appUrl,
+            'env' => $env,
+            'app_url' => $appUrl,
             'hostname' => $hostname,
         ]);
 
@@ -50,19 +50,19 @@ $onFailure = function (string $command) {
 
         if (!empty($emails)) {
             try {
-                // Mail::to($emails)->send(new CronJobFailureMail([
-                //     'job_name'      => $command,
-                //     'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
-                //     'timestamp'     => now()->toDateTimeString(),
-                //     'stack_trace'   => implode("\n", [
-                //         "Scheduled command failed: {$command}",
-                //         "",
-                //         "--- Origin ---",
-                //         "Environment : {$env}",
-                //         "App URL     : {$appUrl}",
-                //         "Server Host : {$hostname}",
-                //     ]),
-                // ]));
+                Mail::to($emails)->send(new CronJobFailureMail([
+                    'job_name' => $command,
+                    'error_message' => "Scheduled command failed on [{$env}] server ({$hostname})",
+                    'timestamp' => now()->toDateTimeString(),
+                    'stack_trace' => implode("\n", [
+                        "Scheduled command failed: {$command}",
+                        "",
+                        "--- Origin ---",
+                        "Environment : {$env}",
+                        "App URL     : {$appUrl}",
+                        "Server Host : {$hostname}",
+                    ]),
+                ]));
             } catch (\Throwable $e) {
                 Log::error('Failed to send cron failure notification: ' . $e->getMessage());
             }
@@ -111,7 +111,6 @@ Schedule::command('task:reminder-check')
     ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(5)
-    ->onSuccess($onSuccess('task:reminder-check'))
     ->onFailure($onFailure('task:reminder-check'));
 
 /*
@@ -128,8 +127,7 @@ Schedule::command('task:reminder-check')
 Schedule::command('scheduler:heartbeat')
     ->everyMinute()
     ->timezone($scheduleTimezone)
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('scheduler:heartbeat'));
+    ->onFailure($onFailure('scheduler:heartbeat'));
 
 /*
 |--------------------------------------------------------------------------
@@ -149,9 +147,7 @@ Schedule::command('app:monitor-health')
     ->everyFiveMinutes()
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('app:monitor-health'))
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('app:monitor-health'));
+    ->onFailure($onFailure('app:monitor-health'));
 
 // Run Spatie health checks. Frequency is env-driven so you can lower it
 // on small instances to reduce load. Default every 5 minutes.
@@ -159,9 +155,7 @@ Schedule::command('health:check')
     ->cron(config('monitoring.health_check_cron', '*/5 * * * *'))
     ->timezone($scheduleTimezone)
     ->withoutOverlapping(4)
-    ->onFailure($onFailure('health:check'))
-    ->appendOutputTo($schedulerLogPath)
-    ->onSuccess($onSuccess('health:check'));
+    ->onFailure($onFailure('health:check'));
 
 // Purge monitoring history older than 1 month
 Schedule::command('monitoring:prune')

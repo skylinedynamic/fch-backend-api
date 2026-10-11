@@ -6,6 +6,7 @@ use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
 use App\Models\User\User;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\UsPostalCode;
 
 class UpdatePersonalProfileRequest extends BaseApiRequest
 {
@@ -26,6 +27,10 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
     {
         return [
             'first_name' => 'required|string|max:255',
+            // Optional, unlike the names either side of it: plenty of people
+            // have no middle name, and requiring one would lock them out of
+            // saving their own profile.
+            'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => [
                 'required',
@@ -37,7 +42,7 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'country_code' => 'required|string|max:5',
             'state' => 'required|string|max:255',
             'city' => 'required|string|max:255',
-            'zip_code' => 'required|string|max:20',
+            'zip_code' => ['required', 'string', new UsPostalCode()],
             'home_address' => 'required|string|max:500',
             'home_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'last_4_ssn' => 'required|string|size:4',
@@ -56,6 +61,8 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'first_name.required' => __('borrower_validation.first_name_required'),
             'first_name.string' => __('borrower_validation.first_name_string'),
             'first_name.max' => __('borrower_validation.first_name_max'),
+            'middle_name.string' => __('borrower_validation.middle_name_string'),
+            'middle_name.max' => __('borrower_validation.middle_name_max'),
             'last_name.required' => __('borrower_validation.last_name_required'),
             'last_name.string' => __('borrower_validation.last_name_string'),
             'last_name.max' => __('borrower_validation.last_name_max'),
@@ -73,7 +80,6 @@ class UpdatePersonalProfileRequest extends BaseApiRequest
             'state.max' => __('borrower_validation.state_max'),
             'zip_code.required' => __('borrower_validation.zip_code_required'),
             'zip_code.string' => __('borrower_validation.zip_code_string'),
-            'zip_code.max' => __('borrower_validation.zip_code_max'),
             'country.required' => __('borrower_validation.country_required'),
             'country.string' => __('borrower_validation.country_string'),
             'country.max' => __('borrower_validation.country_max'),

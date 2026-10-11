@@ -144,6 +144,8 @@ return [
         'created' => 'Partner created successfully.',
         'updated' => 'Partner updated successfully.',
         'deleted' => 'Partner deleted successfully.',
+        'archived' => 'Partner(s) archived successfully.',
+        'unarchived' => 'Partner(s) restored to the active list.',
         'document_uploaded' => 'Document uploaded successfully.',
         'document_updated' => 'Document updated successfully.',
         'documents_retrieved' => 'Documents retrieved successfully.',
@@ -155,6 +157,11 @@ return [
     'error' => [
         'not_found' => 'Partner not found.',
         'list_failed' => 'Failed to retrieve partners.',
+        'archive_failed' => 'Could not archive the selected partner(s). Please try again.',
+        'unarchive_failed' => 'Could not restore the selected partner(s). Please try again.',
+        'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
+        'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
+        'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
     ],
 
     'log' => [

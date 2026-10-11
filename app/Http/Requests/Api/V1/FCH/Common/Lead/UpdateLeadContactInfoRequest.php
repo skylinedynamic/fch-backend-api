@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdateLeadContactInfoRequest extends BaseApiRequest
 {
@@ -36,10 +37,10 @@ class UpdateLeadContactInfoRequest extends BaseApiRequest
             'duns_number' => ['nullable', 'string', 'max:20'],
             'business_address' => ['nullable', 'string', 'max:500'],
             'country' => ['required', 'string', 'max:255'],
-            'city' => ['required', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:255'],
             'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
-            'state' => ['required', 'string', 'max:255'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
+            'state' => ['nullable', 'string', 'max:255'],
+            'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'business_phone' => ['nullable', 'string', 'max:20'],
             'entity_type' => ['nullable', 'string', 'max:255'],
             'entity_type_note' => ['required_if:entity_type,Other,Other / Unknown', 'nullable', 'string'],

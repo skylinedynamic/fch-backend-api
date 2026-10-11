@@ -2,8 +2,10 @@
 
 namespace App\Services\Borrower\ActivityLog;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
+use App\Mail\ActivityLog\ActivityLogMail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Models\Appointment\Appointment;
 use App\Models\Borrower\Borrower;
@@ -39,31 +41,11 @@ class BorrowerActivityLogService
             return ApiResponse::success([], __('borrower_activity_log.listed'));
         }
 
-        // 1. Scoping by User (Security)
-
-        $query->where(function ($q) use ($user) {
-            // 1. Borrower sees activities they caused
-            $q->where('causer_id', $user->id)
-                // 2. Or activities explicitly sent/visible to borrower
-                ->orWhere('properties->send_to_borrower', '1')
-                ->orWhere('properties->visible_to_borrower', '1')
-                // 3. Or ANY log that is NOT explicitly meant for the host AND is NOT internal
-                ->orWhere(function ($subQ) {
-                    $subQ->where(function ($excludeQ) {
-                             $excludeQ->whereNull('properties->send_to_host')
-                                      ->orWhere('properties->send_to_host', '!=', '1');
-                         })
-                         ->where(function ($excludeQ) {
-                             $excludeQ->whereNull('properties->visible_to_host')
-                                      ->orWhere('properties->visible_to_host', '!=', '1');
-                         })
-                         ->where(function ($excludeQ) {
-                             $excludeQ->whereNull('properties->is_internal')
-                                      ->orWhere('properties->is_internal', false)
-                                      ->orWhere('properties->is_internal', '0');
-                         });
-                });
-        });
+        // 1. Scoping by User (Security) — the 4-level visibility model
+        // (private/internal/partner/everyone) is the single source of truth;
+        // see ActivityLog::scopeVisibleTo(). A borrower only ever sees
+        // 'everyone'-level rows (plus any they authored themselves).
+        $query->visibleTo($user);
 
         // 2. Explicit Filtering
         if (!empty($filters['partner_id'])) {
@@ -205,6 +187,12 @@ class BorrowerActivityLogService
                 'borrower_id' => $targetBorrowerId,
                 'causer_id' => Auth::id(),
                 'causer_type' => Auth::check() ? get_class(Auth::user()) : null,
+                // A borrower has no legitimate reason to address something
+                // "FCH only" or "Partner only" — default (and validated
+                // range) is Private or Everyone only.
+                'visibility' => in_array($data['visibility'] ?? null, [ActivityLog::VISIBILITY_PRIVATE, ActivityLog::VISIBILITY_EVERYONE], true)
+                    ? $data['visibility']
+                    : ActivityLog::VISIBILITY_EVERYONE,
                 'status' => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
                 'event' => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
                 'description' => $data['description'] ?? $data['subject'] ?? 'Activity Log',
@@ -255,7 +243,8 @@ class BorrowerActivityLogService
         string $subject,
         string $description,
         string $logType = ActivityLog::LOG_TYPE_ACTIVITY,
-        array $properties = []
+        array $properties = [],
+        string $visibility = ActivityLog::VISIBILITY_INTERNAL
     ): ActivityLog {
         $mergedProperties = array_merge([
             'subject' => $subject,
@@ -271,6 +260,7 @@ class BorrowerActivityLogService
             'borrower_id' => $borrowerId,
             'causer_id' => Auth::id() ?: 1, // Fallback to system user
             'causer_type' => Auth::check() ? get_class(Auth::user()) : \App\Models\User\User::class,
+            'visibility' => in_array($visibility, ActivityLog::VISIBILITY_LEVELS, true) ? $visibility : ActivityLog::VISIBILITY_INTERNAL,
             'status' => 'log',
             'event' => $subject, // Human-readable subject
             'description' => $description, // Detailed description for UI gray box
@@ -286,7 +276,8 @@ class BorrowerActivityLogService
         string $logType,
         array $extraProperties = [],
         ?string $customSubject = null,
-        ?string $customDescription = null
+        ?string $customDescription = null,
+        string $visibility = ActivityLog::VISIBILITY_INTERNAL
     ): ActivityLog {
         $subjectType = get_class($model);
         $subjectId = $model->id;
@@ -475,7 +466,8 @@ class BorrowerActivityLogService
             $subject,
             $description,
             $logType,
-            $properties
+            $properties,
+            $visibility
         );
     }
 
@@ -487,30 +479,20 @@ class BorrowerActivityLogService
             $recipients = is_array($decoded) ? $decoded : array_map('trim', explode(',', $recipients));
         }
 
-        $subject = $data['subject'] ?? 'New Email from Activity Log';
-        $body = $data['description'] ?? '';
+        $emailData = [
+            'subject' => $data['subject'] ?? 'New Email from Activity Log',
+            'body' => $data['description'] ?? '',
+        ];
 
         foreach ($recipients as $recipient) {
             if (empty($recipient))
                 continue;
 
-            Mail::send('emails.activity_log_mail', [
-                'subject' => $subject,
-                'body' => $body,
-                'attachments_count' => count($attachments),
-                'attachment_names' => $attachmentNames,
-            ], function ($message) use ($recipient, $subject, $attachments) {
-                $message->to($recipient)->subject($subject);
-
-                foreach ($attachments as $file) {
-                    if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
-                        $message->attach($file->getRealPath(), [
-                            'as' => $file->getClientOriginalName(),
-                            'mime' => $file->getMimeType(),
-                        ]);
-                    }
-                }
-            });
+            // The same Mailable and template as the partner-portal activity log.
+            // This used a raw Mail::send(), which bypasses MailConfig and so had
+            // no tenant mailbox to send from.
+            app(Notifier::class)->send('activity_log.email',
+                mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
         }
     }
 

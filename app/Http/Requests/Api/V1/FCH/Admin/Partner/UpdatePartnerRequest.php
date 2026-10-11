@@ -5,7 +5,9 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Partner;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\Partner;
 use App\Models\Partner\SubscriptionPlan;
+use App\Models\User\User;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class UpdatePartnerRequest extends BaseApiRequest
 {
@@ -43,11 +45,14 @@ class UpdatePartnerRequest extends BaseApiRequest
             'email' => [
                 'sometimes', 'required', 'email', 'max:255',
                 Rule::unique('partners', 'email')->ignore($this->id)->whereNull('deleted_at'),
-                Rule::unique('users', 'email')->where(function ($query) {
-                    return $query->where(function ($q) {
-                        $q->where('partner_id', '!=', $this->id)->orWhereNull('partner_id');
-                    })->whereNull('deleted_at');
-                }),
+                // Unique across every login except the partner's own. This used
+                // to let through any email already used inside the same partner
+                // (e.g. one of its employees), which the update then either
+                // crashed on or, via a lookup by email, overwrote. Matches the
+                // users.email index exactly: deleted accounts still hold theirs.
+                Rule::unique('users', 'email')->ignore(
+                    User::where('entity_type', Partner::class)->where('entity_id', (int) $this->id)->value('id')
+                ),
             ],
             'phone_number'               => ['sometimes', 'required', 'string', 'max:50'],
             'status'                     => ['nullable', 'string', 'max:255'],
@@ -56,11 +61,11 @@ class UpdatePartnerRequest extends BaseApiRequest
             'contact_person_email'       => ['nullable', 'email', 'max:255'],
             'contact_person_relation'    => ['nullable', 'string', 'max:255'],
             'partner_type'               => ['sometimes', 'required', 'string', 'max:255'],
-            'state'                      => ['sometimes', 'required', 'string', 'max:100'],
-            'city'                       => ['sometimes', 'required', 'string', 'max:100'],
+            'state'                      => ['sometimes', 'nullable', 'string', 'max:100'],
+            'city'                       => ['sometimes', 'nullable', 'string', 'max:100'],
             'country'                    => ['sometimes', 'required', 'string', 'max:100'],
-            'postal_code'                => ['nullable', 'string', 'max:20'],
-            'address_line_1'             => ['sometimes', 'required', 'string', 'max:255'],
+            'postal_code'                => ['nullable', 'string', new UsPostalCode()],
+            'address_line_1'             => ['sometimes', 'nullable', 'string', 'max:255'],
             'address_line_2'             => ['nullable', 'string', 'max:255'],
             'tax_id'                     => ['nullable', 'string', 'max:100'],
             'website'                    => ['nullable', 'string'],

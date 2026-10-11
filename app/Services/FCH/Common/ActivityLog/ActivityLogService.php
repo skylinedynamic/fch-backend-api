@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\ActivityLog;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Mail\ActivityLog\ActivityLogMail;
@@ -26,7 +27,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class ActivityLogService
@@ -46,51 +46,10 @@ class ActivityLogService
             return ApiResponse::success([], __('activity_log.listed'));
         }
 
-        // 1. Scoping by User (Security)
-        $isHost = $user->user_type === User::ADMIN || $user->user_type === User::EMPLOYEE || (isset($user->partner) && (int) ($user->partner->is_host ?? 0) === 1);
-
-    
-        if ($isHost) {
-            // Host Admin sees everything, no scope applied
-        } elseif (isset($user->partner)) {
-            // Partner. partner_id says whose timeline a row belongs to, not who
-            // may read it — on its own it would hand the partner the host's
-            // private notes and the host's emails to the borrower. Beyond their
-            // own entries they see only what was explicitly addressed to them.
-            $query->where(function ($q) use ($user) {
-                $q->where('causer_id', $user->id)
-                    ->orWhere(function ($subQ) use ($user) {
-                        $subQ->where('properties->partner_id', $user->partner_id)
-                             ->where(function ($q2) {
-                                 $q2->whereNull('properties->is_internal')
-                                    ->orWhere('properties->is_internal', false)
-                                    ->orWhere('properties->is_internal', '0');
-                             })
-                             ->where(function ($q3) {
-                                 $q3->where('properties->send_to_host', '1')
-                                    ->orWhere('properties->visible_to_host', '1');
-                             });
-                    });
-            });
-        } elseif (isset($user->borrower)) {
-            // Borrower
-            $query->where(function ($q) use ($user) {
-                // Borrower sees activities they caused
-                $q->where('causer_id', $user->id)
-                  // Or activities explicitly sent/visible to borrower
-                  ->orWhere('properties->send_to_borrower', '1')
-                  ->orWhere('properties->visible_to_borrower', '1')
-                  // Or system logs (hide manual custom logs meant only for host/partner)
-                  ->orWhere(function ($subQ) {
-                      $subQ->whereNotIn('log_name', ['email', 'activity', 'log'])
-                           ->where(function ($q2) {
-                               $q2->whereNull('properties->is_internal')
-                                  ->orWhere('properties->is_internal', false)
-                                  ->orWhere('properties->is_internal', '0');
-                           });
-                  });
-            });
-        }
+        // 1. Scoping by User (Security) — the 4-level visibility model
+        // (private/internal/partner/everyone) is the single source of truth;
+        // see ActivityLog::scopeVisibleTo().
+        $query->visibleTo($user);
 
         // 2. Explicit Filtering
         if (!empty($filters['partner_id'])) {
@@ -248,6 +207,7 @@ class ActivityLogService
                 'borrower_id' => $targetBorrowerId,
                 'causer_id' => Auth::id(),
                 'causer_type' => Auth::check() ? get_class(Auth::user()) : null,
+                'visibility' => $this->resolveStoreVisibility($data, $logType),
                 'status' => $data['status'] ?? ($logType === ActivityLog::TYPE_EMAIL ? ActivityLog::STATUS_SENT : 'log'),
                 'event' => $data['subject'] ?? ($logType === ActivityLog::TYPE_EMAIL ? 'Email Sent' : 'Activity Created'),
                 'description' => $data['description'] ?? $data['subject'] ?? 'Activity Log',
@@ -325,6 +285,34 @@ class ActivityLogService
     }
 
     /**
+     * A manual activity's visibility comes straight from the submitted radio
+     * choice. An email row has no visibility control of its own yet — it
+     * still targets recipients via send_to_host/send_to_borrower — so its
+     * level is derived from those flags using the same mapping the migration
+     * backfill used, keeping it correctly scoped without new UI.
+     */
+    private function resolveStoreVisibility(array $data, string $logType): string
+    {
+        if (!empty($data['visibility']) && in_array($data['visibility'], ActivityLog::VISIBILITY_LEVELS, true)) {
+            return $data['visibility'];
+        }
+
+        if ($logType === ActivityLog::TYPE_EMAIL) {
+            $truthy = fn ($v) => filter_var($v, FILTER_VALIDATE_BOOLEAN);
+
+            if ($truthy($data['send_to_borrower'] ?? false) || $truthy($data['visible_to_borrower'] ?? false)) {
+                return ActivityLog::VISIBILITY_EVERYONE;
+            }
+
+            if ($truthy($data['send_to_host'] ?? false) || $truthy($data['visible_to_host'] ?? false)) {
+                return ActivityLog::VISIBILITY_PARTNER;
+            }
+        }
+
+        return ActivityLog::VISIBILITY_INTERNAL;
+    }
+
+    /**
      * Log a system-triggered event (e.g., Partner Update, Lead Status Change).
      */
     public function logSystemEvent(
@@ -335,7 +323,8 @@ class ActivityLogService
         string $subject,
         string $description,
         string $logType = 'activity',
-        array $properties = []
+        array $properties = [],
+        string $visibility = ActivityLog::VISIBILITY_INTERNAL
     ): ActivityLog {
         $mergedProperties = array_merge([
             'subject' => $subject,
@@ -351,6 +340,7 @@ class ActivityLogService
             'borrower_id' => $borrowerId,
             'causer_id' => Auth::id() ?: 1, // Fallback to system user
             'causer_type' => Auth::check() ? get_class(Auth::user()) : User::class,
+            'visibility' => in_array($visibility, ActivityLog::VISIBILITY_LEVELS, true) ? $visibility : ActivityLog::VISIBILITY_INTERNAL,
             'status' => 'log',
             'event' => $subject, // Human-readable subject
             'description' => $description, // Detailed description for UI gray box
@@ -366,7 +356,8 @@ class ActivityLogService
         string $logType,
         array $extraProperties = [],
         ?string $customSubject = null,
-        ?string $customDescription = null
+        ?string $customDescription = null,
+        string $visibility = ActivityLog::VISIBILITY_INTERNAL
     ): ActivityLog {
         $subjectType = get_class($model);
         $subjectId = $model->id;
@@ -569,7 +560,8 @@ class ActivityLogService
             $subject,
             $description,
             $logType,
-            $properties
+            $properties,
+            $visibility
         );
     }
 
@@ -592,7 +584,8 @@ class ActivityLogService
             }
 
             try {
-                Mail::to($recipient)->send(new ActivityLogMail($emailData, $attachmentNames, $attachments));
+                app(Notifier::class)->send('activity_log.email',
+                    mail: (new ActivityLogMail($emailData, $attachmentNames, $attachments))->to($recipient));
             } catch (\Throwable $e) {
                 Log::error('ActivityLog: Failed to send email to recipient', [
                     'recipient' => $recipient,
@@ -630,8 +623,9 @@ class ActivityLogService
     {
         $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-        $logType = strtolower($log->log_name ?? '');
-        if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+        // Type "activity" and typed in by a person - not one of the system's own
+        // audit entries, which share the type.
+        if (! $log->isManualActivity()) {
             throw new \Exception('Only manual activity entries can be edited.', 403);
         }
 
@@ -663,6 +657,12 @@ class ActivityLogService
 
         if (isset($data['reference'])) {
             $props['reference'] = $data['reference'];
+        }
+
+        // The owner may change their own manual activity's visibility inline,
+        // same as any other content field on this update path.
+        if (!empty($data['visibility']) && in_array($data['visibility'], ActivityLog::VISIBILITY_LEVELS, true)) {
+            $log->visibility = $data['visibility'];
         }
 
         // Older rows stored the wall-clock value as entered — normalise them to UTC once
@@ -790,6 +790,9 @@ class ActivityLogService
             ]);
         }
 
+        $props['is_edited'] = true;
+        $props['edited_at'] = now()->utc()->format('Y-m-d H:i:s');
+
         $log->properties = $props;
         $log->save();
 
@@ -804,8 +807,7 @@ class ActivityLogService
         DB::transaction(function () use ($id) {
             $log = ActivityLog::lockForUpdate()->findOrFail($id);
 
-            $logType = strtolower($log->log_name ?? '');
-            if ($logType !== 'activity' && $logType !== ActivityLog::TYPE_ACTIVITY) {
+            if (! $log->isManualActivity()) {
                 throw new \Exception('Only manual activity entries can be deleted.', 403);
             }
 
@@ -821,6 +823,32 @@ class ActivityLogService
             $this->findLinkedReminder($log, is_array($props) ? $props : [])?->delete();
 
             $log->delete();
+        });
+    }
+
+    /**
+     * FCH host staff may reclassify any activity's visibility — including
+     * rows they didn't author and system-generated audit entries — without
+     * gaining the broader content-edit rights update()/isEditableBy() give
+     * only to an entry's own creator.
+     */
+    public function updateVisibility(int $id, string $visibility): ActivityLog
+    {
+        return DB::transaction(function () use ($id, $visibility) {
+            $log = ActivityLog::lockForUpdate()->findOrFail($id);
+
+            if (!$log->canChangeVisibilityBy(Auth::user())) {
+                throw new \Exception('Only FCH host users may change an activity\'s visibility.', 403);
+            }
+
+            if (!in_array($visibility, ActivityLog::VISIBILITY_LEVELS, true)) {
+                throw new \Exception('Invalid visibility level.', 422);
+            }
+
+            $log->visibility = $visibility;
+            $log->save();
+
+            return $log->fresh(['causer', 'subject']);
         });
     }
 

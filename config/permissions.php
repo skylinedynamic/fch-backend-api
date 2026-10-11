@@ -121,6 +121,15 @@ return [
         ],
     ],
 
+    'tasks & reminders' => [
+        'permissions' => [
+            ['name' => 'view reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'create reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'update reminders', 'is_certified' => 1, 'is_host' => 0],
+            ['name' => 'delete reminders', 'is_certified' => 1, 'is_host' => 0],
+        ],
+    ],
+
     'training & courses' => [
         'permissions' => [
             ['name' => 'view training & courses', 'is_certified' => 1, 'is_host' => 0],
@@ -203,6 +212,7 @@ return [
             ['name' => 'update partner agreement settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update borrower agreement settings', 'is_certified' => 1, 'is_host' => 0],
             ['name' => 'update email configuration settings', 'is_certified' => 0, 'is_host' => 0],
+            ['name' => 'update sms configuration settings', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'update branding settings', 'is_certified' => 0, 'is_host' => 0],
             ['name' => 'update credit profile settings', 'is_certified' => 0, 'is_host' => 1],
             ['name' => 'update score calculation settings', 'is_certified' => 0, 'is_host' => 1],

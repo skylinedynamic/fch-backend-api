@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\StoreActivityLogRequest;
 use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogRequest;
+use App\Http\Requests\Api\V1\FCH\Common\ActivityLog\UpdateActivityLogVisibilityRequest;
 use App\Http\Resources\FCH\ActivityLog\ActivityLogResource;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Http\Request;
@@ -88,6 +89,26 @@ class ActivityLogController extends Controller
             if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
             Log::error('ActivityLog update error:', ['id' => $id, 'error' => $e->getMessage()]);
             return ApiResponse::serverError(__('activity_log.activity_update_failed'));
+        }
+    }
+
+    /**
+     * Reclassify an activity's visibility. Host-only, and works on any row
+     * (including ones the caller didn't author and system-generated audit
+     * entries) — unlike update()/destroy() which stay restricted to your
+     * own manual activity.
+     */
+    public function updateVisibility(UpdateActivityLogVisibilityRequest $request, $id)
+    {
+        try {
+            $log = $this->activityLogService->updateVisibility((int) $id, $request->validated('visibility'));
+            return ApiResponse::success(new ActivityLogResource($log), __('activity_log.visibility_updated'));
+        } catch (\Exception $e) {
+            $code = $e->getCode();
+            if ($code === 403) return ApiResponse::error($e->getMessage(), 403);
+            if ($code === 422) return ApiResponse::error($e->getMessage(), 422);
+            Log::error('ActivityLog visibility update error:', ['id' => $id, 'error' => $e->getMessage()]);
+            return ApiResponse::serverError(__('activity_log.visibility_update_failed'));
         }
     }
 

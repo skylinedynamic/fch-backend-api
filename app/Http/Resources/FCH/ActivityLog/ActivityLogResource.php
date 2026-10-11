@@ -66,20 +66,53 @@ class ActivityLogResource extends JsonResource
         $reminderTimeUnit = $props['reminder_time_unit'] ?? 'Minutes';
 
         $linkedReminder = !empty($props['reminder_id']) ? Reminder::find($props['reminder_id']) : null;
-        if (!$linkedReminder && !$remindMe && empty($props['reminder_id']) && $this->subject_id && $this->subject_type) {
+        if (!$linkedReminder && $this->id) {
+            $linkedReminder = Reminder::where('activity_log_id', $this->id)->first();
+        }
+        if (!$linkedReminder && $this->subject_id && $this->subject_type && !empty($props['subject'])) {
             $linkedReminder = Reminder::where('entity_id', $this->subject_id)
                 ->where('entity_type', $this->subject_type)
-                ->where('status', Reminder::STATUS_PENDING)
-                ->where('summary', $props['subject'] ?? '')
+                ->where('summary', $props['subject'])
+                ->latest()
                 ->first();
         }
+
+        $reminderStatus = null;
+        $reminderStatusRaw = null;
+        $isReminderMissed = false;
 
         if ($linkedReminder) {
             // The reminder row is the source of truth for when it actually fires
             $remindMe = true;
+            $reminderStatusRaw = $linkedReminder->status;
             $remindAt = $linkedReminder->reminder_date_time
                 ? toTimezone($linkedReminder->reminder_date_time, null, 'Y-m-d H:i:s')
                 : null;
+
+            $activityAt = $linkedReminder->set_date_time ?? $linkedReminder->send_at ?? $linkedReminder->reminder_date_time;
+            $isReminderMissed = ($linkedReminder->status === Reminder::STATUS_PENDING || $linkedReminder->status === Reminder::STATUS_SENT)
+                && $activityAt && Carbon::parse($activityAt)->isPast();
+
+            $snoozeHistory = is_array($linkedReminder->snooze_history) ? $linkedReminder->snooze_history : [];
+            $hasSnooze = !empty($snoozeHistory);
+            $lastSnooze = $hasSnooze ? end($snoozeHistory) : null;
+            $isCurrentlySnoozed = $hasSnooze && $linkedReminder->status === Reminder::STATUS_PENDING && !empty($lastSnooze['snoozed_until']) && Carbon::parse($lastSnooze['snoozed_until'])->isFuture();
+
+            if ($isReminderMissed) {
+                $reminderStatus = 'Missed';
+            } elseif ($isCurrentlySnoozed) {
+                $reminderStatus = 'Snoozed';
+            } elseif ($linkedReminder->status === Reminder::STATUS_PENDING) {
+                $reminderStatus = 'Pending';
+            } elseif ($linkedReminder->status === Reminder::STATUS_SENT) {
+                $reminderStatus = 'Sent';
+            } elseif ($linkedReminder->status === Reminder::STATUS_CANCELLED) {
+                $reminderStatus = 'Dismissed';
+            } elseif ($linkedReminder->status === Reminder::STATUS_COMPLETED) {
+                $reminderStatus = 'Completed';
+            } else {
+                $reminderStatus = ucfirst($linkedReminder->status);
+            }
 
             if ($reminderPreset !== 'custom_date_time' && $linkedReminder->set_date_time && $linkedReminder->reminder_date_time) {
                 $leadMinutes = (int) round(
@@ -88,9 +121,15 @@ class ActivityLogResource extends JsonResource
                 [$reminderPreset, $reminderTimeValue, $reminderTimeUnit] =
                     $this->resolveReminderPreset($leadMinutes, $reminderPreset, $reminderTimeValue, $reminderTimeUnit);
             }
+        } elseif ($remindMe) {
+            $reminderStatus = 'Pending';
+            $reminderStatusRaw = Reminder::STATUS_PENDING;
+            $remindAt = $toDisplay($props['remind_at'] ?? null);
         } else {
             $remindAt = $toDisplay($props['remind_at'] ?? null);
         }
+
+        $isEdited = (bool) ($props['is_edited'] ?? false);
 
         return [
             'id'            => $this->id,
@@ -117,12 +156,20 @@ class ActivityLogResource extends JsonResource
             'attachments'       => $this->properties['attachments']['files'] ?? [],
             'attachments_count' => $this->properties['attachments']['count'] ?? 0,
             'status'            => $this->status,
+            // Visibility
+            'visibility'          => $this->visibility,
+            'visibility_label'    => \App\Models\ActivityLog\ActivityLog::VISIBILITY_LABELS[$this->visibility] ?? ucfirst((string) $this->visibility),
+            'can_edit_visibility' => $this->resource->canChangeVisibilityBy($request->user()),
             // Reminder fields
-            'remind_me'         => $remindMe,
-            'remind_at'         => $remindAt,
-            'reminder_preset'   => $reminderPreset,
-            'reminder_time_value'=> $reminderTimeValue,
-            'reminder_time_unit' => $reminderTimeUnit,
+            'remind_me'            => $remindMe,
+            'remind_at'            => $remindAt,
+            'reminder_id'          => $linkedReminder?->id ?? ($props['reminder_id'] ?? null),
+            'reminder_status'      => $reminderStatus,
+            'reminder_status_raw'  => $reminderStatusRaw,
+            'is_reminder_missed'   => $isReminderMissed,
+            'reminder_preset'      => $reminderPreset,
+            'reminder_time_value'  => $reminderTimeValue,
+            'reminder_time_unit'   => $reminderTimeUnit,
             // Timeline specific
             'causer_name'   => ($this->relationLoaded('causer') && $this->causer) 
                                 ? ($this->causer->name ?? 'System') 
@@ -131,6 +178,36 @@ class ActivityLogResource extends JsonResource
                                 ? $this->causer->getEntityImage() 
                                 : ($borrowerImage ?? $partnerImage ?? asset('avatar/avatar-default.jpg')),
             'event_label'   => $this->getEventLabel(),
+            // On an "application edited" entry: each field that changed, with its
+            // old and new value ({ field: { label, from, to } }). Sensitive ones
+            // (SSN and the like) arrive as "[hidden]".
+            'field_changes' => is_array($this->properties['changes'] ?? null) && ($this->properties['changes'] ?? []) !== []
+                ? $this->properties['changes']
+                : null,
+            // On a submit / re-submit entry: the signature that was replaced
+            // and the new one (image for an e-signature, typed name otherwise),
+            // with their dates formatted through toTimezone().
+            'signatures'    => (function () {
+                $signatures = $this->properties['signatures'] ?? null;
+                if (! is_array($signatures)) {
+                    return null;
+                }
+
+                foreach ($signatures as $key => $signature) {
+                    if (! is_array($signature)) {
+                        unset($signatures[$key]);
+                        continue;
+                    }
+                    if (! empty($signature['signed_at'])) {
+                        $signatures[$key]['signed_at'] = toTimezone($signature['signed_at'], null, 'M d, Y g:i A');
+                    }
+                    if (! empty($signature['signature_date'])) {
+                        $signatures[$key]['signature_date'] = toTimezone($signature['signature_date'], config('app.timezone'), 'M d, Y');
+                    }
+                }
+
+                return $signatures ?: null;
+            })(),
             'changes'       => $this->properties['attributes'] ?? null,
             'old_values'    => $this->properties['old'] ?? null,
             // Audit
@@ -138,10 +215,17 @@ class ActivityLogResource extends JsonResource
                 'id'   => $this->causer->id,
                 'name' => $this->causer->name,
             ] : null),
+            'is_owner'      => $this->resource->isOwnedBy($request->user()),
+            // An activity a person created, choosing its visibility themselves -
+            // as opposed to an entry the system wrote (client created, invoice
+            // created, application submitted ...), which nobody chose a level for.
+            'is_manual'     => $this->resource->isManualActivity(),
             // Edit/delete are offered only on your own manual activity entries;
             // the API enforces the same rule.
             'can_edit'      => $this->resource->isEditableBy($request->user()),
             'can_delete'    => $this->resource->isEditableBy($request->user()),
+            'is_edited'     => $isEdited,
+            'edited_at'     => !empty($props['edited_at']) ? toTimezone($props['edited_at'], null, 'Y-m-d H:i:s') : toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
             'created_at'    => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at'    => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\Locations;
 use App\Models\Common\Role;
 use App\Models\Employee\Employee;
 use App\Models\User\User;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeSeeder extends Seeder
 {
-    use LocationHelper;
 
     /**
      * Run the database seeds.
@@ -41,7 +41,7 @@ class EmployeeSeeder extends Seeder
             }
 
             for ($i = 1; $i <= 10; $i++) {
-                $location = $this->getRandomLocation();
+                $location = Locations::randomLocation();
                 $firstName = "Employee{$partnerId}{$i}";
                 $lastName = 'User';
                 $empCode = "Emp-0000{$i}";

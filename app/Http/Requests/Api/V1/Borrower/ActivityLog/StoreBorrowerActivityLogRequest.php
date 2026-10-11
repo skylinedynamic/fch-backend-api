@@ -33,6 +33,14 @@ class StoreBorrowerActivityLogRequest extends BaseApiRequest
             'lead_id'       => ['nullable', 'exists:leads,id'],
             'funding_request_id' => ['nullable', 'exists:funding_requests,id'],
 
+            // A borrower has no legitimate reason to address something "FCH
+            // only" or "Partner only" — those levels aren't offered.
+            'visibility'    => [
+                Rule::requiredIf($this->log_type === ActivityLog::TYPE_ACTIVITY),
+                'nullable',
+                Rule::in([ActivityLog::VISIBILITY_PRIVATE, ActivityLog::VISIBILITY_EVERYONE]),
+            ],
+
             'subject'       => ['required', 'string', 'max:500'],
             'description'   => ['required', 'string'],
 

@@ -5,6 +5,9 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Borrower;
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Partner\SubscriptionPlan;
 use Illuminate\Validation\Rule;
+use App\Rules\BusinessEin;
+use App\Rules\DunsNumber;
+use App\Rules\UsPostalCode;
 
 class StoreBorrowerRequest extends BaseApiRequest
 {
@@ -22,15 +25,22 @@ class StoreBorrowerRequest extends BaseApiRequest
         $rules = [
             // ── Personal Info ───────────────────────────────────────────────
             'first_name'           => ['required', 'string', 'max:255'],
+            'middle_name'           => ['nullable', 'string', 'max:255'],
             'last_name'            => ['required', 'string', 'max:255'],
-            'email'                => ['required', Rule::unique('borrowers', 'email')->whereNull('deleted_at'), 'email', 'max:255'],
+            'email'                => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('borrowers', 'email')->whereNull('deleted_at'),
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
+            ],
             'phone_number'         => ['required', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
             'country'              => ['required', 'string', 'max:255'],
-            'state'                => ['required', 'string', 'max:255'],
-            'city'                 => ['required_without:other_city', 'string', 'max:255'],
+            'state'                => ['nullable', 'string', 'max:255'],
+            'city'                 => ['nullable', 'string', 'max:255'],
             'other_city'           => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'country_code'         => ['nullable', 'string', 'max:5'],
-            'postal_code'          => ['nullable', 'string', 'max:20'],
+            'postal_code'          => ['nullable', 'string', new UsPostalCode()],
             'home_address'         => ['nullable', 'string', 'max:255'],
             'date_of_birth'        => ['nullable'],
             'last_4_ssn'           => ['nullable', 'string', 'max:4'],
@@ -38,13 +48,13 @@ class StoreBorrowerRequest extends BaseApiRequest
 
             // ── Business Info ───────────────────────────────────────────────
             'business_name'        => ['nullable', 'string', 'max:255'],
-            'business_ein'         => ['nullable', 'string', 'max:255'],
+            'business_ein'         => ['nullable', 'string', new BusinessEin()],
             'business_website'     => ['nullable', 'max:255'],
             'business_address'     => ['nullable', 'string', 'max:255'],
             'business_country'     => ['required', 'string', 'max:255'],
             'business_country_code'=> ['nullable', 'string', 'max:5'],
-            'business_state'       => ['required', 'string', 'max:255'],
-            'business_city'        => ['required_without:business_other_city', 'string', 'max:255'],
+            'business_state'       => ['nullable', 'string', 'max:255'],
+            'business_city'        => ['nullable', 'string', 'max:255'],
             'business_other_city'  => ['required_if:business_city,Others', 'nullable', 'string', 'max:255'],
             'business_postal_code' => ['nullable', 'string', 'max:20'],
             'business_phone'       => ['nullable', 'string', 'max:20', 'regex:/^[\d\s\(\)\-\+]+$/'],
@@ -53,7 +63,7 @@ class StoreBorrowerRequest extends BaseApiRequest
             'business_industry_type' => ['nullable', 'string', 'max:255'],
             'business_industry_type_note' => ['required_if:business_industry_type,' . config('borrower.industry_type_other'), 'nullable', 'string', 'max:255'],
             'business_start_date'  => ['nullable'],
-            'duns_number'          => ['nullable', 'string', 'max:255'],
+            'duns_number'          => ['nullable', 'string', new DunsNumber()],
             'state_file_number'    => ['nullable', 'string', 'max:255'],
 
             // ── Other ───────────────────────────────────────────────────────

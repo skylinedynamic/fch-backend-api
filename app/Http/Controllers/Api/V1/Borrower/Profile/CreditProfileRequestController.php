@@ -8,11 +8,12 @@ use App\Http\Requests\Api\V1\Borrower\Profile\StoreCreditProfileRequestRequest;
 use App\Http\Resources\Borrower\Profile\CreditProfileRequestResource;
 use App\Mail\Borrower\CreditProfileRequestMail;
 use App\Models\Partner\Partner;
+use App\Services\Borrower\Profile\CreditAuthorizationConsentService;
 use App\Services\Borrower\Profile\CreditProfileRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use App\Services\FCH\Common\Notification\Notifier;
 
 class CreditProfileRequestController extends Controller
 {
@@ -34,7 +35,18 @@ class CreditProfileRequestController extends Controller
                 return ApiResponse::error(__('auth.unauthorized'), 401);
             }
 
-            $creditProfileRequest = $this->service->store($user, $request->validated());
+            $creditProfileRequest = $this->service->store($user, $request->creditProfileAttributes());
+
+            // The evidence that this pull was asked for. Written from the
+            // client's own request so the IP and user agent are theirs, and
+            // straight after the row it authorises so the two can be tied
+            // together. The request was already refused above if either box was
+            // unticked, so reaching here means a complete consent.
+            app(CreditAuthorizationConsentService::class)->record(
+                (int) $user->entity_id,
+                $request,
+                $creditProfileRequest->id
+            );
 
             // Fetch the host partner (is_host = 1) and send them the upload request email.
             // Catch \Throwable, not \Exception - a bad/misconfigured mailer setting
@@ -42,9 +54,20 @@ class CreditProfileRequestController extends Controller
             // \Exception does not catch. A failed/queued-and-later-failed send must
             // never fail the borrower's request submission itself.
             $host = Partner::where('is_host', 1)->first();
-            if ($host && $host->email) {
+            if ($host) {
                 try {
-                    Mail::to($host->email)->send(new CreditProfileRequestMail($creditProfileRequest));
+                    $borrower = $creditProfileRequest->borrower;
+
+                    app(Notifier::class)->send('host.credit_profile.requested', $host, [
+                        'id' => $creditProfileRequest->id,
+                        'borrower' => personName($borrower?->first_name, $borrower?->middle_name, $borrower?->last_name),
+                    ], mail: $host->email
+                        // Sent with the host's own mail credentials rather than
+                        // left to resolve them: this notification is the host's,
+                        // and naming the partner means it does not depend on the
+                        // unconfigured-tenant fallback happening to land there.
+                        ? (new CreditProfileRequestMail($creditProfileRequest, (int) $host->id))->to($host->email)
+                        : null);
                 } catch (\Throwable $mailException) {
                     Log::error(__('credit_profile_request.log_upload_email_failed', ['error' => $mailException->getMessage()]));
                 }

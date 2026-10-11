@@ -107,6 +107,32 @@ class FundingRequestResource extends JsonResource
             'is_federal_compliance_saved' => $fundingApp ? (bool)$fundingApp->is_federal_compliance_saved : false,
             'signature_data' => $fundingApp ? $fundingApp->signature_data : null,
             'status' => $fundingApp ? $fundingApp->status : null,
+
+            // What the partner is allowed to do with this application, and what
+            // an edit costs. `edit_requires_resign` is the one the partner portal
+            // acts on: a change to an application the borrower has already signed
+            // withdraws *their* signature, so the partner is warned before it
+            // happens rather than after.
+            ...($fundingApp ? $fundingApp->editingState() : self::noApplicationEditingState()),
+        ];
+    }
+
+    /**
+     * There is no application yet, so there is nothing to lock and no signature
+     * to invalidate - the partner is free to prepare one.
+     *
+     * @return array<string, mixed>
+     */
+    private static function noApplicationEditingState(): array
+    {
+        return [
+            'is_locked' => false,
+            'is_editable' => true,
+            'requires_resign' => false,
+            'edit_requires_resign' => false,
+            'edit_needs_confirmation' => false,
+            'can_start_new_funding_request' => false,
+            'locked_reason' => null,
         ];
     }
 }

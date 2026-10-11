@@ -7,6 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use App\Rules\UsPostalCode;
 
 class DemoRequestStoreOrUpdateRequest extends FormRequest
 {
@@ -26,7 +27,7 @@ class DemoRequestStoreOrUpdateRequest extends FormRequest
             'email'         => ['nullable', 'email', 'max:191'],
             'state'         => ['nullable', 'string', 'max:100'],
             'country'       => ['nullable', 'string', 'max:100'],
-            'zip_code'      => ['nullable', 'string', 'max:20'],
+            'zip_code'      => ['nullable', 'string', new UsPostalCode()],
             'joining_date'  => ['nullable', 'date'],
             'tax_id'        => ['nullable', 'string', 'max:100'],
             'website'       => ['nullable', 'url', 'max:191'],

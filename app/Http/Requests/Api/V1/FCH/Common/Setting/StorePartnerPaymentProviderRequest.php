@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\PaymentMethod\PaymentProvider;
+use App\Rules\StripeKeysMatchPaymentMode;
 use Illuminate\Validation\Rule;
 
 class StorePartnerPaymentProviderRequest extends BaseApiRequest
@@ -14,6 +15,17 @@ class StorePartnerPaymentProviderRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * Name of the provider this configuration is being saved for.
+     *
+     * Only Stripe's keys carry a mode in their prefix, so the credential check
+     * needs to know which provider it is looking at.
+     */
+    protected function providerName(): ?string
+    {
+        return PaymentProvider::find($this->input('payment_provider_id'))?->name;
     }
 
     /**
@@ -29,7 +41,7 @@ class StorePartnerPaymentProviderRequest extends BaseApiRequest
             'payment_mode' => ['required',Rule::in([PaymentProvider::MODE_PRODUCTION, PaymentProvider::MODE_SANDBOX])],
             'status' => 'boolean',
             'is_default' => 'boolean',
-            'configuration' => 'nullable|array',
+            'configuration' => ['nullable', 'array', new StripeKeysMatchPaymentMode($this->providerName())],
             'bank_details' => 'nullable|array',
             'bank_details.*.id' => 'nullable|integer|exists:payment_method_bank_details,id',
             'bank_details.*.bank_name' => 'required|string|max:255',

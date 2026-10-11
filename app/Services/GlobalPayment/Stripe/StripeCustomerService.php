@@ -12,17 +12,38 @@ class StripeCustomerService
     /**
      * Resolve Stripe Customer ID by checking if one is already saved, looking it up by email, or creating a new one.
      *
+     * A Stripe Customer exists in one account - test or live - and is invisible
+     * from the other. A stored ID is therefore only reusable while the partner is
+     * still transacting in the mode it was created under, so callers pass the
+     * mode the current API key belongs to and an ID from the other mode is
+     * discarded rather than handed to Stripe, which would fail the charge.
+     *
+     * IDs stored before the mode was recorded carry no mode and are still
+     * trusted: they predate this check and are overwhelmingly correct.
+     *
      * @param string $email
      * @param string $name
      * @param string|array|null $stripeCustomerData The customer ID or JSON data if stored locally in our database
+     * @param string|null $expectedMode Mode the active Stripe API key belongs to
      * @return string Stripe Customer ID
      */
-    public function resolveCustomer(string $email, string $name, string|array|null $stripeCustomerData = null): string
+    public function resolveCustomer(string $email, string $name, string|array|null $stripeCustomerData = null, ?string $expectedMode = null): string
     {
         // Extract raw customer ID whether it's a plain string or JSON array
         $stripeCustomerId = is_array($stripeCustomerData)
             ? ($stripeCustomerData['customer_id'] ?? null)
             : $stripeCustomerData;
+
+        $storedMode = is_array($stripeCustomerData) ? ($stripeCustomerData['payment_mode'] ?? null) : null;
+
+        if (!empty($stripeCustomerId) && $expectedMode && $storedMode && $storedMode !== $expectedMode) {
+            Log::warning('[Stripe Customer Service] Stored Stripe customer belongs to another mode; re-resolving', [
+                'customer_id' => $stripeCustomerId,
+                'stored_mode' => $storedMode,
+                'expected_mode' => $expectedMode,
+            ]);
+            $stripeCustomerId = null;
+        }
 
         // 1. Use locally stored Stripe Customer ID if available
         if (!empty($stripeCustomerId)) {

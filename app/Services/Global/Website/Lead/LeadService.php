@@ -2,12 +2,13 @@
 
 namespace App\Services\Global\Website\Lead;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-use Illuminate\Support\Facades\Mail;
+use App\Mail\Lead\LeadNotificationMail;
 
 class LeadService
 {
@@ -43,15 +44,22 @@ class LeadService
             // Catch \Throwable (not \Exception) so a mail failure - e.g. a \TypeError
             // from a misconfigured mailer - is logged and bypassed here rather than
             // reaching the outer catch below and rolling back the lead that was just created.
-            if ($hostPartner && ($hostPartner->email || $hostPartner->contact_person_email)) {
+            if ($hostPartner) {
                 try {
                     $details = [
                         'type' => 'website',
                         'is_pre_qualification' => $isPreQualification,
                         'prequalification' => $preQualificationData
                     ];
-                    Mail::to($hostPartner->email ?: $hostPartner->contact_person_email)
-                        ->send(new \App\Mail\Lead\LeadNotificationMail($lead, (object) $details));
+                    $email = $hostPartner->email ?: $hostPartner->contact_person_email;
+
+                    // Inside the transaction: the bell and a queued email both
+                    // wait for the commit, so a rolled-back lead announces nothing.
+                    app(Notifier::class)->send('lead.created', $hostPartner, [
+                        'id' => $lead->id,
+                        'name' => $lead->contact_person ?: $lead->company_name,
+                        'source' => strtolower((string) $lead->lead_source),
+                    ], mail: $email ? (new LeadNotificationMail($lead, (object) $details))->to($email) : null);
                 } catch (\Throwable $e) {
                     Log::error('Failed to send lead email notification to host', ['error' => $e->getMessage()]);
                 }

@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers\Api\V1\FCH\Common\Borrower;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Models\Borrower\Borrower;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Borrower\BorrowerDocument;
 use App\Services\FCH\Common\Tier\TierService;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
+use App\Services\Borrower\Profile\CreditAuthorizationConsentService;
 use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Http\Resources\FCH\Borrower\BorrowerDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerProfileResource;
@@ -25,6 +26,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Borrower\UploadBorrowerDocumentRequest;
 use App\Http\Resources\FCH\Borrower\BorrowerPersonalDetailsResource;
 use App\Http\Resources\FCH\Borrower\BorrowerBusinessFinancialsResource;
 use App\Http\Requests\Api\V1\FCH\Common\Borrower\UpdateBorrowerBusinessFinancialsRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Borrower\ArchiveBorrowerRequest;
 
 class BorrowerController extends Controller
 {
@@ -68,6 +70,8 @@ class BorrowerController extends Controller
                 __('borrower.created'),
                 201
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage());
         }
@@ -117,6 +121,9 @@ class BorrowerController extends Controller
                 new BorrowerDetailsResource($updatedBorrower),
                 __('borrower.updated')
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // e.g. the new email is already taken — the form needs to show why.
+            throw $e;
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.update_failed'));
         }
@@ -155,6 +162,27 @@ class BorrowerController extends Controller
         ]);
 
         return $this->borrowerService->delete($request->ids);
+    }
+
+    /**
+     * Archive borrowers: take them out of the working list without deleting them.
+     *
+     * Presentation only - `status` is untouched, so an archived borrower keeps
+     * whatever access and billing they had.
+     */
+    public function archive(ArchiveBorrowerRequest $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+
+        return $this->borrowerService->archive($request->validated()['ids']);
+    }
+
+    /** Restore archived borrowers to the working list. */
+    public function unarchive(ArchiveBorrowerRequest $request)
+    {
+        $this->checkWhiteLabelConfiguration();
+
+        return $this->borrowerService->unarchive($request->validated()['ids']);
     }
 
     /**
@@ -234,7 +262,8 @@ class BorrowerController extends Controller
         ];
 
         try {
-            Mail::to($user->email)->send(new BorrowerAccountCreatedMail($data, $user->partner_id));
+            app(Notifier::class)->send('borrower.account.created', $user, ['name' => $user->name],
+                mail: (new BorrowerAccountCreatedMail($data, $user->partner_id))->to($user->email));
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('📧 BorrowerAccountCreatedMail failed', [
                 'error' => $e->getMessage(),
@@ -606,6 +635,8 @@ class BorrowerController extends Controller
                 'inquiries' => 'nullable|array',
                 'pdf_url' => 'nullable|string',
                 'document_id' => 'nullable|integer|exists:borrower_documents,id',
+                // Optional: ties this pull to the consent that authorised it.
+                'isoftpull_transaction_id' => 'nullable|string|max:191',
             ]);
 
             $borrowerId = (int) $request->input('borrower_id');
@@ -742,6 +773,34 @@ class BorrowerController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+
+            // The pull this borrower authorised has now happened, so tie it to
+            // the consent behind it: `pulled_at`, plus the iSoftPull transaction
+            // id when one was supplied. Only ever adds - `consented_at` stays as
+            // it was, because when the client agreed is the fact being proved.
+            //
+            // After the commit and in its own try/catch on purpose: a missing
+            // consent must be visible in the log, not silently roll back a credit
+            // profile that was saved correctly.
+            try {
+                $consentService = app(CreditAuthorizationConsentService::class);
+                $consent = $consentService->latestUnattached($borrowerId);
+
+                if ($consent) {
+                    $consentService->attachPull($consent, $request->input('isoftpull_transaction_id'));
+                } else {
+                    // Worth knowing about: a profile was saved with no unused
+                    // authorisation on file to attribute it to.
+                    Log::warning(__('credit_profile_request.log_no_consent_to_attach', [
+                        'borrower_id' => $borrowerId,
+                    ]));
+                }
+            } catch (\Throwable $consentException) {
+                Log::error(__('credit_profile_request.log_attach_consent_failed', [
+                    'borrower_id' => $borrowerId,
+                    'error' => $consentException->getMessage(),
+                ]));
+            }
 
             return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
 

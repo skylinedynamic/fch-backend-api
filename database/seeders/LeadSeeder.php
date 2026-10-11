@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\Locations;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -10,7 +11,6 @@ use Faker\Factory as Faker;
 
 class LeadSeeder extends Seeder
 {
-    use LocationHelper;
 
     /**
      * Run the database seeds.
@@ -31,7 +31,7 @@ class LeadSeeder extends Seeder
         ];
         // Generate 50 sample leads
         for ($i = 0; $i < 50; $i++) {
-            $location = $this->getRandomLocation();
+            $location = Locations::randomLocation();
             $leadId = 'LD-' . now()->format('Y-md') . '-' . str_pad(($i + 1), 3, '0', STR_PAD_LEFT);
             Lead::updateOrCreate(
                 ['lead_id' => $leadId],

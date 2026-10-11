@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Employee;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
@@ -30,6 +31,7 @@ use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Mail\AccountCreateNotificationMail;
 use App\Services\FCH\Subscription\SubscriptionCreationService;
+use App\Services\Global\Account\EmailChangeService;
 use Illuminate\Support\Facades\Mail;
 
 class EmployeeService
@@ -40,6 +42,7 @@ class EmployeeService
         protected InvoiceService $invoiceService,
         protected ActivityLogService $activityLogService,
         protected SubscriptionCreationService $subscriptionCreationService,
+        protected EmailChangeService $emailChange,
     ) {
     }
 
@@ -48,6 +51,31 @@ class EmployeeService
         $employees = Employee::query()->where('partner_id', Auth::user()->partner_id)->with(['user'])->orderBy('id', 'desc')->get();
 
         return ApiResponse::success(EmployeeResource::collection($employees), __('employee.success.retrieved'));
+    }
+
+    /**
+     * The partner's employees that have no user account yet - the only ones a
+     * new user can be created for. An employee whose user was (soft) deleted
+     * counts as having none.
+     */
+    public function availableForUser(int $partnerId)
+    {
+        return Employee::query()
+            ->where('partner_id', $partnerId)
+            ->whereDoesntHave('user')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'email', 'phone_number_1', 'country_code', 'employee_code', 'designation'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'first_name' => $employee->first_name,
+                'full_name' => $employee->full_name,
+                'email' => $employee->email,
+                'phone_number_1' => $employee->phone_number_1,
+                'country_code' => $employee->country_code,
+                'employee_code' => $employee->employee_code,
+                'designation' => $employee->designation,
+            ])
+            ->values();
     }
 
     /**
@@ -87,7 +115,7 @@ class EmployeeService
                     'phone_number' => 'phone_number_1',
                 ],
                 'concat_fields' => [
-                    'full_name' => ['first_name', 'last_name'],
+                    'full_name' => ['first_name'],
                 ],
             ]
         );
@@ -217,7 +245,7 @@ class EmployeeService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $partner->id,
-                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : ($employee->first_name . ' ' . $employee->last_name),
+                    'customer_name' => $partner ? ($partner->company_name ?: $partner->full_name) : $employee->full_name,
                     'email' => $partner ? $partner->email : $employee->email,
                     'payment_amount' => $amount,
                     'payment_date' => null,
@@ -279,6 +307,10 @@ class EmployeeService
             $user = $employee->user;
             $plainPassword = null;
 
+            // With a login, a new email is confirmed from the new address
+            // before either record changes; without one it applies directly.
+            $newEmail = $this->emailChange->takeFrom($employeeData, $user, $employee->email);
+
             // Format dates if present
             if (isset($employeeData['joining_date']) && !empty($employeeData['joining_date'])) {
                 $employeeData['joining_date'] = Carbon::parse($employeeData['joining_date'])->format('Y-m-d');
@@ -305,9 +337,8 @@ class EmployeeService
             $employee->fill($employeeData);
             $isEmployeeDirty = $employee->isDirty([
                 'first_name',
-                'last_name',
                 'email',
-                'phone_number',
+                'phone_number_1',
             ]);
 
             // 3️⃣ Handle user creation if needed
@@ -315,7 +346,7 @@ class EmployeeService
                 $plainPassword = bin2hex(random_bytes(4));
 
                 $user = User::create([
-                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
+                    'name' => trim((string) $employee->first_name),
                     'email' => $employee->email,
                     'phone_number' => $employee->phone_number_1,
                     'password' => Hash::make($plainPassword),
@@ -331,34 +362,15 @@ class EmployeeService
                 $this->sendAccountCreatedMail($user, $partner, $plainPassword);
             }
 
-            // 4️⃣ Sync existing user if employee changed
+            // 4️⃣ Sync existing user if employee changed. The email isn't part
+            // of this: a login's email only changes through EmailChangeService.
             if ($user && $isEmployeeDirty) {
-                $emailChanged = isset($employeeData['email']) && $user->email !== $employeeData['email'];
-                $plainPassword = null;
-
-                $updateData = [
-                    'name' => trim($employee->first_name . ' ' . $employee->last_name),
-                    'email' => $employee->email,
+                $user->update([
+                    'name' => trim((string) $employee->first_name),
                     'phone_number' => $employee->phone_number_1 ?? $employee->phone_number,
-                ];
-
-                if ($emailChanged) {
-                    $plainPassword = bin2hex(random_bytes(4));
-                    $updateData['password'] = Hash::make($plainPassword);
-                    Log::info('🔑 Password reset for Employee user due to email change', ['user_id' => $user->id]);
-                }
-
-                $user->update($updateData);
-
-                Log::info('Existing user synced with employee changes', [
-                    'employee_id' => $employee->id,
-                    'email_changed' => $emailChanged,
                 ]);
 
-                // 📧 Send update notification if email was changed
-                if ($emailChanged && $plainPassword) {
-                    $this->sendAccountCreatedMail($user, $partner, $plainPassword, true);
-                }
+                Log::info('Existing user synced with employee changes', ['employee_id' => $employee->id]);
             }
 
             // 5️⃣ Assign or update role
@@ -384,6 +396,10 @@ class EmployeeService
 
             DB::commit();
             Log::info('Employee updated successfully', ['employee_id' => $employee->id]);
+
+            if ($newEmail) {
+                $this->emailChange->request($user, $newEmail);
+            }
 
             return [
                 'employee' => $employee->fresh(),
@@ -586,7 +602,8 @@ class EmployeeService
         ];
 
         try {
-            Mail::to($user->email)->send(new AccountCreateNotificationMail($data));
+            app(Notifier::class)->send($isUpdate ? 'user.account.login_updated' : 'user.account.created', $user,
+                mail: (new AccountCreateNotificationMail($data))->to($user->email));
         } catch (Throwable $e) {
             Log::error('📧 AccountCreatedNotificationMail failed', [
                 'error' => $e->getMessage(),

@@ -10,6 +10,7 @@ use App\Models\Partner\Partner;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class StorePartnerRequest extends BaseApiRequest
 {
@@ -55,11 +56,11 @@ class StorePartnerRequest extends BaseApiRequest
             'contact_person_email' => ['nullable', 'email', 'max:255'],
             'contact_person_relation' => ['nullable', 'string', 'max:255'],
             'partner_type' => ['required', 'string', 'max:255'],
-            'state' => ['required', 'string', 'max:100'],
-            'city' => ['required', 'string', 'max:100'],
+            'state' => ['nullable', 'string', 'max:100'],
+            'city' => ['nullable', 'string', 'max:100'],
             'country' => ['required', 'string', 'max:100'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
-            'address_line_1' => ['required', 'string', 'max:255'],
+            'zip_code' => ['nullable', 'string', new UsPostalCode()],
+            'address_line_1' => ['nullable', 'string', 'max:255'],
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'tax_id' => ['nullable', 'string', 'max:100'],
             'website' => ['nullable', 'string'],

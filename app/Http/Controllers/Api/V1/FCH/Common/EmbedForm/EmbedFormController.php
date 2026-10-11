@@ -5,9 +5,15 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\ConvertEmbedFormSubmissionRequest;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\FetchEmbedFormSubmissionsRequest;
+use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormConfigRequest;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormSubmissionStatusRequest;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
 use App\Models\EmbedForm\EmbedFormSubmission;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
+use App\Support\EmbedForm\EmbedFormLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -32,28 +38,70 @@ class EmbedFormController extends Controller
             $partnerId = $request->integer('partner_id');
         }
 
-        $config = $this->embedFormService->getOrCreateConfig($partnerId);
+        $location = $this->embedFormService->locationFor($partnerId);
+
+        // Deliberately does NOT create one when the partner has nowhere to
+        // publish. This endpoint is what the settings screen loads, and creating
+        // a form here would be a side effect of merely opening the page -
+        // handing out a key whose link resolves nowhere. The screen shows the
+        // warning instead, and the form is created once a domain is set.
+        $config = $location->isAvailable()
+            ? $this->embedFormService->getOrCreateConfig($partnerId)
+            : $this->embedFormService->findConfig($partnerId);
+
+        if (!$config) {
+            return ApiResponse::success(
+                $this->unpublishableConfig($partnerId, $location),
+                $location->warning() ?? __('embed_form.form_not_found_or_inactive')
+            );
+        }
 
         return ApiResponse::success(new EmbedFormConfigResource($config));
+    }
+
+    /**
+     * The shape the settings screen expects when no form exists yet.
+     *
+     * Same keys as the resource so the screen can bind to them unconditionally;
+     * the two `form_url_*` fields are what it renders the warning from.
+     */
+    private function unpublishableConfig(?int $partnerId, EmbedFormLocation $location): array
+    {
+        return [
+            'id' => null,
+            'partner_id' => $partnerId,
+            'public_key' => null,
+            'form_title' => null,
+            'allowed_domains' => [],
+            'notification_email' => null,
+            'is_active' => false,
+            'embed_snippet' => null,
+            'direct_url' => null,
+            'form_url_available' => $location->isAvailable(),
+            'form_url_warning' => $location->warning(),
+            'submissions_count' => 0,
+            'created_at' => null,
+            'updated_at' => null,
+        ];
     }
 
     /**
      * Update config settings.
      * PUT /api/v1/common/embed-forms/config
      */
-    public function updateConfig(Request $request): JsonResponse
+    public function updateConfig(UpdateEmbedFormConfigRequest $request): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
 
-        $request->validate([
-            'form_title' => ['nullable', 'string', 'max:255'],
-            'allowed_domains' => ['nullable', 'array'],
-            'allowed_domains.*' => ['string', 'url'],
-            'notification_email' => ['nullable', 'email', 'max:255'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
-
-        $config = $this->embedFormService->updateConfig($partnerId, $request->all());
+        try {
+            // validated(), not all(): only the fields the request class knows
+            // about reach the service, so an unexpected key cannot be written
+            // through.
+            $config = $this->embedFormService->updateConfig($partnerId, $request->validated());
+        } catch (\DomainException $e) {
+            // No domain, so there is no form to configure yet.
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success(new EmbedFormConfigResource($config), __('embed_form.config_updated'));
     }
@@ -65,7 +113,12 @@ class EmbedFormController extends Controller
     public function regenerateKey(): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
-        $config = $this->embedFormService->regenerateKey($partnerId);
+
+        try {
+            $config = $this->embedFormService->regenerateKey($partnerId);
+        } catch (\DomainException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success([
             'public_key' => $config->public_key,
@@ -76,7 +129,7 @@ class EmbedFormController extends Controller
      * DataTable — fetch submissions.
      * POST /api/v1/common/embed-forms/submissions/fetch
      */
-    public function fetchSubmissions(Request $request): JsonResponse
+    public function fetchSubmissions(FetchEmbedFormSubmissionsRequest $request): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) auth()->user()?->partner?->is_host;
@@ -91,7 +144,7 @@ class EmbedFormController extends Controller
         $filters = $request->only(['search', 'status', 'date_from', 'date_to', 'per_page']);
 
         // Build query manually for host to see all
-        $query = EmbedFormSubmission::with('attachments', 'partner');
+        $query = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner');
         if ($partnerId) {
             $query->where('partner_id', $partnerId);
         }
@@ -154,7 +207,7 @@ class EmbedFormController extends Controller
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
-        $submission = EmbedFormSubmission::with('attachments', 'partner', 'convertedBorrower')->find($id);
+        $submission = EmbedFormSubmission::with('attachments.docType', 'coBorrowers', 'partner', 'convertedBorrower', 'convertedFundingApplication', 'salesRepUser')->find($id);
 
         if (!$submission) {
             return ApiResponse::notFound(__('embed_form.submission_not_found'));
@@ -171,12 +224,8 @@ class EmbedFormController extends Controller
      * Update submission status.
      * PUT /api/v1/common/embed-forms/submissions/{id}/status
      */
-    public function updateStatus(Request $request, int $id): JsonResponse
+    public function updateStatus(UpdateEmbedFormSubmissionStatusRequest $request, int $id): JsonResponse
     {
-        $request->validate([
-            'status' => ['required', 'string', 'in:new,reviewing,converted,rejected'],
-        ]);
-
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
 
@@ -208,7 +257,7 @@ class EmbedFormController extends Controller
      * Convert submission to a Borrower.
      * POST /api/v1/common/embed-forms/submissions/{id}/convert-to-borrower
      */
-    public function convertToBorrower(Request $request, int $id): JsonResponse
+    public function convertToBorrower(ConvertEmbedFormSubmissionRequest $request, int $id): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
@@ -225,10 +274,20 @@ class EmbedFormController extends Controller
 
 
         try {
-            $borrower = $this->embedFormService->convertToBorrower($submission, $request->all());
-            return ApiResponse::success($borrower, __('embed_form.converted_to_borrower'));
+            $borrower = $this->embedFormService->convertToBorrower($submission, $request->validated());
+            return ApiResponse::success($borrower, __($borrower['is_existing_borrower'] ?? false ? 'embed_form.converted_to_existing_borrower' : 'embed_form.converted_to_borrower'));
+        } catch (ExistingBorrowerConfirmationRequired $e) {
+            // 409: the request is fine but needs the partner's go-ahead first.
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'code' => 'existing_borrower_confirmation_required',
+                'data' => ['existing_borrower' => $e->borrower],
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Throwable $e) {
             return ApiResponse::error($e->getMessage() ?: __('embed_form.conversion_failed'), 500);
         }

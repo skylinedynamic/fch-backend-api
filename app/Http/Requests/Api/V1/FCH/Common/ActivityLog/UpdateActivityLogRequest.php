@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\ActivityLog;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\ActivityLog\ActivityLog;
+use Illuminate\Validation\Rule;
 
 class UpdateActivityLogRequest extends BaseApiRequest
 {
@@ -18,6 +20,10 @@ class UpdateActivityLogRequest extends BaseApiRequest
             'description'   => ['nullable', 'string'],
             'reference'     => ['nullable', 'string', 'max:255'],
             'activity_date' => ['nullable', 'date'],
+            // The owner may change their own manual activity's visibility
+            // here; a host reclassifying someone else's/system's row uses
+            // the separate visibility-only endpoint instead.
+            'visibility'    => ['nullable', Rule::in(ActivityLog::VISIBILITY_LEVELS)],
 
             'existing_attachments' => ['nullable', 'json'],
             'attachments'          => ['nullable', 'array'],

@@ -2,6 +2,7 @@
 
 namespace App\Services\Global\Notification\Mail;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
@@ -9,7 +10,7 @@ use Illuminate\Queue\SerializesModels;
 use App\Models\DemoRequest\DemoRequest;
 use Illuminate\Mail\Mailables\Envelope;
 
-class DemoRequestCreatedMail extends Mailable
+class DemoRequestCreatedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding;
 

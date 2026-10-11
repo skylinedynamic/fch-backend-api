@@ -7,7 +7,6 @@ use App\Http\Resources\Borrower\FundApplication\FundingApplicationDocumentResour
 use App\Models\User\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Carbon;
 
 class FundingApplicationResource extends JsonResource
 {
@@ -18,8 +17,22 @@ class FundingApplicationResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $timezone = $request->header('X-Timezone') ?? config('app.timezone');
-        
+        // A signature's dates, formatted for display through toTimezone().
+        // `signed_at` is a moment, so it is shown in the viewer's timezone (the
+        // X-Timezone header). `signature_date` is the calendar date the signer
+        // chose - a day, not a moment - so it is formatted without shifting, or
+        // it could land on the day before.
+        $signatureDates = static function (array $signature): array {
+            if (! empty($signature['signed_at'])) {
+                $signature['signed_at'] = toTimezone($signature['signed_at'], null, 'M d, Y g:i A');
+            }
+            if (! empty($signature['signature_date'])) {
+                $signature['signature_date'] = toTimezone($signature['signature_date'], config('app.timezone'), 'M d, Y');
+            }
+
+            return $signature;
+        };
+
         return [
             'id' => $this->id,
             'application_number' => $this->application_number,
@@ -77,6 +90,12 @@ class FundingApplicationResource extends JsonResource
             'funding_sequence_uses' => $this->fundingSequence ? $this->fundingSequence->uses : null,
             'funding_sequence_amount_range' => $this->fundingSequence ? $this->fundingSequence->amount_range : null,
             'funding_request_status' => $this->fundingRequest ? $this->fundingRequest->status : null,
+            // What the details page needs to offer "Edit Funding Application"
+            // under the same rule as the funding request page: the request the
+            // edit form opens on, and whether the application's lifecycle key
+            // still allows an edit.
+            'funding_request_id' => $this->funding_request_id,
+            'is_editable' => $this->isEditable(),
             'credit_pull_authorization' => $this->credit_pull_authorization,
             'terms_conditions_acceptance' => $this->terms_conditions_acceptance,
             'filed_for_bankruptcy' => $this->filed_for_bankruptcy,
@@ -121,17 +140,32 @@ class FundingApplicationResource extends JsonResource
 
 
             'download_histories' => $this->whenLoaded('downloadHistories'),
-            'signature_data' => (function() use ($timezone) {
+            'signature_data' => (function () use ($signatureDates) {
                 $data = is_string($this->signature_data) ? json_decode($this->signature_data, true) : $this->signature_data;
-                if (is_array($data) && isset($data['signed_at'])) {
-                    $data['signed_at'] = Carbon::parse($data['signed_at'])->timezone($timezone)->format('Y-m-d h:i A');
+
+                return is_array($data) ? $signatureDates($data) : $data;
+            })(),
+            // The signature an edit replaced or withdrew, for showing beside the
+            // current one. `requires_resign` says the current one is still owed.
+            'requires_resign' => (bool) $this->requires_resign,
+            'previous_signature' => (function () use ($signatureDates) {
+                $data = is_string($this->previous_signature_data) ? json_decode($this->previous_signature_data, true) : $this->previous_signature_data;
+                if (! is_array($data) || (empty($data['signature_name']) && empty($data['signature_image']))) {
+                    return null;
                 }
-                return $data;
+
+                return $signatureDates([
+                    'signature_name' => $data['signature_name'] ?? null,
+                    'signature_type' => $data['signature_type'] ?? 'typed',
+                    'signature_image' => $data['signature_image'] ?? null,
+                    'signature_date' => $data['signature_date'] ?? null,
+                    'signed_at' => $data['signed_at'] ?? null,
+                ]);
             })(),
             'partner' => $this->whenLoaded('partner'),
             'borrower' => $this->whenLoaded('borrower'),
-            'created_at' => $this->created_at ? $this->created_at->timezone($timezone)->format('Y-m-d H:i:s') : null,
-            'updated_at' => $this->updated_at ? $this->updated_at->timezone($timezone)->format('Y-m-d H:i:s') : null,
+            'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
+            'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),
         ];
     }
 }

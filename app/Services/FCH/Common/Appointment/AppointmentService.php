@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Appointment;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use Throwable;
 use Carbon\Carbon;
 use App\Models\User\User;
@@ -13,7 +14,6 @@ use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Appointment\Appointment;
 use App\Models\Appointment\AppointmentDetail;
 use App\Services\Global\Datatable\QueryFilter;
@@ -353,8 +353,20 @@ class AppointmentService
             ];
 
             try {
-                Mail::to($appointment->assignedFor->email)->send(
-                    new AppointmentNotification($appointment, $action, $businessInfo, $partnerId)
+                $assignee = $appointment->assignedFor;
+
+                // Each portal has its own appointments page, hence a type per audience.
+                app(Notifier::class)->send(
+                    $assignee->user_type === User::BORROWER ? 'borrower.appointment.changed' : 'appointment.changed',
+                    $assignee,
+                    [
+                        'action' => ['created' => 'scheduled', 'deleted' => 'cancelled'][$action] ?? $action,
+                        'title' => $appointment->subject,
+                        'date' => $appointment->appointment_date
+                            ? Carbon::parse($appointment->appointment_date)->format('M j, Y')
+                            : '',
+                    ],
+                    mail: (new AppointmentNotification($appointment, $action, $businessInfo, $partnerId))->to($assignee->email)
                 );
                 Log::info('[EMAIL] Appointment ' . $action . ' notification sent to ' . $appointment->assignedFor->email);
             } catch (\Exception $e) {

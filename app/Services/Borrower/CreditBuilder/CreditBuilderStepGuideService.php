@@ -14,6 +14,8 @@ use App\Http\Resources\Borrower\CreditBuilder\TaskVerificationResource;
 use App\Http\Resources\Borrower\CreditBuilder\TierResource;
 use App\Http\Resources\FCH\CreditBuilder\CreditBuilderVendorResource;
 use App\Models\Borrower\MigratedTask;
+use App\Services\CreditBuilder\VerificationNotifier;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -152,7 +154,29 @@ class CreditBuilderStepGuideService
             throw $e;
         }
 
-        return collect($verificationRequests);
+        // An Eloquent collection, not collect(): the notifier call below eager
+        // loads with ->load(), which only exists on Eloquent\Collection. A base
+        // Support\Collection threw BadMethodCallException right after the commit,
+        // so the rows were saved but the host was never told.
+        $requests = new EloquentCollection($verificationRequests);
+
+        // Announce the submission to the host, from the host's own mailbox.
+        //
+        // After the commit, never inside the transaction: a queued mail job that
+        // the worker picks up before the rows are visible would read a borrower
+        // that does not exist yet. Deliberately not wrapped in the try above
+        // either - a mail failure must not roll back a saved request. The
+        // notifier swallows and logs its own errors.
+        //
+        // task and tier are eager-loaded here because the mail lists every task
+        // with its tier, and a bulk submission would otherwise be two queries
+        // per task.
+        app(VerificationNotifier::class)->requestSubmitted(
+            $borrower,
+            $requests->load('task.tier', 'tier')
+        );
+
+        return $requests;
     }
 }
 

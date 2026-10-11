@@ -66,11 +66,8 @@ class PaymentGatewayManager
     public function driverFor(PartnerPaymentProvider $partnerProvider): PaymentGatewayInterface
     {
         $providerName = $partnerProvider->provider?->name ?? PaymentProvider::STRIPE;
-        $configuration = $partnerProvider->configuration ?? [];
-        if (is_object($configuration)) {
-            $configuration = (array) $configuration;
-        }
-        $environment = $configuration['payment_mode'] ?? PaymentProvider::MODE_SANDBOX;
+        $configuration = $partnerProvider->configurationArray();
+        $environment = $partnerProvider->paymentMode();
 
         Log::debug("[PaymentGatewayManager] Initializing payment driver", [
             'partner_id' => $partnerProvider->partner_id,

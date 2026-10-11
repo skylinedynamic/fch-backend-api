@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Global\Website\EmbedForm\PublicEmbedFormControll
 // 🌐 Public Embedded Form (outsider / iframe calls)
 Route::prefix('v1/embed')->group(function () {
     Route::get('config/{key}', [PublicEmbedFormController::class, 'config']);
+    Route::post('validate-step/{key}/{step}', [PublicEmbedFormController::class, 'validateStep'])->whereNumber('step');
     Route::post('submit/{key}', [PublicEmbedFormController::class, 'submit']);
 });
 

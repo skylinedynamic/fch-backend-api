@@ -2,6 +2,7 @@
 
 namespace App\Mail\FundingRequest;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Common\AppConfiguration;
 use App\Services\FCH\Common\Setting\AppConfigurationService;
 
-class UnderwritingStatusUpdated extends Mailable
+class UnderwritingStatusUpdated extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
@@ -37,11 +38,11 @@ class UnderwritingStatusUpdated extends Mailable
         try {
             $status = $this->fundingRequest->status;
             $partner = $this->fundingRequest->partner ?? $this->fundingRequest->borrower?->partner;
-            $partnerId = ($partner && !$partner->is_host && $partner->partner_type === Partner::PARTNER_TYPE_WHITE_LABEL)
-                ? $partner->id
-                : getConfigPartner()->id;
 
-            $brandingConfig = app(AppConfigurationService::class)->getBrandingSettings($partnerId);
+            // The partner the constructor resolved, not getConfigPartner() again:
+            // this is rendered by a queue worker, where there is no authenticated
+            // user or request Origin and that helper answers "host" for everyone.
+            $brandingConfig = app(AppConfigurationService::class)->getBrandingSettings($this->mailPartnerId);
 
             $siteName = $brandingConfig['site_name'] ?? ($partner?->company_name ?? config('app.name'));
             // Mail headers are white, so the mail logo first, then the other

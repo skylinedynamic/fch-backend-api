@@ -2,6 +2,7 @@
 
 namespace App\Services\FCH\Common\Lead;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\FCH\Lead\LeadResource;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\PreQualificationRequest;
@@ -16,8 +17,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
+use App\Mail\Lead\LeadNotificationMail;
 
 class LeadService
 {
@@ -194,13 +195,15 @@ class LeadService
                 // from a misconfigured mailer - never blocks lead creation.
                 try {
                     $hostPartner = Partner::where('is_host', true)->first();
-                    if ($hostPartner && ($hostPartner->email)) {
+                    if ($hostPartner) {
                         $details = [
                             'type' => $isWebsiteLead ? 'website' : 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        Mail::to($hostPartner->email)
-                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        app(Notifier::class)->send('lead.created', $hostPartner, $this->leadBellData($lead),
+                            mail: $hostPartner->email
+                                ? (new LeadNotificationMail($lead, $details))->to($hostPartner->email)
+                                : null);
                     }
                 } catch (\Throwable $e) {
                     Log::error('Failed to send website-style lead email notification from admin', ['error' => $e->getMessage()]);
@@ -217,8 +220,9 @@ class LeadService
                             'type' => 'manual',
                             'is_pre_qualification' => false,
                         ];
-                        Mail::to($recipients)
-                            ->send(new \App\Mail\Lead\LeadNotificationMail($lead, $details));
+                        // The person who created it, as before.
+                        app(Notifier::class)->send('lead.created', Auth::user(), $this->leadBellData($lead),
+                            mail: (new LeadNotificationMail($lead, $details))->to($recipients));
                     } catch (\Throwable $e) {
                         Log::error('Failed to send manual lead email notification', ['error' => $e->getMessage()]);
                     }
@@ -612,6 +616,16 @@ class LeadService
         }
     }
 
+
+    /** Placeholders for the lead.created bell. */
+    private function leadBellData(Lead $lead): array
+    {
+        return [
+            'id' => $lead->id,
+            'name' => $lead->contact_person ?: $lead->company_name,
+            'source' => strtolower((string) $lead->lead_source),
+        ];
+    }
 
     private function getFirstName(?string $fullName): string
     {

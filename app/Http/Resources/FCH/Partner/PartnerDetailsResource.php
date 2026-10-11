@@ -18,6 +18,10 @@ class PartnerDetailsResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->users->first()->id ?? null,
+            // The partner's own login (user_id above is just the first of its
+            // users) and a new sign-in email awaiting confirmation on it.
+            'login_user_id' => $this->partnerUser?->id,
+            'pending_email' => $this->partnerUser?->pending_email,
             'assigned_user_id' => $this->assignedUser->id ?? null,
             'assigned_user_name' => $this->assignedUser->name ?? null,
             'full_name' => $this->full_name,
@@ -30,6 +34,10 @@ class PartnerDetailsResource extends JsonResource
             'contact_person_relation' => $this->contact_person_relation,
             'partner_type' => $this->partner_type,
             'status' => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'state' => $this->state,
             'city' => $this->city,
             'postal_code' => $this->postal_code,

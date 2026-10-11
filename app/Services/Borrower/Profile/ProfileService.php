@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Profile;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Mail\Borrower\BorrowerAccountCreatedMail;
 use App\Models\Borrower\Borrower;
 use App\Models\Employee\Employee;
@@ -11,7 +12,6 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ProfileService
 {
@@ -31,6 +31,7 @@ class ProfileService
             // Map the request fields to database columns
             $updateData = [
                 'first_name' => $data['first_name'],
+                'middle_name' => $data['middle_name'] ?? null,
                 'last_name' => $data['last_name'],
                 'email' => $data['email'],
                 'phone_number' => $data['phone_number'],
@@ -40,7 +41,10 @@ class ProfileService
                 'city' => $data['city'],
                 'postal_code' => $data['zip_code'],
                 'home_address' => $data['home_address'],
-                'home_phone' => $data['home_phone'],
+                // Nullable in the form request, so validated() omits the key
+                // entirely when the client does not send it - reading it
+                // unguarded turned a blank optional field into a 500.
+                'home_phone' => $data['home_phone'] ?? null,
                 'date_of_birth' => $data['date_of_birth'],
                 'last_4_ssn' => $data['last_4_ssn'],
             ];
@@ -55,7 +59,10 @@ class ProfileService
 
             // Update the user
             $userData = [
-                'name' => $data['first_name'] . " " . $data['last_name'],
+                // personName() rather than concatenation: it drops the blank
+                // parts, so someone with no middle name does not end up with a
+                // double space in the middle of their name.
+                'name' => personName($data['first_name'], $data['middle_name'] ?? null, $data['last_name']),
                 'phone_number' => $data['phone_number'],
             ];
 
@@ -90,7 +97,8 @@ class ProfileService
                 Log::info('Sending account update email to borrower due to email change (Profile)', ['email' => $updatedUser->email]);
 
                 try {
-                    Mail::to($updatedUser->email)->send(new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id));
+                    app(Notifier::class)->send('borrower.account.login_updated', $updatedUser,
+                        mail: (new BorrowerAccountCreatedMail($mailData, $updatedUser->partner_id))->to($updatedUser->email));
                 } catch (\Exception $e) {
                     Log::error('Borrower account update email failed', ['error' => $e->getMessage()]);
                 }

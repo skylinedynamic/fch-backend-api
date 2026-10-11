@@ -2,6 +2,7 @@
 
 namespace App\Services\Borrower\Document;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
 use App\Models\Borrower\BorrowerDocType;
@@ -12,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentService
@@ -66,10 +66,16 @@ class DocumentService
                     $recipients[] = $docEmail;
                 }
 
-                if (!empty($recipients)) {
+                if ($borrower->partner || !empty($recipients)) {
 
                     try {
-                        Mail::to($recipients)->send(new BorrowerDocumentsUploadedMail($user, $documents));
+                        // Bell to the borrower's partner; the email, as before,
+                        // to the partner's address and the documents inbox.
+                        app(Notifier::class)->send('partner.documents.uploaded', $borrower->partner, [
+                            'borrower_id' => $borrower->id,
+                            'borrower' => personName($borrower->first_name, $borrower->middle_name, $borrower->last_name),
+                            'count' => count($documents),
+                        ], mail: $recipients ? (new BorrowerDocumentsUploadedMail($user, $documents))->to($recipients) : null);
                     } catch (\Throwable $e) {
                         Log::error('Failed to send document upload notification', [
                             'user_id' => $user->id,

@@ -40,4 +40,7 @@ return [
     'user_retrieved'         => 'User details retrieved successfully.',
     'not_authorized_to_update_developer' => 'You are not authorized to update developer accounts.',
     'user_not_found'         => 'The specified user does not exist.',
+    'employee_required'      => 'Please select the employee this user belongs to.',
+    'employee_not_found'     => 'The selected employee does not exist.',
+    'employee_already_linked' => 'The selected employee already has a user account.',
 ];

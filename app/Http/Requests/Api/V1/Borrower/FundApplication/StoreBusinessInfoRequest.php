@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\UsPostalCode;
 
 class StoreBusinessInfoRequest extends BaseApiRequest
 {
@@ -34,7 +35,7 @@ class StoreBusinessInfoRequest extends BaseApiRequest
             'business_address' => 'required|string|max:255',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
-            'business_postal_code' => 'required|string|max:20',
+            'business_postal_code' => ['required', 'string', new UsPostalCode()],
             'industry_type' => 'required|string|max:255',
             'entity_type' => 'required|string|max:255',
             'years_in_business' => 'required|string|max:255',
@@ -90,7 +91,6 @@ class StoreBusinessInfoRequest extends BaseApiRequest
             
             'business_postal_code.required' => __('borrower_validation.business_postal_code_required'),
             'business_postal_code.string' => __('borrower_validation.business_postal_code_string'),
-            'business_postal_code.max' => __('borrower_validation.business_postal_code_max'),
             
             'industry_type.required' => __('borrower_validation.industry_type_required'),
             'industry_type.string' => __('borrower_validation.industry_type_string'),

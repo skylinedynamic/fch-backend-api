@@ -20,8 +20,11 @@ class BorrowerDetailsResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user?->id,
+            // A new sign-in email awaiting confirmation from that address.
+            'pending_email' => $this->user?->pending_email,
             'signup_id' => $this->signup_id,
             'first_name' => $this->first_name,
+            'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
             'full_name' => $this->full_name,
             'email' => $this->email,
@@ -121,6 +124,10 @@ class BorrowerDetailsResource extends JsonResource
             ]) : [],
 
             'status' => $this->status,
+            // Archived records still appear in search results, so the UI needs to
+            // mark them. Presentation only - it never affects access or billing.
+            'is_archived' => (bool) $this->is_archived,
+            'archived_at' => toDateOnly($this->archived_at),
             'notes' => $this->notes,
             'assign_id' => $this->assign_id,
             'assign_name' => $this->assignedUser?->name,

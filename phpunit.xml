@@ -3,11 +3,23 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
->
+         cacheDirectory=".phpunit.cache"
+         displayDetailsOnTestsThatTriggerWarnings="true">
     <testsuites>
+        <!-- Unit: no database, no HTTP. Pure logic, safe to run anywhere. -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
+        <!-- Integration: several real components wired together against a real
+             database - services, jobs, models, gateway drivers - entered
+             directly rather than through a route. Nothing under test is mocked;
+             only the outside world is (Stripe's HTTP layer, mail). -->
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+        <!-- Feature: entered through an HTTP route, so it exercises the
+             middleware, guards, controller and resource as a request really
+             would. -->
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
@@ -19,12 +31,23 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- A throwaway key for the suite only, so tests need no .env file at
+             all. It encrypts nothing real and is not used by any environment. -->
+        <env name="APP_KEY" value="base64:XN7dzftRIw7NQsKISZy4Yttn8TdqqfTR+b6fIqj2n3w="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- An in-memory database: it needs no database server, so the suite
+             runs the same on a laptop, in CI and on a deploy host with nothing
+             to create first. It lives in RAM and vanishes when the run ends, so
+             it can never reach the developer's own MySQL data.
+             See tests/TestCase.php for the MySQL functions it is taught. -->
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- No real mail server to rate-limit here, so no pause between sends. -->
+        <env name="MAIL_SEND_GAP_MS" value="0"/>
+        <env name="MAIL_SEND_RETRY_DELAYS_MS" value="0,0,0"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

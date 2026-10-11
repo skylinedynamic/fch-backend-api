@@ -20,11 +20,12 @@ class OwnershipResource extends JsonResource
 
         if ($owner) {
             $firstName = $owner->first_name;
+            $middleName = $owner->middle_name;
             $lastName = $owner->last_name;
             $email = $owner->email;
             $mobilePhone = $owner->mobile_phone;
             $homePhone = $owner->home_phone;
-            $dob = $owner->date_of_birth ? date('Y-m-d', strtotime($owner->date_of_birth)) : null;
+            $dob = toDateOnly($owner->date_of_birth);
             $ssn = $owner->ssn;
             $streetAddress = $owner->street_address;
             $city = $owner->city;
@@ -35,6 +36,7 @@ class OwnershipResource extends JsonResource
             $ownershipPct = $owner->ownership_percentage;
         } else {
             $firstName = $this->first_name ?? $borrower?->first_name ?? null;
+            $middleName = $this->middle_name ?? $borrower?->middle_name ?? null;
             $lastName = $this->last_name ?? $borrower?->last_name ?? null;
             $email = $borrower?->email ?? null;
             $mobilePhone = $this->phone_number ?? $borrower?->phone_number ?? null;
@@ -44,9 +46,9 @@ class OwnershipResource extends JsonResource
             $dob = null;
             if ($dobRaw) {
                 if ($dobRaw instanceof \DateTimeInterface) {
-                    $dob = $dobRaw->format('Y-m-d');
+                    $dob = toDateOnly($dobRaw);
                 } else {
-                    $dob = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dobRaw) ? $dobRaw : date('Y-m-d', strtotime($dobRaw));
+                    $dob = toDateOnly($dobRaw);
                 }
             }
                 
@@ -68,6 +70,7 @@ class OwnershipResource extends JsonResource
         return [
             'id' => isset($this->borrower_id) ? $this->id : null,
             'first_name' => $firstName,
+            'middle_name' => $middleName,
             'last_name' => $lastName,
             'email' => $email,
             'phone_number' => $mobilePhone ?? $homePhone,

@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\BusinessEin;
+use App\Rules\UsPostalCode;
 
 class UpdateBusinessInfoRequest extends BaseApiRequest
 {
@@ -20,11 +22,23 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
+    /**
+     * An EIN is nine digits; the hyphen is only how it is written. Reducing it
+     * here means the column holds one form whichever way the caller sent it,
+     * and that the rule below checks the number rather than the writing.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('business_ein')) {
+            $this->merge(['business_ein' => BusinessEin::normalize($this->input('business_ein'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'business_name' => 'required|string|max:255',
-            'business_ein' => 'required|string|size:10',
+            'business_ein' => ['required', new BusinessEin()],
             'business_phone' => 'nullable|string|max:20',
             'business_email' => 'required|email|max:255',
             'duns_number' => 'nullable|string|size:9',
@@ -33,7 +47,7 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_country_code' => 'required|string|max:5',
             'business_city' => 'required|string|max:255',
             'business_state' => 'required|string|max:255',
-            'business_zip_code' => 'required|string|size:5',
+            'business_zip_code' => ['required', 'string', new UsPostalCode()],
             'business_website' => 'nullable|max:255',
             'business_entity_type' => 'required|string|max:255',
             'business_entity_type_note' => 'required_if:business_entity_type,' . config('borrower.entity_type_other') . '|nullable|string|max:255',
@@ -77,8 +91,6 @@ class UpdateBusinessInfoRequest extends BaseApiRequest
             'business_state.max' => __('borrower_validation.business_state_max'),
             'business_zip_code.required' => __('borrower_validation.business_zip_code_required'),
             'business_zip_code.string' => __('borrower_validation.business_zip_code_string'),
-            'business_zip_code.max' => __('borrower_validation.business_zip_code_max'),
-            'business_zip_code.size' => __('borrower_validation.business_zip_code_size'),
             'business_entity_type.required' => __('borrower_validation.business_entity_type_required'),
             'business_entity_type.string' => __('borrower_validation.business_entity_type_string'),
             'business_entity_type.max' => __('borrower_validation.business_entity_type_max'),

@@ -2,8 +2,10 @@
 
 namespace App\Services\Borrower\Funding;
 
+use App\Services\FCH\Common\Notification\Notifier;
 use App\Http\Resources\Borrower\Funding\FundingRequestResource;
 use App\Mail\FundingRequest\UnderwritingSubmitted;
+use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
 use App\Models\FundingRequest\FundingRequest;
 use App\Models\Partner\Partner;
@@ -12,7 +14,6 @@ use App\Traits\PaginatesApi;
 use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use App\Services\Borrower\Document\DocumentService;
@@ -50,6 +51,33 @@ class FundingRequestService
             throw new Exception("Already applied. Please wait for approval or rejection.");
         }
 
+        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
+            ->where('funding_sequence_id', $data['funding_sequence_id'])
+            ->orderBy('id', 'desc')
+            ->first();
+
+        // An approved request that already produced an application can only be
+        // re-opened once that application has left the borrower's hands - with a
+        // lender, under contract, funded, closed or denied (see
+        // config/funding_application.php `statuses.allows_new_request`). That
+        // round is settled either way, so a fresh request starts a new one.
+        //
+        // While the application is still being reviewed here - On Hold, Draft,
+        // Pending, Underwriting, Verification, Approved - a second request for the
+        // same funding option would run a parallel pipeline for the same borrower
+        // against the same lenders, which is what this refuses.
+        if ($latestRequest && $latestRequest->status === FundingRequest::STATUS_APPROVED) {
+            $latestApplication = FundingApplication::where('funding_request_id', $latestRequest->id)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($latestApplication && ! $latestApplication->allowsNewFundingRequest()) {
+                throw new Exception(__('funding_request.application_already_in_progress', [
+                    'status' => $latestApplication->status,
+                ]));
+            }
+        }
+
         $fundingOption = FundingSequencing::find($data['funding_sequence_id']);
         $lenderIds = [];
         if ($fundingOption) {
@@ -83,11 +111,6 @@ class FundingRequestService
         }
         $data['lender_ids'] = $finalLenderIds;
 
-        $latestRequest = FundingRequest::where('borrower_id', $borrower->id)
-            ->where('funding_sequence_id', $data['funding_sequence_id'])
-            ->orderBy('id', 'desc')
-            ->first();
-
         if ($latestRequest && in_array($latestRequest->status, [FundingRequest::STATUS_REJECTED, FundingRequest::STATUS_IN_PROGRESS, FundingRequest::STATUS_ACCEPTED])) {
             $data['reject_reason'] = null;
             $data['approved_by'] = null;
@@ -102,25 +125,41 @@ class FundingRequestService
             $hostPartner = Partner::where('is_host', 1)->first();
             $borrowerPartner = $borrower->partner;
             
-            $emailsToNotify = [];
+            // Who is told: the host, and the borrower's own partner when that is
+            // not the host. Each gets the bell; the email goes to each distinct
+            // address, as before.
+            $toNotify = [];
+            $mailed = [];
 
-            if ($hostPartner && !empty($hostPartner->email)) {
-                $emailsToNotify[] = $hostPartner->email;
-            } else {
+            if ($hostPartner) {
+                $toNotify[] = $hostPartner;
+            }
+            if (!$hostPartner || empty($hostPartner->email)) {
                 Log::warning('UnderwritingSubmitted email not sent to host: No host partner found or email is empty.');
             }
 
-            if ($borrowerPartner && $borrowerPartner->is_host == 0 && !empty($borrowerPartner->email)) {
-                if (!in_array($borrowerPartner->email, $emailsToNotify)) {
-                    $emailsToNotify[] = $borrowerPartner->email;
-                }
+            if ($borrowerPartner && $borrowerPartner->is_host == 0) {
+                $toNotify[] = $borrowerPartner;
             }
 
-            foreach ($emailsToNotify as $email) {
-                Log::info("Attempting to send UnderwritingSubmitted email to {$email}.");
+            $bellData = [
+                'id' => $fundingRequest->id,
+                'borrower' => personName($borrower->first_name, $borrower->middle_name, $borrower->last_name),
+            ];
+
+            foreach ($toNotify as $recipient) {
+                $email = !empty($recipient->email) && !in_array($recipient->email, $mailed, true) ? $recipient->email : null;
+                $mailed[] = $email;
+
+                if ($email) {
+                    Log::info("Attempting to send UnderwritingSubmitted email to {$email}.");
+                }
                 try {
-                    Mail::to($email)->send(new UnderwritingSubmitted($fundingRequest));
-                    Log::info("UnderwritingSubmitted email sent successfully to {$email}.");
+                    app(Notifier::class)->send('partner.funding_request.submitted', $recipient, $bellData,
+                        mail: $email ? (new UnderwritingSubmitted($fundingRequest))->to($email) : null);
+                    if ($email) {
+                        Log::info("UnderwritingSubmitted email sent successfully to {$email}.");
+                    }
                 } catch (\Exception $e) {
                     Log::error("Failed to send UnderwritingSubmitted email to {$email}.", [
                         'error' => $e->getMessage(),

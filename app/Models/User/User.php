@@ -10,6 +10,7 @@ use App\Models\Invoice\Invoice;
 use App\Models\Partner\Partner;
 use App\Models\Subscription\Subscription;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
+use App\Services\FCH\Common\Notification\Sms\SmsRecipient;
 use App\Services\Global\Notification\NotificationService;
 use App\Services\Global\Notification\Types\PasswordResetNotification as PasswordResetNotificationType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,6 +42,10 @@ class User extends Authenticatable implements OAuthenticatable
     protected $fillable = [
         'name',
         'email',
+        'pending_email',
+        'pending_email_requested_at',
+        'previous_email',
+        'email_changed_at',
         'phone_number',
         'image',
         'phone_verified_at',
@@ -74,6 +79,8 @@ class User extends Authenticatable implements OAuthenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'pending_email_requested_at' => 'datetime',
+            'email_changed_at' => 'datetime',
             'password' => 'hashed',
             'phone_verified_at' => 'datetime',
             'is_paid' => 'boolean',
@@ -449,6 +456,28 @@ class User extends Authenticatable implements OAuthenticatable
     }
 
     /**
+     * Private channel for broadcast notifications. Laravel's default would be
+     * "App.Models.User.User.{id}" (from this class's namespace); keep it on the
+     * channel authorized in routes/channels.php that the portals subscribe to.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.User.' . $this->id;
+    }
+
+    /**
+     * Number for the `sms` notification channel: the borrower's, partner's or
+     * employee's phone with its country code, else this user's own
+     * (SmsRecipient). SmsSender normalises it to E.164 when sending. Not yet
+     * required to be verified - there is no phone verification flow. Null
+     * means this user gets no SMS, while bell and mail are unaffected.
+     */
+    public function routeNotificationForSms(): ?string
+    {
+        return app(SmsRecipient::class)->numberFor($this);
+    }
+
+    /**
      * Polymorphic relation to the associated entity model.
      */
     public function entity(): MorphTo
@@ -472,6 +501,39 @@ class User extends Authenticatable implements OAuthenticatable
         ];
 
         return $map[$this->entity_type] ?? strtolower(class_basename($this->entity_type));
+    }
+
+    /**
+     * Entity types that can act as a sales representative.
+     *
+     * Deliberately excludes Borrower. A borrower is a client, not staff, and
+     * they are linked to the same partner_id - so a plain "users of this
+     * partner" query returns the partner's whole client list.
+     *
+     * A null entity_type is a plain portal user, which counts.
+     */
+    public const SALES_REP_ENTITY_TYPES = [
+        Partner::class,
+        Employee::class,
+    ];
+
+    /**
+     * Active staff of one partner, eligible to be named as a sales rep.
+     *
+     * Used by the public embedded form both to build the dropdown and to
+     * validate what comes back, so the two can never disagree about who is
+     * offerable. Scoped to a single partner: one partner's staff must never be
+     * listed - or assignable - through another partner's public form.
+     */
+    public function scopeSalesRepresentatives($query, ?int $partnerId)
+    {
+        return $query
+            ->where('partner_id', $partnerId)
+            ->where('status', self::STATUS['active'])
+            ->where(function ($q) {
+                $q->whereNull('entity_type')
+                    ->orWhereIn('entity_type', self::SALES_REP_ENTITY_TYPES);
+            });
     }
 
     public function scopeSearch($query, ?string $search)

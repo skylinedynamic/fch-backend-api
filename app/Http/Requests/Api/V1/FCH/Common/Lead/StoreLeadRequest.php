@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Lead;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Rules\UsPostalCode;
 
 class StoreLeadRequest extends BaseApiRequest
 {
@@ -46,7 +47,7 @@ class StoreLeadRequest extends BaseApiRequest
             'city' => ['nullable', 'string', 'max:255'],
             'other_city' => ['required_if:city,Others', 'nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:255'],
-            'zip_code' => ['nullable', 'string', 'max:20'],
+            'zip_code' => ['nullable', 'string', new UsPostalCode()],
             'business_phone' => ['nullable', 'string', 'max:20'],
             'entity_type' => ['nullable', 'string', 'max:255'],
             'entity_type_note' => ['nullable', 'string'],

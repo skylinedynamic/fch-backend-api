@@ -99,30 +99,15 @@ class DatabaseSeeder extends Seeder
             FundingRequestPermissionSeeder::class,
             UpdateDomainConfigurationPermissionSeeder::class,
             AdditionalSeatForUserSeeder::class,
-            SubscriptionSeatsSeeder::class
+            SubscriptionSeatsSeeder::class,
+            TaskReminderPermissionSeeder::class,
+            SmsConfigurationPermissionSeeder::class,
         ]);
     }
 }
 
 
-// need to run for new billing 
-// php artisan db:seed --class=PaymentProviderSeeder
-//saved_payment_methods remove miogration and model
-// php artisan db:seed --class=PartnerPaymentProviderSeeder
-// php artisan db:seed --class=NewSubscriptionPlanSeeder
 
-//manually disable 6 month and 11 month subscription
+// php artisan db:seed --class=SmsConfigurationPermissionSeeder
+// php artisan db:seed --class=LinkUsersToEmployeesSeeder
 
-// php artisan db:seed --class=UserSeatsToSubscriptionsSeeder
-// php artisan db:seed --class = ModifySubscriptionPlansSeeder
-// php artisan db:seed --class = AdditionalSeatForUserSeeder
-// php artisan db:seed --class = SubscriptionSeatsSeeder
-// php artisan db:seed --class = GiveNonHostPartnersSubscriptionPermissionsSeeder
-// php artisan db:seed --class = SubscriptionPlanUpdateNameUpdate
-// php artisan db:seed --class=UpdatePaymentInvoicePermissionSeeder
-// php artisan db:seed --class=UpcomingBillingsPermissionSeeder
-
-// php artisan db:seed --class=EmbeddedLoanApplicationFormPermissionSeeder
-
-// $env:SEED_DRY_RUN="false"; php artisan db:seed --class=RepairSubscriptionBillingDataSeeder
-// (bash equivalent: SEED_DRY_RUN=false php artisan db:seed --class=RepairSubscriptionBillingDataSeeder)

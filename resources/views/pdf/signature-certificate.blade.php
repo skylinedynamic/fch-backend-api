@@ -415,7 +415,7 @@
                         <img src="{{ $fa_check }}" width="10" height="10" style="margin-top: 2px;">
                     </div>
                 </td>
-                <td style="width: 80%;">I certify that typing my name above constitutes my legally binding electronic signature under the ESIGN Act and applicable state laws.</td>
+                <td style="width: 80%;">I certify that {{ (isset($sigData) && is_array($sigData) && ($sigData['signature_type'] ?? 'typed') === 'esign') ? 'the signature I provided above' : 'typing my name above' }} constitutes my legally binding electronic signature under the ESIGN Act and applicable state laws.</td>
                 <td style="width: 15%; text-align: right;" class="text-success"><strong>Accepted</strong></td>
             </tr>
             <tr>
@@ -455,14 +455,33 @@
             <tr>
                 <td style="width: 60%; padding-right: 20px;">
                     <div class="final-cert-text">
-                        By typing my full legal name above and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>{{ $companyName }} and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
+                        @php
+                            // Typed name or e-signature (drawn / uploaded image).
+                            $sigImage = (isset($sigData) && is_array($sigData) && ($sigData['signature_type'] ?? 'typed') === 'esign')
+                                ? ($sigData['signature_image'] ?? null)
+                                : null;
+                        @endphp
+                        {{ $sigImage ? 'By providing my electronic signature above' : 'By typing my full legal name above' }} and clicking &ldquo;Submit Application,&rdquo; I certify that all information provided is true and accurate, consent to receive records electronically, authorize <strong>{{ $companyName }} and its funding partners</strong> to obtain and review my business and/or personal credit information as permitted by law, and agree that my electronic signature has the same legal effect as a handwritten signature under the ESIGN Act, UETA, and other applicable law.
                     </div>
                 </td>
                 <td style="width: 40%;">
                     <!-- Highly accurate signature card -->
                     <div class="final-sig-box">
-                        <div class="final-sig-bold" style="border-bottom: 1px solid {{ $primaryColor }}; padding-bottom: 4px; margin-bottom: 8px; display: inline-block; width: 80%;">{{ $sigName }}</div>
-                        <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;"><strong>Signature Type:</strong> Typed Electronic Signature</div>
+                        @if ($sigImage)
+                            <div style="border-bottom: 1px solid {{ $primaryColor }}; padding-bottom: 4px; margin-bottom: 4px; display: inline-block; width: 80%;">
+                                <img src="{{ $sigImage }}" style="max-width: 100%; max-height: 50px;">
+                            </div>
+                            <div class="final-sig-detail" style="margin-bottom: 8px; color: #555;">{{ $sigName }}</div>
+                            <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;"><strong>Signature Type:</strong> Drawn / Uploaded Electronic Signature</div>
+                            {{-- The date the signer put in the signature block. The date and
+                                 time at the foot of this card are when it was submitted. --}}
+                            @if (! empty($sigData['signature_date']))
+                                <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;"><strong>Signature Date:</strong> {{ \Carbon\Carbon::parse($sigData['signature_date'])->format('d M, Y') }}</div>
+                            @endif
+                        @else
+                            <div class="final-sig-bold" style="border-bottom: 1px solid {{ $primaryColor }}; padding-bottom: 4px; margin-bottom: 8px; display: inline-block; width: 80%;">{{ $sigName }}</div>
+                            <div class="final-sig-detail" style="margin-bottom: 5px; color: #555;"><strong>Signature Type:</strong> Typed Electronic Signature</div>
+                        @endif
                         <div class="final-sig-detail" style="margin-bottom: 8px; color: #555;"><strong>Auth Method:</strong> User Account Login</div>
                         
                         <div class="final-sig-detail">

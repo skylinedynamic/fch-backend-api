@@ -5,6 +5,7 @@ namespace App\Mail\Partner;
 use App\Models\Borrower\BorrowerChangeRequest;
 use App\Models\Partner\Partner;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use App\Mail\Traits\MailableBranding;
 use App\Mail\Traits\MailConfig;
@@ -12,7 +13,12 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class NewChangeRequestSubmittedMail extends Mailable
+/**
+ * Queued. It already pulled in Queueable but never declared ShouldQueue, so it
+ * was sending inline - holding the borrower's submission open on an SMTP round
+ * trip, and swallowing a transient refusal instead of retrying it.
+ */
+class NewChangeRequestSubmittedMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels, MailableBranding, MailConfig;
 
@@ -37,6 +43,14 @@ class NewChangeRequestSubmittedMail extends Mailable
     {
         $branding = $this->getHostBrandingData();
         $this->dynamicData['siteName'] = $branding['siteName'];
+        // concatUrl() supplies the scheme. BASE_PARTNER_PORTAL is stored without
+        // one ("localhost:5174"), and a href with no scheme is read as a
+        // relative path, so the button in the mail went nowhere.
+        $this->dynamicData['reviewUrl'] = concatUrl(
+            getPartnerDomain($this->partner->id),
+            'intake-review/change-requests',
+            config('app.frontend_partner_url')
+        );
         $this->dynamicData['logoUrl'] = $branding['logoUrl'];
 
         return new Envelope(
@@ -50,7 +64,7 @@ class NewChangeRequestSubmittedMail extends Mailable
     public function content(): Content
     {
         $borrower = $this->changeRequest->borrower;
-        $borrowerName = $borrower ? trim(($borrower->first_name ?? '') . ' ' . ($borrower->last_name ?? '')) : '';
+        $borrowerName = $borrower ? personName($borrower->first_name ?? null, $borrower->middle_name ?? null, $borrower->last_name ?? null) : '';
         $businessName = $borrower ? ($borrower->business_name ?? '') : '';
 
         return new Content(
@@ -65,6 +79,7 @@ class NewChangeRequestSubmittedMail extends Mailable
                 'newValue'      => $this->changeRequest->new_value,
                 'siteName'      => $this->dynamicData['siteName'],
                 'logoUrl'       => $this->dynamicData['logoUrl'],
+                'reviewUrl'     => $this->dynamicData['reviewUrl'],
             ],
         );
     }

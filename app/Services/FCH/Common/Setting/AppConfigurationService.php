@@ -5,6 +5,7 @@ namespace App\Services\FCH\Common\Setting;
 use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class AppConfigurationService
 {
@@ -13,6 +14,18 @@ class AppConfigurationService
      * tenant at once - see getBrandingSettings().
      */
     private const BRANDING_VERSION_KEY = 'branding:version';
+
+    /**
+     * Stand-in logo for a tenant that is branded as itself but has uploaded none.
+     *
+     * Every other unset branding value falls back to the host, and for colours
+     * and copy that is the right answer. For a logo it is not: the host's logo
+     * is a different company's mark, and putting it on a white-label portal
+     * undoes the one thing that portal exists to do. A plain image carrying the
+     * tenant's own company name reads as "no logo uploaded yet", which is the
+     * truth, instead of silently advertising someone else.
+     */
+    private const PLACEHOLDER_LOGO_BASE = 'https://placehold.co/230x70';
 
     /**
      * Get a configuration value by key and module.
@@ -71,6 +84,18 @@ class AppConfigurationService
 
     /**
      * Get branding settings with custom fallbacks and white-label checks.
+     *
+     * $inheritLogosFromHost splits the two audiences a logo has:
+     *
+     *   true  - documents, invoices and mail. A Certified partner deliberately
+     *           trades under the host's brand, so the host's logo on its
+     *           paperwork is correct, and a partner with nothing uploaded must
+     *           still produce a PDF with something on it.
+     *   false - portal chrome (login screen, sidebar, top bar). A tenant branded
+     *           as itself never borrows the host's logo here; it falls back to
+     *           PLACEHOLDER_LOGO_BASE carrying its own company name instead.
+     *
+     * Pass false for anything a borrower or partner sees while using the app.
      */
     public function getBrandingSettings($partnerId = null, bool $inheritLogosFromHost = true): array
     {
@@ -191,14 +216,17 @@ class AppConfigurationService
         $ownLogos = $resolveChain($data);
         $hostLogos = $resolveChain($hostSettings->toArray());
 
-        foreach ($imageKeys as $imageKey) {
-            $resolved = $ownLogos[$imageKey] ?? ($inheritLogosFromHost ? ($hostLogos[$imageKey] ?? null) : null);
-
-            $data[$imageKey] = $resolved;
-            $data[$imageKey . '_full_url'] = $resolved
-                ? encodeUrl(asset('storage/' . ltrim($resolved, '/')))
-                : null;
-        }
+        // The placeholder is named from the tenant's own partner record first and
+        // its own site_name second. site_name has NOT been through its host
+        // fallback at this point, and that is deliberate: falling through to it
+        // would print the host's company name on a white-label portal, which is
+        // the same leak the placeholder exists to close.
+        $data = array_merge($data, $this->resolveSurfaceLogos(
+            $ownLogos,
+            $hostLogos,
+            $inheritLogosFromHost,
+            $partner?->company_name ?: ($data['site_name'] ?? null)
+        ));
 
         if (($data['site_name'] ?? null) === null) {
             $hostSiteName = $hostSettings['site_name'] ?? null;
@@ -267,5 +295,74 @@ class AppConfigurationService
             : false;
 
         return $data;
+    }
+
+    /**
+     * Every surface logo as a path and an absolute URL, for one tenant.
+     *
+     * Kept free of the database so the fallback rules - which is where this has
+     * gone wrong before - can be read and tested on their own.
+     *
+     * @param  array<string, ?string>  $ownLogos   the tenant's uploads, chain-resolved
+     * @param  array<string, ?string>  $hostLogos  the host's uploads, chain-resolved
+     * @param  ?string  $tenantName  names the placeholder when no logo is inherited
+     * @return array<string, ?string>  `<key>` and `<key>_full_url` pairs
+     */
+    private function resolveSurfaceLogos(
+        array $ownLogos,
+        array $hostLogos,
+        bool $inheritLogosFromHost,
+        ?string $tenantName
+    ): array {
+        $placeholder = $inheritLogosFromHost ? null : $this->placeholderLogoUrl($tenantName);
+
+        $resolvedLogos = [];
+
+        foreach (AppConfiguration::BRANDING_IMAGE_KEYS as $imageKey) {
+            // The favicon is deliberately exempt. It is the tab icon rather than
+            // the visible brand, a 230x70 placeholder is useless at 16px, and a
+            // tenant without one is better served by the host's than by the
+            // browser's blank page icon.
+            $inheritThisKey = $inheritLogosFromHost || $imageKey === 'favicon';
+
+            $resolved = $ownLogos[$imageKey] ?? ($inheritThisKey ? ($hostLogos[$imageKey] ?? null) : null);
+
+            // Only a real upload goes in the bare key, so the placeholder cannot
+            // be mistaken for a stored file by anything that writes back.
+            $resolvedLogos[$imageKey] = $resolved;
+            // Addressed from the `public` disk's own url, not from asset().
+            // asset() builds on the INCOMING REQUEST's root, and this result is
+            // cached for six hours under a key that does not carry the hostname -
+            // so whichever host warmed the cache had its own name baked into
+            // every logo URL served to every other surface. Only the API host
+            // serves /storage, so the portals, invoices, mail and the public
+            // embed form all showed a broken image until the entry aged out.
+            // The disk's url (BASE_API_URL, config/filesystems.php) is the same
+            // answer for every caller, which is what makes it safe to cache.
+            $resolvedLogos[$imageKey . '_full_url'] = $resolved
+                ? encodeUrl(Storage::disk('public')->url($resolved))
+                : ($inheritThisKey ? null : $placeholder);
+        }
+
+        return $resolvedLogos;
+    }
+
+    /**
+     * The tenant's company name as a plain placeholder logo.
+     *
+     * Returns null for a tenant with no name to print, so the portals fall back
+     * to their packaged default rather than rendering an empty grey box.
+     */
+    private function placeholderLogoUrl(?string $name): ?string
+    {
+        $name = trim((string) $name);
+
+        if ($name === '' || $name === 'null') {
+            return null;
+        }
+
+        // urlencode(), not rawurlencode(): placehold.co renders "+" as a space,
+        // and it keeps the URL readable in a log or a browser address bar.
+        return self::PLACEHOLDER_LOGO_BASE . '?text=' . urlencode($name);
     }
 }

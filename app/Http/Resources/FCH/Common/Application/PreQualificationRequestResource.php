@@ -106,7 +106,11 @@ class PreQualificationRequestResource extends JsonResource
             'validation_issues' => $isHost ? $this->validation_issues : null,
             'validated_at' => ($isHost && $this->validated_at) ? toTimezone($this->validated_at, null, 'Y-m-d h:i A') : null,
             'gpt_status' => ($isHost || $isWhiteLabel) ? $this->gpt_status : null,
-            'gpt_generated_at' => (($isHost || $isWhiteLabel) && !empty($this->gpt_generated_at)) ? Carbon::parse($this->gpt_generated_at)->format('Y-m-d h:i A') : null,
+            // Converted to the viewer's timezone, like validated_at and
+            // created_at beside it. It was formatted straight off the stored UTC
+            // value, so "Evaluated" read hours away from every other time on the
+            // same screen.
+            'gpt_generated_at' => ($isHost || $isWhiteLabel) ? toTimezone($this->gpt_generated_at, null, 'Y-m-d h:i A') : null,
             'ai_result' => $aiResult,
             'created_at' => toTimezone($this->created_at, null, 'Y-m-d H:i:s'),
             'updated_at' => toTimezone($this->updated_at, null, 'Y-m-d H:i:s'),

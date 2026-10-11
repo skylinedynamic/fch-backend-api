@@ -76,13 +76,9 @@ class FundingApplicationDocumentService
                 'downloaded_at' => now(),
             ]);
 
-            $this->activityLogService->logModelEvent(
-                $application,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Funding Application Generated',
-                "Funding Application PDF generated and locked. SHA-256: {$appSha256}"
-            );
+            // No activity-log entry for generating the PDF: it happens on every
+            // submission, and the submit / re-submit entry already says so. The
+            // generation itself is still recorded in the download history above.
 
             // Update signature data with SHA-256 and Cert ID for the template
             $signatureData['sha256'] = $appSha256;
@@ -114,13 +110,8 @@ class FundingApplicationDocumentService
                 'downloaded_at' => now(),
             ]);
 
-            $this->activityLogService->logModelEvent(
-                $application,
-                ActivityLog::TYPE_ACTIVITY,
-                ['visible_to_borrower' => '1'],
-                'Borrower Electronic Signature Certificate Generated',
-                "Borrower Electronic Signature Certificate PDF generated and locked. SHA-256: {$certSha256}"
-            );
+            // Likewise no activity-log entry for generating the certificate; it
+            // is in the download history above.
 
             // Update application with certificate path in signature_data
             $signatureData['certificate_path'] = $pdfPath;
@@ -158,14 +149,15 @@ class FundingApplicationDocumentService
 
         $passwordText = !empty($password) ? 'with password protection' : 'without password protection';
         $this->activityLogService->logModelEvent(
-            $application, 
+            $application,
             ActivityLog::TYPE_ACTIVITY,
             [
                 'visible_to_borrower' => ($isHost || $isPartner) ? '0' : '1',
                 'is_internal' => $isHost ? true : false,
             ],
             'Funding Application Downloaded',
-            "Funding Application PDF downloaded {$passwordText}."
+            "Funding Application PDF downloaded {$passwordText}.",
+            $isHost ? ActivityLog::VISIBILITY_INTERNAL : ($isPartner ? ActivityLog::VISIBILITY_PARTNER : ActivityLog::VISIBILITY_EVERYONE)
         );
         
         $pdfBinary = $pdf->output();
@@ -242,7 +234,8 @@ class FundingApplicationDocumentService
                 'is_internal' => $isHost ? true : false,
             ],
             'Borrower Electronic Signature Certificate Downloaded',
-            "Borrower Electronic Signature Certificate PDF downloaded {$passwordText}."
+            "Borrower Electronic Signature Certificate PDF downloaded {$passwordText}.",
+            $isHost ? ActivityLog::VISIBILITY_INTERNAL : ($isPartner ? ActivityLog::VISIBILITY_PARTNER : ActivityLog::VISIBILITY_EVERYONE)
         );
 
         $pdfBinary = $pdf->output();
@@ -349,7 +342,8 @@ class FundingApplicationDocumentService
                 'is_internal' => $isHost ? true : false,
             ],
             'Funding Documents ZIP Downloaded',
-            "Funding Documents ZIP downloaded {$passwordText}."
+            "Funding Documents ZIP downloaded {$passwordText}.",
+            $isHost ? ActivityLog::VISIBILITY_INTERNAL : ($isPartner ? ActivityLog::VISIBILITY_PARTNER : ActivityLog::VISIBILITY_EVERYONE)
         );
 
         // Clean up temp PDF files
