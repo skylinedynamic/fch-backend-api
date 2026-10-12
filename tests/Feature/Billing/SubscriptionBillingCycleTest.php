@@ -100,14 +100,15 @@ class SubscriptionBillingCycleTest extends TestCase
         ], $attributes));
     }
 
-    private function partner(bool $isHost): Partner
+    private function partner(bool $isHost, string $partnerType = Partner::PARTNER_TYPE_WHITE_LABEL): Partner
     {
-        $suffix = $isHost ? 'host' : 'reseller';
+        $suffix = ($isHost ? 'host' : 'reseller')
+            . ($partnerType === Partner::PARTNER_TYPE_WHITE_LABEL ? '' : '-certified');
 
         return Partner::create([
             'is_host' => $isHost,
             'status' => Partner::STATUS_ACTIVE,
-            'partner_type' => Partner::PARTNER_TYPE_WHITE_LABEL,
+            'partner_type' => $partnerType,
             'company_name' => ucfirst($suffix) . ' Partner LLC',
             'full_name' => ucfirst($suffix) . ' Owner',
             'email' => $suffix . '@example.test',
@@ -382,7 +383,7 @@ class SubscriptionBillingCycleTest extends TestCase
 
         $this->assertSame(Subscription::PHASE_PLATFORM_FEE, $subscription->current_phase);
         $this->assertNotNull($subscription->subscription_end_date, 'a partner never stops being billed');
-        $this->assertSame(today()->copy()->addMonth()->toDateString(), $subscription->subscription_end_date->toDateString());
+        $this->assertSame(today()->copy()->addMonths(12)->toDateString(), $subscription->subscription_end_date->toDateString());
 
         // Each month: one platform-fee invoice, at the plan's fee.
         $this->expire($subscription);
@@ -406,6 +407,95 @@ class SubscriptionBillingCycleTest extends TestCase
 
         $this->assertNotNull($subscription->subscription_end_date);
         $this->assertSame(Subscription::PHASE_PLATFORM_FEE, $subscription->current_phase);
+    }
+
+    #[Test]
+    public function a_partners_one_time_payment_covers_twelve_months_before_the_platform_fee_starts(): void
+    {
+        $reseller = $this->partner(isHost: false);
+        $subscription = $this->enrol($reseller, $this->partnerOneTime);
+
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+
+        // Inside the 12 months: no platform fee, however often the cron runs.
+        $this->runCron();
+        $subscription->forceFill(['subscription_end_date' => today()->copy()->addDays(6)])->save();
+        $this->runCron();
+
+        $platformFees = fn() => Invoice::where('subscription_id', $subscription->id)
+            ->where('type', Invoice::INVOICE_TYPE_PLATFORM_FEE)
+            ->count();
+
+        $this->assertSame(0, $platformFees(), 'the one-time payment already covers these months');
+
+        // Within generate_before_days of the end: the first platform fee is raised.
+        // A day inside the window, not on its edge: SQLite stores the date with a
+        // time and compares it as text, so the boundary day itself never matches.
+        $subscription->forceFill(['subscription_end_date' => today()->copy()->addDays(4)])->save();
+        $this->runCron();
+
+        $this->assertSame(1, $platformFees());
+    }
+
+    #[Test]
+    public function the_twelve_months_count_from_the_payment_date_even_over_an_existing_end_date(): void
+    {
+        $reseller = $this->partner(isHost: false);
+        $subscription = $this->enrol($reseller, $this->partnerOneTime, [
+            'subscription_end_date' => today()->copy()->addDays(20),
+        ]);
+
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+
+        $this->assertSame(
+            today()->copy()->addMonths(12)->toDateString(),
+            $subscription->fresh()->subscription_end_date->toDateString()
+        );
+    }
+
+    #[Test]
+    public function a_certified_partner_gets_the_same_twelve_months(): void
+    {
+        $certifiedPlan = $this->plan([
+            'group' => SubscriptionPlan::SUBSCRIPTION_PLAN_PARTNER_ENROLLMENT,
+            'partner_type' => Partner::PARTNER_TYPE_CERTIFIED,
+            'enrollment_type' => SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT,
+            'enrollment_type_slug' => SubscriptionPlan::ENROLLMENT_TYPE_ONE_TIME_PAYMENT_SLUG,
+            'entity_type' => Partner::class,
+            'total_amount' => 2997.00,
+            'platform_fee' => 199.00,
+            'total_installment_count_upto' => 1,
+        ]);
+
+        $certified = $this->partner(isHost: false, partnerType: Partner::PARTNER_TYPE_CERTIFIED);
+        $subscription = $this->enrol($certified, $certifiedPlan);
+
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+        $subscription->refresh();
+
+        $this->assertSame(Subscription::PHASE_PLATFORM_FEE, $subscription->current_phase);
+        $this->assertSame(today()->copy()->addMonths(12)->toDateString(), $subscription->subscription_end_date->toDateString());
+    }
+
+    #[Test]
+    public function each_platform_fee_after_the_twelve_months_buys_one_month(): void
+    {
+        $reseller = $this->partner(isHost: false);
+        $subscription = $this->enrol($reseller, $this->partnerOneTime);
+        $this->payInvoice($this->openInvoice($subscription), $subscription);
+
+        // Coverage ends in 4 days: the platform fee is raised and paid early.
+        $coverageEnd = today()->copy()->addDays(4);
+        $subscription->forceFill(['subscription_end_date' => $coverageEnd])->save();
+        $this->runCron();
+
+        $this->payInvoice($this->openInvoice($subscription->fresh()), $subscription);
+
+        $this->assertSame(
+            $coverageEnd->copy()->addMonth()->toDateString(),
+            $subscription->fresh()->subscription_end_date->toDateString(),
+            'a platform fee is one month, not twelve'
+        );
     }
 
     // ── The borrower fee belongs to the partner ───────────────────────
@@ -606,7 +696,7 @@ class SubscriptionBillingCycleTest extends TestCase
     public function an_installment_row_with_no_monthly_figure_is_refused_rather_than_guessed(): void
     {
         // An installment plan always carries subscription_amount_per_month -
-        // EnrollmentService writes it at signup and the repair seeder rebuilds it.
+        // EnrollmentService writes it at signup.
         // A row without one is broken, so nothing is billed: deriving an amount
         // would invoice the customer a figure nobody agreed to, and would hide the
         // defect behind a plausible-looking invoice.
