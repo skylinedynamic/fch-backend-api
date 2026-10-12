@@ -367,6 +367,15 @@ class SubscriptionService
             return;
         }
 
+        // The borrower fee is the partner's debt to the host. It is linked to the
+        // borrower's subscription only for traceability, so paying it must not move
+        // that subscription or activate the borrower: they still owe their own
+        // enrollment.
+        if ($invoice->type === Invoice::INVOICE_TYPE_BORROWER_FEE) {
+            $this->handleBorrowerFeePayment($invoice);
+            return;
+        }
+
         if (!$subscription) {
             Log::warning('Subscription not found for payment', ['invoice_id' => $invoice->id]);
             return;
@@ -414,6 +423,19 @@ class SubscriptionService
 
 
     /**
+     * Record that the partner has paid the host the fee for this borrower.
+     */
+    private function handleBorrowerFeePayment(Invoice $invoice): void
+    {
+        if (!$invoice->borrower_id) {
+            Log::warning('Borrower fee invoice has no borrower', ['invoice_id' => $invoice->id]);
+            return;
+        }
+
+        Borrower::whereKey($invoice->borrower_id)->update(['partner_payment_for_me' => true]);
+    }
+
+    /**
      * Handle payment for One Time Payment enrollment.
      *
      * @param Subscription $subscription
@@ -451,10 +473,23 @@ class SubscriptionService
             $updateData['subscription_end_date'] = null;
         } else {
             // Partners roll into the recurring monthly platform fee, so they keep a
-            // live cycle date.
+            // live cycle date. The one-time payment covers the first
+            // ONE_TIME_PAYMENT_COVERAGE_MONTHS from the day it was paid - always
+            // from that day, never stacked on an end date the row already had.
+            // Falls back to today for an invoice paid without one recorded.
+            //
+            // The monthly platform-fee payments that follow are routed here too
+            // (dispatch is by enrollment_type), and each of those buys one month.
+            $isPlatformFee = $invoice->type === Invoice::INVOICE_TYPE_PLATFORM_FEE
+                || $invoice->is_platform_fee;
+
+            $paidOn = $invoice->payment_date?->copy()->startOfDay() ?? today();
+
             $updateData['status'] = Subscription::STATUS_ACTIVE;
             $updateData['current_phase'] = Subscription::PHASE_PLATFORM_FEE;
-            $updateData['subscription_end_date'] = $this->nextCycleFrom($subscription);
+            $updateData['subscription_end_date'] = $isPlatformFee
+                ? $this->nextCycleFrom($subscription)
+                : $paidOn->addMonths(Subscription::ONE_TIME_PAYMENT_COVERAGE_MONTHS);
         }
 
         $subscription->update($updateData);

@@ -114,6 +114,8 @@ jobs:
             sudo php artisan storage:link
             sudo php artisan migrate --force
             sudo php artisan queue:restart || true
+            # Horizon exits and Supervisor restarts it on the new code; a no-op until Horizon runs here.
+            sudo php artisan horizon:terminate || true
             php artisan log-viewer:publish
 
             echo "Setting correct directory permissions for Nginx..."
