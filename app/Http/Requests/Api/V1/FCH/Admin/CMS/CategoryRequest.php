@@ -14,7 +14,7 @@ class CategoryRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('category');
+        $id = $this->route('id');
         $partner_id = $this->user()->partner_id;
 
         return [

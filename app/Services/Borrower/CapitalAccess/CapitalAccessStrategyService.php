@@ -517,7 +517,11 @@ class CapitalAccessStrategyService
                     if ($playStatus) {
                         $isCompleted = ($playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED);
                     } else {
-                        // Fallback: check dynamic counts (for legacy data sync)
+                        // No play row: worked out from the step counts, without
+                        // writing one. This is a read - rows missing from before
+                        // plays were tracked are backfilled by the migration
+                        // 2026_10_12_000100_backfill_borrower_capital_access_plays,
+                        // and new ones are written when a step is submitted.
                         $totalSteps = $strat->sequences()->count();
                         $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
                             ->where('capital_access_id', $strat->id)
@@ -525,19 +529,6 @@ class CapitalAccessStrategyService
                             ->count();
 
                         $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
-
-                        // If they have worked on this strategy, create play status row
-                        $hasStarted = CapitalAccessApplication::where('borrower_id', $borrower->id)
-                            ->where('capital_access_id', $strat->id)
-                            ->exists();
-
-                        if ($hasStarted) {
-                            BorrowerCapitalAccessPlay::create([
-                                'borrower_id' => $borrower->id,
-                                'capital_access_id' => $strat->id,
-                                'status' => $isCompleted ? BorrowerCapitalAccessPlay::STATUS_COMPLETED : BorrowerCapitalAccessPlay::STATUS_RUNNING,
-                            ]);
-                        }
                     }
 
                     $completionMap[$strat->id] = $isCompleted;

@@ -16,6 +16,8 @@ class CreditProfileRequest extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
+        // Encrypted at rest (GLBA Safeguards); read and written as the nine digits.
+        'ssn' => 'encrypted',
     ];
 
     public function borrower()

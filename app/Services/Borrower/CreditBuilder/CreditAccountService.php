@@ -16,19 +16,8 @@ class CreditAccountService
      */
     public function list(array $filters): JsonResponse
     {
-        $query = CreditAccount::query();
-
-        // Fixed eligibility conditions for the borrower
-        $borrower = auth()->user()->borrower;
-        if ($borrower) {
-            $score = (int) ($borrower->fico_score ?? 0);
-            $months = $borrower->business_start_date
-                ? \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
-                : 0;
-
-            $query->where('typical_personal_fico_min', '<=', $score)
-                ->where('time_in_business_min_months', '<=', (int) $months);
-        }
+        // Switched on by the host, and within the borrower's FICO and time in business.
+        $query = CreditAccount::offeredTo(auth()->user()->borrower);
 
 
 
@@ -90,6 +79,11 @@ class CreditAccountService
     {
         $borrowerId = auth()->user()->entity_id;
         $allowedStatuses = ['Requested', 'Processing', 'Approved'];
+
+        // An unknown account is a 404, not a foreign-key failure; so is one the
+        // list would not offer this borrower - switched off by the host, or
+        // outside their FICO score or time in business.
+        CreditAccount::offeredTo(auth()->user()->borrower)->findOrFail($id);
 
         // Fallback to first config status if none provided or invalid
         $finalStatus = (in_array($status, $allowedStatuses)) ? $status : $allowedStatuses[0];

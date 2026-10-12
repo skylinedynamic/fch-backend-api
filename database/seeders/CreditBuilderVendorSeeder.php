@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\CreditBuilder\CreditBuilderVendor;
 use App\Models\CreditBuilder\Tier;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CreditBuilderVendorSeeder extends Seeder
 {
@@ -15,9 +15,9 @@ class CreditBuilderVendorSeeder extends Seeder
     public function run(): void
     {
         // Clear existing data
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        Schema::disableForeignKeyConstraints();
         CreditBuilderVendor::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        Schema::enableForeignKeyConstraints();
 
         // Get Tier IDs (assuming they exist, otherwise fallback to 1-4)
         $tier0 = 1;

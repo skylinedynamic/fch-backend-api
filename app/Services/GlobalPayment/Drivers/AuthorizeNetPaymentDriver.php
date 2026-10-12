@@ -17,36 +17,36 @@ class AuthorizeNetPaymentDriver implements PaymentGatewayInterface
         return $this;
     }
 
+    /**
+     * The Authorize.Net integration is not built. Every call fails closed: a driver
+     * that reported success here would mark invoices paid, or customers and
+     * subscriptions created, with nothing happening at Authorize.Net.
+     */
     public function charge(array $params): array
     {
-        // Authorize.Net charge driver implementation
-        return [
-            'success' => true,
-            'transaction_id' => 'AUTHNET_TX_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function createCustomer(array $params): array
     {
-        return [
-            'success' => true,
-            'customer_id' => 'AUTHNET_CUST_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function createSubscription(array $params): array
     {
-        return [
-            'success' => true,
-            'subscription_id' => 'AUTHNET_SUB_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function cancelSubscription(string $subscriptionId): bool
     {
-        return true;
+        return false;
+    }
+
+    private function notImplemented(): array
+    {
+        return [
+            'success' => false,
+            'error' => 'Authorize.Net payments are not available yet.',
+        ];
     }
 }

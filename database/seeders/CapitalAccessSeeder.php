@@ -14,10 +14,10 @@ class CapitalAccessSeeder extends Seeder
     public function run(): void
     {
         // Empty the tables
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
         \Illuminate\Support\Facades\DB::table('capital_access_sequences')->truncate();
         CapitalAccess::truncate();
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
 
         $partnerId = 1;
 

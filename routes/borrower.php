@@ -71,8 +71,7 @@ Route::prefix('v1/borrower')->group(function () {
                 ['prefix' => 'profile',],
                 function () {
                     Route::get('/personal-info', [PersonalInfoController::class, 'index']);
-                    Route::post('/personal-info', [PersonalInfoController::class, 'update']);
-                    Route::get('/business-info', [BusinessInfoController::class, 'index']);
+                    Route::post('/personal-info', [PersonalInfoController::class, 'update']);                    Route::get('/business-info', [BusinessInfoController::class, 'index']);
                     Route::post('/business-info', [BusinessInfoController::class, 'update']);
                     Route::get('/financial-info', [FinancialInfoController::class, 'index']);
                     Route::post('/financial-info', [FinancialInfoController::class, 'update']);

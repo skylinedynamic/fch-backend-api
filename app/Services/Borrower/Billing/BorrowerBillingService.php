@@ -223,6 +223,11 @@ class BorrowerBillingService
             return ApiResponse::validationError(['provider_name' => [__('borrower.provider_name_required')]]);
         }
 
+        // Only a gateway the borrower's partner has switched on can be the default.
+        if (!PaymentProvider::isOfferedBy($providerName, $borrower->partner_id ?? Partner::host()?->id)) {
+            return ApiResponse::validationError(['provider_name' => [__('payment_method.provider_not_offered')]]);
+        }
+
         $isStripe = strtolower(trim($providerName)) === strtolower(PaymentProvider::STRIPE) || $providerName === PaymentProvider::STRIPE;
 
         if ($isStripe) {
@@ -250,6 +255,10 @@ class BorrowerBillingService
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
                 } catch (Exception $e) {
                     Log::error('[UpdateDefaultPaymentMethod] Stripe Error: ' . $e->getMessage());
+
+                    // Leave the saved card as it is rather than overwriting it
+                    // with nothing.
+                    return ApiResponse::error(__('borrower.payment_method_update_failed', ['error' => $e->getMessage()]), 422);
                 }
             } else {
                 $stripeCustId = is_array($existingCustomerData)

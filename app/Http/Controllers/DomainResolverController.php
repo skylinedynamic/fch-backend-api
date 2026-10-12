@@ -18,9 +18,12 @@ class DomainResolverController extends Controller
 
     public function resolve(Request $request)
     {
-        $internalKeyHeader = $request->header('X-Internal-Key');
+        $internalKeyHeader = (string) $request->header('X-Internal-Key', '');
+        $internalKey = (string) config('domains.internal_key', '');
 
-        if ($internalKeyHeader !== config('domains.internal_key')) {
+        // Fails closed: no key configured means no lookup, and the comparison is
+        // constant-time so the key cannot be guessed a character at a time.
+        if ($internalKey === '' || !hash_equals($internalKey, $internalKeyHeader)) {
             Log::warning('[DomainResolver] Invalid internal key attempt.', [
                 'x-domain' => $request->header('X-Domain'),
             ]);

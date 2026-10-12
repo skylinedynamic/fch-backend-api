@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Common\Setting;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Common\AppConfiguration;
+use Illuminate\Validation\Rule;
 
 class StoreAppConfigurationRequest extends BaseApiRequest
 {
@@ -20,7 +22,11 @@ class StoreAppConfigurationRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'module' => 'required|string',
+            // The openai module is read platform-wide, not per partner, so only
+            // the host-guarded endpoints (OpenAiConfigurationController,
+            // PreQualificationAgentConfigController, AssistantConfigController)
+            // may write it.
+            'module' => ['required', 'string', Rule::notIn([AppConfiguration::MODULE_OPENAI])],
             'key' => 'nullable|string',
             'value' => 'nullable',
             'settings' => 'nullable|array'

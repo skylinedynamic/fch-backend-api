@@ -38,9 +38,14 @@ jobs:
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
           php artisan passport:keys --force
 
-      # Run as two steps so the log shows plainly that both suites ran.
+      # One step per suite so the log shows plainly that each of them ran.
+      # Unit: single classes, no database. Integration: services against the
+      # real (SQLite) database, called directly. Feature: full HTTP requests.
       - name: Run Unit Tests
         run: php artisan test --testsuite=Unit
+
+      - name: Run Integration Tests
+        run: php artisan test --testsuite=Integration
 
       - name: Run Feature Tests
         run: php artisan test --testsuite=Feature

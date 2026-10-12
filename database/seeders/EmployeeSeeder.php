@@ -26,6 +26,7 @@ class EmployeeSeeder extends Seeder
 
         // Get all partners
         $partners = DB::table('partners')->pluck('id');
+        $hostIds = DB::table('partners')->where('is_host', 1)->pluck('id')->all();
 
         foreach ($partners as $partnerId) {
             // Get the Sales role for this partner
@@ -99,7 +100,10 @@ class EmployeeSeeder extends Seeder
                     'phone_number' => $phone1,
                     'phone_verified_at' => null,
                     'email_verified_at' => now(),
-                    'user_type' => 'Admin',
+                    // As real staff creation does: the creator's type, which is
+                    // Admin only on the host - a partner's staff passing the
+                    // host-only `admin` middleware is exactly what must not happen.
+                    'user_type' => in_array($partnerId, $hostIds) ? User::ADMIN : User::PARTNER,
                     'status' => 'active',
                     'password' => Hash::make('12345678'),
                     'partner_id' => $partnerId,

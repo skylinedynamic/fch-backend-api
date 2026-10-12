@@ -56,7 +56,6 @@ Route::prefix('v1/admin')
         //  Partner Documents
         Route::post('partners/fetch-all-documents', [PartnerDocumentController::class, 'index']);
         Route::post('partners/documents', [PartnerDocumentController::class, 'store']);
-        Route::post('partners/documents/{id}', [PartnerDocumentController::class, 'update']); // Using POST for file upload update
         Route::get('partners/documents/download/{id}', [PartnerDocumentController::class, 'download']);
         Route::post('partners/documents/delete/{id}', [PartnerDocumentController::class, 'delete']);
 
@@ -219,7 +218,6 @@ Route::prefix('v1/admin')
             Route::post('seo-settings/store', [SeoController::class, 'store']); // create new (must be before /{id})
             Route::get('seo-settings/{id}', [SeoController::class, 'show']);     // get one
             Route::post('seo-settings/{id}', [SeoController::class, 'update']); // update
-            Route::get('seo', [SeoController::class, 'show']);
         });
 
         // 📊 Score Configurations

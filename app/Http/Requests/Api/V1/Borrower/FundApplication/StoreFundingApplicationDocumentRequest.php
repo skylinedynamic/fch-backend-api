@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class StoreFundingApplicationDocumentRequest extends FormRequest
 {
@@ -22,7 +24,7 @@ class StoreFundingApplicationDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'funding_application_id' => 'required|exists:funding_applications,id',
+            'funding_application_id' => ['required', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'document_type_id' => 'required|exists:borrower_doc_types,id',
             'files' => 'required|array|min:1',
         ];

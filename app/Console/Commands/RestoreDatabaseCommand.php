@@ -15,7 +15,7 @@ class RestoreDatabaseCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'backup:restore {--latest : Pick the latest backup} {--file= : The file path on the disk} {--disk= : The disk to pull from (defaults based on environment)}';
+    protected $signature = 'backup:restore {--latest : Pick the latest backup} {--file= : The file path on the disk} {--disk= : The disk to pull from (defaults based on environment)} {--force : Restore without asking (required in production)}';
 
     /**
      * The console command description.
@@ -29,7 +29,9 @@ class RestoreDatabaseCommand extends Command
      */
     public function handle()
     {
-        $diskName = $this->option('disk') ?: env('BACKUP_DISK', (env('APP_ENV') === 'production' ? 's3' : 'local'));
+        // The disk the backups are written to. Read through config, not env():
+        // under config:cache env() is null for anything only in .env.
+        $diskName = $this->option('disk') ?: (config('backup.backup.destination.disks')[0] ?? 'local');
         $disk = Storage::disk($diskName);
         $file = $this->option('file');
 
@@ -53,7 +55,7 @@ class RestoreDatabaseCommand extends Command
                         ->sortByDesc(fn($f) => $disk->lastModified($f))
                         ->values();
                 } else {
-                    return;
+                    return self::FAILURE;
                 }
             }
             $file = $files->first();
@@ -61,12 +63,28 @@ class RestoreDatabaseCommand extends Command
 
         if (!$file) {
             $this->error('Please specify a --file or use the --latest flag.');
-            return;
+            return self::FAILURE;
         }
 
         if (!$disk->exists($file)) {
             $this->error("File {$file} does not exist on disk '{$diskName}'.");
-            return;
+            return self::FAILURE;
+        }
+
+        // Overwriting a database cannot be undone. Production needs --force
+        // (and is never asked - a prompt is too easy to answer by reflex);
+        // anywhere else the operator confirms which database is about to go.
+        if (!$this->option('force')) {
+            if (app()->isProduction()) {
+                $this->error('Refusing to restore in production without --force.');
+                return self::FAILURE;
+            }
+
+            $database = config('database.connections.' . config('database.default') . '.database');
+            if (!$this->confirm("This will overwrite the database \"{$database}\" with {$file}. Continue?", false)) {
+                $this->warn('Restore cancelled.');
+                return self::FAILURE;
+            }
         }
 
         $this->info("Downloading backup: {$file}");
@@ -85,7 +103,8 @@ class RestoreDatabaseCommand extends Command
             $zip->close();
         } else {
             $this->error("Failed to open the zip file.");
-            return;
+            $this->cleanup($tempDir);
+            return self::FAILURE;
         }
 
         $sqlFiles = collect(File::allFiles($tempDir))
@@ -95,7 +114,7 @@ class RestoreDatabaseCommand extends Command
         if ($sqlFiles->isEmpty()) {
             $this->error("No SQL dumps found in the backup.");
             $this->cleanup($tempDir);
-            return;
+            return self::FAILURE;
         }
 
         $sqlFile = $sqlFiles->first()->getRealPath();
@@ -108,20 +127,22 @@ class RestoreDatabaseCommand extends Command
         $dbPass = config("database.connections.{$dbConn}.password");
         $dbName = config("database.connections.{$dbConn}.database");
 
-        $passwordFlag = $dbPass ? "-p\"{$dbPass}\"" : "";
-        $command = "mysql -h {$dbHost} -P {$dbPort} -u \"{$dbUser}\" {$passwordFlag} \"{$dbName}\" < \"{$sqlFile}\"";
+        $command = "mysql -h {$dbHost} -P {$dbPort} -u \"{$dbUser}\" \"{$dbName}\" < \"{$sqlFile}\"";
 
-        // Using Laravel Process facade (available in Laravel >= 10)
-        $result = Process::run($command);
-
-        if ($result->successful()) {
-            $this->info("Database restored successfully!");
-        } else {
-            $this->error("Failed to restore the database:");
-            $this->error($result->errorOutput());
-        }
+        // The password goes in mysql's environment, not on the command line,
+        // where any user on the server could read it from the process list.
+        $result = Process::env($dbPass ? ['MYSQL_PWD' => $dbPass] : [])->run($command);
 
         $this->cleanup($tempDir);
+
+        if (!$result->successful()) {
+            $this->error("Failed to restore the database:");
+            $this->error($result->errorOutput());
+            return self::FAILURE;
+        }
+
+        $this->info("Database restored successfully!");
+        return self::SUCCESS;
     }
 
     private function cleanup(string $tempDir)

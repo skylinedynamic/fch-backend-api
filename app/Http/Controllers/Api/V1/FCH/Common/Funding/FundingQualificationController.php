@@ -65,7 +65,8 @@ class FundingQualificationController extends Controller
     public function getClientReadinessFactors(Request $request, $borrowerId, $fundingId): JsonResponse
     {
         try {
-            $borrower = Borrower::find($borrowerId);
+            // Own partner's clients only (any for the host's team).
+            $borrower = Borrower::visibleTo($request->user())->find($borrowerId);
 
             if (!$borrower) {
                 return response()->json(['status' => false, 'message' => 'Borrower not found.'], 404);

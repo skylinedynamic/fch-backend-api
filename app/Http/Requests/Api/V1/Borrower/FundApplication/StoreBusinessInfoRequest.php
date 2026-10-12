@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\UsPostalCode;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class StoreBusinessInfoRequest extends BaseApiRequest
 {
@@ -23,8 +25,8 @@ class StoreBusinessInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
-            'funding_request_id' => 'nullable',
+            'id' => ['nullable', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
+            'funding_request_id' => ['nullable', Rule::exists('funding_requests', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'funding_sequence_id' => 'nullable',
             'full_name' => 'required|string|max:255',
             'business_name' => 'required|string|max:255',

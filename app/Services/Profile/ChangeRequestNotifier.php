@@ -93,7 +93,8 @@ class ChangeRequestNotifier
                 'borrower_name' => $this->nameOf($borrower),
                 'field_name' => $this->fieldOf($changeRequest),
                 'status' => $changeRequest->status,
-                'new_value' => $changeRequest->new_value,
+                // Masked for an SSN or EIN - email is not a place for either.
+                'new_value' => $changeRequest->maskedValue($changeRequest->new_value),
                 'note' => $changeRequest->note,
             ], $borrower?->partner_id))->to($email) : null);
         } catch (\Throwable $e) {

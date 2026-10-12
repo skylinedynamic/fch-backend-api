@@ -34,7 +34,8 @@ class AuthService
         $email = (string) $credentials['email'];
         $key = 'login:' . $email . $request->ip();
 
-        $maxAttempts = config('app.login_throttle_limit');
+        // Read from env, so a string; the response reports it as the number it is.
+        $maxAttempts = (int) config('app.login_throttle_limit');
         $decayMinutes = config('app.login_decay_minutes');
 
         if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {

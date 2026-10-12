@@ -30,7 +30,10 @@ class PersonalInfoController extends Controller
     public function index(): JsonResponse
     {
         $user = User::with('entity')->where('id', Auth::id())->first();
-        return ApiResponse::success(new PersonalProfileResource($user), __('borrower.fetch_personal_profile'));
+
+        // Carries the borrower's full SSN, so no browser or proxy keeps a copy.
+        return ApiResponse::success(new PersonalProfileResource($user), __('borrower.fetch_personal_profile'))
+            ->header('Cache-Control', 'no-store, private');
     }
 
     /**

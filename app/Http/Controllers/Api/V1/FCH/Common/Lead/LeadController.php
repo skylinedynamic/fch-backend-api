@@ -45,8 +45,12 @@ class LeadController extends Controller
      */
     public function show($id)
     {
+        $lead = $this->ownLead($id);
+        if (!$lead) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
         try {
-            $lead = $this->leadService->find($id);
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_details'));
         } catch (\Exception $e) {
             return ApiResponse::error(__('lead.lead_not_found'));
@@ -73,8 +77,13 @@ class LeadController extends Controller
     public function updateDetails(UpdateLeadDetailsRequest $request, $id)
     {
         $this->checkWhiteLabelConfiguration();
+
+        $lead = $this->ownLead($id);
+        if (!$lead) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
         try {
-            $lead = Lead::findOrFail($id);
             $lead = $this->leadService->updateDetails($lead, $request->validated());
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_updated'));
         } catch (\Exception $e) {
@@ -88,8 +97,13 @@ class LeadController extends Controller
     public function updateContactInfo(UpdateLeadContactInfoRequest $request, $id)
     {
         $this->checkWhiteLabelConfiguration();
+
+        $lead = $this->ownLead($id);
+        if (!$lead) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
         try {
-            $lead = Lead::findOrFail($id);
             $lead = $this->leadService->updateContactInfo($lead, $request->validated());
             return ApiResponse::success(new LeadResource($lead), __('lead.lead_updated'));
         } catch (\Exception $e) {
@@ -103,13 +117,27 @@ class LeadController extends Controller
     public function destroy($id)
     {
         $this->checkWhiteLabelConfiguration();
+
+        $lead = $this->ownLead($id);
+        if (!$lead) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
         try {
-            $lead = Lead::findOrFail($id);
             $this->leadService->delete($lead);
             return ApiResponse::success([], __('lead.lead_deleted'));
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage() ?: __('lead.lead_update_failed'));
         }
+    }
+
+    /**
+     * A lead of the caller's own partner, or null - leads are a partner's own
+     * book, the same scope the lead list applies.
+     */
+    private function ownLead($id): ?Lead
+    {
+        return Lead::where('partner_id', auth()->user()->partner_id)->find($id);
     }
 
     /**

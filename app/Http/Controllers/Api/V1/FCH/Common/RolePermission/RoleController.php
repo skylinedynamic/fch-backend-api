@@ -73,6 +73,11 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
+        // Roles belong to a partner; another partner's role does not exist here.
+        if ((int) $role->partner_id !== (int) Auth::user()->partner_id) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
         if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
@@ -100,6 +105,10 @@ class RoleController extends Controller
      */
     public function update(UpdateRoleRequest $request, Role $role)
     {
+        if ((int) $role->partner_id !== (int) Auth::user()->partner_id) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
         $updatedRole = $this->roleService->update($role, $request->validated());
         
         return response()->json([

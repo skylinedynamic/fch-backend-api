@@ -32,7 +32,6 @@ class UnderwritingSubmitted extends Mailable implements ShouldQueue
     {
         try {
             $branding = $this->getHostBrandingData();
-            Log::info('Branding', [$branding]);
 
             return $this->subject('New Funding Request Submitted')
                         ->view('emails.partner.underwriting_submitted')

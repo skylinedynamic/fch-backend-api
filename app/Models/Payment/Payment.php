@@ -145,9 +145,13 @@ class Payment extends Model
         $isHost = (bool) ($authUserPartner?->is_host ?? (bool) ($authUser->is_host ?? false));
         $authUserPartnerId = $authUser->partner_id;
 
-        // Host partner: can approve partner payments to host, borrower fee invoices, or host's own borrower payments
+        // Host partner: can approve partner payments to host (borrower fee invoices are partner-paid too),
+        // or host's own borrower payments. A white-label partner's borrower pays that partner, not the
+        // host, so the host has nothing to confirm there.
         if ($isHost) {
-            return true;
+            return (bool) $this->is_partner_paying
+                || $this->entity_type === Partner::class
+                || (int) $this->partner_id === (int) $authUserPartnerId;
         }
 
         // Non-host partner: can only approve borrower payments under their own partner

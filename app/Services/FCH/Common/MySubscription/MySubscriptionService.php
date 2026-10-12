@@ -229,6 +229,11 @@ class MySubscriptionService
             return ApiResponse::validationError(['provider_name' => [__('partner.provider_name_required')]]);
         }
 
+        // A partner pays the host, so its default must be a gateway the host offers.
+        if (!PaymentProvider::isOfferedBy($providerName, Partner::host()?->id)) {
+            return ApiResponse::validationError(['provider_name' => [__('payment_method.provider_not_offered')]]);
+        }
+
         $isStripe = strtolower(trim($providerName)) === strtolower(PaymentProvider::STRIPE);
 
         if ($isStripe) {
@@ -256,6 +261,10 @@ class MySubscriptionService
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
                 } catch (Exception $e) {
                     Log::error('[PartnerUpdateDefaultPaymentMethod] Stripe Error: ' . $e->getMessage());
+
+                    // Leave the saved card as it is rather than overwriting it
+                    // with nothing.
+                    return ApiResponse::error(__('partner.payment_method_update_failed', ['error' => $e->getMessage()]), 422);
                 }
             } else {
                 $stripeCustId = is_array($existingCustomerData)

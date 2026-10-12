@@ -596,6 +596,35 @@ class FundingApplication extends Model
     }
 
     /**
+     * The applications on a user's Intake & Review book, by the rule that
+     * screen's lists use: a partner's team (user_type Partner) works its own
+     * partner's book, the host's team (user_type Admin) every book, and a
+     * borrower only their own applications.
+     */
+    public function scopeReviewableBy($query, ?\App\Models\User\User $user)
+    {
+        if (!$user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->entity_type === \App\Models\Borrower\Borrower::class) {
+            return $query->where($this->qualifyColumn('borrower_id'), $user->entity_id);
+        }
+
+        if ($user->user_type !== \App\Models\User\User::ADMIN) {
+            return $query->where($this->qualifyColumn('partner_id'), $user->partner_id);
+        }
+
+        return $query;
+    }
+
+    /** An application is reachable exactly as far as its borrower is - see Borrower::scopeVisibleTo(). */
+    public function scopeVisibleTo($query, ?\App\Models\User\User $user)
+    {
+        return $query->whereHas('borrower', fn ($borrowers) => $borrowers->visibleTo($user));
+    }
+
+    /**
      * Get the co-borrowers for the funding application.
      */
     public function coborrowers()

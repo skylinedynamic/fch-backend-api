@@ -85,8 +85,8 @@ class RoleService
             ]);
 
             if (!empty($permissionIds)) {
-                $permissions = Permission::whereIn('id', $permissionIds)
-                    ->where('guard_name', 'api')
+                $permissions = app(PermissionService::class)->assignableQuery(Auth::user())
+                    ->whereIn('id', $permissionIds)
                     ->get();
                 if ($permissions->isNotEmpty()) {
                     $role->syncPermissions($permissions);
@@ -122,7 +122,7 @@ class RoleService
                 'description' => $data['description'] ?? $role->description,
             ]);
             $permissionIds = $data['permission_ids'] ?? [];
-            $permissions = Permission::query()
+            $permissions = app(PermissionService::class)->assignableQuery(Auth::user())
                 ->whereIn('id', $permissionIds)
                 ->get();
 

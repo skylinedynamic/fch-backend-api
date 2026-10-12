@@ -38,7 +38,9 @@ class MonthlyDailyLogger
         return Log::build(array_merge($config, [
             // Delegate to the real daily driver; 'custom' here would recurse.
             'driver' => 'daily',
-            'path' => storage_path('logs/' . date('F') . '/laravel.log'),
+            // Year and month: month alone put June 2025 and June 2026 in one
+            // folder, which the six-month pruning could then never remove.
+            'path' => storage_path('logs/' . now()->format('Y/F') . '/laravel.log'),
         ]));
     }
 }

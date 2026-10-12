@@ -62,10 +62,15 @@ class PartnerFundingApplicationService
         $borrowerId = request()->input('borrower_id');
 
         if (!$borrowerId && $fundingRequestId) {
-            $req = FundingRequest::find($fundingRequestId);
+            $req = FundingRequest::visibleTo(auth()->user())->find($fundingRequestId);
             if ($req) {
                 $borrowerId = $req->borrower_id;
             }
+        }
+
+        // Only a borrower the caller may reach (own partner's; any for the host).
+        if (!$borrowerId || !Borrower::visibleTo(auth()->user())->whereKey($borrowerId)->exists()) {
+            return null;
         }
 
         $query = FundingApplication::where('borrower_id', $borrowerId)
@@ -104,12 +109,12 @@ class PartnerFundingApplicationService
             
             $borrowerId = null;
             if ($matchId) {
-                $existing = FundingApplication::find($matchId);
+                $existing = FundingApplication::visibleTo(auth()->user())->find($matchId);
                 if ($existing) {
                     $borrowerId = $existing->borrower_id;
                 }
             } else if ($fundingReqId) {
-                $req = FundingRequest::find($fundingReqId);
+                $req = FundingRequest::visibleTo(auth()->user())->find($fundingReqId);
                 if ($req) {
                     $borrowerId = $req->borrower_id;
                 }
@@ -183,7 +188,7 @@ class PartnerFundingApplicationService
                     $matchId = $existing->id;
                 }
             } else {
-                $existing = FundingApplication::find($matchId);
+                $existing = FundingApplication::visibleTo(auth()->user())->findOrFail($matchId);
             }
 
             $isNew = empty($existing);
@@ -258,7 +263,12 @@ class PartnerFundingApplicationService
                 $coBorrowerIds = [];
                 if (!empty($data['co_borrowers'])) {
                     foreach ($data['co_borrowers'] as $coBorrower) {
-                        $record = FundingApplicationCoBorrower::updateOrCreate(['id' => $coBorrower['id'] ?? null], [
+                        // Only this application's own co-borrowers are updated
+                        // by id; any other id is treated as a new co-borrower.
+                        $ownCoBorrowerId = empty($coBorrower['id']) ? null : FundingApplicationCoBorrower::where('funding_application_id', $fundingApplication->id)
+                            ->whereKey($coBorrower['id'])
+                            ->value('id');
+                        $record = FundingApplicationCoBorrower::updateOrCreate(['id' => $ownCoBorrowerId], [
                             'funding_application_id' => $fundingApplication->id,
                             'first_name' => $coBorrower['first_name'] ?? null,
                             'last_name' => $coBorrower['last_name'] ?? null,
@@ -366,7 +376,7 @@ class PartnerFundingApplicationService
      */
     public function createFundingApplicationDocumentDir($fundingApplicationId)
     {
-        $application = FundingApplication::findOrFail($fundingApplicationId);
+        $application = FundingApplication::visibleTo(auth()->user())->findOrFail($fundingApplicationId);
         $borrowerId = $application->borrower_id;
 
         $existingDocuments = FundingApplicationDocument::where('funding_application_id', $fundingApplicationId)->count();
@@ -426,7 +436,7 @@ class PartnerFundingApplicationService
     {
         $documents = [];
         $fundingApplicationId = $data['funding_application_id'];
-        $application = FundingApplication::findOrFail($fundingApplicationId);
+        $application = FundingApplication::visibleTo(auth()->user())->findOrFail($fundingApplicationId);
         $borrowerId = $application->borrower_id;
         $destinationDir = "funding-application/{$borrowerId}/FA-{$fundingApplicationId}";
 
@@ -525,6 +535,7 @@ class PartnerFundingApplicationService
     public function deleteDocument($id)
     {
         $document = FundingApplicationDocument::where('id', $id)
+            ->whereHas('fundingApplication', fn ($applications) => $applications->visibleTo(auth()->user()))
             ->firstOrFail();
 
         // Delete from storage

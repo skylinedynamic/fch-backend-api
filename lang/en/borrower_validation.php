@@ -304,6 +304,7 @@ return [
     'funding_application_id_exists' => 'The selected funding application ID does not exist',
 
     // Funding Application Ownership Info
+    'ssn_required' => 'Social Security Number is required.',
     'ssn_string' => 'SSN must be a string',
     'ssn_digits' => 'SSN must be 9 digits',
     'citizenship_status_string' => 'Citizenship status must be a string',

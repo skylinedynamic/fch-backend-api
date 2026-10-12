@@ -107,6 +107,10 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
+        if (!User::manageableBy(Auth::user())->whereKey($user->id)->exists()) {
+            return ApiResponse::error(__('user.user_not_found'), 404);
+        }
+
         if ($user->hasRole('Developer') && !Auth::user()->hasRole('Developer')) {
             return ApiResponse::error(__('user.user_not_found'), 404);
         }
@@ -123,6 +127,11 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user)
     {
         $this->checkWhiteLabelConfiguration();
+
+        if (!User::manageableBy(Auth::user())->whereKey($user->id)->exists()) {
+            return ApiResponse::error(__('user.user_not_found'), 404);
+        }
+
         $data = $request->validated();
 
         // Handle password change logic accurately
