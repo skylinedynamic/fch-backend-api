@@ -11,7 +11,6 @@ use App\Http\Controllers\Controller;
 use App\Services\FCH\Common\RolePermission\RoleService;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\StoreRoleRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\UpdateRoleRequest;
-use App\Http\Requests\Api\V1\FCH\Common\RolePermission\AssignPermissionsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\FetchRoleRequest;
 use Illuminate\Support\Facades\Auth;
 
@@ -126,29 +125,5 @@ class RoleController extends Controller
     public function destroy(DeleteRolesRequest $request)
     {
         return $this->roleService->deleteMany($request->ids);
-    }
-
-    /**
-     * Assign permissions
-     *
-     * @param AssignPermissionsRequest $request
-     * @param Role $role
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function assignPermissions(AssignPermissionsRequest $request, Role $role)
-    {
-        $partnerId = $request->user()->partner_id;
-
-        $role = $this->roleService->assignPermissions(
-            $role,
-            $request->permission_ids,
-            $partnerId
-        );
-
-        return response()->json([
-            'status' => true,
-            'message' => __('role_permission.role_updated'), // You can reuse this for assigning permissions
-            'data' => $role,
-        ]);
     }
 }

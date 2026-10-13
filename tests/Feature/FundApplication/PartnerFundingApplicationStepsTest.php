@@ -125,6 +125,24 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->assertTrue((bool) $application->is_partner_prepared);
     }
 
+    /**
+     * The document step opens the borrower's file folder (borrowers/{id}). The
+     * partner portal had no borrower id here and used the signed-in user's own
+     * entity id instead - a partner's or employee's id - which the file manager
+     * now refuses (findings D2). The funding request names its borrower.
+     */
+    #[Test]
+    public function the_funding_request_names_its_borrower(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $borrowerId = FundingApplication::findOrFail($this->myApplicationId)->borrower_id;
+
+        $this->getJson($this->url('funding-request') . '?funding_request_id=' . $this->myRequestId)
+            ->assertOk()
+            ->assertJsonPath('data.borrower_id', $borrowerId);
+    }
+
     #[Test]
     #[DataProvider('steps')]
     public function a_partner_reads_each_step_of_its_own_borrowers_application(string $step): void
@@ -179,6 +197,45 @@ class PartnerFundingApplicationStepsTest extends TestCase
         $this->postJson($this->url('financial-info'), array_merge(self::steps()['financial'][1], [
             'id' => $this->theirApplicationId,
         ]))->assertOk();
+    }
+
+    /**
+     * Defect (findings O17): every save re-stamped the application with the
+     * caller's partner, so the host's team preparing a partner's borrower's
+     * application moved it into the host's book - the partner lost its
+     * notifications and dashboard count. The application belongs to the
+     * borrower's partner whoever prepares it; is_partner_prepared says that a
+     * partner-side user did.
+     */
+    #[Test]
+    #[DataProvider('steps')]
+    public function a_save_by_the_hosts_team_leaves_the_application_with_the_borrowers_partner(string $step, array $payload): void
+    {
+        $this->actingAsUser($this->makeStaffUser($this->host));
+
+        $this->postJson($this->url($step), array_merge($payload, [
+            'id' => $this->theirApplicationId,
+            'funding_request_id' => $this->theirRequestId,
+        ]))->assertOk();
+
+        $application = FundingApplication::findOrFail($this->theirApplicationId);
+        $this->assertSame($this->otherPartner->id, $application->partner_id);
+        $this->assertTrue((bool) $application->is_partner_prepared);
+    }
+
+    #[Test]
+    public function an_application_the_hosts_team_starts_belongs_to_the_borrowers_partner(): void
+    {
+        $borrower = $this->makeBorrower($this->otherPartner);
+        $requestId = $this->fundingRequestFor($borrower->id, $this->otherPartner->id);
+        $this->actingAsUser($this->makeStaffUser($this->host));
+
+        $this->postJson($this->url('funding-request'), array_merge(self::steps()['funding request'][1], [
+            'funding_request_id' => $requestId,
+        ]))->assertOk();
+
+        $application = FundingApplication::where('borrower_id', $borrower->id)->firstOrFail();
+        $this->assertSame($this->otherPartner->id, $application->partner_id);
     }
 
     #[Test]

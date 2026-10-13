@@ -131,7 +131,10 @@ class PartnerFundingApplicationService
 
             $data['is_partner_prepared'] = true;
             $data['borrower_id'] = $borrowerId;
-            $data['partner_id'] = auth()->user()->partner_id ?? auth()->id(); // Use partner_id if it exists, otherwise fallback
+            // The application belongs to the borrower's partner, whoever prepares
+            // it - not the caller's (findings O17). is_partner_prepared records
+            // that a partner-side user did.
+            $data['partner_id'] = Borrower::whereKey($borrowerId)->value('partner_id');
 
             if (empty($data['funding_request_id'])) {
                 $data['funding_request_id'] = request()->input('funding_request_id') 

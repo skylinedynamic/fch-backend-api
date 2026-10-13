@@ -361,11 +361,11 @@ Route::prefix('v1')->group(function () {
 
             // Lead routes
             Route::post('leads/fetch-leads', [LeadController::class, 'fetch']);
+            Route::post('leads/multiple-delete', [LeadController::class, 'multipleDelete']);
 
             // Explicitly define Leads Resource and separate split endpoints
             Route::get('leads', [LeadController::class, 'index']);
             Route::get('leads/{id}', [LeadController::class, 'show']);
-            Route::delete('leads/{id}', [LeadController::class, 'destroy']);
 
             Route::post('leads/details', [LeadController::class, 'storeDetails']);
             Route::post('leads/{id}/details', [LeadController::class, 'updateDetails']);
@@ -397,6 +397,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('my-subscription')->group(function () {
                 Route::get('/', [MySubscriptionController::class, 'index']);
                 Route::post('update-payment-method', [MySubscriptionController::class, 'updateDefaultPaymentMethod']);
+                Route::post('remove-default-payment-method', [MySubscriptionController::class, 'removeDefaultPaymentMethod']);
                 Route::post('cancel-subscription', [MySubscriptionController::class, 'cancelSubscription']);
             });
 

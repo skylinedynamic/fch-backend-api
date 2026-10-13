@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Lead;
 
 use App\Models\Lead\Lead;
 use App\Helpers\ApiResponse;
-use Illuminate\Http\Request;
 use App\Models\Partner\Partner;
 use App\Models\Borrower\Borrower;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +19,7 @@ use App\Http\Requests\Api\V1\FCH\Common\Lead\StoreLeadDetailsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadDetailsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\UpdateLeadContactInfoRequest;
 use App\Http\Requests\Api\V1\FCH\Common\Lead\ConvertLeadRequest;
+use App\Http\Requests\Api\V1\FCH\Common\Lead\DeleteLeadsRequest;
 
 class LeadController extends Controller
 {
@@ -112,26 +112,6 @@ class LeadController extends Controller
     }
 
     /**
-     * Delete Lead
-     */
-    public function destroy($id)
-    {
-        $this->checkWhiteLabelConfiguration();
-
-        $lead = $this->ownLead($id);
-        if (!$lead) {
-            return ApiResponse::notFound(__('lead.lead_not_found'));
-        }
-
-        try {
-            $this->leadService->delete($lead);
-            return ApiResponse::success([], __('lead.lead_deleted'));
-        } catch (\Exception $e) {
-            return ApiResponse::error($e->getMessage() ?: __('lead.lead_update_failed'));
-        }
-    }
-
-    /**
      * A lead of the caller's own partner, or null - leads are a partner's own
      * book, the same scope the lead list applies.
      */
@@ -141,20 +121,27 @@ class LeadController extends Controller
     }
 
     /**
-     * Multiple Delete
+     * Delete one lead or many - the only lead delete. Only the caller's
+     * partner's leads are deleted, each logged; other ids are skipped, and
+     * none of the caller's found is a 404.
      */
-    public function multipleDelete(Request $request)
+    public function multipleDelete(DeleteLeadsRequest $request)
     {
         $this->checkWhiteLabelConfiguration();
-        $ids = $request->input('ids', []);
+
         try {
-            if ($this->leadService->deleteMultiple($ids)) {
-                return ApiResponse::success([], __('lead.lead_deleted'));
-            }
-            return ApiResponse::error(__('lead.multiple_delete_failed'), 422);
+            $deleted = $this->leadService->deleteMultiple($request->validated()['ids'], auth()->user()->partner_id);
         } catch (\Exception $e) {
-            return ApiResponse::error($e->getMessage() ?: __('lead.multiple_delete_failed'), 422);
+            Log::error('Lead multiple delete failed', ['error' => $e->getMessage()]);
+
+            return ApiResponse::error(__('lead.multiple_delete_failed'), 422);
         }
+
+        if ($deleted === 0) {
+            return ApiResponse::notFound(__('lead.lead_not_found'));
+        }
+
+        return ApiResponse::success(['deleted' => $deleted], __('lead.lead_deleted'));
     }
 
     /**

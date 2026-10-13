@@ -105,9 +105,12 @@ class DomainResolverController extends Controller
         $domain = rtrim($domain, '.');                   // Remove trailing DNS dot if present
         $domain = preg_replace('/^www\./', '', $domain);
 
-        $reserved = array_map('strtolower', (array) config('domains.reserved', []));
-        if (in_array($domain, $reserved)) {
-            return response('Forbidden', 403);
+        // The platform's own domains (config/domains.php) always get a go-ahead.
+        // This used to answer 403 for them, so their certificates depended
+        // entirely on being configured in Caddy by hand (findings D7).
+        $reserved = array_map('strtolower', array_filter((array) config('domains.reserved', [])));
+        if (in_array($domain, $reserved, true)) {
+            return response('OK', 200);
         }
 
         $baseWebsite = config('app.base_website');
@@ -121,7 +124,10 @@ class DomainResolverController extends Controller
             'app.' . $baseWebsite,
         ];
 
-        if (in_array($domain, $systemSubdomains) || str_starts_with($domain, 'api.') || str_starts_with($domain, 'partner.') || str_starts_with($domain, 'app.')) {
+        // Exact names only. Any domain starting with api., partner. or app. used
+        // to pass on its name alone, so app.<anything> could have a certificate
+        // requested (findings D7); such a domain must be in the database below.
+        if (in_array($domain, $systemSubdomains, true)) {
             return response('OK', 200);
         }
 

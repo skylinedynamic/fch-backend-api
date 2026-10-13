@@ -87,6 +87,57 @@ class BorrowerBillingApiTest extends TestCase
         $this->postJson('/api/v1/borrower/cancel-subscription')->assertNotFound();
     }
 
+    /**
+     * A borrower can take their default payment method off: nothing is then
+     * auto-charged until they set one again. Only the default goes - payments
+     * already made stay, and nothing is removed at Stripe.
+     */
+    #[Test]
+    public function a_borrower_removes_their_default_payment_method(): void
+    {
+        $borrower = $this->myBorrower();
+        $this->subscribe($borrower);
+        $borrower->update([
+            'default_payment_method' => PaymentProvider::STRIPE,
+            'stripe_customer_id' => ['customer_id' => 'cus_1', 'name' => 'Visa', 'card_no' => '4242', 'payment_mode' => 'test'],
+        ]);
+        $paid = Payment::create([
+            'partner_id' => $this->partner->id, 'borrower_id' => $borrower->id, 'entity_type' => Borrower::class, 'entity_id' => $borrower->id,
+            'transaction_id' => 'TX-KEEP', 'amount' => 300, 'currency' => 'USD', 'status' => Payment::STATUS_SUCCEEDED,
+            'is_partner_paying' => false, 'transaction_date' => now(),
+        ]);
+        $other = $this->makeBorrower($this->partner, ['default_payment_method' => PaymentProvider::STRIPE]);
+        $this->actingAsUser($this->me);
+
+        $this->postJson('/api/v1/borrower/remove-default-payment-method')
+            ->assertOk()
+            ->assertJsonPath('data.default_payment_method', null);
+
+        $borrower = $this->myBorrower();
+        $this->assertNull($borrower->default_payment_method);
+        $this->assertNull($borrower->stripe_customer_id, 'a saved customer is what auto-charge charges');
+        $this->assertNotNull(Payment::find($paid->id), 'payments already made are not touched');
+        $this->assertSame(PaymentProvider::STRIPE, $other->fresh()->default_payment_method);
+
+        $this->getJson('/api/v1/borrower/billing-details')
+            ->assertOk()
+            ->assertJsonPath('data.borrower.default_payment_method', null)
+            ->assertJsonPath('data.borrower.payment_provider', null);
+    }
+
+    /** A card saved before defaults were recorded still reads as Stripe. */
+    #[Test]
+    public function a_saved_card_with_no_recorded_default_still_shows_as_stripe(): void
+    {
+        $this->subscribe($this->myBorrower());
+        $this->myBorrower()->update(['default_payment_method' => null, 'stripe_customer_id' => ['customer_id' => 'cus_old', 'card_no' => '4242']]);
+        $this->actingAsUser($this->me);
+
+        $this->getJson('/api/v1/borrower/billing-details')
+            ->assertOk()
+            ->assertJsonPath('data.borrower.default_payment_method', PaymentProvider::STRIPE);
+    }
+
     /** A gateway the platform has and the borrower's partner has switched on (or off). */
     private function offerCash(bool $switchedOn = true): PaymentProvider
     {

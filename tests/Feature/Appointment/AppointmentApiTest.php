@@ -7,6 +7,7 @@ use App\Models\Appointment\Appointment;
 use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -92,6 +93,81 @@ class AppointmentApiTest extends TestCase
         $appointment = Appointment::findOrFail($id);
         $this->assertSame($this->borrowerUser->id, $appointment->scheduled_by);
         $this->assertSame($this->partnerAdmin->id, $appointment->assigned_for);
+    }
+
+    /**
+     * Defect (findings O20): the bookable-people list was scoped, the write was
+     * not - assigned_for took any user id on the platform. A borrower or a
+     * partner could book a meeting with another partner's users, putting it in
+     * their list and sending them a branded email and a bell notification.
+     */
+    #[Test]
+    public function a_booking_with_someone_off_my_bookable_list_is_refused_and_no_one_is_notified(): void
+    {
+        foreach ([$this->borrowerUser, $this->partnerAdmin] as $caller) {
+            $this->actingAsUser($caller);
+
+            $this->postJson('/api/v1/common/appointments', $this->bookingPayload($this->stranger))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['assigned_for']);
+        }
+        $this->postJson('/api/v1/common/appointments', $this->bookingPayload($this->makeBorrowerUser($this->makeCertifiedPartner())))
+            ->assertStatus(422)->assertJsonValidationErrors(['assigned_for']);
+
+        $this->assertSame(0, Appointment::count());
+        $this->assertSame(0, DB::table('notifications')->where('notifiable_id', $this->stranger->id)->count());
+        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
+    }
+
+    /** The entity on a booking is the attendee's: another partner's borrower cannot be tied to it. */
+    #[Test]
+    public function a_booking_cannot_point_at_someone_elses_entity(): void
+    {
+        $theirBorrower = $this->makeBorrower($this->makeCertifiedPartner());
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/appointments', $this->bookingPayload($this->borrowerUser, [
+            'entity_type' => 'borrower',
+            'entity_id' => $theirBorrower->id,
+        ]))->assertStatus(422)->assertJsonValidationErrors(['entity_id']);
+
+        $this->postJson('/api/v1/common/appointments', $this->bookingPayload($this->borrowerUser, [
+            'entity_type' => 'borrower',
+            'entity_id' => $this->borrowerUser->entity_id,
+        ]))->assertSuccessful();
+    }
+
+    #[Test]
+    public function a_meeting_cannot_be_moved_to_someone_off_my_list(): void
+    {
+        $appointment = $this->appointmentBetween($this->partnerAdmin, $this->borrowerUser);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->putJson("/api/v1/common/appointments/{$appointment->id}", $this->bookingPayload($this->stranger))
+            ->assertStatus(422)->assertJsonValidationErrors(['assigned_for']);
+
+        $this->assertSame($this->borrowerUser->id, $appointment->fresh()->assigned_for);
+    }
+
+    /**
+     * Not regressions: the partner edits a meeting a borrower booked with it
+     * (the attendee is the partner itself, never on its own list), and the
+     * host books with another partner - its list offers every partner.
+     */
+    #[Test]
+    public function an_unchanged_attendee_and_the_hosts_partner_meetings_still_work(): void
+    {
+        $booked = $this->appointmentBetween($this->borrowerUser, $this->partnerAdmin);
+        $this->actingAsUser($this->partnerAdmin);
+        $this->putJson("/api/v1/common/appointments/{$booked->id}", $this->bookingPayload($this->partnerAdmin, ['subject' => 'Moved']))
+            ->assertOk();
+        $this->assertSame('Moved', $booked->fresh()->subject);
+
+        $host = Partner::where('is_host', true)->first();
+        $this->actingAsUser($this->makePartnerAdmin($host));
+        $this->postJson('/api/v1/common/appointments', $this->bookingPayload($this->stranger, ['meeting_with' => 1]))
+            ->assertSuccessful();
     }
 
     #[Test]

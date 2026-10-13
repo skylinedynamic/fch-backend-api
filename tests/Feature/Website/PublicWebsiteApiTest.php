@@ -8,10 +8,12 @@ use App\Http\Controllers\Api\V1\Global\Website\CMS\SiteSettingsController;
 use App\Http\Controllers\Api\V1\Global\Website\Lead\LeadController;
 use App\Http\Controllers\Api\V1\Global\Website\PreQualification\PreQualificationController;
 use App\Http\Controllers\DomainResolverController;
+use App\Models\Common\AppConfiguration;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -43,6 +45,110 @@ class PublicWebsiteApiTest extends TestCase
 
         Mail::fake();
         $this->host = $this->makeHostPartner();
+    }
+
+    /** The reCAPTCHA secret as Site Settings saves it: module website, the host's row. */
+    private function siteSettingsSecret(string $secret): void
+    {
+        AppConfiguration::set('recaptcha_secret_key', $secret, AppConfiguration::MODULE_WEBSITE, $this->host->id);
+    }
+
+    private ?array $googleAnswer = null;
+
+    /**
+     * Google's siteverify answer for a contact-form token. One fake reads the
+     * current answer - a second Http::fake for the same URL would never be hit.
+     */
+    private function googleSays(array $answer): void
+    {
+        if ($this->googleAnswer === null) {
+            Http::fake(['www.google.com/recaptcha/api/siteverify' => fn () => Http::response($this->googleAnswer)]);
+        }
+
+        $this->googleAnswer = array_merge(['success' => true, 'score' => 0.9, 'action' => 'contact_form'], $answer);
+    }
+
+    private function contactForm(array $overrides = []): array
+    {
+        return array_merge([
+            'contact_person' => 'Visitor Vee',
+            'email' => 'vee-' . uniqid() . '@example.test',
+            'recaptcha_token' => 'token-from-the-browser',
+        ], $overrides);
+    }
+
+    /**
+     * Defect (findings D5/O29): the contact form sends a reCAPTCHA v3 token
+     * that was never checked, and the secret saved in Site Settings was read
+     * from the wrong place (module Partner, partner 1) so it was never used.
+     * The token is now verified with the Site Settings secret.
+     */
+    #[Test]
+    public function a_contact_form_lead_is_verified_with_the_site_settings_secret(): void
+    {
+        $this->siteSettingsSecret('secret-from-site-settings');
+        $this->googleSays([]);
+
+        $this->postJson('/api/v1/website/leads', $this->contactForm())->assertOk();
+
+        $this->assertSame(1, Lead::count());
+        Http::assertSent(fn ($request) => $request['secret'] === 'secret-from-site-settings'
+            && $request['response'] === 'token-from-the-browser');
+    }
+
+    #[Test]
+    public function a_contact_form_lead_without_a_good_token_is_refused(): void
+    {
+        $this->siteSettingsSecret('secret-from-site-settings');
+
+        $this->googleSays([]);
+        $this->postJson('/api/v1/website/leads', $this->contactForm(['recaptcha_token' => null]))
+            ->assertStatus(422)->assertJsonValidationErrors(['recaptcha_token']);
+
+        foreach ([['success' => false], ['score' => 0.1], ['action' => 'some_other_form']] as $answer) {
+            $this->googleSays($answer);
+            $this->postJson('/api/v1/website/leads', $this->contactForm())
+                ->assertStatus(422)->assertJsonValidationErrors(['recaptcha_token']);
+        }
+
+        $this->assertSame(0, Lead::count());
+        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
+    }
+
+    /**
+     * Site Settings is the only source (findings O57): the keys used to fall
+     * back to RECAPTCHA_SECRET_KEY in .env, a second, stale copy - and the one
+     * committed to .env.example. An env secret is now never read: with nothing
+     * in Site Settings the check is simply off.
+     */
+    #[Test]
+    public function an_env_secret_is_not_used(): void
+    {
+        putenv('RECAPTCHA_SECRET_KEY=secret-from-env');
+        config(['captcha.secret' => 'secret-from-env']);
+        Http::fake();
+
+        try {
+            $this->postJson('/api/v1/website/leads', $this->contactForm(['recaptcha_token' => null]))->assertOk();
+        } finally {
+            putenv('RECAPTCHA_SECRET_KEY');
+        }
+
+        Http::assertNothingSent();
+        $this->assertFalse(file_exists(config_path('captcha.php')), 'config/captcha.php is gone - nothing reads it');
+    }
+
+    /** With no secret anywhere, the check is skipped rather than blocking every lead. */
+    #[Test]
+    public function with_no_secret_configured_leads_are_taken_without_a_check(): void
+    {
+        Http::fake();
+
+        $this->postJson('/api/v1/website/leads', $this->contactForm(['recaptcha_token' => null]))->assertOk();
+
+        $this->assertSame(1, Lead::count());
+        Http::assertNothingSent();
     }
 
     private function blog(array $attributes = []): int
@@ -211,5 +317,50 @@ class PublicWebsiteApiTest extends TestCase
         $check('later.test')->assertForbidden();
         $check('random.example.test')->assertForbidden();
         $this->get('/api/caddy/domain-check')->assertStatus(400);
+    }
+
+    /**
+     * Defect (findings D7): any domain starting with api., partner. or app. got
+     * a go-ahead by its name alone, so app.<anything> could have a certificate
+     * requested - issuance abuse, and a way to burn the Let's Encrypt rate
+     * limit the real partners need. Such a domain now has to be in the
+     * database like any other partner domain.
+     */
+    #[Test]
+    public function an_api_app_or_partner_prefix_alone_gets_no_certificate(): void
+    {
+        $this->makeWhiteLabelPartner(['partner_domain' => 'app.acme.test', 'active_custom_url' => true]);
+        $this->makeWhiteLabelPartner(['partner_subdomain' => 'partner.beta.test']);
+        $this->makeWhiteLabelPartner(['borrower_domain' => 'app.gamma.test', 'active_custom_url' => false]);
+        $check = fn (string $domain) => $this->get('/api/caddy/domain-check?domain=' . urlencode($domain));
+
+        $check('app.random-site.test')->assertForbidden();
+        $check('api.attacker.test')->assertForbidden();
+        $check('partner.nobody.test')->assertForbidden();
+
+        $check('app.acme.test')->assertOk();
+        $check('partner.beta.test')->assertOk();
+        $check('app.gamma.test')->assertForbidden();
+    }
+
+    /**
+     * The platform's own domains - the reserved list in config/domains.php -
+     * always get a certificate go-ahead (findings D7). The check used to answer
+     * 403 for exactly these, so they depended entirely on being configured in
+     * Caddy by hand.
+     */
+    #[Test]
+    public function the_reserved_system_domains_always_get_a_certificate_go_ahead(): void
+    {
+        config(['domains.reserved' => [
+            'base_reserved_website' => 'fch.test',
+            'base_reserved_api_portal' => 'api.fch.test',
+            'base_reserved_partner_portal' => 'partner.fch.test',
+            'base_reserved_borrower_portal' => 'app.fch.test',
+        ]]);
+
+        foreach (['fch.test', 'api.fch.test', 'partner.fch.test', 'app.fch.test', 'APP.fch.test.'] as $domain) {
+            $this->get('/api/caddy/domain-check?domain=' . urlencode($domain))->assertOk();
+        }
     }
 }

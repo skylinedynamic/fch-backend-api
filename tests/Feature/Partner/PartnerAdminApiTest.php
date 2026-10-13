@@ -176,6 +176,62 @@ class PartnerAdminApiTest extends TestCase
         $this->assertSoftDeleted($partner);
     }
 
+    #[Test]
+    public function a_partner_whose_only_user_is_its_own_login_is_deletable(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $login = $this->makePartnerAdmin($partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', true);
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertOk();
+
+        $this->assertSoftDeleted($partner);
+        $this->assertNull(User::find($login->id));
+    }
+
+    /**
+     * Defect: a partner was deleted along with every borrower and user under
+     * it. A partner that still has borrowers or users must not be deletable -
+     * they have to be removed or moved first.
+     */
+    #[Test]
+    public function a_partner_with_borrowers_cannot_be_deleted(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $borrower = $this->makeBorrower($partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.reason', __('partner.error.has_borrowers_or_users'));
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertStatus(400);
+
+        $this->assertNotSoftDeleted($partner);
+        $this->assertNotSoftDeleted($borrower);
+    }
+
+    #[Test]
+    public function a_partner_with_users_cannot_be_deleted(): void
+    {
+        $partner = $this->makeCertifiedPartner();
+        $this->makePartnerAdmin($partner);
+        $staff = $this->makeStaffUser($partner);
+        $this->actingAsUser($this->hostAdmin);
+
+        $this->postJson('/api/v1/admin/partners/check-deletable', ['ids' => [$partner->id]])
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deletable', false)
+            ->assertJsonPath('data.0.reason', __('partner.error.has_borrowers_or_users'));
+        $this->postJson('/api/v1/admin/partners/multiple-delete', ['ids' => [$partner->id]])->assertStatus(400);
+
+        $this->assertNotSoftDeleted($partner);
+        $this->assertNotNull(User::find($staff->id));
+    }
+
     /**
      * Defect: delete and archive took any id, the host's own included - one
      * click on the wrong row took down the partner every host user, setting

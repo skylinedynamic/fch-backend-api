@@ -1120,11 +1120,19 @@ class PartnerService
 
         foreach ($partners as $partner) {
             $is_deletable = !$partner->is_host && $partner->isDeletable();
+            $reason = null;
+
+            if (!$is_deletable) {
+                $reason = !$partner->is_host && $partner->hasBorrowersOrUsers()
+                    ? __('partner.error.has_borrowers_or_users')
+                    : "This record cannot be deleted. Please mark it as Suspended or Inactive instead.";
+            }
+
             $results[] = [
                 'id' => $partner->id,
                 'name' => $partner->full_name,
                 'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? "This record cannot be deleted. Please mark it as Suspended or Inactive instead." : null
+                'reason' => $reason,
             ];
         }
 

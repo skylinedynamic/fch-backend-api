@@ -10,6 +10,7 @@ use App\Http\Requests\Api\V1\Global\FileManager\PasteItemsRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\RenameItemRequest;
 use App\Http\Requests\Api\V1\Global\FileManager\UploadFileRequest;
 use App\Models\Borrower\Borrower;
+use App\Models\Employee\Employee;
 use App\Services\Global\FileManager\FileManagerService;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -49,11 +50,41 @@ class FileManagerController extends Controller implements HasMiddleware
                     if (!$ownFolder) {
                         return ApiResponse::forbidden(__('auth.access_denied_borrower_privileges_required'));
                     }
+                } elseif ($user && !self::partnerMayOpen($user, $request)) {
+                    return ApiResponse::forbidden(__('filemanager.folder_not_yours'));
                 }
 
                 return $next($request);
             }),
         ];
+    }
+
+    /**
+     * The partner side (findings D2). The host partner and its staff work on
+     * every partner's borrower and staff folders. A non-host partner and its
+     * staff work only on their own partner's borrowers (borrowers/{id}) and
+     * staff (employees/{id}) - never another partner's, and never all of them
+     * at once (get_all). Other folder types are not checked here (yet).
+     */
+    private static function partnerMayOpen($user, Request $request): bool
+    {
+        $model = match ($request->input('entity_type')) {
+            'borrowers' => Borrower::class,
+            'employees' => Employee::class,
+            default => null,
+        };
+
+        if ($model === null || (bool) $user->partner?->is_host) {
+            return true;
+        }
+
+        if ($request->boolean('get_all')) {
+            return false;
+        }
+
+        return $model::whereKey($request->input('entity_id'))
+            ->where('partner_id', $user->partner_id)
+            ->exists();
     }
 
     /**

@@ -3,10 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Auth\AuthController;
+use App\Models\Common\AppConfiguration;
 use App\Models\Partner\Partner;
 use App\Models\TwoFaAuth\TwoFaAuthSetting;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\InteractsWithPortalUsers;
@@ -219,6 +221,27 @@ class PartnerPortalLoginTest extends TestCase
             ->assertJsonPath('data.two_factor_enabled', true)
             ->assertJsonPath('data.two_factor_method', TwoFaAuthSetting::TOTP)
             ->assertJsonMissingPath('data.token');
+    }
+
+    /**
+     * Decision 2026-10-13 (findings D6): partner and borrower login have no
+     * reCAPTCHA. The optional `recaptcha` rule left on LoginRequest is gone, so
+     * a stray token is ignored rather than checked against the website's
+     * Site Settings secret - which would refuse a valid login.
+     */
+    #[Test]
+    public function login_has_no_recaptcha_check(): void
+    {
+        AppConfiguration::set('recaptcha_secret_key', 'site-secret', AppConfiguration::MODULE_WEBSITE, $this->host->id);
+        Http::fake(['www.google.com/recaptcha/api/siteverify' => Http::response(['success' => false])]);
+        $user = $this->makePartnerAdmin($this->host);
+
+        $this->withHeader('Origin', 'https://' . self::PARTNER_PORTAL)
+            ->postJson(self::URL, ['email' => $user->email, 'password' => 'password', 'recaptcha' => 'stray-token'])
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['token']]);
+
+        Http::assertNothingSent();
     }
 
     #[Test]

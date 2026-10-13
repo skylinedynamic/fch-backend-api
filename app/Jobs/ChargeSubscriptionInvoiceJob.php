@@ -22,6 +22,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Stripe\Exception\CardException;
 
 class ChargeSubscriptionInvoiceJob implements ShouldQueue
 {
@@ -42,6 +43,13 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
      * email until the invoice was dealt with.
      */
     public const REASON_CARD_ACCOUNT_MISMATCH = 'card_account_mismatch';
+
+    /**
+     * Set on a failure's ledger entry once the payer has been told their
+     * automatic payment did not go through (PaymentFailedMail) - once per
+     * invoice, for the same reason as above.
+     */
+    public const DETAIL_PAYER_TOLD_OF_FAILURE = 'payer_told_of_failure';
 
     /**
      * The number of seconds to wait before retrying the job.
@@ -158,7 +166,8 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
         if (empty($payer->stripe_customer_id_raw)) {
             $entityName = class_basename($payer);
-            $this->markFailed("No saved Stripe Customer ID for {$entityName} ID {$payer->id}");
+            // Never saved, or removed by the payer (F110): only they can pay it now.
+            $this->failAndTellPayer("No saved Stripe Customer ID for {$entityName} ID {$payer->id}", [], noSavedCard: true);
             return;
         }
 
@@ -229,7 +238,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                     ? 'Saved card needs bank authentication (3-D Secure), which cannot be completed off-session; the payer must use a different card.'
                     : 'Stripe off-session charge declined: ' . ($result['status'] ?? 'unknown');
 
-                $this->markFailed($reason, $rawDetails);
+                $this->failAndTellPayer($reason, $rawDetails);
                 return;
             }
 
@@ -262,8 +271,34 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
             });
 
             Log::info("[Queue AutoCharge] Successfully charged invoice #{$invoice->invoice_id}");
+        } catch (CardException $e) {
+            // Stripe declined the card (a 402) - the payer's to sort out.
+            $this->failAndTellPayer('Stripe off-session charge declined: ' . $e->getMessage(), [
+                'exception' => $e->getMessage(),
+                'decline_code' => $e->getDeclineCode(),
+            ]);
         } catch (\Exception $e) {
+            // A gateway or system error is the admins' to fix (markFailed alerts them).
             $this->markFailed($e->getMessage(), ['exception' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Record a failure the payer can act on - a declined card, or no saved card
+     * to charge - and tell them, once per invoice (findings O46). The admins'
+     * alert in markFailed() still goes out as before.
+     */
+    protected function failAndTellPayer(string $reason, array $details = [], bool $noSavedCard = false): void
+    {
+        $alreadyTold = Payment::where('invoice_id', $this->invoice->id)
+            ->where('status', Payment::STATUS_FAILED)
+            ->get()
+            ->contains(fn ($failure) => (bool) ($failure->details[self::DETAIL_PAYER_TOLD_OF_FAILURE] ?? false));
+
+        $this->markFailed($reason, $details + [self::DETAIL_PAYER_TOLD_OF_FAILURE => true]);
+
+        if (!$alreadyTold) {
+            app(PaymentMailService::class)->sendPaymentFailed($this->invoice, $noSavedCard);
         }
     }
 

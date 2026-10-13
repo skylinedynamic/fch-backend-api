@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Rule;
 
 class StoreLenderProductCategoryRequest extends BaseApiRequest
 {
@@ -22,7 +23,8 @@ class StoreLenderProductCategoryRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:lender_product_categories,name',
+            // Among categories that are not deleted - a deleted name is free again (O32).
+            'name' => ['required', 'string', 'max:255', Rule::unique('lender_product_categories', 'name')->withoutTrashed()],
             'status' => 'nullable|string|in:Active,Inactive',
             'sort_order' => 'nullable|integer'
         ];

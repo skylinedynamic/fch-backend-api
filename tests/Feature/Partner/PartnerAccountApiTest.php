@@ -196,6 +196,94 @@ class PartnerAccountApiTest extends TestCase
         $this->assertSame(Subscription::STATUS_ACTIVE, $theirs->fresh()->status);
     }
 
+    /**
+     * Defect (findings O23): My Subscription had no check on who called it, so
+     * any staff user of the partner - a salesperson with only "view leads" -
+     * could cancel the partner's subscription or change how it pays. It is the
+     * partner's own account: its owner login only.
+     */
+    #[Test]
+    public function a_partners_staff_cannot_reach_my_subscription(): void
+    {
+        $mine = $this->subscribe($this->partner);
+        $this->partner->update(['default_payment_method' => PaymentProvider::STRIPE, 'stripe_customer_id' => ['customer_id' => 'cus_1', 'card_no' => '4242']]);
+        $this->hostOffersCash();
+        $this->actingAsUser($this->makeStaffUser($this->partner, ['view leads']));
+
+        $this->getJson('/api/v1/common/my-subscription')
+            ->assertForbidden()->assertJsonPath('message', __('partner.my_subscription_owner_only'));
+        $this->postJson('/api/v1/common/my-subscription/update-payment-method', ['provider_name' => PaymentProvider::CASH])->assertForbidden();
+        $this->postJson('/api/v1/common/my-subscription/remove-default-payment-method')->assertForbidden();
+        $this->postJson('/api/v1/common/my-subscription/cancel-subscription')->assertForbidden();
+
+        $this->assertSame(Subscription::STATUS_ACTIVE, $mine->fresh()->status);
+        $this->assertSame(PaymentProvider::STRIPE, $this->partner->fresh()->default_payment_method);
+    }
+
+    /** The host pays no one: none of My Subscription is for it, not only the read. */
+    #[Test]
+    public function the_host_cannot_change_cancel_or_remove_through_my_subscription(): void
+    {
+        $hosts = $this->subscribe($this->host);
+        $this->host->update(['default_payment_method' => PaymentProvider::STRIPE]);
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+
+        $this->postJson('/api/v1/common/my-subscription/update-payment-method', ['provider_name' => PaymentProvider::CASH])->assertForbidden();
+        $this->postJson('/api/v1/common/my-subscription/remove-default-payment-method')->assertForbidden();
+        $this->postJson('/api/v1/common/my-subscription/cancel-subscription')->assertForbidden();
+
+        $this->assertSame(Subscription::STATUS_ACTIVE, $hosts->fresh()->status);
+        $this->assertSame(PaymentProvider::STRIPE, $this->host->fresh()->default_payment_method);
+    }
+
+    /**
+     * The partner can take its default payment method off: nothing is then
+     * auto-charged until it sets one again. Only the default goes - payments
+     * already made stay, and nothing is removed at Stripe.
+     */
+    #[Test]
+    public function a_partner_removes_its_default_payment_method(): void
+    {
+        $this->subscribe($this->partner);
+        $this->partner->update([
+            'default_payment_method' => PaymentProvider::STRIPE,
+            'stripe_customer_id' => ['customer_id' => 'cus_1', 'name' => 'Visa', 'card_no' => '4242', 'payment_mode' => 'test'],
+        ]);
+        $paid = Payment::create([
+            'partner_id' => $this->partner->id, 'entity_type' => Partner::class, 'entity_id' => $this->partner->id,
+            'transaction_id' => 'TX-KEEP', 'amount' => 500, 'currency' => 'USD', 'status' => Payment::STATUS_SUCCEEDED,
+            'is_partner_paying' => true, 'transaction_date' => now(),
+        ]);
+        $this->actingAsUser($this->admin);
+
+        $this->postJson('/api/v1/common/my-subscription/remove-default-payment-method')
+            ->assertOk()
+            ->assertJsonPath('data.default_payment_method', null);
+
+        $partner = $this->partner->fresh();
+        $this->assertNull($partner->default_payment_method);
+        $this->assertNull($partner->stripe_customer_id, 'a saved customer is what auto-charge charges');
+        $this->assertNotNull(Payment::find($paid->id), 'payments already made are not touched');
+
+        $this->getJson('/api/v1/common/my-subscription')
+            ->assertOk()
+            ->assertJsonPath('data.partner.default_payment_method', null)
+            ->assertJsonPath('data.partner.payment_provider', null);
+    }
+
+    /** A card saved before defaults were recorded still reads as Stripe. */
+    #[Test]
+    public function a_saved_card_with_no_recorded_default_still_shows_as_stripe(): void
+    {
+        $this->subscribe($this->partner);
+        $this->partner->update(['default_payment_method' => null, 'stripe_customer_id' => ['customer_id' => 'cus_old', 'card_no' => '4242']]);
+        $this->actingAsUser($this->admin);
+
+        $this->getJson('/api/v1/common/my-subscription')
+            ->assertOk()
+            ->assertJsonPath('data.partner.default_payment_method', PaymentProvider::STRIPE);
+    }
+
     /** A gateway the platform has and the host - whom partners pay - has switched on (or off). */
     private function hostOffersCash(bool $switchedOn = true): PaymentProvider
     {

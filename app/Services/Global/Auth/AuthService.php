@@ -29,7 +29,9 @@ class AuthService
      */
     public function login(array $credentials, Request $request, $user_type = null): JsonResponse
     {
-        $authCredentials = collect($credentials)->except('recaptcha')->toArray();
+        // Only what Auth::attempt() should match on - partner and borrower login
+        // have no reCAPTCHA (decision 2026-10-13, findings D6).
+        $authCredentials = collect($credentials)->only(['email', 'password'])->toArray();
 
         $email = (string) $credentials['email'];
         $key = 'login:' . $email . $request->ip();
@@ -62,6 +64,12 @@ class AuthService
             $remainingAttempts = max(0, $maxAttempts - $attempts);
 
             return ApiResponse::loginError(__('auth.invalid_email'), 'email', $remainingAttempts, $maxAttempts);
+        }
+
+        // Every user belongs to a partner; one whose partner is missing or
+        // deleted may not sign in (EnsureUserHasPartner refuses its requests).
+        if (!$user->partner) {
+            return ApiResponse::loginError(__('auth.no_partner'), 'email');
         }
 
         // 0. Portal & Domain Isolation Check

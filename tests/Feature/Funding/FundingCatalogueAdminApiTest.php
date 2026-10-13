@@ -143,14 +143,50 @@ class FundingCatalogueAdminApiTest extends TestCase
     {
         $this->actingAsUser($this->admin);
 
-        // (Product categories are left out: their table has a unique index
-        // on name, so there a deleted name stays taken - see O32.)
-        foreach (['/api/v1/admin/funding-groups', '/api/v1/admin/funding-types'] as $url) {
+        // Product categories too (findings O32): their table had a unique index
+        // on name, so a deleted category's name stayed taken for good.
+        foreach (['/api/v1/admin/funding-groups', '/api/v1/admin/funding-types', '/api/v1/admin/lenders/product-categories'] as $url) {
             $id = $this->postJson($url, ['name' => 'Reused'])->assertCreated()->json('data.id');
             $this->deleteJson("{$url}/{$id}")->assertOk();
 
             $this->postJson($url, ['name' => 'Reused'])->assertCreated();
         }
+    }
+
+    /** Among categories that are not deleted, a name is still taken once. */
+    #[Test]
+    public function a_live_product_category_name_stays_unique(): void
+    {
+        $this->actingAsUser($this->admin);
+        $url = '/api/v1/admin/lenders/product-categories';
+
+        $this->postJson($url, ['name' => 'Equipment'])->assertCreated();
+        $other = $this->postJson($url, ['name' => 'Inventory'])->assertCreated()->json('data.id');
+        $gone = $this->postJson($url, ['name' => 'Factoring'])->assertCreated()->json('data.id');
+        $this->deleteJson("{$url}/{$gone}")->assertOk();
+
+        $this->postJson($url, ['name' => 'Equipment'])->assertStatus(422)->assertJsonValidationErrors(['name']);
+        $this->putJson("{$url}/{$other}", ['name' => 'Equipment'])->assertStatus(422)->assertJsonValidationErrors(['name']);
+        $this->putJson("{$url}/{$other}", ['name' => 'Factoring'])->assertOk();
+    }
+
+    /**
+     * Defect (findings O31): create took any phone but edit demanded a unique
+     * one, so two lenders on one number could be made and then neither could
+     * be edited. A phone number is not unique - lenders share support lines.
+     */
+    #[Test]
+    public function lenders_can_share_a_phone_number_and_still_be_edited(): void
+    {
+        $this->actingAsUser($this->admin);
+
+        $categories = [$this->productCategory()];
+
+        $first = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'First Lender', 'product_categories' => $categories]))->assertCreated()->json('data.id');
+        $second = $this->postJson('/api/v1/admin/lenders', $this->lender(['name' => 'Second Lender', 'product_categories' => $categories]))->assertCreated()->json('data.id');
+
+        $this->putJson("/api/v1/admin/lenders/{$first}", $this->lender(['name' => 'First Lender Renamed', 'product_categories' => $categories]))->assertOk();
+        $this->putJson("/api/v1/admin/lenders/{$second}", $this->lender(['name' => 'Second Lender Renamed', 'product_categories' => $categories]))->assertOk();
     }
 
     #[Test]

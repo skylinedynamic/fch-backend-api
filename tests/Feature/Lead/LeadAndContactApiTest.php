@@ -4,6 +4,7 @@ namespace Tests\Feature\Lead;
 
 use App\Http\Controllers\Api\V1\FCH\Common\Contact\ContactController;
 use App\Http\Controllers\Api\V1\FCH\Common\Lead\LeadController;
+use App\Models\ActivityLog\ActivityLog;
 use App\Models\Contact\Contact;
 use App\Models\Lead\Lead;
 use App\Models\Partner\Partner;
@@ -123,7 +124,8 @@ class LeadAndContactApiTest extends TestCase
         $this->postJson("/api/v1/common/leads/{$lead->id}/details", $this->leadDetails(['company_name' => 'Renamed Co']))->assertOk();
         $this->assertSame('Renamed Co', $lead->fresh()->company_name);
 
-        $this->deleteJson("/api/v1/common/leads/{$lead->id}")->assertOk();
+        // One lead or many, deleting goes through the one bulk endpoint.
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$lead->id]])->assertOk()->assertJsonPath('data.deleted', 1);
         $this->assertSoftDeleted($lead);
     }
 
@@ -143,10 +145,64 @@ class LeadAndContactApiTest extends TestCase
         $this->postJson("/api/v1/common/leads/{$theirs->id}/contact-info", [
             'contact_person' => 'X', 'phone_number' => '(555) 000-0000', 'email' => 'x@example.test', 'country' => 'US',
         ])->assertNotFound();
-        $this->deleteJson("/api/v1/common/leads/{$theirs->id}")->assertNotFound();
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$theirs->id]])->assertNotFound();
 
         $this->assertSame('Theirs', $theirs->fresh()->company_name);
         $this->assertNotSoftDeleted($theirs);
+    }
+
+    /**
+     * The Leads screen deletes a selection in one call. It used to send one
+     * DELETE per lead; the bulk endpoint existed but had no route, and deleted
+     * by id alone with no activity log (findings O19).
+     */
+    #[Test]
+    public function i_delete_several_of_my_leads_in_one_call(): void
+    {
+        [$a, $b, $kept] = [$this->leadOf($this->partner), $this->leadOf($this->partner), $this->leadOf($this->partner)];
+        $this->actingAsUser($this->partnerAdmin);
+        $logsBefore = ActivityLog::where('subject_type', Lead::class)->whereIn('subject_id', [$a->id, $b->id])->count();
+
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$a->id, $b->id]])
+            ->assertOk()
+            ->assertJsonPath('data.deleted', 2);
+
+        $this->assertSoftDeleted($a);
+        $this->assertSoftDeleted($b);
+        $this->assertNotSoftDeleted($kept);
+        $this->assertSame(
+            $logsBefore + 2,
+            ActivityLog::where('subject_type', Lead::class)->whereIn('subject_id', [$a->id, $b->id])->count(),
+            'each deleted lead is logged, as a single delete is'
+        );
+    }
+
+    #[Test]
+    public function a_bulk_delete_never_touches_another_partners_leads(): void
+    {
+        $mine = $this->leadOf($this->partner);
+        $theirs = $this->leadOf($this->otherPartner);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$mine->id, $theirs->id]])
+            ->assertOk()
+            ->assertJsonPath('data.deleted', 1);
+        $this->assertSoftDeleted($mine);
+        $this->assertNotSoftDeleted($theirs);
+
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => [$theirs->id]])->assertNotFound();
+        $this->assertNotSoftDeleted($theirs);
+    }
+
+    #[Test]
+    public function a_bulk_delete_needs_a_list_of_lead_ids(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson('/api/v1/common/leads/multiple-delete', [])->assertStatus(422)->assertJsonValidationErrors(['ids']);
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => []])->assertStatus(422)->assertJsonValidationErrors(['ids']);
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => 5])->assertStatus(422)->assertJsonValidationErrors(['ids']);
+        $this->postJson('/api/v1/common/leads/multiple-delete', ['ids' => ['abc']])->assertStatus(422)->assertJsonValidationErrors(['ids.0']);
     }
 
     #[Test]

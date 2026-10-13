@@ -176,6 +176,7 @@ return [
     'billing_details_retrieved' => 'Billing details retrieved successfully.',
     'payment_providers_retrieved' => 'Payment providers retrieved successfully.',
     'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'default_payment_method_removed' => 'Default payment method removed. Invoices will not be charged automatically until you set one again.',
     'subscription_not_found' => 'No active subscription found.',
     'subscription_already_cancelled' => 'Subscription is already cancelled.',
     'subscription_cancelled' => 'Subscription cancelled successfully.',

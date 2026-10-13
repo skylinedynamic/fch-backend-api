@@ -50,6 +50,7 @@ class BorrowerCommonRouteAccessTest extends TestCase
             'borrower list' => ['POST', '/api/v1/common/borrowers/fetch-all-borrowers'],
             'assignable users' => ['POST', '/api/v1/common/borrowers-get-all-users'],
             'leads' => ['POST', '/api/v1/common/leads/fetch-leads'],
+            'lead bulk delete' => ['POST', '/api/v1/common/leads/multiple-delete'],
             'invoices' => ['POST', '/api/v1/common/invoices/fetch-invoices'],
             'email settings' => ['GET', '/api/v1/common/email-configurations'],
             'reminders' => ['POST', '/api/v1/common/reminders/fetch-reminders'],

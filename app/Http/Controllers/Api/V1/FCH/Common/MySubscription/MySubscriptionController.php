@@ -43,6 +43,18 @@ class MySubscriptionController extends Controller
     }
 
     /**
+     * Remove the partner's default payment method (its owner login only).
+     */
+    public function removeDefaultPaymentMethod()
+    {
+        try {
+            return $this->mySubscriptionService->removeDefaultPaymentMethod();
+        } catch (\Exception $e) {
+            return ApiResponse::serverError($e->getMessage());
+        }
+    }
+
+    /**
      * Cancel non-host partner active subscription.
      */
     public function cancelSubscription()

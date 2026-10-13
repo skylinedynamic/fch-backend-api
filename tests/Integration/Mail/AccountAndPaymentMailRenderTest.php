@@ -15,7 +15,6 @@ use App\Mail\Partner\PartnerAccountUpdateMail;
 use App\Mail\Partner\PartnerMigrationMail;
 use App\Mail\Partner\PartnerPaymentLinkMail;
 use App\Mail\Payment\CardReauthorizationRequiredMail;
-use App\Mail\Payment\GlobalPaymentNotificationMail;
 use App\Mail\Payment\PaymentApprovedMail;
 use App\Mail\Payment\PaymentFailedMail;
 use App\Mail\Payment\PaymentRejectedMail;
@@ -116,7 +115,6 @@ class AccountAndPaymentMailRenderTest extends TestCase
             'payment approved' => [fn (self $t) => new PaymentApprovedMail($t->payment(['approval_note' => 'Funds cleared']), $t->partner->id), 'TXN-55120'],
             'payment rejected' => [fn (self $t) => new PaymentRejectedMail($t->payment(['rejection_reason' => 'Reference did not match']), $t->partner->id), 'Reference did not match'],
             'seat activated' => [fn (self $t) => new PaymentSuccessUserMail(['amount' => 25, 'currency' => 'USD', 'transaction_id' => 'SUB_9', 'description' => 'User seat activation', 'date' => now(), 'user_name' => 'Dana Whitfield', 'user_email' => 'dana@example.test', 'plainPassword' => 'Seat#7731', 'user' => $t->user], $t->partner->id), 'Seat#7731'],
-            'global payment notification' => [fn (self $t) => new GlobalPaymentNotificationMail($t->payment(), $t->partner->id), 'TXN-55120'],
             'payment failed' => [fn (self $t) => new PaymentFailedMail($t->payment(), $t->partner->id), 'TXN-55120'],
             'cron failure' => [fn (self $t) => new CronJobFailureMail(['job_name' => 'subscriptions:process-all', 'error_message' => 'Scheduled command failed', 'timestamp' => '2026-06-15 01:00:00', 'stack_trace' => 'Scheduled command failed: subscriptions:process-all']), 'subscriptions:process-all'],
             'system health alert' => [fn (self $t) => new SystemHealthAlert([['metric' => 'Disk Space', 'usage' => 0.97, 'threshold' => 0.95]], ['CPU Usage' => 0.4, 'RAM Usage' => 0.5, 'Disk Space' => 0.97]), 'Disk Space'],

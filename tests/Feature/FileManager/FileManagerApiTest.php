@@ -230,4 +230,94 @@ class FileManagerApiTest extends TestCase
         $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'partners', 'entity_id' => $this->partner->id, 'path' => '/'])
             ->assertForbidden();
     }
+
+    // ── Borrower and staff folders across partners (findings D2) ──────────
+
+    /**
+     * Defect (findings D2): the folder a call works in came from the request
+     * with no ownership check on the partner side, so a partner (or its staff)
+     * could list, download, upload to and delete in another partner's borrower
+     * and staff folders - or every borrower's at once with get_all. A non-host
+     * partner now reaches only its own borrowers' and staff's folders.
+     */
+    #[Test]
+    public function a_non_host_partner_and_its_staff_reach_only_their_own_borrowers_and_staff(): void
+    {
+        $myBorrower = $this->makeBorrower($this->partner);
+        $myStaff = $this->makeStaffUser($this->partner);
+        Storage::disk('public')->put("borrowers/{$myBorrower->id}/mine.pdf", 'mine');
+        Storage::disk('public')->put("employees/{$myStaff->entity_id}/w4.pdf", 'mine');
+
+        foreach ([$this->partnerAdmin, $myStaff] as $caller) {
+            $this->actingAsUser($caller);
+
+            $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'borrowers', 'entity_id' => $myBorrower->id, 'path' => '/'])
+                ->assertOk()->assertJsonPath('data.0.name', 'mine.pdf');
+            $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'employees', 'entity_id' => $myStaff->entity_id, 'path' => '/'])
+                ->assertOk()->assertJsonPath('data.0.name', 'w4.pdf');
+        }
+    }
+
+    #[Test]
+    public function another_partners_borrower_and_staff_folders_are_refused_for_every_action(): void
+    {
+        $other = $this->makeCertifiedPartner();
+        $theirBorrower = $this->makeBorrower($other);
+        $theirStaff = $this->makeStaffUser($other);
+        Storage::disk('public')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'not yours');
+        Storage::disk('public')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'not yours');
+
+        foreach ([$this->partnerAdmin, $this->makeStaffUser($this->partner)] as $caller) {
+            $this->actingAsUser($caller);
+
+            foreach ([['borrowers', $theirBorrower->id, 'statement.pdf'], ['employees', $theirStaff->entity_id, 'w4.pdf']] as [$type, $id, $file]) {
+                $root = ['entity_type' => $type, 'entity_id' => $id];
+
+                $this->postJson('/api/v1/filemanager/list', $root + ['path' => '/'])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/tree', $root + ['path' => '/'])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/download', $root + ['path' => "/{$file}"])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/upload', $root + ['path' => '/', 'file' => UploadedFile::fake()->create('x.pdf', 1)])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/folder', $root + ['path' => '/', 'name' => 'Hijack'])->assertForbidden();
+                $this->putJson('/api/v1/filemanager/rename', $root + ['path' => "/{$file}", 'newName' => 'gone.pdf'])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/delete', $root + ['paths' => ["/{$file}"]])->assertForbidden();
+                $this->postJson('/api/v1/filemanager/paste', $root + ['files' => [['path' => "/{$file}"]], 'destinationPath' => '/', 'operation' => 'copy'])->assertForbidden();
+            }
+        }
+
+        Storage::disk('public')->assertExists("borrowers/{$theirBorrower->id}/statement.pdf");
+        Storage::disk('public')->assertExists("employees/{$theirStaff->entity_id}/w4.pdf");
+        Storage::disk('public')->assertMissing("borrowers/{$theirBorrower->id}/Hijack");
+    }
+
+    /** get_all opens every borrower's (or every staff member's) folder at once. */
+    #[Test]
+    public function a_non_host_partner_cannot_open_every_borrower_or_staff_folder(): void
+    {
+        $myBorrower = $this->makeBorrower($this->partner);
+
+        foreach (['borrowers', 'employees'] as $type) {
+            $this->postJson('/api/v1/filemanager/list', ['entity_type' => $type, 'entity_id' => $myBorrower->id, 'get_all' => true, 'path' => '/'])
+                ->assertForbidden();
+        }
+    }
+
+    /** The host's team works on every partner's borrowers and staff. */
+    #[Test]
+    public function the_hosts_team_reaches_any_partners_borrowers_and_staff(): void
+    {
+        $host = Partner::where('is_host', true)->firstOrFail();
+        $theirBorrower = $this->makeBorrower($this->makeCertifiedPartner());
+        $theirStaff = $this->makeStaffUser($this->partner);
+        Storage::disk('public')->put("borrowers/{$theirBorrower->id}/statement.pdf", 'pdf');
+        Storage::disk('public')->put("employees/{$theirStaff->entity_id}/w4.pdf", 'pdf');
+
+        foreach ([$this->makePartnerAdmin($host), $this->makeStaffUser($host)] as $caller) {
+            $this->actingAsUser($caller);
+
+            $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'borrowers', 'entity_id' => $theirBorrower->id, 'path' => '/'])
+                ->assertOk()->assertJsonPath('data.0.name', 'statement.pdf');
+            $this->postJson('/api/v1/filemanager/list', ['entity_type' => 'employees', 'entity_id' => $theirStaff->entity_id, 'path' => '/'])
+                ->assertOk()->assertJsonPath('data.0.name', 'w4.pdf');
+        }
+    }
 }

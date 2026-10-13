@@ -3,23 +3,55 @@
 namespace App\Rules;
 
 use App\Models\Common\AppConfiguration;
-use App\Models\Partner\Partner;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ReCaptcha implements ValidationRule
 {
+    /**
+     * @param string|null $action  For a reCAPTCHA v3 token: the action the page ran it
+     *                             with. When set, Google's action must match and its
+     *                             score reach $minScore - v3 always says "success".
+     * @param bool $skipWhenUnconfigured  Let the value through when no secret is set
+     *                             anywhere, instead of failing - for a public form
+     *                             that must keep working before reCAPTCHA is set up.
+     */
+    public function __construct(
+        private ?string $action = null,
+        private float $minScore = 0.5,
+        private bool $skipWhenUnconfigured = false,
+    ) {
+    }
+
+    /**
+     * The secret saved in Site Settings (module website, the host's row) - the
+     * only source. It used to be read as module Partner for partner id 1, where
+     * Site Settings never saves it (findings O29), and then fell back to
+     * RECAPTCHA_SECRET_KEY in .env, a second copy that was also committed to
+     * .env.example (O57). Null when Site Settings has none: reCAPTCHA is off.
+     */
+    public static function secret(): ?string
+    {
+        $saved = AppConfiguration::platform('recaptcha_secret_key', AppConfiguration::MODULE_WEBSITE);
+
+        return !empty($saved) ? (string) $saved : null;
+    }
+
     /**
      * Run the validation rule.
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // Get from DB first, then fallback to config/env
-        $dbSecret = AppConfiguration::get('recaptcha_secret_key', null, Partner::class, 1);
-        $secretKey = !empty($dbSecret) ? $dbSecret : config('captcha.secret');
-        
+        $secretKey = self::secret();
+
         if (empty($secretKey)) {
+            if ($this->skipWhenUnconfigured) {
+                Log::warning('reCAPTCHA not checked: no secret is set in Site Settings.');
+                return;
+            }
+
             $fail(__('auth.recaptcha_secret_not_configured'));
             return;
         }
@@ -40,9 +72,15 @@ class ReCaptcha implements ValidationRule
             'remoteip' => request()->ip(),
         ]);
 
-        $result = $response->json();
+        $result = $response->json() ?? [];
 
-        if (!$result['success']) {
+        if (!($result['success'] ?? false)) {
+            $fail(__('auth.recaptcha_verification_failed'));
+            return;
+        }
+
+        if ($this->action !== null
+            && (($result['action'] ?? null) !== $this->action || (float) ($result['score'] ?? 0) < $this->minScore)) {
             $fail(__('auth.recaptcha_verification_failed'));
         }
     }

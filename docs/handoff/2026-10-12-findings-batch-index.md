@@ -45,6 +45,25 @@ One handoff per issue fixed from `docs/test-findings.md` in this batch, plus wha
 | F102 | D10 | SSNs at rest | [2026-10-12-f102-ssns-at-rest.md](2026-10-12-f102-ssns-at-rest.md) |
 | F103 | D12 | Change-request email | [2026-10-12-f103-change-request-email.md](2026-10-12-f103-change-request-email.md) |
 | F104 | D13, O44 | Restore safety | [2026-10-12-f104-restore-safety.md](2026-10-12-f104-restore-safety.md) |
+| F105 | O6 | Users without a partner; partner delete | [2026-10-12-f105-users-without-partner-and-partner-delete.md](2026-10-12-f105-users-without-partner-and-partner-delete.md) |
+| F106 | O10 | Dead role permission assignment | [2026-10-13-f106-dead-role-permission-assignment.md](2026-10-13-f106-dead-role-permission-assignment.md) |
+| F107 | O17 | Application partner on partner-side saves | [2026-10-13-f107-application-partner-from-borrower.md](2026-10-13-f107-application-partner-from-borrower.md) |
+| F108 | O19 | One lead delete API | [2026-10-13-f108-one-lead-delete-api.md](2026-10-13-f108-one-lead-delete-api.md) |
+| F109 | O23 | My Subscription for the owner only | [2026-10-13-f109-my-subscription-owner-only.md](2026-10-13-f109-my-subscription-owner-only.md) |
+| F110 | — | Remove the default payment method | [2026-10-13-f110-remove-default-payment-method.md](2026-10-13-f110-remove-default-payment-method.md) |
+| F111 | O20 | Appointment attendee scoping | [2026-10-13-f111-appointment-attendee-scoping.md](2026-10-13-f111-appointment-attendee-scoping.md) |
+| F112 | O29, D5 (part) | Website contact form reCAPTCHA | [2026-10-13-f112-website-contact-recaptcha.md](2026-10-13-f112-website-contact-recaptcha.md) |
+| F113 | O31 | Lender phone not unique | [2026-10-13-f113-lender-phone-not-unique.md](2026-10-13-f113-lender-phone-not-unique.md) |
+| F114 | O32 | Deleted product category names reusable | [2026-10-13-f114-product-category-names-reusable.md](2026-10-13-f114-product-category-names-reusable.md) |
+| F115 | O37 | Unused 2FA middleware removed | [2026-10-13-f115-unused-2fa-middleware-removed.md](2026-10-13-f115-unused-2fa-middleware-removed.md) |
+| F116 | O46 | Payer told when an auto-charge fails | [2026-10-13-f116-payer-told-when-auto-charge-fails.md](2026-10-13-f116-payer-told-when-auto-charge-fails.md) |
+| F117 | O51 | Unrouted Stripe webhook service removed | [2026-10-13-f117-unrouted-stripe-webhook-service-removed.md](2026-10-13-f117-unrouted-stripe-webhook-service-removed.md) |
+| F118 | O53 | Unreachable code and borrower self sign-up removed | [2026-10-13-f118-unreachable-code-and-borrower-self-signup-removed.md](2026-10-13-f118-unreachable-code-and-borrower-self-signup-removed.md) |
+| F119 | O57 | reCAPTCHA keys from Site Settings only | [2026-10-13-f119-recaptcha-keys-from-site-settings-only.md](2026-10-13-f119-recaptcha-keys-from-site-settings-only.md) |
+| F120 | D2 (part) | File manager borrower and staff folders scoped | [2026-10-13-f120-file-manager-borrower-and-staff-folders-scoped.md](2026-10-13-f120-file-manager-borrower-and-staff-folders-scoped.md) |
+| F121 | D6 | Login reCAPTCHA removed | [2026-10-13-f121-login-recaptcha-removed.md](2026-10-13-f121-login-recaptcha-removed.md) |
+| F122 | D7 (part) | Reserved domains always get a certificate | [2026-10-13-f122-reserved-domains-always-get-a-certificate.md](2026-10-13-f122-reserved-domains-always-get-a-certificate.md) |
+| F123 | D7 | Certificate prefix rule removed | [2026-10-13-f123-certificate-prefix-rule-removed.md](2026-10-13-f123-certificate-prefix-rule-removed.md) |
 
 ## Not changed in this batch
 
@@ -83,3 +102,4 @@ One handoff per issue fixed from `docs/test-findings.md` in this batch, plus wha
 - Set `CRON_ERROR_NOTIFY_EMAILS` where scheduler alerts are wanted (F97).
 - Run the O22 production query for stray non-host OpenAI rows (F82).
 - Production restores now need `backup:restore --force` (F104).
+- Before deploy, find users with no live partner - they are locked out after F105 (query in its handoff).

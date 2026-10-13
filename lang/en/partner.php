@@ -162,6 +162,7 @@ return [
         'delete_failed' => 'Could not delete the selected partner(s). Please try again.',
         'tenant_config_update_failed' => 'Could not update the tenant configuration. Please try again.',
         'deletable_check_failed' => 'Could not check whether these partners can be deleted.',
+        'has_borrowers_or_users' => 'This partner still has borrowers or users. Remove or move them first, or mark the partner Suspended or Inactive instead.',
     ],
 
     'log' => [
@@ -196,8 +197,10 @@ return [
     'my_subscription_retrieved' => 'Subscription details retrieved successfully.',
     'my_subscription_failed' => 'Failed to retrieve subscription details',
     'my_subscription_non_host_only' => 'Subscription details are available to partner accounts only.',
+    'my_subscription_owner_only' => 'Only the partner account owner can access My Subscription.',
     'provider_name_required' => 'The payment provider is required.',
     'default_payment_method_updated' => 'Default payment method updated successfully.',
+    'default_payment_method_removed' => 'Default payment method removed. Invoices will not be charged automatically until you set one again.',
     'payment_method_update_failed' => 'The card could not be saved: :error',
 
     'free_trial_created_log' => 'Partner account created on a <span class="text-danger fw-semibold">Free Trial</span> plan. Trial end date: <strong>:date</strong>.',

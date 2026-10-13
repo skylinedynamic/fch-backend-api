@@ -40,7 +40,6 @@ use App\Http\Controllers\Api\V1\Borrower\Assistant\BorrowerAssistantController;
 
 Route::prefix('v1/borrower')->group(function () {
     // Public routes (no authentication required)
-    // Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
 
     // Protected routes (authentication required)
@@ -87,6 +86,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
             Route::get('/billing-details', [BorrowerBillingController::class, 'getBillingDetails']);
             Route::post('/update-default-payment-method', [BorrowerBillingController::class, 'updateDefaultPaymentMethod']);
+            Route::post('/remove-default-payment-method', [BorrowerBillingController::class, 'removeDefaultPaymentMethod']);
             Route::post('/cancel-subscription', [BorrowerBillingController::class, 'cancelSubscription']);
 
             Route::group(
