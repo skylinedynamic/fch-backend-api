@@ -20,7 +20,9 @@ class FundingService
     {
         $query = FundingGroup::with(['sequencings' => function ($query) use ($search) {
             // Eager-load the type relation so engine_status can check type.status
-            $query->with('type')
+            // lenderVisibilities.lender: the engine walks every lender of every
+            // sequence, which otherwise lazy-loads them one sequence at a time.
+            $query->with(['type', 'lenderVisibilities.lender'])
                   ->where('status', FundingSequencing::STATUS_ACTIVE)
                   ->orderBy('sort_order', 'asc');
                   

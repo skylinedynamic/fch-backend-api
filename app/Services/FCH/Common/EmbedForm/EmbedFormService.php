@@ -777,7 +777,7 @@ class EmbedFormService
 
                 // Nothing is created until the partner has seen who this is.
                 if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                    throw new AppSupportmbedFormxistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                    throw new \App\Support\EmbedForm\ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
                 }
             }
 
@@ -814,6 +814,27 @@ class EmbedFormService
                 'country' => $submission->country ?: 'United States',
                 'country_code' => 'US',
                 'last_4_ssn' => $ssnDecrypted ? substr($ssnDecrypted, -4) : null,
+
+                // What the applicant already told us about themselves and the
+                // business. Without these the borrower portal opens on a
+                // "Complete Your Profile" prompt asking for the same answers
+                // again. The option lists are the portal's own, so the values
+                // carry over as they are.
+                'date_of_birth' => $submission->date_of_birth,
+                'business_address' => $submission->business_address,
+                'business_country' => $submission->business_country,
+                'business_country_code' => $submission->business_country_code,
+                'business_city' => $submission->business_city,
+                'business_state' => $submission->business_state,
+                'business_postal_code' => $submission->business_postal_code,
+                'business_entity_type' => $submission->entity_type,
+                'business_industry_type' => $submission->industry_type,
+                'years_in_business' => $submission->years_in_business,
+                'number_of_employees' => $submission->number_of_employees,
+                'monthly_revenue' => $submission->monthly_revenue,
+                'annual_revenue' => $submission->annual_revenue,
+                'current_business_debt' => $submission->has_business_debt ? $submission->debt_balance : null,
+
                 'status' => Borrower::STATUS_ACTIVE,
                 'partner_id' => $submission->partner_id ?: (auth()->user()?->partner_id ?? null),
                 'plan_id' => null,
@@ -1104,7 +1125,7 @@ class EmbedFormService
     {
         $user = auth()->user();
         if (!$user) {
-            return ApiResponse::unauthenticated();
+            return ApiResponse::unauthorized();
         }
 
         $userPartnerId = $user->partner_id ?? $user->entity_id;

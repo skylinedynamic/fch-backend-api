@@ -142,10 +142,18 @@ final class PaymentCredentials
         $mode = self::normalizeMode($mode);
         $envConfig = self::forMode($config, $mode);
 
-        return $envConfig['publishable_key']
+        $key = $envConfig['publishable_key']
             ?? $envConfig['public_key']
             ?? (self::isModeSeparated($config) ? null : ($config['publishable_key'] ?? $config['public_key'] ?? null))
             ?? $config['stripe_key_' . $mode]
             ?? null;
+
+        // This value is sent to the browser. A secret or restricted key saved in
+        // the publishable field (keys swapped) must never leave the server.
+        if (is_string($key) && preg_match('/^(sk|rk)_(test|live)_/', $key)) {
+            return null;
+        }
+
+        return $key;
     }
 }

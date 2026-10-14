@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\GlobalPayment;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\PaymentMethod\PaymentProvider;
+use Illuminate\Validation\Validator;
 
 class ProcessPaymentRequest extends BaseApiRequest
 {
@@ -12,6 +14,25 @@ class ProcessPaymentRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * E2E-017: never accept raw card data. Card payments go through a gateway's
+     * own tokenisation (Stripe Elements); the other methods are manual and take
+     * only a reference number, so a card number here can only be a mistake or
+     * an attack - and must not reach the payment record or the logs.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $token = json_decode((string) $this->input('payment_token'), true);
+            if (is_array($token)) {
+                $rawCardKeys = ['cardNumber', 'card_number', 'cardCode', 'card_code', 'cvv', 'cvc', 'expMonth', 'exp_month', 'expYear', 'exp_year', 'expiry'];
+                if (array_intersect(array_keys($token), $rawCardKeys)) {
+                    $validator->errors()->add('payment_token', __('payment_validation.raw_card_data_not_accepted'));
+                }
+            }
+        });
     }
 
     /**

@@ -19,12 +19,6 @@ class NavigationMapTest extends TestCase
         'borrower_support' => '../fch-borrower-react/src/App.jsx',
     ];
 
-    /**
-     * Routes that exist on the portals' notifications branches but not yet on
-     * the branch checked out beside this repo. Remove once merged.
-     */
-    private const NOT_YET_ON_CHECKED_OUT_BRANCH = ['/notifications'];
-
     /** @return array<string, array{string, string, string, string}> */
     public static function destinations(): array
     {
@@ -53,10 +47,6 @@ class NavigationMapTest extends TestCase
     #[DataProvider('destinations')]
     public function every_destination_is_a_route_the_portal_has(string $assistant, string $key, string $label, string $path): void
     {
-        if (in_array($path, self::NOT_YET_ON_CHECKED_OUT_BRANCH, true)) {
-            $this->markTestSkipped("{$path} lives on the portals' notifications branches");
-        }
-
         $router = base_path(self::PORTALS[$assistant]);
 
         if (! is_file($router)) {

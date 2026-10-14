@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Common\Permission;
 use App\Models\Common\Role;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -53,17 +54,50 @@ class EmbeddedLoanApplicationFormPermissionSeeder extends Seeder
             return;
         }
 
-        // 3. Get every Admin and Developer role (each partner has its own).
+        // 3. Get every role of every partner (each partner has its own set), so
+        //    the account owner and every employee role - Sales, Manager and the
+        //    rest - can work with the form, not only Admin and Developer.
         //    Eager-load `permissions` — givePermissionTo() reads it directly and
         //    lazy loading is disabled in this app.
         $roles = Role::with('permissions')
             ->where('guard_name', 'api')
-            ->whereIn('name', ['Admin', 'Developer'])
+            ->whereNotNull('partner_id')
             ->get();
 
+        $partners = Partner::whereIn('id', $roles->pluck('partner_id')->unique())->get()->keyBy('id');
+
         $affectedUserIds = [];
+        $allTargetPermissions = $targetPermissions;
 
         foreach ($roles as $role) {
+            $partner = $partners->get($role->partner_id);
+
+            if (!$partner) {
+                continue;
+            }
+
+            // The same partner-type rule the other permission seeders apply:
+            // the host takes every permission, a Certified partner only those
+            // flagged for it, and a White-Label partner everything that is not
+            // host-only.
+            $targetPermissions = $allTargetPermissions
+                ->filter(function ($permission) use ($partner) {
+                    if ($partner->is_host) {
+                        return true;
+                    }
+
+                    if ($partner->partner_type === Partner::PARTNER_TYPE_CERTIFIED) {
+                        return !$permission->is_host && $permission->is_certified;
+                    }
+
+                    return !$permission->is_host;
+                })
+                ->values();
+
+            if ($targetPermissions->isEmpty()) {
+                continue;
+            }
+
             // Give the permissions to the role.
             $role->givePermissionTo($targetPermissions);
             $this->command?->info("Assigned embedded loan application form permissions to Role: {$role->name} (Partner ID: " . ($role->partner_id ?? 'N/A') . ")");

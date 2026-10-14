@@ -516,16 +516,33 @@ Route::prefix('v1')->group(function () {
 
             // 📝 Embedded Form Management (Internal / Authenticated)
             Route::prefix('embed-forms')->group(function () {
-                Route::get('config', [EmbedFormController::class, 'getConfig']);
-                Route::put('config', [EmbedFormController::class, 'updateConfig']);
-                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey']);
+                // The same four permissions the admin panel gates these screens
+                // on, so a role without them is refused here too and not only
+                // hidden from the menu.
+                Route::get('config', [EmbedFormController::class, 'getConfig'])
+                    ->middleware('permission:view configuration');
+                Route::put('config', [EmbedFormController::class, 'updateConfig'])
+                    ->middleware('permission:update configuration');
+                Route::post('config/generate-key', [EmbedFormController::class, 'regenerateKey'])
+                    ->middleware('permission:update configuration');
 
-                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions']);
-                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission']);
-                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus']);
-                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower']);
+                Route::post('submissions/fetch', [EmbedFormController::class, 'fetchSubmissions'])
+                    ->middleware('permission:view application');
+                Route::get('submissions/{id}', [EmbedFormController::class, 'showSubmission'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
+                // The panel offers the status dropdown to anyone who can open an
+                // application, so this follows the same permission.
+                Route::put('submissions/{id}/status', [EmbedFormController::class, 'updateStatus'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
+                Route::post('submissions/{id}/convert-to-borrower', [EmbedFormController::class, 'convertToBorrower'])
+                    ->whereNumber('id')
+                    ->middleware('permission:convert application');
 
-                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment']);
+                Route::get('attachments/{id}/download', [EmbedFormController::class, 'downloadAttachment'])
+                    ->whereNumber('id')
+                    ->middleware('permission:view application');
             });
 
 

@@ -230,6 +230,376 @@ class OpenAiAgentsService extends OpenAiResponsesService
     }
 
     /**
+     * One structured generation driven entirely by a saved agent: the
+     * underwriting steps of the Pre-Qualification pipeline.
+     *
+     * Everything that decides what the answer says is read from the platform
+     * on every run and nothing is supplied from this codebase — the agent's
+     * instructions, its model, its reasoning effort, and the JSON Schema its
+     * output must satisfy, which is the agent's own "Text format". An edit
+     * saved on the platform applies to the very next evaluation, with nothing
+     * to deploy and no cache to clear. The caller supplies only the facts to
+     * underwrite (the borrower, the live lender matrix) and, through
+     * $agentOverrides, the knowledge base to search.
+     *
+     * An agent saved without a JSON Schema text format is refused rather than
+     * given one from here: a schema written in this codebase is exactly the
+     * hard-coded underwriting contract this path exists to remove, and prose
+     * where the pipeline expects a structured result would be stored as an
+     * underwriting outcome nobody can read.
+     *
+     * The decoded output is re-checked locally against that same schema before
+     * it is returned, for the reason OpenAiResponsesService::attempt() does:
+     * the model's own "strict" flag is not proof its output matched.
+     *
+     * @param array                $input          Structured payload sent as the user input.
+     * @param array<string, mixed> $agentOverrides Responses API tools/tool_choice; empty sends no tools.
+     *
+     * @return array{ok: bool, data: ?array, model: ?string, latency_ms: int, usage: ?array, request_id: ?string, sources: array, file_search_calls: int, prompt_version: ?string, reasoning_effort: ?string, error: ?string}
+     */
+    public function runStructuredAgent(string $agentId, array $input, array $agentOverrides = [], array $logContext = []): array
+    {
+        $startTime = microtime(true);
+
+        $saved = $this->retrieveAgentWithRetries($agentId, $logContext);
+
+        if (! $saved['ok']) {
+            // An unreachable platform is a transport fault, not a bad agent.
+            return $this->structuredFailure(
+                $logContext,
+                ($saved['unreachable'] ?? false) ? 'TRANSPORT_ERROR' : 'API_ERROR',
+                $startTime,
+                $saved['error']
+            );
+        }
+
+        $agent = (array) $saved['agent'];
+        $model = trim((string) ($agent['model'] ?? ''));
+
+        if ($model === '') {
+            return $this->structuredFailure($logContext, 'API_ERROR', $startTime, "Agent {$agentId} has no model saved on the platform.");
+        }
+
+        $text = is_array($agent['text'] ?? null) ? $agent['text'] : [];
+        $format = is_array($text['format'] ?? null) ? $text['format'] : [];
+        $schema = is_array($format['schema'] ?? null) ? $format['schema'] : null;
+
+        if (($format['type'] ?? null) !== 'json_schema' || $schema === null) {
+            return $this->structuredFailure(
+                $logContext,
+                'API_ERROR',
+                $startTime,
+                "Agent {$agentId} is not set up to return a structured result. Set its Text format to JSON Schema on the OpenAI platform."
+            );
+        }
+
+        // `reasoning.effort` and a non-default `text.verbosity` are only
+        // accepted by the reasoning-capable families; sending either to any
+        // other model is a hard 400, so they are dropped rather than passed on
+        // from the agent unexamined.
+        $supportsReasoning = $this->modelSupportsReasoningEffort($model);
+
+        if (! $supportsReasoning) {
+            unset($text['verbosity']);
+        }
+
+        // The Agents API stores a schema without a name; the Responses API
+        // refuses one — "Missing required parameter: 'text.format.name'". The
+        // name is only an identifier for the schema, so it is supplied from the
+        // agent's own name rather than being something a host has to go and add
+        // on the platform before their agent will run at all.
+        if (! isset($format['name']) || trim((string) $format['name']) === '') {
+            $format['name'] = $this->schemaNameFor($agent, $agentId);
+            $text['format'] = $format;
+        }
+
+        $body = [
+            'model' => $model,
+            'store' => (bool) config('openai.store', true),
+            'input' => json_encode($input),
+            'text' => $text,
+        ];
+
+        if (filled($agent['instructions'] ?? null)) {
+            $body['instructions'] = (string) $agent['instructions'];
+        }
+
+        // The approved knowledge base, as the caller built it.
+        foreach (['tools', 'tool_choice'] as $field) {
+            if (! empty($agentOverrides[$field])) {
+                $body[$field] = $agentOverrides[$field];
+            }
+        }
+
+        $effort = $agent['reasoning']['effort'] ?? null;
+        $effort = is_string($effort) && $effort !== '' ? $effort : null;
+
+        if ($effort !== null && $supportsReasoning) {
+            $body['reasoning'] = ['effort' => $effort];
+        }
+
+        $maxAttempts = max(1, (int) config('openai.max_attempts', 3));
+        $result = null;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $result = $this->attemptStructuredAgent($body, $schema, array_merge($logContext, [
+                'agent_id' => $agentId,
+                'attempt' => $attempt,
+                'max_attempts' => $maxAttempts,
+            ]));
+
+            if ($result['ok'] || ! $this->isRetryable($result) || $attempt === $maxAttempts) {
+                break;
+            }
+
+            // Back off before retrying so a rate limit or a momentary upstream
+            // problem is given time to clear rather than being hit again at once.
+            $delayMs = (int) config('openai.retry_delay_ms', 2000) * $attempt;
+
+            Log::warning('FCH Agent structured run retrying', array_merge($logContext, [
+                'agent_id' => $agentId,
+                'attempt' => $attempt,
+                'max_attempts' => $maxAttempts,
+                'retry_in_ms' => $delayMs,
+                'failure_kind' => $result['failure_kind'] ?? null,
+                'http_status' => $result['http_status'] ?? null,
+                'error' => $result['error'],
+            ]));
+
+            usleep($delayMs * 1000);
+        }
+
+        // Recorded against the stored result so an evaluation can be traced
+        // back to the agent, and the effort, that actually produced it.
+        $result['reasoning_effort'] = $effort;
+        $result['prompt_version'] = is_string($agent['name'] ?? null) ? $agent['name'] : null;
+
+        return $result;
+    }
+
+    /**
+     * The saved agent, retried when the platform could not be reached.
+     *
+     * The generation itself is retried on a transient fault, and reading the
+     * agent is just as exposed to one: it is a large download — an underwriting
+     * agent's instructions run to tens of kilobytes — so a slow link drops it
+     * part-way often enough to matter. Without this, one timed-out read failed
+     * the whole evaluation while the retry policy stood unused behind it.
+     *
+     * Only an unreachable platform is retried. A 404 on the id, or a key that
+     * may not read agents, fails identically every time and is returned at once.
+     */
+    protected function retrieveAgentWithRetries(string $agentId, array $logContext): array
+    {
+        $maxAttempts = max(1, (int) config('openai.max_attempts', 3));
+        $saved = null;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $saved = $this->retrieveAgent($agentId);
+
+            if ($saved['ok'] || ! ($saved['unreachable'] ?? false) || $attempt === $maxAttempts) {
+                break;
+            }
+
+            $delayMs = (int) config('openai.retry_delay_ms', 2000) * $attempt;
+
+            Log::warning('FCH Agent read retrying', array_merge($logContext, [
+                'agent_id' => $agentId,
+                'attempt' => $attempt,
+                'max_attempts' => $maxAttempts,
+                'retry_in_ms' => $delayMs,
+                'error' => $saved['error'],
+            ]));
+
+            usleep($delayMs * 1000);
+        }
+
+        return $saved;
+    }
+
+    /**
+     * A name for the agent's schema, for the Responses API field that requires
+     * one. It identifies the schema in the request and in OpenAI's logs; it
+     * does not affect what the model returns.
+     *
+     * Taken from the agent's own name so the two line up when a run is looked
+     * up later — "Prequalification Agent" becomes "prequalification_agent".
+     * OpenAI accepts letters, digits, underscores and dashes only, so anything
+     * else is folded to an underscore, and an agent with no usable name falls
+     * back to its id.
+     */
+    protected function schemaNameFor(array $agent, string $agentId): string
+    {
+        $name = strtolower(trim((string) ($agent['name'] ?? '')));
+        $name = trim((string) preg_replace('/[^a-z0-9]+/', '_', $name), '_');
+
+        if ($name === '') {
+            $name = trim((string) preg_replace('/[^A-Za-z0-9_-]+/', '_', $agentId), '_');
+        }
+
+        return substr($name === '' ? 'agent_schema' : $name, 0, 64);
+    }
+
+    /**
+     * One attempt at a structured generation. Shaped exactly like
+     * OpenAiResponsesService::attempt()'s return so a caller cannot tell which
+     * of the two produced its result.
+     */
+    protected function attemptStructuredAgent(array $body, array $schema, array $logContext): array
+    {
+        $startTime = microtime(true);
+        $model = (string) $body['model'];
+
+        try {
+            $response = Http::timeout($this->timeout)
+                ->connectTimeout(20)
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$this->baseUrl}/responses", $body);
+        } catch (\Throwable $e) {
+            return $this->structuredFailure($logContext, 'TRANSPORT_ERROR', $startTime, 'OpenAI Responses API connection error: ' . $e->getMessage(), $model);
+        }
+
+        $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+        $requestId = $response->header('x-request-id') ?: null;
+
+        if (! $response->successful()) {
+            return $this->structuredFailure($logContext, 'API_ERROR', $startTime, $this->errorMessage($response), $model, $response->status(), $requestId);
+        }
+
+        $json = (array) $response->json();
+        $usage = is_array($json['usage'] ?? null) ? $json['usage'] : null;
+        // OpenAI's id for this call: the response id, falling back to the
+        // request header for a response that carried none.
+        $requestId = is_string($json['id'] ?? null) ? $json['id'] : $requestId;
+
+        $outputText = $this->extractOutputText($json);
+        $decoded = $outputText !== null ? json_decode($outputText, true) : null;
+
+        if (! is_array($decoded)) {
+            return $this->structuredFailure($logContext, 'INVALID_JSON', $startTime, 'The agent returned no parseable structured output.', $model, $response->status(), $requestId, $usage);
+        }
+
+        // Whatever the knowledge base contributed is kept; the markers naming
+        // the files it came from are not. See stripFileCitations().
+        $decoded = $this->stripFileCitations($decoded);
+
+        // The agent's own schema, re-checked here: never trust the model's
+        // "strict" flag as proof its output actually matched it.
+        $schemaErrors = $this->validateAgainstSchema($decoded, $schema);
+
+        if (! empty($schemaErrors)) {
+            return $this->structuredFailure(
+                $logContext,
+                'SCHEMA_VALIDATION_FAILED',
+                $startTime,
+                "The agent's output failed local schema validation: " . implode('; ', $schemaErrors),
+                $model,
+                $response->status(),
+                $requestId,
+                $usage
+            );
+        }
+
+        $sources = $this->extractCitations($json);
+        $searches = $this->countFileSearchCalls((array) ($json['output'] ?? []));
+
+        // Whether the knowledge base was actually consulted. Zero searches on a
+        // step that was given one means the evaluation was reasoned without
+        // reading a single approved file.
+        $this->logOutcome(array_merge($logContext, [
+            'file_search_calls' => $searches,
+            'citations' => count($sources),
+        ]), $model, 'SUCCESS', $latencyMs, $usage, $response->status(), $requestId);
+
+        return [
+            'ok' => true,
+            'data' => $decoded,
+            'model' => is_string($json['model'] ?? null) ? $json['model'] : $model,
+            'latency_ms' => $latencyMs,
+            'usage' => $usage,
+            'request_id' => $requestId,
+            'sources' => $sources,
+            'file_search_calls' => $searches,
+            'error' => null,
+        ];
+    }
+
+    /**
+     * Remove file_search citation markers from every string in the result.
+     *
+     * When a step searches a knowledge base, the model writes its citations
+     * inline as markers like "【4:0†Lender_Matrix_Internal_v2.md】". In a chat
+     * reply those are rendered as footnotes. In a stored underwriting result
+     * they are two problems at once: the marker itself is shown verbatim to a
+     * borrower in the middle of a sentence, and it names an internal knowledge
+     * file — which is exactly the kind of internal detail the borrower-safe
+     * generation exists to keep out.
+     *
+     * Only the marker is removed; the sentence the model wrote around it is
+     * untouched, and the citations themselves are still reported separately in
+     * `sources` for the log. Double spaces left behind by a removed marker are
+     * closed up so the text reads as written.
+     */
+    protected function stripFileCitations(array $data): array
+    {
+        array_walk_recursive($data, static function (&$value) {
+            if (! is_string($value) || $value === '') {
+                return;
+            }
+
+            // 【...】 is OpenAI's marker; the ASCII form appears in some models'
+            // output for the same thing.
+            $cleaned = preg_replace('/【[^】]*】|\x{3010}[^\x{3011}]*\x{3011}/u', '', $value) ?? $value;
+            $cleaned = preg_replace('/\[\d+:\d+†[^\]]*\]/u', '', $cleaned) ?? $cleaned;
+
+            // Only tidy up when something was actually removed, so untouched
+            // text keeps whatever spacing the model intended.
+            if ($cleaned !== $value) {
+                $cleaned = preg_replace('/ {2,}/', ' ', $cleaned) ?? $cleaned;
+                $cleaned = preg_replace('/\s+([.,;:!?])/u', '$1', $cleaned) ?? $cleaned;
+                $value = trim($cleaned);
+            }
+        });
+
+        return $data;
+    }
+
+    private function structuredFailure(
+        array $logContext,
+        string $kind,
+        float $startTime,
+        ?string $error,
+        ?string $model = null,
+        ?int $httpStatus = null,
+        ?string $requestId = null,
+        ?array $usage = null
+    ): array {
+        $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+        $this->logOutcome($logContext, (string) $model, $kind, $latencyMs, $usage, $httpStatus, $requestId);
+
+        return [
+            'ok' => false,
+            'data' => null,
+            'model' => $model,
+            'latency_ms' => $latencyMs,
+            'usage' => $usage,
+            'request_id' => $requestId,
+            'sources' => [],
+            'file_search_calls' => 0,
+            // Nothing ran, so there is no agent provenance to record. Present
+            // but null, so a caller reads the same keys from every outcome.
+            'prompt_version' => null,
+            'reasoning_effort' => null,
+            'failure_kind' => $kind,
+            'http_status' => $httpStatus,
+            'error' => $error,
+        ];
+    }
+
+    /**
      * The answer without the model's inline citation markers.
      *
      * A file_search answer marks each cited passage in the text itself, as
