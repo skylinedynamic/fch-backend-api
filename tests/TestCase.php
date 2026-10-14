@@ -81,7 +81,10 @@ abstract class TestCase extends BaseTestCase
             $files->ensureDirectoryExists($storage . DIRECTORY_SEPARATOR . $dir);
         }
         foreach (glob($real . DIRECTORY_SEPARATOR . 'oauth-*.key') ?: [] as $key) {
-            $files->copy($key, $storage . DIRECTORY_SEPARATOR . basename($key));
+            $copy = $storage . DIRECTORY_SEPARATOR . basename($key);
+            $files->copy($key, $copy);
+            // oauth2-server rejects a key others can read (the umask default, 644) on Linux.
+            $files->chmod($copy, 0600);
         }
 
         $this->isolatedRoot = $root;

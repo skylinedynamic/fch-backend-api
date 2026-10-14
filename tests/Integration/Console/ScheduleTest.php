@@ -26,6 +26,7 @@ class ScheduleTest extends TestCase
         'funding:application-reminders' => '0 14 * * *',
         'task:reminder-check' => '*/5 * * * *',
         'scheduler:heartbeat' => '* * * * *',
+        'horizon:snapshot' => '*/5 * * * *',
         'logs:prune-months' => '0 3 * * *',
         'app:monitor-health' => '*/5 * * * *',
         'health:check' => '*/5 * * * *',

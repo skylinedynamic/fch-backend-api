@@ -70,6 +70,26 @@ class TestStorageIsolationTest extends TestCase
         $this->assertTrue(true);
     }
 
+    /**
+     * Defect: the copies took the umask default (644), and league/oauth2-server
+     * refuses a key that others can read - every test that signed a token failed
+     * on the Linux CI runner. Windows skips that check, so it passed locally.
+     */
+    #[Test]
+    public function the_copied_passport_keys_are_readable_only_by_their_owner(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->markTestSkipped('Windows has no POSIX permissions; oauth2-server skips the check there.');
+        }
+
+        $keys = glob(storage_path('oauth-*.key')) ?: [];
+        $this->assertNotEmpty($keys, 'no Passport keys were copied into the throwaway folder');
+
+        foreach ($keys as $key) {
+            $this->assertSame('600', decoct(fileperms($key) & 0777), basename($key));
+        }
+    }
+
     #[Test]
     public function each_test_gets_its_own_folder_that_is_removed_afterwards(): void
     {
