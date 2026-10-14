@@ -80,12 +80,7 @@ abstract class TestCase extends BaseTestCase
         foreach (['app/public', 'app/private', 'framework/cache/data', 'framework/sessions', 'framework/testing', 'framework/views', 'logs'] as $dir) {
             $files->ensureDirectoryExists($storage . DIRECTORY_SEPARATOR . $dir);
         }
-        foreach (glob($real . DIRECTORY_SEPARATOR . 'oauth-*.key') ?: [] as $key) {
-            $copy = $storage . DIRECTORY_SEPARATOR . basename($key);
-            $files->copy($key, $copy);
-            // oauth2-server rejects a key others can read (the umask default, 644) on Linux.
-            $files->chmod($copy, 0600);
-        }
+        $this->copyPassportKeys($real, $storage);
 
         $this->isolatedRoot = $root;
         $this->app->useStoragePath($storage);
@@ -116,6 +111,25 @@ abstract class TestCase extends BaseTestCase
 
         $manager = $this->app->make('log');
         $this->logManager = $manager instanceof LogManager ? $manager : null;
+    }
+
+    /**
+     * Copy the Passport keys into a throwaway storage folder so tokens still sign.
+     *
+     * A plain copy takes the umask default (644), and on Linux oauth2-server
+     * refuses a key others can read - every test that signed a token failed on
+     * the CI runner. Windows skips that check, so it passed locally. Any test
+     * that points storage somewhere of its own copies the keys through here.
+     */
+    protected function copyPassportKeys(string $from, string $to): void
+    {
+        $files = new Filesystem();
+
+        foreach (glob(rtrim($from, '\\/') . DIRECTORY_SEPARATOR . 'oauth-*.key') ?: [] as $key) {
+            $copy = rtrim($to, '\\/') . DIRECTORY_SEPARATOR . basename($key);
+            $files->copy($key, $copy);
+            $files->chmod($copy, 0600);
+        }
     }
 
     /**

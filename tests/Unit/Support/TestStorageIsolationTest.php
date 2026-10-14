@@ -90,6 +90,30 @@ class TestStorageIsolationTest extends TestCase
         }
     }
 
+    /**
+     * Five tests that pointed storage at a folder of their own copied the keys
+     * themselves, missed the 644 fix and failed on CI only. Windows cannot show
+     * that, so this checks the source instead: keys are copied in one place.
+     */
+    #[Test]
+    public function no_test_copies_the_passport_keys_except_through_the_helper(): void
+    {
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('tests'), \FilesystemIterator::SKIP_DOTS));
+        $offenders = [];
+
+        foreach ($files as $file) {
+            $path = str_replace('\\', '/', $file->getPathname());
+            if ($file->getExtension() !== 'php' || str_ends_with($path, 'tests/TestCase.php')) {
+                continue;
+            }
+            if (preg_match("/glob\([^;]*oauth-\*\.key[^;]*\)\s*(?:\?:\s*\[\])?\s*as[^)]*\)\s*\{[^}]*copy\(/s", file_get_contents($path))) {
+                $offenders[] = substr($path, strlen(str_replace('\\', '/', base_path())) + 1);
+            }
+        }
+
+        $this->assertSame([], $offenders, 'copy the Passport keys with $this->copyPassportKeys() so they get 600');
+    }
+
     #[Test]
     public function each_test_gets_its_own_folder_that_is_removed_afterwards(): void
     {

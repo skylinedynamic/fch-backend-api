@@ -40,9 +40,7 @@ class DatabaseSeederTest extends TestCase
         foreach (['storage/app/public', 'storage/framework/views', 'storage/framework/cache/data', 'storage/framework/sessions', 'storage/logs', 'public'] as $dir) {
             File::ensureDirectoryExists("{$this->root}/{$dir}");
         }
-        foreach (glob(storage_path('oauth-*.key')) as $key) {
-            File::copy($key, "{$this->root}/storage/" . basename($key));
-        }
+        $this->copyPassportKeys(storage_path(), "{$this->root}/storage");
         $this->app->useStoragePath("{$this->root}/storage");
         $this->app->usePublicPath("{$this->root}/public");
 

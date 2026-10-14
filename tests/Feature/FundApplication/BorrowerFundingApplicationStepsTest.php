@@ -278,9 +278,7 @@ class BorrowerFundingApplicationStepsTest extends TestCase
         foreach (['app/public', 'framework/views', 'framework/cache/data', 'framework/sessions', 'logs'] as $dir) {
             File::ensureDirectoryExists("{$storage}/{$dir}");
         }
-        foreach (glob(storage_path('oauth-*.key')) as $key) {
-            File::copy($key, $storage . '/' . basename($key));
-        }
+        $this->copyPassportKeys(storage_path(), $storage);
         $this->app->useStoragePath($storage);
         $relative = "funding-application/{$this->me->entity_id}/FA-{$this->myApplicationId}/statement-" . uniqid() . '.pdf';
         \Illuminate\Support\Facades\Storage::disk('public')->put($relative, '%PDF-1.4 test');
