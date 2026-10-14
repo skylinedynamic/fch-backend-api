@@ -26,6 +26,7 @@ Route::middleware("auth")->group(function () {
     Route::get("/dashboard", [DashboardController::class, "index"])->name("dashboard");
     Route::get("/dashboard/logs", [DashboardController::class, "logs"])->name("dashboard.logs");
     Route::get("/dashboard/scheduler", [DashboardController::class, "scheduler"])->name("dashboard.scheduler");
+    Route::get("/dashboard/queues", [DashboardController::class, "queues"])->name("dashboard.queues");
     Route::get("/dashboard/health", [DashboardController::class, "health"])->name("dashboard.health");
     Route::get("/dashboard/charts", [DashboardController::class, "charts"])->name("dashboard.charts");
     Route::get("/dashboard/backups", [DashboardController::class, "backups"])->name("dashboard.backups");

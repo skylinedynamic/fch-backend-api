@@ -133,6 +133,8 @@ jobs:
 
             php artisan migrate --force
             php artisan queue:restart || true
+            # Horizon exits and Supervisor restarts it on the new code; a no-op until Horizon runs here.
+            php artisan horizon:terminate || true
 
             echo "Ensuring final directory permissions..."
             sudo chown -R www-data:www-data /var/www/html/fch-api

@@ -517,7 +517,8 @@ class PaymentService
             if ($invoice) {
                 $invoice->update([
                     'status' => Invoice::STATUS_PAID,
-                    'paid_at' => $now,
+                    // payment_date is a DATE column - store the calendar date.
+                    'payment_date' => today(),
                 ]);
 
                 // Auto charge partner host fee upon approval of manual borrower payment

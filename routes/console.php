@@ -137,6 +137,13 @@ Schedule::command('scheduler:heartbeat')
 | Monitoring / Maintenance Commands
 |--------------------------------------------------------------------------
 */
+// Feeds the Metrics tab of the Horizon dashboard (Queue Jobs menu): without a
+// snapshot every few minutes its throughput/runtime graphs stay empty.
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->timezone($scheduleTimezone)
+    ->onFailure($onFailure('horizon:snapshot'));
+
 Schedule::command('logs:prune-months')
     ->dailyAt('03:00')
     ->timezone($scheduleTimezone)
