@@ -55,9 +55,7 @@ class BorrowerDocumentsApiTest extends TestCase
         foreach (['app/public', 'framework/views', 'framework/cache/data', 'framework/sessions', 'logs'] as $dir) {
             File::ensureDirectoryExists("{$this->storage}/{$dir}");
         }
-        foreach (glob(storage_path('oauth-*.key')) as $key) {
-            File::copy($key, $this->storage . '/' . basename($key));
-        }
+        $this->copyPassportKeys(storage_path(), $this->storage);
         $this->app->useStoragePath($this->storage);
     }
 

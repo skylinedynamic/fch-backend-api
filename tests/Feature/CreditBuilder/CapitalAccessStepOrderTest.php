@@ -59,9 +59,11 @@ class CapitalAccessStepOrderTest extends TestCase
         return DB::table('capital_access_sequences')->insertGetId(array_merge([
             'capital_access_id' => $this->strategy,
             'credit_account_id' => DB::table('credit_accounts')->insertGetId(['card_name' => "Card {$day}", 'created_at' => now(), 'updated_at' => now()]),
-            'access_time' => CapitalAccess::ACCESS_TIME_DAY,
+            // Open at any hour: this is about step order, not StepTimeLock's
+            // Day N / time-of-day windows (StepTimeLockTest covers those).
+            'access_time' => CapitalAccess::ACCESS_TIME_ANYTIME,
             'access_day' => $day,
-            'access_day_time' => CapitalAccess::ACCESS_TIME_MORNING,
+            'access_day_time' => CapitalAccess::ACCESS_TIME_ANYTIME,
             'created_at' => now(),
             'updated_at' => now(),
         ], $attributes));

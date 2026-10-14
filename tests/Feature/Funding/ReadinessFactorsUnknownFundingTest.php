@@ -3,6 +3,7 @@
 namespace Tests\Feature\Funding;
 
 use App\Models\Borrower\Borrower;
+use App\Models\Partner\Partner;
 use App\Models\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,20 @@ class ReadinessFactorsUnknownFundingTest extends TestCase
     #[Test]
     public function an_unknown_funding_id_for_a_client_is_not_found_either(): void
     {
+        // The client route is the partner portal's; a borrower's token is
+        // refused there (RejectBorrowersFromPartnerPortal), so ask as the partner.
+        $partnerUser = User::create([
+            'name' => 'Pat Partner',
+            'email' => 'partner-user-' . uniqid() . '@example.com',
+            'password' => bcrypt('secret'),
+            'user_type' => User::PARTNER,
+            'partner_id' => $this->borrower->partner_id,
+            'entity_type' => Partner::class,
+            'entity_id' => $this->borrower->partner_id,
+            'status' => User::STATUS['active'],
+        ]);
+        Passport::actingAs($partnerUser, [], 'api');
+
         $this->getJson("/api/v1/common/funding-qualification/client-readiness-factors/{$this->borrower->id}/999999")
             ->assertNotFound()
             ->assertJsonPath('status', false);

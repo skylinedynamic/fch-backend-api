@@ -14,9 +14,13 @@ use Tests\TestCase;
  */
 class NavigationMapTest extends TestCase
 {
+    /**
+     * Where each portal's checkout may sit, relative to this repo. The first
+     * folder that exists is used - add yours if it is cloned under another name.
+     */
     private const PORTALS = [
-        'wlp_support' => '../Fch-admin-frontend-react/src/App.jsx',
-        'borrower_support' => '../fch-borrower-react/src/App.jsx',
+        'wlp_support' => ['../Fch-admin-frontend-react', '../react-fch'],
+        'borrower_support' => ['../fch-borrower-react', '../borrower-fch'],
     ];
 
     /** @return array<string, array{string, string, string, string}> */
@@ -47,10 +51,12 @@ class NavigationMapTest extends TestCase
     #[DataProvider('destinations')]
     public function every_destination_is_a_route_the_portal_has(string $assistant, string $key, string $label, string $path): void
     {
-        $router = base_path(self::PORTALS[$assistant]);
+        $candidates = array_map(fn (string $dir) => base_path($dir . '/src/App.jsx'), self::PORTALS[$assistant]);
+        $router = current(array_filter($candidates, 'is_file'));
 
-        if (! is_file($router)) {
-            $this->markTestSkipped("Portal source not found at {$router}");
+        // CI checks out this repo alone; the portals' source is only beside it locally.
+        if ($router === false) {
+            $this->markTestSkipped('Portal source not found at any of: ' . implode(', ', $candidates));
         }
 
         $source = file_get_contents($router);

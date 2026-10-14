@@ -70,6 +70,50 @@ class TestStorageIsolationTest extends TestCase
         $this->assertTrue(true);
     }
 
+    /**
+     * Defect: the copies took the umask default (644), and league/oauth2-server
+     * refuses a key that others can read - every test that signed a token failed
+     * on the Linux CI runner. Windows skips that check, so it passed locally.
+     */
+    #[Test]
+    public function the_copied_passport_keys_are_readable_only_by_their_owner(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->markTestSkipped('Windows has no POSIX permissions; oauth2-server skips the check there.');
+        }
+
+        $keys = glob(storage_path('oauth-*.key')) ?: [];
+        $this->assertNotEmpty($keys, 'no Passport keys were copied into the throwaway folder');
+
+        foreach ($keys as $key) {
+            $this->assertSame('600', decoct(fileperms($key) & 0777), basename($key));
+        }
+    }
+
+    /**
+     * Five tests that pointed storage at a folder of their own copied the keys
+     * themselves, missed the 644 fix and failed on CI only. Windows cannot show
+     * that, so this checks the source instead: keys are copied in one place.
+     */
+    #[Test]
+    public function no_test_copies_the_passport_keys_except_through_the_helper(): void
+    {
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('tests'), \FilesystemIterator::SKIP_DOTS));
+        $offenders = [];
+
+        foreach ($files as $file) {
+            $path = str_replace('\\', '/', $file->getPathname());
+            if ($file->getExtension() !== 'php' || str_ends_with($path, 'tests/TestCase.php')) {
+                continue;
+            }
+            if (preg_match("/glob\([^;]*oauth-\*\.key[^;]*\)\s*(?:\?:\s*\[\])?\s*as[^)]*\)\s*\{[^}]*copy\(/s", file_get_contents($path))) {
+                $offenders[] = substr($path, strlen(str_replace('\\', '/', base_path())) + 1);
+            }
+        }
+
+        $this->assertSame([], $offenders, 'copy the Passport keys with $this->copyPassportKeys() so they get 600');
+    }
+
     #[Test]
     public function each_test_gets_its_own_folder_that_is_removed_afterwards(): void
     {
