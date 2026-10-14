@@ -39,8 +39,11 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $this->host = $this->makeHostPartner();
         $this->partner = $this->makeCertifiedPartner();
         $this->otherPartner = $this->makeCertifiedPartner();
-        $this->partnerAdmin = $this->makePartnerAdmin($this->partner);
+        $this->partnerAdmin = $this->makePartnerAdmin($this->partner, self::PERMISSIONS);
     }
+
+    /** What the embed-forms routes are gated on (routes/common.php). */
+    private const PERMISSIONS = ['view configuration', 'update configuration', 'view application', 'convert application'];
 
     private function submissionFor(Partner $partner, array $attributes = []): int
     {
@@ -66,7 +69,7 @@ class EmbedFormSubmissionsApiTest extends TestCase
         $ids = collect($this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data'))->pluck('id');
         $this->assertSame([$mine], $ids->all());
 
-        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        $this->actingAsUser($this->makePartnerAdmin($this->host, self::PERMISSIONS));
         $this->assertCount(2, $this->postJson('/api/v1/common/embed-forms/submissions/fetch')->assertOk()->json('data'));
     }
 

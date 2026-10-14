@@ -21,11 +21,21 @@ class AppointmentAccessTest extends TestCase
 
     private function user(string $name): User
     {
+        // EnsureUserHasPartner refuses any api request from a user without a partner.
+        $partnerId = DB::table('partners')->insertGetId([
+            'full_name' => $name,
+            'company_name' => "{$name} Co",
+            'email' => 'partner-' . uniqid() . '@example.test',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $id = DB::table('users')->insertGetId([
             'name' => $name,
             'email' => Str::slug($name) . '-' . uniqid() . '@example.test',
             'password' => bcrypt('secret'),
             'user_type' => User::ADMIN,
+            'partner_id' => $partnerId,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -56,8 +66,9 @@ class AppointmentAccessTest extends TestCase
         $appointment = $this->appointment($this->user('Scheduler'), $this->user('Attendee'));
         Passport::actingAs($this->user('Outsider'), [], 'api');
 
-        $this->getJson("/api/v1/common/appointments/{$appointment->id}")->assertForbidden();
-        $this->deleteJson("/api/v1/common/appointments/{$appointment->id}")->assertForbidden();
+        // Not found rather than forbidden: an outsider is not told it exists.
+        $this->getJson("/api/v1/common/appointments/{$appointment->id}")->assertNotFound();
+        $this->deleteJson("/api/v1/common/appointments/{$appointment->id}")->assertNotFound();
 
         $this->assertDatabaseHas('appointments', ['id' => $appointment->id, 'deleted_at' => null]);
     }
