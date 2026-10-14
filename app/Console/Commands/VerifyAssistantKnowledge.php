@@ -114,6 +114,8 @@ class VerifyAssistantKnowledge extends Command
             return empty($agentStores) ? false : true;
         }
 
+        $emptyEnabledStore = false;
+
         foreach ($config->vector_stores as $store) {
             $result = $agents->retrieveVectorStore($store['id']);
 
@@ -133,9 +135,15 @@ class VerifyAssistantKnowledge extends Command
 
             // A store that is switched on but holds nothing retrievable is the
             // quietest failure of all: every search runs and returns nothing.
+            // So it fails the check rather than passing with a warning.
             if ($store['enabled'] && $files === 0) {
-                $this->components->warn("{$store['id']} has no indexed files — searching it can only ever return nothing.");
+                $this->components->error("{$store['id']} has no indexed files — searching it can only ever return nothing.");
+                $emptyEnabledStore = true;
             }
+        }
+
+        if ($emptyEnabledStore) {
+            return false;
         }
 
         if (empty($enabled)) {

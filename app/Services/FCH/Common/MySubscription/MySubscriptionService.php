@@ -12,38 +12,22 @@ use App\Models\PaymentMethod\PartnerPaymentProvider;
 use App\Models\PaymentMethod\PaymentProvider;
 use App\Models\Subscription\Subscription;
 use App\Services\GlobalPayment\Stripe\StripeCustomerService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class MySubscriptionService
 {
     /**
-     * Get subscription & billing details for authenticated non-host partner.
+     * The caller's partner when the caller is that partner's own login, or the
+     * refusal. My Subscription is the partner's account with the host - its
+     * staff may not read, change or cancel it (findings O23), and the host,
+     * which pays no one, has none.
      */
-    public function getSubscriptionDetails()
+    private function ownPartnerOrRefusal(): Partner|JsonResponse
     {
         $user = Auth::user();
-        $partnerId = $user->partner_id ?? ($user->entity_type === Partner::class ? $user->entity_id : null);
-
-        if (!$partnerId && $user->email) {
-            $partner = Partner::where('email', $user->email)->first();
-            $partnerId = $partner?->id;
-        }
-
-        if (!$partnerId) {
-            return ApiResponse::error(__('partner.partner_not_found'), 404);
-        }
-
-        $partner = Partner::select([
-            'id',
-            'full_name',
-            'company_name',
-            'email',
-            'phone_number',
-            'stripe_customer_id',
-            'default_payment_method',
-            'is_host',
-        ])->find($partnerId);
+        $partner = $user?->partner;
 
         if (!$partner) {
             return ApiResponse::error(__('partner.partner_not_found'), 404);
@@ -51,6 +35,33 @@ class MySubscriptionService
 
         if ((int) $partner->is_host === 1) {
             return ApiResponse::error(__('partner.my_subscription_non_host_only'), 403);
+        }
+
+        if ($user->entity_type !== Partner::class || (int) $user->entity_id !== (int) $partner->id) {
+            return ApiResponse::error(__('partner.my_subscription_owner_only'), 403);
+        }
+
+        return $partner;
+    }
+
+    /**
+     * The default payment method to show: the recorded one, or Stripe for a
+     * card saved before defaults were recorded. None once it was removed.
+     */
+    private function shownDefaultProvider(Partner $partner): ?string
+    {
+        return $partner->default_payment_method
+            ?? ($partner->stripe_customer_id_raw ? PaymentProvider::STRIPE : null);
+    }
+
+    /**
+     * Get subscription & billing details for authenticated non-host partner.
+     */
+    public function getSubscriptionDetails()
+    {
+        $partner = $this->ownPartnerOrRefusal();
+        if ($partner instanceof JsonResponse) {
+            return $partner;
         }
 
         // Partner's latest subscription
@@ -133,11 +144,13 @@ class MySubscriptionService
         }
 
         // Get Default Payment Method details & logo
-        $defaultProviderName = $partner->default_payment_method ?? PaymentProvider::STRIPE;
-        $paymentProvider = PaymentProvider::select(['name', 'display_name', 'logo'])
-            ->where('name', $defaultProviderName)
-            ->orWhere('display_name', $defaultProviderName)
-            ->first();
+        $defaultProviderName = $this->shownDefaultProvider($partner);
+        $paymentProvider = $defaultProviderName
+            ? PaymentProvider::select(['name', 'display_name', 'logo'])
+                ->where('name', $defaultProviderName)
+                ->orWhere('display_name', $defaultProviderName)
+                ->first()
+            : null;
 
         $providerLogoUrl = null;
         if ($paymentProvider && $paymentProvider->logo) {
@@ -152,11 +165,11 @@ class MySubscriptionService
                 'email' => $partner->email,
                 'phone_number' => $partner->phone_number,
                 'stripe_card_info' => $partner->stripe_card_info,
-                'default_payment_method' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $partner->default_payment_method ?? PaymentProvider::STRIPE,
-                'payment_provider' => [
-                    'name' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $partner->default_payment_method ?? PaymentProvider::STRIPE,
+                'default_payment_method' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $defaultProviderName,
+                'payment_provider' => $defaultProviderName ? [
+                    'name' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $defaultProviderName,
                     'logo' => $providerLogoUrl,
-                ],
+                ] : null,
             ],
             'subscription' => $subscription ? [
                 'id' => $subscription->id,
@@ -211,22 +224,19 @@ class MySubscriptionService
      */
     public function updateDefaultPaymentMethod(array $data)
     {
-        $user = Auth::user();
-        $partnerId = $user->partner_id ?? ($user->entity_type === Partner::class ? $user->entity_id : null);
-
-        if (!$partnerId && $user->email) {
-            $partner = Partner::where('email', $user->email)->first();
-            $partnerId = $partner?->id;
-        }
-
-        $partner = Partner::find($partnerId);
-        if (!$partner) {
-            return ApiResponse::error(__('partner.partner_not_found'), 404);
+        $partner = $this->ownPartnerOrRefusal();
+        if ($partner instanceof JsonResponse) {
+            return $partner;
         }
 
         $providerName = $data['provider_name'] ?? null;
         if (!$providerName) {
             return ApiResponse::validationError(['provider_name' => [__('partner.provider_name_required')]]);
+        }
+
+        // A partner pays the host, so its default must be a gateway the host offers.
+        if (!PaymentProvider::isOfferedBy($providerName, Partner::host()?->id)) {
+            return ApiResponse::validationError(['provider_name' => [__('payment_method.provider_not_offered')]]);
         }
 
         $isStripe = strtolower(trim($providerName)) === strtolower(PaymentProvider::STRIPE);
@@ -256,6 +266,10 @@ class MySubscriptionService
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
                 } catch (Exception $e) {
                     Log::error('[PartnerUpdateDefaultPaymentMethod] Stripe Error: ' . $e->getMessage());
+
+                    // Leave the saved card as it is rather than overwriting it
+                    // with nothing.
+                    return ApiResponse::error(__('partner.payment_method_update_failed', ['error' => $e->getMessage()]), 422);
                 }
             } else {
                 $stripeCustId = is_array($existingCustomerData)
@@ -305,16 +319,40 @@ class MySubscriptionService
     }
 
     /**
+     * Take the partner's default payment method off. Nothing is auto-charged
+     * until it sets one again - the charge job needs a saved customer. Only the
+     * default goes: payments stay, and nothing is removed at Stripe (the
+     * customer is found again by email when it next pays by card).
+     */
+    public function removeDefaultPaymentMethod()
+    {
+        $partner = $this->ownPartnerOrRefusal();
+        if ($partner instanceof JsonResponse) {
+            return $partner;
+        }
+
+        $partner->update([
+            'default_payment_method' => null,
+            'stripe_customer_id' => null,
+        ]);
+
+        Log::info("Partner ID {$partner->id} removed its default payment method");
+
+        return ApiResponse::success([
+            'default_payment_method' => null,
+            'stripe_card_info' => $partner->fresh()->stripe_card_info,
+            'payment_provider' => null,
+        ], __('partner.default_payment_method_removed'));
+    }
+
+    /**
      * Cancel non-host partner active subscription.
      */
     public function cancelSubscription()
     {
-        $user = Auth::user();
-
-        $partner = $user->partner;
-
-        if (!$partner) {
-            return ApiResponse::error(__('partner.partner_not_found'), 404);
+        $partner = $this->ownPartnerOrRefusal();
+        if ($partner instanceof JsonResponse) {
+            return $partner;
         }
 
         $subscription = Subscription::where('entity_id', $partner->id)

@@ -1037,7 +1037,7 @@ class PartnerService
 
             $archived = 0;
 
-            foreach (Partner::whereIn('id', $ids)->get() as $record) {
+            foreach (Partner::whereIn('id', $ids)->where('is_host', false)->get() as $record) {
                 if ($record->archive()) {
                     $archived++;
                 }
@@ -1092,7 +1092,8 @@ class PartnerService
     {
         try {
             DB::beginTransaction();
-            $partners = Partner::whereIn('id', $ids)->get();
+            // The host is the platform itself - never deleted from a list of partners.
+            $partners = Partner::whereIn('id', $ids)->where('is_host', false)->get();
             foreach ($partners as $partner) {
                 if ($partner->partner_image) {
                     $this->deleteFile($partner->partner_image, 'public');
@@ -1118,12 +1119,20 @@ class PartnerService
         $results = [];
 
         foreach ($partners as $partner) {
-            $is_deletable = $partner->isDeletable();
+            $is_deletable = !$partner->is_host && $partner->isDeletable();
+            $reason = null;
+
+            if (!$is_deletable) {
+                $reason = !$partner->is_host && $partner->hasBorrowersOrUsers()
+                    ? __('partner.error.has_borrowers_or_users')
+                    : "This record cannot be deleted. Please mark it as Suspended or Inactive instead.";
+            }
+
             $results[] = [
                 'id' => $partner->id,
                 'name' => $partner->full_name,
                 'is_deletable' => $is_deletable,
-                'reason' => !$is_deletable ? "This record cannot be deleted. Please mark it as Suspended or Inactive instead." : null
+                'reason' => $reason,
             ];
         }
 

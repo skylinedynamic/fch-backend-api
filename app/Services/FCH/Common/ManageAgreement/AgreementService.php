@@ -121,7 +121,16 @@ class AgreementService
         $entity = ($user->entity_type === Partner::class) ? $user->partner : $user->borrower;
         $templateId = $data['agreement_template_id'] ?? null;
 
+        // Only the agreement this user is asked to sign (see checkSignNeed()):
+        // the host's "partner" agreement for a partner, their own partner's
+        // "borrower" agreement for a borrower.
+        [$ownerId, $slug] = $user->entity_type === Partner::class
+            ? [$this->getHostPartner()?->id, 'partner']
+            : [$entity->partner_id, 'borrower'];
+
         $template = AgreementTemplate::where('id', '=', $templateId)
+            ->where('partner_id', '=', $ownerId)
+            ->where('slug', '=', $slug)
             ->where('is_active', '=', true)
             ->first();
 

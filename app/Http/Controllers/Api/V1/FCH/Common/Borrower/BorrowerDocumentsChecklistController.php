@@ -29,7 +29,8 @@ class BorrowerDocumentsChecklistController extends Controller
       
         try {
             // Check if borrower exists
-            $borrower = Borrower::find((int)$borrowerId);
+            // Own partner's clients only (any for the host's team).
+            $borrower = Borrower::visibleTo(auth()->user())->find((int)$borrowerId);
            
             if (!$borrower) {
                 return response()->json([
@@ -63,7 +64,8 @@ class BorrowerDocumentsChecklistController extends Controller
     public function saveChecklist(Request $request, string $borrowerId): JsonResponse
     {
         // Check if borrower exists
-        $borrower = Borrower::find((int)$borrowerId);
+        // Own partner's clients only (any for the host's team).
+        $borrower = Borrower::visibleTo(auth()->user())->find((int)$borrowerId);
        
         if (!$borrower) {
             return response()->json([

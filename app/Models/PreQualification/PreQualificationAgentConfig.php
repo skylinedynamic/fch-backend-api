@@ -74,7 +74,7 @@ class PreQualificationAgentConfig
 
         try {
             foreach (self::FIELDS as $field) {
-                $value = AppConfiguration::get(self::key($step, $field), null, AppConfiguration::MODULE_OPENAI);
+                $value = AppConfiguration::platform(self::key($step, $field), AppConfiguration::MODULE_OPENAI);
 
                 // The agent id is stored encrypted, like the OpenAI API key. A
                 // row saved before that was the case is read as it is.

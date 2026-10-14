@@ -4,7 +4,6 @@ namespace App\Http\Requests\Api\V1\FCH\Admin\Lender;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Lender\Lender;
-use Illuminate\Validation\Rule;
 
 class UpdateLenderRequest extends BaseApiRequest
 {
@@ -23,7 +22,6 @@ class UpdateLenderRequest extends BaseApiRequest
      */
     public function rules(): array
     {
-        $id = $this->route('id');
         return [
             'name' => 'required|string|max:255',
             'legal_name' => 'required|string|max:255',
@@ -32,7 +30,8 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_name' => 'required|string|max:255',
             'contact_title' => 'required|string|max:255',
             'contact_email' => 'required|email|max:255',
-            'contact_phone' => ['required', 'string', 'max:20', Rule::unique('lenders', 'contact_phone')->ignore($id)],
+            // Not unique: lenders share support lines, and create never required it (O31).
+            'contact_phone' => ['required', 'string', 'max:20'],
             'website' => 'nullable|max:255',
             'submission_method' => 'nullable|string|max:255',
             'submission_email' => 'nullable|email|max:255',
@@ -58,7 +57,6 @@ class UpdateLenderRequest extends BaseApiRequest
             'contact_email.required' => __('lender.contact_email_required'),
             'contact_email.email' => __('lender.contact_email_email'),
             'contact_phone.max' => __('lender.contact_phone_max'),
-            'contact_phone.unique' => __('lender.contact_phone_unique'),
             'website.max' => __('lender.website_max'),
             'submission_email.email' => __('lender.submission_email_email'),
             'submission_portal_link.max' => __('lender.submission_portal_link_max'),

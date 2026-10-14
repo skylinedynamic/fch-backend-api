@@ -216,6 +216,28 @@ class PreQualificationRequest extends Model
     }
 
     /**
+     * The pre-qualifications on a user's Intake & Review book: a partner's
+     * team (user_type Partner) works its own partner's, the host's team
+     * (user_type Admin) every partner's, a borrower only their own.
+     */
+    public function scopeReviewableBy(Builder $query, ?\App\Models\User\User $user): Builder
+    {
+        if (!$user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->entity_type === Borrower::class) {
+            return $query->where($this->qualifyColumn('borrower_id'), $user->entity_id);
+        }
+
+        if ($user->user_type !== \App\Models\User\User::ADMIN) {
+            return $query->where($this->qualifyColumn('partner_id'), $user->partner_id);
+        }
+
+        return $query;
+    }
+
+    /**
      * Scope a query to search across common text fields.
      */
     public function scopeSearch(Builder $query, ?string $term): Builder

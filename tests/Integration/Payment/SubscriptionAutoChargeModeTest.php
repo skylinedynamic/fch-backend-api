@@ -180,6 +180,25 @@ class SubscriptionAutoChargeModeTest extends TestCase
     }
 
     /**
+     * A payer who removed their default payment method (My Subscription /
+     * Billing) is not charged: the removal clears the saved customer, and the
+     * job charges nothing without one. The invoice stays Unpaid and payable.
+     */
+    #[Test]
+    public function a_payer_who_removed_their_default_is_not_charged(): void
+    {
+        $this->configureStripe(PaymentProvider::MODE_PRODUCTION);
+        $this->payerWithSavedCard(PaymentProvider::MODE_PRODUCTION);
+        $this->host->update(['default_payment_method' => null, 'stripe_customer_id' => null]);
+
+        $invoice = $this->unpaidInvoice();
+        $this->runJob($invoice);
+
+        $this->assertSame([], $this->http->apiKeysUsed(), 'Stripe was contacted for a payer with no default');
+        $this->assertSame(Invoice::STATUS_UNPAID, $invoice->fresh()->status);
+    }
+
+    /**
      * Cards saved before the mode was recorded carry none, and must keep being
      * chargeable - refusing them all would stop billing for every existing
      * subscriber the day this shipped.

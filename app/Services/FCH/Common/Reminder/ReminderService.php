@@ -330,10 +330,10 @@ class ReminderService
 
         $candidates = [
             public_path('storage/' . $relative),
-            storage_path('app/public/' . $relative),
+            \Illuminate\Support\Facades\Storage::disk('public')->path($relative),
             storage_path('app/' . $relative),
             // Older records kept only the file name.
-            storage_path('app/public/attachments/' . basename($relative)),
+            \Illuminate\Support\Facades\Storage::disk('public')->path('attachments/' . basename($relative)),
         ];
 
         foreach ($candidates as $candidate) {

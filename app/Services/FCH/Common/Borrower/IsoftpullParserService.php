@@ -26,9 +26,9 @@ class IsoftpullParserService implements CreditProfileParserInterface
         $linesCount = count($lines);
         $fullText = implode("\n", $lines);
 
+        // Consumer report text is FCRA material - log its size, never its contents.
         Log::info('IsoftpullParser: starting parse', [
             'line_count' => $linesCount,
-            'text_preview' => substr($fullText, 0, 3000),
         ]);
 
         $personalInfo = $this->parsePersonalInfo($fullText);
@@ -48,7 +48,6 @@ class IsoftpullParserService implements CreditProfileParserInterface
         $metrics['summary'] = $this->generateSummary($personalInfo, $metrics, $tradeAccounts, $inquiries);
 
         Log::info('IsoftpullParser: parse complete', [
-            'personal_info' => $personalInfo,
             'trade_count' => count($tradeAccounts),
             'address_count' => count($addresses),
             'inquiry_count' => count($inquiries),

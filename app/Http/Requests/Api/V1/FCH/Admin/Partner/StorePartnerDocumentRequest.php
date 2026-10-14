@@ -7,6 +7,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Contracts\Validation\Validator;
 use App\Helpers\ApiResponse;
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Rules\NoPathTraversal;
 
 class StorePartnerDocumentRequest extends BaseApiRequest
 {
@@ -27,8 +28,8 @@ class StorePartnerDocumentRequest extends BaseApiRequest
     {
         return [
             'partner_id' => ['required', 'integer', 'exists:partners,id'],
-            'file_path' => ['nullable'],
-            'file_path.*' => ['nullable'],
+            'file_path' => ['nullable', new NoPathTraversal()],
+            'file_path.*' => ['nullable', new NoPathTraversal()],
         ];
     }
 

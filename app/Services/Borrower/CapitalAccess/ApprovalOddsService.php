@@ -34,7 +34,7 @@ class ApprovalOddsService
         ?BorrowerContext $ctx = null,
         ?Collection $oddsTiers = null
     ): array {
-        Log::info("ApprovalOddsService::calculate - Starting", [
+        Log::debug("ApprovalOddsService::calculate - Starting", [
             'borrower_id' => $borrower->id,
             'sequence_id' => $seq->id ?? null,
             'play_id' => $play->id,
@@ -58,7 +58,7 @@ class ApprovalOddsService
         $difficultyModifier = $seq->difficulty_modifier !== null ? (int) $seq->difficulty_modifier : 0;
         $odds = $ctx->readinessScore + $difficultyModifier;
 
-        Log::info("ApprovalOddsService::calculate - Base odds", [
+        Log::debug("ApprovalOddsService::calculate - Base odds", [
             'readiness_score' => $ctx->readinessScore,
             'difficulty_modifier' => $difficultyModifier,
             'base_odds' => $odds,
@@ -89,7 +89,7 @@ class ApprovalOddsService
 
         $odds += $ficoPoints + $utilPoints + $inquiryPoints + $bankPoints + $tradePoints + $revPoints;
 
-        Log::info("ApprovalOddsService::calculate - Factor points", [
+        Log::debug("ApprovalOddsService::calculate - Factor points", [
             'fico_points' => $ficoPoints,
             'util_points' => $utilPoints,
             'inquiry_points' => $inquiryPoints,
@@ -101,7 +101,7 @@ class ApprovalOddsService
 
         $finalOdds = max(0, min(99, (int) round($odds)));
 
-        Log::info("ApprovalOddsService::calculate - Final odds", [
+        Log::debug("ApprovalOddsService::calculate - Final odds", [
             'raw_odds' => $odds,
             'final_odds' => $finalOdds,
         ]);
@@ -121,13 +121,13 @@ class ApprovalOddsService
     {
         $minFico = $seq->minimum_fico_requirement !== null ? (int) $seq->minimum_fico_requirement : 0;
         if ($minFico > $ctx->ficoScore) {
-            Log::info("ApprovalOddsService::getLockStatus - Locked: FICO_BELOW_MINIMUM");
+            Log::debug("ApprovalOddsService::getLockStatus - Locked: FICO_BELOW_MINIMUM");
             return $this->disqualify('FICO_BELOW_MINIMUM');
         }
 
         $maxUtil = $seq->maximum_utilization_threshold !== null ? (float) $seq->maximum_utilization_threshold : 100.0;
         if ($maxUtil < $ctx->revolvingUtilization) {
-            Log::info("ApprovalOddsService::getLockStatus - Locked: UTILIZATION_ABOVE_MAXIMUM");
+            Log::debug("ApprovalOddsService::getLockStatus - Locked: UTILIZATION_ABOVE_MAXIMUM");
             return $this->disqualify('UTILIZATION_ABOVE_MAXIMUM');
         }
 
@@ -182,7 +182,7 @@ class ApprovalOddsService
 
     private function disqualify(string $reasonCode): array
     {
-        Log::info("ApprovalOddsService::disqualify", ['reason_code' => $reasonCode]);
+        Log::debug("ApprovalOddsService::disqualify", ['reason_code' => $reasonCode]);
         return ['probability' => 0, 'status' => false, 'reason_code' => $reasonCode];
     }
 }

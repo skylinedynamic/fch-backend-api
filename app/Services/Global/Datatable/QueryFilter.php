@@ -18,9 +18,12 @@ class QueryFilter
      */
     public static function apply(Builder $query, $sortField, $sortOrder, $rawFilters, array $options = []): Builder
     {
-        // Apply sorting
-         if (!($options['skip_sorting'] ?? false)) {
-            $query->orderBy($sortField, $sortOrder);
+        // Apply sorting - on a column the caller may use, else by the key.
+        if (!($options['skip_sorting'] ?? false)) {
+            $query->orderBy(
+                self::isUsableColumn($query, (string) $sortField) ? $sortField : $query->getModel()->getQualifiedKeyName(),
+                $sortOrder
+            );
         }
         
         if (is_string($rawFilters)) {
@@ -72,6 +75,9 @@ class QueryFilter
                         }
 
                         $column = $aliases[$field] ?? $field;
+                        if (!self::isUsableColumn($q, (string) $column)) {
+                            continue;
+                        }
                         self::applyConstraint($q, $column, $mode, (string) $value);
                     }
                 });
@@ -91,6 +97,9 @@ class QueryFilter
                     self::applyConcatConstraint($query, 'contains', $value, $columns, $glue);
                 } else {
                     $column = $aliases[$field] ?? $field;
+                    if (!self::isUsableColumn($query, (string) $column)) {
+                        continue;
+                    }
                     $query->where($column, 'like', "%{$value}%");
                 }
             }
@@ -182,6 +191,33 @@ class QueryFilter
         };
 
         $q->where(function ($builder) use ($callback) { $callback($builder); });
+    }
+
+    /**
+     * Column names that are never filtered or sorted on, whatever the model
+     * hides: a filter answers yes/no per row, and "startsWith" repeated one
+     * character at a time reads the value out.
+     */
+    private const SECRET_COLUMN_PATTERN = '/(password|secret|token|ssn|recovery_code|api_key|card_no|account_number|routing_number)/i';
+
+    /**
+     * Whether a request-supplied field may be used as a column: a plain
+     * (optionally table-qualified) column name, not one the model hides, and
+     * not a secret.
+     */
+    protected static function isUsableColumn(Builder $query, string $column): bool
+    {
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/', $column)) {
+            return false;
+        }
+
+        $name = str_contains($column, '.') ? substr($column, strrpos($column, '.') + 1) : $column;
+
+        if (preg_match(self::SECRET_COLUMN_PATTERN, $name)) {
+            return false;
+        }
+
+        return !in_array($name, $query->getModel()->getHidden(), true);
     }
 
     protected static function buildConcatExpr(array $columns, string $glue = ' '): string

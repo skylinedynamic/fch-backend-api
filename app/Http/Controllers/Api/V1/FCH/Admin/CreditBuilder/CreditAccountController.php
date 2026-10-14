@@ -113,7 +113,7 @@ class CreditAccountController extends Controller
      */
     public function updateStatus(Request $request, $id): JsonResponse
     {
-        $request->validate(['status' => 'required|string']);
+        $request->validate(['status' => 'required|string|in:Active,Inactive']);
         $account = $this->service->updateStatus($id, $request->status);
 
         return ApiResponse::success(

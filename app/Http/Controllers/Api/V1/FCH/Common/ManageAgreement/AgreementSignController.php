@@ -108,10 +108,10 @@ class AgreementSignController extends Controller
 
         if ($targetUserId === (int) $user->id) return $targetUserId;
 
-        // Non-host partners and borrowers can only see their own
-        $isRestricted = ($user->entity_type === Partner::class && !optional($user->partner)->is_host) 
-                     || ($user->entity_type === Borrower::class);
+        // Only the host's team reaches someone else's agreement; everyone else
+        // - non-host partners and their staff, and borrowers - only their own.
+        $isHostTeam = (bool) optional($user->partner)->is_host && $user->entity_type !== Borrower::class;
 
-        return $isRestricted ? null : $targetUserId;
+        return $isHostTeam ? $targetUserId : null;
     }
 }

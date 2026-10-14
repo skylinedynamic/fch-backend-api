@@ -58,7 +58,9 @@ class BusinessInfoController extends Controller
             );
         }
         catch (\Exception $e) {
-            return ApiResponse::error($e->getMessage(), 500);
+            // The detail is for the log, not the borrower.
+            \Illuminate\Support\Facades\Log::error('Business info update failed', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
+
             return ApiResponse::error(__('borrower.business_info_update_failed'), 500);
         }
     }

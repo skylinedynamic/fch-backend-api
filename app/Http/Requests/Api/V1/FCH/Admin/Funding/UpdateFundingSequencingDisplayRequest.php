@@ -29,7 +29,7 @@ class UpdateFundingSequencingDisplayRequest extends BaseApiRequest
             'funding_type_id'  => 'sometimes|required|exists:lender_product_categories,id',
             'description'      => 'nullable|string',
             'min_amount'       => 'required|numeric|gt:0',
-            'max_amount'       => 'required|numeric|gt:0',
+            'max_amount'       => 'required|numeric|gt:min_amount',
             'amount_range'     => 'nullable|string|max:255',
             'terms'            => 'nullable|string|max:255',
             'icon'             => 'required|string|max:255',

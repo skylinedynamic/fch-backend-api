@@ -55,4 +55,22 @@ class PaymentProvider extends Model
     {
         return $this->hasMany(PartnerPaymentProvider::class, 'payment_provider_id');
     }
+
+    /**
+     * Whether a gateway is on the platform and switched on by this partner - the
+     * same list GET /payment/providers offers, so a default payment method can
+     * only be one the payer was actually offered.
+     */
+    public static function isOfferedBy(?string $name, ?int $partnerId): bool
+    {
+        if (!$name || !$partnerId) {
+            return false;
+        }
+
+        return static::query()
+            ->where('status', true)
+            ->whereRaw('LOWER(name) = ?', [strtolower(trim($name))])
+            ->whereHas('partnerPaymentProviders', fn ($q) => $q->where('partner_id', $partnerId)->where('status', true))
+            ->exists();
+    }
 }

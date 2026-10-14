@@ -28,16 +28,11 @@ class BorrowerCapitalAccessController extends Controller
      */
     public function getOverview($id): JsonResponse
     {
-        $user = auth()->user();
-        $borrower = Borrower::find($id);
+        // Own partner's clients only (any for the host's team).
+        $borrower = Borrower::visibleTo(auth()->user())->find($id);
 
         if (!$borrower) {
             return ApiResponse::notFound(__('borrower.not_found'));
-        }
-
-        // Authorization check for partners
-        if ($user->user_type === 'partner' && $borrower->partner_id !== $user->partner_id) {
-            return ApiResponse::forbidden(__('auth.unauthorized_portal'));
         }
 
         // Build BorrowerContext once
@@ -181,16 +176,11 @@ class BorrowerCapitalAccessController extends Controller
      */
     public function strategiesForClient($id): JsonResponse
     {
-        $user = auth()->user();
-        $borrower = Borrower::find($id);
+        // Own partner's clients only (any for the host's team).
+        $borrower = Borrower::visibleTo(auth()->user())->find($id);
 
         if (!$borrower) {
             return ApiResponse::notFound(__('borrower.not_found'));
-        }
-
-        // Authorization check for partners
-        if ($borrower->partner_id !== $user->partner_id) {
-            return ApiResponse::forbidden(__('auth.unauthorized_portal'));
         }
 
         return $this->strategyService->listForBorrower($borrower);

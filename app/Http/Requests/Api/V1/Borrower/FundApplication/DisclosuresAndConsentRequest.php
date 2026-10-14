@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class DisclosuresAndConsentRequest extends BaseApiRequest
 {
@@ -22,8 +24,8 @@ class DisclosuresAndConsentRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
-            'funding_request_id' => 'nullable|integer',
+            'id' => ['nullable', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
+            'funding_request_id' => ['nullable', 'integer', Rule::exists('funding_requests', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'credit_pull_authorization' => 'required|accepted',
             'terms_conditions_acceptance' => 'required|accepted',
         ];

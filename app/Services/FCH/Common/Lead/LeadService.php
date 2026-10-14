@@ -368,14 +368,25 @@ class LeadService
     }
 
     /**
-     * Delete Multiple
+     * Delete several of a partner's leads at once, each logged as a single
+     * delete is. Ids of other partners' leads are skipped. Returns how many
+     * were deleted.
      */
-    public function deleteMultiple(array $ids): bool
+    public function deleteMultiple(array $ids, int $partnerId): int
     {
-        if (empty($ids))
-            return false;
+        if (empty($ids)) {
+            return 0;
+        }
 
-        return Lead::whereIn('id', $ids)->delete();
+        return DB::transaction(function () use ($ids, $partnerId) {
+            $leads = Lead::where('partner_id', $partnerId)->whereIn('id', $ids)->get();
+
+            foreach ($leads as $lead) {
+                $this->delete($lead);
+            }
+
+            return $leads->count();
+        });
     }
 
 

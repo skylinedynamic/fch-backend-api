@@ -11,7 +11,6 @@ use App\Http\Controllers\Controller;
 use App\Services\FCH\Common\RolePermission\RoleService;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\StoreRoleRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\UpdateRoleRequest;
-use App\Http\Requests\Api\V1\FCH\Common\RolePermission\AssignPermissionsRequest;
 use App\Http\Requests\Api\V1\FCH\Common\RolePermission\FetchRoleRequest;
 use Illuminate\Support\Facades\Auth;
 
@@ -73,6 +72,11 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
+        // Roles belong to a partner; another partner's role does not exist here.
+        if ((int) $role->partner_id !== (int) Auth::user()->partner_id) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
         if ($role->code === 'developer' && !Auth::user()->hasRole('Developer')) {
             return ApiResponse::error(__('role_permission.role_not_found'), 404);
         }
@@ -100,6 +104,10 @@ class RoleController extends Controller
      */
     public function update(UpdateRoleRequest $request, Role $role)
     {
+        if ((int) $role->partner_id !== (int) Auth::user()->partner_id) {
+            return ApiResponse::error(__('role_permission.role_not_found'), 404);
+        }
+
         $updatedRole = $this->roleService->update($role, $request->validated());
         
         return response()->json([
@@ -117,29 +125,5 @@ class RoleController extends Controller
     public function destroy(DeleteRolesRequest $request)
     {
         return $this->roleService->deleteMany($request->ids);
-    }
-
-    /**
-     * Assign permissions
-     *
-     * @param AssignPermissionsRequest $request
-     * @param Role $role
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function assignPermissions(AssignPermissionsRequest $request, Role $role)
-    {
-        $partnerId = $request->user()->partner_id;
-
-        $role = $this->roleService->assignPermissions(
-            $role,
-            $request->permission_ids,
-            $partnerId
-        );
-
-        return response()->json([
-            'status' => true,
-            'message' => __('role_permission.role_updated'), // You can reuse this for assigning permissions
-            'data' => $role,
-        ]);
     }
 }

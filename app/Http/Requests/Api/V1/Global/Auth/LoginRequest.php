@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api\V1\Global\Auth;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
-use App\Rules\ReCaptcha;
 
 class LoginRequest extends BaseApiRequest
 {
@@ -17,7 +16,6 @@ class LoginRequest extends BaseApiRequest
         return [
             'email' => ['required', 'email'],
             'password' => ['required', 'string','min:6'],
-            'recaptcha' => ['nullable', new ReCaptcha()],
         ];
     }
 
@@ -29,7 +27,6 @@ class LoginRequest extends BaseApiRequest
             'email.email' => __('auth.email_invalid'),
             'password.required' => __('auth.password_required'),
             'password.min' => __('auth.password_min'),
-            'recaptcha.required' => __('auth.recaptcha_required'),
         ];
     }
 
