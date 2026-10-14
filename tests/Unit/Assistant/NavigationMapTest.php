@@ -49,8 +49,9 @@ class NavigationMapTest extends TestCase
     {
         $router = base_path(self::PORTALS[$assistant]);
 
-        if ($router === false) {
-            $this->markTestSkipped('Portal source not found at any of: ' . implode(', ', $candidates));
+        // CI checks out this repo alone; the portals' source is only beside it locally.
+        if (! is_file($router)) {
+            $this->markTestSkipped("Portal source not found at {$router}");
         }
 
         $source = file_get_contents($router);
