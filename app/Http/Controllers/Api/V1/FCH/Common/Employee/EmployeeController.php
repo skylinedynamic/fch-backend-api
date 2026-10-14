@@ -44,6 +44,8 @@ class EmployeeController extends Controller
             $employee = $this->employeeService->find($id);
 
             return ApiResponse::success(new EmployeeResource($employee), __('employee.employee_details'));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('employee.employee_not_found'));
         } catch (\Exception $e) {
             return ApiResponse::error(__('employee.employee_not_found'));
         }

@@ -47,6 +47,12 @@ class Subscription extends Model
     const PHASE_USER_SEAT = 'user_seat';
     const PHASE_COMPLETED = 'completed';
 
+    /**
+     * How long a partner's One Time Payment covers before the monthly platform fee
+     * starts, counted from the payment date.
+     */
+    const ONE_TIME_PAYMENT_COVERAGE_MONTHS = 12;
+
     protected $table = 'subscriptions';
 
     protected $fillable = [

@@ -271,7 +271,7 @@ class DeletePartnersAndBorrowersSeeder extends Seeder
 
         $this->command?->info("🚀 Scanning " . count($tables) . " tables for deletion...");
 
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        Schema::disableForeignKeyConstraints();
         DB::beginTransaction();
 
         try {
@@ -442,7 +442,7 @@ class DeletePartnersAndBorrowersSeeder extends Seeder
             $this->command?->error("❌ An error occurred during deletion: " . $e->getMessage());
             throw $e;
         } finally {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            Schema::enableForeignKeyConstraints();
         }
     }
 

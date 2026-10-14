@@ -20,7 +20,6 @@ class DepartmentService
     {
         return Department::where('id', $id)
             ->where('partner_id', $partnerId)
-            ->with('employees')
             ->firstOrFail();
     }
 

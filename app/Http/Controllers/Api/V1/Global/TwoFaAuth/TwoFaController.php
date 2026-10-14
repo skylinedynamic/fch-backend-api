@@ -75,11 +75,13 @@ class TwoFaController extends Controller
     {
         $validated = $request->validated();
         $result = $this->service->verify($validated['method'], $validated['code']);
-        
-        if ($result['status'] === true) {
+
+        // The service answers status=true for a wrong code and a lockout too;
+        // only data.verified says whether the code was accepted.
+        if (($result['data']['verified'] ?? false) === true) {
             return ApiResponse::success(new TwoFaVerificationResource($result['data']), __('auth.2fa_verified'));
         }
-        return ApiResponse::error(__('auth.2fa_verification_failed'), 422, new TwoFaVerificationResource($result));
+        return ApiResponse::error($result['message'] ?? __('auth.2fa_verification_failed'), 422, new TwoFaVerificationResource($result['data'] ?? []));
     }
 
     /**
@@ -129,17 +131,16 @@ class TwoFaController extends Controller
     {
         $validated = $request->validated();
 
-        $user = null;
-        if (!empty($validated['user_id'])) {
-            $user = User::find($validated['user_id']);
-            if (!$user) {
-                return ApiResponse::error(__('auth.user_not_found'), 404);
-            }
-        } else {
-            $user = Auth::user();
-            if (!$user) {
-                return ApiResponse::error(__('auth.user_not_found'), 404);
-            }
+        $user = Auth::user();
+        if (!$user) {
+            return ApiResponse::error(__('auth.user_not_found'), 404);
+        }
+
+        // Recovery codes sign their holder in, so they are only ever issued to
+        // the account asking. user_id is still accepted for existing callers,
+        // but only when it is that same account.
+        if (!empty($validated['user_id']) && (int) $validated['user_id'] !== (int) $user->id) {
+            return ApiResponse::forbidden(__('auth.access_denied'));
         }
 
         $result = $this->service->regenerateRecoveryCodes($user);

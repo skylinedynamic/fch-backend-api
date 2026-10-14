@@ -90,7 +90,8 @@ class TierService
             $data['has_vendor'] = true;
         }
 
-        if ($data['description'] == '<p><br></p>') {
+        // The editor's empty value; description is optional, so it may be absent.
+        if (($data['description'] ?? null) == '<p><br></p>') {
             $data['description'] = null;
         }
 
@@ -104,7 +105,7 @@ class TierService
     {
         $data['updated_by'] = auth()->id();
 
-        if ($data['description'] == '<p><br></p>') {
+        if (($data['description'] ?? null) == '<p><br></p>') {
             $data['description'] = null;
         }
 

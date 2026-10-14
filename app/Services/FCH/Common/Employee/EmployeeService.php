@@ -483,6 +483,7 @@ class EmployeeService
     public function find(int $id): Employee
     {
         return Employee::where('id', $id)
+            ->where('partner_id', Auth::user()->partner_id)
             ->with('user')
             ->firstOrFail();
     }
@@ -537,7 +538,7 @@ class EmployeeService
         }
 
         // Get employees to delete their images
-        $employees = Employee::whereIn('id', $ids)->get();
+        $employees = Employee::whereIn('id', $ids)->where('partner_id', auth()->user()->partner_id)->get();
         foreach ($employees as $employee) {
             if ($employee->image) {
                 $this->deleteFile($employee->getRawOriginal('image'), 'public');

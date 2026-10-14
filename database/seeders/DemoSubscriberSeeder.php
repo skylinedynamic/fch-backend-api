@@ -52,7 +52,7 @@ class DemoSubscriberSeeder extends Seeder
         }
 
         // 3. Create Subscription
-        $plan = SubscriptionPlan::where('entity_type', 'Partner')->first() ?? SubscriptionPlan::first();
+        $plan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_PARTNER_ENROLLMENT)->first() ?? SubscriptionPlan::first();
         if (!$plan) return;
 
         $subscription = Subscription::updateOrCreate(
@@ -63,7 +63,7 @@ class DemoSubscriberSeeder extends Seeder
                 'enrollment_type' => $plan->enrollment_type,
                 'monthly_platform_fee' => $plan->platform_fee,
                 'total_subscription_amount' => $plan->total_amount,
-                'payable_amount' => $plan->payment_amount,
+                'payable_amount' => $plan->total_amount,
                 'first_payment_date' => '2026-01-01',
                 'subscription_start_date' => '2025-11-26',
                 'subscription_end_date' => '2026-11-26',
@@ -91,7 +91,7 @@ class DemoSubscriberSeeder extends Seeder
         if (!$user) return;
 
         // 3. Create Subscription
-        $plan = SubscriptionPlan::where('entity_type', 'Borrower')->first() ?? SubscriptionPlan::first();
+        $plan = SubscriptionPlan::where('group', SubscriptionPlan::SUBSCRIPTION_PLAN_BORROWER_ENROLLMENT)->first() ?? SubscriptionPlan::first();
         $subscription = Subscription::updateOrCreate(
             ['entity_type' => Borrower::class, 'entity_id' => $borrower->id],
             [
@@ -100,7 +100,7 @@ class DemoSubscriberSeeder extends Seeder
                 'enrollment_type' => $plan->enrollment_type,
                 'monthly_platform_fee' => $plan->platform_fee,
                 'total_subscription_amount' => $plan->total_amount,
-                'payable_amount' => $plan->payment_amount,
+                'payable_amount' => $plan->total_amount,
                 'first_payment_date' => '2026-01-01',
                 'subscription_start_date' => '2025-11-26',
                 'subscription_end_date' => '2026-11-26',

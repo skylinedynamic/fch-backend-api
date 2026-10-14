@@ -30,7 +30,9 @@ class StoreContactRequest extends BaseApiRequest
             'mobile_number' => ['required', 'string', 'regex:/^\(\d{3}\) \d{3}-\d{4}$/'],
             'email' => [
                 'required',
-                'email:rfc,dns',
+                // Format only: a DNS lookup on every save was slow, failed offline
+                // and refused valid addresses on domains with no mail records.
+                'email:rfc',
                 'max:255',
                 Rule::unique('contacts')->where(function ($query) {
                     return $query->where('partner_id', $this->user()->partner_id)

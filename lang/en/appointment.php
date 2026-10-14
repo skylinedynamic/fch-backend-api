@@ -36,6 +36,8 @@ return [
     'meeting_type_invalid' => 'Invalid meeting type.',
     'status_invalid' => 'Invalid appointment status.',
     'assigned_for_invalid' => 'Assigned user does not exist.',
+    'assigned_for_not_bookable' => 'You cannot book a meeting with this user.',
+    'entity_not_attendees' => 'The selected record does not belong to the person you are meeting.',
     'assigned_for_required' => 'Appointment with field is required.',
     'time_slot_invalid' => 'Selected time slot does not exist.',
 

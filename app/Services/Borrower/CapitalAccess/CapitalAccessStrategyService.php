@@ -517,7 +517,11 @@ class CapitalAccessStrategyService
                     if ($playStatus) {
                         $isCompleted = ($playStatus->status === BorrowerCapitalAccessPlay::STATUS_COMPLETED);
                     } else {
-                        // Fallback: check dynamic counts (for legacy data sync)
+                        // No play row: worked out from the step counts, without
+                        // writing one. This is a read - rows missing from before
+                        // plays were tracked are backfilled by the migration
+                        // 2026_10_12_000100_backfill_borrower_capital_access_plays,
+                        // and new ones are written when a step is submitted.
                         $totalSteps = $strat->sequences()->count();
                         $approvedSteps = CapitalAccessApplication::where('borrower_id', $borrower->id)
                             ->where('capital_access_id', $strat->id)
@@ -525,19 +529,6 @@ class CapitalAccessStrategyService
                             ->count();
 
                         $isCompleted = ($totalSteps > 0 && $approvedSteps === $totalSteps);
-
-                        // If they have worked on this strategy, create play status row
-                        $hasStarted = CapitalAccessApplication::where('borrower_id', $borrower->id)
-                            ->where('capital_access_id', $strat->id)
-                            ->exists();
-
-                        if ($hasStarted) {
-                            BorrowerCapitalAccessPlay::create([
-                                'borrower_id' => $borrower->id,
-                                'capital_access_id' => $strat->id,
-                                'status' => $isCompleted ? BorrowerCapitalAccessPlay::STATUS_COMPLETED : BorrowerCapitalAccessPlay::STATUS_RUNNING,
-                            ]);
-                        }
                     }
 
                     $completionMap[$strat->id] = $isCompleted;
@@ -694,6 +685,15 @@ class CapitalAccessStrategyService
             ->where('capital_access_sequence_id', $seq->id)
             ->first();
 
+        // 4. The roadmap's schedule (Day N delay, time-of-day window). The portal
+        // shows these as locked; without this a direct POST got through (E2E-016).
+        if (!$existingApp) {
+            $timeLock = $this->stepTimeLockReason($strategy, $seq, $borrower, $sequences);
+            if ($timeLock) {
+                return ApiResponse::error($timeLock, 403);
+            }
+        }
+
         if (!$existingApp) {
             $oddsTiers = $cache?->getTiersFor(ScoreConfiguration::MODEL_APPROVAL_ODDS);
             $oddsData  = app(\App\Services\Borrower\CapitalAccess\ApprovalOddsService::class)
@@ -705,6 +705,50 @@ class CapitalAccessStrategyService
         }
 
         return null;
+    }
+
+    /**
+     * Why a step is locked by the clock, using the same inputs the roadmap
+     * resource gives the portal: play start (play row, else earliest
+     * application), the time-setting windows, and the borrower's timezone.
+     */
+    protected function stepTimeLockReason(CapitalAccess $strategy, CapitalAccessSequence $seq, Borrower $borrower, $sortedSequences): ?string
+    {
+        $timezone = request()->header('x-timezone') ?: config('app.timezone', 'UTC');
+        try {
+            $now = \Carbon\CarbonImmutable::now($timezone);
+        } catch (\Throwable) {
+            $now = \Carbon\CarbonImmutable::now(config('app.timezone', 'UTC'));
+        }
+
+        $startedAt = BorrowerCapitalAccessPlay::where('borrower_id', $borrower->id)
+            ->where('capital_access_id', $strategy->id)
+            ->value('created_at')
+            ?? CapitalAccessApplication::where('borrower_id', $borrower->id)
+                ->where('capital_access_id', $strategy->id)
+                ->min('created_at');
+
+        $windows = ScoreConfiguration::where('category', ScoreConfiguration::CATEGORY_TIME)
+            ->whereIn('model_slug', [ScoreConfiguration::MODEL_APPROVAL_ODDS, ScoreConfiguration::MODEL_GENERAL_SETTING])
+            ->where('factor_slug', ScoreConfiguration::FACTOR_TIME_SETTING)
+            ->get()
+            ->mapWithKeys(function ($config) {
+                $conditions = $config->conditions;
+                $start = $conditions['start'] ?? $config->min_value ?? 0;
+                $end = $conditions['end'] ?? $config->max_value ?? 24;
+                return [$config->label => [(float) $start, (float) $end]];
+            })
+            ->all();
+
+        return StepTimeLock::reason(
+            $seq->access_time,
+            $seq->access_day !== null ? (int) $seq->access_day : null,
+            $seq->access_day_time,
+            optional($sortedSequences->first())->id === $seq->id,
+            $startedAt ? \Carbon\CarbonImmutable::parse($startedAt) : null,
+            $now,
+            $windows
+        );
     }
 }
 

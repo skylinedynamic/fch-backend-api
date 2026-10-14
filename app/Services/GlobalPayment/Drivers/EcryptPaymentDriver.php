@@ -17,36 +17,36 @@ class EcryptPaymentDriver implements PaymentGatewayInterface
         return $this;
     }
 
+    /**
+     * The eCrypt integration is not built. Every call fails closed: a driver
+     * that reported success here would mark invoices paid, or customers and
+     * subscriptions created, with nothing happening at eCrypt.
+     */
     public function charge(array $params): array
     {
-        // E-Crypt charge driver implementation
-        return [
-            'success' => true,
-            'transaction_id' => 'ECRYPT_TX_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function createCustomer(array $params): array
     {
-        return [
-            'success' => true,
-            'customer_id' => 'ECRYPT_CUST_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function createSubscription(array $params): array
     {
-        return [
-            'success' => true,
-            'subscription_id' => 'ECRYPT_SUB_' . uniqid(),
-            'raw' => $params,
-        ];
+        return $this->notImplemented();
     }
 
     public function cancelSubscription(string $subscriptionId): bool
     {
-        return true;
+        return false;
+    }
+
+    private function notImplemented(): array
+    {
+        return [
+            'success' => false,
+            'error' => 'eCrypt payments are not available yet.',
+        ];
     }
 }

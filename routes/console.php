@@ -27,7 +27,10 @@ Artisan::command('inspire', function () {
 */
 
 $scheduleTimezone = config('app.scheduler_timezone', config('app.timezone', 'UTC'));
-$schedulerLogPath = storage_path('logs/scheduler.log');
+// In the month's folder, like the app log, so it is pruned with it - one file
+// appended to for ever was never old enough for the loose-file rule to remove.
+$schedulerLogPath = storage_path('logs/' . now()->format('Y/F') . '/scheduler.log');
+\Illuminate\Support\Facades\File::ensureDirectoryExists(dirname($schedulerLogPath));
 
 /**
  * Shared failure handler: logs AND notifies the on-call email list using the host admin email configuration.
@@ -134,6 +137,13 @@ Schedule::command('scheduler:heartbeat')
 | Monitoring / Maintenance Commands
 |--------------------------------------------------------------------------
 */
+// Feeds the Metrics tab of the Horizon dashboard (Queue Jobs menu): without a
+// snapshot every few minutes its throughput/runtime graphs stay empty.
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->timezone($scheduleTimezone)
+    ->onFailure($onFailure('horizon:snapshot'));
+
 Schedule::command('logs:prune-months')
     ->dailyAt('03:00')
     ->timezone($scheduleTimezone)

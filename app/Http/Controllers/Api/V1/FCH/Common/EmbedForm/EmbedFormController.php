@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\EmbedForm;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormConfigResource;
+use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\ConvertEmbedFormSubmissionRequest;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\FetchEmbedFormSubmissionsRequest;
+use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormConfigRequest;
 use App\Http\Requests\Api\V1\FCH\Common\EmbedForm\UpdateEmbedFormSubmissionStatusRequest;
 use App\Http\Resources\FCH\EmbedForm\EmbedFormSubmissionResource;
@@ -153,7 +155,11 @@ class EmbedFormController extends Controller
                 $q->where('first_name', 'LIKE', "%{$s}%")
                     ->orWhere('last_name', 'LIKE', "%{$s}%")
                     ->orWhere('email', 'LIKE', "%{$s}%")
-                    ->orWhere('phone', 'LIKE', "%{$s}%");
+                    ->orWhere('phone', 'LIKE', "%{$s}%")
+                    // The list shows the business beside the applicant, so a
+                    // search for what is on screen has to find it.
+                    ->orWhere('business_name', 'LIKE', "%{$s}%")
+                    ->orWhere('business_email', 'LIKE', "%{$s}%");
             });
         }
 
@@ -237,6 +243,12 @@ class EmbedFormController extends Controller
             return ApiResponse::forbidden();
         }
 
+        // Converted is the end of the road: a borrower and a funding application
+        // already exist, and moving it back would let it be converted again.
+        if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
+            return ApiResponse::error(__('embed_form.status_locked_converted'), 422);
+        }
+
         $submission = $this->embedFormService->updateStatus($submission, $request->status);
 
         return ApiResponse::success(new EmbedFormSubmissionResource($submission), __('embed_form.status_updated'));
@@ -255,7 +267,7 @@ class EmbedFormController extends Controller
      * Convert submission to a Borrower.
      * POST /api/v1/common/embed-forms/submissions/{id}/convert-to-borrower
      */
-    public function convertToBorrower(Request $request, int $id): JsonResponse
+    public function convertToBorrower(ConvertEmbedFormSubmissionRequest $request, int $id): JsonResponse
     {
         $partnerId = auth()->user()?->partner_id ?? auth()->user()?->entity_id;
         $isHost = (bool) (auth()->user()?->is_host || auth()->user()?->partner?->is_host);
@@ -270,14 +282,29 @@ class EmbedFormController extends Controller
             return ApiResponse::forbidden();
         }
 
+        if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
+            return ApiResponse::error(__('embed_form.already_converted'), 422);
+        }
 
         try {
-            $borrower = $this->embedFormService->convertToBorrower($submission, $request->all());
-            return ApiResponse::success($borrower, __('embed_form.converted_to_borrower'));
+            $borrower = $this->embedFormService->convertToBorrower($submission, $request->validated());
+            return ApiResponse::success($borrower, __($borrower['is_existing_borrower'] ?? false ? 'embed_form.converted_to_existing_borrower' : 'embed_form.converted_to_borrower'));
+        } catch (ExistingBorrowerConfirmationRequired $e) {
+            // 409: the request is fine but needs the partner's go-ahead first.
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+                'code' => 'existing_borrower_confirmation_required',
+                'data' => ['existing_borrower' => $e->borrower],
+            ], 409);
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Throwable $e) {
-            return ApiResponse::error($e->getMessage() ?: __('embed_form.conversion_failed'), 500);
+            // The service has already logged the cause. The exception's own
+            // text is for developers, not for the toast it would end up in.
+            return ApiResponse::error(__('embed_form.conversion_failed'), 500);
         }
     }
 }

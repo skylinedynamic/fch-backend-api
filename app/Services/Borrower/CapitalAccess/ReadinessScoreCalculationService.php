@@ -55,7 +55,13 @@ class ReadinessScoreCalculationService
 
         $totalScore = (int) round($totalScore) > 100 ? 100 : (int) round($totalScore);
 
-        $band = $bands->first(fn($b) => $b->min_value === null || $totalScore >= (float) $b->min_value);
+        // The band with the highest minimum the total reaches (a band with no
+        // minimum is the floor) - by score, not by the order the bands are
+        // listed in, which the score settings let the host rearrange.
+        $band = $bands
+            ->filter(fn($b) => $b->min_value === null || $totalScore >= (float) $b->min_value)
+            ->sortByDesc(fn($b) => $b->min_value === null ? PHP_INT_MIN : (float) $b->min_value)
+            ->first();
 
         return [
             'total_score' => $totalScore,
@@ -131,7 +137,8 @@ class ReadinessScoreCalculationService
         if ($borrower->creditProfile) {
             $analysis = $borrower->creditProfile->open_accounts_analysis;
             if (is_array($analysis) && isset($analysis['utilization_ratio_grid']['revolving'])) {
-                $utilization = (float) $analysis['utilization_ratio_grid']['revolving'];
+                // To the bands' two decimals, so a ratio never falls between two bands.
+                $utilization = round((float) $analysis['utilization_ratio_grid']['revolving'], 2);
             }
         }
         $utilization = $utilization ?? 0;
@@ -157,7 +164,9 @@ class ReadinessScoreCalculationService
     private function getTimeInBusinessSubscore(Borrower $borrower, float $subScoreWeight, Collection $tiers): array
     {
         $months = $borrower->business_start_date
-            ? Carbon::parse($borrower->business_start_date)->diffInMonths()
+            // Completed months: the tiers are whole-month bands, and Carbon's
+            // fractional months fall between them (23.5 matches neither 12-23 nor 24-35).
+            ? floor(Carbon::parse($borrower->business_start_date)->diffInMonths())
             : 0;
 
         $value = 0;
@@ -186,7 +195,9 @@ class ReadinessScoreCalculationService
         $personalIncome = $borrower->annual_personal_income !== null ? (float) $borrower->annual_personal_income : 0;
 
         $months = $borrower->business_start_date
-            ? Carbon::parse($borrower->business_start_date)->diffInMonths()
+            // Completed months: the tiers are whole-month bands, and Carbon's
+            // fractional months fall between them (23.5 matches neither 12-23 nor 24-35).
+            ? floor(Carbon::parse($borrower->business_start_date)->diffInMonths())
             : 0;
 
         $exceptionRevenue = 0.0;
@@ -386,7 +397,7 @@ class ReadinessScoreCalculationService
 
         $accountAges = $allAccounts->map(
             fn($a) =>
-            $a->account_open_date ? Carbon::parse($a->account_open_date)->diffInMonths() : 0
+            $a->account_open_date ? floor(Carbon::parse($a->account_open_date)->diffInMonths()) : 0
         );
 
         $value = 0;

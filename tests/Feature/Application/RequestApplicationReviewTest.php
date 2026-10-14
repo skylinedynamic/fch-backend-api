@@ -1,0 +1,245 @@
+<?php
+
+namespace Tests\Feature\Application;
+
+use App\Http\Controllers\Api\V1\FCH\Common\Application\RequestApplicationController;
+use App\Models\Borrower\DownloadHistory;
+use App\Models\Borrower\FundingApplication;
+use App\Models\Borrower\PreQualificationRequest;
+use App\Models\Partner\Partner;
+use App\Models\User\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\Support\InteractsWithPortalUsers;
+use Tests\TestCase;
+
+/**
+ * The partner portal's Intake & Review: /common/request-application/* - the
+ * pre-qualification and funding application queues, their details, status
+ * changes, audit history and downloads. A partner (and its staff, user_type
+ * Partner) works its own book (partner_id); the host's team works every
+ * partner's. The borrower portal also opens a borrower's own application
+ * through funding-application/{id}.
+ */
+#[CoversClass(RequestApplicationController::class)]
+class RequestApplicationReviewTest extends TestCase
+{
+    use RefreshDatabase;
+    use InteractsWithPortalUsers;
+
+    private Partner $host;
+    private Partner $partner;
+    private Partner $otherPartner;
+    private User $partnerAdmin;
+    private User $borrowerUser;
+    private int $myApplicationId;
+    private int $theirApplicationId;
+    private int $myPreQualId;
+    private int $theirPreQualId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Mail::fake();
+        Storage::fake('public');
+        $this->host = $this->makeHostPartner();
+        $this->partner = $this->makeCertifiedPartner();
+        $this->otherPartner = $this->makeCertifiedPartner();
+        $this->partnerAdmin = $this->makePartnerAdmin($this->partner);
+        $this->borrowerUser = $this->makeBorrowerUser($this->partner);
+
+        $theirBorrower = $this->makeBorrower($this->otherPartner);
+        $this->myApplicationId = $this->applicationFor($this->borrowerUser->entity_id, $this->partner->id);
+        $this->theirApplicationId = $this->applicationFor($theirBorrower->id, $this->otherPartner->id);
+        $this->myPreQualId = $this->preQualFor($this->borrowerUser->entity_id, $this->partner->id);
+        $this->theirPreQualId = $this->preQualFor($theirBorrower->id, $this->otherPartner->id);
+    }
+
+    private function applicationFor(int $borrowerId, int $partnerId): int
+    {
+        return DB::table('funding_applications')->insertGetId([
+            'application_number' => 'FUND-' . uniqid(),
+            'borrower_id' => $borrowerId,
+            'partner_id' => $partnerId,
+            'status' => FundingApplication::SUBMITTED,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function preQualFor(int $borrowerId, int $partnerId): int
+    {
+        return DB::table('pre_qualification_requests')->insertGetId([
+            'borrower_id' => $borrowerId,
+            'partner_id' => $partnerId,
+            'status' => PreQualificationRequest::PENDING,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function url(string $path): string
+    {
+        return "/api/v1/common/request-application/{$path}";
+    }
+
+    #[Test]
+    public function the_queues_hold_my_partners_book_and_the_host_sees_every_book(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+        $this->assertSame([$this->myApplicationId], collect($this->postJson($this->url('funding-application'))->assertOk()->json('data'))->pluck('id')->all());
+        $this->assertSame([$this->myPreQualId], collect($this->postJson($this->url('pre-qualification'))->assertOk()->json('data'))->pluck('id')->all());
+
+        $this->actingAsUser($this->makePartnerAdmin($this->host));
+        $this->assertCount(2, $this->postJson($this->url('funding-application'))->assertOk()->json('data'));
+        $this->assertCount(2, $this->postJson($this->url('pre-qualification'))->assertOk()->json('data'));
+    }
+
+    #[Test]
+    public function the_card_summaries_load(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url('funding-application/card-summary'))->assertOk();
+        $this->getJson($this->url('pre-qualification/card-summary'))->assertOk();
+    }
+
+    #[Test]
+    public function a_partner_opens_its_own_application_and_pre_qualification_but_not_another_partners(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}"))->assertOk()->assertJsonPath('data.id', $this->myApplicationId);
+        $this->getJson($this->url("pre-qualification/{$this->myPreQualId}"))->assertOk();
+
+        $this->getJson($this->url("funding-application/{$this->theirApplicationId}"))->assertJsonPath('status', false)->assertJsonMissingPath('data.id');
+        $this->getJson($this->url("pre-qualification/{$this->theirPreQualId}"))->assertJsonPath('status', false)->assertJsonMissingPath('data.id');
+    }
+
+    #[Test]
+    public function a_borrower_opens_their_own_application_from_the_borrower_portal(): void
+    {
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->getJson($this->url("funding-application/{$this->myApplicationId}"))->assertOk()->assertJsonPath('data.id', $this->myApplicationId);
+    }
+
+    /**
+     * Defect: the lookup was scoped only for user_type Partner, and this route
+     * is open to the borrower portal - so a borrower could open any funding
+     * application on the platform by id, co-borrowers' details included.
+     */
+    #[Test]
+    public function a_borrower_cannot_open_anyone_elses_application(): void
+    {
+        $this->actingAsUser($this->borrowerUser);
+
+        $this->getJson($this->url("funding-application/{$this->theirApplicationId}"))
+            ->assertJsonPath('status', false)
+            ->assertJsonMissingPath('data.id');
+    }
+
+    #[Test]
+    public function a_partner_moves_its_own_applications_through_review(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('pre-qualification/status-update'), [
+            'id' => $this->myPreQualId,
+            'status' => PreQualificationRequest::IN_REVIEW,
+            'status_note' => 'Looking at it',
+        ])->assertOk();
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->myApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+        ])->assertOk();
+
+        $this->assertSame(PreQualificationRequest::IN_REVIEW, DB::table('pre_qualification_requests')->where('id', $this->myPreQualId)->value('status'));
+        $this->assertSame(FundingApplication::UNDERWRITING_REVIEW, DB::table('funding_applications')->where('id', $this->myApplicationId)->value('status'));
+    }
+
+    /**
+     * Defect: both status updates looked the record up by id alone, so any
+     * partner could move another partner's applications - funded included,
+     * which also books the commission.
+     */
+    #[Test]
+    public function a_partner_cannot_change_another_partners_statuses(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('pre-qualification/status-update'), [
+            'id' => $this->theirPreQualId,
+            'status' => PreQualificationRequest::DECLINED,
+        ])->assertJsonPath('status', false);
+        $this->postJson($this->url('funding-application/status-update'), [
+            'funding_application_id' => $this->theirApplicationId,
+            'status' => FundingApplication::UNDERWRITING_REVIEW,
+        ])->assertJsonPath('status', false);
+
+        $this->assertSame(PreQualificationRequest::PENDING, DB::table('pre_qualification_requests')->where('id', $this->theirPreQualId)->value('status'));
+        $this->assertSame(FundingApplication::SUBMITTED, DB::table('funding_applications')->where('id', $this->theirApplicationId)->value('status'));
+    }
+
+    #[Test]
+    public function a_status_must_be_a_known_one(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url('pre-qualification/status-update'), ['id' => $this->myPreQualId, 'status' => 'Vibes'])->assertStatus(422);
+        $this->postJson($this->url('funding-application/status-update'), ['funding_application_id' => $this->myApplicationId, 'status' => 'Vibes'])->assertStatus(422);
+    }
+
+    #[Test]
+    public function the_audit_history_is_my_own_applications_only(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url("funding-application/{$this->myApplicationId}/audit-history"))->assertOk();
+        $this->postJson($this->url("funding-application/{$this->theirApplicationId}/audit-history"))
+            ->assertJsonPath('status', false)
+            ->assertJsonMissingPath('data.0');
+    }
+
+    /**
+     * Defect: a stored download (the generated application PDF, SSNs and all)
+     * was fetched by its history id alone.
+     */
+    #[Test]
+    public function a_stored_download_is_fetched_only_for_my_own_application(): void
+    {
+        Storage::disk('public')->put('funding-application/mine.pdf', '%PDF mine');
+        Storage::disk('public')->put('funding-application/theirs.pdf', '%PDF theirs');
+        $mine = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->myApplicationId, 'details' => ['file_path' => 'funding-application/mine.pdf']]);
+        $theirs = DownloadHistory::create(['file_type' => 'pdf', 'sha256_hash' => str_repeat('a', 64), 'downloaded_at' => now(), 'funding_application_id' => $this->theirApplicationId, 'details' => ['file_path' => 'funding-application/theirs.pdf']]);
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->get($this->url("download-history/{$mine->id}/download"))->assertOk();
+        $response = $this->getJson($this->url("download-history/{$theirs->id}/download"));
+
+        $this->assertNotSame(200, $response->status());
+        $this->assertStringNotContainsString('%PDF theirs', (string) $response->getContent());
+    }
+
+    #[Test]
+    public function only_the_host_runs_the_ai_evaluation(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->postJson($this->url("pre-qualification/{$this->myPreQualId}/run-ai"))->assertForbidden();
+    }
+
+    #[Test]
+    public function the_application_pdf_downloads_for_my_own_application_only(): void
+    {
+        $this->actingAsUser($this->partnerAdmin);
+
+        $this->get($this->url("funding-application/{$this->myApplicationId}/download-application"))->assertOk();
+        $this->getJson($this->url("funding-application/{$this->theirApplicationId}/download-application"))->assertJsonPath('status', false);
+    }
+}

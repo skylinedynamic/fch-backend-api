@@ -7,6 +7,7 @@ use App\Models\Borrower\BorrowerDocType;
 use App\Models\EmbedForm\EmbedFormConfig;
 use App\Models\User\User;
 use App\Helpers\ApiResponse;
+use App\Rules\EmbedFormApplicantEmail;
 use App\Rules\UsPhoneNumber;
 use App\Services\FCH\Common\EmbedForm\EmbedFormService;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -29,6 +30,9 @@ use App\Rules\UsPostalCode;
  */
 class SubmitEmbedFormRequest extends BaseApiRequest
 {
+    private ?EmbedFormConfig $embedFormConfig = null;
+    private bool $embedFormConfigResolved = false;
+
     /**
      * Gate the submission on the partner's "Allowed Domains" list.
      *
@@ -42,10 +46,13 @@ class SubmitEmbedFormRequest extends BaseApiRequest
     {
         $config = $this->embedFormConfig();
 
-        // No config means the key is unknown or inactive; the controller answers
-        // that with a 404, and it is not this method's job to pre-empt it.
+        // No config means the key is unknown or inactive. Answered here rather
+        // than in the controller, which only runs after validation - by then
+        // the caller has been handed a 422 naming every field of the form.
         if (!$config) {
-            return true;
+            throw new HttpResponseException(
+                ApiResponse::notFound(__('embed_form.form_not_found_or_inactive'))
+            );
         }
 
         return app(EmbedFormService::class)->isOriginAllowed($config, $this);
@@ -63,18 +70,18 @@ class SubmitEmbedFormRequest extends BaseApiRequest
      */
     protected function embedFormConfig(): ?EmbedFormConfig
     {
-        static $config;
-        static $resolved = false;
-
-        if (!$resolved) {
-            $config = EmbedFormConfig::query()
+        // Held on the request, not in a static: a static outlives the request
+        // in any long-running worker, and the next caller would be answered
+        // with the previous caller's form - or its "not found".
+        if (!$this->embedFormConfigResolved) {
+            $this->embedFormConfig = EmbedFormConfig::query()
                 ->where('public_key', (string) $this->route('key'))
                 ->where('is_active', true)
                 ->first();
-            $resolved = true;
+            $this->embedFormConfigResolved = true;
         }
 
-        return $config;
+        return $this->embedFormConfig;
     }
 
     /**
@@ -161,7 +168,13 @@ class SubmitEmbedFormRequest extends BaseApiRequest
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                // Free, or already a Borrower; never a Partner/Employee/User.
+                new EmbedFormApplicantEmail(),
+            ],
             'phone' => ['required', 'string', 'max:255', new UsPhoneNumber()],
             // An applicant must be an adult, and cannot be born in the future.
             'date_of_birth' => [

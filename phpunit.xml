@@ -49,6 +49,9 @@
         <env name="MAIL_SEND_GAP_MS" value="0"/>
         <env name="MAIL_SEND_RETRY_DELAYS_MS" value="0,0,0"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Without this a developer's .env (BROADCAST_CONNECTION=reverb) makes
+             every in-app notification try to reach a Reverb server on :8080. -->
+        <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

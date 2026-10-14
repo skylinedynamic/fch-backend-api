@@ -70,6 +70,8 @@ class BorrowerController extends Controller
                 __('borrower.created'),
                 201
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Exception $e) {
             return ApiResponse::serverError($e->getMessage());
         }
@@ -278,6 +280,8 @@ class BorrowerController extends Controller
             $data = $this->borrowerService->getBorrowerProfileStats($borrowerId);
 
             return ApiResponse::success($data, __('borrower.stats_retrieved') ?? 'Stats retrieved successfully');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('borrower.not_found'));
         } catch (\Throwable $e) {
             return ApiResponse::serverError(__('borrower.stats_retrieved_failed') ?? 'Failed to retrieve stats', 500);
         }
@@ -291,6 +295,8 @@ class BorrowerController extends Controller
         try {
             $documents = $this->borrowerService->getBorrowerDocuments((int) $borrowerId);
             return ApiResponse::success($documents, __('borrower.documents_fetched_successfully'));
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::notFound(__('borrower.not_found'));
         } catch (\Exception $e) {
             return ApiResponse::serverError(__('borrower.documents_fetched_failed'));
         }
@@ -304,7 +310,7 @@ class BorrowerController extends Controller
 
         try {
             // Note: Route parameter is named {borrowerId}, but for download it likely refers to the Document ID.
-            $document = BorrowerDocument::where('id', $documentId)->first();
+            $document = BorrowerDocument::visibleTo(auth()->user())->where('id', $documentId)->first();
             if (!$document) {
                 return ApiResponse::notFound(__('borrower.document_not_found'));
             }
@@ -325,7 +331,7 @@ class BorrowerController extends Controller
             }
 
             // Get the full path to the file
-            $filePath = storage_path('app/public/' . $relativePath);
+            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
 
             // Check if file exists
             if (!file_exists($filePath)) {
@@ -442,7 +448,7 @@ class BorrowerController extends Controller
                 $pdfContent = null;
                 if (str_contains($creditProfile->pdf_url, '/storage/')) {
                     $relativePath = substr($creditProfile->pdf_url, strpos($creditProfile->pdf_url, '/storage/') + strlen('/storage/'));
-                    $filePath = storage_path('app/public/' . $relativePath);
+                    $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($relativePath);
                     if (file_exists($filePath)) {
                         $pdfContent = file_get_contents($filePath);
                     }
@@ -507,21 +513,23 @@ class BorrowerController extends Controller
      */
     public function parseCreditProfile(Request $request)
     {
-        try {
-            Log::info('parseCreditProfile start', [
-                'borrower_id_raw' => $request->input('borrower_id'),
-                'borrower_id_cast' => (int) $request->input('borrower_id'),
-                'has_pdf' => $request->hasFile('pdf'),
-                'all_inputs' => $request->all()
-            ]);
+        // Validated outside the try below, whose catch-all would turn a
+        // validation failure into a 500.
+        $request->validate([
+            'borrower_id' => 'required|integer|exists:borrowers,id',
+            'pdf' => 'required|file|mimes:pdf|max:15360', // max 15MB
+        ]);
 
-            $request->validate([
-                'borrower_id' => 'required|integer|exists:borrowers,id',
-                'pdf' => 'required|file|mimes:pdf|max:15360', // max 15MB
+        try {
+            // A consumer report is FCRA material: log that a parse happened,
+            // never what the report says.
+            Log::info('parseCreditProfile start', [
+                'borrower_id' => (int) $request->input('borrower_id'),
+                'has_pdf' => $request->hasFile('pdf'),
             ]);
 
             $borrowerId = (int) $request->input('borrower_id');
-            $borrower = Borrower::find($borrowerId);
+            $borrower = Borrower::visibleTo(auth()->user())->find($borrowerId);
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
             }
@@ -540,7 +548,6 @@ class BorrowerController extends Controller
 
             Log::info('parseCreditProfile: raw PDF text extracted', [
                 'text_length' => strlen($text),
-                'text_preview' => substr($text, 0, 5000),
                 'text_lines_count' => count(explode("\n", $text)),
             ]);
 
@@ -571,8 +578,6 @@ class BorrowerController extends Controller
                 'trade_accounts_count' => count($extractedData['trade_accounts'] ?? []),
                 'addresses_count' => count($extractedData['addresses'] ?? []),
                 'inquiries_count' => count($extractedData['inquiries'] ?? []),
-                'personal_info' => $extractedData['personal_info'] ?? [],
-                'fico_score' => $extractedData['metrics']['fico_score'] ?? null,
             ]);
 
             // Store PDF in public storage under borrowers/{borrower_id}
@@ -596,7 +601,7 @@ class BorrowerController extends Controller
             // Read PDF content as base64 for immediate frontend display
             $pdfContent = null;
             $storedPath = "borrowers/{$borrowerId}/{$fileName}";
-            $filePath = storage_path('app/public/' . $storedPath);
+            $filePath = \Illuminate\Support\Facades\Storage::disk('public')->path($storedPath);
             if (file_exists($filePath)) {
                 $pdfContent = base64_encode(file_get_contents($filePath));
             }
@@ -623,22 +628,24 @@ class BorrowerController extends Controller
      */
     public function saveCreditProfile(Request $request)
     {
-        try {
-            $request->validate([
-                'borrower_id' => 'required|integer|exists:borrowers,id',
-                'metrics' => 'nullable|array',
-                'personal_info' => 'nullable|array',
-                'addresses' => 'nullable|array',
-                'trade_accounts' => 'nullable|array',
-                'inquiries' => 'nullable|array',
-                'pdf_url' => 'nullable|string',
-                'document_id' => 'nullable|integer|exists:borrower_documents,id',
-                // Optional: ties this pull to the consent that authorised it.
-                'isoftpull_transaction_id' => 'nullable|string|max:191',
-            ]);
+        // Validated outside the try below, whose catch-all would turn a
+        // validation failure into a 500.
+        $request->validate([
+            'borrower_id' => 'required|integer|exists:borrowers,id',
+            'metrics' => 'nullable|array',
+            'personal_info' => 'nullable|array',
+            'addresses' => 'nullable|array',
+            'trade_accounts' => 'nullable|array',
+            'inquiries' => 'nullable|array',
+            'pdf_url' => 'nullable|string',
+            'document_id' => 'nullable|integer|exists:borrower_documents,id',
+            // Optional: ties this pull to the consent that authorised it.
+            'isoftpull_transaction_id' => 'nullable|string|max:191',
+        ]);
 
+        try {
             $borrowerId = (int) $request->input('borrower_id');
-            $borrower = \App\Models\Borrower\Borrower::find($borrowerId);
+            $borrower = \App\Models\Borrower\Borrower::visibleTo(auth()->user())->find($borrowerId);
             if (!$borrower) {
                 return ApiResponse::notFound(__('borrower.not_found'));
             }
@@ -651,6 +658,11 @@ class BorrowerController extends Controller
             $pdfUrl = $request->input('pdf_url');
             $documentId = $request->input('document_id');
 
+            // One transaction for the borrower's own columns and the profile
+            // lines: a failure part-way must not leave the borrower claiming a
+            // credit profile whose lines were never written.
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
             // Update primary columns for searchability/filtering
             $borrower->fico_score = isset($metrics['fico_score']) ? (int)$metrics['fico_score'] : null;
             $borrower->paydex_score = isset($metrics['paydex_score']) ? (int)$metrics['paydex_score'] : null;
@@ -661,8 +673,6 @@ class BorrowerController extends Controller
             if ($borrower->user) {
                 $borrower->user->update(['is_refresh' => true]);
             }
-
-            \Illuminate\Support\Facades\DB::beginTransaction();
 
             // 2. Create or update the main BorrowerCreditProfile
             $allAccounts = $metrics['all_accounts_analysis'] ?? [];

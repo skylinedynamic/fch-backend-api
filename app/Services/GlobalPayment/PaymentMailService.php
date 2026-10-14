@@ -4,6 +4,7 @@ namespace App\Services\GlobalPayment;
 
 use App\Mail\Payment\CardReauthorizationRequiredMail;
 use App\Mail\Payment\PaymentApprovedMail;
+use App\Mail\Payment\PaymentFailedMail;
 use App\Mail\Payment\PaymentRejectedMail;
 use App\Mail\Payment\PaymentSubmittedMail;
 use App\Mail\Payment\PaymentSuccessMail;
@@ -89,6 +90,60 @@ class PaymentMailService
         } catch (\Exception $e) {
             Log::error(__('payment.log_mail_send_error', [
                 'mail' => 'CardReauthorizationRequiredMail',
+                'error' => $e->getMessage(),
+            ]));
+        }
+    }
+
+    /**
+     * Tell a payer the automatic payment for an invoice did not go through -
+     * the card was declined, or there was no saved card to charge (findings
+     * O46). Bell and email, from the payer's own tenant, with a link to the
+     * page where they can update their method or pay. The caller sends it once
+     * per invoice.
+     */
+    public function sendPaymentFailed(Invoice $invoice, bool $noSavedCard = false): void
+    {
+        $payer = $invoice->entity;
+
+        if (!$payer) {
+            return;
+        }
+
+        $payerEmail = $payer->email ?? null;
+
+        if (!$payerEmail) {
+            // Still told in the bell; only the email has nowhere to go.
+            Log::warning('[PaymentMail] Automatic payment failed but the payer has no email', [
+                'invoice_id' => $invoice->id,
+            ]);
+        }
+
+        try {
+            $sendingPartnerId = $this->resolveSendingPartnerId($payer);
+
+            $mail = $payerEmail ? new PaymentFailedMail([
+                'amount' => $invoice->payment_amount,
+                'currency' => $invoice->currency ?? 'USD',
+                'invoice_id' => $invoice->invoice_id ?: $invoice->id,
+                'transaction_id' => null,
+                'description' => $this->resolveDescription($invoice, __('payment.program_payment')),
+                'date' => now(),
+                'no_saved_card' => $noSavedCard,
+                'portal_url' => $this->resolveBillingUrl($payer, $sendingPartnerId),
+                'user_name' => $payer->full_name ?? $payer->company_name ?? __('payment.valued_customer'),
+            ], $sendingPartnerId) : null;
+
+            // Each portal has its own billing page, hence a type per audience.
+            $this->notifier()->send(
+                $payer instanceof Borrower ? 'borrower.payment.failed' : 'partner.payment.failed',
+                $payer,
+                ['invoice' => $invoice->invoice_id ?: $invoice->id],
+                mail: $mail?->to($payerEmail)
+            );
+        } catch (\Exception $e) {
+            Log::error(__('payment.log_mail_send_error', [
+                'mail' => 'PaymentFailedMail',
                 'error' => $e->getMessage(),
             ]));
         }

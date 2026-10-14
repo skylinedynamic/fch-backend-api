@@ -20,6 +20,49 @@ use Illuminate\Support\Facades\Log;
 class BorrowerBillingService
 {
     /**
+     * The default payment method to show: the recorded one, or Stripe for a
+     * card saved before defaults were recorded. None once it was removed.
+     */
+    private function shownDefaultProvider(Borrower $borrower): ?string
+    {
+        return $borrower->default_payment_method
+            ?? ($borrower->stripe_customer_id_raw ? PaymentProvider::STRIPE : null);
+    }
+
+    /**
+     * Take the borrower's default payment method off. Nothing is auto-charged
+     * until they set one again - the charge job needs a saved customer. Only
+     * the default goes: payments stay, and nothing is removed at Stripe (the
+     * customer is found again by email when they next pay by card).
+     */
+    public function removeDefaultPaymentMethod()
+    {
+        $user = Auth::user();
+
+        if (!$user->entity_id || $user->entity_type !== Borrower::class) {
+            return ApiResponse::error(__('borrower.borrower_not_found'), 404);
+        }
+
+        $borrower = Borrower::find($user->entity_id);
+        if (!$borrower) {
+            return ApiResponse::error(__('borrower.borrower_not_found'), 404);
+        }
+
+        $borrower->update([
+            'default_payment_method' => null,
+            'stripe_customer_id' => null,
+        ]);
+
+        Log::info("Borrower ID {$borrower->id} removed their default payment method");
+
+        return ApiResponse::success([
+            'default_payment_method' => null,
+            'stripe_card_info' => $borrower->fresh()->stripe_card_info,
+            'payment_provider' => null,
+        ], __('borrower.default_payment_method_removed'));
+    }
+
+    /**
      * Get billing details for authenticated borrower.
      */
     public function getBillingDetails()
@@ -105,11 +148,13 @@ class BorrowerBillingService
         }
 
         // Get Default Payment Method details & logo from PaymentProvider model
-        $defaultProviderName = $borrower->default_payment_method ?? PaymentProvider::STRIPE;
-        $paymentProvider = PaymentProvider::select(['name', 'display_name', 'logo'])
-            ->where('name', $defaultProviderName)
-            ->orWhere('display_name', $defaultProviderName)
-            ->first();
+        $defaultProviderName = $this->shownDefaultProvider($borrower);
+        $paymentProvider = $defaultProviderName
+            ? PaymentProvider::select(['name', 'display_name', 'logo'])
+                ->where('name', $defaultProviderName)
+                ->orWhere('display_name', $defaultProviderName)
+                ->first()
+            : null;
 
         $providerLogoUrl = null;
         if ($paymentProvider && $paymentProvider->logo) {
@@ -123,12 +168,12 @@ class BorrowerBillingService
                 'email' => $borrower->email,
                 'phone_number' => $borrower->phone_number,
                 'stripe_card_info' => $borrower->stripe_card_info,
-                'default_payment_method' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $borrower->default_payment_method ?? PaymentProvider::STRIPE,
+                'default_payment_method' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $defaultProviderName,
                 'partner_payment_for_me' => (bool) $borrower->partner_payment_for_me,
-                'payment_provider' => [
-                    'name' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $borrower->default_payment_method ?? PaymentProvider::STRIPE,
+                'payment_provider' => $defaultProviderName ? [
+                    'name' => $paymentProvider?->display_name ?? $paymentProvider?->name ?? $defaultProviderName,
                     'logo' => $providerLogoUrl,
-                ],
+                ] : null,
             ],
             'subscription' => $subscription ? [
                 'id' => $subscription->id,
@@ -223,6 +268,11 @@ class BorrowerBillingService
             return ApiResponse::validationError(['provider_name' => [__('borrower.provider_name_required')]]);
         }
 
+        // Only a gateway the borrower's partner has switched on can be the default.
+        if (!PaymentProvider::isOfferedBy($providerName, $borrower->partner_id ?? Partner::host()?->id)) {
+            return ApiResponse::validationError(['provider_name' => [__('payment_method.provider_not_offered')]]);
+        }
+
         $isStripe = strtolower(trim($providerName)) === strtolower(PaymentProvider::STRIPE) || $providerName === PaymentProvider::STRIPE;
 
         if ($isStripe) {
@@ -250,6 +300,10 @@ class BorrowerBillingService
                     $cardDetails = $customerService->fetchCardDetails($paymentMethodId);
                 } catch (Exception $e) {
                     Log::error('[UpdateDefaultPaymentMethod] Stripe Error: ' . $e->getMessage());
+
+                    // Leave the saved card as it is rather than overwriting it
+                    // with nothing.
+                    return ApiResponse::error(__('borrower.payment_method_update_failed', ['error' => $e->getMessage()]), 422);
                 }
             } else {
                 $stripeCustId = is_array($existingCustomerData)

@@ -42,9 +42,12 @@ jobs:
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
           php artisan passport:keys --force
 
-      # Run as two steps so the log shows plainly that both suites ran.
+      # Run as separate steps so the log shows plainly that every suite ran.
       - name: Run Unit Tests
         run: php artisan test --testsuite=Unit
+
+      - name: Run Integration Tests
+        run: php artisan test --testsuite=Integration
 
       - name: Run Feature Tests
         run: php artisan test --testsuite=Feature
@@ -130,6 +133,8 @@ jobs:
 
             php artisan migrate --force
             php artisan queue:restart || true
+            # Horizon exits and Supervisor restarts it on the new code; a no-op until Horizon runs here.
+            php artisan horizon:terminate || true
 
             echo "Ensuring final directory permissions..."
             sudo chown -R www-data:www-data /var/www/html/fch-api

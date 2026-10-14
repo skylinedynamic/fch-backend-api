@@ -27,6 +27,7 @@ return [
     'navigation' => [
 
         'wlp_support' => [
+            'dashboard' => ['label' => 'Dashboard', 'path' => '/'],
             'leads' => ['label' => 'Leads', 'path' => '/leads'],
             'clients' => ['label' => 'Clients', 'path' => '/clients'],
             // The agent's map lists '/pre-aualification' (a typo; the portal has
@@ -41,6 +42,7 @@ return [
             'upcoming_billing' => ['label' => 'Upcoming Billing', 'path' => '/billing'],
             'appointments' => ['label' => 'Appointments', 'path' => '/appointments'],
             'task_reminders' => ['label' => 'Task & Reminders', 'path' => '/reminders'],
+            'notifications' => ['label' => 'Notification', 'path' => '/notifications'],
             'resources' => ['label' => 'Resources', 'path' => '/resources'],
             'employees' => ['label' => 'Employees', 'path' => '/employees'],
             'users' => ['label' => 'Users', 'path' => '/users'],
@@ -49,12 +51,17 @@ return [
             'embedded_form_loan_applications' => ['label' => 'Embedded Form > Loan Applications', 'path' => '/embed-form/loan-applications'],
             // Individual Settings tabs (Email Configuration, Test Mail, ...) have
             // no routes of their own: they all resolve to 'settings'.
-            'settings' => ['label' => 'Settings', 'path' => '/settings'],
+            'settings' => ['label' => 'Settings', 'path' => '/admin/settings'],
+            // The profile dropdown in the header.
+            'my_subscription' => ['label' => 'My Subscription', 'path' => '/my-subscription'],
+            'profile' => ['label' => 'Profile', 'path' => '/profile'],
+            'contacts' => ['label' => 'Contacts', 'path' => '/contacts'],
         ],
 
         'borrower_support' => [
+            'dashboard' => ['label' => 'Dashboard', 'path' => '/'],
             'pre_qualification' => ['label' => 'Pre-Qualification', 'path' => '/pre-qualification'],
-            'funding_request' => ['label' => 'Funding Request', 'path' => '/funding-request'],
+            'funding_request' => ['label' => 'Funding Request', 'path' => '/funding-requests'],
             'my_applications' => ['label' => 'My Applications', 'path' => '/my-applications'],
             'capital_access' => ['label' => 'Capital Access', 'path' => '/capital-access'],
             'invoices' => ['label' => 'Invoices', 'path' => '/invoices'],
@@ -68,6 +75,8 @@ return [
             'credit_builder_guide' => ['label' => 'Credit Builder > Step-By-Step Guide', 'path' => '/credit-builder/guide'],
             'credit_builder_credit_accounts' => ['label' => 'Credit Builder > Credit Accounts', 'path' => '/credit-builder/credit-accounts'],
             'profile' => ['label' => 'Profile', 'path' => '/profile'],
+            'change_password' => ['label' => 'Change Password', 'path' => '/change-password'],
+            'notifications' => ['label' => 'Notification', 'path' => '/notifications'],
         ],
 
     ],

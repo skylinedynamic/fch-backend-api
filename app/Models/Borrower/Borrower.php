@@ -140,13 +140,31 @@ class Borrower extends Model
     }
 
     /**
-     * Legacy mutator: callers that only ever send the last 4 digits (the
-     * borrower's own self-service profile form still does) still work —
+     * Whether the full nine-digit SSN is on file - not nothing, and not just
+     * the last four digits rows from before the full SSN was collected hold.
+     */
+    public function hasFullSsn(): bool
+    {
+        return strlen((string) $this->ssn) === \App\Rules\Ssn::digits();
+    }
+
+    /**
+     * Legacy mutator: callers that only ever send the last 4 digits (the admin
+     * borrower form, last-4 change requests, lead conversion) still work —
      * encrypted the same way, just without the leading 5 digits.
+     *
+     * Those callers send the last four back on every save, so the same last
+     * four as the SSN on file is no change: writing it would replace a full SSN
+     * with its last four digits.
      */
     public function setLast4SsnAttribute(?string $value): void
     {
         $digits = preg_replace('/\D/', '', (string) $value);
+
+        if ($digits !== '' && $digits === $this->last_4_ssn) {
+            return;
+        }
+
         $this->attributes['ssn_encrypted'] = $digits === ''
             ? null
             : \Illuminate\Support\Facades\Crypt::encryptString($digits);
@@ -297,6 +315,24 @@ class Borrower extends Model
     }
 
     /**
+     * Per-instance answers for the funding engine's borrower checks. The engine
+     * asks the same question once per lender per sequence, so without this one
+     * page load ran the same EXISTS query thousands of times.
+     */
+    private ?bool $hasAnyFundingApplicationCache = null;
+    private ?bool $hasAnyDocumentCache = null;
+
+    public function hasAnyFundingApplication(): bool
+    {
+        return $this->hasAnyFundingApplicationCache ??= FundingApplication::where('borrower_id', $this->id)->exists();
+    }
+
+    public function hasAnyDocument(): bool
+    {
+        return $this->hasAnyDocumentCache ??= BorrowerDocument::where('borrower_id', $this->id)->exists();
+    }
+
+    /**
      * Check if the borrower is deletable based on invoice status.
      */
     public function isDeletable(): bool
@@ -372,6 +408,33 @@ class Borrower extends Model
     public function creditProfileRequests()
     {
         return $this->hasOne(\App\Models\Borrower\CreditProfileRequest::class, 'borrower_id');
+    }
+
+    /**
+     * The borrowers a user may reach through the partner portal: the host's
+     * team sees every borrower, anyone else only their own partner's - by
+     * partner, not user_type, so a partner's staff are held to it too. A
+     * borrower reaches only their own record, and a user with no partner none.
+     */
+    public function scopeVisibleTo($query, ?\App\Models\User\User $user)
+    {
+        if (!$user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->entity_type === self::class) {
+            return $query->where($this->qualifyColumn('id'), $user->entity_id);
+        }
+
+        if (!$user->partner_id) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ((bool) $user->partner?->is_host) {
+            return $query;
+        }
+
+        return $query->where($this->qualifyColumn('partner_id'), $user->partner_id);
     }
 
     public function scopeSearch($query, ?string $search)

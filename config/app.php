@@ -146,7 +146,10 @@ return [
 
     'mail_to_doc' => env('MAIL_TO_DOC', 'docs@fourcornerfunding.com'),
     'per_user_price' => env('PER_USER_PRICE', 49.97),
-    'cron_notify_emails' => env('CRON_ERROR_NOTIFY_EMAILS', 'arafat@invento.com.bd,awladdeleo@gmail.com'),
+    // Who scheduler failures and health alerts go to. No built-in addresses: an
+    // environment without CRON_ERROR_NOTIFY_EMAILS sends none, rather than
+    // mailing named people about environments they may not run.
+    'cron_notify_emails' => env('CRON_ERROR_NOTIFY_EMAILS', ''),
 
     /*
      * Optional external heartbeat URL (e.g. Dead Man's Snitch, healthchecks.io).

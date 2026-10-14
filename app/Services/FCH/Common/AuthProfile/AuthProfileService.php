@@ -31,6 +31,9 @@ class AuthProfileService
             'password' => Hash::make($data['new_password']),
         ]);
 
+        // A new password ends every other session; this one stays signed in.
+        $user->revokeOtherTokens();
+
         // 📧 Send Password Changed Notification
         try {
             $partner = getConfigPartner();

@@ -53,7 +53,6 @@ class DemoRequestService
     {
         // ✅ Auto set creator
         $data['created_by'] = Auth::id();
-        $data['business_id'] = auth()->user()->business_id;
 
         // Optional: if assigned_to is given, auto-fill assigned_email / phone
         if (isset($data['assigned_to'])) {

@@ -25,6 +25,7 @@ return [
     'payment_method_id_exists' => 'The selected payment method ID is invalid.',
     'payment_token_required' => 'The payment token is required.',
     'payment_token_string' => 'The payment token must be a string.',
+    'raw_card_data_not_accepted' => 'Card details cannot be sent directly. Please pay with a supported card method.',
     'note_required' => 'The approval note is required.',
     'note_string' => 'The approval note must be a string.',
     'note_max' => 'The approval note cannot exceed 1000 characters.',

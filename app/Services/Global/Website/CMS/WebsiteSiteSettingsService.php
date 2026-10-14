@@ -34,7 +34,8 @@ class WebsiteSiteSettingsService
         'google_measurement_id',
         'facebook_pixel_id',
         'recaptcha_site_key',
-        'recaptcha_secret_key',
+        // Never recaptcha_secret_key: this list is served to anyone, and the
+        // secret must stay server-side.
     ];
 
     /**

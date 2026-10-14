@@ -21,6 +21,7 @@ return [
     'submission_not_found' => 'Submission not found.',
     'status_updated' => 'Status updated successfully.',
     'status_invalid' => 'That is not a valid submission status.',
+    'status_locked_converted' => 'A converted application cannot change status.',
     'date_range_invalid' => 'The end date must not be before the start date.',
     'submission_received' => 'Submission received.',
     'submission_success' => 'Your application has been submitted successfully. We will be in touch soon!',
@@ -28,8 +29,15 @@ return [
     // Conversion
     'converted_to_borrower' => 'Submission successfully converted to a Free Plan Borrower.',
     'conversion_failed' => 'Conversion failed.',
+    'already_converted' => 'This application has already been converted.',
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
+    'user_exists_email' => 'A user account with this email already exists.',
+    'email_belongs_to_staff' => 'This email already belongs to a :type account and cannot be converted to a borrower.',
+    'existing_borrower_confirmation_required' => 'A borrower with this email already exists. Confirm to create the funding application under that borrower.',
+    'borrower_other_partner' => 'A borrower with this email already exists under a different partner, so this submission cannot be converted.',
+    'converted_to_existing_borrower' => 'Funding application created for the existing borrower.',
+    'step_valid' => 'Step is valid.',
     'log_funding_application_failed' => 'Failed to create a funding application from embed form submission',
 
     // Attachments & Downloads
@@ -47,6 +55,7 @@ return [
     'last_name_required' => 'Last name is required.',
     'email_required' => 'Email address is required.',
     'email_invalid' => 'Please enter a valid email address.',
+    'email_already_registered' => 'This email address is already registered in our system.',
     'ssn_format' => 'SSN must be 9 digits, in the format XXX-XX-XXXX.',
     'honeypot_triggered' => 'Submission rejected.',
     'phone_required' => 'A phone number is required.',

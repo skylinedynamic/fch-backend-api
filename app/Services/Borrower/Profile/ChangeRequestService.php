@@ -44,17 +44,23 @@ class ChangeRequestService
         $oldValue = null;
         $entityId = $data['entity_id'] ?? null;
 
-        // Handle child table fields (e.g. BorrowerBankAccount)
-        if (isset($mapping['table']) && $entityId) {
+        // Handle child table fields (e.g. BorrowerBankAccount): the request
+        // must name one of this borrower's own rows, or approving it would
+        // change nothing - or the wrong row.
+        if (isset($mapping['table'])) {
             $tableName = $mapping['table'];
-            $childRecord = \Illuminate\Support\Facades\DB::table($tableName)
-                ->where('id', $entityId)
-                ->where('borrower_id', $borrower->id)
-                ->first();
+            $childRecord = $entityId
+                ? \Illuminate\Support\Facades\DB::table($tableName)
+                    ->where('id', $entityId)
+                    ->where('borrower_id', $borrower->id)
+                    ->first()
+                : null;
 
-            if ($childRecord) {
-                $oldValue = $childRecord->{$dbColumn};
+            if (!$childRecord) {
+                throw new \Exception(__('borrower.change_request_record_not_found'));
             }
+
+            $oldValue = $childRecord->{$dbColumn};
         } else {
             // Standard borrower table field — entity_id is the borrower's own id
             $entityId = $borrower->id;

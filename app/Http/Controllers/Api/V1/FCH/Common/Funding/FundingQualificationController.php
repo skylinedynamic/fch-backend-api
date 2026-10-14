@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Funding;
 use App\Http\Controllers\Controller;
 use App\Models\Borrower\Borrower;
 use App\Services\FCH\Common\Funding\FundingQualificationService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -54,6 +55,9 @@ class FundingQualificationController extends Controller
                 'status' => true,
                 'data' => $factors
             ]);
+        } catch (ModelNotFoundException $e) {
+            // An unknown funding id is a missing resource, not a server fault.
+            return response()->json(['status' => false, 'message' => 'Funding not found.'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
@@ -65,7 +69,8 @@ class FundingQualificationController extends Controller
     public function getClientReadinessFactors(Request $request, $borrowerId, $fundingId): JsonResponse
     {
         try {
-            $borrower = Borrower::find($borrowerId);
+            // Own partner's clients only (any for the host's team).
+            $borrower = Borrower::visibleTo($request->user())->find($borrowerId);
 
             if (!$borrower) {
                 return response()->json(['status' => false, 'message' => 'Borrower not found.'], 404);
@@ -97,6 +102,9 @@ class FundingQualificationController extends Controller
                 'status' => true,
                 'data' => $factors
             ]);
+        } catch (ModelNotFoundException $e) {
+            // An unknown funding id is a missing resource, not a server fault.
+            return response()->json(['status' => false, 'message' => 'Funding not found.'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,

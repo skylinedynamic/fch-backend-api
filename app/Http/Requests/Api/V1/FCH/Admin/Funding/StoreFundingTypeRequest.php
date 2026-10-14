@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Funding;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Rule;
 
 class StoreFundingTypeRequest extends BaseApiRequest
 {
@@ -22,7 +23,7 @@ class StoreFundingTypeRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:funding_types,name',
+            'name' => ['required', 'string', 'max:255', Rule::unique('funding_types', 'name')->whereNull('deleted_at')],
         ];
     }
 

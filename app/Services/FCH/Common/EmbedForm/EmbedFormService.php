@@ -3,6 +3,7 @@
 namespace App\Services\FCH\Common\EmbedForm;
 
 use App\Helpers\ApiResponse;
+use App\Models\User\User;
 use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\FundingApplication;
@@ -32,6 +33,69 @@ use Throwable;
 
 class EmbedFormService
 {
+    public const EMAIL_AVAILABLE = 'available';
+    public const EMAIL_BORROWER = 'borrower';
+    public const EMAIL_BLOCKED = 'blocked';
+
+    /**
+     * What an applicant's email already is in the system.
+     *
+     * available - nobody holds it.
+     * borrower  - held by a Borrower (the only existing owner that is allowed).
+     * blocked   - held by a Partner, Employee or plain User.
+     *
+     * @return array{status: string, borrower: ?Borrower, type: ?string}
+     */
+    public function classifyEmail(string $email): array
+    {
+        $email = trim($email);
+
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user) {
+            $isBorrower = $user->entity_type === Borrower::class || $user->user_type === User::BORROWER;
+
+            if (!$isBorrower) {
+                return [
+                    'status' => self::EMAIL_BLOCKED,
+                    'borrower' => null,
+                    'type' => $user->entity_name ?: ($user->user_type ?: User::USER),
+                ];
+            }
+
+            $borrower = $user->entity instanceof Borrower
+                ? $user->entity
+                : Borrower::query()->where('email', $email)->first();
+
+            return ['status' => self::EMAIL_BORROWER, 'borrower' => $borrower, 'type' => User::BORROWER];
+        }
+
+        $borrower = Borrower::query()->where('email', $email)->first();
+
+        return $borrower
+            ? ['status' => self::EMAIL_BORROWER, 'borrower' => $borrower, 'type' => User::BORROWER]
+            : ['status' => self::EMAIL_AVAILABLE, 'borrower' => null, 'type' => null];
+    }
+
+    /**
+     * What the partner is shown before agreeing to reuse an existing borrower.
+     */
+    public function existingBorrowerSummary(Borrower $borrower): array
+    {
+        return [
+            'id' => $borrower->id,
+            'name' => personName($borrower->first_name, null, $borrower->last_name),
+            'email' => $borrower->email,
+            'phone_number' => $borrower->phone_number,
+            'business_name' => $borrower->business_name,
+            'status' => $borrower->status,
+            'is_free_trail' => (bool) $borrower->is_free_trail,
+            'partner_name' => $borrower->partner?->company_name ?: $borrower->partner?->full_name,
+            'funding_applications_count' => FundingApplication::query()->where('borrower_id', $borrower->id)->count(),
+            'created_at' => $borrower->created_at?->toIso8601String(),
+        ];
+    }
+
     /**
      * Resolve an EmbedFormConfig by public key. Returns null if not found or inactive.
      */
@@ -696,8 +760,25 @@ class EmbedFormService
                 throw new \InvalidArgumentException(__('embed_form.email_required_conversion'));
             }
 
-            if (Borrower::where('email', $submission->email)->exists()) {
-                throw new \InvalidArgumentException(__('embed_form.borrower_exists_email'));
+            $match = $this->classifyEmail($submission->email);
+
+            // Partner / Employee / User: never convertible.
+            if ($match['status'] === self::EMAIL_BLOCKED) {
+                throw new \InvalidArgumentException(__('embed_form.email_belongs_to_staff', ['type' => $match['type']]));
+            }
+
+            $existingBorrower = $match['borrower'];
+
+            if ($existingBorrower) {
+                if ($submission->partner_id && $existingBorrower->partner_id
+                    && (int) $existingBorrower->partner_id !== (int) $submission->partner_id) {
+                    throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
+                }
+
+                // Nothing is created until the partner has seen who this is.
+                if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                    throw new \App\Support\EmbedForm\ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                }
             }
 
             $borrowerService = app(BorrowerService::class);
@@ -733,6 +814,27 @@ class EmbedFormService
                 'country' => $submission->country ?: 'United States',
                 'country_code' => 'US',
                 'last_4_ssn' => $ssnDecrypted ? substr($ssnDecrypted, -4) : null,
+
+                // What the applicant already told us about themselves and the
+                // business. Without these the borrower portal opens on a
+                // "Complete Your Profile" prompt asking for the same answers
+                // again. The option lists are the portal's own, so the values
+                // carry over as they are.
+                'date_of_birth' => $submission->date_of_birth,
+                'business_address' => $submission->business_address,
+                'business_country' => $submission->business_country,
+                'business_country_code' => $submission->business_country_code,
+                'business_city' => $submission->business_city,
+                'business_state' => $submission->business_state,
+                'business_postal_code' => $submission->business_postal_code,
+                'business_entity_type' => $submission->entity_type,
+                'business_industry_type' => $submission->industry_type,
+                'years_in_business' => $submission->years_in_business,
+                'number_of_employees' => $submission->number_of_employees,
+                'monthly_revenue' => $submission->monthly_revenue,
+                'annual_revenue' => $submission->annual_revenue,
+                'current_business_debt' => $submission->has_business_debt ? $submission->debt_balance : null,
+
                 'status' => Borrower::STATUS_ACTIVE,
                 'partner_id' => $submission->partner_id ?: (auth()->user()?->partner_id ?? null),
                 'plan_id' => null,
@@ -742,9 +844,15 @@ class EmbedFormService
                 'assign_id' => $data['salesperson_id'] ?? null,
             ];
 
-            $result = $borrowerService->store($borrowerData);
-            $borrower = $result['borrower'] ?? $result;
-            $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
+            if ($existingBorrower) {
+                // The borrower already exists: only the funding application is new.
+                $borrower = $existingBorrower;
+                $borrowerId = $existingBorrower->id;
+            } else {
+                $result = $borrowerService->store($borrowerData);
+                $borrower = $result['borrower'] ?? $result;
+                $borrowerId = is_object($borrower) ? $borrower->id : ($result['borrower_id'] ?? null);
+            }
 
             // The applicant already filled in a whole funding application on the
             // public form. Carrying it across means partner staff review a real
@@ -772,9 +880,14 @@ class EmbedFormService
                 'id' => $borrowerId,
                 'funding_application' => $fundingApplication,
                 'funding_application_id' => $fundingApplication?->id,
-                'is_free_trail' => true,
+                'is_existing_borrower' => (bool) $existingBorrower,
+                'is_free_trail' => $existingBorrower ? (bool) $existingBorrower->is_free_trail : true,
                 'free_trail_end_date' => null,
             ];
+        } catch (\App\Support\EmbedForm\ExistingBorrowerConfirmationRequired $e) {
+            // An expected pause for confirmation, not a failure: nothing was written.
+            DB::rollBack();
+            throw $e;
         } catch (Throwable $e) {
             DB::rollBack();
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
@@ -1012,7 +1125,7 @@ class EmbedFormService
     {
         $user = auth()->user();
         if (!$user) {
-            return ApiResponse::unauthenticated();
+            return ApiResponse::unauthorized();
         }
 
         $userPartnerId = $user->partner_id ?? $user->entity_id;
