@@ -47,6 +47,11 @@ class AppointmentController extends Controller
     public function show($id)
     {
         $appointment = Appointment::with(['scheduledBy', 'assignedFor.entity'])->findOrFail($id);
+
+        if (!$this->isParticipant($appointment)) {
+            return ApiResponse::forbidden();
+        }
+
         return ApiResponse::success(new AppointmentResource($appointment), __('appointment.retrieved'));
     }
 
@@ -57,6 +62,11 @@ class AppointmentController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
         $appointment = Appointment::findOrFail($id);
+
+        if (!$this->isParticipant($appointment)) {
+            return ApiResponse::forbidden();
+        }
+
         $updated = $this->appointmentService->update($appointment, $request->validated());
     
         return ApiResponse::success(new AppointmentResource($updated), __('appointment.updated_synced'));
@@ -69,6 +79,11 @@ class AppointmentController extends Controller
     {
         $this->checkWhiteLabelConfiguration();
         $appointment = Appointment::findOrFail($id);
+
+        if (!$this->isParticipant($appointment)) {
+            return ApiResponse::forbidden();
+        }
+
         $this->appointmentService->delete($appointment);
         return ApiResponse::success(null, __('appointment.deleted'));
     }
@@ -118,5 +133,19 @@ class AppointmentController extends Controller
     public function selectableUsers(Request $request)
     {
         return $this->appointmentService->getSelectableUsers($request->all());
+    }
+
+    /**
+     * The same rule the appointment list uses: only the person who scheduled
+     * it and the person it is with. Opening, changing or deleting one by id
+     * used to skip this, so anyone signed in could reach any appointment.
+     */
+    private function isParticipant(Appointment $appointment): bool
+    {
+        $userId = auth()->id();
+
+        return $userId !== null
+            && ((int) $appointment->scheduled_by === (int) $userId
+                || (int) $appointment->assigned_for === (int) $userId);
     }
 }

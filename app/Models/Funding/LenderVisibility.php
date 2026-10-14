@@ -3,6 +3,7 @@
 namespace App\Models\Funding;
 
 use App\Support\Locations;
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocument;
 use App\Models\Borrower\FundingApplication;
 use App\Models\Funding\FundingSequencing;
@@ -215,15 +216,21 @@ class LenderVisibility extends Model
 
         $conditional = false;
         
+        // Borrower-only facts: memoized on the Borrower instance, since this runs
+        // once per lender for every sequence on the funding page.
         if ($fundingSequencing->require_completed_application) {
-            $hasApp = FundingApplication::where('borrower_id', $borrower->id)->exists();
+            $hasApp = $borrower instanceof Borrower
+                ? $borrower->hasAnyFundingApplication()
+                : FundingApplication::where('borrower_id', $borrower->id)->exists();
             if (!$hasApp) {
                 $conditional = true;
             }
         }
 
         if ($fundingSequencing->require_documents_uploaded) {
-            $hasDocs = BorrowerDocument::where('borrower_id', $borrower->id)->exists();
+            $hasDocs = $borrower instanceof Borrower
+                ? $borrower->hasAnyDocument()
+                : BorrowerDocument::where('borrower_id', $borrower->id)->exists();
             if (!$hasDocs) {
                 $conditional = true;
             }

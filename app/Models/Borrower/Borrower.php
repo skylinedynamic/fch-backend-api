@@ -147,6 +147,15 @@ class Borrower extends Model
     public function setLast4SsnAttribute(?string $value): void
     {
         $digits = preg_replace('/\D/', '', (string) $value);
+
+        // The profile form sends back the same last 4 on every save. Writing
+        // them over the stored full SSN would destroy it (E2E-015), so an
+        // unchanged last 4 is a no-op.
+        $current = $this->ssn;
+        if ($digits !== '' && $current !== null && strlen($current) > strlen($digits) && str_ends_with($current, $digits)) {
+            return;
+        }
+
         $this->attributes['ssn_encrypted'] = $digits === ''
             ? null
             : \Illuminate\Support\Facades\Crypt::encryptString($digits);
@@ -294,6 +303,24 @@ class Borrower extends Model
     public function subscriptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
         return $this->morphMany(Subscription::class, 'entity');
+    }
+
+    /**
+     * Per-instance answers for the funding engine's borrower checks. The engine
+     * asks the same question once per lender per sequence, so without this one
+     * page load ran the same EXISTS query thousands of times.
+     */
+    private ?bool $hasAnyFundingApplicationCache = null;
+    private ?bool $hasAnyDocumentCache = null;
+
+    public function hasAnyFundingApplication(): bool
+    {
+        return $this->hasAnyFundingApplicationCache ??= FundingApplication::where('borrower_id', $this->id)->exists();
+    }
+
+    public function hasAnyDocument(): bool
+    {
+        return $this->hasAnyDocumentCache ??= BorrowerDocument::where('borrower_id', $this->id)->exists();
     }
 
     /**

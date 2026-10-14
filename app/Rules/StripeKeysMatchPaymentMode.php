@@ -73,6 +73,17 @@ class StripeKeysMatchPaymentMode implements ValidationRule
                 continue;
             }
 
+            // A key in the wrong field: a secret/restricted key as the publishable
+            // key would be handed to the browser; a publishable key as the secret
+            // cannot charge. Both pass the mode check, so check the type too.
+            $publishable = $config[$mode]['publishable_key'] ?? null;
+            $secret = $config[$mode]['secret_key'] ?? null;
+            if ((is_string($publishable) && preg_match('/^(sk|rk)_(test|live)_/', $publishable))
+                || (is_string($secret) && str_starts_with($secret, 'pk_'))) {
+                $fail(__('payment_method.stripe_key_field_mismatch', ['mode' => $mode]));
+                return;
+            }
+
             foreach (['publishable_key', 'secret_key'] as $field) {
                 $keyMode = self::modeOfKey($config[$mode][$field] ?? null);
 

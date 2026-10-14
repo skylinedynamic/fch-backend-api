@@ -21,6 +21,7 @@ return [
     'submission_not_found' => 'Submission not found.',
     'status_updated' => 'Status updated successfully.',
     'status_invalid' => 'That is not a valid submission status.',
+    'status_locked_converted' => 'A converted application cannot change status.',
     'date_range_invalid' => 'The end date must not be before the start date.',
     'submission_received' => 'Submission received.',
     'submission_success' => 'Your application has been submitted successfully. We will be in touch soon!',
@@ -28,6 +29,7 @@ return [
     // Conversion
     'converted_to_borrower' => 'Submission successfully converted to a Free Plan Borrower.',
     'conversion_failed' => 'Conversion failed.',
+    'already_converted' => 'This application has already been converted.',
     'email_required_conversion' => 'Email is required for conversion.',
     'borrower_exists_email' => 'A borrower with this email already exists.',
     'user_exists_email' => 'A user account with this email already exists.',

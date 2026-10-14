@@ -155,7 +155,11 @@ class EmbedFormController extends Controller
                 $q->where('first_name', 'LIKE', "%{$s}%")
                     ->orWhere('last_name', 'LIKE', "%{$s}%")
                     ->orWhere('email', 'LIKE', "%{$s}%")
-                    ->orWhere('phone', 'LIKE', "%{$s}%");
+                    ->orWhere('phone', 'LIKE', "%{$s}%")
+                    // The list shows the business beside the applicant, so a
+                    // search for what is on screen has to find it.
+                    ->orWhere('business_name', 'LIKE', "%{$s}%")
+                    ->orWhere('business_email', 'LIKE', "%{$s}%");
             });
         }
 
@@ -239,6 +243,12 @@ class EmbedFormController extends Controller
             return ApiResponse::forbidden();
         }
 
+        // Converted is the end of the road: a borrower and a funding application
+        // already exist, and moving it back would let it be converted again.
+        if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
+            return ApiResponse::error(__('embed_form.status_locked_converted'), 422);
+        }
+
         $submission = $this->embedFormService->updateStatus($submission, $request->status);
 
         return ApiResponse::success(new EmbedFormSubmissionResource($submission), __('embed_form.status_updated'));
@@ -272,6 +282,9 @@ class EmbedFormController extends Controller
             return ApiResponse::forbidden();
         }
 
+        if ($submission->status === EmbedFormSubmission::STATUS_CONVERTED) {
+            return ApiResponse::error(__('embed_form.already_converted'), 422);
+        }
 
         try {
             $borrower = $this->embedFormService->convertToBorrower($submission, $request->validated());
@@ -289,7 +302,9 @@ class EmbedFormController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return ApiResponse::validationError($e->errors(), $e->getMessage());
         } catch (\Throwable $e) {
-            return ApiResponse::error($e->getMessage() ?: __('embed_form.conversion_failed'), 500);
+            // The service has already logged the cause. The exception's own
+            // text is for developers, not for the toast it would end up in.
+            return ApiResponse::error(__('embed_form.conversion_failed'), 500);
         }
     }
 }
