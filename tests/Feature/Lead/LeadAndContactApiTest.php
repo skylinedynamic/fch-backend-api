@@ -75,6 +75,7 @@ class LeadAndContactApiTest extends TestCase
             'lead_type' => 'Borrower',
             'status' => 'New',
             'company_name' => 'Fresh Lead Co',
+            'contact_person' => 'Jane Doe',
             'lead_source' => 'Website',
         ], $overrides);
     }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Admin\CreditProfileRequest;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\FCH\CreditProfileRequest\CreditProfileRequestResource;
 use App\Models\Borrower\CreditProfileRequest;
 use App\Models\CreditAuthorization\CreditAuthorizationConsent;
 use Illuminate\Http\Request;
@@ -89,7 +90,7 @@ class CreditProfileRequestAdminController extends Controller
                     : null
             );
 
-            return ApiResponse::success($creditProfileRequest, __('credit_profile_request.details_retrieved_successfully'));
+            return ApiResponse::success(new CreditProfileRequestResource($creditProfileRequest), __('credit_profile_request.details_retrieved_successfully'));
         } catch (\Exception $e) {
             Log::error(__('credit_profile_request.log_details_retrieval_failed', ['error' => $e->getMessage()]));
             return ApiResponse::serverError(__('credit_profile_request.details_retrieval_failed'));
