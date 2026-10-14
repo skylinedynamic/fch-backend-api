@@ -32,6 +32,11 @@ class BillingController extends Controller
         return $this->borrowerBillingService->updateDefaultPaymentMethod($request->all());
     }
 
+    public function removeDefaultPaymentMethod(): JsonResponse
+    {
+        return $this->borrowerBillingService->removeDefaultPaymentMethod();
+    }
+
     public function cancelSubscription(Request $request): JsonResponse
     {
         return $this->borrowerBillingService->cancelSubscription($request->all());

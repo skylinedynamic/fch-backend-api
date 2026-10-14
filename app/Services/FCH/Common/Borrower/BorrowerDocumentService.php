@@ -4,6 +4,7 @@ namespace App\Services\FCH\Common\Borrower;
 
 use App\Helpers\ApiResponse;
 use App\Http\Resources\Global\Document\BorrowerDocTypeResource;
+use App\Models\Borrower\Borrower;
 use App\Models\Borrower\BorrowerDocType;
 use App\Models\Borrower\BorrowerDocument;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +21,10 @@ class BorrowerDocumentService
         $documents = [];
         $user = Auth::user();
         $borrowerId = $data['borrower_id'];
+
+        if (!Borrower::visibleTo($user)->whereKey($borrowerId)->exists()) {
+            return ApiResponse::notFound(__('borrower.not_found'));
+        }
 
         foreach ($data['file_path'] as $index => $path) {
             try {
@@ -104,7 +109,7 @@ class BorrowerDocumentService
     public function updateStatus(int $id, array $data)
     {
         try {
-            $doc = BorrowerDocument::find($id);
+            $doc = BorrowerDocument::visibleTo(Auth::user())->find($id);
             if (!$doc) {
                 return ApiResponse::notFound(__('borrower.document_not_found'));
             }
@@ -138,7 +143,7 @@ class BorrowerDocumentService
     public function removeById(int $id): bool
     {
         try {
-            $doc = BorrowerDocument::find($id);
+            $doc = BorrowerDocument::visibleTo(Auth::user())->find($id);
 
             if (!$doc) {
                 return false;

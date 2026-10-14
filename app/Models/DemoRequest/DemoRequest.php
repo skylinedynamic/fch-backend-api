@@ -13,7 +13,6 @@ class DemoRequest extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'business_id',
         'full_name',
         'customer_name',
         'phone',

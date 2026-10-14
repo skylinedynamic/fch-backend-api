@@ -9,5 +9,8 @@ return [
     ],
 
     'domain_check' => env('DOMAIN_CHECK', 'fourcornerfunding.com'),
-    'internal_key' => env('INTERNAL_RESOLVER_KEY', 'fourcornerfunding2026'),
+    // Shared secret the edge proxy sends as X-Internal-Key. No default: an
+    // environment that never sets it refuses every lookup rather than accepting
+    // a value anyone can read in this repository.
+    'internal_key' => env('INTERNAL_RESOLVER_KEY'),
 ];

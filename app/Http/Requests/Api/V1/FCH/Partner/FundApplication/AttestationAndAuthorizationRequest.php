@@ -3,6 +3,9 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
+use App\Rules\VisibleToUser;
 
 class AttestationAndAuthorizationRequest extends BaseApiRequest
 {
@@ -22,8 +25,8 @@ class AttestationAndAuthorizationRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
-            'funding_request_id' => 'nullable|integer',
+            'id' => ['nullable', new VisibleToUser(FundingApplication::class)],
+            'funding_request_id' => ['nullable', 'integer', new VisibleToUser(FundingRequest::class)],
             'signature_name' => 'required|string|min:3|max:255|regex:/^(?!\s*$).+/',
             'esign_consent' => 'required|accepted',
             'terms_consent' => 'required|accepted',

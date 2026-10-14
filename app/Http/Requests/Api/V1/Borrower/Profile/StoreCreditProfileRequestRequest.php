@@ -3,9 +3,12 @@
 namespace App\Http\Requests\Api\V1\Borrower\Profile;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\Borrower;
 use App\Rules\Ssn;
 use App\Rules\UsPhoneNumber;
 use App\Rules\UsPostalCode;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class StoreCreditProfileRequestRequest extends BaseApiRequest
 {
@@ -42,7 +45,25 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
      */
     public function creditProfileAttributes(): array
     {
-        return $this->safe()->except(self::CONSENT_FIELDS);
+        $attributes = $this->safe()->except(self::CONSENT_FIELDS);
+
+        // No SSN typed: the pull is keyed on the full one on the profile, which
+        // validation has already required to exist.
+        if (empty($attributes['ssn'])) {
+            $attributes['ssn'] = $this->borrower()?->ssn;
+        } else {
+            $attributes['ssn'] = Ssn::normalize($attributes['ssn']);
+        }
+
+        return $attributes;
+    }
+
+    /** The signed-in borrower the request is for. */
+    private function borrower(): ?Borrower
+    {
+        $user = Auth::user();
+
+        return $user?->entity_type === Borrower::class ? Borrower::find($user->entity_id) : null;
     }
 
     /**
@@ -68,7 +89,13 @@ class StoreCreditProfileRequestRequest extends BaseApiRequest
             'city' => 'required|string|max:255',
             'state' => 'required|string|max:255',
             'zip' => ['required', 'string', new UsPostalCode()],
-            'ssn' => ['required', new Ssn()],
+            // Left out, the full SSN on the borrower's profile is used (the form
+            // only ever shows it masked) - so it is required only without one.
+            'ssn' => [
+                Rule::requiredIf(fn () => !$this->borrower()?->hasFullSsn()),
+                'nullable',
+                new Ssn(),
+            ],
             'date_of_birth' => 'required|date',
             'phone' => ['required', new UsPhoneNumber()],
             'email' => 'required|email|max:255',

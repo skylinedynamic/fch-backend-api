@@ -87,12 +87,19 @@ class OpenAiParserService implements CreditProfileParserInterface
             $content = preg_replace('/\n?```\s*$/i', '', $content);
             $content = trim($content);
 
+            // The response is the extracted consumer report - log its size, never its contents.
             Log::info('OpenAI parser: received response', [
                 'content_length' => strlen($content),
-                'content_preview' => substr($content, 0, 3000),
             ]);
 
             $parsed = $this->parseOpenAiResponse($content);
+
+            if ($parsed === null) {
+                // Keep the reason as the summary; there is no data to summarise.
+                $result = $this->emptyResult();
+                $result['metrics']['summary'] = 'Failed to parse OpenAI response as JSON. Please try again or switch to manual parsing.';
+                return $result;
+            }
 
             // Generate dynamic summary (overwrite any AI-generated summary)
             $parsed['metrics']['summary'] = $this->generateSummary(
@@ -106,8 +113,6 @@ class OpenAiParserService implements CreditProfileParserInterface
                 'trade_accounts_count' => count($parsed['trade_accounts'] ?? []),
                 'addresses_count' => count($parsed['addresses'] ?? []),
                 'inquiries_count' => count($parsed['inquiries'] ?? []),
-                'fico_score' => $parsed['metrics']['fico_score'] ?? null,
-                'personal_info' => $parsed['personal_info'] ?? [],
             ]);
 
             return $parsed;
@@ -199,7 +204,8 @@ Extract EVERY trade account entry. Return empty arrays [] for addresses/trade_ac
 PROMPT;
     }
 
-    private function parseOpenAiResponse(string $content): array
+    /** The normalised extraction, or null when the reply holds no JSON. */
+    private function parseOpenAiResponse(string $content): ?array
     {
         // Strip potential markdown wrappers
         $content = preg_replace('/^```(?:json)?\s*\n?/i', '', $content);
@@ -210,21 +216,17 @@ PROMPT;
         if (json_last_error() !== JSON_ERROR_NONE) {
             Log::error('OpenAI parser: JSON decode failed', [
                 'error' => json_last_error_msg(),
-                'content_preview' => substr($content, 0, 1000),
+                'content_length' => strlen($content),
             ]);
 
             // Try to find JSON within the content
             if (preg_match('/\{.*\}/s', $content, $matches)) {
                 $data = json_decode($matches[0], true);
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    $result = $this->emptyResult();
-                    $result['metrics']['summary'] = 'Failed to parse OpenAI response as JSON. Please try again or switch to manual parsing.';
-                    return $result;
+                    return null;
                 }
             } else {
-                $result = $this->emptyResult();
-                $result['metrics']['summary'] = 'Failed to parse OpenAI response as JSON. Please try again or switch to manual parsing.';
-                return $result;
+                return null;
             }
         }
 

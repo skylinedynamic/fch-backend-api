@@ -4,6 +4,9 @@ namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Rules\UsPostalCode;
+use App\Models\Borrower\FundingApplication;
+use App\Models\FundingRequest\FundingRequest;
+use App\Rules\VisibleToUser;
 
 class StoreBusinessInfoRequest extends BaseApiRequest
 {
@@ -23,8 +26,8 @@ class StoreBusinessInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
-            'funding_request_id' => 'nullable',
+            'id' => ['nullable', new VisibleToUser(FundingApplication::class)],
+            'funding_request_id' => ['nullable', new VisibleToUser(FundingRequest::class)],
             'funding_sequence_id' => 'nullable',
             'full_name' => 'required|string|max:255',
             'business_name' => 'required|string|max:255',

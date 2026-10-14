@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Borrower\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class StoreFinancialInfoRequest extends BaseApiRequest
 {
@@ -22,7 +24,7 @@ class StoreFinancialInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
+            'id' => ['nullable', Rule::exists('funding_applications', 'id')->where('borrower_id', Auth::user()?->entity_id)],
             'annual_revenue' => 'nullable|numeric|min:0',
             'monthly_revenue' => 'required|numeric|min:0',
             'business_bank_name' => 'nullable|string|max:255',

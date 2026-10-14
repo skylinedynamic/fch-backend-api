@@ -80,7 +80,6 @@ class DatabaseSeeder extends Seeder
             BorrowerTaskVerificationRequestSeeder::class,
             ContactSeeder::class,
             LeadSeeder::class,
-            SignupIdSeeder::class,
             SubscriptionPlanSeeder::class,
             DemoSubscriberSeeder::class,
             CreditAccountSeeder::class,

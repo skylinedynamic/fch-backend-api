@@ -31,6 +31,34 @@ class BorrowerChangeRequest extends Model
         'note',
     ];
 
+    /** Fields whose values are masked wherever they leave the app (email). */
+    public const MASKED_SSN_FIELDS = ['ssn', 'last_4_ssn'];
+    public const MASKED_EIN_FIELDS = ['business_ein'];
+
+    /**
+     * A value of this request as it may be written into an email: an SSN or
+     * EIN shows its last four digits only (just the last four of an SSN is
+     * hidden entirely); every other field, a date of birth included, as is.
+     */
+    public function maskedValue(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        $digits = preg_replace('/\D/', '', $value);
+
+        if (in_array($this->field_name, self::MASKED_SSN_FIELDS, true)) {
+            return strlen($digits) === 9 ? \App\Rules\Ssn::mask($digits) : str_repeat('*', max(4, strlen($digits)));
+        }
+
+        if (in_array($this->field_name, self::MASKED_EIN_FIELDS, true)) {
+            return strlen($digits) >= 4 ? '**-***' . substr($digits, -4) : '****';
+        }
+
+        return $value;
+    }
+
     /**
      * Get the parent change requestable model (polymorphic relationship).
      */

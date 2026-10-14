@@ -29,7 +29,10 @@ class PersonalProfileResource extends JsonResource
             'zip_code' => $this->entity->postal_code,
             'home_address' => $this->entity->home_address,
             'home_phone' => $this->entity->home_phone,
-            'last_4_ssn' => $this->entity->last_4_ssn,
+            // The borrower's own SSN, as nine digits (or just the last four on
+            // rows from before the full SSN was collected). The screen masks it
+            // and shows it on the eye button; the response is never cached.
+            'ssn' => $this->entity->ssn,
             // A calendar date, never timezone-converted - see toDateOnly().
             'date_of_birth' => toDateOnly($this->entity->date_of_birth),
         ];

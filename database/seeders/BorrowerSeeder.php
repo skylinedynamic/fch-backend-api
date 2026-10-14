@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Support\Locations;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User\User;
@@ -33,6 +34,8 @@ class BorrowerSeeder extends Seeder
         $loc5 = Locations::randomLocation();
         $loc5Business = Locations::randomLocation();
 
+        // A bulk insert skips the model's ssn mutator, so the full SSN is
+        // encrypted here the way Borrower::setSsnAttribute() stores it.
         DB::table('borrowers')->insert([
             [
                 'signup_id' => 'SIGN-1001',
@@ -51,7 +54,7 @@ class BorrowerSeeder extends Seeder
                 'home_address' => '101 Tech Way, Apt 4B',
                 'home_phone' => '(546) 456-5522',
                 'date_of_birth' => '1985-04-12',
-                'last_4_ssn' => '1234',
+                'ssn_encrypted' => Crypt::encryptString('123451234'),
 
                 // Business Info
                 'business_name' => 'Alpha Tech Solutions',
@@ -106,7 +109,7 @@ class BorrowerSeeder extends Seeder
                 'home_address' => '202 Eco Lane',
                 'home_phone' => '(546) 456-4522',
                 'date_of_birth' => '1990-08-22',
-                'last_4_ssn' => '5678',
+                'ssn_encrypted' => Crypt::encryptString('234565678'),
 
                 // Business Info
                 'business_name' => 'Green Earth Innovations',
@@ -161,7 +164,7 @@ class BorrowerSeeder extends Seeder
                 'home_address' => '303 Culinary Ave, Suite 10',
                 'home_phone' => '(546) 555-5521',
                 'date_of_birth' => '1978-11-05',
-                'last_4_ssn' => '9012',
+                'ssn_encrypted' => Crypt::encryptString('345679012'),
 
                 // Business Info
                 'business_name' => 'Urban Bites Group',
@@ -216,7 +219,7 @@ class BorrowerSeeder extends Seeder
                 'home_address' => '404 Lake Shore Dr',
                 'home_phone' => '(546) 555-5520',
                 'date_of_birth' => '1982-02-14',
-                'last_4_ssn' => '3456',
+                'ssn_encrypted' => Crypt::encryptString('456783456'),
 
                 // Business Info
                 'business_name' => 'Summit Strategic Consulting',
@@ -271,7 +274,7 @@ class BorrowerSeeder extends Seeder
                 'home_address' => '505 Ocean Dr',
                 'home_phone' => '(546) 555-5465',
                 'date_of_birth' => '1975-07-30',
-                'last_4_ssn' => '7890',
+                'ssn_encrypted' => Crypt::encryptString('567897890'),
 
                 // Business Info
                 'business_name' => 'BuildRight Construction',

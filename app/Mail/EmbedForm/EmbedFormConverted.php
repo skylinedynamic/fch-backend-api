@@ -63,7 +63,9 @@ class EmbedFormConverted extends Mailable implements ShouldQueue
                 'submission' => $this->submission,
                 'application' => $this->application,
                 'forStaff' => $this->forStaff,
-                'loginUrl' => $this->forStaff ? null : getBorrowerDomain($this->submission->partner_id),
+                // The partner's own borrower portal, or the main one when it has
+                // none - as the other borrower emails do.
+                'loginUrl' => $this->forStaff ? null : concatUrl(getBorrowerDomain($this->submission->partner_id), 'login', config('app.frontend_borrower_url')),
             ],
         );
     }

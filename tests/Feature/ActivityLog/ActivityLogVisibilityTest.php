@@ -76,8 +76,9 @@ class ActivityLogVisibilityTest extends TestCase
             'email' => 'borrower-' . uniqid() . '@example.test',
         ]);
 
-        $this->hostAdmin = $this->makeUser(User::ADMIN, ['name' => 'Host Admin']);
-        $this->otherHostAdmin = $this->makeUser(User::ADMIN, ['name' => 'Other Host Admin']);
+        // Every user belongs to a partner - the host's team to the host.
+        $this->hostAdmin = $this->makeUser(User::ADMIN, ['name' => 'Host Admin', 'partner_id' => $this->hostPartner->id]);
+        $this->otherHostAdmin = $this->makeUser(User::ADMIN, ['name' => 'Other Host Admin', 'partner_id' => $this->hostPartner->id]);
         $this->partnerUser = $this->makeUser(User::PARTNER, [
             'name' => 'Jason Rodriguez',
             'partner_id' => $this->partner->id,
@@ -90,6 +91,7 @@ class ActivityLogVisibilityTest extends TestCase
             'name' => 'Johnathan Smithfield',
             'entity_type' => Borrower::class,
             'entity_id' => $this->borrower->id,
+            'partner_id' => $this->partner->id,
         ]);
     }
 

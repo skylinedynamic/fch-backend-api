@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use App\Models\Borrower\FundingApplication;
+use App\Rules\VisibleToUser;
 
 class StoreFinancialInfoRequest extends BaseApiRequest
 {
@@ -22,7 +24,7 @@ class StoreFinancialInfoRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'nullable|exists:funding_applications,id',
+            'id' => ['nullable', new VisibleToUser(FundingApplication::class)],
             'annual_revenue' => 'nullable|numeric|min:0',
             'monthly_revenue' => 'required|numeric|min:0',
             'business_bank_name' => 'nullable|string|max:255',

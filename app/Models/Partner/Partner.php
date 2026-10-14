@@ -390,7 +390,22 @@ class Partner extends Model
         // Check if there are any Paid or Successful invoices for this partner
         return !$this->invoices()
             ->whereIn('status', [\App\Models\Invoice\Invoice::STATUS_PAID])
-            ->exists();
+            ->exists()
+            && !$this->hasBorrowersOrUsers();
+    }
+
+    /**
+     * Borrowers or users still under this partner - its own login aside, which
+     * goes with it. They have to be removed or moved before it can be deleted.
+     */
+    public function hasBorrowersOrUsers(): bool
+    {
+        return $this->borrowers()->exists()
+            || $this->users()
+                ->where(fn ($q) => $q->where('entity_type', '!=', self::class)
+                    ->orWhereNull('entity_type')
+                    ->orWhere('entity_id', '!=', $this->id))
+                ->exists();
     }
 
     /**

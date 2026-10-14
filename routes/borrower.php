@@ -40,7 +40,6 @@ use App\Http\Controllers\Api\V1\Borrower\Assistant\BorrowerAssistantController;
 
 Route::prefix('v1/borrower')->group(function () {
     // Public routes (no authentication required)
-    // Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
 
     // Protected routes (authentication required)
@@ -71,8 +70,7 @@ Route::prefix('v1/borrower')->group(function () {
                 ['prefix' => 'profile',],
                 function () {
                     Route::get('/personal-info', [PersonalInfoController::class, 'index']);
-                    Route::post('/personal-info', [PersonalInfoController::class, 'update']);
-                    Route::get('/business-info', [BusinessInfoController::class, 'index']);
+                    Route::post('/personal-info', [PersonalInfoController::class, 'update']);                    Route::get('/business-info', [BusinessInfoController::class, 'index']);
                     Route::post('/business-info', [BusinessInfoController::class, 'update']);
                     Route::get('/financial-info', [FinancialInfoController::class, 'index']);
                     Route::post('/financial-info', [FinancialInfoController::class, 'update']);
@@ -88,6 +86,7 @@ Route::prefix('v1/borrower')->group(function () {
             Route::get('/get-advisor', [BorrowerController::class, 'getAdvisor']);
             Route::get('/billing-details', [BorrowerBillingController::class, 'getBillingDetails']);
             Route::post('/update-default-payment-method', [BorrowerBillingController::class, 'updateDefaultPaymentMethod']);
+            Route::post('/remove-default-payment-method', [BorrowerBillingController::class, 'removeDefaultPaymentMethod']);
             Route::post('/cancel-subscription', [BorrowerBillingController::class, 'cancelSubscription']);
 
             Route::group(

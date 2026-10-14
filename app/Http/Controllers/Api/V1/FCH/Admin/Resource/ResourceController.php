@@ -47,7 +47,7 @@ class ResourceController extends Controller
 
     public function show($id)
     {
-        $resource = $this->commonService->getById($id);
+        $resource = $this->service->find((int) $id);
 
         return ApiResponse::success(
             new DetailsResource($resource),

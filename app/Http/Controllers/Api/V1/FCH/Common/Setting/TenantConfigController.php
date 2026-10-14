@@ -24,7 +24,9 @@ class TenantConfigController extends Controller
     public function show()
     {
         $user = Auth::user();
-        $partnerId = $user?->entity_id;
+        // The user's partner - not entity_id, which for a staff user is their
+        // employee id and names some other partner.
+        $partnerId = $user?->partner_id;
 
         if (!$partnerId) {
             return ApiResponse::notFound(__('partner.error.not_found'));
@@ -48,7 +50,8 @@ class TenantConfigController extends Controller
     public function update(UpdateTenantConfigRequest $request)
     {
         $user = Auth::user();
-        $partnerId = $user?->entity_id;
+        // See show(): the user's partner, never entity_id.
+        $partnerId = $user?->partner_id;
 
         if (!$partnerId) {
             return ApiResponse::notFound(__('partner.error.not_found'));

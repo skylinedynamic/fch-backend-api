@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\FCH\Admin\Funding;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateFundingTypeRequest extends BaseApiRequest
 {
@@ -24,7 +25,7 @@ class UpdateFundingTypeRequest extends BaseApiRequest
         $id = $this->route('id') ?? $this->route('funding_type');
 
         return [
-            'name' => 'required|string|max:255|unique:funding_types,name,' . $id,
+            'name' => ['required', 'string', 'max:255', Rule::unique('funding_types', 'name')->ignore($id)->whereNull('deleted_at')],
         ];
     }
 

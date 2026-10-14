@@ -46,7 +46,7 @@ class AppointmentController extends Controller
      */
     public function show($id)
     {
-        $appointment = Appointment::with(['scheduledBy', 'assignedFor.entity'])->findOrFail($id);
+        $appointment = $this->ownAppointment()->with(['scheduledBy', 'assignedFor.entity'])->findOrFail($id);
         return ApiResponse::success(new AppointmentResource($appointment), __('appointment.retrieved'));
     }
 
@@ -56,7 +56,7 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, $id)
     {
         $this->checkWhiteLabelConfiguration();
-        $appointment = Appointment::findOrFail($id);
+        $appointment = $this->ownAppointment()->findOrFail($id);
         $updated = $this->appointmentService->update($appointment, $request->validated());
     
         return ApiResponse::success(new AppointmentResource($updated), __('appointment.updated_synced'));
@@ -68,9 +68,22 @@ class AppointmentController extends Controller
     public function destroy($id)
     {
         $this->checkWhiteLabelConfiguration();
-        $appointment = Appointment::findOrFail($id);
+        $appointment = $this->ownAppointment()->findOrFail($id);
         $this->appointmentService->delete($appointment);
         return ApiResponse::success(null, __('appointment.deleted'));
+    }
+
+    /**
+     * The appointments the signed-in user is on - scheduled by them or with
+     * them - the same rule the appointment list applies.
+     */
+    private function ownAppointment()
+    {
+        $userId = auth()->id();
+
+        return Appointment::where(function ($q) use ($userId) {
+            $q->where('scheduled_by', $userId)->orWhere('assigned_for', $userId);
+        });
     }
 
     /**

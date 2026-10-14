@@ -24,6 +24,7 @@ use App\Http\Resources\FCH\Appointment\AppointmentUserResource;
 use App\Models\ActivityLog\ActivityLog;
 use App\Services\FCH\Common\ActivityLog\ActivityLogService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class AppointmentService
 {
@@ -482,9 +483,55 @@ class AppointmentService
      */
     public function getSelectableUsers(array $data)
     {
-        $user = Auth::user();
+        $query = $this->selectableUsersQuery(Auth::user(), $data);
+
+        $results = $query->with('entity')->get(['id', 'name', 'entity_type', 'entity_id', 'user_type']);
 
 
+        return ApiResponse::success(
+            AppointmentUserResource::collection($results),
+            __('appointment.users_selection_retrieved')
+        );
+    }
+
+    /**
+     * Whether $caller may book a meeting with the user $userId: the user is on
+     * the caller's bookable-people list, with the meeting-with switch either
+     * way. The list was scoped but the write took any user id (findings O20).
+     */
+    public function canBookWith(User $caller, int $userId): bool
+    {
+        foreach ([[], ['meeting_with' => 1], ['meeting_with_host' => 1]] as $flags) {
+            $bookable = $this->selectableUsersQuery($caller, $flags)->select('users.id');
+
+            if (User::whereKey($userId)->whereIn('id', $bookable)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the booking's entity is the attendee's own - the portals send the
+     * picked user's entity; anything else would tie the meeting to a record
+     * the attendee is not (findings O20).
+     */
+    public function entityIsAttendees(?string $entityType, $entityId, int $userId): bool
+    {
+        $normalizedType = (new Appointment(['entity_type' => $entityType]))->entity_type;
+
+        return User::whereKey($userId)
+            ->where('entity_type', $normalizedType)
+            ->where('entity_id', $entityId)
+            ->exists();
+    }
+
+    /**
+     * The users $user may book with - the bookable-people list.
+     */
+    private function selectableUsersQuery(User $user, array $data): Builder
+    {
         if ($user->entity_type == Borrower::class) {
             $query = User::where('partner_id', $user->partner_id);
             $borrower = $user->entity;
@@ -532,13 +579,7 @@ class AppointmentService
             }
         }
 
-        $results = $query->with('entity')->get(['id', 'name', 'entity_type', 'entity_id', 'user_type']);
-
-
-        return ApiResponse::success(
-            AppointmentUserResource::collection($results),
-            __('appointment.users_selection_retrieved')
-        );
+        return $query;
     }
 
     /**

@@ -90,6 +90,11 @@ class FundingRequestResource extends JsonResource
 
         return [
             'id' => $fundingApp ? $fundingApp->id : null,
+            // The partner portal's document step opens borrowers/{borrower_id}
+            // in the file manager (findings D2).
+            'borrower_id' => ($fundingApp?->borrower_id ?? $fundingReq?->borrower_id) !== null
+                ? (int) ($fundingApp?->borrower_id ?? $fundingReq?->borrower_id)
+                : null,
             'funding_request_id' => $fundingRequestId ? (int)$fundingRequestId : null,
             'funding_sequence_id' => $fundingSequenceId ? (int)$fundingSequenceId : null,
             'requested_amount' => $requestedAmount,

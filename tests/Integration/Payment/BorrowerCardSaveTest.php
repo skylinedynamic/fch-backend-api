@@ -195,6 +195,15 @@ class BorrowerCardSaveTest extends TestCase
     {
         $this->configureStripe(PaymentProvider::MODE_PRODUCTION);
         $this->saveCard();
+        // Bank transfer offered by the borrower's partner - only a gateway the
+        // partner has switched on can be the default (findings O25).
+        $bank = PaymentProvider::create(['name' => PaymentProvider::BANK_TRANSFER, 'display_name' => 'Bank Transfer', 'status' => true]);
+        app(PaymentMethodConfigurationService::class)->updateOrCreateConfig($this->partner->id, [
+            'payment_provider_id' => $bank->id,
+            'payment_mode' => PaymentProvider::MODE_PRODUCTION,
+            'status' => true,
+            'configuration' => [],
+        ]);
 
         app(BorrowerBillingService::class)->updateDefaultPaymentMethod([
             'provider_name' => PaymentProvider::BANK_TRANSFER,

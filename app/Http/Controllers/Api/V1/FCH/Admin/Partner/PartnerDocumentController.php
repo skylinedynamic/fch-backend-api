@@ -153,9 +153,12 @@ class PartnerDocumentController extends Controller
 
         $urlPath = parse_url($document->file_path, PHP_URL_PATH);
         $relativePath = ltrim($urlPath, '/'); 
-        $filePath = public_path($relativePath);
+        $filePath = realpath(public_path($relativePath));
+        $storageRoot = realpath(public_path('storage'));
 
-        if (!file_exists($filePath)) {
+        // Only a file inside public/storage is served: a stored path that
+        // climbs out of it (../) must not reach anything else on the server.
+        if (!$filePath || !$storageRoot || !str_starts_with($filePath, $storageRoot . DIRECTORY_SEPARATOR) || !is_file($filePath)) {
             return ApiResponse::notFound('File not found on server');
         }
 

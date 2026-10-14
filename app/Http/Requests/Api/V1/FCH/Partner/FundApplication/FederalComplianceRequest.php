@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use Illuminate\Validation\Rule;
+use App\Models\Borrower\FundingApplication;
+use App\Rules\VisibleToUser;
 
 class FederalComplianceRequest extends BaseApiRequest
 {
@@ -23,7 +25,7 @@ class FederalComplianceRequest extends BaseApiRequest
     public function rules(): array
     {
         return [
-            'id' => 'bail|nullable|exists:funding_applications,id',
+            'id' => ['bail', 'nullable', new VisibleToUser(FundingApplication::class)],
             'filed_for_bankruptcy' => 'bail|required|boolean',
             'any_pending_lawsuits' => 'bail|required|boolean',
             'has_federal_loan' => 'bail|required|boolean',

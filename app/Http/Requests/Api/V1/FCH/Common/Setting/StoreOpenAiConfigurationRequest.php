@@ -48,7 +48,7 @@ class StoreOpenAiConfigurationRequest extends BaseApiRequest
     protected function hasStoredApiKey(): bool
     {
         try {
-            return filled(AppConfiguration::get('openai_api_key', null, AppConfiguration::MODULE_OPENAI));
+            return filled(AppConfiguration::platform('openai_api_key', AppConfiguration::MODULE_OPENAI));
         } catch (\Throwable $e) {
             return false;
         }

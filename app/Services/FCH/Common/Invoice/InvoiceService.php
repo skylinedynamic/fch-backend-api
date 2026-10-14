@@ -49,15 +49,13 @@ class InvoiceService
         $partner = $authUser->partner ?? ($partnerId ? Partner::find($partnerId) : null);
         $isHost = $partner ? ((int) ($partner->is_host ?? 0) === 1) : false;
 
+        // Every user belongs to a partner. One whose partner is missing or
+        // deleted sees nothing - it used to be treated as the host (findings O6).
         if (!$partner) {
-            $hostPartnerId = Partner::where('is_host', 1)->value('id');
-            if ($hostPartnerId) {
-                $isHost = true;
-                $partnerId = $hostPartnerId;
-            }
-        } else {
-            $partnerId = $partner->id;
+            return $query->whereRaw('1 = 0');
         }
+
+        $partnerId = $partner->id;
 
         if ($isHost) {
             // Host sees: All partner invoices (is_partner_paying = true or entity_type = Partner) AND only host's own client invoices
