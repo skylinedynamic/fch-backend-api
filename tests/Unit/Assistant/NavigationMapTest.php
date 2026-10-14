@@ -49,8 +49,8 @@ class NavigationMapTest extends TestCase
     {
         $router = base_path(self::PORTALS[$assistant]);
 
-        if (! is_file($router)) {
-            $this->markTestSkipped("Portal source not found at {$router}");
+        if ($router === false) {
+            $this->markTestSkipped('Portal source not found at any of: ' . implode(', ', $candidates));
         }
 
         $source = file_get_contents($router);
