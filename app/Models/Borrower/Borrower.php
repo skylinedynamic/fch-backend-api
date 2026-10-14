@@ -315,6 +315,24 @@ class Borrower extends Model
     }
 
     /**
+     * Per-instance answers for the funding engine's borrower checks. The engine
+     * asks the same question once per lender per sequence, so without this one
+     * page load ran the same EXISTS query thousands of times.
+     */
+    private ?bool $hasAnyFundingApplicationCache = null;
+    private ?bool $hasAnyDocumentCache = null;
+
+    public function hasAnyFundingApplication(): bool
+    {
+        return $this->hasAnyFundingApplicationCache ??= FundingApplication::where('borrower_id', $this->id)->exists();
+    }
+
+    public function hasAnyDocument(): bool
+    {
+        return $this->hasAnyDocumentCache ??= BorrowerDocument::where('borrower_id', $this->id)->exists();
+    }
+
+    /**
      * Check if the borrower is deletable based on invoice status.
      */
     public function isDeletable(): bool

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\FCH\Common\Funding;
 use App\Http\Controllers\Controller;
 use App\Models\Borrower\Borrower;
 use App\Services\FCH\Common\Funding\FundingQualificationService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -54,6 +55,9 @@ class FundingQualificationController extends Controller
                 'status' => true,
                 'data' => $factors
             ]);
+        } catch (ModelNotFoundException $e) {
+            // An unknown funding id is a missing resource, not a server fault.
+            return response()->json(['status' => false, 'message' => 'Funding not found.'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
@@ -98,6 +102,9 @@ class FundingQualificationController extends Controller
                 'status' => true,
                 'data' => $factors
             ]);
+        } catch (ModelNotFoundException $e) {
+            // An unknown funding id is a missing resource, not a server fault.
+            return response()->json(['status' => false, 'message' => 'Funding not found.'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,

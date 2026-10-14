@@ -230,36 +230,6 @@ class OpenAiAgentsService extends OpenAiResponsesService
     }
 
     /**
-     * The answer without the model's inline citation markers.
-     *
-     * A file_search answer marks each cited passage in the text itself, as
-     * "filecite", "turn0file1", ... wrapped in private-use Unicode characters
-     * (U+E200–U+E206). They are placeholders for a client to swap for a
-     * rendered citation; shown as they are, they read as boxes and internal
-     * file references. What was cited is not lost: it is in the response's
-     * annotations, which extractCitations() returns as `sources`.
-     */
-    public function stripCitationMarkers(string $text): string
-    {
-        return self::withoutCitationMarkers($text);
-    }
-
-    /**
-     * The same clean-up for text that is already stored — a reply saved before
-     * the markers were removed on arrival must not show them either.
-     */
-    public static function withoutCitationMarkers(string $text): string
-    {
-        $clean = preg_replace('/\x{E200}[^\x{E201}]*\x{E201}/u', '', $text) ?? $text;
-        // A marker cut short (no closing character) still must not show.
-        $clean = preg_replace('/[\x{E200}-\x{E206}]/u', '', $clean) ?? $clean;
-        // Removing a marker can leave its leading space before punctuation or a line end.
-        $clean = preg_replace('/[ \t]+(?=[.,;:!?]|\R|$)/u', '', $clean) ?? $clean;
-
-        return trim($clean);
-    }
-
-    /**
      * One structured generation driven entirely by a saved agent: the
      * underwriting steps of the Pre-Qualification pipeline.
      *
@@ -627,6 +597,36 @@ class OpenAiAgentsService extends OpenAiResponsesService
             'http_status' => $httpStatus,
             'error' => $error,
         ];
+    }
+
+    /**
+     * The answer without the model's inline citation markers.
+     *
+     * A file_search answer marks each cited passage in the text itself, as
+     * "filecite", "turn0file1", ... wrapped in private-use Unicode characters
+     * (U+E200–U+E206). They are placeholders for a client to swap for a
+     * rendered citation; shown as they are, they read as boxes and internal
+     * file references. What was cited is not lost: it is in the response's
+     * annotations, which extractCitations() returns as `sources`.
+     */
+    public function stripCitationMarkers(string $text): string
+    {
+        return self::withoutCitationMarkers($text);
+    }
+
+    /**
+     * The same clean-up for text that is already stored — a reply saved before
+     * the markers were removed on arrival must not show them either.
+     */
+    public static function withoutCitationMarkers(string $text): string
+    {
+        $clean = preg_replace('/\x{E200}[^\x{E201}]*\x{E201}/u', '', $text) ?? $text;
+        // A marker cut short (no closing character) still must not show.
+        $clean = preg_replace('/[\x{E200}-\x{E206}]/u', '', $clean) ?? $clean;
+        // Removing a marker can leave its leading space before punctuation or a line end.
+        $clean = preg_replace('/[ \t]+(?=[.,;:!?]|\R|$)/u', '', $clean) ?? $clean;
+
+        return trim($clean);
     }
 
     /**
