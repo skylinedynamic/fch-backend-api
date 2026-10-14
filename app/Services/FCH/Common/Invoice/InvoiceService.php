@@ -90,6 +90,8 @@ class InvoiceService
             ->with([
                 'partner:id,full_name',
                 'borrower:id,first_name,last_name',
+                // The payer - each row is named after them (see InvoiceResource).
+                'entity',
                 'subscription',
                 'latestPayment'
             ])

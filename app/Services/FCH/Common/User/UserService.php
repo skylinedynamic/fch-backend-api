@@ -136,7 +136,8 @@ class UserService
                     'subscription_id' => $subscription->id,
                     'entity_type' => Partner::class,
                     'entity_id' => $authUser->partner_id,
-                    'customer_name' => $partner ? ($partner->full_name ?: $partner->company_name) : $user->name,
+                    // The person billed, never the company (see InvoiceCustomerNameTest).
+                    'customer_name' => $partner ? $partner->full_name : $user->name,
                     'email' => $partner ? $partner->email : $user->email,
                     'payment_amount' => $amount,
                     'month_count' => $months,

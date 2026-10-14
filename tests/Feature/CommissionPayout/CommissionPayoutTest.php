@@ -449,6 +449,35 @@ class CommissionPayoutTest extends TestCase
     }
 
     #[Test]
+    public function a_partner_payout_invoice_is_in_the_owners_name_never_the_company(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertSame(
+            'Reseller Co Owner',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
+    }
+
+    #[Test]
+    public function a_partner_with_no_owner_name_does_not_get_the_company_as_the_payout_name(): void
+    {
+        $other = $this->partner('Reseller Co', false);
+        $other->update(['full_name' => null]);
+        $commission = $this->commission($other, null);
+
+        $this->pay($commission, ['partner_payment_method' => 'Cash'])->assertOk();
+
+        $this->assertNotSame(
+            'Reseller Co',
+            Invoice::where('type', Invoice::INVOICE_TYPE_COMMISSION_PAYOUT)->sole()->customer_name
+        );
+    }
+
+    #[Test]
     public function a_paid_payout_reads_its_amount_and_method_from_the_invoice_and_payment(): void
     {
         $commission = $this->commission($this->host, $this->sellerOnTenPercent());
