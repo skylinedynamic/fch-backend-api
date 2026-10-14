@@ -33,9 +33,12 @@ jobs:
       # test config. All a fresh checkout lacks is storage/, which is gitignored
       # in full, so the directories and the Passport keys have to be made here -
       # without them every Passport::actingAs() test dies on "Invalid key supplied".
+      # The empty .env only silences dotenv's "Failed to open stream" warning,
+      # which every test raised and which buried the real failures in the log.
       - name: Prepare Test Environment
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app/public bootstrap/cache
+          touch .env
           php artisan passport:keys --force
 
       # One step per suite so the log shows plainly that each of them ran.
