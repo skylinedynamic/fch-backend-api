@@ -16,14 +16,16 @@ use App\Services\FCH\Subscription\SubscriptionService;
 use App\Services\GlobalPayment\PaymentGatewayManager;
 use App\Services\GlobalPayment\PaymentMailService;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Stripe\Exception\CardException;
 
-class ChargeSubscriptionInvoiceJob implements ShouldQueue
+class ChargeSubscriptionInvoiceJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -44,6 +46,13 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
     public const REASON_CARD_ACCOUNT_MISMATCH = 'card_account_mismatch';
 
     /**
+     * Set on a failure's ledger entry once the payer has been told their
+     * automatic payment did not go through (PaymentFailedMail) - once per
+     * invoice, for the same reason as above.
+     */
+    public const DETAIL_PAYER_TOLD_OF_FAILURE = 'payer_told_of_failure';
+
+    /**
      * The number of seconds to wait before retrying the job.
      *
      * @var int
@@ -51,11 +60,33 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
     public int $backoff = 60;
 
     /**
+     * How long the "already queued" lock may outlive a job that never released
+     * it (a worker killed mid-run). Kept under the 12-hour gap between cron
+     * passes, so a stuck lock costs at most one pass rather than blocking the
+     * invoice for good.
+     */
+    public int $uniqueFor = 11 * 60 * 60;
+
+    /**
      * Create a new job instance.
+     *
+     * Deliberately NOT pinned to a connection. It used to be pinned to
+     * `database`, but production workers run on the default (Redis) connection,
+     * so nothing ever picked these up - invoices sat in the jobs table and were
+     * never auto-charged.
      */
     public function __construct(public Invoice $invoice)
     {
-        $this->onConnection('database');
+    }
+
+    /**
+     * One queued charge per invoice. The cron dispatches every Unpaid invoice
+     * twice a day; without this, each pass adds another copy while the last is
+     * still waiting.
+     */
+    public function uniqueId(): string
+    {
+        return (string) $this->invoice->id;
     }
 
     /**
@@ -158,7 +189,8 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
         if (empty($payer->stripe_customer_id_raw)) {
             $entityName = class_basename($payer);
-            $this->markFailed("No saved Stripe Customer ID for {$entityName} ID {$payer->id}");
+            // Never saved, or removed by the payer (F110): only they can pay it now.
+            $this->failAndTellPayer("No saved Stripe Customer ID for {$entityName} ID {$payer->id}", [], noSavedCard: true);
             return;
         }
 
@@ -229,11 +261,22 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
                     ? 'Saved card needs bank authentication (3-D Secure), which cannot be completed off-session; the payer must use a different card.'
                     : 'Stripe off-session charge declined: ' . ($result['status'] ?? 'unknown');
 
-                $this->markFailed($reason, $rawDetails);
+                $this->failAndTellPayer($reason, $rawDetails);
                 return;
             }
 
-            DB::transaction(function () use ($invoice, $result, $subscriptionService) {
+            $recorded = DB::transaction(function () use ($invoice, $result, $subscriptionService) {
+                // Re-read under a row lock. A duplicate of this job that got here
+                // first was handed the same charge by Stripe (same idempotency
+                // key), so if it has already marked the invoice Paid there is
+                // nothing left to record - doing so again would log a second
+                // payment and advance the subscription twice.
+                $current = Invoice::whereKey($invoice->id)->lockForUpdate()->first();
+
+                if (!$current || $current->status !== Invoice::STATUS_UNPAID) {
+                    return false;
+                }
+
                 $payment = new Payment();
                 $payment->createRecord([
                     'partner_id' => $invoice->partner_id,
@@ -259,11 +302,44 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
 
                 // Advance subscription phase and/or extend renewal dates
                 $subscriptionService->handleSuccessfulPayment($invoice, $subscription);
+
+                return true;
             });
 
+            if (!$recorded) {
+                Log::info("[Queue AutoCharge] Invoice #{$invoice->invoice_id} was already settled by another run; nothing recorded");
+                return;
+            }
+
             Log::info("[Queue AutoCharge] Successfully charged invoice #{$invoice->invoice_id}");
+        } catch (CardException $e) {
+            // Stripe declined the card (a 402) - the payer's to sort out.
+            $this->failAndTellPayer('Stripe off-session charge declined: ' . $e->getMessage(), [
+                'exception' => $e->getMessage(),
+                'decline_code' => $e->getDeclineCode(),
+            ]);
         } catch (\Exception $e) {
+            // A gateway or system error is the admins' to fix (markFailed alerts them).
             $this->markFailed($e->getMessage(), ['exception' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Record a failure the payer can act on - a declined card, or no saved card
+     * to charge - and tell them, once per invoice (findings O46). The admins'
+     * alert in markFailed() still goes out as before.
+     */
+    protected function failAndTellPayer(string $reason, array $details = [], bool $noSavedCard = false): void
+    {
+        $alreadyTold = Payment::where('invoice_id', $this->invoice->id)
+            ->where('status', Payment::STATUS_FAILED)
+            ->get()
+            ->contains(fn ($failure) => (bool) ($failure->details[self::DETAIL_PAYER_TOLD_OF_FAILURE] ?? false));
+
+        $this->markFailed($reason, $details + [self::DETAIL_PAYER_TOLD_OF_FAILURE => true]);
+
+        if (!$alreadyTold) {
+            app(PaymentMailService::class)->sendPaymentFailed($this->invoice, $noSavedCard);
         }
     }
 
@@ -309,7 +385,7 @@ class ChargeSubscriptionInvoiceJob implements ShouldQueue
         if (!empty($emails)) {
             try {
                 app(Notifier::class)->send('system.cron_failed', mail: (new CronJobFailureMail([
-                    'job_name' => 'ChargeSubscriptionInvoiceJob (Database Queue)',
+                    'job_name' => 'ChargeSubscriptionInvoiceJob',
                     'error_message' => $reason,
                     'timestamp' => now()->toDateTimeString(),
                     'user_email' => $this->invoice->email ?? 'N/A',

@@ -84,11 +84,13 @@
                     <label for="password" class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Access Cipher</label>
                     <div class="relative group">
                         <input type="password" id="password" name="password" required
-                            class="w-full px-5 py-4 bg-slate-950/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-indigo-200 placeholder-slate-600 transition-all outline-none font-medium text-lg tracking-widest"
+                            class="w-full pl-5 pr-14 py-4 bg-slate-950/50 border border-white/5 rounded-2xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 text-indigo-200 placeholder-slate-600 transition-all outline-none font-medium text-lg tracking-widest"
                             placeholder="••••••••">
-                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none opacity-20 group-focus-within:opacity-100 transition-opacity">
-                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                        </div>
+                        <button type="button" id="toggle-password" aria-label="Show password" aria-pressed="false"
+                            class="absolute inset-y-0 right-2 flex items-center px-2 rounded-xl text-indigo-400 opacity-40 hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 transition-opacity">
+                            <svg id="icon-eye" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            <svg id="icon-eye-off" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                        </button>
                     </div>
                 </div>
 
@@ -129,5 +131,29 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
+
+    <script>
+        (function () {
+            const input = document.getElementById('password');
+            const toggle = document.getElementById('toggle-password');
+            const eye = document.getElementById('icon-eye');
+            const eyeOff = document.getElementById('icon-eye-off');
+
+            toggle.addEventListener('click', function () {
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                eye.classList.toggle('hidden', !showing);
+                eyeOff.classList.toggle('hidden', showing);
+                toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+                toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+                input.focus();
+            });
+
+            // Never submit with the password left visible on screen.
+            toggle.form.addEventListener('submit', function () {
+                input.type = 'password';
+            });
+        })();
+    </script>
 </body>
 </html>

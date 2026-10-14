@@ -311,10 +311,8 @@ class RequestApplicationService
         $authUser = Auth::user();
 
         $application = FundingApplication::with('commission','partner','borrower','coborrowers','fundingDocuments','fundingDocuments.docType', 'downloadHistories', 'downloadHistories.user', 'fundingSequence', 'fundingRequest')
-           ->when($authUser->user_type == User::PARTNER, function($query) use($authUser){
-            $query->where('partner_id', $authUser->partner_id);
-           })
-        ->where('id',$id)->first();
+            ->reviewableBy($authUser)
+            ->where('funding_applications.id', $id)->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));
@@ -328,6 +326,10 @@ class RequestApplicationService
      */
     public function getAuditHistory($id, array $filters)
     {
+        if (!FundingApplication::reviewableBy(Auth::user())->whereKey($id)->exists()) {
+            return ApiResponse::error(__('application.funding_application_not_found'));
+        }
+
         $perPage = $filters['per_page'] ?? 10;
         if ($perPage == -1 || $perPage == 'All') {
             $items = DownloadHistory::where('funding_application_id', $id)->get();
@@ -368,7 +370,8 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = PreQualificationRequest::with('borrower')
-        ->where('id',$data['id'])->first();
+            ->reviewableBy(Auth::user())
+            ->where('pre_qualification_requests.id', $data['id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.pre_qualification_not_found'));
@@ -391,7 +394,8 @@ class RequestApplicationService
         $partnerId = $this->getAuthenticatedPartnerId();
 
         $application = FundingApplication::with('borrower')
-        ->where('id',$data['funding_application_id'])->first();
+            ->reviewableBy(Auth::user())
+            ->where('funding_applications.id', $data['funding_application_id'])->first();
 
         if($application == null){
             return ApiResponse::error(__('application.funding_application_not_found'));

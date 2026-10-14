@@ -60,7 +60,13 @@ class PaymentFailedMail extends Mailable implements ShouldQueue
                 'logoUrl' => $this->dynamicData['logoUrl'],
                 'amount' => $this->paymentData['amount'],
                 'currency' => $this->paymentData['currency'],
-                'transaction_id' => $this->paymentData['transaction_id'],
+                'transaction_id' => $this->paymentData['transaction_id'] ?? null,
+                // Sent by the auto-charge cron (findings O46): the invoice it
+                // could not take, whether there was a card at all, and where
+                // to update the method or pay.
+                'invoice_id' => $this->paymentData['invoice_id'] ?? null,
+                'no_saved_card' => (bool) ($this->paymentData['no_saved_card'] ?? false),
+                'portal_url' => $this->paymentData['portal_url'] ?? null,
                 'description' => $this->paymentData['description'] ?? 'Program Payment',
                 'date' => $this->paymentData['date']->format('F j, Y, g:i a'),
                 'user_name' => $userName,

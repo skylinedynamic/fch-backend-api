@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\FCH\Partner\FundApplication;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Borrower\FundingApplication;
+use App\Rules\VisibleToUser;
 
 class StoreFundingApplicationDocumentRequest extends FormRequest
 {
@@ -22,7 +24,7 @@ class StoreFundingApplicationDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'funding_application_id' => 'required|exists:funding_applications,id',
+            'funding_application_id' => ['required', new VisibleToUser(FundingApplication::class)],
             'document_type_id' => 'required|exists:borrower_doc_types,id',
             'files' => 'required|array|min:1',
         ];

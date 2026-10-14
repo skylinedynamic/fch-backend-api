@@ -349,7 +349,6 @@ class AssistantAccessTest extends TestCase
             'host partner user' => $this->makeUser(User::PARTNER, ['partner_id' => $host->id]),
             'host admin user' => $this->makeUser(User::ADMIN, ['partner_id' => $host->id]),
             'certified partner user' => $this->makeUser(User::PARTNER, ['partner_id' => $certified->id]),
-            'user with no partner' => $this->makeUser(User::ADMIN),
         ];
 
         foreach ($excluded as $who => $user) {
@@ -364,6 +363,13 @@ class AssistantAccessTest extends TestCase
             $this->getJson('/api/v1/common/assistant/wlp/sessions')->assertStatus(403);
             $this->postJson('/api/v1/common/assistant/wlp/sessions')->assertStatus(403);
         }
+
+        // A user with no partner is refused everything, the widget config too
+        // (EnsureUserHasPartner, findings O6).
+        Passport::actingAs($this->makeUser(User::ADMIN), [], 'api');
+        $this->getJson('/api/v1/common/assistant/wlp/config?intro=1')->assertStatus(403);
+        $this->postJson('/api/v1/common/assistant/wlp/messages', ['message' => 'Hello'])->assertStatus(403);
+        $this->getJson('/api/v1/common/assistant/wlp/sessions')->assertStatus(403);
 
         $this->assertDatabaseCount('chat_conversations', 0);
 

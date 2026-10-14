@@ -47,18 +47,15 @@ class MicroBiltService
         $credentialsHash = md5($this->clientId . $this->clientSecret);
         $cacheKey = "microbilt_token_{$this->mode}_{$credentialsHash}";
 
-        // Caching disabled for debugging as per user request
-        /*
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
-        */
 
         try {
-            Log::info('MicroBilt Auth Attempt Credentials', [
+            // Never the secret: this line lands in the application log.
+            Log::info('MicroBilt Auth Attempt', [
                 'mode' => $this->mode,
                 'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
                 'base_url' => $this->baseUrl
             ]);
 

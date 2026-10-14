@@ -4,6 +4,8 @@ namespace App\Http\Requests\Api\V1\FCH\Common\Appointment;
 
 use App\Http\Requests\Api\V1\BaseApiRequest;
 use App\Models\Appointment\Appointment;
+use App\Rules\AttendeesEntity;
+use App\Rules\BookableAttendee;
 use Illuminate\Validation\Rule;
 
 class UpdateAppointmentRequest extends BaseApiRequest
@@ -11,6 +13,21 @@ class UpdateAppointmentRequest extends BaseApiRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    private ?Appointment $appointment = null;
+
+    /**
+     * Only the two people on a meeting may change it. Someone else gets the
+     * controller's 404 here, before validation - a validation error would
+     * confirm the meeting exists.
+     */
+    protected function prepareForValidation(): void
+    {
+        $userId = $this->user()?->id;
+
+        $this->appointment = Appointment::where(fn ($q) => $q->where('scheduled_by', $userId)->orWhere('assigned_for', $userId))
+            ->findOrFail($this->route('appointment'));
     }
 
     public function rules(): array
@@ -24,8 +41,9 @@ class UpdateAppointmentRequest extends BaseApiRequest
             'status' => ['sometimes', Rule::in(array_keys(Appointment::STATUSES))],
             'meeting_type' => ['sometimes', Rule::in(array_keys(Appointment::MEETING_TYPES))],
             'location' => 'nullable|string|max:255',
-            'assigned_for' => 'required|exists:users,id',
-            'entity_id' => 'nullable|integer',
+            // Someone on the caller's bookable-people list, not any user (O20).
+            'assigned_for' => ['required', 'exists:users,id', new BookableAttendee($this->appointment?->assigned_for)],
+            'entity_id' => ['nullable', 'integer', new AttendeesEntity($this->input('entity_type'), $this->input('assigned_for'))],
             'entity_type' => 'nullable|string',
         ];
     }

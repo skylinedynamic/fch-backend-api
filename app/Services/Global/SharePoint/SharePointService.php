@@ -108,12 +108,13 @@ class SharePointService
 
         // Simple upload for <= 4 MB
         if ($size <= 4 * 1024 * 1024) {
-            $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . rawurlencode($targetPath) . ":/content";
+            $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . $this->encodePath($targetPath) . ":/content";
             $response = Http::withToken($token)
                 ->withHeaders(['Content-Type' => 'application/octet-stream'])
                 ->put($url, $contents);
 
-            if (!$response->ok()) {
+            // 201 Created for a new file, 200 OK for a replaced one.
+            if (!$response->successful()) {
                 Log::error('SharePoint small upload failed', ['status' => $response->status(), 'body' => $response->body()]);
                 throw new \RuntimeException('SharePoint upload failed.');
             }
@@ -122,7 +123,7 @@ class SharePointService
         }
 
         // Large upload via session
-        $sessionUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . rawurlencode($targetPath) . ":/createUploadSession";
+        $sessionUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . $this->encodePath($targetPath) . ":/createUploadSession";
         $session = Http::withToken($token)->post($sessionUrl, [
             'item' => [
                 '@microsoft.graph.conflictBehavior' => 'rename',
@@ -130,7 +131,7 @@ class SharePointService
             ],
         ]);
 
-        if (!$session->ok()) {
+        if (!$session->successful()) {
             Log::error('SharePoint createUploadSession failed', ['status' => $session->status(), 'body' => $session->body()]);
             throw new \RuntimeException('Failed to create SharePoint upload session.');
         }
@@ -202,7 +203,7 @@ class SharePointService
         $token = $this->getAccessToken();
         $siteId = $this->getSiteId($siteId);
         $cleanPath = trim($path, '/');
-        $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . rawurlencode($cleanPath) . ":";
+        $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . $this->encodePath($cleanPath) . ":";
 
         $response = Http::withToken($token)->delete($url);
         if ($response->noContent() || $response->ok()) {
@@ -214,6 +215,16 @@ class SharePointService
             'path' => $cleanPath,
         ]);
         return false;
+    }
+
+    /**
+     * Encode each name in a path but keep the folder slashes: encoding the
+     * whole path turned "uploads/borrowers/x.pdf" into one item named
+     * "uploads%2Fborrowers%2Fx.pdf" in the drive root.
+     */
+    protected function encodePath(string $path): string
+    {
+        return implode('/', array_map('rawurlencode', explode('/', $path)));
     }
 
     protected function mapDriveItem(array $item): array

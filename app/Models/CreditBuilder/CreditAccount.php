@@ -61,4 +61,27 @@ class CreditAccount extends Model
                 ->orWhere('time_in_business_min_months', 'LIKE', "%{$search}%");
         });
     }
+
+    /**
+     * The accounts a borrower is offered: switched on by the host, and within
+     * the borrower's FICO score and time in business. The one rule for both
+     * the list and apply - apply checking less than the list showed is how an
+     * application came to be recorded against an account never offered.
+     */
+    public function scopeOfferedTo($query, ?\App\Models\Borrower\Borrower $borrower)
+    {
+        $query->where(fn ($q) => $q->where('status', '!=', 'Inactive')->orWhereNull('status'));
+
+        if ($borrower) {
+            $score = (int) ($borrower->fico_score ?? 0);
+            $months = $borrower->business_start_date
+                ? \Carbon\Carbon::parse($borrower->business_start_date)->diffInMonths()
+                : 0;
+
+            $query->where('typical_personal_fico_min', '<=', $score)
+                ->where('time_in_business_min_months', '<=', (int) $months);
+        }
+
+        return $query;
+    }
 }

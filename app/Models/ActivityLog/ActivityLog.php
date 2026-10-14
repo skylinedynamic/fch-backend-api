@@ -405,7 +405,20 @@ class ActivityLog extends Activity
                         });
                 });
             } elseif ($user->user_type === User::BORROWER) {
-                $outer->orWhere('visibility', self::VISIBILITY_EVERYONE);
+                // Only the shared entries about this borrower - not every
+                // borrower's on the platform.
+                $borrowerId = $user->entity_id;
+                $outer->orWhere(function ($shared) use ($borrowerId) {
+                    $shared->where('visibility', self::VISIBILITY_EVERYONE)
+                        ->where(function ($about) use ($borrowerId) {
+                            $about->where('properties->borrower_id', $borrowerId)
+                                ->orWhere('properties->borrower_id', (string) $borrowerId)
+                                ->orWhere(function ($subject) use ($borrowerId) {
+                                    $subject->where('subject_type', \App\Models\Borrower\Borrower::class)
+                                        ->where('subject_id', $borrowerId);
+                                });
+                        });
+                });
             }
         });
     }

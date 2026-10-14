@@ -85,9 +85,10 @@ class OverviewService
         $currentTier = $borrower->tier;
 
         if (!$currentTier) {
+            // Same shape as below: TaskOverviewResource reads 'requests'.
             return [
                 'tier' => null,
-                'tasks' => collect([]),
+                'requests' => collect([]),
             ];
         }
 

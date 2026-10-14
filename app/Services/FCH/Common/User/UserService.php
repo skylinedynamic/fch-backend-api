@@ -484,7 +484,7 @@ class UserService
      */
     public function deleteMultiple(array $ids): bool
     {
-        $users = User::whereIn('id', $ids)->get();
+        $users = User::manageableBy(Auth::user())->whereIn('users.id', $ids)->get();
 
         foreach ($users as $user) {
             // Check if user is a developer and auth user is not
@@ -502,7 +502,7 @@ class UserService
      */
     public function checkDeletable(array $ids): array
     {
-        $users = User::whereIn('id', $ids)->get();
+        $users = User::manageableBy(Auth::user())->whereIn('users.id', $ids)->get();
         $results = [];
 
         foreach ($users as $user) {

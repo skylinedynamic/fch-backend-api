@@ -213,7 +213,7 @@ class ContactService
      */
     public function find(int $id): Contact
     {
-        return Contact::where('id', $id)->firstOrFail();
+        return Contact::where('id', $id)->where('partner_id', Auth::user()->partner_id)->firstOrFail();
     }
 
     /**
@@ -226,7 +226,7 @@ class ContactService
         }
 
         // Get contacts to delete their images
-        $contacts = Contact::whereIn('id', $ids)->get();
+        $contacts = Contact::whereIn('id', $ids)->where('partner_id', auth()->user()->partner_id)->get();
         foreach ($contacts as $contact) {
             if ($contact->image) {
                 $this->deleteFile($contact->getRawOriginal('image'), 'public');

@@ -321,6 +321,19 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Horizon's queue dashboard (pending, completed and failed jobs), shown
+     * inside this app so it sits behind the same login.
+     */
+    public function queues()
+    {
+        return view('system_monitoring.dashboard.iframe', [
+            'title' => 'Queue Jobs',
+            'subtitle' => 'System Monitoring',
+            'url' => '/' . trim(config('horizon.path', 'horizon'), '/'),
+        ]);
+    }
+
     public function docsAdmin()
     {
         return view('system_monitoring.dashboard.iframe', [

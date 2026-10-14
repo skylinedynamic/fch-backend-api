@@ -27,7 +27,8 @@ class CoBorrowerValidationRequest extends BaseApiRequest
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
             'role' => 'required|string|max:255',
-            'ownership' => 'required|numeric',
+            // A percentage of the business.
+            'ownership' => 'required|numeric|min:0|max:100',
             'email' => 'required|email|max:255',
             'mobile_phone' => 'required|string|max:20|regex:/^[\d\s\(\)\-\+]+$/',
             'home_phone' => 'nullable|string|max:20|regex:/^[\d\s\(\)\-\+]+$/',

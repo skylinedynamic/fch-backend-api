@@ -58,7 +58,8 @@ class MonthlyLogPathTest extends TestCase
 
         $path = str_replace('\\', '/', $handler->getUrl());
 
-        $this->assertStringContainsString('/logs/' . date('F') . '/', $path);
+        // Year and month (findings O42): month alone mixed this June with last.
+        $this->assertStringContainsString('/logs/' . date('Y') . '/' . date('F') . '/', $path);
         $this->assertStringContainsString(date('Y-m-d'), $path);
     }
 

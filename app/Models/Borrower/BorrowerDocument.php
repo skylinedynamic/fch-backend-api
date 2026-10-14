@@ -109,6 +109,12 @@ class BorrowerDocument extends Model
         return $this->belongsTo(Borrower::class);
     }
 
+    /** A document is reachable exactly as far as its borrower is - see Borrower::scopeVisibleTo(). */
+    public function scopeVisibleTo($query, ?\App\Models\User\User $user)
+    {
+        return $query->whereHas('borrower', fn ($borrowers) => $borrowers->visibleTo($user));
+    }
+
     public function documentType()
     {
         return $this->belongsTo(BorrowerDocType::class, 'document_type_id');

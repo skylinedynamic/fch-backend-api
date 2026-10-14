@@ -30,6 +30,11 @@
                     <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.scheduler' ? 'text-white' : 'text-slate-500 group-hover:text-amber-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Task Scheduler
                 </a>
+
+                <a href="{{ route('dashboard.queues') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.queues' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                    <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.queues' ? 'text-white' : 'text-slate-500 group-hover:text-sky-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                    Queue Jobs
+                </a>
                 
                 <a href="{{ route('dashboard.health') }}" class="group flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all {{ $currentRoute === 'dashboard.health' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
                     <svg class="w-5 h-5 mr-3 transition-colors {{ $currentRoute === 'dashboard.health' ? 'text-white' : 'text-slate-500 group-hover:text-emerald-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>

@@ -29,7 +29,9 @@ class AppointmentNotification extends Mailable implements ShouldQueue
         $this->appointment = $appointment;
         $this->action = $action;
         $this->businessInfo = $businessInfo;
-        $this->setMailPartnerId();
+        // The partner the appointment belongs to, when the caller names it;
+        // otherwise whoever is signed in.
+        $this->setMailPartnerId($partnerId);
     }
 
     /**

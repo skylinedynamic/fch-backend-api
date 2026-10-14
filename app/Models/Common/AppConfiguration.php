@@ -128,6 +128,26 @@ class AppConfiguration extends Model
     /**
      * Get a configuration value
      */
+    /**
+     * A platform-wide setting (the OpenAI key, models and agents): the host's
+     * row, or one saved with no partner at all - never another partner's.
+     * A plain get() takes whichever row comes first, which made a partner's
+     * stray row the value the whole platform ran on.
+     */
+    public static function platform(string $key, ?string $module = null, $default = null)
+    {
+        $hostId = \App\Models\Partner\Partner::where('is_host', 1)->value('id');
+
+        $config = self::where('key', $key)
+            ->when($module, fn($q) => $q->where('module', $module))
+            ->where(fn($q) => $q->whereNull('partner_id')->when($hostId, fn($q) => $q->orWhere('partner_id', $hostId)))
+            // The host's own row wins over an unowned one.
+            ->orderByRaw('partner_id IS NULL')
+            ->first();
+
+        return $config ? $config->value : $default;
+    }
+
     public static function get(string $key, $default = null, ?string $module = null, ?int $partnerId = null)
     {
         $config = self::where('key', $key)

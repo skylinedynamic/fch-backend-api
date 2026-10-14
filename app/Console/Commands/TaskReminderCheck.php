@@ -24,9 +24,20 @@ class TaskReminderCheck extends Command
             ->chunkById(100, function ($reminders) {
                 foreach ($reminders as $reminder) {
                     if ($reminder->creator) {
-                        // Quietly, so marking it sent doesn't also push an
-                        // "updated" event on top of the due one.
-                        $reminder->forceFill(['status' => \App\Models\Common\Reminder::STATUS_SENT])->saveQuietly();
+                        // Claimed atomically, as DispatchReminderDueJob does: a
+                        // reminder the job (or a dismiss) changed since it was
+                        // read here affects no row, and is not pushed again. A
+                        // query-builder update, so no "updated" event is pushed
+                        // on top of the due one either.
+                        $claimed = \App\Models\Common\Reminder::where('id', $reminder->id)
+                            ->where('status', \App\Models\Common\Reminder::STATUS_PENDING)
+                            ->update(['status' => \App\Models\Common\Reminder::STATUS_SENT]);
+
+                        if ($claimed === 0) {
+                            continue;
+                        }
+
+                        $reminder->status = \App\Models\Common\Reminder::STATUS_SENT;
                         app(\App\Services\FCH\Common\Reminder\ReminderBroadcaster::class)->due($reminder);
                     }
                 }

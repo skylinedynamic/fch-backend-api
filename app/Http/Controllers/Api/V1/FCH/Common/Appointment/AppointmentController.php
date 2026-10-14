@@ -89,6 +89,19 @@ class AppointmentController extends Controller
     }
 
     /**
+     * The appointments the signed-in user is on - scheduled by them or with
+     * them - the same rule the appointment list applies.
+     */
+    private function ownAppointment()
+    {
+        $userId = auth()->id();
+
+        return Appointment::where(function ($q) use ($userId) {
+            $q->where('scheduled_by', $userId)->orWhere('assigned_for', $userId);
+        });
+    }
+
+    /**
      * Check Appointment Availability
      */
     public function checkAvailability(CheckAvailabilityRequest $request)

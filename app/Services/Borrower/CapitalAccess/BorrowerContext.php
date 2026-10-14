@@ -83,7 +83,9 @@ class BorrowerContext
         if ($borrower->creditProfile) {
             $analysis = $borrower->creditProfile->open_accounts_analysis;
             if (is_array($analysis) && isset($analysis['utilization_ratio_grid']['revolving'])) {
-                return (float) $analysis['utilization_ratio_grid']['revolving'];
+                // To the scoring bands' two decimals (…5 | 5.01-10 | …), so a
+                // ratio never falls between two bands.
+                return round((float) $analysis['utilization_ratio_grid']['revolving'], 2);
             }
         }
         return 0.0;

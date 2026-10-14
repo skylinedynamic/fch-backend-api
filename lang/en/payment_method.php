@@ -9,4 +9,5 @@ return [
     'partner_id_required' => 'Partner ID is required.',
     'provider_updated' => 'Payment provider updated successfully.',
     'unauthorized' => 'Unauthorized access.',
+    'provider_not_offered' => 'This payment method is not available. Choose one of the methods offered.',
 ];

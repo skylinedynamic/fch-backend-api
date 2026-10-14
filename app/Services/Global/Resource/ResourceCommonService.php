@@ -4,7 +4,7 @@ namespace App\Services\Global\Resource;
 
 use App\Models\Resource\Resource;
 use App\Models\User\User;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
 
 class ResourceCommonService
 {
@@ -15,20 +15,7 @@ class ResourceCommonService
      */
     public function getGroupedResources(): array
     {
-        $query = Resource::query();
-        $user = auth()->user();
-
-
-        if ($user->user_type === User::PARTNER) {
-            $query->where('status', true);
-            $query->where('is_partner', true);
-        } elseif ($user->user_type === User::BORROWER) {
-            $query->where('status', true);
-            $query->where('is_borrower', true);
-        }
-
-
-        $resources = $query->with([
+        $resources = $this->listable()->with([
             'providers' => function ($q) {
                 $q->orderBy('sort_order', 'asc')->orderBy('id', 'asc');
             }
@@ -52,8 +39,28 @@ class ResourceCommonService
      */
     public function downloadResource(int $id)
     {
-        $resource = Resource::findOrFail($id);
-        return $resource->download();
+        // Only a resource the caller's library lists downloads.
+        return $this->listable()->findOrFail($id)->download();
+    }
+
+    /**
+     * The resources the caller's library lists: everything for the host team,
+     * the published ones meant for their portal for partners and borrowers.
+     */
+    private function listable(): Builder
+    {
+        $query = Resource::query();
+        $user = auth()->user();
+
+        if ($user->user_type === User::PARTNER) {
+            $query->where('status', true);
+            $query->where('is_partner', true);
+        } elseif ($user->user_type === User::BORROWER) {
+            $query->where('status', true);
+            $query->where('is_borrower', true);
+        }
+
+        return $query;
     }
 
     /**
