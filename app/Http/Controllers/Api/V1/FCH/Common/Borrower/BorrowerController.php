@@ -810,8 +810,13 @@ class BorrowerController extends Controller
                 ]));
             }
 
+            $this->notifyBorrowerCreditProfileUpdated($borrower);
+
             return ApiResponse::success($creditProfile, 'Credit profile saved successfully.');
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // A refused request is a 422 with the field errors, not a 500.
+            throw $e;
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             \Illuminate\Support\Facades\Log::error('saveCreditProfile error', [
@@ -824,6 +829,37 @@ class BorrowerController extends Controller
     /**
      * Resolve the appropriate parser service based on configuration.
      */
+    /**
+     * Tell the borrower their credit report has been saved to their profile:
+     * the bell, its realtime push and an email, from their own partner's
+     * mailbox (the partner id is passed explicitly - the ambient partner here is
+     * the host who saved it).
+     *
+     * After the save has committed and in its own try/catch: a notification
+     * problem is logged, never allowed to undo or fail a saved credit profile.
+     */
+    private function notifyBorrowerCreditProfileUpdated(\App\Models\Borrower\Borrower $borrower): void
+    {
+        try {
+            $email = $borrower->email ?: $borrower->user?->email;
+            $name = personName($borrower->first_name, $borrower->middle_name, $borrower->last_name);
+
+            app(Notifier::class)->send(
+                'borrower.credit_profile.updated',
+                $borrower,
+                [],
+                mail: $email
+                    ? (new \App\Mail\Borrower\CreditProfileUpdatedMail($name, $borrower->partner_id))->to($email)
+                    : null
+            );
+        } catch (\Throwable $e) {
+            Log::error(__('credit_profile_request.log_borrower_notify_failed', [
+                'borrower_id' => $borrower->id,
+                'error' => $e->getMessage(),
+            ]));
+        }
+    }
+
     private function getParserService(string $mode, ?int $partnerId = null): \App\Services\FCH\Common\Borrower\CreditProfileParserInterface
     {
         if ($mode === 'openai') {

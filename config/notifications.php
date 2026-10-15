@@ -409,6 +409,19 @@ return [
             'url' => '/intake-review/credit-profile-requests/{{id}}',
         ],
 
+        // Sent to the borrower when the host saves their iSoftPull credit
+        // report (Client -> Credit Profile). Opens the profile's Credit
+        // profile tab (index 3).
+        'borrower.credit_profile.updated' => [
+            'name' => 'Credit profile updated (borrower)',
+            'category' => 'document',
+            'icon' => 'ri-file-user-line',
+            'channels' => $bellAndMail,
+            'title' => 'Your credit profile has been updated',
+            'body' => 'Your latest credit report has been added to your profile.',
+            'url' => '/profile?tab=3',
+        ],
+
         'host.credit_profile.update_requested' => [
             'name' => 'Credit profile update requested (host)',
             'category' => 'document',
