@@ -18,6 +18,7 @@ use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Support\EmbedForm\EmbedFormLocation;
+use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -36,6 +37,15 @@ class EmbedFormService
     public const EMAIL_AVAILABLE = 'available';
     public const EMAIL_BORROWER = 'borrower';
     public const EMAIL_BLOCKED = 'blocked';
+
+    /**
+     * Uploads copied into the funding application during the conversion under
+     * way, as ['from' => embed form path, 'to' => funding application path].
+     * The originals are deleted once it commits; the copies if it rolls back.
+     *
+     * @var array<int, array{from: string, to: string}>
+     */
+    private array $movedDocuments = [];
 
     /**
      * What an applicant's email already is in the system.
@@ -651,16 +661,63 @@ class EmbedFormService
             $notifyEmail = null;
         }
 
-        try {
-            // The template counts attachments and co-borrowers, and lazy loading
-            // is disabled outside production - so load them before handing the
-            // model to the mailable rather than letting the view trip over it.
-            $submission->loadMissing(['attachments', 'coBorrowers']);
+        // The template counts attachments and co-borrowers, and lazy loading is
+        // disabled outside production - so load them before handing the model
+        // to the mailable rather than letting the view trip over it.
+        $submission->loadMissing(['attachments', 'coBorrowers']);
 
-            app(Notifier::class)->send('partner.embed_form.submitted', $partner, [
-                'id' => $submission->id,
-                'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
-            ], mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null);
+        $data = [
+            'id' => $submission->id,
+            'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
+        ];
+
+        // A white-label partner is also texted - through its own Twilio account
+        // when that is active, never the host's. Certified and host: no text.
+        $type = $this->isWhiteLabelPartner($partner)
+            ? 'partner.embed_form.submitted_white_label'
+            : 'partner.embed_form.submitted';
+
+        try {
+            app(Notifier::class)->send(
+                $type,
+                $partner,
+                $data,
+                mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null
+            );
+        } catch (\Exception $e) {
+            Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
+        }
+
+        $this->notifyHostOfPartnerSubmission($submission, $partner, $data);
+    }
+
+    /**
+     * The host is told about every application that comes through a partner's
+     * form (its own form already told it above): bell, push and mail, no text.
+     * The mail is the host's own, sent under the host's mailbox and branding.
+     */
+    protected function notifyHostOfPartnerSubmission(EmbedFormSubmission $submission, ?Partner $partner, array $data): void
+    {
+        if (!$partner || $partner->is_host) {
+            return;
+        }
+
+        $host = Partner::where('is_host', true)->first();
+        if (!$host) {
+            return;
+        }
+
+        $partnerName = $partner->company_name ?: $partner->full_name;
+
+        try {
+            app(Notifier::class)->send(
+                'host.embed_form.submitted',
+                $host,
+                $data + ['partner' => $partnerName],
+                mail: $host->email
+                ? (new NewSubmissionMail($submission, hostCopy: true, hostPartnerId: (int) $host->id, formPartnerName: $partnerName))->to($host->email)
+                : null
+            );
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
@@ -754,6 +811,8 @@ class EmbedFormService
      */
     public function convertToBorrower(EmbedFormSubmission $submission, array $data = []): array
     {
+        $this->movedDocuments = [];
+
         DB::beginTransaction();
         try {
             if (empty($submission->email)) {
@@ -770,14 +829,16 @@ class EmbedFormService
             $existingBorrower = $match['borrower'];
 
             if ($existingBorrower) {
-                if ($submission->partner_id && $existingBorrower->partner_id
-                    && (int) $existingBorrower->partner_id !== (int) $submission->partner_id) {
+                if (
+                    $submission->partner_id && $existingBorrower->partner_id
+                    && (int) $existingBorrower->partner_id !== (int) $submission->partner_id
+                ) {
                     throw new \InvalidArgumentException(__('embed_form.borrower_other_partner'));
                 }
 
                 // Nothing is created until the partner has seen who this is.
                 if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                    throw new \App\Support\EmbedForm\ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                    throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
                 }
             }
 
@@ -869,6 +930,9 @@ class EmbedFormService
 
             DB::commit();
 
+            // Only now that the application holds them: each upload is kept once.
+            $this->deleteMovedOriginals($submission);
+
             // Notified only after the transaction has landed, so nobody is told
             // about a conversion that then rolled back.
             if ($fundingApplication) {
@@ -884,12 +948,14 @@ class EmbedFormService
                 'is_free_trail' => $existingBorrower ? (bool) $existingBorrower->is_free_trail : true,
                 'free_trail_end_date' => null,
             ];
-        } catch (\App\Support\EmbedForm\ExistingBorrowerConfirmationRequired $e) {
+        } catch (ExistingBorrowerConfirmationRequired $e) {
             // An expected pause for confirmation, not a failure: nothing was written.
             DB::rollBack();
             throw $e;
         } catch (Throwable $e) {
             DB::rollBack();
+            // The attachment rows point at the originals again; drop the copies.
+            $this->deleteMovedCopies();
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
             throw $e;
         }
@@ -914,36 +980,72 @@ class EmbedFormService
     ): ?FundingApplication {
         $copied = [
             // Business Information
-            'full_name', 'business_name', 'business_email', 'business_phone_no',
-            'business_country', 'business_country_code', 'business_address',
-            'business_city', 'business_state', 'business_postal_code',
-            'industry_type', 'entity_type', 'years_in_business', 'number_of_employees',
+            'full_name',
+            'business_name',
+            'business_email',
+            'business_phone_no',
+            'business_country',
+            'business_country_code',
+            'business_address',
+            'business_city',
+            'business_state',
+            'business_postal_code',
+            'industry_type',
+            'entity_type',
+            'years_in_business',
+            'number_of_employees',
 
             // Ownership Information
-            'first_name', 'last_name', 'date_of_birth', 'citizenship_status',
-            'street_address', 'country', 'city', 'state', 'zip_code',
-            'ownership', 'has_co_borrower',
+            'first_name',
+            'last_name',
+            'date_of_birth',
+            'citizenship_status',
+            'street_address',
+            'country',
+            'city',
+            'state',
+            'zip_code',
+            'ownership',
+            'has_co_borrower',
 
             // Financial Information
-            'monthly_revenue', 'annual_revenue', 'business_bank_name',
-            'business_checking_start_date', 'self_reported_personal_credit_score',
-            'self_reported_business_credit_score', 'has_business_debt', 'debt_balance',
+            'monthly_revenue',
+            'annual_revenue',
+            'business_bank_name',
+            'business_checking_start_date',
+            'self_reported_personal_credit_score',
+            'self_reported_business_credit_score',
+            'has_business_debt',
+            'debt_balance',
 
             // Funding Request
-            'requested_amount', 'purpose_of_funds', 'purpose_note', 'approved_funding',
-            'preferred_funding_type', 'timeframe_needed', 'collateral_available',
+            'requested_amount',
+            'purpose_of_funds',
+            'purpose_note',
+            'approved_funding',
+            'preferred_funding_type',
+            'timeframe_needed',
+            'collateral_available',
 
             // Disclosures and consent
-            'credit_pull_authorization', 'terms_conditions_acceptance',
+            'credit_pull_authorization',
+            'terms_conditions_acceptance',
 
             // Federal Compliance Disclosures
-            'filed_for_bankruptcy', 'any_pending_lawsuits', 'has_federal_loan',
-            'has_federal_debt', 'has_criminal_offense', 'has_parole_or_probation',
-            'suspended_or_debarred', 'any_outstanding_judgments_business',
-            'any_outstanding_judgments_owner', 'federal_compliance_disclosures_explanation',
+            'filed_for_bankruptcy',
+            'any_pending_lawsuits',
+            'has_federal_loan',
+            'has_federal_debt',
+            'has_criminal_offense',
+            'has_parole_or_probation',
+            'suspended_or_debarred',
+            'any_outstanding_judgments_business',
+            'any_outstanding_judgments_owner',
+            'federal_compliance_disclosures_explanation',
 
             // Attestation and authorization
-            'attestation_authorization', 'signature_data',
+            'attestation_authorization',
+            'signature_data',
         ];
 
         $attributes = [];
@@ -1008,8 +1110,12 @@ class EmbedFormService
             $mailed[] = $email;
 
             try {
-                $notifier->send('partner.embed_form.converted', $recipient, $staffData,
-                    mail: $email ? (new EmbedFormConverted($submission, $application, true))->to($email) : null);
+                $notifier->send(
+                    'partner.embed_form.converted',
+                    $recipient,
+                    $staffData,
+                    mail: $email ? (new EmbedFormConverted($submission, $application, true))->to($email) : null
+                );
             } catch (Throwable $e) {
                 Log::error('Failed to notify staff of an embed form conversion', [
                     'submission_id' => $submission->id,
@@ -1020,8 +1126,12 @@ class EmbedFormService
         }
 
         try {
-            $notifier->send('borrower.embed_form.converted', $application->borrower, [],
-                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false))->to($submission->email) : null);
+            $notifier->send(
+                'borrower.embed_form.converted',
+                $application->borrower,
+                [],
+                mail: !empty($submission->email) ? (new EmbedFormConverted($submission, $application, false))->to($submission->email) : null
+            );
         } catch (Throwable $e) {
             Log::error('Failed to send conversion notice to embed form applicant', [
                 'submission_id' => $submission->id,
@@ -1067,11 +1177,13 @@ class EmbedFormService
     }
 
     /**
-     * Copy the submission's uploads into the funding application's documents.
+     * Move the submission's uploads into the funding application's documents.
      *
-     * The file is duplicated on disk rather than re-pointed: the submission
-     * keeps its own record of exactly what was uploaded, and deleting a document
-     * from the application must not empty the submission it came from.
+     * They go to the folder the borrower's and partner's own uploads use,
+     * funding-application/{borrower}/FA-{application}, and are kept once: the
+     * file is copied, the submission's attachment row is pointed at the copy,
+     * and the original is deleted after the conversion commits (see
+     * deleteMovedOriginals) - never before, so a rollback loses nothing.
      *
      * A file that has gone missing on disk is skipped rather than failing the
      * whole conversion - losing one attachment is not a reason to block a
@@ -1097,10 +1209,14 @@ class EmbedFormService
             $extension = pathinfo($attachment->original_name, PATHINFO_EXTENSION)
                 ?: pathinfo($attachment->file_path, PATHINFO_EXTENSION);
 
-            $destination = "funding_applications/{$borrowerId}/{$application->id}/"
+            $destination = "funding-application/{$borrowerId}/FA-{$application->id}/"
                 . Str::uuid() . ($extension ? '.' . $extension : '');
 
             $disk->copy($attachment->file_path, $destination);
+            $this->movedDocuments[] = ['from' => $attachment->file_path, 'to' => $destination];
+
+            // The submission still opens it, from where it now lives.
+            $attachment->update(['file_path' => $destination]);
 
             FundingApplicationDocument::create([
                 'funding_application_id' => $application->id,
@@ -1115,6 +1231,44 @@ class EmbedFormService
                 'size' => $attachment->file_size,
             ]);
         }
+    }
+
+    /**
+     * After the conversion commits: delete the embed form originals of the
+     * moved uploads, and the submission's upload folder once it is empty. A
+     * delete that fails leaves a stray file, logged, not a failed conversion.
+     */
+    protected function deleteMovedOriginals(EmbedFormSubmission $submission): void
+    {
+        $disk = Storage::disk('public');
+
+        foreach ($this->movedDocuments as $moved) {
+            if (!$disk->delete($moved['from'])) {
+                Log::warning(__('embed_form.log_funding_application_failed'), [
+                    'submission_id' => $submission->id,
+                    'reason' => 'embed form upload not deleted after the move',
+                ]);
+            }
+        }
+
+        $folder = "embed_forms/{$submission->partner_id}/{$submission->id}";
+        if ($this->movedDocuments !== [] && $disk->allFiles($folder) === []) {
+            $disk->deleteDirectory($folder);
+        }
+
+        $this->movedDocuments = [];
+    }
+
+    /** After a rollback: the copies belong to an application that does not exist. */
+    protected function deleteMovedCopies(): void
+    {
+        $disk = Storage::disk('public');
+
+        foreach ($this->movedDocuments as $moved) {
+            $disk->delete($moved['to']);
+        }
+
+        $this->movedDocuments = [];
     }
 
     /**
