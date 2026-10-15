@@ -49,7 +49,11 @@
 
 use App\Services\FCH\Common\Notification\Sms\SmsChannel;
 
-$bellAndMail = ['database', 'broadcast', 'mail', 'sms'];
+// SMS is not part of this set: it is opt-in per type, so a partner turning on
+// their Twilio account does not text users about everything. To text a type,
+// give it ['channels' => [...$bellAndMail, 'sms']] and list it in
+// tests/Unit/Notification/NotificationCatalogueTest::TEXTED_TYPES.
+$bellAndMail = ['database', 'broadcast', 'mail'];
 
 return [
 
@@ -199,8 +203,30 @@ return [
             'category' => 'funding',
             'icon' => 'ri-inbox-archive-line',
             'channels' => $bellAndMail,
-            'title' => 'New loan application',
+            'title' => 'New Embedded Form application',
             'body' => '{{name}} submitted your embedded application form.',
+            'url' => '/embed-form/loan-applications/{{id}}',
+        ],
+
+        // The same, for a white-label partner: also texted, through the
+        // partner's own Twilio account when it is active (never the host's).
+        'partner.embed_form.submitted_white_label' => [
+            'name' => 'Embedded form submitted (white-label partner)',
+            'category' => 'funding',
+            'icon' => 'ri-inbox-archive-line',
+            'channels' => [...$bellAndMail, 'sms'],
+            'title' => 'New Embedded Form application',
+            'body' => '{{name}} submitted your embedded application form.',
+            'url' => '/embed-form/loan-applications/{{id}}',
+        ],
+
+        'host.embed_form.submitted' => [
+            'name' => "Partner's embedded form submitted (host copy)",
+            'category' => 'funding',
+            'icon' => 'ri-inbox-archive-line',
+            'channels' => $bellAndMail,
+            'title' => 'New Embedded Form application',
+            'body' => "{{name}} submitted {{partner}}'s embedded application form.",
             'url' => '/embed-form/loan-applications/{{id}}',
         ],
 

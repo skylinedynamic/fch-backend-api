@@ -18,6 +18,7 @@ use App\Services\FCH\Common\Borrower\BorrowerService;
 use App\Services\FCH\Common\Notification\Notifier;
 use App\Services\FCH\Common\Setting\EmailConfigurationService;
 use App\Support\EmbedForm\EmbedFormLocation;
+use App\Support\EmbedForm\ExistingBorrowerConfirmationRequired;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -36,6 +37,15 @@ class EmbedFormService
     public const EMAIL_AVAILABLE = 'available';
     public const EMAIL_BORROWER = 'borrower';
     public const EMAIL_BLOCKED = 'blocked';
+
+    /**
+     * Uploads copied into the funding application during the conversion under
+     * way, as ['from' => embed form path, 'to' => funding application path].
+     * The originals are deleted once it commits; the copies if it rolls back.
+     *
+     * @var array<int, array{from: string, to: string}>
+     */
+    private array $movedDocuments = [];
 
     /**
      * What an applicant's email already is in the system.
@@ -651,16 +661,55 @@ class EmbedFormService
             $notifyEmail = null;
         }
 
-        try {
-            // The template counts attachments and co-borrowers, and lazy loading
-            // is disabled outside production - so load them before handing the
-            // model to the mailable rather than letting the view trip over it.
-            $submission->loadMissing(['attachments', 'coBorrowers']);
+        // The template counts attachments and co-borrowers, and lazy loading is
+        // disabled outside production - so load them before handing the model
+        // to the mailable rather than letting the view trip over it.
+        $submission->loadMissing(['attachments', 'coBorrowers']);
 
-            app(Notifier::class)->send('partner.embed_form.submitted', $partner, [
-                'id' => $submission->id,
-                'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
-            ], mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null);
+        $data = [
+            'id' => $submission->id,
+            'name' => personName($submission->first_name ?? null, $submission->middle_name ?? null, $submission->last_name ?? null),
+        ];
+
+        // A white-label partner is also texted - through its own Twilio account
+        // when that is active, never the host's. Certified and host: no text.
+        $type = $this->isWhiteLabelPartner($partner)
+            ? 'partner.embed_form.submitted_white_label'
+            : 'partner.embed_form.submitted';
+
+        try {
+            app(Notifier::class)->send($type, $partner, $data,
+                mail: $notifyEmail ? (new NewSubmissionMail($submission))->to($notifyEmail) : null);
+        } catch (\Exception $e) {
+            Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
+        }
+
+        $this->notifyHostOfPartnerSubmission($submission, $partner, $data);
+    }
+
+    /**
+     * The host is told about every application that comes through a partner's
+     * form (its own form already told it above): bell, push and mail, no text.
+     * The mail is the host's own, sent under the host's mailbox and branding.
+     */
+    protected function notifyHostOfPartnerSubmission(EmbedFormSubmission $submission, ?Partner $partner, array $data): void
+    {
+        if (!$partner || $partner->is_host) {
+            return;
+        }
+
+        $host = Partner::where('is_host', true)->first();
+        if (!$host) {
+            return;
+        }
+
+        $partnerName = $partner->company_name ?: $partner->full_name;
+
+        try {
+            app(Notifier::class)->send('host.embed_form.submitted', $host, $data + ['partner' => $partnerName],
+                mail: $host->email
+                    ? (new NewSubmissionMail($submission, hostCopy: true, hostPartnerId: (int) $host->id, formPartnerName: $partnerName))->to($host->email)
+                    : null);
         } catch (\Exception $e) {
             Log::error(__('embed_form.log_notification_failed'), ['error' => $e->getMessage()]);
         }
@@ -754,6 +803,8 @@ class EmbedFormService
      */
     public function convertToBorrower(EmbedFormSubmission $submission, array $data = []): array
     {
+        $this->movedDocuments = [];
+
         DB::beginTransaction();
         try {
             if (empty($submission->email)) {
@@ -777,7 +828,7 @@ class EmbedFormService
 
                 // Nothing is created until the partner has seen who this is.
                 if (!filter_var($data['confirm_existing_borrower'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-                    throw new AppSupportmbedFormxistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
+                    throw new ExistingBorrowerConfirmationRequired($this->existingBorrowerSummary($existingBorrower));
                 }
             }
 
@@ -848,6 +899,9 @@ class EmbedFormService
 
             DB::commit();
 
+            // Only now that the application holds them: each upload is kept once.
+            $this->deleteMovedOriginals($submission);
+
             // Notified only after the transaction has landed, so nobody is told
             // about a conversion that then rolled back.
             if ($fundingApplication) {
@@ -863,12 +917,14 @@ class EmbedFormService
                 'is_free_trail' => $existingBorrower ? (bool) $existingBorrower->is_free_trail : true,
                 'free_trail_end_date' => null,
             ];
-        } catch (\App\Support\EmbedForm\ExistingBorrowerConfirmationRequired $e) {
+        } catch (ExistingBorrowerConfirmationRequired $e) {
             // An expected pause for confirmation, not a failure: nothing was written.
             DB::rollBack();
             throw $e;
         } catch (Throwable $e) {
             DB::rollBack();
+            // The attachment rows point at the originals again; drop the copies.
+            $this->deleteMovedCopies();
             Log::error(__('embed_form.log_conversion_failed'), ['error' => $e->getMessage()]);
             throw $e;
         }
@@ -1046,11 +1102,13 @@ class EmbedFormService
     }
 
     /**
-     * Copy the submission's uploads into the funding application's documents.
+     * Move the submission's uploads into the funding application's documents.
      *
-     * The file is duplicated on disk rather than re-pointed: the submission
-     * keeps its own record of exactly what was uploaded, and deleting a document
-     * from the application must not empty the submission it came from.
+     * They go to the folder the borrower's and partner's own uploads use,
+     * funding-application/{borrower}/FA-{application}, and are kept once: the
+     * file is copied, the submission's attachment row is pointed at the copy,
+     * and the original is deleted after the conversion commits (see
+     * deleteMovedOriginals) - never before, so a rollback loses nothing.
      *
      * A file that has gone missing on disk is skipped rather than failing the
      * whole conversion - losing one attachment is not a reason to block a
@@ -1076,10 +1134,14 @@ class EmbedFormService
             $extension = pathinfo($attachment->original_name, PATHINFO_EXTENSION)
                 ?: pathinfo($attachment->file_path, PATHINFO_EXTENSION);
 
-            $destination = "funding_applications/{$borrowerId}/{$application->id}/"
+            $destination = "funding-application/{$borrowerId}/FA-{$application->id}/"
                 . Str::uuid() . ($extension ? '.' . $extension : '');
 
             $disk->copy($attachment->file_path, $destination);
+            $this->movedDocuments[] = ['from' => $attachment->file_path, 'to' => $destination];
+
+            // The submission still opens it, from where it now lives.
+            $attachment->update(['file_path' => $destination]);
 
             FundingApplicationDocument::create([
                 'funding_application_id' => $application->id,
@@ -1094,6 +1156,44 @@ class EmbedFormService
                 'size' => $attachment->file_size,
             ]);
         }
+    }
+
+    /**
+     * After the conversion commits: delete the embed form originals of the
+     * moved uploads, and the submission's upload folder once it is empty. A
+     * delete that fails leaves a stray file, logged, not a failed conversion.
+     */
+    protected function deleteMovedOriginals(EmbedFormSubmission $submission): void
+    {
+        $disk = Storage::disk('public');
+
+        foreach ($this->movedDocuments as $moved) {
+            if (!$disk->delete($moved['from'])) {
+                Log::warning(__('embed_form.log_funding_application_failed'), [
+                    'submission_id' => $submission->id,
+                    'reason' => 'embed form upload not deleted after the move',
+                ]);
+            }
+        }
+
+        $folder = "embed_forms/{$submission->partner_id}/{$submission->id}";
+        if ($this->movedDocuments !== [] && $disk->allFiles($folder) === []) {
+            $disk->deleteDirectory($folder);
+        }
+
+        $this->movedDocuments = [];
+    }
+
+    /** After a rollback: the copies belong to an application that does not exist. */
+    protected function deleteMovedCopies(): void
+    {
+        $disk = Storage::disk('public');
+
+        foreach ($this->movedDocuments as $moved) {
+            $disk->delete($moved['to']);
+        }
+
+        $this->movedDocuments = [];
     }
 
     /**

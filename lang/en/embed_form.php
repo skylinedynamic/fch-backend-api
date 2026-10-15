@@ -44,7 +44,7 @@ return [
     'unauthorized_attachment' => 'You do not have permission to access this attachment.',
 
     // Email & Notifications
-    'new_submission_mail_subject' => 'New Funding Application — :name',
+    'new_submission_mail_subject' => 'New Embedded Form Application — :name',
     'converted_mail_subject' => 'Your funding application is in review — :site',
     'converted_staff_mail_subject' => 'Applicant converted to a client — :name',
 
